@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.kotlin/
+
+# Local environment
+local.properties
+*.keystore
+keystore.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (for commitlint/commitizen)
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Python (for scripts/ venv if used)
+__pycache__/
+*.pyc
+.venv/

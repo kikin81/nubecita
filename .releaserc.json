@@ -1,0 +1,3 @@
+{
+    "extends": "@open-turo/semantic-release-config/lib/gradle"
+}

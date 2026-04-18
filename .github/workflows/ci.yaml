@@ -1,0 +1,210 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Action lint
+        uses: open-turo/actions-jvm/lint@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          checkout-repo: true
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Spotless + Android Lint
+        run: ./gradlew spotlessCheck lint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Unit tests with coverage
+        run: ./gradlew :app:jacocoTestReport
+
+      - name: Coverage report
+        if: github.event_name == 'pull_request'
+        uses: madrapps/jacoco-report@v1.7.2
+        with:
+          paths: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 0
+          min-coverage-changed-files: 0
+          update-comment: true
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+  screenshot:
+    name: Screenshot tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Validate screenshot tests
+        id: validate
+        run: ./gradlew :app:validateDebugScreenshotTest
+
+      - name: Upload diff report on failure
+        if: failure() && steps.validate.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-diff-report
+          path: app/build/reports/screenshotTest/preview/debug/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Comment with diff report link on failure
+        if: failure() && steps.validate.outcome == 'failure' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const marker = '<!-- screenshot-diff-comment -->';
+            const body = [
+              marker,
+              '## Screenshot test failures',
+              '',
+              'The `Screenshot tests` job detected pixel diffs versus the committed baselines.',
+              '',
+              `**Diff report**: download the \`screenshot-diff-report\` artifact from [this run](${process.env.RUN_URL}#artifacts) and open \`index.html\` to inspect side-by-side diffs.`,
+              '',
+              'If the changes are intentional, add the `update-baselines` label to this PR to regenerate baselines automatically.',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Clean up stale failure comment on success
+        if: success() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- screenshot-diff-comment -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const stale = comments.find(c => c.body && c.body.includes(marker));
+            if (stale) {
+              await github.rest.issues.deleteComment({ owner, repo, comment_id: stale.id });
+            }
+
+  rename-script:
+    name: Rename script
+    runs-on: ubuntu-latest
+    env:
+      RUN_FULL_BUILD: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Check for android CLI
+        id: android_cli
+        run: |
+          if command -v android >/dev/null 2>&1; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::android CLI not found on runner — skipping rename self-test."
+            echo "::warning::Track follow-up: publish or vendor the android CLI for CI."
+          fi
+
+      - name: Run rename self-test
+        if: steps.android_cli.outputs.present == 'true'
+        run: python3 -m unittest scripts/test_rename.py -v

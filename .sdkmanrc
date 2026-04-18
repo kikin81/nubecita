@@ -1,0 +1,2 @@
+# Enable auto-env with `sdk env install`
+java=17.0.13-zulu

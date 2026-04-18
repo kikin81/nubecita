@@ -1,0 +1,46 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:recommended",
+        "github>open-turo/renovate-config:jvm#v1.18.0"
+    ],
+    "dependencyDashboard": true,
+    "prHourlyLimit": 0,
+    "labels": ["dependencies"],
+    "rebaseWhen": "conflicted",
+    "packageRules": [
+        {
+            "description": "Group Kotlin, KSP, and Compilers. Exclude kotlinx to avoid unneeded version locks.",
+            "matchPackagePatterns": [
+                "org.jetbrains.kotlin",
+                "com.google.devtools.ksp",
+                "androidx.compose.compiler",
+                "org.jetbrains.kotlin.plugin.compose"
+            ],
+            "excludePackagePatterns": ["org.jetbrains.kotlinx"],
+            "groupName": "kotlin-ecosystem"
+        },
+        {
+            "description": "Group Compose UI and Foundation libraries.",
+            "matchPackagePatterns": [
+                "^androidx\\.compose\\.ui",
+                "^androidx\\.compose\\.foundation",
+                "^androidx\\.compose\\.animation",
+                "^androidx\\.compose\\.material",
+                "^androidx\\.compose\\.runtime"
+            ],
+            "groupName": "compose-ui"
+        },
+        {
+            "description": "Provide direct links to Gradle release notes in PRs.",
+            "matchPackageNames": ["gradle"],
+            "prBodyNotes": "[Changelog](https://docs.gradle.org/{{{newVersion}}}/release-notes.html)"
+        },
+        {
+            "matchManagers": ["gradle"],
+            "matchUpdateTypes": ["minor", "patch"],
+            "automerge": true,
+            "platformAutomerge": true
+        }
+    ]
+}

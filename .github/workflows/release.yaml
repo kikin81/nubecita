@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Release
+        uses: open-turo/actions-jvm/release@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # TODO: Firebase App Distribution is deferred to a follow-up design.
+      # When enabled, add a step here that uploads the release APK using
+      # `wzieba/Firebase-Distribution-Github-Action` or the Firebase CLI.
+      # Required secrets: FIREBASE_APP_ID, FIREBASE_SERVICE_ACCOUNT.
