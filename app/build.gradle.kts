@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapp"
+    namespace = "net.kikin.nubecita"
     compileSdk = 37
     experimentalProperties["android.experimental.enableScreenshotTest"] = true
     defaultConfig {
-        applicationId = "com.example.myapp"
+        applicationId = "net.kikin.nubecita"
         minSdk = 24
         targetSdk = 37
         versionCode = 1

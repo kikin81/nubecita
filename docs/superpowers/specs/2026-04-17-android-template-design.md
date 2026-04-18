@@ -28,7 +28,7 @@ The template repo = **unmodified `android create empty-activity` output** (AGP 9
 android-template/
 ├── app/                                  # unmodified `android create` output
 │   ├── build.gradle.kts
-│   └── src/{main,test,androidTest}/java/com/example/myapp/...
+│   └── src/{main,test,androidTest}/java/net/kikin/nubecita/...
 ├── gradle/
 │   ├── libs.versions.toml                # from `android create`
 │   └── wrapper/
@@ -65,7 +65,7 @@ android-template/
 
 ### Day-one green constraint
 
-The template repo's CI must pass **in its unrenamed state** (`com.example.myapp`). Clicking **Use this template** gives the user a green build before they run the rename script. The rename must also produce a green build.
+The template repo's CI must pass **in its unrenamed state** (`net.kikin.nubecita`). Clicking **Use this template** gives the user a green build before they run the rename script. The rename must also produce a green build.
 
 ## Rename script — `scripts/rename.py`
 
@@ -97,8 +97,8 @@ All four content flags are **required**. No derivation from `--app-name` — the
 
 Abort with a clear error message if:
 
-- `app/src/main/java/com/example/myapp/` does not exist, OR
-- no file in the repo contains `com.example.myapp`.
+- `app/src/main/java/net/kikin/nubecita/` does not exist, OR
+- no file in the repo contains `net.kikin.nubecita`.
 
 This prevents double-rename and silent no-ops when the script is run on an already-renamed project.
 
@@ -106,14 +106,14 @@ This prevents double-rename and silent no-ops when the script is run on an alrea
 
 Order matters — most specific patterns first to avoid collisions:
 
-1. **Move three directory trees**: `app/src/{main,test,androidTest}/java/com/example/myapp/` → `.../java/<package-as-path>/`. Create the new parent with `mkdir(parents=True, exist_ok=True)` before `Path.rename`.
+1. **Move three directory trees**: `app/src/{main,test,androidTest}/java/net/kikin/nubecita/` → `.../java/<package-as-path>/`. Create the new parent with `mkdir(parents=True, exist_ok=True)` before `Path.rename`.
 2. **Walk & rewrite files** matching `*.kt *.kts *.xml *.md *.properties *.toml` under the repo, skipping `.git/`, `build/`, `.gradle/`, `node_modules/`, `.idea/`, and `scripts/rename.py` itself. Apply substitutions in this order per file, all via `str.replace` (case-sensitive literal). Order matters — longest/most-specific first:
-   1. `com.example.myapp` → new dotted package.
-   2. `com/example/myapp` → new path-form package (for stringified paths, if any).
-   3. `My App` → `--app-name` (the space makes it unambiguous).
-   4. `MyApplication` → `--app-name-pascal` (must run before `MyApp`). The AGP 9 generator emits `MyApplicationTheme` / `Theme.MyApplication`; substituting `MyApp` first would mangle these into `{pascal}licationTheme`.
-   5. `MyApp` → `--app-name-pascal` (defensive — not emitted by the current generator, but protects against future template changes).
-   6. `myapp` → `--app-name-lower` (defensive — current generator's bare `myapp` occurrences are all inside dotted/slashed package refs, already handled above; this catches future bare occurrences).
+   1. `net.kikin.nubecita` → new dotted package.
+   2. `net/kikin/nubecita` → new path-form package (for stringified paths, if any).
+   3. `Nubecita` → `--app-name` (the space makes it unambiguous).
+   4. `Nubecita` → `--app-name-pascal` (must run before `Nubecita`). The AGP 9 generator emits `NubecitaTheme` / `Theme.Nubecita`; substituting `Nubecita` first would mangle these into `{pascal}licationTheme`.
+   5. `Nubecita` → `--app-name-pascal` (defensive — not emitted by the current generator, but protects against future template changes).
+   6. `nubecita` → `--app-name-lower` (defensive — current generator's bare `nubecita` occurrences are all inside dotted/slashed package refs, already handled above; this catches future bare occurrences).
 3. **Print post-rename checklist** to stdout (see below).
 4. **Self-remove** `scripts/rename.py` and `scripts/test_rename.py` unless `--keep-script` was passed.
 
@@ -130,22 +130,22 @@ Order matters — most specific patterns first to avoid collisions:
 
 Runs against a fresh `android create` output to guarantee the rename survives template updates:
 
-1. In a tmp directory, run `android create empty-activity --name="My App" --output=<tmp>`.
+1. In a tmp directory, run `android create empty-activity --name="Nubecita" --output=<tmp>`.
 2. Copy `scripts/rename.py` into the tmp project.
 3. Execute it with fixture inputs (e.g., `--package com.acme.widget --app-name "Acme Widget" --app-name-pascal AcmeWidget --app-name-lower acmewidget`).
 4. Assert:
-   - Zero residual matches for any of: `com.example.myapp`, `com/example/myapp`, `My App`, `MyApplication`, `MyApp`, `myapp`.
+   - Zero residual matches for any of: `net.kikin.nubecita`, `net/kikin/nubecita`, `Nubecita`, `Nubecita`, `Nubecita`, `nubecita`.
    - Expected identifiers present in:
      - `app/build.gradle.kts` (`namespace = "com.acme.widget"`, `applicationId = "com.acme.widget"`).
      - `settings.gradle.kts` (`rootProject.name = "acmewidget"`).
      - `app/src/main/res/values/strings.xml` (`<string name="app_name">Acme Widget</string>`).
      - At least one Kotlin file's `package com.acme.widget...` declaration.
    - (Gated behind `RUN_FULL_BUILD=1` env, always on in CI) `./gradlew :app:assembleDebug` succeeds.
-5. A second fixture runs `rename.py` with an `--app-name-lower` that appears as a substring of `--package` (e.g., package `com.foo.myapp`, lower `myapp`) to prove the literal-first ordering holds.
+5. A second fixture runs `rename.py` with an `--app-name-lower` that appears as a substring of `--package` (e.g., package `com.foo.nubecita`, lower `nubecita`) to prove the literal-first ordering holds.
 
 ### Edge cases
 
-- **`--app-name-lower` substring collision with `--package`** — handled by ordering: `com.example.myapp` is a literal replacement before `\bmyapp\b` runs.
+- **`--app-name-lower` substring collision with `--package`** — handled by ordering: `net.kikin.nubecita` is a literal replacement before `\bnubecita\b` runs.
 - **Case-sensitivity on macOS** — if the user's new package path differs from the old one only by case, the directory rename will collide. Validated: we rename *entire* segments, so any case variance is always accompanied by a different spelling.
 - **Windows line endings** — `mixed-line-ending` pre-commit hook enforces LF (except `.bat`); not the rename script's concern.
 
@@ -230,6 +230,6 @@ These cannot be committed as files; they go in the README "After clicking Use th
 ## Success criteria
 
 1. Clicking **Use this template** on the private repo and cloning the result produces a green `lint`/`test`/`build` run with zero changes.
-2. Running `python scripts/rename.py --package com.foo.bar --app-name "Foo Bar" --app-name-pascal FooBar --app-name-lower foobar` against a fresh clone produces a fully renamed project with zero residual `com.example.myapp`/`MyApp`/`myapp`/`My App` matches, and `./gradlew :app:assembleDebug` succeeds.
+2. Running `python scripts/rename.py --package com.foo.bar --app-name "Foo Bar" --app-name-pascal FooBar --app-name-lower foobar` against a fresh clone produces a fully renamed project with zero residual `net.kikin.nubecita`/`Nubecita`/`nubecita`/`Nubecita` matches, and `./gradlew :app:assembleDebug` succeeds.
 3. `scripts/test_rename.py` passes in CI, guaranteeing the rename script survives `android create` template changes.
 4. Pre-commit hooks run cleanly on the unrenamed template and on a renamed project.

@@ -31,7 +31,7 @@ The `android create` command refuses to write into a non-empty directory, so we 
 
 ```bash
 rm -rf /tmp/android-template-scaffold
-android create empty-activity --name="My App" --output=/tmp/android-template-scaffold
+android create empty-activity --name="Nubecita" --output=/tmp/android-template-scaffold
 ```
 
 Expected: `INFO: Successfully created project 'Empty Activity' at '/tmp/android-template-scaffold'`.
@@ -882,7 +882,7 @@ def _scaffold(dest: Path) -> None:
     """Generate a fresh `android create` project at `dest`."""
     dest.mkdir(parents=True, exist_ok=True)
     subprocess.run(
-        ["android", "create", "empty-activity", "--name=My App", f"--output={dest}"],
+        ["android", "create", "empty-activity", "--name=Nubecita", f"--output={dest}"],
         check=True,
     )
     shutil.copy2(RENAME_SCRIPT, dest / "rename.py")
@@ -925,7 +925,7 @@ class RenameCliTest(unittest.TestCase):
                 "--app-name-lower", "acmewidget",
             )
             self.assertNotEqual(result.returncode, 0, msg=result.stderr)
-            self.assertIn("com.example.myapp", result.stderr)
+            self.assertIn("net.kikin.nubecita", result.stderr)
 
 
 if __name__ == "__main__":
@@ -959,8 +959,8 @@ Expected: both tests fail. `test_rejects_invalid_package` fails because the stub
 #!/usr/bin/env python3
 """One-shot rename script for the android-template.
 
-Rewrites the placeholder package (`com.example.myapp`) and app-name variants
-(`My App` / `MyApp` / `myapp`) across the repo produced by
+Rewrites the placeholder package (`net.kikin.nubecita`) and app-name variants
+(`Nubecita` / `Nubecita` / `nubecita`) across the repo produced by
 `android create empty-activity`. Intended to be run exactly once, immediately
 after cloning from the template.
 """
@@ -973,17 +973,17 @@ import sys
 from pathlib import Path
 
 # Placeholders baked into the `android create empty-activity` output.
-# Note: `MyApplication` is the actual class/theme prefix the generator emits (e.g.
-# `MyApplicationTheme`, `Theme.MyApplication`); bare `MyApp` does not appear in
-# current output but is kept as a defensive fallback. `MyApplication` must be
-# substituted BEFORE `MyApp` (longest-match-first) or `MyApplicationTheme` would
+# Note: `Nubecita` is the actual class/theme prefix the generator emits (e.g.
+# `NubecitaTheme`, `Theme.Nubecita`); bare `Nubecita` does not appear in
+# current output but is kept as a defensive fallback. `Nubecita` must be
+# substituted BEFORE `Nubecita` (longest-match-first) or `NubecitaTheme` would
 # become `{pascal}licationTheme`.
-OLD_PACKAGE_DOTTED = "com.example.myapp"
-OLD_PACKAGE_SLASHED = "com/example/myapp"
-OLD_APP_NAME = "My App"
-OLD_APPLICATION = "MyApplication"
-OLD_PASCAL = "MyApp"
-OLD_LOWER = "myapp"
+OLD_PACKAGE_DOTTED = "net.kikin.nubecita"
+OLD_PACKAGE_SLASHED = "net/kikin/nubecita"
+OLD_APP_NAME = "Nubecita"
+OLD_APPLICATION = "Nubecita"
+OLD_PASCAL = "Nubecita"
+OLD_LOWER = "nubecita"
 
 PACKAGE_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 PASCAL_RE = re.compile(r"^[A-Z][A-Za-z0-9]*$")
@@ -1015,11 +1015,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def _preflight(repo: Path) -> None:
-    java_root = repo / "app" / "src" / "main" / "java" / "com" / "example" / "myapp"
+    java_root = repo / "app" / "src" / "main" / "java" / "com" / "example" / "nubecita"
     if not java_root.is_dir():
         raise SystemExit(
             f"pre-flight failed: expected directory {java_root} "
-            f"(no com.example.myapp template markers — already renamed?)"
+            f"(no net.kikin.nubecita template markers — already renamed?)"
         )
 
 
@@ -1077,7 +1077,7 @@ class RenameDirectoriesTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             for sub in ("main", "test", "androidTest"):
-                old = project / "app" / "src" / sub / "java" / "com" / "example" / "myapp"
+                old = project / "app" / "src" / sub / "java" / "com" / "example" / "nubecita"
                 new = project / "app" / "src" / sub / "java" / "com" / "acme" / "widget"
                 self.assertFalse(old.exists(), f"{old} should have been removed")
                 self.assertTrue(new.is_dir(), f"{new} should exist")
@@ -1099,7 +1099,7 @@ Replace the `main()` body in `scripts/rename.py` so it calls a new `_move_dirs` 
 def _move_dirs(repo: Path, package: str) -> None:
     new_parts = package.split(".")
     for sub in ("main", "test", "androidTest"):
-        old_root = repo / "app" / "src" / sub / "java" / "com" / "example" / "myapp"
+        old_root = repo / "app" / "src" / sub / "java" / "com" / "example" / "nubecita"
         if not old_root.exists():
             continue
         new_root = repo / "app" / "src" / sub / "java" / Path(*new_parts)
@@ -1185,12 +1185,12 @@ class RenameContentTest(unittest.TestCase):
                     except UnicodeDecodeError:
                         continue
                     for needle in (
-                        "com.example.myapp",
-                        "com/example/myapp",
-                        "My App",
-                        "MyApplication",
-                        "MyApp",
-                        "myapp",
+                        "net.kikin.nubecita",
+                        "net/kikin/nubecita",
+                        "Nubecita",
+                        "Nubecita",
+                        "Nubecita",
+                        "nubecita",
                     ):
                         self.assertNotIn(needle, text, f"{needle!r} still in {path}")
 
@@ -1206,7 +1206,7 @@ class RenameContentTest(unittest.TestCase):
             self.assertIn(">Acme Widget<", strings_xml)
 
             # Theme-name substitution must produce `AcmeWidgetTheme`, not
-            # `AcmeWidgetlicationTheme` (regression guard for MyApplication order).
+            # `AcmeWidgetlicationTheme` (regression guard for Nubecita order).
             theme_kt = (project / "app" / "src" / "main" / "java" / "com" / "acme" / "widget" / "theme" / "Theme.kt").read_text()
             self.assertIn("AcmeWidgetTheme", theme_kt)
             self.assertNotIn("AcmeWidgetlication", theme_kt)
@@ -1233,8 +1233,8 @@ SELF_NAME = "rename.py"
 def _rewrite_files(repo: Path, args: argparse.Namespace) -> None:
     dotted_new = args.package
     slashed_new = "/".join(args.package.split("."))
-    # Order matters: longest/most-specific patterns first. `MyApplication` must
-    # come before `MyApp` so `MyApplicationTheme` doesn't mangle into
+    # Order matters: longest/most-specific patterns first. `Nubecita` must
+    # come before `Nubecita` so `NubecitaTheme` doesn't mangle into
     # `{pascal}licationTheme`.
     substitutions = [
         (OLD_PACKAGE_DOTTED, dotted_new),
@@ -1464,7 +1464,7 @@ Change `_move_dirs` signature to `def _move_dirs(repo: Path, package: str, dry_r
 def _move_dirs(repo: Path, package: str, dry_run: bool = False) -> None:
     new_parts = package.split(".")
     for sub in ("main", "test", "androidTest"):
-        old_root = repo / "app" / "src" / sub / "java" / "com" / "example" / "myapp"
+        old_root = repo / "app" / "src" / sub / "java" / "com" / "example" / "nubecita"
         if not old_root.exists():
             continue
         new_root = repo / "app" / "src" / sub / "java" / Path(*new_parts)
@@ -1571,24 +1571,24 @@ Append to `scripts/test_rename.py`:
 ```python
 class RenameCollisionTest(unittest.TestCase):
     def test_lower_app_name_substring_of_new_package(self) -> None:
-        """New package contains the literal 'myapp' substring — verify no corruption."""
+        """New package contains the literal 'nubecita' substring — verify no corruption."""
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp) / "proj"
             _scaffold(project)
             result = _run_rename(
                 project,
-                "--package", "com.foo.myapp",    # ends in 'myapp'
-                "--app-name", "Foo My App Project",
-                "--app-name-pascal", "FooMyApp",
-                "--app-name-lower", "myapp",     # same as old lower
+                "--package", "com.foo.nubecita",    # ends in 'nubecita'
+                "--app-name", "Foo Nubecita Project",
+                "--app-name-pascal", "FooNubecita",
+                "--app-name-lower", "nubecita",     # same as old lower
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
 
             build_gradle = (project / "app" / "build.gradle.kts").read_text()
-            self.assertIn('namespace = "com.foo.myapp"', build_gradle)
+            self.assertIn('namespace = "com.foo.nubecita"', build_gradle)
 
             # The new package path directory exists correctly.
-            self.assertTrue((project / "app" / "src" / "main" / "java" / "com" / "foo" / "myapp").is_dir())
+            self.assertTrue((project / "app" / "src" / "main" / "java" / "com" / "foo" / "nubecita").is_dir())
 ```
 
 - [ ] **Step 2: Run — expect all 8 tests pass**

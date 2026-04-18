@@ -11,8 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   lint:
@@ -46,6 +45,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -100,6 +102,9 @@ jobs:
   screenshot:
     name: Screenshot tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -170,41 +175,3 @@ jobs:
             if (stale) {
               await github.rest.issues.deleteComment({ owner, repo, comment_id: stale.id });
             }
-
-  rename-script:
-    name: Rename script
-    runs-on: ubuntu-latest
-    env:
-      RUN_FULL_BUILD: "1"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: zulu
-          java-version-file: .java-version
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-
-      - name: Check for android CLI
-        id: android_cli
-        run: |
-          if command -v android >/dev/null 2>&1; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::android CLI not found on runner — skipping rename self-test."
-            echo "::warning::Track follow-up: publish or vendor the android CLI for CI."
-          fi
-
-      - name: Run rename self-test
-        if: steps.android_cli.outputs.present == 'true'
-        run: python3 -m unittest scripts/test_rename.py -v

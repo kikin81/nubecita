@@ -18,7 +18,7 @@
         errorLine1="                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)"
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/example/myapp/theme/Theme.kt"
+            file="src/main/java/net/kikin/nubecita/theme/Theme.kt"
             line="42"
             column="32"/>
     </issue>
@@ -29,7 +29,7 @@
         errorLine1="                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)"
         errorLine2="                                                                    ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/example/myapp/theme/Theme.kt"
+            file="src/main/java/net/kikin/nubecita/theme/Theme.kt"
             line="42"
             column="69"/>
     </issue>
