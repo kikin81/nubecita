@@ -2,6 +2,7 @@
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
     "extends": [
         "config:recommended",
+        "github>open-turo/renovate-config#v1.18.0",
         "github>open-turo/renovate-config:jvm#v1.18.0"
     ],
     "dependencyDashboard": true,
