@@ -6,17 +6,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
-import net.kikin.nubecita.data.DefaultDataRepository
 import net.kikin.nubecita.theme.NubecitaTheme
 
 @Composable
 fun MainScreen(
     onItemClick: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository()) },
+    viewModel: MainScreenViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     when (state) {
