@@ -53,3 +53,10 @@ repos:
         language: system
         files: '\.(kt|kts)$'
         pass_filenames: false
+
+      - id: openspec-validate
+        name: openspec validate (strict)
+        entry: openspec validate --all --strict
+        language: system
+        files: '^openspec/'
+        pass_filenames: false

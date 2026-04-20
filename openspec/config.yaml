@@ -1,0 +1,37 @@
+schema: spec-driven
+
+context: |
+  Project: Nubecita — a fast, lightweight, native Android client for
+  Bluesky and the AT Protocol. 100% native; 120hz scrolling is a hard
+  requirement.
+
+  Stack:
+    - Language: Kotlin (JDK 17, AGP 9, Kotlin DSL, version catalog)
+    - UI: Jetpack Compose with Material 3 Expressive
+    - Architecture: MVI (UiState / UiEvent / UiEffect) on ViewModel + StateFlow
+    - DI: Hilt
+    - Persistence: Room
+    - Images: Coil
+    - Networking: atproto-kotlin SDK (no web views)
+    - Min SDK 24, Target/Compile SDK 37
+
+  Conventions:
+    - Conventional Commits enforced by commitlint
+    - Spotless + ktlint 1.4.1 + Compose rules
+    - Trunk-based: main is protected; feature branches + PRs only
+    - Squash-merge only on main
+    - Screenshot tests via android.experimental.enableScreenshotTest
+    - Pre-commit hooks: commitlint, actionlint, gitleaks, spotless
+
+  Dependency management:
+    - Renovate (open-turo presets) — produces chore(deps): / fix(deps):
+    - JVM toolchain auto-resolved via Foojay
+
+rules:
+  proposal:
+    - State the user-facing problem first; technical detail second.
+    - Include a "Non-goals" section.
+    - Call out any deviation from MVI / Compose / Hilt / Room / Coil baseline.
+  tasks:
+    - Break tasks into chunks shippable in a single PR (≤ ~2 hours of work).
+    - Each task lists the screenshot-test or unit-test it adds or updates.
