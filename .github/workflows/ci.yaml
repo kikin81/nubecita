@@ -42,8 +42,8 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
 
-      - name: Spotless + Android Lint
-        run: ./gradlew spotlessCheck lint
+      - name: Spotless + Android Lint + Sort Dependencies
+        run: ./gradlew spotlessCheck lint :app:checkSortDependencies
 
   test:
     name: Test

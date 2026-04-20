@@ -16,6 +16,7 @@ ksp = "2.3.6"
 nav3Core = "1.1.0"
 lifecycleViewmodelNav3 = "2.10.0"
 screenshot = "0.0.1-alpha14"
+sortDependencies = "0.16"
 spotless = "8.4.0"
 ktlint = "1.4.1"
 composeKtlintRules = "0.4.22"
@@ -55,3 +56,4 @@ compose-screenshot = { id = "com.android.compose.screenshot", version.ref = "scr
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+sort-dependencies = { id = "com.squareup.sort-dependencies", version.ref = "sortDependencies" }
