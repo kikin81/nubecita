@@ -17,6 +17,9 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Action lint
         uses: open-turo/actions-jvm/lint@v2
