@@ -26,5 +26,11 @@ else
   exit 0
 fi
 
-exec </dev/tty
+if [ -t 0 ]; then
+  :
+elif [ -r /dev/tty ]; then
+  exec </dev/tty
+else
+  exit 0
+fi
 "$CZ" commit --dry-run --write-message-to-file "$COMMIT_MSG_FILE"

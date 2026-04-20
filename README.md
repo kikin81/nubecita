@@ -14,7 +14,7 @@ A fast, lightweight, native Android client for [Bluesky](https://bsky.app) and t
 
 - JDK 17 (tracked by `.java-version`, see `.sdkmanrc`)
 - Android SDK (API 37+)
-- `pre-commit` (recommended: `brew install pre-commit commitizen`)
+- `pre-commit` and `commitizen` (`brew install pre-commit commitizen`); `commitizen` powers the interactive `cz commit` prompt installed by `scripts/install-git-hooks.sh`.
 
 ## Local development
 
