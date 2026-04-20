@@ -21,7 +21,7 @@ context: |
     - Trunk-based: main is protected; feature branches + PRs only
     - Squash-merge only on main
     - Screenshot tests via android.experimental.enableScreenshotTest
-    - Pre-commit hooks: commitlint, actionlint, gitleaks, spotless
+    - Pre-commit hooks: commitlint, actionlint, gitleaks, spotless, openspec validate
 
   Dependency management:
     - Renovate (open-turo presets) — produces chore(deps): / fix(deps):

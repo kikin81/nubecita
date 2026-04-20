@@ -1,3 +1,3 @@
-# add-hilt-and-navigation-3
+# add-hilt
 
-Add Hilt for DI and Jetpack Navigation 3 dependencies to the project baseline.
+Adopt Hilt as the project's DI container: add Hilt + KSP, introduce a `@HiltAndroidApp` Application, switch ViewModels to `@HiltViewModel`, and bind repositories via `@Module`.
