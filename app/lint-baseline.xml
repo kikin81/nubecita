@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<issues format="6" by="lint 9.0.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.0.1)" variant="all" version="9.0.1">
+<issues format="6" by="lint 9.1.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.1.1)" variant="all" version="9.1.1">
 
     <issue
         id="Instantiatable"
@@ -8,7 +8,7 @@
         errorLine2="                          ~~~~~~~~~~~~~">
         <location
             file="src/main/AndroidManifest.xml"
-            line="13"
+            line="14"
             column="27"/>
     </issue>
 
@@ -32,17 +32,6 @@
             file="src/main/java/net/kikin/nubecita/theme/Theme.kt"
             line="42"
             column="69"/>
-    </issue>
-
-    <issue
-        id="AndroidGradlePluginVersion"
-        message="A newer version of com.android.application than 9.0.1 is available: 9.1.1"
-        errorLine1="androidGradlePlugin = &quot;9.0.1&quot;"
-        errorLine2="                      ~~~~~~~">
-        <location
-            file="$HOME/code/android-template/gradle/libs.versions.toml"
-            line="2"
-            column="23"/>
     </issue>
 
     <issue
