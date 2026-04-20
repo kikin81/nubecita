@@ -1,45 +1,20 @@
-# Android Template
+# Nubecita
 
-Private GitHub template for bootstrapping Android apps with modern defaults (AGP 9, Compose, Kotlin DSL, version catalog) plus CI, release, pre-commit, and a one-shot rename script.
+A fast, lightweight, native Android client for [Bluesky](https://bsky.app) and the AT Protocol. Spanish for "little cloud" — the UI aims to feel weightless to match.
 
-## Using the template
+## Stack
 
-1. Click **Use this template** on GitHub to create your new repo.
-2. Clone it locally.
-3. Run the rename script:
-
-   ```bash
-   python3 scripts/rename.py \
-     --package com.yourdomain.yourapp \
-     --app-name "Your App" \
-     --app-name-pascal YourApp \
-     --app-name-lower yourapp
-   ```
-
-   The script self-deletes after success. Pass `--dry-run` first to preview changes, or `--keep-script` if you need to re-run.
-
-4. Commit the rename:
-
-   ```bash
-   git add -A
-   git commit -m "chore: rename template placeholders"
-   git push
-   ```
-
-5. Follow the post-rename checklist the script prints:
-
-   - Configure branch protection on `main`: require `lint`, `test`, `build` checks; require PR; squash-merge only; linear history; auto-delete branches.
-   - Enable Renovate on the new repo.
-   - Update `.github/CODEOWNERS` reviewers.
-   - Replace the launcher icon in `app/src/main/res/mipmap-*`.
-   - Configure release secrets (see `.github/workflows/release.yaml`).
+- **Kotlin** + **Jetpack Compose** with **Material 3 Expressive**
+- **MVI** architecture (`UiState` / `UiEvent` / `UiEffect`) on `ViewModel` + `StateFlow`
+- **Hilt** for DI, **Room** for local persistence, **Coil** for images
+- **`atproto-kotlin`** SDK for AT Protocol networking
+- 100% native — no web views; 120hz scrolling is a hard requirement
 
 ## Requirements
 
 - JDK 17 (tracked by `.java-version`, see `.sdkmanrc`)
-- Android SDK (API 36+)
-- Python 3.10+ (for the rename script; stdlib only, no pip install)
-- `pre-commit` and `commitizen` (recommended: `brew install pre-commit commitizen`)
+- Android SDK (API 37+)
+- `pre-commit` and `commitizen` (`brew install pre-commit commitizen`); `commitizen` powers the interactive `cz commit` prompt installed by `scripts/install-git-hooks.sh`.
 
 ## Local development
 
@@ -50,19 +25,6 @@ Private GitHub template for bootstrapping Android apps with modern defaults (AGP
 pre-commit run --all-files       # run all hooks
 ```
 
-## What the template gives you
+## Project baseline
 
-- AGP 9, Compose, Kotlin DSL, version catalog (`gradle/libs.versions.toml`).
-- Spotless + ktlint 1.4.1 + Compose rules.
-- Jacoco coverage with PR comment.
-- CI workflow (`lint`, `test`, `build`, `rename-script`).
-- Release workflow via semantic-release (`@open-turo/semantic-release-config/lib/gradle`).
-- Renovate config with Kotlin/Compose groupings.
-- Pre-commit hooks: commitlint, actionlint, gitleaks, spotless.
-- PR + issue templates, CODEOWNERS.
-
-## What's deferred
-
-- Firebase App Distribution (requires per-project Firebase setup).
-- Multi-module `build-logic/` convention plugins.
-- Hilt / Ktor / Coil / any runtime library pre-wiring.
+Bootstrapped from an internal Android template: AGP 9, Kotlin DSL, version catalog (`gradle/libs.versions.toml`), Spotless + ktlint 1.4.1 + Compose rules, Jacoco coverage, CI (`lint`/`test`/`build`), semantic-release, Renovate, and pre-commit hooks (commitlint, actionlint, gitleaks, spotless).

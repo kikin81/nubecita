@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Launches `cz commit` interactively when running `git commit` with no message.
+# Installed by symlinking into .git/hooks/prepare-commit-msg (see scripts/install-git-hooks.sh).
+set -euo pipefail
+
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="${2:-}"
+
+# Skip when git already has a message source (-m, -F, merge, squash, template, amend).
+case "$COMMIT_SOURCE" in
+  message|template|merge|squash|commit) exit 0 ;;
+esac
+
+# Skip if the file already has non-comment content (defensive).
+if grep -v '^#' "$COMMIT_MSG_FILE" | grep -q '[^[:space:]]'; then
+  exit 0
+fi
+
+# Prefer the brew-installed Python commitizen; fall back to whatever `cz` is on PATH.
+if [ -x /opt/homebrew/bin/cz ]; then
+  CZ=/opt/homebrew/bin/cz
+elif command -v cz >/dev/null 2>&1; then
+  CZ=cz
+else
+  echo "commitizen not found; install with: brew install commitizen" >&2
+  exit 0
+fi
+
+if [ -t 0 ]; then
+  :
+elif [ -r /dev/tty ]; then
+  exec </dev/tty
+else
+  exit 0
+fi
+"$CZ" commit --dry-run --write-message-to-file "$COMMIT_MSG_FILE"
