@@ -139,7 +139,7 @@ jobs:
 
       - name: Comment with diff report link on failure
         if: failure() && steps.validate.outcome == 'failure' && github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
@@ -167,7 +167,7 @@ jobs:
 
       - name: Clean up stale failure comment on success
         if: success() && github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const marker = '<!-- screenshot-diff-comment -->';
