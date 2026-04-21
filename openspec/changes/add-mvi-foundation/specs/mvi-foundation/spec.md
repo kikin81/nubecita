@@ -16,7 +16,7 @@ The system SHALL expose three empty marker interfaces — `UiState`, `UiEvent`, 
 
 ### Requirement: MviViewModel base class
 
-The system SHALL provide an abstract generic `MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(initialState: S)` extending `androidx.lifecycle.ViewModel`. The base class SHALL expose read-only `uiState: StateFlow<S>` and `effects: Flow<F>`, provide protected `setState(reducer: S.() -> S)` and `sendEffect(effect: F)` operations, and require subclasses to implement `fun handleEvent(event: E)`.
+The system SHALL provide an abstract generic `MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(initialState: S)` extending `androidx.lifecycle.ViewModel`. The base class SHALL expose read-only `uiState: StateFlow<S>` and `effects: Flow<F>`, provide protected `setState(reducer: S.() -> S)` and `sendEffect(effect: F)` operations, and require subclasses to implement `fun handleEvent(event: E)`. The base class SHALL NOT provide `Flow`/coroutine wrapping helpers — feature VMs inline `Flow.onEach { }.catch { }.launchIn(viewModelScope)` and `viewModelScope.launch { try { } catch { } }`.
 
 #### Scenario: State is exposed as a hot StateFlow with the initial value
 
@@ -45,50 +45,24 @@ The system SHALL provide an abstract generic `MviViewModel<S : UiState, E : UiEv
 - **WHEN** a subclass is annotated `@HiltViewModel` with `@Inject constructor(...)` dependencies and a hand-rolled initial state
 - **THEN** Hilt resolves and constructs the VM without additional base-class configuration
 
-### Requirement: Async\<T\> value type
+### Requirement: Flat UI-ready state with effect-based errors
 
-The system SHALL provide a sealed `Async<T>` type representing the lifecycle of an asynchronous value with variants `Uninitialized`, `Loading`, `Success(value: T)`, and `Failure(error: Throwable)`. `Async<T>` SHALL provide `getOrNull(): T?` and `map(transform: (T) -> R): Async<R>` conveniences. Feature state classes SHOULD use `Async<T>` to represent remote or long-running data instead of hand-rolled boolean/nullable/error triplets.
+Feature state classes SHALL be flat and UI-ready: concrete fields (`isLoading: Boolean`, `items: ImmutableList<T>`, `selected: Foo?`, …) that composables can read directly. Feature state classes SHALL NOT wrap remote data in a VM-layer sum type such as `Async<T>` or `Result<T>` — that shape leaks presentation vocabulary the UI should not care about. Errors from remote sources SHALL be emitted as a `FooEffect.ShowError(message: String)` (or equivalent) rather than stored in state, unless the screen explicitly needs a sticky error indicator (in which case the indicator is a concrete field on `FooState`, e.g. `errorBanner: String?`).
 
-#### Scenario: Default state uses Uninitialized
+#### Scenario: State default values form a usable initial UI
 
-- **WHEN** a feature state declares `val data: Async<Feed> = Async.Uninitialized`
-- **THEN** the initial state compiles, renders as the empty/placeholder UI, and does not require Loading to be represented as a boolean
+- **WHEN** a `FooState` is instantiated with default values in the VM's `super(...)` call
+- **THEN** the composable rendering `uiState.value` produces a valid "loading" UI (e.g. `isLoading = true`) with no further coordination from the VM constructor
 
-#### Scenario: Success carries a value that survives map
+#### Scenario: Remote error emits an effect and clears isLoading
 
-- **WHEN** code calls `Async.Success(list).map { it.size }`
-- **THEN** the result is `Async.Success(list.size)`
+- **WHEN** a `Flow` wired via `onEach { setState(...) }.catch { ... }.launchIn(viewModelScope)` throws
+- **THEN** the VM sets `isLoading = false` on state and emits a `ShowError`-shaped effect carrying the error message
+- **AND WHEN** the screen has collected `effects` in a `LaunchedEffect`
+- **THEN** the error is rendered once (typically via `SnackbarHostState.showSnackbar`)
 
-#### Scenario: Non-success variants short-circuit map
+#### Scenario: Refresh resets isLoading and restarts collection
 
-- **WHEN** code calls `Async.Loading.map { it.size }` or `Async.Failure(e).map { it.size }`
-- **THEN** the result is the same variant (same instance for `Loading`/`Uninitialized`, `Failure(e)` with the original throwable) and the transform is not invoked
-
-#### Scenario: getOrNull returns the value only for Success
-
-- **WHEN** code calls `getOrNull()` on each variant
-- **THEN** `Success(v).getOrNull() == v` and every other variant returns `null`
-
-### Requirement: Safe coroutine / flow helpers
-
-The system SHALL provide `launchSafe(onError: (Throwable) -> F, block: suspend CoroutineScope.() -> Unit): Job` and `Flow<T>.collectSafely(onError: (Throwable) -> F, action: suspend (T) -> Unit): Job` as protected members (or extensions) on `MviViewModel`. Both SHALL run the block inside `viewModelScope`, catch any `Throwable` that is not a `CancellationException`, invoke `onError` to produce an effect, and emit it via `sendEffect`. Cooperative cancellation MUST propagate — `CancellationException` MUST NOT be swallowed.
-
-#### Scenario: Successful block emits no effect
-
-- **WHEN** `launchSafe(onError = { ErrEffect(it) }) { doWork() }` completes normally
-- **THEN** no effect is sent and the returned `Job` is in completed state
-
-#### Scenario: Thrown exception is converted to an effect
-
-- **WHEN** the block throws `IOException("boom")`
-- **THEN** `onError` is invoked with that throwable, and the returned effect is delivered via the VM's effects flow exactly once
-
-#### Scenario: CancellationException is not mapped to an effect
-
-- **WHEN** the surrounding scope is cancelled and the block throws `CancellationException`
-- **THEN** `onError` is not invoked, no effect is sent, and cancellation propagates
-
-#### Scenario: collectSafely terminates on upstream error
-
-- **WHEN** a flow passed to `collectSafely` emits two values and then throws
-- **THEN** `action` runs for both values, `onError` is invoked once with the thrown throwable, and the resulting effect is delivered exactly once
+- **WHEN** `handleEvent(Refresh)` is called on a VM whose state currently holds data from a prior load
+- **THEN** the VM cancels any in-flight collection `Job`, sets `isLoading = true`, and starts a fresh collection (cold-flow re-subscription)
+- **AND** the effects flow receives no effect on the happy path

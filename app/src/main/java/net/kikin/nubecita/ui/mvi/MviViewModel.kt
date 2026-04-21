@@ -2,20 +2,14 @@ package net.kikin.nubecita.ui.mvi
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Base [ViewModel] for the app's MVI architecture.
@@ -45,8 +39,9 @@ abstract class MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(
 
     /**
      * Dispatches an incoming UI intent. Implementations MUST return quickly —
-     * any suspending work MUST be launched into [viewModelScope] (see
-     * [launchSafe] and [collectSafely]).
+     * any suspending work MUST be launched into [viewModelScope] with the
+     * usual `Flow.onEach { ... }.catch { ... }.launchIn(viewModelScope)` /
+     * `viewModelScope.launch { try { ... } catch { ... } }` idioms.
      */
     abstract fun handleEvent(event: E)
 
@@ -67,39 +62,4 @@ abstract class MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(
             _effects.send(effect)
         }
     }
-
-    /**
-     * Launches [block] in `viewModelScope`. Any thrown throwable other than
-     * [CancellationException] is mapped to an effect via [onError] and emitted
-     * via [sendEffect]. Cooperative cancellation propagates unchanged.
-     */
-    protected fun launchSafe(
-        onError: (Throwable) -> F,
-        block: suspend CoroutineScope.() -> Unit,
-    ): Job =
-        viewModelScope.launch {
-            try {
-                block()
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (t: Throwable) {
-                sendEffect(onError(t))
-            }
-        }
-
-    /**
-     * Collects this flow into `viewModelScope`, running [action] for every
-     * element. If the upstream flow throws, [onError] produces an effect that
-     * is emitted once via [sendEffect]; [CancellationException] propagates
-     * unchanged.
-     */
-    protected fun <T> Flow<T>.collectSafely(
-        onError: (Throwable) -> F,
-        action: suspend (T) -> Unit,
-    ): Job =
-        onEach(action)
-            .catch { t ->
-                if (t is CancellationException) throw t
-                sendEffect(onError(t))
-            }.launchIn(viewModelScope)
 }

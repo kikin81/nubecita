@@ -9,7 +9,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.data.DataRepository
-import net.kikin.nubecita.ui.mvi.Async
 import net.kikin.nubecita.ui.mvi.MainDispatcherRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -23,28 +22,32 @@ internal class MainScreenViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `initial state is Loading before repository emits`() {
+    fun `initial state is Loading with no items`() {
         val viewModel = MainScreenViewModel(FakeRepository(flow { /* never emits */ }))
-        assertEquals(Async.Loading, viewModel.uiState.value.data)
+        assertTrue(viewModel.uiState.value.isLoading)
+        assertEquals(persistentListOf<String>(), viewModel.uiState.value.items)
     }
 
     @Test
-    fun `repository emission maps to Async Success with immutable list`() =
+    fun `repository emission populates items and clears isLoading`() =
         runTest(mainDispatcherRule.dispatcher) {
             val viewModel = MainScreenViewModel(FakeRepository(flow { emit(listOf("Sample")) }))
             advanceUntilIdle()
 
-            assertEquals(Async.Success(persistentListOf("Sample")), viewModel.uiState.value.data)
+            val state = viewModel.uiState.value
+            assertEquals(persistentListOf("Sample"), state.items)
+            assertEquals(false, state.isLoading)
         }
 
     @Test
-    fun `repository error maps to ShowError effect and Async Failure state`() =
+    fun `repository error clears isLoading and emits ShowError effect`() =
         runTest(mainDispatcherRule.dispatcher) {
-            val cause = RuntimeException("DB down")
-            val viewModel = MainScreenViewModel(FakeRepository(flow { throw cause }))
+            val viewModel =
+                MainScreenViewModel(FakeRepository(flow { throw RuntimeException("DB down") }))
             advanceUntilIdle()
 
-            assertEquals(Async.Failure(cause), viewModel.uiState.value.data)
+            assertEquals(false, viewModel.uiState.value.isLoading)
+            assertEquals(persistentListOf<String>(), viewModel.uiState.value.items)
 
             val effect = viewModel.effects.first()
             assertTrue(effect is MainScreenEffect.ShowError)
@@ -56,14 +59,16 @@ internal class MainScreenViewModelTest {
         runTest(mainDispatcherRule.dispatcher) {
             val viewModel = MainScreenViewModel(FakeRepository(flow { emit(listOf("A")) }))
             advanceUntilIdle()
-            assertEquals(Async.Success(persistentListOf("A")), viewModel.uiState.value.data)
+            assertEquals(persistentListOf("A"), viewModel.uiState.value.items)
+            assertEquals(false, viewModel.uiState.value.isLoading)
 
             viewModel.handleEvent(MainScreenEvent.Refresh)
-            // Immediately after Refresh, before the collector re-runs, state is Loading.
-            assertEquals(Async.Loading, viewModel.uiState.value.data)
+            // Immediately after Refresh, before the collector re-runs, isLoading is true.
+            assertTrue(viewModel.uiState.value.isLoading)
 
             advanceUntilIdle()
-            assertEquals(Async.Success(persistentListOf("A")), viewModel.uiState.value.data)
+            assertEquals(persistentListOf("A"), viewModel.uiState.value.items)
+            assertEquals(false, viewModel.uiState.value.isLoading)
 
             val effect = withTimeoutOrNull(timeMillis = 50) { viewModel.effects.first() }
             assertNull(effect)

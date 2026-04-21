@@ -1,10 +1,13 @@
 package net.kikin.nubecita.ui.main
 
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import net.kikin.nubecita.data.DataRepository
-import net.kikin.nubecita.ui.mvi.Async
 import net.kikin.nubecita.ui.mvi.MviViewModel
 import javax.inject.Inject
 
@@ -28,15 +31,14 @@ class MainScreenViewModel
 
         private fun startCollection() {
             collectionJob?.cancel()
-            setState { copy(data = Async.Loading) }
+            setState { copy(isLoading = true) }
             collectionJob =
-                dataRepository.data.collectSafely(
-                    onError = {
-                        setState { copy(data = Async.Failure(it)) }
-                        MainScreenEffect.ShowError(it.message ?: "Unknown error")
-                    },
-                ) { items ->
-                    setState { copy(data = Async.Success(items.toImmutableList())) }
-                }
+                dataRepository.data
+                    .onEach { items ->
+                        setState { copy(items = items.toImmutableList(), isLoading = false) }
+                    }.catch { e ->
+                        setState { copy(isLoading = false) }
+                        sendEffect(MainScreenEffect.ShowError(e.message ?: "Unknown error"))
+                    }.launchIn(viewModelScope)
         }
     }

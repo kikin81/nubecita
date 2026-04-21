@@ -2,9 +2,9 @@
 
 Nubecita's architecture docs claim MVI on `ViewModel + StateFlow`, but no base class or conventions exist yet. The only current VM (`MainScreenViewModel`) hand-rolls a `Loading/Error/Success` sealed interface on a vanilla `ViewModel` — a pattern that would get copy-pasted across every future feature (auth, feed, compose, search, notifications) and drift.
 
-The author has a reference implementation in a sibling project (`~/code/slabsnap`) — a 33-LOC `MviViewModel<S, E, F>` using `MutableStateFlow` for state and a buffered `Channel` for effects. That pattern works, but repeats `.catch { sendEffect(ShowError(it.message)) }` in every feature VM. The author also asked to evaluate Airbnb's **Mavericks** for comparison. Mavericks solves the same problem with a framework — state dispatcher queue, `@PersistState` reflection, Fragment DSL, immutability validator — at a cost (dependency surface, cognitive load, bindings to a View-era Android) that doesn't pay off for a Compose-first Bluesky client.
+The author has a reference implementation in a sibling project (`~/code/slabsnap`) — a 33-LOC `MviViewModel<S, E, F>` using `MutableStateFlow` for state and a buffered `Channel` for effects, with VMs inlining `.catch { setState(isLoading = false); sendEffect(ShowError(...)) }` at each call site. The author also asked to evaluate Airbnb's **Mavericks** for comparison. Mavericks solves the same problem with a framework — state dispatcher queue, `@PersistState` reflection, Fragment DSL, immutability validator — at a cost (dependency surface, cognitive load, bindings to a View-era Android) that doesn't pay off for a Compose-first Bluesky client.
 
-Project north star from `CLAUDE.md`: "100% native; 120hz scrolling is a hard requirement … without having to use dozens and dozens of libraries." The design target is a **~100-LOC foundation** built from Jetpack + coroutines primitives, one real consumer (`MainScreenViewModel` migrated in the same change), and explicit non-goals to keep later pressure to reinvent the wheel at bay.
+Project north star from `CLAUDE.md`: "100% native; 120hz scrolling is a hard requirement … without having to use dozens and dozens of libraries." The design target is a **~60-LOC foundation** built from Jetpack + coroutines primitives, one real consumer (`MainScreenViewModel` migrated in the same change), and explicit non-goals to keep later pressure to reinvent the wheel at bay.
 
 ## Goals / Non-Goals
 
@@ -12,17 +12,18 @@ Project north star from `CLAUDE.md`: "100% native; 120hz scrolling is a hard req
 
 - Single source of truth for MVI roles (`UiState` / `UiEvent` / `UiEffect`) so every feature package looks the same.
 - A base class that captures the boring plumbing (expose `StateFlow`, expose effect `Flow`, atomic reducer, one-shot effect emission) in one place so feature VMs are mostly `handleEvent` logic.
-- A shared `Async<T>` vocabulary so state classes stop reinventing `isLoading: Boolean + errorMessage: String? + data: T?` triplets.
-- Error-handling helpers that erase the `.catch { sendEffect(...) }` boilerplate without coupling the base class to a specific `ShowError` type.
+- Flat, UI-ready state per screen — composables read concrete fields, never a VM-layer sum type.
 - One migrated screen (`MainScreenViewModel`) merged in the same PR so the foundation ships with proof it works.
-- Near-zero dependency surface: only what's already on the classpath (`lifecycle-viewmodel`, `kotlinx-coroutines-core`).
+- Near-zero dependency surface: only what's already on the classpath (`lifecycle-viewmodel`, `kotlinx-coroutines-core`), plus `kotlinx-collections-immutable` for `@Stable` list fields.
 
 **Non-Goals:**
 
 - Adopting or mimicking a third-party MVI framework (Mavericks, Orbit, MVIKotlin).
+- `Async<T>` / `Result<T>` wrapper types at the VM→UI boundary.
+- `launchSafe` / `collectSafely` helpers on the base — VMs inline the error path.
 - Process-death / `SavedStateHandle` persistence in the base.
 - Event-ingress `SharedFlow` / debounce / throttle in the base — screens wire their own when needed.
-- Compose-side helpers (`rememberEventSink`, `collectEffects`). Views call `vm::handleEvent` and `collectAsStateWithLifecycle` directly until a real pattern emerges.
+- Compose-side helpers (`rememberEventSink`, `collectEffects`). Views call `vm::handleEvent`, `collectAsStateWithLifecycle`, and a single `LaunchedEffect { viewModel.effects.collect { ... } }` directly until a real pattern emerges.
 - New test-stack libraries (Turbine, MockK, JUnit 5). Tracked in a separate bd issue.
 - Migrating anything beyond `MainScreenViewModel` — nothing else in the app uses `ViewModel` today.
 
@@ -60,40 +61,31 @@ Project north star from `CLAUDE.md`: "100% native; 120hz scrolling is a hard req
 - Sealed-class base with a built-in `id: String` — every VM now has to cook up unique IDs; gains nothing for Compose. Rejected.
 - `UiIntent` instead of `UiEvent` — "intent" is overloaded (Android `Intent`, MVI "intent" in Orbit nomenclature, user-intent in conversational UIs). "Event" is unambiguous in Compose-land. Keeping slabsnap's name.
 
-### Decision: `onError` lambda parameter on helpers, not a `ShowError` coupling
+### Decision: Flat UI-ready state, effect-based errors
 
-**What:**
-```kotlin
-protected fun launchSafe(
-    onError: (Throwable) -> F,
-    block: suspend CoroutineScope.() -> Unit,
-): Job
+**What:** Feature `FooState` uses concrete fields — `isLoading: Boolean`, `items: ImmutableList<T>`, `selected: Foo?`. Errors from remote sources emit a `FooEffect.ShowError(message)`, collected once in the screen's outermost composable and surfaced as a Snackbar. No `Async<T>` / `Result<T>` wrapping the data.
 
-protected fun <T> Flow<T>.collectSafely(
-    onError: (Throwable) -> F,
-    action: suspend (T) -> Unit,
-): Job
-```
-Callers write `launchSafe(onError = { FooEffect.ShowError(it.message ?: "...") }) { … }`.
+**Why:** An earlier draft of this change introduced `Async<T>` (`Uninitialized`/`Loading`/`Success`/`Failure`) as a shared state vocabulary. That forced every composable that renders remote data to `import net.kikin.nubecita.ui.mvi.Async` and `when`-match on a presentation-layer sum type the UI should not care about — a foundation abstraction leaking into Compose. Slabsnap, the reference, does not do this: state is flat, errors route through effects, composables read `state.isLoading` and `state.items` directly. That pattern reads cleaner, keeps the foundation smaller (~60 LOC vs. ~100), and matches what the Android team documents.
 
-**Why:** The slabsnap style hard-codes `sendEffect(ShowError(...))` across every VM, meaning every screen must have an effect type that happens to have a `ShowError` case. That's a hidden cross-cutting contract. The lambda makes the contract local to each call site: the VM that emits an `AuthEffect.LoginFailed` gets to do so directly, and a VM that has no user-facing error surface can log instead (`onError = { SilentEffect }`).
+The trade-off is that errors are non-sticky by default — a snackbar fires once, and if the user misses it there is nothing on screen to look at. Screens that need a sticky error banner declare an explicit concrete field on `FooState` (`errorBanner: String? = null`) and clear it via an event. This is an intentional opt-in per screen rather than a foundation-level behavior.
 
 **Alternatives considered:**
 
-- Require `UiEffect` to have a `fromError(Throwable): UiEffect` factory — couples every effect hierarchy to error semantics. Rejected.
-- Built-in `ErrorEffect(throwable: Throwable)` shipped in `ui/mvi` — forces every screen to consume it or filter it out; also awkward for i18n. Rejected.
-- No helper at all (slabsnap status quo) — the whole reason this change exists. Rejected.
+- Ship `Async<T>` anyway and rely on convention to keep Compose from importing it — a rule that leaks is a rule that drifts. Rejected.
+- Expose a nullable `error: Throwable?` on state by default — couples every state to error rendering; non-UI VMs (background sync, etc.) pay for it. Rejected.
 
-### Decision: `Async<T>` lives in `ui/mvi/`
+### Decision: No `launchSafe` / `collectSafely` helpers on the base
 
-**What:** `Async.kt` in `net.kikin.nubecita.ui.mvi`.
+**What:** The base class provides only `setState` and `sendEffect`. Feature VMs inline `Flow.onEach { }.catch { }.launchIn(viewModelScope)` and `viewModelScope.launch { try { } catch { } }` at each call site.
 
-**Why:** It's tightly used by VM state shapes and ships on the same release train. If a non-VM caller ever needs it (e.g., a plain repository that wants to surface load state to a widget), we move the file and leave a typealias — a two-minute refactor. Until then, cohesion beats speculative abstraction.
+**Why:** A wrapper helper (e.g. `collectSafely(onError = { FooEffect.ShowError(...) }) { ... }`) compresses the happy path nicely but hides the *state-recovery* shape — `setState { copy(isLoading = false) }` on failure — which is the part that actually varies by screen. With helpers, that recovery lives inside the `onError` lambda and becomes easy to forget; without helpers, the recovery is visible in the `.catch { }` block at every call site. Slabsnap takes the inline route and it reads cleaner across ~5 VMs.
+
+The rule of thumb in `CLAUDE.md` is "promote to a helper only when ≥3 screens share the identical shape." When that happens, the helper will belong in a feature module, not in the foundation.
 
 **Alternatives considered:**
 
-- `ui/common/Async.kt` — fine, but ships a "common" bucket with one file, which tends to attract grab-bag contents. Defer the bucket until there's a second resident.
-- Third-party (Arrow `Resource`, Mavericks `Async`) — pulls in a dependency for a 20-LOC type. Rejected per "stay native."
+- Keep `launchSafe` / `collectSafely` with an `onError: (Throwable) -> F` lambda (the original draft) — two real concerns (state recovery and effect emission) get squeezed into one `onError` and diverge by screen. Rejected after the first migration exposed the awkwardness.
+- Keep helpers but require `onError` to return `Pair<S.() -> S, F>` — ugly signature, still hides the shape. Rejected.
 
 ### Decision: Direct `handleEvent(E)` call, no inbound event Flow
 
@@ -107,9 +99,9 @@ Callers write `launchSafe(onError = { FooEffect.ShowError(it.message ?: "...") }
 
 ### Decision: Migrate `MainScreenViewModel` in the same change
 
-**What:** The existing `MainScreenViewModel` (vanilla `ViewModel` with inline `MainScreenUiState`) is rewritten onto the new base, its state split into `MainScreenState / Event / Effect` files, and `MainScreen.kt` updated to call `handleEvent` and read an `Async<List<String>>`.
+**What:** The existing `MainScreenViewModel` (vanilla `ViewModel` with inline `MainScreenUiState`) is rewritten onto the new base, its state split into `MainScreenState / Event / Effect` files, and `MainScreen.kt` updated to call `handleEvent`, read flat `state.items` / `state.isLoading`, and collect effects into a `Scaffold` + `SnackbarHost`.
 
-**Why:** Shipping a foundation without a real consumer is how patterns get adopted that nobody has stress-tested. One migration proves the API, exposes awkward corners before they're frozen, and gives reviewers a concrete before/after. It's also small (38 LOC current VM; ~60 LOC after split).
+**Why:** Shipping a foundation without a real consumer is how patterns get adopted that nobody has stress-tested. One migration proves the API, exposes awkward corners before they're frozen (the `Async<T>` rollback is exactly this case), and gives reviewers a concrete before/after.
 
 **Alternatives considered:**
 
@@ -120,14 +112,15 @@ Callers write `launchSafe(onError = { FooEffect.ShowError(it.message ?: "...") }
 
 - [`Channel.BUFFERED` is a bounded default-capacity channel (64 by default), not unbounded, so `send` suspends when the buffer is full.] → Mitigation: UI-level effects (navigation, toasts, one-off errors) emit at human-interaction rates, so the default buffer is ample; documented as an invariant ("do not spam effects in tight loops") with no compile-time enforcement. If a future screen genuinely needs different semantics (e.g., a firehose debug panel), it opts into them locally — `Channel.UNLIMITED` if unbounded buffering is truly intended, or `Channel(capacity = N, onBufferOverflow = DROP_OLDEST)` for bounded-lossy — rather than changing the base.
 - [`sendEffect` from inside a `setState { }` reducer would run on the Flow update path.] → Mitigation: `setState` takes `S.() -> S`, a pure transformation — effects are physically impossible inside it. Naming and signature enforce the split.
-- [`handleEvent` is synchronous and called directly from Compose; a long-running event handler would block the UI thread.] → Mitigation: The base class's contract is "dispatch, then launch into `viewModelScope`." The existing slabsnap implementations already do this; one sentence in the KDoc on `handleEvent` makes it explicit. Not a base-class responsibility to enforce.
+- [`handleEvent` is synchronous and called directly from Compose; a long-running event handler would block the UI thread.] → Mitigation: The base class's contract is "dispatch, then launch into `viewModelScope`." Inline `viewModelScope.launch { }` or `Flow...launchIn(viewModelScope)` at each call site.
 - [Marker interfaces offer no compile-time protection against reusing a `FooEvent` from inside `BarViewModel`.] → Mitigation: Generic bounds on `MviViewModel<S, E, F>` force the declared type per VM; mixing types is a type error. Acceptable.
-- [`Async.Loading` and `Async.Uninitialized` are both `data object`, so `map` returns the same singleton and loses no information — but a careless author might add a future `LoadingWithProgress(pct: Float)` and break `map` semantics.] → Mitigation: KDoc on `Async` calls out that adding a variant requires updating `map` / `getOrNull`. No compile-time help; acceptable given the API's small surface.
+- [Errors are non-sticky by default (snackbar-only).] → Mitigation: Covered in the flat-state decision above. Screens that need sticky errors add a concrete field to state.
+- [Inlining `.catch { }` in every VM risks inconsistent recovery shapes across screens.] → Mitigation: `CLAUDE.md` documents the canonical shape (`setState { copy(isLoading = false) }; sendEffect(ShowError(...))`). When ≥3 screens share the exact shape, a feature-local helper lives in a feature module, not in the foundation.
 - [Developers might reach for Mavericks anyway once the first complex screen feels tedious.] → Mitigation: this design.md plus a short section in `CLAUDE.md`'s conventions once the change lands, citing the non-goals and the reasoning.
 
 ## Migration Plan
 
-There is nothing to migrate except `MainScreenViewModel`, and that happens in the same PR. Rollback is a single `git revert` — no data migration, no dependency change, no user-visible behavior change beyond the refresh button on `MainScreen` (which today does nothing explicit; after this change it dispatches `MainScreenEvent.Refresh`).
+There is nothing to migrate except `MainScreenViewModel`, and that happens in the same PR. Rollback is a single `git revert` — no data migration, no dependency change, no user-visible behavior change beyond the refresh button on `MainScreen` (which today does nothing explicit; after this change it dispatches `MainScreenEvent.Refresh`) and a snackbar surfaced via `Scaffold`.
 
 ## Open Questions
 

@@ -6,7 +6,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.theme.NubecitaTheme
-import net.kikin.nubecita.ui.mvi.Async
 
 @PreviewTest
 @Preview(name = "light", showBackground = true)
@@ -14,8 +13,12 @@ import net.kikin.nubecita.ui.mvi.Async
 @Composable
 private fun MainScreenDefaultPreview() {
     NubecitaTheme(dynamicColor = false) {
-        MainScreen(
-            data = Async.Success(persistentListOf("Android", "Compose", "Screenshot")),
+        MainScreenContent(
+            state =
+                MainScreenState(
+                    items = persistentListOf("Android", "Compose", "Screenshot"),
+                    isLoading = false,
+                ),
             onRefresh = {},
         )
     }
