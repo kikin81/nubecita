@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "nubecita",
+  "project_id": "f470727a-8086-4709-8a75-f152dc8260a9"
+}
