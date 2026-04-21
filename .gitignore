@@ -32,3 +32,12 @@ __pycache__/
 .dolt/
 *.db
 .beads-credential-key
+
+# Claude Code: share skills + slash commands, ignore local settings/logs.
+# (Overrides a global .claude/ ignore that would otherwise hide everything.)
+!.claude/
+.claude/*
+!.claude/skills/
+!.claude/skills/**
+!.claude/commands/
+!.claude/commands/**
