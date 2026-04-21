@@ -1,39 +1,16 @@
 #!/usr/bin/env bash
-# Launches `cz commit` interactively when running `git commit` with no message.
-# Installed by symlinking into .git/hooks/prepare-commit-msg (see scripts/install-git-hooks.sh).
+# prepare-commit-msg hook: delegates to the canonical cz-commit helper in
+# scripts/git-hooks/ (single source of truth), then runs the beads
+# integration block below.
 set -euo pipefail
 
-COMMIT_MSG_FILE="$1"
-COMMIT_SOURCE="${2:-}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(git -C "$HERE" rev-parse --show-toplevel)"
+CANONICAL="$REPO_ROOT/scripts/git-hooks/prepare-commit-msg"
 
-# Skip when git already has a message source (-m, -F, merge, squash, template, amend).
-case "$COMMIT_SOURCE" in
-  message|template|merge|squash|commit) exit 0 ;;
-esac
-
-# Skip if the file already has non-comment content (defensive).
-if grep -v '^#' "$COMMIT_MSG_FILE" | grep -q '[^[:space:]]'; then
-  exit 0
+if [ -x "$CANONICAL" ]; then
+  "$CANONICAL" "$@"
 fi
-
-# Prefer the brew-installed Python commitizen; fall back to whatever `cz` is on PATH.
-if [ -x /opt/homebrew/bin/cz ]; then
-  CZ=/opt/homebrew/bin/cz
-elif command -v cz >/dev/null 2>&1; then
-  CZ=cz
-else
-  echo "commitizen not found; install with: brew install commitizen" >&2
-  exit 0
-fi
-
-if [ -t 0 ]; then
-  :
-elif [ -r /dev/tty ]; then
-  exec </dev/tty
-else
-  exit 0
-fi
-"$CZ" commit --dry-run --write-message-to-file "$COMMIT_MSG_FILE"
 
 # --- BEGIN BEADS INTEGRATION v0.62.0 ---
 # This section is managed by beads. Do not remove these markers.
