@@ -31,7 +31,10 @@ class MainScreenViewModel
             setState { copy(data = Async.Loading) }
             collectionJob =
                 dataRepository.data.collectSafely(
-                    onError = { MainScreenEffect.ShowError(it.message ?: "Unknown error") },
+                    onError = {
+                        setState { copy(data = Async.Failure(it)) }
+                        MainScreenEffect.ShowError(it.message ?: "Unknown error")
+                    },
                 ) { items ->
                     setState { copy(data = Async.Success(items.toImmutableList())) }
                 }

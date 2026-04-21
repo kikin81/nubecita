@@ -55,7 +55,7 @@ internal class MviViewModelTest {
 
     @Test
     fun `effect buffered before collector subscribes is delivered`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val vm = Vm()
             vm.emitEffectDirectly(Effect.Ponged)
             // Let the launched sendEffect coroutine run so the channel receives the item.
@@ -67,7 +67,7 @@ internal class MviViewModelTest {
 
     @Test
     fun `effect delivered once is not re-delivered to later collector`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val vm = Vm()
             vm.handleEvent(Event.Ping)
             testScheduler.runCurrent()
@@ -84,7 +84,7 @@ internal class MviViewModelTest {
 
     @Test
     fun `handleEvent dispatches on event type`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val vm = Vm()
             vm.handleEvent(Event.Increment)
             vm.handleEvent(Event.Ping)

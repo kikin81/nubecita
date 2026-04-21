@@ -49,7 +49,7 @@ internal class CoroutineHelpersTest {
 
     @Test
     fun `launchSafe with successful block emits no effect`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val vm = Vm()
             val job = vm.runSafe { /* no-op */ }
             job.join()
@@ -60,7 +60,7 @@ internal class CoroutineHelpersTest {
 
     @Test
     fun `launchSafe maps thrown exception to an effect exactly once`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val vm = Vm()
             val job = vm.runSafe { throw IOException("boom") }
             job.join()
@@ -74,7 +74,7 @@ internal class CoroutineHelpersTest {
 
     @Test
     fun `launchSafe does not map CancellationException to an effect`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val vm = Vm()
             val job =
                 vm.runSafe {
@@ -88,7 +88,7 @@ internal class CoroutineHelpersTest {
 
     @Test
     fun `collectSafely runs action for pre-error emissions then emits error effect once`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val vm = Vm()
             val collected = mutableListOf<Int>()
             val upstream =
@@ -111,7 +111,7 @@ internal class CoroutineHelpersTest {
 
     @Test
     fun `collectSafely happy path runs action for every emission and emits no effect`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val vm = Vm()
             val collected = mutableListOf<Int>()
             vm.collect(flowOf(1, 2, 3)) { collected += it }.join()

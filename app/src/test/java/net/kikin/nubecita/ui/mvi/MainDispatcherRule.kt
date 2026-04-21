@@ -9,6 +9,17 @@ import kotlinx.coroutines.test.setMain
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 
+/**
+ * Installs a [TestDispatcher] as `Dispatchers.Main` for the duration of a test.
+ *
+ * The rule exposes its [dispatcher] so tests can align `runTest`'s scheduler
+ * with Main's. Use it as `runTest(mainDispatcherRule.dispatcher) { ... }`;
+ * otherwise `runTest` creates its own [kotlinx.coroutines.test.TestCoroutineScheduler]
+ * that is disjoint from Main's, and calls to `advanceUntilIdle()` /
+ * `runCurrent()` will not drive coroutines dispatched to
+ * [androidx.lifecycle.viewModelScope] (which runs on Main), producing hangs
+ * or false-negative assertions.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class MainDispatcherRule(
     val dispatcher: TestDispatcher = StandardTestDispatcher(),

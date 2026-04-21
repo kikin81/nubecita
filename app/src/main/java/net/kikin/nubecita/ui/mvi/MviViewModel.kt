@@ -27,8 +27,12 @@ import kotlin.coroutines.cancellation.CancellationException
  *    transform state or [sendEffect] to emit one-shot effects.
  *
  * [uiState] is a conflated hot stream — every subscriber sees the latest value.
- * [effects] is delivered exactly once to the first subscriber; effects emitted
- * before a subscriber attaches are buffered until consumed.
+ * [effects] backs a [Channel] via [receiveAsFlow]: each emitted effect is
+ * delivered to at most one collector. Effects emitted before any subscriber
+ * attaches are buffered until consumed. Screens MUST collect [effects] from
+ * exactly one place (typically a single `LaunchedEffect` in the screen's
+ * root composable); concurrent collectors compete for elements and will each
+ * see a disjoint subset.
  */
 abstract class MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(
     initialState: S,

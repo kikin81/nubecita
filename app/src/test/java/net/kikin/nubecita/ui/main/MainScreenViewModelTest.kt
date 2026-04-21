@@ -30,7 +30,7 @@ internal class MainScreenViewModelTest {
 
     @Test
     fun `repository emission maps to Async Success with immutable list`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val viewModel = MainScreenViewModel(FakeRepository(flow { emit(listOf("Sample")) }))
             advanceUntilIdle()
 
@@ -38,11 +38,13 @@ internal class MainScreenViewModelTest {
         }
 
     @Test
-    fun `repository error maps to ShowError effect`() =
-        runTest {
-            val viewModel =
-                MainScreenViewModel(FakeRepository(flow { throw RuntimeException("DB down") }))
+    fun `repository error maps to ShowError effect and Async Failure state`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val cause = RuntimeException("DB down")
+            val viewModel = MainScreenViewModel(FakeRepository(flow { throw cause }))
             advanceUntilIdle()
+
+            assertEquals(Async.Failure(cause), viewModel.uiState.value.data)
 
             val effect = viewModel.effects.first()
             assertTrue(effect is MainScreenEffect.ShowError)
@@ -51,7 +53,7 @@ internal class MainScreenViewModelTest {
 
     @Test
     fun `Refresh resets state to Loading and emits no effect on happy path`() =
-        runTest {
+        runTest(mainDispatcherRule.dispatcher) {
             val viewModel = MainScreenViewModel(FakeRepository(flow { emit(listOf("A")) }))
             advanceUntilIdle()
             assertEquals(Async.Success(persistentListOf("A")), viewModel.uiState.value.data)
