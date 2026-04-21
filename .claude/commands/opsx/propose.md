@@ -5,6 +5,8 @@ category: Workflow
 tags: [workflow, artifacts, experimental]
 ---
 
+> **Repo note:** this upstream command mentions the `TodoWrite` tool. In this repo, `AGENTS.md` requires `bd` for all task tracking — ignore the `TodoWrite` instruction and use `bd` (or just report progress inline) instead.
+
 Propose a new change - create the change and generate all artifacts in one step.
 
 I'll create a change with artifacts:

@@ -55,7 +55,7 @@ Use `Refs:` on work-in-progress commits. `Closes: <bd-id>` goes in the **PR body
 ### Rules of thumb
 
 - One bd issue per branch. If scope grows, spawn a new bd issue.
-- PR title must be Conventional — commitlint runs on it when squash-merging.
+- PR title should be Conventional — on squash-merge it becomes the commit subject. (Currently enforced only by the local `commit-msg` pre-commit hook, not CI.)
 - `bd close` only after the PR merges.
 
 ## Conventions
