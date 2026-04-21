@@ -1,4 +1,7 @@
-# Pre-commit config. Install once with: `pre-commit install && pre-commit install --hook-type commit-msg`
+# Pre-commit config. Install once with:
+#   pre-commit install
+#   pre-commit install --hook-type commit-msg
+#   pre-commit install --hook-type pre-push
 # Run across the whole repo with: `pre-commit run --all-files`
 
 exclude: |
@@ -60,4 +63,15 @@ repos:
         language: node
         additional_dependencies: ["@fission-ai/openspec@1.3.0"]
         files: '^openspec/'
+        pass_filenames: false
+
+      - id: screenshot-test-compile
+        name: screenshot test sources compile
+        # compileDebugScreenshotTestKotlin specifically — the umbrella
+        # compileDebugScreenshotTestSources task hits a known AGP bug with
+        # the compose screenshot plugin alpha (mergedManifest not set).
+        entry: ./gradlew :app:compileDebugScreenshotTestKotlin
+        language: system
+        stages: [pre-push]
+        files: '\.(kt|kts)$'
         pass_filenames: false
