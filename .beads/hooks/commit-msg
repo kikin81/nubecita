@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# commit-msg hook: hands off to the pre-commit framework. Portable across
+# machines — no hard-coded interpreter paths. If `pre-commit install`
+# regenerates this file, strip any INSTALL_PYTHON line so commit validation
+# works for every contributor.
+
+ARGS=(hook-impl --config=.pre-commit-config.yaml --hook-type=commit-msg --skip-on-missing-config)
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ARGS+=(--hook-dir "$HERE" -- "$@")
+
+if command -v pre-commit > /dev/null; then
+    exec pre-commit "${ARGS[@]}"
+else
+    echo '`pre-commit` not found.  Did you forget to activate your virtualenv?' 1>&2
+    exit 1
+fi
