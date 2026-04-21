@@ -64,3 +64,12 @@ Use `Refs:` on work-in-progress commits. `Closes: <bd-id>` goes in the **PR body
 - Spotless + ktlint 1.4.1 + Compose rules.
 - Conventional Commits enforced by commitlint.
 - `main` is protected; feature branches + PRs only.
+
+### MVI conventions
+
+Every screen's presenter extends `net.kikin.nubecita.ui.mvi.MviViewModel<S, E, F>`. Declare a per-screen `data class FooState : UiState`, `sealed interface FooEvent : UiEvent`, and `sealed interface FooEffect : UiEffect`. Use `Async<T>` for remote/long-running data — do not hand-roll `isLoading/error/data` triplets. Use the protected `launchSafe` / `collectSafely` helpers with an `onError` lambda to keep error-to-effect mapping local to each call site. List-typed state fields use `ImmutableList` from `kotlinx.collections.immutable` so Compose can treat them as `@Stable` and skip recomposition.
+
+Non-goals of the base class (do not add these without a separate proposal):
+- No Mavericks / Orbit / MVIKotlin or any MVI framework — stay on Jetpack + coroutines primitives.
+- No `SavedStateHandle` plumbing in the base. Screens that need process-death persistence inject `SavedStateHandle` directly via Hilt.
+- No inbound event `SharedFlow` / debounce / throttle in the base. Per-screen concerns (search typeahead, autocomplete, draft autosave, firehose sampling) build their own `MutableSharedFlow<E>` inside the feature VM.
