@@ -1,5 +1,6 @@
 [versions]
 androidGradlePlugin = "9.2.0"
+atproto = "5.0.0"
 androidxCore = "1.18.0"
 androidxLifecycle = "2.10.0"
 androidxActivity = "1.13.0"
@@ -24,6 +25,9 @@ composeKtlintRules = "0.5.7"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+atproto-models = { module = "io.github.kikin81.atproto:models", version.ref = "atproto" }
+atproto-oauth = { module = "io.github.kikin81.atproto:oauth", version.ref = "atproto" }
+atproto-runtime = { module = "io.github.kikin81.atproto:runtime", version.ref = "atproto" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidxComposeBom" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3"}
