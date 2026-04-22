@@ -1,29 +1,80 @@
 package net.kikin.nubecita.ui.main
 
-import junit.framework.TestCase.assertEquals
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.data.DataRepository
+import net.kikin.nubecita.ui.mvi.MainDispatcherRule
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
-class MainScreenViewModelTest {
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class MainScreenViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     @Test
-    fun uiState_initiallyLoading() =
-        runTest {
-            val viewModel = MainScreenViewModel(FakeMyModelRepository())
-            assertEquals(viewModel.uiState.first(), MainScreenUiState.Loading)
+    fun `initial state is Loading with no items`() {
+        val viewModel = MainScreenViewModel(FakeRepository(flow { /* never emits */ }))
+        assertTrue(viewModel.uiState.value.isLoading)
+        assertEquals(persistentListOf<String>(), viewModel.uiState.value.items)
+    }
+
+    @Test
+    fun `repository emission populates items and clears isLoading`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val viewModel = MainScreenViewModel(FakeRepository(flow { emit(listOf("Sample")) }))
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(persistentListOf("Sample"), state.items)
+            assertEquals(false, state.isLoading)
         }
 
     @Test
-    fun uiState_onItemSaved_isDisplayed() =
-        runTest {
-            val viewModel = MainScreenViewModel(FakeMyModelRepository())
-            assertEquals(viewModel.uiState.first(), MainScreenUiState.Loading)
+    fun `repository error clears isLoading and emits ShowError effect`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val viewModel =
+                MainScreenViewModel(FakeRepository(flow { throw RuntimeException("DB down") }))
+            advanceUntilIdle()
+
+            assertEquals(false, viewModel.uiState.value.isLoading)
+            assertEquals(persistentListOf<String>(), viewModel.uiState.value.items)
+
+            val effect = viewModel.effects.first()
+            assertTrue(effect is MainScreenEffect.ShowError)
+            assertEquals("DB down", (effect as MainScreenEffect.ShowError).message)
+        }
+
+    @Test
+    fun `Refresh resets state to Loading and emits no effect on happy path`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val viewModel = MainScreenViewModel(FakeRepository(flow { emit(listOf("A")) }))
+            advanceUntilIdle()
+            assertEquals(persistentListOf("A"), viewModel.uiState.value.items)
+            assertEquals(false, viewModel.uiState.value.isLoading)
+
+            viewModel.handleEvent(MainScreenEvent.Refresh)
+            // Immediately after Refresh, before the collector re-runs, isLoading is true.
+            assertTrue(viewModel.uiState.value.isLoading)
+
+            advanceUntilIdle()
+            assertEquals(persistentListOf("A"), viewModel.uiState.value.items)
+            assertEquals(false, viewModel.uiState.value.isLoading)
+
+            val effect = withTimeoutOrNull(timeMillis = 50) { viewModel.effects.first() }
+            assertNull(effect)
         }
 }
 
-private class FakeMyModelRepository : DataRepository {
-    override val data: Flow<List<String>> = flow { emit(listOf("Sample")) }
-}
+private class FakeRepository(
+    override val data: Flow<List<String>>,
+) : DataRepository
