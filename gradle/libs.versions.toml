@@ -1,5 +1,5 @@
 [versions]
-androidGradlePlugin = "9.1.1"
+androidGradlePlugin = "9.2.0"
 androidxCore = "1.18.0"
 androidxLifecycle = "2.10.0"
 androidxActivity = "1.13.0"
@@ -19,7 +19,7 @@ screenshot = "0.0.1-alpha14"
 sortDependencies = "0.16"
 spotless = "8.4.0"
 ktlint = "1.4.1"
-composeKtlintRules = "0.4.22"
+composeKtlintRules = "0.5.7"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
