@@ -71,6 +71,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
+    implementation(libs.atproto.models)
+    implementation(libs.atproto.oauth)
+    implementation(libs.atproto.runtime)
     implementation(libs.hilt.android)
     implementation(libs.kotlinx.collections.immutable)
 
