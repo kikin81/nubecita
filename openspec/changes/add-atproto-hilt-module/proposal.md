@@ -10,7 +10,7 @@ The authenticated path (OAuth-backed `XrpcClient` via `AtOAuth.createClient()`) 
 - New Hilt module `net.kikin.nubecita.data.AtProtoModule` (object, `@InstallIn(SingletonComponent::class)`) with two `@Singleton` providers:
   - `HttpClient` built on the Ktor OkHttp engine (`HttpClient(OkHttp)`).
   - `XrpcClient` constructed with `baseUrl = "https://public.api.bsky.app"` and the shared `HttpClient` — no auth provider (library default is `NoAuth`).
-- New JUnit 4 unit test `AtProtoClientTest.resolveHandle_bskyApp_returnsDid` that mirrors the module's wiring locally (no Hilt on the test path, per existing DI spec), calls `IdentityService(client).resolveHandle(ResolveHandleRequest(Handle("bsky.app")))`, and asserts a `did:plc:…` DID comes back. Network-dependent — offline CI runs will fail; acceptable for a smoke test.
+- New JUnit 4 unit test `AtProtoClientTest.resolveHandle_bskyApp_returnsDid` that mirrors the module's wiring locally (no Hilt on the test path, per existing DI spec), calls `IdentityService(client).resolveHandle(ResolveHandleRequest(Handle("bsky.app")))`, and asserts a `did:plc:…` DID comes back. Opt-in via `ATPROTO_INTEGRATION_TESTS=1` — a `@Before` with `assumeTrue` skips the test by default so transient AppView outages don't fail unrelated PRs in the default `:app:jacocoTestReport` CI run; the test is intended to run locally during dev and in a dedicated nightly/on-demand CI job once one exists.
 
 ### Non-goals
 
@@ -31,5 +31,5 @@ The authenticated path (OAuth-backed `XrpcClient` via `AtOAuth.createClient()`) 
 
 - **Code**: One new file (`app/src/main/java/net/kikin/nubecita/data/AtProtoModule.kt`, ~25 LOC) and one new test file (`app/src/test/java/net/kikin/nubecita/data/AtProtoClientTest.kt`, ~20 LOC).
 - **Dependencies**: `io.ktor:ktor-client-okhttp:3.4.0` added via `libs.versions.toml` (Apache-2.0, JetBrains-maintained; brings in Square's OkHttp transitively). Version matches the `ktor-client-core:3.4.0` the atproto-kotlin 5.0.1 runtime pulls transitively. Sonatype check: policy-compliant, not malicious, not EOL, no vulnerabilities.
-- **Tests**: One JVM unit test; no screenshot-test or instrumented-test impact. Offline CI runs of the new test will fail (network dependency) — acceptable until `nubecita-16a` lands the instrumented replacement.
+- **Tests**: One JVM unit test; no screenshot-test or instrumented-test impact. Skipped by default in `:app:jacocoTestReport`; opt in with `ATPROTO_INTEGRATION_TESTS=1` to hit the live AppView. Promoted to an instrumented `@HiltAndroidTest` once `nubecita-16a` stands up the gated emulator job.
 - **Downstream unblocks**: `nubecita-4g7` (authenticated Hilt bindings), `nubecita-16a` (instrumented test CI), and any feature VM that needs public AppView reads (e.g., `nubecita-4u5` FeedContract, handle → DID resolution flows).

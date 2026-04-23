@@ -6,6 +6,7 @@ import io.github.kikin81.atproto.runtime.Handle
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -29,7 +30,14 @@ class AtProtoClientTest {
     @Test
     fun resolveHandle_bskyApp_returnsDid() =
         runBlocking {
-            val httpClient = HttpClient(OkHttp)
+            val httpClient =
+                HttpClient(OkHttp) {
+                    install(HttpTimeout) {
+                        requestTimeoutMillis = 30_000
+                        connectTimeoutMillis = 10_000
+                        socketTimeoutMillis = 30_000
+                    }
+                }
             try {
                 val client =
                     XrpcClient(
