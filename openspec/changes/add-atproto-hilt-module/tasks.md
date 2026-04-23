@@ -25,6 +25,6 @@
 
 ## 5. PR and archive
 
-- [ ] 5.1 Commit each logical step with Conventional Commit subjects and `Refs: nubecita-ipa` in the footer.
-- [ ] 5.2 Push the branch and open a PR with `Closes: nubecita-ipa` in the body; PR title is the first commit's subject (squash-merge convention).
+- [x] 5.1 Commit each logical step with Conventional Commit subjects and `Refs: nubecita-ipa` in the footer.
+- [x] 5.2 Push the branch and open a PR with `Closes: nubecita-ipa` in the body; PR title overridden to the meaningful change subject (`feat(di): …`) rather than the first commit's `docs(ipa): design for …`, so squash-merge produces a useful commit subject.
 - [ ] 5.3 After the PR merges, on `main`: run `openspec archive add-atproto-hilt-module` to fold the delta specs into `openspec/specs/` and move the change folder under `openspec/changes/archive/`, then close `nubecita-ipa` in beads.
