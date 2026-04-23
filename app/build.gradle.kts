@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.hilt.android)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.ktor.client.cio)
 
     screenshotTestImplementation(libs.androidx.compose.ui.tooling)
     screenshotTestImplementation(libs.screenshot.validation.api)
