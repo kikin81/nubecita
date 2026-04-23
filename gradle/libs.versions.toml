@@ -15,6 +15,7 @@ kotlinxCollectionsImmutable = "0.4.0"
 kotlin = "2.3.20"
 hilt = "2.59.2"
 ksp = "2.3.7"
+ktor = "3.4.0"
 nav3Core = "1.1.1"
 lifecycleViewmodelNav3 = "2.10.0"
 screenshot = "0.0.1-alpha14"
@@ -46,6 +47,7 @@ androidx-test-runner = { module = "androidx.test:runner", version.ref = "android
 junit = { module = "junit:junit", version.ref = "junit" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
