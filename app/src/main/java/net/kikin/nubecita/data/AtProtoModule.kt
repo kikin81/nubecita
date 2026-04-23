@@ -6,7 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import javax.inject.Singleton
 
@@ -21,7 +21,7 @@ object AtProtoModule {
     @Provides
     @Singleton
     fun provideHttpClient(): HttpClient =
-        HttpClient(CIO) {
+        HttpClient(OkHttp) {
             install(HttpTimeout) {
                 requestTimeoutMillis = 30_000
                 connectTimeoutMillis = 10_000

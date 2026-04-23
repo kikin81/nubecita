@@ -5,7 +5,7 @@ import io.github.kikin81.atproto.com.atproto.identity.ResolveHandleRequest
 import io.github.kikin81.atproto.runtime.Handle
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -29,7 +29,7 @@ class AtProtoClientTest {
     @Test
     fun resolveHandle_bskyApp_returnsDid() =
         runBlocking {
-            val httpClient = HttpClient(CIO)
+            val httpClient = HttpClient(OkHttp)
             try {
                 val client =
                     XrpcClient(

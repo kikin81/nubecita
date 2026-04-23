@@ -16,12 +16,12 @@ The app MUST expose a Hilt-provided `io.github.kikin81.atproto.runtime.XrpcClien
 
 ### Requirement: Ktor engine is explicitly declared and shared
 
-The app MUST declare exactly one Ktor client engine — `io.ktor:ktor-client-cio` at the version matching the atproto-kotlin library's documented recommendation — as an `implementation` dependency. The `HttpClient` that backs `XrpcClient` MUST use this engine and MUST be a `@Singleton` in the Hilt graph so both the anonymous client and any future authenticated client share one connection pool.
+The app MUST declare exactly one Ktor client engine — `io.ktor:ktor-client-okhttp` at the version matching the `ktor-client-core` version resolved transitively by the atproto-kotlin runtime — as an `implementation` dependency. The `HttpClient` that backs `XrpcClient` MUST use this engine and MUST be a `@Singleton` in the Hilt graph so both the anonymous client and any future authenticated client share one connection pool.
 
-#### Scenario: CIO engine is the sole Ktor engine on the classpath
+#### Scenario: OkHttp engine is the sole Ktor engine on the classpath
 
 - **WHEN** `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` runs
-- **THEN** the output shows `io.ktor:ktor-client-cio` resolved and no other `io.ktor:ktor-client-*` engine artifact is present.
+- **THEN** the output shows `io.ktor:ktor-client-okhttp` resolved and no other `io.ktor:ktor-client-*` engine artifact is present.
 
 #### Scenario: HttpClient is shared
 
@@ -35,7 +35,7 @@ The shared `HttpClient` MUST NOT install Ktor plugins that encode, decode, or ot
 #### Scenario: No body-mutating plugin is installed
 
 - **WHEN** the `HttpClient` provider runs
-- **THEN** the returned client is constructed via `HttpClient(CIO)` with no `install(ContentNegotiation)` or equivalent body-mutating plugin call.
+- **THEN** the returned client is constructed via `HttpClient(OkHttp)` with no `install(ContentNegotiation)` or equivalent body-mutating plugin call.
 
 ### Requirement: Feature code MUST NOT construct XrpcClient directly
 

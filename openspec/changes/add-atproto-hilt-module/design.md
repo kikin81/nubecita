@@ -21,14 +21,16 @@ The library's own `atproto-setup` skill spells out the construction surface: `Xr
 
 ## Decisions
 
-### Ktor CIO over OkHttp or Darwin
+### Ktor OkHttp over CIO or Darwin
 
 Options considered:
-- `ktor-client-cio` — pure Kotlin, works on Android + JVM + native, no platform dependencies.
-- `ktor-client-okhttp` — OkHttp-backed, slightly better on Android (connection pooling, HTTP/2 negotiation tuning OkHttp has refined for years).
+- `ktor-client-okhttp` — OkHttp-backed; 15 years of Android-specific hardening (HTTP/2 ALPN on Android, sophisticated connection pooling, cellular/Wi-Fi transition handling, rich interceptor + observability ecosystem — Charles, Flipper, Stetho).
+- `ktor-client-cio` — pure Kotlin / NIO, JetBrains-maintained, KMP-portable (Android + JVM + native). What the atproto-kotlin library's sample uses.
 - `ktor-client-darwin` — iOS only; irrelevant here.
 
-**Choice: CIO.** It's the default the library's own `atproto-setup` skill and sample Android app (`samples/android/.../AppModule.kt`) use. Keeping parity with the library's sample means bugs and quirks we hit will match what upstream sees. OkHttp can swap in later if we identify an Android-specific need — the `HttpClient` is behind a Hilt provider, so the swap is one module edit. Pure-Kotlin CIO also keeps the JVM unit test trivially runnable (no Android framework on the classpath for the test).
+**Choice: OkHttp.** Nubecita is Android-only, so CIO's KMP portability is wasted. The tangible wins for OkHttp on Android are real: better behavior on constrained/transitioning mobile networks, mature HTTP/2 negotiation, TLS session resumption, and the tooling ecosystem developers reach for when diagnosing production issues. We also plan to add Coil for image loading (per the README stack), and Coil uses OkHttp — sharing a single OkHttp-backed client across XRPC + image loading later is a concrete architecture win that only stays open if we pick OkHttp here.
+
+**Trade-off:** we diverge from the atproto-kotlin library's sample, which uses CIO. If we hit a subtle wire-level bug the upstream maintainer won't have a fast repro — but both engines speak the same Ktor `HttpClient` contract, so bugs are more likely in the library's XRPC layer than in the engine. The `HttpClient` lives behind a Hilt provider, so if OkHttp ever becomes a problem, swapping to CIO is a one-module edit. JVM unit tests still run fine (OkHttp is JVM-compatible).
 
 ### Shared `HttpClient` across anonymous and (future) authenticated clients
 
@@ -90,7 +92,7 @@ Options considered:
 
 Greenfield — no existing atproto-kotlin code paths to migrate. The one wrinkle:
 
-1. Add the Ktor CIO coord to the catalog and `:app` module.
+1. Add the Ktor OkHttp coord to the catalog and `:app` module.
 2. Drop in `AtProtoModule.kt`.
 3. Drop in the unit test; confirm it passes.
 4. `./gradlew assembleDebug spotlessCheck sortDependencies :app:dependencies --configuration releaseRuntimeClasspath` clean.
