@@ -8,26 +8,46 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Test
 
 class AtProtoClientTest {
+    // Opt-in gate: this is the smoke test wired to hit public.api.bsky.app
+    // directly. Without the gate, every PR's :app:jacocoTestReport job would
+    // depend on the upstream AppView being reachable, turning transient
+    // Bluesky outages into unrelated-PR failures. Instrumented equivalent
+    // lands with nubecita-16a.
+    @Before
+    fun skipUnlessIntegrationEnabled() {
+        assumeTrue(
+            "Set ATPROTO_INTEGRATION_TESTS=1 to run network-dependent smoke tests",
+            System.getenv("ATPROTO_INTEGRATION_TESTS") == "1",
+        )
+    }
+
     @Test
     fun resolveHandle_bskyApp_returnsDid() =
         runBlocking {
-            val client =
-                XrpcClient(
-                    baseUrl = "https://public.api.bsky.app",
-                    httpClient = HttpClient(CIO),
-                )
+            val httpClient = HttpClient(CIO)
+            try {
+                val client =
+                    XrpcClient(
+                        baseUrl = "https://public.api.bsky.app",
+                        httpClient = httpClient,
+                    )
 
-            val response =
-                IdentityService(client).resolveHandle(
-                    ResolveHandleRequest(handle = Handle("bsky.app")),
-                )
+                val response =
+                    IdentityService(client).resolveHandle(
+                        ResolveHandleRequest(handle = Handle("bsky.app")),
+                    )
 
-            assertTrue(
-                "expected did:plc:… but got ${response.did.raw}",
-                response.did.raw.startsWith("did:plc:"),
-            )
+                assertTrue(
+                    "expected did:plc:… but got ${response.did.raw}",
+                    response.did.raw.startsWith("did:plc:"),
+                )
+            } finally {
+                httpClient.close()
+            }
         }
 }

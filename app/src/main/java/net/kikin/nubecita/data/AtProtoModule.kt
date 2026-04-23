@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
 import javax.inject.Singleton
 
 // Public AppView gateway — serves unauthenticated AT Protocol lexicons without
@@ -19,7 +20,14 @@ private const val APPVIEW_URL = "https://public.api.bsky.app"
 object AtProtoModule {
     @Provides
     @Singleton
-    fun provideHttpClient(): HttpClient = HttpClient(CIO)
+    fun provideHttpClient(): HttpClient =
+        HttpClient(CIO) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 30_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 30_000
+            }
+        }
 
     @Provides
     @Singleton
