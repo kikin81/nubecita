@@ -1,7 +1,7 @@
 ## 1. Dependency wiring
 
-- [ ] 1.1 Run Sonatype vulnerability + license + policy check on `pkg:maven/io.ktor/ktor-client-cio@3.0.0`; stop and flag to the user if it's malicious, end-of-life, or policy-non-compliant.
-- [ ] 1.2 Add `ktor = "3.0.0"` under `[versions]` in `gradle/libs.versions.toml` (placed in artifact-name alphabetical order per existing convention).
+- [x] 1.1 Run Sonatype vulnerability + license + policy check on `pkg:maven/io.ktor/ktor-client-cio@3.4.0`; stop and flag to the user if it's malicious, end-of-life, or policy-non-compliant.
+- [ ] 1.2 Add `ktor = "3.4.0"` under `[versions]` in `gradle/libs.versions.toml` (placed in artifact-name alphabetical order per existing convention).
 - [ ] 1.3 Add `ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }` under `[libraries]` in `gradle/libs.versions.toml`.
 - [ ] 1.4 Add `implementation(libs.ktor.client.cio)` to `app/build.gradle.kts` in the existing `dependencies { ... }` block (sort-dependencies plugin will normalize order on the first build).
 - [ ] 1.5 Run `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` and confirm `io.ktor:ktor-client-cio:3.0.0` resolves; no other `io.ktor:ktor-client-*` engine artifact appears (verifies `atproto-networking` spec: "CIO engine is the sole Ktor engine on the classpath").

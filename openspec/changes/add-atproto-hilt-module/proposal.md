@@ -6,7 +6,7 @@ The authenticated path (OAuth-backed `XrpcClient` via `AtOAuth.createClient()`) 
 
 ## What Changes
 
-- Add `io.ktor:ktor-client-cio:3.0.0` to the version catalog and `:app` module (the atproto runtime transitively pulls Ktor core but not an engine — this is the call-out in the library's `atproto-setup` skill).
+- Add `io.ktor:ktor-client-cio:3.4.0` to the version catalog and `:app` module (the atproto runtime transitively pulls Ktor core but not an engine — this is the call-out in the library's `atproto-setup` skill). Version matches the `ktor-client-core:3.4.0` the atproto-kotlin 5.0.1 runtime already resolves transitively, so the engine aligns with the rest of the Ktor graph without forcing Gradle conflict resolution.
 - New Hilt module `net.kikin.nubecita.data.AtProtoModule` (object, `@InstallIn(SingletonComponent::class)`) with two `@Singleton` providers:
   - `HttpClient` built on the Ktor CIO engine (`HttpClient(CIO)`).
   - `XrpcClient` constructed with `baseUrl = "https://public.api.bsky.app"` and the shared `HttpClient` — no auth provider (library default is `NoAuth`).
@@ -30,6 +30,6 @@ The authenticated path (OAuth-backed `XrpcClient` via `AtOAuth.createClient()`) 
 ## Impact
 
 - **Code**: One new file (`app/src/main/java/net/kikin/nubecita/data/AtProtoModule.kt`, ~25 LOC) and one new test file (`app/src/test/java/net/kikin/nubecita/data/AtProtoClientTest.kt`, ~20 LOC).
-- **Dependencies**: `io.ktor:ktor-client-cio:3.0.0` added via `libs.versions.toml` (Apache-2.0, JetBrains-maintained, matches the engine version the atproto-kotlin library was validated against per its `atproto-setup` skill). Sonatype vulnerability + license + policy check runs before the coord lands.
+- **Dependencies**: `io.ktor:ktor-client-cio:3.4.0` added via `libs.versions.toml` (Apache-2.0, JetBrains-maintained, matches the `ktor-client-core:3.4.0` the atproto-kotlin 5.0.1 runtime pulls transitively). Sonatype check: policy-compliant, not malicious, not EOL, no vulnerabilities.
 - **Tests**: One JVM unit test; no screenshot-test or instrumented-test impact. Offline CI runs of the new test will fail (network dependency) — acceptable until `nubecita-16a` lands the instrumented replacement.
 - **Downstream unblocks**: `nubecita-4g7` (authenticated Hilt bindings), `nubecita-16a` (instrumented test CI), and any feature VM that needs public AppView reads (e.g., `nubecita-4u5` FeedContract, handle → DID resolution flows).
