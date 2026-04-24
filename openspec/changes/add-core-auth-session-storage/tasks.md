@@ -66,7 +66,7 @@
 
 - [x] 10.1 `nubecita-nss` and `nubecita-9bl` both in `in_progress`.
 - [x] 10.2 Branch `feat/nubecita-nss-secure-session-token-storage` created off `main`.
-- [ ] 10.3 Commit with Conventional Commit message including `Refs: nubecita-nss nubecita-9bl`.
-- [ ] 10.4 PR titled `feat(core-auth): scaffold :core:auth + encrypted OAuthSessionStore`; body includes `Closes: nubecita-nss` and `Closes: nubecita-9bl`.
+- [x] 10.3 Commit `a802195` with Conventional Commit subject and `Refs: nubecita-nss nubecita-9bl` footer; pushed to `origin`.
+- [x] 10.4 PR #28 opened: https://github.com/kikin81/nubecita/pull/28 — title matches convention, body includes both `Closes:` footers.
 - [ ] 10.5 After merge: `bd close nubecita-nss nubecita-9bl` and `/opsx:archive add-core-auth-session-storage`.
 - [ ] 10.6 Retitle `nubecita-gr4` (epic) to drop "app password".
