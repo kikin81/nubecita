@@ -33,15 +33,30 @@ fun ColorSwatch(
                 .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Role swatch with the matching on-color overlaid — mirrors how the pair
+        // actually renders in the app (onPrimary text over primary fill). The
+        // earlier variant rendered onColor as text against the default surface,
+        // which could be unreadable when on-colors are near-white.
         Box(
             modifier =
                 Modifier
                     .size(48.dp)
                     .background(color, MaterialTheme.shapes.small),
-        )
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Aa",
+                style = MaterialTheme.typography.labelLarge,
+                color = onColor,
+            )
+        }
         Column(modifier = Modifier.padding(start = 12.dp)) {
             Text(text = name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
-            Text(text = "on$name", style = MaterialTheme.typography.labelSmall, color = onColor)
+            Text(
+                text = "on$name",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

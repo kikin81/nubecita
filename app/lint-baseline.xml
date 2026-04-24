@@ -18,7 +18,7 @@
         errorLine1="ktor = &quot;3.4.0&quot;"
         errorLine2="       ~~~~~~~">
         <location
-            file="$HOME/code/nubecita/gradle/libs.versions.toml"
+            file="../gradle/libs.versions.toml"
             line="19"
             column="8"/>
     </issue>

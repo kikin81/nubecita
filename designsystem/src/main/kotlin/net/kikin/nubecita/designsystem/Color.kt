@@ -152,68 +152,75 @@ internal fun nubecitaDarkColorScheme() =
         surfaceContainerHighest = Color(0xFF32353A),
     )
 
+// Contrast variants derive mechanically from the brand tonal palette. Light
+// variants push primary/secondary/tertiary to lower (darker) tones; dark variants
+// push them to higher (lighter) tones. Every color MUST come from NubecitaPalette
+// — no ad-hoc hex literals — per the design-system spec.
+
 internal fun nubecitaLightMediumContrastColorScheme() =
     nubecitaLightColorScheme().copy(
-        primary = Color(0xFF00437A),
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFF00569B),
-        onPrimaryContainer = Color.White,
-        secondary = Color(0xFF6D3900),
-        onSecondary = Color.White,
-        secondaryContainer = Color(0xFF8B4900),
-        onSecondaryContainer = Color.White,
-        tertiary = Color(0xFF46347C),
-        onTertiary = Color.White,
-        tertiaryContainer = Color(0xFF5C469D),
-        onTertiaryContainer = Color.White,
+        primary = NubecitaPalette.Sky30,
+        onPrimary = NubecitaPalette.Sky100,
+        primaryContainer = NubecitaPalette.Sky40,
+        onPrimaryContainer = NubecitaPalette.Sky100,
+        secondary = NubecitaPalette.Peach30,
+        onSecondary = NubecitaPalette.Peach98,
+        secondaryContainer = NubecitaPalette.Peach40,
+        onSecondaryContainer = NubecitaPalette.Peach98,
+        tertiary = NubecitaPalette.Lilac30,
+        onTertiary = NubecitaPalette.Lilac95,
+        tertiaryContainer = NubecitaPalette.Lilac40,
+        onTertiaryContainer = NubecitaPalette.Lilac95,
+        outline = NubecitaPalette.NeutralVariant30,
     )
 
 internal fun nubecitaLightHighContrastColorScheme() =
     nubecitaLightColorScheme().copy(
-        primary = Color(0xFF002343),
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFF00437A),
-        onPrimaryContainer = Color.White,
-        secondary = Color(0xFF3B1C00),
-        onSecondary = Color.White,
-        secondaryContainer = Color(0xFF6D3900),
-        onSecondaryContainer = Color.White,
-        tertiary = Color(0xFF26135D),
-        onTertiary = Color.White,
-        tertiaryContainer = Color(0xFF46347C),
-        onTertiaryContainer = Color.White,
+        primary = NubecitaPalette.Sky20,
+        onPrimary = NubecitaPalette.Sky100,
+        primaryContainer = NubecitaPalette.Sky30,
+        onPrimaryContainer = NubecitaPalette.Sky100,
+        secondary = NubecitaPalette.Peach20,
+        onSecondary = NubecitaPalette.Peach98,
+        secondaryContainer = NubecitaPalette.Peach30,
+        onSecondaryContainer = NubecitaPalette.Peach98,
+        tertiary = NubecitaPalette.Lilac30, // palette has no Lilac20; lowest available
+        onTertiary = NubecitaPalette.Lilac95,
+        tertiaryContainer = NubecitaPalette.Lilac40,
+        onTertiaryContainer = NubecitaPalette.Lilac95,
         outline = NubecitaPalette.Neutral20,
     )
 
 internal fun nubecitaDarkMediumContrastColorScheme() =
     nubecitaDarkColorScheme().copy(
-        primary = Color(0xFFB1D1FF),
-        onPrimary = Color(0xFF00162E),
-        primaryContainer = Color(0xFF74AFFF),
-        onPrimaryContainer = Color(0xFF00162E),
-        secondary = Color(0xFFFFBC91),
-        onSecondary = Color(0xFF251000),
-        secondaryContainer = Color(0xFFE9891B),
-        onSecondaryContainer = Color(0xFF251000),
-        tertiary = Color(0xFFC9C0FF),
-        onTertiary = Color(0xFF16005D),
-        tertiaryContainer = Color(0xFF8F7EF6),
-        onTertiaryContainer = Color(0xFF16005D),
+        primary = NubecitaPalette.Sky90,
+        onPrimary = NubecitaPalette.Sky10,
+        primaryContainer = NubecitaPalette.Sky40,
+        onPrimaryContainer = NubecitaPalette.Sky99,
+        secondary = NubecitaPalette.Peach90,
+        onSecondary = NubecitaPalette.Peach10,
+        secondaryContainer = NubecitaPalette.Peach40,
+        onSecondaryContainer = NubecitaPalette.Peach98,
+        tertiary = NubecitaPalette.Lilac90,
+        onTertiary = NubecitaPalette.Lilac30, // palette has no Lilac10
+        tertiaryContainer = NubecitaPalette.Lilac40,
+        onTertiaryContainer = NubecitaPalette.Lilac95,
+        outline = NubecitaPalette.NeutralVariant80,
     )
 
 internal fun nubecitaDarkHighContrastColorScheme() =
     nubecitaDarkColorScheme().copy(
-        primary = Color(0xFFFDFCFF),
-        onPrimary = Color.Black,
+        primary = NubecitaPalette.Sky95,
+        onPrimary = NubecitaPalette.Sky10,
         primaryContainer = NubecitaPalette.Sky80,
-        onPrimaryContainer = Color.Black,
-        secondary = Color(0xFFFFF8F4),
-        onSecondary = Color.Black,
+        onPrimaryContainer = NubecitaPalette.Sky10,
+        secondary = NubecitaPalette.Peach95,
+        onSecondary = NubecitaPalette.Peach10,
         secondaryContainer = NubecitaPalette.Peach80,
-        onSecondaryContainer = Color.Black,
-        tertiary = Color(0xFFF3EFFF),
-        onTertiary = Color.Black,
+        onSecondaryContainer = NubecitaPalette.Peach10,
+        tertiary = NubecitaPalette.Lilac95,
+        onTertiary = NubecitaPalette.Lilac30,
         tertiaryContainer = NubecitaPalette.Lilac70,
-        onTertiaryContainer = Color.Black,
+        onTertiaryContainer = NubecitaPalette.Lilac30,
         outline = NubecitaPalette.NeutralVariant90,
     )
