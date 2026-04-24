@@ -82,14 +82,23 @@ Stakeholders downstream: `nubecita-4g7` (Hilt bindings for `AtOAuth` + authentic
 
 **Rationale:** Simpler, uses DataStore's own atomicity guarantees, keeps the happy path (sign-out → sign-in → sign-out → ...) free of filesystem drama.
 
-### 6. Graceful degradation on corruption, not crash
+### 6. Graceful degradation on corruption, not crash — split across three layers
 
-**Decision:** `OAuthSessionSerializer.readFrom` catches `SerializationException`, `GeneralSecurityException`, `AEADBadTagException`, and `KeyPermanentlyInvalidatedException`, logs the class name (not contents), and returns `null`. On `KeyPermanentlyInvalidatedException` specifically, it additionally nukes the Tink keyset SharedPreferences so the next write can recreate the keyset.
+**Decision:** Error handling is layered to match where failures originate. The `OAuthSessionStore` contract ("`load()` returns `null` on any storage-layer failure") is satisfied in aggregate; no single class owns the whole recovery surface.
+
+| Layer | Catches | Behavior |
+|---|---|---|
+| `OAuthSessionSerializer.readFrom` | `SerializationException` only | Returns `null` for malformed plaintext JSON (the layer below has already decrypted successfully). Unknown fields are tolerated via `Json { ignoreUnknownKeys = true }` and don't reach this catch. |
+| `AeadSerializer` (from `datastore-tink`) | — | Surfaces decrypt/authentication failures as `GeneralSecurityException` (or subclasses like `AEADBadTagException`) propagated through the DataStore `data` flow. Not caught here. |
+| `EncryptedOAuthSessionStore.load` | `IOException`, `GeneralSecurityException`, `SerializationException` via `Flow.catch` | Terminal catch for anything surfaced through `DataStore.data`. Emits `null` so callers see "no session" rather than a thrown exception. `KeyPermanentlyInvalidatedException` extends `GeneralSecurityException` and is covered transitively. Unexpected types (e.g. `IllegalStateException`) are re-thrown to preserve diagnostic signal for genuine bugs. |
+| `AuthDataStoreModule.provideOAuthSessionDataStore` | `GeneralSecurityException` at keyset build | Separate recovery window: if `AndroidKeysetManager.build()` throws (most commonly `KeyPermanentlyInvalidatedException` after a biometric reset, but any `GeneralSecurityException` from a corrupted keyset qualifies), the module deletes `nubecita_core_auth_keyset` SharedPreferences and retries the build once. Second failure propagates and will crash Hilt graph construction — this is an environmental failure we can't paper over silently. |
 
 **Alternatives considered:**
-- **Propagate the exception.** The library's `load()` signature allows it, but surfacing a crypto exception to `AtOAuth` doesn't give `AtOAuth` anything useful to do — the only recovery is "treat as signed out," which `null` already signals. Crashing the process over a corrupted session on cold-start is worse UX than silent re-login.
+- **Centralize everything in `OAuthSessionSerializer.readFrom`.** Tempting for tidiness but wrong — crypto failures happen in `AeadSerializer` before the inner serializer ever sees bytes, and keyset invalidation at build time happens before DataStore exists at all.
+- **Lazy DataStore construction with a `NullDataStore` fallback.** Would make `provideOAuthSessionDataStore` infallible (second keyset failure yields a store that always returns `null` and silently drops writes). Rejected: silently dropping writes hides a real environmental problem, and the failure mode is rare enough that crashing with a legible stack trace is the more honest signal.
+- **Propagate everything.** The `load()` signature allows it, but surfacing storage errors to `AtOAuth` gives it nothing useful to do — the only recovery is "treat as signed out," which `null` already signals.
 
-**Rationale:** "No session" is already a legal state in the `OAuthSessionStore` contract; corrupted state is semantically identical to "no session" from the caller's perspective. Logging preserves diagnostic signal; returning null preserves app stability.
+**Rationale:** "No session" is the legal recovery for anything that happens after the DataStore exists. Failures at DataStore *construction* (keyset bootstrap) are a different class of problem and get their own bounded-retry path. Logging is deferred to a follow-up (no structured logger in `:core:auth` yet) but the catch shape is ready for it.
 
 ### 7. Backup exclusions live as XML files referenced by `:app`, not the library
 

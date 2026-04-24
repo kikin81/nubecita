@@ -1,7 +1,6 @@
 package net.kikin.nubecita.core.auth.di
 
 import android.content.Context
-import android.security.keystore.KeyPermanentlyInvalidatedException
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
@@ -18,6 +17,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.kikin81.atproto.oauth.OAuthSession
 import net.kikin.nubecita.core.auth.OAuthSessionSerializer
+import java.security.GeneralSecurityException
 import javax.inject.Singleton
 
 @Module
@@ -35,10 +35,17 @@ internal object AuthDataStoreModule {
         @ApplicationContext context: Context,
     ): DataStore<OAuthSession?> {
         AeadConfig.register()
+        // Recoverable crypto failures at construction time — most commonly
+        // KeyPermanentlyInvalidatedException (biometric reset / factory-wipe of user data),
+        // but also any GeneralSecurityException from a corrupted keyset payload — are
+        // treated as "discard the old keyset and regenerate." The retry is bounded: a
+        // second failure means the Keystore environment is unrecoverable in a way we
+        // cannot paper over, and propagating the exception is preferable to silently
+        // losing future writes.
         val keysetHandle =
             try {
                 buildKeysetHandle(context)
-            } catch (_: KeyPermanentlyInvalidatedException) {
+            } catch (_: GeneralSecurityException) {
                 context.deleteSharedPreferences(SESSION_KEYSET_PREF_FILE)
                 buildKeysetHandle(context)
             }

@@ -30,9 +30,14 @@ device; sign-out wipes it.
   do not reuse this alias for any other data inside `:core:auth`.
 - Per-record AEAD via `AeadSerializer` (AES-256-GCM) with
   `associatedData = "nubecita.oauth.session.v1"` as a ciphertext-swap guard.
-- On `KeyPermanentlyInvalidatedException` during keyset build, the keyset
-  prefs file is deleted and the build is retried once. A second failure
-  crashes by design — there is no recoverable state at that point.
+
+### Failure modes
+
+| Where | What happens | Result for callers |
+|---|---|---|
+| `EncryptedOAuthSessionStore.load()` catches `IOException`, `GeneralSecurityException`, `SerializationException` from the DataStore flow | Store degrades to "no session." | `load()` returns `null`; the app falls back to a signed-out state. |
+| `AuthDataStoreModule` catches `GeneralSecurityException` at keyset bootstrap (covers `KeyPermanentlyInvalidatedException`) | Deletes `nubecita_core_auth_keyset` SharedPreferences and retries the build once. If the retry succeeds, any previously persisted session is lost and the store degrades to "no session" on the next `load()`. | Transparent recovery on first boot after a biometric/lockscreen reset. |
+| Same layer, **second** consecutive `GeneralSecurityException` at keyset bootstrap | Propagates from the `@Provides` function, which fails Hilt graph construction at first injection. | **App crashes.** This is an unrecoverable environmental failure (Keystore unusable, corrupted keyset material); silently swallowing it would mean silently dropping future writes. If you hit this in practice, the device Keystore is in a state no app-side recovery can paper over. |
 
 ## Consumer wiring required in `:app`
 
