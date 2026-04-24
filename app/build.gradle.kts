@@ -58,6 +58,7 @@ kotlin {
 dependencies {
     val composeBom = platform(libs.androidx.compose.bom)
 
+    implementation(project(":core:auth"))
     implementation(project(":designsystem"))
     implementation(composeBom)
     implementation(libs.androidx.activity.compose)
@@ -73,7 +74,6 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.atproto.models)
-    implementation(libs.atproto.oauth)
     implementation(libs.atproto.runtime)
     implementation(libs.hilt.android)
     implementation(libs.kotlinx.collections.immutable)
