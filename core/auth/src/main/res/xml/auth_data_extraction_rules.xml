@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/oauth_session.pb" />
+        <exclude domain="sharedpref" path="nubecita_core_auth_keyset.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/oauth_session.pb" />
+        <exclude domain="sharedpref" path="nubecita_core_auth_keyset.xml" />
+    </device-transfer>
+</data-extraction-rules>

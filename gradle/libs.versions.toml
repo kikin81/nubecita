@@ -11,12 +11,16 @@ androidxTestExt = "1.3.0"
 androidxTestRunner = "1.7.0"
 androidxTestEspresso = "3.7.0"
 coroutines = "1.10.2"
+datastore = "1.3.0-alpha08"
+datastoreTink = "1.3.0-alpha08"
 junit = "4.13.2"
 kotlinxCollectionsImmutable = "0.4.0"
+kotlinxSerializationJson = "1.9.0"
 kotlin = "2.3.21"
 hilt = "2.59.2"
 ksp = "2.3.7"
 ktor = "3.4.3"
+tinkAndroid = "1.21.0"
 nav3Core = "1.1.1"
 lifecycleViewmodelNav3 = "2.10.0"
 screenshot = "0.0.1-alpha14"
@@ -28,6 +32,8 @@ composeKtlintRules = "0.5.7"
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 androidx-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
+androidx-datastore = { module = "androidx.datastore:datastore", version.ref = "datastore" }
+androidx-datastore-tink = { module = "androidx.datastore:datastore-tink", version.ref = "datastoreTink" }
 atproto-models = { module = "io.github.kikin81.atproto:models", version.ref = "atproto" }
 atproto-oauth = { module = "io.github.kikin81.atproto:oauth", version.ref = "atproto" }
 atproto-runtime = { module = "io.github.kikin81.atproto:runtime", version.ref = "atproto" }
@@ -49,7 +55,9 @@ androidx-test-runner = { module = "androidx.test:runner", version.ref = "android
 junit = { module = "junit:junit", version.ref = "junit" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tinkAndroid" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
