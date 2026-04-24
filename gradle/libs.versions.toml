@@ -12,7 +12,6 @@ androidxTestRunner = "1.7.0"
 androidxTestEspresso = "3.7.0"
 coroutines = "1.10.2"
 datastore = "1.3.0-alpha08"
-datastoreTink = "1.3.0-alpha08"
 junit = "4.13.2"
 kotlinxCollectionsImmutable = "0.4.0"
 kotlinxSerializationJson = "1.9.0"
@@ -33,7 +32,7 @@ composeKtlintRules = "0.5.7"
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 androidx-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
 androidx-datastore = { module = "androidx.datastore:datastore", version.ref = "datastore" }
-androidx-datastore-tink = { module = "androidx.datastore:datastore-tink", version.ref = "datastoreTink" }
+androidx-datastore-tink = { module = "androidx.datastore:datastore-tink", version.ref = "datastore" }
 atproto-models = { module = "io.github.kikin81.atproto:models", version.ref = "atproto" }
 atproto-oauth = { module = "io.github.kikin81.atproto:oauth", version.ref = "atproto" }
 atproto-runtime = { module = "io.github.kikin81.atproto:runtime", version.ref = "atproto" }
