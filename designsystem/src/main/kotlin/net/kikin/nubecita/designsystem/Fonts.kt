@@ -16,9 +16,9 @@ private val provider =
 // Google Downloadable Fonts don't accept FontVariation.Settings, so the brand's
 // Fraunces `SOFT 50` axis customization isn't applied at runtime — the font
 // renders at its default axis values. To apply SOFT 50, bundle the variable .ttf
-// in res/font/ and swap to Font(resId = ..., variationSettings = ...). The
-// visual difference at brand display sizes is modest; we accept it to keep
-// Fraunces off the APK (~500KB).
+// in res/font/ and swap to Font(resId = ..., variationSettings = ...) — variable
+// axes work on minSdk 26 (our current floor). Visual difference at brand display
+// sizes is modest; we accept it to keep Fraunces off the APK (~500KB).
 val FrauncesFontFamily =
     FontFamily(
         Font(

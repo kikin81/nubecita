@@ -102,12 +102,7 @@ The Downloadable Fonts setup needs a cert hash resource (`res/values/font_certs.
 
 ### Variable font axis support
 
-Fraunces uses `font-variation-settings: "SOFT" 50` in the CSS (per the brand system). Compose supports this via `FontVariation.Setting("SOFT", 50f)` on `Font(...)` declarations, but:
-
-- Variable font axes require **API 26+ at runtime**. Our minSdk is 24.
-- On API 24-25, the font renders at the default axis — no SOFT customization, but still Fraunces at the right weight. Visually fine, minor brand-voice degradation on ~0% of live devices (Android 7.0/7.1 is deep single-digits).
-
-Documented in the module README. Not a blocker.
+Fraunces uses `font-variation-settings: "SOFT" 50` in the CSS (per the brand system). Compose supports `FontVariation.Setting("SOFT", 50f)` on bundled `Font(resId = ...)` declarations, and that works on our minSdk 26 floor. The wrinkle is a Compose API limit, not a runtime one: `androidx.compose.ui.text.googlefonts.Font(...)` — the downloadable-font factory — doesn't accept `variationSettings`, so Fraunces (delivered via Google Fonts) renders at its default axis values. Applying SOFT 50 would require bundling the variable `.ttf` (~500KB). We accept the modest visual drift to keep APK size down.
 
 ### Module package: `net.kikin.nubecita.designsystem`, not `.ds` or `.ui.theme`
 
@@ -125,7 +120,7 @@ Options considered:
 - **Dynamic color washing out brand identity** — addressed above; product decision, not a code risk. Mitigation: default `true` per user's call, knob exposed, KDoc documents the trade.
 - **Custom spring tuning drift** — if Compose's `spring()` damping/stiffness model diverges subtly from the CSS `linear(...)` curves, motion won't look identical to the HTML previews. Mitigation: iterate on device, accept "visually close enough." Screenshot tests are out of scope for this change; motion eyeballing is it.
 - **Downloadable Fonts latency** — first launch on a fresh install needs ~100-500ms over Play Services to fetch Fraunces. During that window, display-type fallback to `FontFamily.Serif`. Non-blocking but visible on the splash / onboarding screens that will use display type. Mitigation: `FontFamily.Resolver` preloads at `Application.onCreate()` (tracked informally — can add if FOUT becomes a complaint).
-- **Variable font fallback on API 24-25** — Fraunces loses its SOFT axis, Roboto Flex loses weight interpolation. Acceptable for the devices still running those APIs.
+- **minSdk 26 drops ~3% of devices worldwide** (Android 7.x). Accepted trade-off for variable-font axis support, `ValueAnimator.areAnimatorsEnabled()` for reduce-motion detection, and other API 26-era modernizations. Pre-release app, no install-base concern.
 - **APK weight from bundled Roboto Flex + JetBrains Mono** — ~700KB. Non-trivial but the variable fonts replace what would otherwise be 4+ separate weight files. Net win.
 
 ## Migration Plan

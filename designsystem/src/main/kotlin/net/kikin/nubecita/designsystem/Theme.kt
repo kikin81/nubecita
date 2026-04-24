@@ -124,25 +124,17 @@ private fun contrastLevelFromValue(value: Float): ContrastLevel =
 
 @Composable
 private fun reduceMotionState(context: Context): State<Boolean> =
-    produceState(initialValue = isReduceMotionEnabled(context), context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            // ValueAnimator.areAnimatorsEnabled requires API 26; on 24/25 stay on Standard motion.
-            value = false
-            return@produceState
-        }
+    produceState(initialValue = isReduceMotionEnabled(), context) {
         val uri = Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE)
         val handler = Handler(Looper.getMainLooper())
         val observer =
             object : ContentObserver(handler) {
                 override fun onChange(selfChange: Boolean) {
-                    value = isReduceMotionEnabled(context)
+                    value = isReduceMotionEnabled()
                 }
             }
         context.contentResolver.registerContentObserver(uri, false, observer)
         awaitDispose { context.contentResolver.unregisterContentObserver(observer) }
     }
 
-private fun isReduceMotionEnabled(context: Context): Boolean {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
-    return !ValueAnimator.areAnimatorsEnabled()
-}
+private fun isReduceMotionEnabled(): Boolean = !ValueAnimator.areAnimatorsEnabled()
