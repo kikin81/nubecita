@@ -1,0 +1,14 @@
+{
+  "client_id": "https://kikin81.github.io/nubecita/oauth/client-metadata.json",
+  "application_type": "native",
+  "client_name": "Nubecita",
+  "client_uri": "https://kikin81.github.io/nubecita",
+  "tos_uri": "https://kikin81.github.io/nubecita",
+  "policy_uri": "https://kikin81.github.io/nubecita",
+  "dpop_bound_access_tokens": true,
+  "grant_types": ["authorization_code", "refresh_token"],
+  "redirect_uris": ["net.kikin.nubecita:/oauth-redirect"],
+  "response_types": ["code"],
+  "scope": "atproto transition:generic",
+  "token_endpoint_auth_method": "none"
+}
