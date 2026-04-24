@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Nubecita — Slide templates</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"/>
+<style>
+  html,body{margin:0;background:var(--surface-container);font-family:var(--font-body);}
+  .slide{width:1280px;height:720px;position:relative;overflow:hidden;}
+  .stage{display:flex;flex-direction:column;gap:48px;padding:48px 24px;align-items:center;}
+  .frame{box-shadow:var(--elev-3);border-radius:12px;overflow:hidden;background:#fff;}
+  .title{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:28px;background:linear-gradient(180deg,#EBF1FF 0%,#FFFFFF 100%);text-align:center;padding:0 80px;}
+  .title h1{font-family:var(--font-display);font-size:112px;line-height:1;font-weight:600;font-variation-settings:"SOFT" 70;letter-spacing:-0.03em;color:var(--sky-10);margin:0;}
+  .title p{font-size:24px;color:var(--fg-2);max-width:760px;margin:0;}
+  .title .brand{display:flex;align-items:center;gap:16px;color:var(--primary);font-weight:700;font-size:20px;}
+  .stat{display:grid;grid-template-columns:1fr 1fr;background:var(--sky-50);color:#fff;padding:80px;gap:60px;}
+  .stat .big{font-family:var(--font-display);font-size:200px;line-height:.9;font-weight:700;font-variation-settings:"SOFT" 70;letter-spacing:-0.04em;}
+  .stat .right{display:flex;flex-direction:column;justify-content:center;gap:20px;}
+  .stat .right h2{font-family:var(--font-display);font-size:44px;line-height:1.1;font-weight:600;margin:0;}
+  .stat .right p{font-size:20px;line-height:1.5;opacity:.9;margin:0;}
+  .quote{display:flex;flex-direction:column;justify-content:center;padding:80px 120px;background:#fff;}
+  .quote .q{font-family:var(--font-display);font-size:68px;line-height:1.15;font-weight:500;font-variation-settings:"SOFT" 80;color:var(--fg-1);letter-spacing:-0.02em;margin:0 0 32px;}
+  .quote .attr{display:flex;align-items:center;gap:16px;}
+  .quote .attr b{font-size:18px;}
+  .quote .attr .h{font-family:var(--font-mono);font-size:14px;color:var(--fg-3);}
+  .compare{display:grid;grid-template-columns:1fr 1fr;height:100%;}
+  .compare > div{padding:80px 64px;display:flex;flex-direction:column;gap:20px;justify-content:center;}
+  .compare h3{font-family:var(--font-display);font-size:40px;margin:0;font-variation-settings:"SOFT" 60;}
+  .compare ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;}
+  .compare li{font-size:20px;display:flex;align-items:flex-start;gap:10px;}
+  .left-col{background:#FFF8F4;color:var(--peach-10);}
+  .right-col{background:var(--sky-95);color:var(--sky-10);}
+  .section{display:flex;align-items:center;padding:0 120px;background:var(--surface);gap:60px;}
+  .section .num{font-family:var(--font-display);font-size:240px;line-height:.8;font-weight:700;font-variation-settings:"SOFT" 70;color:var(--sky-90);letter-spacing:-0.04em;flex-shrink:0;}
+  .section .txt h2{font-family:var(--font-display);font-size:72px;line-height:1;font-weight:600;font-variation-settings:"SOFT" 60;color:var(--fg-1);letter-spacing:-0.02em;margin:0 0 20px;}
+  .section .txt p{font-size:22px;line-height:1.5;color:var(--fg-2);max-width:500px;margin:0;}
+  .product{display:grid;grid-template-columns:1fr 1fr;background:#fff;}
+  .product .left{padding:80px;display:flex;flex-direction:column;justify-content:center;gap:24px;}
+  .product .left h2{font-family:var(--font-display);font-size:60px;line-height:1;font-weight:600;font-variation-settings:"SOFT" 60;letter-spacing:-0.02em;margin:0;}
+  .product .left p{font-size:20px;line-height:1.5;color:var(--fg-2);margin:0;}
+  .product .right{background:linear-gradient(135deg,#A6C8FF 0%,#6250B0 100%);display:flex;align-items:center;justify-content:center;}
+  .product .right img{width:260px;}
+  .stage-label{font:600 13px/1 var(--font-body);color:var(--fg-2);margin-top:10px;}
+  .stage-wrap{display:flex;flex-direction:column;align-items:center;}
+  .foot{position:absolute;bottom:24px;left:48px;right:48px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--fg-3);}
+  .foot img{height:20px;}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="stage-wrap">
+    <div class="frame"><div class="slide title">
+      <div class="brand"><img src="../assets/logomark.svg" height="32"/>nubecita</div>
+      <h1>A little cloud for Bluesky.</h1>
+      <p>A native Android client that takes the sky with you — phone, tablet, and foldable.</p>
+    </div></div>
+    <div class="stage-label">Title slide</div>
+  </div>
+  <div class="stage-wrap">
+    <div class="frame"><div class="slide stat">
+      <div class="big">2.1M</div>
+      <div class="right">
+        <h2>Daily active users by year two.</h2>
+        <p>Nubecita's adaptive layouts convert tablet and foldable owners at 3× the rate of phone-only clients.</p>
+      </div>
+    </div></div>
+    <div class="stage-label">Stat slide</div>
+  </div>
+  <div class="stage-wrap">
+    <div class="frame"><div class="slide quote">
+      <p class="q">"The readable-text part isn't just a font choice. It's a whole posture."</p>
+      <div class="attr">
+        <div style="width:56px;height:56px;border-radius:999px;background:linear-gradient(135deg,#A6C8FF,#6250B0);"></div>
+        <div><b>Alice Chen</b><div class="h">@alice.nubecita.app</div></div>
+      </div>
+      <div class="foot"><img src="../assets/logomark.svg"/>nubecita · 02</div>
+    </div></div>
+    <div class="stage-label">Big quote</div>
+  </div>
+  <div class="stage-wrap">
+    <div class="frame"><div class="slide compare">
+      <div class="left-col"><h3>Today's clients</h3><ul>
+        <li>· Phone-only layouts</li><li>· Dated visual language</li><li>· Poor reading experience</li><li>· No foldable support</li>
+      </ul></div>
+      <div class="right-col"><h3>Nubecita</h3><ul>
+        <li>· Adaptive on every surface</li><li>· Material 3 Expressive</li><li>· 17px body, 26 line-height</li><li>· Three-pane on unfolded</li>
+      </ul></div>
+    </div></div>
+    <div class="stage-label">Comparison</div>
+  </div>
+  <div class="stage-wrap">
+    <div class="frame"><div class="slide section">
+      <div class="num">01</div>
+      <div class="txt"><h2>The feed, done right.</h2><p>A reading surface deserves typographic care. 17 / 26, pretty wrap, sensible line lengths.</p></div>
+    </div></div>
+    <div class="stage-label">Section header</div>
+  </div>
+  <div class="stage-wrap">
+    <div class="frame"><div class="slide product">
+      <div class="left"><h2>Fold it open. Read the thread.</h2><p>On foldables, Nubecita shows your feed, the active thread, and suggestions in one calm layout — no more losing your place.</p></div>
+      <div class="right"><img src="../assets/cloud-illustration.svg"/></div>
+    </div></div>
+    <div class="stage-label">Product shot</div>
+  </div>
+</div>
+</body>
+</html>

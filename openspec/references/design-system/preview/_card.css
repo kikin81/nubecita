@@ -1,0 +1,19 @@
+/* Shared styles for design-system preview cards */
+@import url('../colors_and_type.css');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  color: var(--fg-1);
+}
+.card {
+  padding: 20px 24px;
+  box-sizing: border-box;
+  min-height: 100%;
+}
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.muted { color: var(--fg-2); }
+.mono  { font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); }
+.label { font: 600 11px/16px var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-3); }

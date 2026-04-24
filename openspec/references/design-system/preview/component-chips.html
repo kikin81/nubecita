@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><title>Chips</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Rounded"/>
+<style>.card{padding:18px 24px;}
+.grp{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+.chip{font:600 13px/1 var(--font-body);height:32px;padding:0 14px;border-radius:8px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline-variant);background:transparent;color:var(--fg-1);cursor:pointer;}
+.chip.selected{background:var(--sky-90);border-color:var(--sky-90);color:var(--sky-10);}
+.chip.filter{padding-left:8px;}
+.chip.input{background:var(--surface-container);border:none;padding-right:8px;}
+.chip .material-symbols-rounded{font-size:16px;}
+.label{margin-bottom:4px}
+</style></head><body><div class="card">
+<div class="label">ASSIST · FILTER · INPUT</div>
+<div class="grp">
+<span class="chip"><span class="material-symbols-rounded">auto_awesome</span>For you</span>
+<span class="chip selected filter"><span class="material-symbols-rounded">check</span>Following</span>
+<span class="chip">Art</span>
+<span class="chip selected">Tech</span>
+<span class="chip input">@alice.nubecita.app<span class="material-symbols-rounded">close</span></span>
+<span class="chip input">#cloudwatching<span class="material-symbols-rounded">close</span></span>
+</div>
+</div></body></html>
