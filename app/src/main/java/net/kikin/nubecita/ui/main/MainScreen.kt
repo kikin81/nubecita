@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.theme.NubecitaTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 @Composable
 fun MainScreen(

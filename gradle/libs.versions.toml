@@ -26,6 +26,7 @@ composeKtlintRules = "0.5.7"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
 atproto-models = { module = "io.github.kikin81.atproto:models", version.ref = "atproto" }
 atproto-oauth = { module = "io.github.kikin81.atproto:oauth", version.ref = "atproto" }
 atproto-runtime = { module = "io.github.kikin81.atproto:runtime", version.ref = "atproto" }
@@ -58,6 +59,7 @@ screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose-screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }
