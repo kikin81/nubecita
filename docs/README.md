@@ -20,9 +20,12 @@ automatically.
 If Pages is not yet enabled:
 
 ```bash
-gh api -X POST repos/kikin81/nubecita/pages \
-  -f source='{"branch":"main","path":"/docs"}'
+echo '{"source":{"branch":"main","path":"/docs"}}' \
+  | gh api -X POST repos/kikin81/nubecita/pages --input -
 ```
+
+(`gh api -f source='...'` doesn't work here — it sends the value as a
+string, and the Pages API requires `source` to be a nested object.)
 
 ## Dev → prod URL swap
 
