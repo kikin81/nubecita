@@ -37,9 +37,13 @@ kotlin {
 }
 
 dependencies {
+    // Re-exported: consumers of :core:auth can @Inject OAuthSessionStore and reference
+    // OAuthSession without adding their own atproto-oauth dependency. Same pattern as
+    // Now in Android's :core:datastore re-exporting androidx.datastore via api(...).
+    api(libs.atproto.oauth)
+
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.tink)
-    implementation(libs.atproto.oauth)
     implementation(libs.hilt.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.tink.android)

@@ -11,7 +11,7 @@ The auth strategy was also narrowed: OAuth-only, no app-password fallback (see n
 - **New `:core:auth` Android library module** (nubecita-9bl), rooted at `core/auth/`. Establishes the `:core:*` convention for non-UI cross-cutting libraries (mirror of `:designsystem`). `:app` adds `implementation(project(":core:auth"))`.
 - **Encrypted OAuth session store** (nubecita-nss) — an implementation of the `io.github.kikin81.atproto.oauth.OAuthSessionStore` interface backed by a `DataStore<OAuthSession?>` wrapped in Tink's `AeadSerializer`. Single encrypted blob on disk; master key lives in `AndroidKeyStore`.
 - **Hilt bindings in `:core:auth`**: the module provides the `OAuthSessionStore` binding into `SingletonComponent`. `:app` does not see Tink or DataStore internals.
-- **New dependencies** on the version catalog: `androidx.datastore:datastore:1.2.0`, `androidx.datastore:datastore-tink:1.3.0-alpha08`, `com.google.crypto.tink:tink-android` (transitive pin if needed), and `org.jetbrains.kotlinx:kotlinx-serialization-json` (already used).
+- **New dependencies** on the version catalog: `androidx.datastore:datastore:1.3.0-alpha08` and `androidx.datastore:datastore-tink:1.3.0-alpha08` (both share a single `datastore` version entry — same release cadence, same pattern as the catalog's existing `androidxLifecycle`), `com.google.crypto.tink:tink-android`, and `org.jetbrains.kotlinx:kotlinx-serialization-json`.
 - **Backup exclusions** in `:app` — `android:dataExtractionRules` and `android:fullBackupContent` excluding the session DataStore file and Tink keyset SharedPreferences so the encrypted blob is never copied off-device.
 - **Graceful degradation on corrupted state** — decrypt failures, key invalidation, and garbled JSON all map to `load()` returning `null` rather than throwing. The store never crashes the app.
 
@@ -43,7 +43,7 @@ _None._ No existing capability in `openspec/specs/` (`atproto-networking`, `depe
 ## Impact
 
 - **New module**: `core/auth/` (library).
-- **Version catalog**: `gradle/libs.versions.toml` gains `datastore`, `datastoreTink`, and `tinkAndroid` (as transitive pin) version entries plus library aliases.
+- **Version catalog**: `gradle/libs.versions.toml` gains a single `datastore` version entry shared by both `androidx.datastore:datastore` and `androidx.datastore:datastore-tink`, plus `tinkAndroid` and `kotlinxSerializationJson` version entries and the corresponding library aliases.
 - **`:app` build.gradle.kts**: adds `implementation(project(":core:auth"))`.
 - **`:app` AndroidManifest.xml**: gains `android:dataExtractionRules` + `android:fullBackupContent` attributes pointing at XML files provided by this change.
 - **`:app` Hilt graph**: gains an injectable `OAuthSessionStore`. No existing `@Provides`/`@Binds` conflict today.
