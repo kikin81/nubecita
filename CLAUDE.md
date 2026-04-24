@@ -65,6 +65,20 @@ Use `Refs:` on work-in-progress commits. `Closes: <bd-id>` goes in the **PR body
 - Conventional Commits enforced by commitlint.
 - `main` is protected; feature branches + PRs only.
 
+### Module conventions
+
+Non-UI shared capabilities live under `:core:*` (e.g. `:core:auth`). Feature modules follow the Navigation 3 api/impl split: `:feature:<name>:api` holds `NavKey` types only, `:feature:<name>:impl` holds screens, ViewModels, and Hilt modules that contribute `@IntoSet EntryProviderInstaller` multibindings. `:app` stays a thin shell that aggregates the DI graph, wires `NavDisplay`, and hosts `MainActivity`.
+
+Every Android module's `build.gradle.kts` applies one of five convention plugins shipped by the `build-logic/` composite build. The plugins centralize SDK versions, JVM toolchain, Compose wiring, and Hilt wiring. Modules declare only their namespace and module-specific deps. Plugin roster and "how to add a new module" recipe: `build-logic/README.md`.
+
+| Plugin | Module type |
+|--------|-------------|
+| `nubecita.android.library` | Non-UI library (`:core:*` without Compose) |
+| `nubecita.android.library.compose` | Compose-using library (`:designsystem`) |
+| `nubecita.android.hilt` | Add-on for library modules that use Hilt |
+| `nubecita.android.feature` | `:feature:*:impl` modules (meta: library + compose + hilt + common feature deps) |
+| `nubecita.android.application` | `:app` only |
+
 ### MVI conventions
 
 Every screen's presenter extends `net.kikin.nubecita.ui.mvi.MviViewModel<S, E, F>`. Declare a per-screen `data class FooState : UiState`, `sealed interface FooEvent : UiEvent`, and `sealed interface FooEffect : UiEffect`.
