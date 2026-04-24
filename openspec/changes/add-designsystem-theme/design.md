@@ -34,16 +34,16 @@ The existing Compose theme at `app/src/main/java/net/kikin/nubecita/theme/*` is 
 
 ## Decisions
 
-### `MaterialExpressiveTheme` over stock `MaterialTheme`
+### `MaterialExpressiveTheme` + custom `MotionScheme`
 
 Options considered:
 
-- **`MaterialExpressiveTheme`** — ships in Material3 1.3+, accepts a `MotionScheme` parameter, enables M3 Expressive component defaults (pill-shaped buttons, new FAB variants, updated app bar behaviors).
+- **`MaterialExpressiveTheme`** — ships in Material3 1.5.0-alpha, accepts a `MotionScheme` parameter, enables M3 Expressive component defaults (pill-shaped buttons, new FAB variants, updated app bar behaviors).
 - **Stock `MaterialTheme`** — older API, no `MotionScheme` slot. We'd build motion ourselves via per-composable `animateFoo(animationSpec = ...)` calls.
 
-**Choice: `MaterialExpressiveTheme`.** Motion is a load-bearing part of Nubecita's personality per the brand system (spring-based, shape-morphing, overshooting). Stock `MaterialTheme` would force every animate-call site to know the motion tokens; `MaterialExpressiveTheme` lets composables read `MaterialTheme.motionScheme.defaultSpatialSpec` and get brand-consistent motion by default. It also matches the brand system's explicit "M3 Expressive" branding.
+**Choice: `MaterialExpressiveTheme`.** We updated the Material 3 dependency to `1.5.0-alpha18` to use the public Expressive APIs. Motion is a load-bearing part of Nubecita's personality per the brand system (spring-based, shape-morphing, overshooting). `MaterialExpressiveTheme` lets composables read `MaterialTheme.motionScheme.defaultSpatialSpec` and get brand-consistent motion by default.
 
-**Trade-off:** Some `MaterialExpressiveTheme` APIs are marked `@ExperimentalMaterial3ExpressiveApi` even in the 2026.04 BOM. We opt in explicitly at the theme callsite only; feature code never sees the annotation because it reads tokens via `MaterialTheme.*`. If Google stabilizes or renames the API, the blast radius is a single file.
+**Trade-off:** These APIs are marked `@ExperimentalMaterial3ExpressiveApi`. We opt in explicitly at the theme callsite. If Google stabilizes or renames the API, the blast radius is a single file.
 
 ### `CompositionLocal` + `MaterialTheme` extension properties for extended tokens
 
@@ -68,16 +68,19 @@ Options considered:
 
 **Trade-off:** Eight extra hand-written `ColorScheme` declarations. The six schemes total ~600 LOC across `Color.kt`. Acceptable for tokens — this is the one file that's allowed to be verbose because every value matters.
 
-### Custom `MotionScheme` from CSS springs, not `MotionScheme.expressive()`
+### Custom `NubecitaMotion` translating CSS springs into Compose `FiniteAnimationSpec`s
 
-Options considered:
+Per the previous decision (Material3's `MotionScheme` is internal in 1.4.0), motion lives on `NubecitaTokens.motion` as a plain `NubecitaMotion` data class:
 
-- **Stock `MotionScheme.expressive()`** — Google's canonical expressive motion. Well-tuned, well-tested, zero work.
-- **Custom `MotionScheme` reproducing the CSS spring curves** — `ease-spring-fast` / `ease-spring-slow` / `ease-spring-bouncy` translated to Compose `spring()` or `keyframes`.
+- `defaultSpatial: FiniteAnimationSpec<Float>` — `spring(dampingRatio = ~0.65, stiffness = ~380)` reproducing `ease-spring-fast`'s ~300ms overshoot
+- `slowSpatial: FiniteAnimationSpec<Float>` — `spring(dampingRatio = ~0.55, stiffness = ~200)` reproducing `ease-spring-slow`'s ~500ms larger overshoot
+- `bouncy: FiniteAnimationSpec<Float>` — `keyframes` matching the CSS `ease-spring-bouncy` linear() pattern (Compose `spring()` damping can't hit the ~1.25× overshoot peak cleanly)
+- `defaultEffects: FiniteAnimationSpec<Float>` — `tween(durationMillis = 300, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))` for color/alpha animations
+- A `reduced` companion: identical structure but every spec is a `tween(easing = LinearEasing)` with halved durations and zero overshoot
 
-**Choice: custom MotionScheme.** The brand system explicitly defined spring curves — `ease-spring-bouncy` has a ~1.25× overshoot pattern that Material's stock expressive curves don't reproduce. `fast` and `slow` translate cleanly to Compose `spring(dampingRatio, stiffness)`. `bouncy` is the distinctive one and uses `keyframes` because the linear() curve has a specific overshoot-then-settle pattern that spring damping can approximate but not match exactly.
+The reduce-motion swap is at the `NubecitaTheme` boundary — read `LocalAccessibilityManager.current?.isRemoveAnimationsEnabled` (recomputed reactively) and provide either `NubecitaMotion.standard` or `NubecitaMotion.reduced` to the `LocalNubecitaTokens`.
 
-**Trade-off:** Kotlin spring parameters are tuned by feel, not mathematically derived from the linear() curves. We'll iterate on the emulator/device to match what the CSS looks like in a browser. The brand system's README includes HTML preview cards (`preview/spacing-motion.html`) that serve as the ground truth.
+**Trade-off:** Kotlin spring parameters are tuned by feel, not mathematically derived from the CSS linear() curves. Iterate on emulator/device against `openspec/references/design-system/preview/spacing-motion.html` (the HTML ground truth). Material3 components don't pick this up automatically (they use Material3's internal motion); feature code passes `MaterialTheme.motion.defaultSpatial` explicitly to `animate*AsState` and similar calls.
 
 ### Dynamic color default-on, brand-palette as fallback
 

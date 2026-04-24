@@ -85,19 +85,21 @@ M3 Expressive's `Button` defaults to a pill shape via `ButtonDefaults`; this mod
 
 ### Requirement: Motion is governed by the brand spring system
 
-`MaterialTheme.motionScheme` MUST be a custom `MotionScheme` built from the brand spring tokens (`ease-spring-fast`, `ease-spring-slow`, `ease-spring-bouncy`, plus the cubic-bezier eases `ease-standard`, `ease-emphasized`, `ease-emphasized-decel`, `ease-emphasized-accel`). Durations (`--dur-short-1..x-long-1`) MUST be exposed on `NubecitaTokens.duration` in milliseconds.
+A `NubecitaMotion` data class MUST expose the brand motion intent as Compose `FiniteAnimationSpec`s: `defaultSpatial`, `slowSpatial`, `bouncy`, `defaultEffects`, and `defaultEmphasized`. The standard variant uses spring/keyframes specs translated from the CSS `ease-spring-fast`, `ease-spring-slow`, and `ease-spring-bouncy` curves. Durations (`--dur-short-1..x-long-1`) MUST be exposed on `NubecitaTokens.motionDurations` in milliseconds.
 
-When the Android runtime `AccessibilityManager` reports that animations should be removed (reduce-motion setting on), `MaterialTheme.motionScheme` MUST fall back to tween-based specs with linear easing and halved durations. The reduce-motion fallback MUST be recomputed reactively if the setting changes without app restart.
+`NubecitaMotion` MUST be reachable via `MaterialTheme.motion` (extension property reading from `LocalNubecitaTokens`). Material3's own `MotionScheme` is **not** customizable as of Compose BOM `2026.04.01` (it's an `internal` API), so this module does NOT attempt to configure `MaterialTheme.motionScheme`; feature code wanting brand-consistent motion passes `MaterialTheme.motion.*` specs explicitly to `animate*AsState`, `AnimatedVisibility`, etc.
 
-#### Scenario: Default spatial motion is a spring
+When the Android runtime `AccessibilityManager` reports that animations should be removed (reduce-motion setting on), `MaterialTheme.motion` MUST return a `NubecitaMotion` whose specs are tween-based with `LinearEasing` and halved durations. The swap MUST be reactive — the value MUST update without app restart when the setting changes.
 
-- **WHEN** a composable reads `MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()`
-- **THEN** the returned `AnimationSpec` is a `spring()` with dampingRatio and stiffness tuned to the CSS `ease-spring-fast` overshoot (~300ms settle).
+#### Scenario: Default spatial motion is a brand spring
+
+- **WHEN** a composable reads `MaterialTheme.motion.defaultSpatial`
+- **THEN** the returned `FiniteAnimationSpec<Float>` is a `spring()` with dampingRatio and stiffness tuned to the CSS `ease-spring-fast` overshoot (~300ms settle).
 
 #### Scenario: Reduce-motion removes overshoot
 
-- **WHEN** the device's "remove animations" accessibility setting is enabled and a composable reads `MaterialTheme.motionScheme.defaultSpatialSpec<Dp>()`
-- **THEN** the returned `AnimationSpec` is a `tween` with `LinearEasing` and duration ≤ 150ms.
+- **WHEN** the device's "remove animations" accessibility setting is enabled and a composable reads `MaterialTheme.motion.defaultSpatial`
+- **THEN** the returned `FiniteAnimationSpec<Float>` is a `tween` with `LinearEasing` and duration ≤ 150ms.
 
 ### Requirement: Extended tokens are reachable via MaterialTheme extension properties
 
@@ -106,6 +108,7 @@ The module MUST expose these extension properties on `MaterialTheme` (all `@Comp
 - `MaterialTheme.spacing: NubecitaSpacing` — `s0, s1, s2, s3, s4, s5, s6, s7, s8, s10, s12, s16, s20, s24` (4pt scale, matching CSS `--s-*`)
 - `MaterialTheme.elevation: NubecitaElevation` — `e1, e2, e3, e4, e5` as `Dp` for stock M3 `Surface(tonalElevation = ...)` / `Modifier.shadow(...)` usage
 - `MaterialTheme.semanticColors: NubecitaSemanticColors` — `success, onSuccess, successContainer, onSuccessContainer, warning, onWarning` (not in M3 stock `ColorScheme`)
+- `MaterialTheme.motion: NubecitaMotion` — brand motion specs (`defaultSpatial`, `slowSpatial`, `bouncy`, `defaultEffects`, `defaultEmphasized`)
 - `MaterialTheme.motionDurations: NubecitaDurations` — `short1 = 50ms, short2 = 100ms, ..., xLong1 = 700ms`
 - `MaterialTheme.extendedShape: NubecitaExtendedShape` — `extraExtraLarge = RoundedCornerShape(36.dp), pill = CircleShape, sheet = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)`
 - `MaterialTheme.extendedTypography: NubecitaExtendedTypography` — `mono` (`TextStyle` using JetBrains Mono)

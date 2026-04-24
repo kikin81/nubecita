@@ -1,28 +1,28 @@
-@file:Suppress("ktlint:compose:compositionlocal-allowlist")
-
 package net.kikin.nubecita.designsystem
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 
 data class NubecitaTokens(
     val spacing: NubecitaSpacing = NubecitaSpacing(),
     val elevation: NubecitaElevation = NubecitaElevation(),
     val semanticColors: NubecitaSemanticColors,
+    val motion: NubecitaMotion = NubecitaMotion.Standard,
     val motionDurations: NubecitaDurations = NubecitaDurations(),
     val extendedShape: NubecitaExtendedShape = NubecitaExtendedShape(),
     val extendedTypography: NubecitaExtendedTypography = NubecitaExtendedTypography(),
 )
 
 data class NubecitaSemanticColors(
-    val success: androidx.compose.ui.graphics.Color,
-    val onSuccess: androidx.compose.ui.graphics.Color,
-    val successContainer: androidx.compose.ui.graphics.Color,
-    val onSuccessContainer: androidx.compose.ui.graphics.Color,
-    val warning: androidx.compose.ui.graphics.Color,
-    val onWarning: androidx.compose.ui.graphics.Color,
+    val success: Color,
+    val onSuccess: Color,
+    val successContainer: Color,
+    val onSuccessContainer: Color,
+    val warning: Color,
+    val onWarning: Color,
 )
 
 data class NubecitaDurations(
@@ -60,6 +60,11 @@ val MaterialTheme.semanticColors: NubecitaSemanticColors
     @Composable
     @ReadOnlyComposable
     get() = LocalNubecitaTokens.current.semanticColors
+
+val MaterialTheme.motion: NubecitaMotion
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalNubecitaTokens.current.motion
 
 val MaterialTheme.motionDurations: NubecitaDurations
     @Composable
