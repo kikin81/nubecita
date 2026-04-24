@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 72" width="240" height="72">
+
+  <defs>
+
+  </defs>
+
+  <g transform="translate(6, 14)">
+
+    <circle cx="18" cy="26" r="14" fill="#0A7AFF"></circle>
+    <circle cx="34" cy="20" r="18" fill="#0A7AFF"></circle>
+    <circle cx="52" cy="26" r="14" fill="#0A7AFF"></circle>
+
+    <rect x="10" y="30" width="48" height="14" rx="7" fill="#0A7AFF"></rect>
+
+    <circle cx="30" cy="22" r="3.5" fill="#FFFFFF" opacity="0.9"></circle>
+  </g>
+  <text x="78" y="50" class="nb-wordmark">nubecita</text>
+</svg>

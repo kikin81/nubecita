@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><title>Surface containers</title>
+<style>
+.card{padding:20px 24px;}
+.bar{display:flex;border-radius:var(--shape-md);overflow:hidden;border:1px solid var(--outline-variant);height:80px;}
+.s{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;font:600 10px/1.2 var(--font-body);color:var(--fg-2);}
+.s .n{font:500 10px/1.2 var(--font-mono);color:var(--fg-3);margin-top:2px;}
+.title-medium{margin-bottom:10px}
+.note{margin-top:10px}
+</style></head><body><div class="card">
+<div class="title-medium">Surface containers — light</div>
+<div class="bar">
+<div class="s" style="background:#FFFFFF"><div>lowest</div><div class="n">#FFFFFF</div></div>
+<div class="s" style="background:#F7F5FA"><div>low</div><div class="n">#F7F5FA</div></div>
+<div class="s" style="background:#F1EFF4"><div>base</div><div class="n">#F1EFF4</div></div>
+<div class="s" style="background:#EBE9EE"><div>high</div><div class="n">#EBE9EE</div></div>
+<div class="s" style="background:#E5E3E9"><div>highest</div><div class="n">#E5E3E9</div></div>
+</div>
+<div class="body-medium muted note">5-tier hierarchy; cards use <b>low</b>, floating menus use <b>high</b>.</div>
+</div></body></html>

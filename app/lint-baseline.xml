@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<issues format="6" by="lint 9.1.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.1.1)" variant="all" version="9.1.1">
+<issues format="6" by="lint 9.2.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.0)" variant="all" version="9.2.0">
 
     <issue
         id="Instantiatable"
@@ -13,25 +13,14 @@
     </issue>
 
     <issue
-        id="NewApi"
-        message="Call requires API level 31 (current min is 24): `dynamicDarkColorScheme`"
-        errorLine1="                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)"
-        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~">
+        id="NewerVersionAvailable"
+        message="A newer version of io.ktor:ktor-client-okhttp than 3.4.0 is available: 3.4.3"
+        errorLine1="ktor = &quot;3.4.0&quot;"
+        errorLine2="       ~~~~~~~">
         <location
-            file="src/main/java/net/kikin/nubecita/theme/Theme.kt"
-            line="42"
-            column="32"/>
-    </issue>
-
-    <issue
-        id="NewApi"
-        message="Call requires API level 31 (current min is 24): `dynamicLightColorScheme`"
-        errorLine1="                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)"
-        errorLine2="                                                                    ~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/net/kikin/nubecita/theme/Theme.kt"
-            line="42"
-            column="69"/>
+            file="../gradle/libs.versions.toml"
+            line="19"
+            column="8"/>
     </issue>
 
     <issue

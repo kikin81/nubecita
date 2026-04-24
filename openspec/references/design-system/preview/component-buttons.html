@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><title>Buttons</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Rounded"/>
+<style>.card{padding:18px 24px;}
+.grp{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+.btn{font:600 14px/1 var(--font-body);border:none;border-radius:999px;padding:0 24px;height:40px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:transform var(--dur-short-4) var(--ease-spring-bouncy);}
+.btn:active{transform:scale(.96);}
+.filled{background:var(--sky-50);color:#fff;}
+.tonal{background:var(--sky-90);color:var(--sky-10);}
+.outline{background:transparent;color:var(--sky-50);border:1px solid var(--outline);}
+.text{background:transparent;color:var(--sky-50);padding:0 12px;}
+.elev{background:#fff;color:var(--sky-50);box-shadow:var(--elev-1);}
+.btn .material-symbols-rounded{font-size:18px;}
+.label{margin-bottom:4px}
+</style></head><body><div class="card">
+<div class="label">FILLED · TONAL · OUTLINED · TEXT · ELEVATED</div>
+<div class="grp">
+<button class="btn filled"><span class="material-symbols-rounded">edit</span>Post</button>
+<button class="btn tonal">Follow</button>
+<button class="btn outline">Mute</button>
+<button class="btn text">Cancel</button>
+<button class="btn elev">Share</button>
+</div>
+<div class="label">SIZES · SM · MD · LG</div>
+<div class="grp">
+<button class="btn filled" style="height:32px;padding:0 16px;font-size:13px">Post</button>
+<button class="btn filled">Post</button>
+<button class="btn filled" style="height:56px;padding:0 32px;font-size:16px">Post</button>
+</div>
+</div></body></html>

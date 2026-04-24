@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><title>Post card</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Rounded"/>
+<style>.card{padding:0;background:var(--surface-container-lowest);}
+.post{padding:16px 20px;display:grid;grid-template-columns:44px 1fr;gap:12px;border-bottom:1px solid var(--outline-variant);}
+.av{width:44px;height:44px;border-radius:999px;background:linear-gradient(135deg,#A6C8FF,#6250B0);}
+.hdr{display:flex;align-items:baseline;gap:6px;}
+.name{font:600 15px/1.2 var(--font-body);}
+.handle{font:400 13px/1.2 var(--font-mono);color:var(--fg-3);}
+.dot{color:var(--fg-3);}
+.when{font:400 13px/1.2 var(--font-body);color:var(--fg-3);margin-left:auto;}
+.body{font:400 17px/26px var(--font-body);color:var(--fg-1);margin:6px 0 10px;text-wrap:pretty;}
+.actions{display:flex;gap:28px;color:var(--fg-2);}
+.act{display:flex;align-items:center;gap:6px;font:500 13px/1 var(--font-body);cursor:pointer;}
+.act .material-symbols-rounded{font-size:20px;}
+.act.liked{color:var(--peach-60);}
+</style></head><body><div class="card"><div class="post">
+<div class="av"></div>
+<div>
+<div class="hdr"><span class="name">Alice Chen</span><span class="handle">@alice.nubecita.app</span><span class="dot">·</span><span class="when">3h</span></div>
+<div class="body">The thing about building a Bluesky client in 2026 is you realize how much of the web we gave up trying to fix. Small clients, good defaults, readable text. ☁︎</div>
+<div class="actions">
+<div class="act"><span class="material-symbols-rounded">chat_bubble</span>12</div>
+<div class="act"><span class="material-symbols-rounded">repeat</span>4</div>
+<div class="act liked"><span class="material-symbols-rounded" style="font-variation-settings:'FILL' 1">favorite</span>86</div>
+<div class="act"><span class="material-symbols-rounded">share</span></div>
+</div>
+</div>
+</div></div></body></html>

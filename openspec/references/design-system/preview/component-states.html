@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><title>State layers</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Rounded"/>
+<style>.card{padding:18px 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.st{height:80px;width:130px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:600 11px/1 var(--font-body);position:relative;overflow:hidden;}
+.b{background:var(--sky-50);color:#fff;}
+.b .ov{position:absolute;inset:0;}
+.hover .ov{background:rgba(255,255,255,0.08);}
+.focus .ov{background:rgba(255,255,255,0.12);}
+.focus{outline:2px solid var(--sky-50);outline-offset:2px;}
+.press .ov{background:rgba(255,255,255,0.12);}
+.press{transform:scale(.96);}
+.disabled{background:var(--on-surface);opacity:.12;color:var(--fg-1);}
+.lbl{font:500 10px/1 var(--font-mono);color:var(--fg-3);margin-top:6px;}
+.cell{display:flex;flex-direction:column;align-items:center;}
+</style></head><body><div class="card">
+<div class="cell"><div class="st b">Default</div><div class="lbl">base</div></div>
+<div class="cell"><div class="st b hover"><div class="ov"></div>Hover</div><div class="lbl">+8% white</div></div>
+<div class="cell"><div class="st b focus"><div class="ov"></div>Focus</div><div class="lbl">ring + 12%</div></div>
+<div class="cell"><div class="st b press"><div class="ov"></div>Press</div><div class="lbl">scale .96</div></div>
+<div class="cell"><div class="st disabled">Disabled</div><div class="lbl">12% opacity</div></div>
+</div></body></html>

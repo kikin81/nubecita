@@ -1,0 +1,457 @@
+/* ============================================================
+   Nubecita Design System — Colors + Type
+   Built on Material 3 Expressive tokens, with a Nubecita voice.
+   ============================================================ */
+
+/* -----  Fonts  ----- */
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&family=Fraunces:opsz,wght,SOFT@9..144,400..900,0..100&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ============================================================
+   LIGHT THEME  — default
+   ============================================================ */
+:root {
+  /* -----  M3 tonal palette (Nubecita key: Sky)  ----- */
+  --sky-0:    #000D1F;
+  --sky-10:   #001B33;
+  --sky-20:   #003155;
+  --sky-30:   #004880;
+  --sky-40:   #0062B1;
+  --sky-50:   #0A7AFF;   /* PRIMARY (M3 key color) */
+  --sky-60:   #3F92FF;
+  --sky-70:   #6FAAFF;
+  --sky-80:   #A6C8FF;
+  --sky-90:   #D6E3FF;
+  --sky-95:   #EBF1FF;
+  --sky-98:   #F7F9FF;
+  --sky-99:   #FDFCFF;
+  --sky-100:  #FFFFFF;
+
+  /* -----  Secondary (Peach — the warm counterweight)  ----- */
+  --peach-0:   #2B1100;
+  --peach-10:  #3E1C00;
+  --peach-20:  #5B2D00;
+  --peach-30:  #7B4100;
+  --peach-40:  #9C5600;
+  --peach-50:  #C06C00;
+  --peach-60:  #E38412;
+  --peach-70:  #FFA04D;
+  --peach-80:  #FFB787;
+  --peach-90:  #FFDCC2;
+  --peach-95:  #FFEDE0;
+  --peach-98:  #FFF8F4;
+
+  /* -----  Tertiary (Lilac — the soft third accent)  ----- */
+  --lilac-30:  #4A3880;
+  --lilac-40:  #6250B0;
+  --lilac-50:  #7B6AD0;
+  --lilac-70:  #B5A8F0;
+  --lilac-90:  #E5DEFF;
+  --lilac-95:  #F3EFFF;
+
+  /* -----  Neutral  ----- */
+  --neutral-0:    #000000;
+  --neutral-10:   #1A1B1F;
+  --neutral-20:   #2E2F33;
+  --neutral-30:   #45464A;
+  --neutral-40:   #5D5E62;
+  --neutral-50:   #76777B;
+  --neutral-60:   #909094;
+  --neutral-70:   #AAAAAE;
+  --neutral-80:   #C6C6CA;
+  --neutral-90:   #E2E2E6;
+  --neutral-95:   #F0F0F4;
+  --neutral-98:   #F8F9FC;
+  --neutral-99:   #FCFCFF;
+  --neutral-100:  #FFFFFF;
+
+  /* -----  Neutral-variant (for outlines + low-emphasis)  ----- */
+  --nv-30:  #43474E;
+  --nv-50:  #73777F;
+  --nv-80:  #C3C7CF;
+  --nv-90:  #DFE2EB;
+
+  /* -----  Semantic (M3 "error" + Nubecita-specific)  ----- */
+  --error-40:    #BA1A1A;
+  --error-50:    #DC362E;
+  --error-80:    #FFB4AB;
+  --error-90:    #FFDAD6;
+
+  --success-40:  #006D3F;
+  --success-50:  #1F8B5C;
+  --success-80:  #7BD8A9;
+  --success-90:  #B7F2D0;
+
+  --warning-40:  #8A5300;
+  --warning-80:  #FFCC80;
+
+  /* ============================================================
+     SEMANTIC ROLES — light mode
+     ============================================================ */
+  --primary:            var(--sky-50);
+  --on-primary:         var(--sky-100);
+  --primary-container:  var(--sky-90);
+  --on-primary-container: var(--sky-10);
+
+  --secondary:          var(--peach-50);
+  --on-secondary:       #FFFFFF;
+  --secondary-container: var(--peach-90);
+  --on-secondary-container: var(--peach-10);
+
+  --tertiary:           var(--lilac-40);
+  --on-tertiary:        #FFFFFF;
+  --tertiary-container: var(--lilac-90);
+  --on-tertiary-container: var(--lilac-30);
+
+  --error:              var(--error-40);
+  --on-error:           #FFFFFF;
+  --error-container:    var(--error-90);
+  --on-error-container: #410002;
+
+  /* Surfaces (M3 Expressive uses many tonal surfaces) */
+  --surface:            #FDFCFF;
+  --on-surface:         var(--neutral-10);
+  --on-surface-variant: var(--nv-30);
+
+  --surface-dim:        #DEDCE0;
+  --surface-bright:     #FDFCFF;
+
+  --surface-container-lowest: #FFFFFF;
+  --surface-container-low:    #F7F5FA;
+  --surface-container:        #F1EFF4;
+  --surface-container-high:   #EBE9EE;
+  --surface-container-highest:#E5E3E9;
+
+  /* Foregrounds (shortcuts) */
+  --fg-1:  var(--neutral-10);   /* primary text */
+  --fg-2:  var(--nv-30);        /* secondary text */
+  --fg-3:  var(--neutral-50);   /* tertiary / meta */
+  --fg-inverse: var(--neutral-99);
+
+  /* Outlines */
+  --outline:         var(--nv-50);
+  --outline-variant: var(--nv-80);
+
+  /* Scrim + overlays */
+  --scrim: rgba(0, 13, 31, 0.5);
+  --state-hover:  rgba(10, 122, 255, 0.08);
+  --state-focus:  rgba(10, 122, 255, 0.12);
+  --state-press:  rgba(10, 122, 255, 0.12);
+
+  /* ============================================================
+     SHAPE — M3 Expressive shape scale (more rounded than M3 base)
+     ============================================================ */
+  --shape-xs:   4px;
+  --shape-sm:   8px;
+  --shape-md:   12px;
+  --shape-lg:   16px;
+  --shape-xl:   28px;
+  --shape-2xl:  36px;
+  --shape-full: 999px;
+
+  /* Component-level shapes */
+  --shape-button:      var(--shape-full);   /* M3E pill buttons */
+  --shape-card:        var(--shape-lg);
+  --shape-card-large:  var(--shape-xl);
+  --shape-fab:         var(--shape-lg);
+  --shape-chip:        var(--shape-sm);
+  --shape-sheet:       28px 28px 0 0;
+
+  /* ============================================================
+     ELEVATION (M3 uses tonal + shadow; we use mild shadows)
+     ============================================================ */
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgba(0,13,31,0.05), 0 1px 3px rgba(0,13,31,0.08);
+  --elev-2: 0 1px 2px rgba(0,13,31,0.06), 0 2px 6px rgba(0,13,31,0.10);
+  --elev-3: 0 2px 4px rgba(0,13,31,0.06), 0 6px 12px rgba(0,13,31,0.12);
+  --elev-4: 0 4px 8px rgba(0,13,31,0.08), 0 10px 22px rgba(0,13,31,0.14);
+  --elev-5: 0 8px 16px rgba(0,13,31,0.10), 0 16px 40px rgba(0,13,31,0.18);
+
+  /* ============================================================
+     SPACING — 4pt scale
+     ============================================================ */
+  --s-0:   0;
+  --s-1:   4px;
+  --s-2:   8px;
+  --s-3:   12px;
+  --s-4:   16px;
+  --s-5:   20px;
+  --s-6:   24px;
+  --s-7:   28px;
+  --s-8:   32px;
+  --s-10:  40px;
+  --s-12:  48px;
+  --s-16:  64px;
+  --s-20:  80px;
+  --s-24:  96px;
+
+  /* ============================================================
+     MOTION — M3 Expressive spatial springs
+     ============================================================ */
+  --ease-standard:       cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized:     cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-emphasized-accel: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-spring-fast:    linear(0, 0.53 7.4%, 0.83 15%, 0.96 21%, 1.04 27%, 1.06 34%, 1.06 41%, 1.05 48%, 1.03 55%, 1.00 71%, 1.00);
+  --ease-spring-slow:    linear(0, 0.18, 0.52, 0.88, 1.08, 1.12, 1.08, 1.03, 1.0);
+  --ease-spring-bouncy:  linear(0, 0.007, 0.030, 0.080 2.6%, 0.25 5.3%, 0.63 10%, 1.06 17%, 1.20 21%, 1.25 24%, 1.22 27%, 1.08 34%, 1.00 41%, 0.97 46%, 0.98 56%, 1.00);
+
+  --dur-short-1:    50ms;
+  --dur-short-2:    100ms;
+  --dur-short-3:    150ms;
+  --dur-short-4:    200ms;
+  --dur-medium-1:   250ms;
+  --dur-medium-2:   300ms;
+  --dur-medium-3:   350ms;
+  --dur-medium-4:   400ms;
+  --dur-long-1:     450ms;
+  --dur-long-2:     500ms;
+  --dur-long-3:     550ms;
+  --dur-long-4:     600ms;
+  --dur-x-long-1:   700ms;
+
+  /* ============================================================
+     TYPOGRAPHY — M3 type scale, Nubecita fonts
+     ============================================================ */
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;      /* expressive display */
+  --font-body:    'Roboto Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  /* M3 type scale (size / line-height / weight / tracking) */
+  --display-large-size:   57px;
+  --display-large-lh:     64px;
+  --display-medium-size:  45px;
+  --display-medium-lh:    52px;
+  --display-small-size:   36px;
+  --display-small-lh:     44px;
+
+  --headline-large-size:  32px;
+  --headline-large-lh:    40px;
+  --headline-medium-size: 28px;
+  --headline-medium-lh:   36px;
+  --headline-small-size:  24px;
+  --headline-small-lh:    32px;
+
+  --title-large-size:     22px;
+  --title-large-lh:       28px;
+  --title-medium-size:    16px;
+  --title-medium-lh:      24px;
+  --title-small-size:     14px;
+  --title-small-lh:       20px;
+
+  --body-large-size:      17px;     /* ↑ from M3 default 16, feed readability */
+  --body-large-lh:        26px;
+  --body-medium-size:     14px;
+  --body-medium-lh:       20px;
+  --body-small-size:      12px;
+  --body-small-lh:        16px;
+
+  --label-large-size:     14px;
+  --label-large-lh:       20px;
+  --label-medium-size:    12px;
+  --label-medium-lh:      16px;
+  --label-small-size:     11px;
+  --label-small-lh:       16px;
+}
+
+/* ============================================================
+   DARK THEME
+   ============================================================ */
+:root[data-theme="dark"],
+.dark-theme {
+  --primary:            var(--sky-80);
+  --on-primary:         var(--sky-20);
+  --primary-container:  var(--sky-30);
+  --on-primary-container: var(--sky-90);
+
+  --secondary:          var(--peach-80);
+  --on-secondary:       var(--peach-20);
+  --secondary-container: var(--peach-30);
+  --on-secondary-container: var(--peach-90);
+
+  --tertiary:           var(--lilac-70);
+  --on-tertiary:        var(--lilac-30);
+  --tertiary-container: var(--lilac-30);
+  --on-tertiary-container: var(--lilac-90);
+
+  --error:              var(--error-80);
+  --on-error:           #690005;
+  --error-container:    #93000A;
+  --on-error-container: var(--error-90);
+
+  --surface:            #111318;
+  --on-surface:         #E3E2E6;
+  --on-surface-variant: var(--nv-80);
+
+  --surface-dim:        #111318;
+  --surface-bright:     #37393E;
+
+  --surface-container-lowest: #0C0E13;
+  --surface-container-low:    #191C20;
+  --surface-container:        #1D2024;
+  --surface-container-high:   #272A2F;
+  --surface-container-highest:#32353A;
+
+  --fg-1:  #E3E2E6;
+  --fg-2:  var(--nv-80);
+  --fg-3:  var(--neutral-70);
+  --fg-inverse: var(--neutral-10);
+
+  --outline:         var(--nv-50);
+  --outline-variant: var(--nv-30);
+
+  --scrim: rgba(0, 0, 0, 0.6);
+  --state-hover:  rgba(166, 200, 255, 0.08);
+  --state-focus:  rgba(166, 200, 255, 0.12);
+  --state-press:  rgba(166, 200, 255, 0.12);
+
+  --elev-1: 0 1px 2px rgba(0,0,0,0.30), 0 1px 3px rgba(0,0,0,0.30);
+  --elev-2: 0 1px 2px rgba(0,0,0,0.30), 0 2px 6px rgba(0,0,0,0.35);
+  --elev-3: 0 2px 4px rgba(0,0,0,0.30), 0 6px 12px rgba(0,0,0,0.40);
+  --elev-4: 0 4px 8px rgba(0,0,0,0.35), 0 10px 22px rgba(0,0,0,0.45);
+  --elev-5: 0 8px 16px rgba(0,0,0,0.40), 0 16px 40px rgba(0,0,0,0.55);
+}
+
+/* ============================================================
+   BASE ELEMENT STYLES
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--body-large-size);
+  line-height: var(--body-large-lh);
+  color: var(--fg-1);
+  background: var(--surface);
+  font-feature-settings: "ss01", "cv11";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, .display-large {
+  font-family: var(--font-display);
+  font-size: var(--display-large-size);
+  line-height: var(--display-large-lh);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variation-settings: "SOFT" 50;
+  margin: 0;
+}
+.display-medium {
+  font-family: var(--font-display);
+  font-size: var(--display-medium-size);
+  line-height: var(--display-medium-lh);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-variation-settings: "SOFT" 50;
+}
+.display-small {
+  font-family: var(--font-display);
+  font-size: var(--display-small-size);
+  line-height: var(--display-small-lh);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variation-settings: "SOFT" 50;
+}
+
+h2, .headline-large {
+  font-family: var(--font-display);
+  font-size: var(--headline-large-size);
+  line-height: var(--headline-large-lh);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+h3, .headline-medium {
+  font-family: var(--font-body);
+  font-size: var(--headline-medium-size);
+  line-height: var(--headline-medium-lh);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+h4, .headline-small {
+  font-family: var(--font-body);
+  font-size: var(--headline-small-size);
+  line-height: var(--headline-small-lh);
+  font-weight: 700;
+  margin: 0;
+}
+
+.title-large {
+  font-family: var(--font-body);
+  font-size: var(--title-large-size);
+  line-height: var(--title-large-lh);
+  font-weight: 600;
+}
+.title-medium {
+  font-family: var(--font-body);
+  font-size: var(--title-medium-size);
+  line-height: var(--title-medium-lh);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.title-small {
+  font-family: var(--font-body);
+  font-size: var(--title-small-size);
+  line-height: var(--title-small-lh);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+p, .body-large {
+  font-family: var(--font-body);
+  font-size: var(--body-large-size);
+  line-height: var(--body-large-lh);
+  font-weight: 400;
+  margin: 0;
+  text-wrap: pretty;
+}
+.body-medium {
+  font-family: var(--font-body);
+  font-size: var(--body-medium-size);
+  line-height: var(--body-medium-lh);
+  font-weight: 400;
+}
+.body-small {
+  font-family: var(--font-body);
+  font-size: var(--body-small-size);
+  line-height: var(--body-small-lh);
+  font-weight: 400;
+}
+
+.label-large {
+  font-family: var(--font-body);
+  font-size: var(--label-large-size);
+  line-height: var(--label-large-lh);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.label-medium {
+  font-family: var(--font-body);
+  font-size: var(--label-medium-size);
+  line-height: var(--label-medium-lh);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.label-small {
+  font-family: var(--font-body);
+  font-size: var(--label-small-size);
+  line-height: var(--label-small-lh);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+code, pre, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }

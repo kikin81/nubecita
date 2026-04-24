@@ -19,3 +19,4 @@ plugins {
 
 rootProject.name = "Nubecita"
 include(":app")
+include(":designsystem")

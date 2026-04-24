@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Nubecita — Android UI Kit</title>
+<link rel="stylesheet" href="../../colors_and_type.css"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0"/>
+<style>
+  body { background: var(--surface-container); min-height: 100vh; margin: 0; font-family: var(--font-body); }
+  .page { padding: 32px 24px 64px; display: flex; flex-direction: column; gap: 32px; align-items: center; }
+  .page-head { text-align: center; max-width: 720px; margin: 0 auto; }
+  .page-head h1 { font-family: var(--font-display); font-size: 44px; font-weight: 600; font-variation-settings: "SOFT" 60; letter-spacing: -0.02em; margin: 0 0 8px; }
+  .page-head p { font-size: 16px; color: var(--fg-2); margin: 0; }
+  .sect { width: 100%; max-width: 1400px; }
+  .sect-title { font-family: var(--font-display); font-size: 24px; font-weight: 600; font-variation-settings: "SOFT" 60; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sect-sub { font-size: 14px; color: var(--fg-3); margin: 0 0 16px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .stage-label { font-weight: 600; font-size: 13px; color: var(--fg-2); letter-spacing: 0.01em; }
+  .tablet-frame { width: 900px; height: 650px; border-radius: 22px; overflow: hidden; background: var(--surface); border: 8px solid rgba(116,119,117,0.5); box-shadow: 0 30px 80px rgba(0,0,0,0.22); }
+  .fold-frame { width: 1100px; height: 700px; border-radius: 18px; overflow: hidden; background: var(--surface); border: 8px solid rgba(116,119,117,0.5); box-shadow: 0 30px 80px rgba(0,0,0,0.22); position: relative; }
+  .fold-frame::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: rgba(0,0,0,0.06); pointer-events: none; }
+  #root { width: 100%; }
+  .nb-phone-wrap { position: relative; }
+  .material-symbols-rounded { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="./android-frame.jsx"></script>
+<script type="text/babel" src="./data.jsx"></script>
+<script type="text/babel" src="./Primitives.jsx"></script>
+<script type="text/babel" src="./Screens.jsx"></script>
+<script type="text/babel" src="./Adaptive.jsx"></script>
+
+<script type="text/babel">
+function PhoneFrame({ children, dark }) {
+  return (
+    <AndroidDevice width={380} height={780} dark={dark}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </div>
+    </AndroidDevice>
+  );
+}
+
+function PhoneWithNav({ children, active, onChange, dark }) {
+  return (
+    <AndroidDevice width={380} height={780} dark={dark}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: 0 }}>{children}</div>
+        <BottomNav active={active} onChange={onChange} />
+      </div>
+    </AndroidDevice>
+  );
+}
+
+function App() {
+  const [tab, setTab] = React.useState('home');
+  const [viewing, setViewing] = React.useState(null); // 'post' | 'compose' | 'media' | null
+  const [selectedPost, setSelectedPost] = React.useState(null);
+  const [theme, setTheme] = React.useState('light');
+
+  React.useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  // The primary phone — interactive
+  const phoneContent = () => {
+    if (viewing === 'post') return <PostDetailScreen post={selectedPost} onBack={() => setViewing(null)} onReply={() => setViewing('compose')} />;
+    if (viewing === 'compose') return <ComposerScreen onCancel={() => setViewing(null)} onPost={() => setViewing(null)} replyTo={selectedPost} />;
+    if (viewing === 'media') return <MediaViewerScreen onClose={() => setViewing(null)} />;
+    if (tab === 'home') return <FeedScreen onOpenPost={(p) => { setSelectedPost(p); setViewing('post'); }} onOpenCompose={() => setViewing('compose')} />;
+    if (tab === 'search') return <SearchScreen onBack={() => setTab('home')} />;
+    if (tab === 'alerts') return <NotificationsScreen onBack={() => setTab('home')} />;
+    if (tab === 'you') return <ProfileScreen onBack={() => setTab('home')} />;
+    return <FeedScreen onOpenPost={(p) => { setSelectedPost(p); setViewing('post'); }} onOpenCompose={() => setViewing('compose')} />;
+  };
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <h1>Nubecita — Android UI Kit</h1>
+        <p>A Bluesky client on Material 3 Expressive — phone, tablet, foldable. Tap posts to open, tap ⊕ to compose, tap the bottom nav to switch tabs.</p>
+        <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <Button variant={theme === 'light' ? 'filled' : 'tonal'} onClick={() => setTheme('light')}>Light</Button>
+          <Button variant={theme === 'dark' ? 'filled' : 'tonal'} onClick={() => setTheme('dark')}>Dark</Button>
+        </div>
+      </div>
+
+      {/* Primary: interactive phone */}
+      <div className="sect">
+        <h2 className="sect-title">Phone — interactive</h2>
+        <p className="sect-sub">The full click-through prototype. Feed → post → reply → profile.</p>
+        <div className="row">
+          <div className="stage">
+            <PhoneWithNav active={tab} onChange={(t) => { setTab(t); setViewing(null); }} dark={theme === 'dark'}>
+              {phoneContent()}
+            </PhoneWithNav>
+            <div className="stage-label">Interactive · current: {viewing || tab}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Static phone screens */}
+      <div className="sect">
+        <h2 className="sect-title">Phone screens — reference</h2>
+        <p className="sect-sub">Every core surface as a static reference frame.</p>
+        <div className="row">
+          <div className="stage">
+            <PhoneWithNav active="home" dark={theme === 'dark'}>
+              <FeedScreen />
+            </PhoneWithNav>
+            <div className="stage-label">Feed</div>
+          </div>
+          <div className="stage">
+            <PhoneFrame dark={theme === 'dark'}>
+              <PostDetailScreen post={NB_POSTS[0]} />
+            </PhoneFrame>
+            <div className="stage-label">Post detail</div>
+          </div>
+          <div className="stage">
+            <PhoneFrame dark={theme === 'dark'}>
+              <ComposerScreen />
+            </PhoneFrame>
+            <div className="stage-label">Composer</div>
+          </div>
+          <div className="stage">
+            <PhoneWithNav active="you" dark={theme === 'dark'}>
+              <ProfileScreen />
+            </PhoneWithNav>
+            <div className="stage-label">Profile</div>
+          </div>
+          <div className="stage">
+            <PhoneWithNav active="alerts" dark={theme === 'dark'}>
+              <NotificationsScreen />
+            </PhoneWithNav>
+            <div className="stage-label">Notifications</div>
+          </div>
+          <div className="stage">
+            <PhoneWithNav active="search" dark={theme === 'dark'}>
+              <SearchScreen />
+            </PhoneWithNav>
+            <div className="stage-label">Search</div>
+          </div>
+          <div className="stage">
+            <PhoneFrame dark={theme === 'dark'}>
+              <SettingsScreen theme={theme} setTheme={setTheme} />
+            </PhoneFrame>
+            <div className="stage-label">Settings</div>
+          </div>
+          <div className="stage">
+            <PhoneFrame dark={theme === 'dark'}>
+              <OnboardingScreen onDone={() => {}} />
+            </PhoneFrame>
+            <div className="stage-label">Onboarding</div>
+          </div>
+          <div className="stage">
+            <PhoneFrame dark>
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <MediaViewerScreen />
+              </div>
+            </PhoneFrame>
+            <div className="stage-label">Media viewer</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tablet dual-pane */}
+      <div className="sect">
+        <h2 className="sect-title">Tablet — dual pane</h2>
+        <p className="sect-sub">Medium width (≥ 600 dp). Feed list + post detail side by side.</p>
+        <div className="row">
+          <div className="stage">
+            <div className="tablet-frame">
+              <TabletLayout />
+            </div>
+            <div className="stage-label">Tablet · 900 × 650</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Foldable three-pane */}
+      <div className="sect">
+        <h2 className="sect-title">Foldable — three pane</h2>
+        <p className="sect-sub">Expanded width (≥ 840 dp). Nav + feed + thread + side rail, all at once.</p>
+        <div className="row">
+          <div className="stage">
+            <div className="fold-frame">
+              <FoldableLayout />
+            </div>
+            <div className="stage-label">Foldable · unfolded</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

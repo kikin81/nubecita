@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"><title>App icon</title>
+<style>
+.card{display:flex;align-items:center;gap:28px;padding:24px;}
+.stage{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.icon-lg{width:120px;height:120px;border-radius:28px;overflow:hidden;box-shadow:var(--elev-3);}
+.icon-md{width:64px;height:64px;border-radius:15px;overflow:hidden;box-shadow:var(--elev-2);}
+.icon-sm{width:40px;height:40px;border-radius:10px;overflow:hidden;}
+.icon-lg img,.icon-md img,.icon-sm img{width:100%;height:100%;display:block;}
+</style></head>
+<body><div class="card">
+  <div class="stage"><div class="icon-lg"><img src="../assets/app-icon.svg"/></div><div class="label">120</div></div>
+  <div class="stage"><div class="icon-md"><img src="../assets/app-icon.svg"/></div><div class="label">64</div></div>
+  <div class="stage"><div class="icon-sm"><img src="../assets/app-icon.svg"/></div><div class="label">40</div></div>
+  <div class="col" style="margin-left:12px">
+    <div class="title-medium">Android adaptive icon</div>
+    <div class="body-medium muted">Foreground + background layers, safe zone respected. Background is brand sky <span class="mono">#0A7AFF</span>.</div>
+  </div>
+</div></body></html>

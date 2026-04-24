@@ -15,7 +15,7 @@ android {
     experimentalProperties["android.experimental.enableScreenshotTest"] = true
     defaultConfig {
         applicationId = "net.kikin.nubecita"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
@@ -58,6 +58,7 @@ kotlin {
 dependencies {
     val composeBom = platform(libs.androidx.compose.bom)
 
+    implementation(project(":designsystem"))
     implementation(composeBom)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
