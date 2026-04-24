@@ -13,6 +13,12 @@ private val provider =
         certificates = R.array.com_google_android_gms_fonts_certs,
     )
 
+// Google Downloadable Fonts don't accept FontVariation.Settings, so the brand's
+// Fraunces `SOFT 50` axis customization isn't applied at runtime — the font
+// renders at its default axis values. To apply SOFT 50, bundle the variable .ttf
+// in res/font/ and swap to Font(resId = ..., variationSettings = ...). The
+// visual difference at brand display sizes is modest; we accept it to keep
+// Fraunces off the APK (~500KB).
 val FrauncesFontFamily =
     FontFamily(
         Font(
@@ -20,7 +26,6 @@ val FrauncesFontFamily =
             fontProvider = provider,
             weight = FontWeight.SemiBold,
         ),
-        Font(resId = R.font.roboto_flex, weight = FontWeight.SemiBold), // Fallback to Roboto Flex if Fraunces fails
     )
 
 val MaterialSymbolsRoundedFontFamily =
@@ -31,6 +36,7 @@ val MaterialSymbolsRoundedFontFamily =
         ),
     )
 
+// Bundled variable .ttf so body text renders instantly with no FOUT on cold start.
 val RobotoFlexFontFamily =
     FontFamily(
         Font(resId = R.font.roboto_flex),

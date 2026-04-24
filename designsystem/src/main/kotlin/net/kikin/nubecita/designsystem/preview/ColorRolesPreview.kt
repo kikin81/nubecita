@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:compose:modifier-missing-check")
-
 package net.kikin.nubecita.designsystem.preview
 
 import androidx.compose.foundation.background
@@ -26,10 +24,11 @@ fun ColorSwatch(
     name: String,
     color: Color,
     onColor: Color,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -48,9 +47,7 @@ fun ColorSwatch(
 }
 
 @Composable
-fun ColorRoster(
-    modifier: Modifier = Modifier,
-) {
+fun ColorRoster(modifier: Modifier = Modifier) {
     Column(
         modifier =
             modifier
@@ -69,6 +66,11 @@ fun ColorRoster(
         ColorSwatch("ErrorContainer", scheme.errorContainer, scheme.onErrorContainer)
         ColorSwatch("Surface", scheme.surface, scheme.onSurface)
         ColorSwatch("SurfaceVariant", scheme.surfaceVariant, scheme.onSurfaceVariant)
+        ColorSwatch("SurfaceContainerLowest", scheme.surfaceContainerLowest, scheme.onSurface)
+        ColorSwatch("SurfaceContainerLow", scheme.surfaceContainerLow, scheme.onSurface)
+        ColorSwatch("SurfaceContainer", scheme.surfaceContainer, scheme.onSurface)
+        ColorSwatch("SurfaceContainerHigh", scheme.surfaceContainerHigh, scheme.onSurface)
+        ColorSwatch("SurfaceContainerHighest", scheme.surfaceContainerHighest, scheme.onSurface)
     }
 }
 
@@ -86,4 +88,20 @@ private fun ColorRolesPreviewDark() {
     NubecitaTheme(darkTheme = true, dynamicColor = false) {
         ColorRoster()
     }
+}
+
+// The HC previews exercise the same brandScheme() code path that UiModeManager.contrast
+// would trigger on Android 14+. NubecitaTheme itself only exposes darkTheme + dynamicColor
+// externally, so for the preview we wrap ColorRoster with a direct MaterialTheme that
+// plugs the HC ColorScheme in. Implementation lives in the same package.
+@Preview(name = "Light HC", showBackground = true)
+@Composable
+private fun ColorRolesPreviewLightHighContrast() {
+    HighContrastPreview(darkTheme = false) { ColorRoster() }
+}
+
+@Preview(name = "Dark HC", showBackground = true)
+@Composable
+private fun ColorRolesPreviewDarkHighContrast() {
+    HighContrastPreview(darkTheme = true) { ColorRoster() }
 }

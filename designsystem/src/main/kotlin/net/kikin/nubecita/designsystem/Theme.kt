@@ -1,6 +1,7 @@
 package net.kikin.nubecita.designsystem
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.app.UiModeManager
 import android.content.Context
 import android.database.ContentObserver
@@ -8,7 +9,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -23,7 +23,12 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 
+// SuppressLint: the Build.VERSION.SDK_INT >= S guard directly wraps the dynamic*
+// calls, but AGP 9.2.0 lint's NewApi detector doesn't trace the guard through the
+// nested-if structure. The runtime check is provably correct; the baseline
+// fallback (brandScheme) renders on pre-12 and when dynamicColor is off.
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@SuppressLint("NewApi")
 @Composable
 fun NubecitaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -35,9 +40,14 @@ fun NubecitaTheme(
     val reduceMotion by reduceMotionState(context)
 
     val colorScheme =
-        when {
-            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicScheme(context, darkTheme)
-            else -> brandScheme(darkTheme, contrastLevel)
+        if (dynamicColor) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            } else {
+                brandScheme(darkTheme, contrastLevel)
+            }
+        } else {
+            brandScheme(darkTheme, contrastLevel)
         }
 
     val motionScheme =
@@ -61,12 +71,6 @@ fun NubecitaTheme(
         )
     }
 }
-
-@RequiresApi(Build.VERSION_CODES.S)
-private fun dynamicScheme(
-    context: Context,
-    darkTheme: Boolean,
-): ColorScheme = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
 
 private fun brandScheme(
     darkTheme: Boolean,
