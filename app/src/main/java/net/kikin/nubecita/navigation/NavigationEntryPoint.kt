@@ -4,6 +4,7 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.Navigator
 
 /**
  * Hilt entry point that exposes the `Set<EntryProviderInstaller>`
@@ -16,4 +17,6 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 @InstallIn(SingletonComponent::class)
 interface NavigationEntryPoint {
     fun entryProviderInstallers(): Set<@JvmSuppressWildcards EntryProviderInstaller>
+
+    fun navigator(): Navigator
 }

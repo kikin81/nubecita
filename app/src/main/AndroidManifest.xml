@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:name=".NubecitaApplication"
@@ -14,10 +16,37 @@
         android:theme="@style/Theme.Nubecita">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!--
+                OAuth redirect — Bluesky's authorization server sends the user back via
+                net.kikin.nubecita:/oauth-redirect after PAR. android:launchMode="singleTask"
+                ensures the redirect re-delivers to this MainActivity instance via
+                onNewIntent rather than spawning a new task; MainActivity.handleIntent
+                forwards the URI to OAuthRedirectBroker for LoginViewModel to consume.
+                Scheme MUST equal the app's applicationId and the redirect_uris registered
+                in client-metadata.json (see docs/oauth/).
+            -->
+            <!--
+                AppLinkUrlError suppressed: lint expects an android:host whenever
+                android:path is present (App Link convention for https:// URIs).
+                This is a custom-scheme deep link per RFC 8252 — the redirect URI
+                is "net.kikin.nubecita:/oauth-redirect" with a single slash and no
+                host component, exactly as registered in client-metadata.json.
+                Adding a placeholder host would change the URI shape and break
+                Bluesky's authorization-server matching.
+            -->
+            <intent-filter tools:ignore="AppLinkUrlError">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="net.kikin.nubecita"
+                    android:path="/oauth-redirect" />
             </intent-filter>
         </activity>
     </application>

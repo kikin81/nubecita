@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.login.impl
 
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,17 +15,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dagger.hilt.android.EntryPointAccessors
+import net.kikin.nubecita.core.common.navigation.NavigatorEntryPoint
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
 import net.kikin.nubecita.designsystem.spacing
@@ -35,6 +42,27 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val navigator =
+        remember(context) {
+            EntryPointAccessors
+                .fromApplication(context.applicationContext, NavigatorEntryPoint::class.java)
+                .navigator()
+        }
+
+    LaunchedEffect(viewModel) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                is LoginEffect.LaunchCustomTab ->
+                    CustomTabsIntent
+                        .Builder()
+                        .build()
+                        .launchUrl(context, effect.url.toUri())
+                LoginEffect.LoginSucceeded -> navigator.goBack()
+            }
+        }
+    }
+
     LoginScreen(
         state = state,
         onEvent = viewModel::handleEvent,

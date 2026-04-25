@@ -22,4 +22,17 @@ interface AuthRepository {
      *   (handle resolution, PAR rejection, network error, etc.).
      */
     suspend fun beginLogin(handle: String): Result<String>
+
+    /**
+     * Exchanges the OAuth authorization code in [redirectUri] for access
+     * + refresh tokens via the token endpoint and persists the resulting
+     * `OAuthSession` through the bound `OAuthSessionStore`. Carries no
+     * payload because the session is reachable through the store after
+     * success.
+     *
+     * @return [Result.success] with [Unit] on a clean exchange;
+     *   [Result.failure] wrapping the underlying exception on malformed
+     *   URI, missing PKCE state, server rejection, etc.
+     */
+    suspend fun completeLogin(redirectUri: String): Result<Unit>
 }
