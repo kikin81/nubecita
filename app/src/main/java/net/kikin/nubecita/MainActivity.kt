@@ -9,11 +9,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.feature.login.api.Login
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -21,7 +26,20 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var oauthRedirectBroker: OAuthRedirectBroker
 
+    @Inject
+    lateinit var sessionStateProvider: SessionStateProvider
+
+    @Inject
+    lateinit var navigator: Navigator
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // installSplashScreen() must run BEFORE super.onCreate so the keep-on-screen
+        // condition takes effect on the first frame. setKeepOnScreenCondition is called
+        // from the platform's frame callback (not a coroutine), so we read state.value
+        // synchronously off the StateFlow.
+        val splashScreen = installSplashScreen()
+        splashScreen.setKeepOnScreenCondition { sessionStateProvider.state.value is SessionState.Loading }
+
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
@@ -32,6 +50,23 @@ class MainActivity : ComponentActivity() {
         // launched MainActivity with the redirect intent. The broker buffers until
         // LoginViewModel's init-time collector subscribes.
         handleIntent(intent)
+
+        // Drive the initial session state read off the splash. Once refresh() completes,
+        // state transitions to SignedIn or SignedOut; the collector below reacts.
+        lifecycleScope.launch { sessionStateProvider.refresh() }
+
+        // Reactive routing — every state transition (cold-start resolution, future signOut)
+        // calls navigator.replaceTo(...). Idempotent: re-emitting the same state with the
+        // same destination already on top of the stack is a Compose no-op.
+        lifecycleScope.launch {
+            sessionStateProvider.state.collect { state ->
+                when (state) {
+                    SessionState.Loading -> Unit
+                    SessionState.SignedOut -> navigator.replaceTo(Login)
+                    is SessionState.SignedIn -> navigator.replaceTo(Main)
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

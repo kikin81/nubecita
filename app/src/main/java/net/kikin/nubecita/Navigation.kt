@@ -1,5 +1,7 @@
 package net.kikin.nubecita
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -38,6 +40,13 @@ fun MainNavigation(modifier: Modifier = Modifier) {
             ),
         entryProvider =
             entryProvider {
+                // The system SplashScreen API overlays this empty surface via
+                // setKeepOnScreenCondition while SessionStateProvider is still Loading.
+                // Once the bootstrap resolves, MainActivity's reactive collector calls
+                // navigator.replaceTo(Main or Login) and Splash leaves the back stack.
+                entry<Splash> {
+                    Box(modifier = Modifier.fillMaxSize())
+                }
                 entry<Main> {
                     MainScreen(modifier = Modifier.safeDrawingPadding())
                 }

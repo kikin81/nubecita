@@ -175,6 +175,8 @@ private class FakeAuthRepository(
         completeLoginInvocations++
         return completeLoginResult
     }
+
+    override suspend fun signOut(): Result<Unit> = Result.success(Unit)
 }
 
 private class FakeOAuthRedirectBroker : OAuthRedirectBroker {

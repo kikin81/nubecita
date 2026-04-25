@@ -5,6 +5,7 @@ androidxCore = "1.18.0"
 androidxLifecycle = "2.10.0"
 androidxActivity = "1.13.0"
 androidxBrowser = "1.10.0"
+androidxCoreSplashscreen = "1.2.0"
 androidxComposeBom = "2026.04.01"
 androidxComposeMaterial3 = "1.5.0-alpha18"
 androidxTest = "1.7.0"
@@ -33,6 +34,7 @@ composeKtlintRules = "0.5.7"
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradlePlugin" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "androidxCoreSplashscreen" }
 androidx-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
 androidx-datastore = { module = "androidx.datastore:datastore", version.ref = "datastore" }
 androidx-datastore-tink = { module = "androidx.datastore:datastore-tink", version.ref = "datastore" }

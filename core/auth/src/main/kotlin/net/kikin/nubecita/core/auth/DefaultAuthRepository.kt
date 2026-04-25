@@ -7,8 +7,19 @@ internal class DefaultAuthRepository
     @Inject
     constructor(
         private val atOAuth: AtOAuth,
+        private val sessionStateProvider: SessionStateProvider,
     ) : AuthRepository {
         override suspend fun beginLogin(handle: String): Result<String> = runCatching { atOAuth.beginLogin(handle) }
 
-        override suspend fun completeLogin(redirectUri: String): Result<Unit> = runCatching { atOAuth.completeLogin(redirectUri) }
+        override suspend fun completeLogin(redirectUri: String): Result<Unit> =
+            runCatching {
+                atOAuth.completeLogin(redirectUri)
+                sessionStateProvider.refresh()
+            }
+
+        override suspend fun signOut(): Result<Unit> =
+            runCatching {
+                atOAuth.logout()
+                sessionStateProvider.refresh()
+            }
     }

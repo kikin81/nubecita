@@ -17,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,8 +29,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dagger.hilt.android.EntryPointAccessors
-import net.kikin.nubecita.core.common.navigation.NavigatorEntryPoint
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
 import net.kikin.nubecita.designsystem.spacing
@@ -43,12 +40,6 @@ fun LoginScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val navigator =
-        remember(context) {
-            EntryPointAccessors
-                .fromApplication(context.applicationContext, NavigatorEntryPoint::class.java)
-                .navigator()
-        }
 
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
@@ -58,7 +49,11 @@ fun LoginScreen(
                         .Builder()
                         .build()
                         .launchUrl(context, effect.url.toUri())
-                LoginEffect.LoginSucceeded -> navigator.goBack()
+                // Post-login routing is owned by MainActivity's reactive observer of
+                // SessionStateProvider.state — once completeLogin succeeds and the state
+                // transitions to SignedIn, MainActivity calls navigator.replaceTo(Main).
+                // Branch retained so the `when` stays exhaustive over LoginEffect.
+                LoginEffect.LoginSucceeded -> Unit
             }
         }
     }

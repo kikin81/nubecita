@@ -8,8 +8,10 @@ import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.DefaultAuthRepository
 import net.kikin.nubecita.core.auth.DefaultOAuthRedirectBroker
+import net.kikin.nubecita.core.auth.DefaultSessionStateProvider
 import net.kikin.nubecita.core.auth.EncryptedOAuthSessionStore
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import javax.inject.Singleton
 
 @Module
@@ -26,4 +28,8 @@ internal abstract class AuthBindingsModule {
     @Binds
     @Singleton
     internal abstract fun bindOAuthRedirectBroker(impl: DefaultOAuthRedirectBroker): OAuthRedirectBroker
+
+    @Binds
+    @Singleton
+    internal abstract fun bindSessionStateProvider(impl: DefaultSessionStateProvider): SessionStateProvider
 }
