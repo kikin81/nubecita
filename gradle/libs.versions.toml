@@ -1,6 +1,6 @@
 [versions]
 androidGradlePlugin = "9.2.0"
-atproto = "5.0.1"
+atproto = "5.1.0"
 androidxCore = "1.18.0"
 androidxLifecycle = "2.10.0"
 androidxActivity = "1.13.0"
@@ -45,6 +45,8 @@ hilt-gradlePlugin = { group = "com.google.dagger", name = "hilt-android-gradle-p
 kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 ksp-gradlePlugin = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
 sortDependencies-gradlePlugin = { group = "com.squareup.sort-dependencies", name = "com.squareup.sort-dependencies.gradle.plugin", version.ref = "sortDependencies" }
+atproto-compose = { module = "io.github.kikin81.atproto:compose", version.ref = "atproto" }
+atproto-compose-material3 = { module = "io.github.kikin81.atproto:compose-material3", version.ref = "atproto" }
 atproto-models = { module = "io.github.kikin81.atproto:models", version.ref = "atproto" }
 atproto-oauth = { module = "io.github.kikin81.atproto:oauth", version.ref = "atproto" }
 atproto-runtime = { module = "io.github.kikin81.atproto:runtime", version.ref = "atproto" }
