@@ -14,7 +14,10 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
  */
 internal fun Project.configureKotlinAndroid(commonExtension: CommonExtension) {
     commonExtension.compileSdk = 37
-    commonExtension.defaultConfig.minSdk = 26
+    // Bumped 26 -> 28 to consume io.github.kikin81.atproto:compose-material3:5.1.0,
+    // which targets minSdk 28. nubecita is pre-launch so no installed-base impact;
+    // Android 8.0/8.1 (API 26-27) market share is < 2% as of 2026.
+    commonExtension.defaultConfig.minSdk = 28
     commonExtension.compileOptions.sourceCompatibility = JavaVersion.VERSION_17
     commonExtension.compileOptions.targetCompatibility = JavaVersion.VERSION_17
 
