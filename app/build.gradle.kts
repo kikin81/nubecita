@@ -1,13 +1,11 @@
 plugins {
     alias(libs.plugins.nubecita.android.application)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.compose.screenshot)
     jacoco
 }
 
 android {
     namespace = "net.kikin.nubecita"
-    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
     defaultConfig {
         applicationId = "net.kikin.nubecita"
@@ -52,9 +50,6 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.client.okhttp)
-
-    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
-    screenshotTestImplementation(libs.screenshot.validation.api)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
