@@ -23,6 +23,12 @@ class AndroidLibraryComposeConventionPlugin : Plugin<Project> {
                 "implementation"(libs.findLibrary("androidx-compose-material3").get())
                 "implementation"(libs.findLibrary("androidx-compose-ui-tooling-preview").get())
                 "debugImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
+                // Slack's Compose lint rules — flags hardcoded Text("…") calls, missing
+                // Modifier defaults, ViewModel-injection-in-Composable issues, preview-naming
+                // violations, etc. Pinned 1.4.2 (last tagged release Oct 2024); the repo is
+                // actively tracking AGP 9 + Kotlin 2.3 via dep bumps. Catches the Compose
+                // hardcoded-string regression that the platform lint HardcodedText rule misses.
+                "lintChecks"(libs.findLibrary("slack-compose-lints").get())
             }
         }
     }

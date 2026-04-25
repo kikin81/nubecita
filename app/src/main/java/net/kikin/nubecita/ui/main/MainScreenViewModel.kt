@@ -7,8 +7,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.data.DataRepository
-import net.kikin.nubecita.ui.mvi.MviViewModel
 import javax.inject.Inject
 
 @HiltViewModel

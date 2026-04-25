@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+        Slack's Compose lint rule discourages new CompositionLocals. We define
+        exactly one — LocalNubecitaTokens — to expose the brand token bundle
+        (spacing, elevation, motion). Allow it explicitly; any *other* new
+        CompositionLocal in :designsystem still triggers the warning.
+    -->
+    <issue id="ComposeCompositionLocalUsage">
+        <option name="allowed-composition-locals" value="LocalNubecitaTokens" />
+    </issue>
+
+    <!--
+        MaterialTheme.spacing / .elevation / .typography / etc. are extension
+        properties on MaterialTheme — the canonical Material 3 design-system
+        token pattern (matches the M3 docs and every reference design system
+        in the wild). MaterialTheme isn't @Stable, so the rule fires; the
+        recomposition cost is negligible because the extension just reads
+        from a CompositionLocal that returns a stable data class.
+    -->
+    <issue id="ComposeUnstableReceiver">
+        <ignore path="src/main/kotlin/net/kikin/nubecita/designsystem/Tokens.kt" />
+    </issue>
+</lint>

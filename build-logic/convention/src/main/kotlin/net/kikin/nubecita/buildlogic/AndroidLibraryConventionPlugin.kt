@@ -28,6 +28,13 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                         )
                     }
                 }
+
+                lint {
+                    // XML-only; doesn't catch Compose Text("literal") calls. Compose hardcoded
+                    // strings are caught by Slack's compose-lint-checks (added in
+                    // nubecita.android.library.compose + nubecita.android.application).
+                    error += "HardcodedText"
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-package net.kikin.nubecita.ui.mvi
+package net.kikin.nubecita.core.common.mvi
 
 /**
  * Marker interface for a screen's observable UI state.

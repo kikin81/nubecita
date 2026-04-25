@@ -21,4 +21,7 @@ plugins {
 rootProject.name = "Nubecita"
 include(":app")
 include(":core:auth")
+include(":core:common")
 include(":designsystem")
+include(":feature:login:api")
+include(":feature:login:impl")

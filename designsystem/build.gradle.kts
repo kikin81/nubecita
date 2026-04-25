@@ -4,6 +4,10 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.designsystem"
+
+    lint {
+        lintConfig = file("lint.xml")
+    }
 }
 
 dependencies {

@@ -1,4 +1,4 @@
-package net.kikin.nubecita.ui.mvi
+package net.kikin.nubecita.core.common.mvi
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

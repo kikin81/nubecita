@@ -12,6 +12,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.android.application")
             pluginManager.apply("com.squareup.sort-dependencies")
             pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
+            pluginManager.apply("com.android.compose.screenshot")
             pluginManager.apply("com.google.dagger.hilt.android")
             pluginManager.apply("com.google.devtools.ksp")
 
@@ -26,12 +27,21 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 buildFeatures.buildConfig = true
                 buildFeatures.compose = true
 
+                @Suppress("UnstableApiUsage")
+                experimentalProperties["android.experimental.enableScreenshotTest"] = true
+
                 buildTypes.getByName("release").apply {
                     isMinifyEnabled = false
                     proguardFiles(
                         getDefaultProguardFile("proguard-android-optimize.txt"),
                         "proguard-rules.pro",
                     )
+                }
+
+                lint {
+                    // XML-only; doesn't catch Compose Text("literal") calls. Compose hardcoded
+                    // strings are caught by Slack's compose-lint-checks (added below).
+                    error += "HardcodedText"
                 }
             }
 
@@ -44,7 +54,10 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 "implementation"(libs.findLibrary("androidx-hilt-navigation-compose").get())
                 "implementation"(libs.findLibrary("hilt-android").get())
                 "debugImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
+                "screenshotTestImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
+                "screenshotTestImplementation"(libs.findLibrary("screenshot-validation-api").get())
                 "ksp"(libs.findLibrary("hilt-android-compiler").get())
+                "lintChecks"(libs.findLibrary("slack-compose-lints").get())
             }
         }
     }
