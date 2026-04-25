@@ -8,9 +8,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.R
 
 /**
  * Deliberate-degradation chip rendered for embed types outside the v1
@@ -22,7 +24,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * `surfaceContainerHighest` background, `onSurfaceVariant` text. The label
  * names the embed kind in friendly form (`"video"`, `"link card"`, etc.)
  * mapped from the lexicon URI so users see a readable hint rather than a
- * developer string.
+ * developer string. Localized via `R.string.postcard_embed_label_*`.
  */
 @Composable
 fun PostCardUnsupportedEmbed(
@@ -30,7 +32,7 @@ fun PostCardUnsupportedEmbed(
     modifier: Modifier = Modifier,
 ) {
     Text(
-        text = "Unsupported embed: ${friendlyName(typeUri)}",
+        text = stringResource(R.string.postcard_unsupported_embed_format, unsupportedEmbedLabel(typeUri)),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier =
@@ -42,17 +44,18 @@ fun PostCardUnsupportedEmbed(
 }
 
 /**
- * Map a Bluesky lexicon embed URI to a user-readable label. Unknown URIs
- * fall through to the generic `"embed"` label so future lexicon additions
- * we haven't seen yet still render something readable.
+ * Map a Bluesky lexicon embed URI to a user-readable, localized label.
+ * Unknown URIs fall through to the generic `embed` label so future
+ * lexicon additions we haven't seen yet still render something readable.
  */
-private fun friendlyName(typeUri: String): String =
+@Composable
+private fun unsupportedEmbedLabel(typeUri: String): String =
     when (typeUri) {
-        "app.bsky.embed.external" -> "link card"
-        "app.bsky.embed.record" -> "quoted post"
-        "app.bsky.embed.video" -> "video"
-        "app.bsky.embed.recordWithMedia" -> "quoted post with media"
-        else -> "embed"
+        "app.bsky.embed.external" -> stringResource(R.string.postcard_embed_label_external)
+        "app.bsky.embed.record" -> stringResource(R.string.postcard_embed_label_record)
+        "app.bsky.embed.video" -> stringResource(R.string.postcard_embed_label_video)
+        "app.bsky.embed.recordWithMedia" -> stringResource(R.string.postcard_embed_label_record_with_media)
+        else -> stringResource(R.string.postcard_embed_label_unknown)
     }
 
 private val CHIP_SHAPE = RoundedCornerShape(8.dp)

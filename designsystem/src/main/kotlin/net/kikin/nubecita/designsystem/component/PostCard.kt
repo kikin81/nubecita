@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.R
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -128,7 +130,7 @@ private fun RepostedByLine(
             modifier = Modifier.size(14.dp),
         )
         Text(
-            text = "$name reposted",
+            text = stringResource(R.string.postcard_reposted_by, name),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -148,7 +150,7 @@ private fun AuthorLine(post: PostUi) {
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
-            text = "@${post.author.handle} · $timestamp",
+            text = stringResource(R.string.postcard_handle_and_timestamp, post.author.handle, timestamp),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
