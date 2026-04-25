@@ -8,11 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularWavyProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -20,14 +16,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
 import net.kikin.nubecita.designsystem.spacing
 
 @Composable
@@ -43,13 +40,14 @@ fun LoginScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun LoginScreen(
     state: LoginState,
     onEvent: (LoginEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val errorText = state.errorMessage?.toDisplayString()
+
     Column(
         modifier =
             modifier
@@ -66,11 +64,11 @@ internal fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Sign in to Bluesky",
+            text = stringResource(R.string.login_title),
             style = MaterialTheme.typography.headlineLarge,
         )
         Text(
-            text = "Enter your handle to continue.",
+            text = stringResource(R.string.login_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -80,11 +78,11 @@ internal fun LoginScreen(
         OutlinedTextField(
             value = state.handle,
             onValueChange = { onEvent(LoginEvent.HandleChanged(it)) },
-            label = { Text("Handle") },
-            placeholder = { Text("alice.bsky.social") },
+            label = { Text(stringResource(R.string.login_handle_label)) },
+            placeholder = { Text(stringResource(R.string.login_handle_placeholder)) },
             singleLine = true,
             enabled = !state.isLoading,
-            isError = state.errorMessage != null,
+            isError = errorText != null,
             shape = MaterialTheme.shapes.medium,
             keyboardOptions =
                 KeyboardOptions(
@@ -96,8 +94,8 @@ internal fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        AnimatedVisibility(visible = state.errorMessage != null) {
-            state.errorMessage?.let {
+        AnimatedVisibility(visible = errorText != null) {
+            errorText?.let {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
@@ -107,21 +105,21 @@ internal fun LoginScreen(
             }
         }
 
-        Button(
+        NubecitaPrimaryButton(
             onClick = { onEvent(LoginEvent.SubmitLogin) },
-            enabled = !state.isLoading,
+            text = stringResource(R.string.login_submit),
+            isLoading = state.isLoading,
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (state.isLoading) {
-                CircularWavyProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                )
-            } else {
-                Text("Sign in with Bluesky")
-            }
-        }
+        )
     }
 }
+
+@Composable
+private fun LoginError.toDisplayString(): String =
+    when (this) {
+        LoginError.BlankHandle -> stringResource(R.string.login_error_blank_handle)
+        is LoginError.Failure -> cause?.takeIf { it.isNotBlank() } ?: stringResource(R.string.login_error_generic_failure)
+    }
 
 @Preview(name = "Empty", showBackground = true)
 @Composable
@@ -147,12 +145,27 @@ private fun LoginScreenLoadingPreview() {
     }
 }
 
-@Preview(name = "Error", showBackground = true)
+@Preview(name = "Blank-handle error", showBackground = true)
 @Composable
-private fun LoginScreenErrorPreview() {
+private fun LoginScreenBlankErrorPreview() {
     NubecitaTheme {
         LoginScreen(
-            state = LoginState(handle = "alice", errorMessage = "Handle could not be resolved."),
+            state = LoginState(handle = "", errorMessage = LoginError.BlankHandle),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(name = "Failure error", showBackground = true)
+@Composable
+private fun LoginScreenFailureErrorPreview() {
+    NubecitaTheme {
+        LoginScreen(
+            state =
+                LoginState(
+                    handle = "alice",
+                    errorMessage = LoginError.Failure("Handle could not be resolved."),
+                ),
             onEvent = {},
         )
     }

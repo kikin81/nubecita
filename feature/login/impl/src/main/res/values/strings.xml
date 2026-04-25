@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_title">Sign in to Bluesky</string>
+    <string name="login_subtitle">Enter your handle to continue.</string>
+    <string name="login_handle_label">Handle</string>
+    <string name="login_handle_placeholder">alice.bsky.social</string>
+    <string name="login_submit">Sign in with Bluesky</string>
+    <string name="login_error_blank_handle">Enter a handle to continue.</string>
+    <string name="login_error_generic_failure">Could not start sign-in. Try again.</string>
+</resources>

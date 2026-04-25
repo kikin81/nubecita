@@ -29,22 +29,25 @@ internal class LoginViewModelTest {
     @Test
     fun `HandleChanged updates handle and clears errorMessage`() {
         val vm = LoginViewModel(FakeAuthRepository(Result.success("ignored")))
+
+        // Seed an error first via blank-handle submission, then verify HandleChanged clears it.
+        vm.handleEvent(LoginEvent.SubmitLogin)
+        assertEquals(LoginError.BlankHandle, vm.uiState.value.errorMessage)
+
         vm.handleEvent(LoginEvent.HandleChanged("alice"))
         assertEquals("alice", vm.uiState.value.handle)
-
-        // Now seed an error then change handle — error should clear.
-        vm.handleEvent(LoginEvent.SubmitLogin) // no-op since handle non-blank but check via separate path
+        assertNull(vm.uiState.value.errorMessage)
     }
 
     @Test
-    fun `blank-handle SubmitLogin sets errorMessage without calling repository`() {
+    fun `blank-handle SubmitLogin emits BlankHandle error without calling repository`() {
         val fake = FakeAuthRepository(Result.success("never returned"))
         val vm = LoginViewModel(fake)
 
         vm.handleEvent(LoginEvent.SubmitLogin)
 
         val state = vm.uiState.value
-        assertTrue(state.errorMessage?.isNotBlank() == true)
+        assertEquals(LoginError.BlankHandle, state.errorMessage)
         assertEquals(false, state.isLoading)
         assertEquals(0, fake.beginLoginInvocations)
     }
@@ -54,10 +57,7 @@ internal class LoginViewModelTest {
         val vm = LoginViewModel(FakeAuthRepository(Result.success("ignored")))
         vm.handleEvent(LoginEvent.HandleChanged("   "))
         vm.handleEvent(LoginEvent.SubmitLogin)
-        assertTrue(
-            vm.uiState.value.errorMessage
-                ?.isNotBlank() == true,
-        )
+        assertEquals(LoginError.BlankHandle, vm.uiState.value.errorMessage)
     }
 
     @Test
@@ -79,7 +79,7 @@ internal class LoginViewModelTest {
         }
 
     @Test
-    fun `failed beginLogin populates errorMessage and emits no effect`() =
+    fun `failed beginLogin emits Failure error carrying the cause message`() =
         runTest(mainDispatcherRule.dispatcher) {
             val vm =
                 LoginViewModel(
@@ -91,14 +91,14 @@ internal class LoginViewModelTest {
 
             val state = vm.uiState.value
             assertEquals(false, state.isLoading)
-            assertEquals("Handle could not be resolved", state.errorMessage)
+            assertEquals(LoginError.Failure("Handle could not be resolved"), state.errorMessage)
 
             val effect = withTimeoutOrNull(timeMillis = 50) { vm.effects.first() }
             assertNull(effect)
         }
 
     @Test
-    fun `failure with blank message falls back to generic copy`() =
+    fun `failure with blank message produces Failure carrying null cause`() =
         runTest(mainDispatcherRule.dispatcher) {
             val vm =
                 LoginViewModel(
@@ -108,18 +108,17 @@ internal class LoginViewModelTest {
             vm.handleEvent(LoginEvent.SubmitLogin)
             advanceUntilIdle()
 
-            assertEquals("Could not start sign-in. Try again.", vm.uiState.value.errorMessage)
+            // Empty exception messages flow through verbatim — the screen treats blank as "use the
+            // generic-fallback resource string." Putting the string substitution here would couple
+            // the VM to Android resources.
+            assertEquals(LoginError.Failure(""), vm.uiState.value.errorMessage)
         }
 
     @Test
     fun `ClearError nulls errorMessage`() {
         val vm = LoginViewModel(FakeAuthRepository(Result.success("ignored")))
-        vm.handleEvent(LoginEvent.HandleChanged("a"))
-        vm.handleEvent(LoginEvent.SubmitLogin) // produces errorMessage (blank handle? "a" is non-blank, this won't trigger)
-        // Force an error by submitting blank
-        vm.handleEvent(LoginEvent.HandleChanged(""))
-        vm.handleEvent(LoginEvent.SubmitLogin)
-        assertTrue(vm.uiState.value.errorMessage != null)
+        vm.handleEvent(LoginEvent.SubmitLogin) // blank-handle error
+        assertEquals(LoginError.BlankHandle, vm.uiState.value.errorMessage)
 
         vm.handleEvent(LoginEvent.ClearError)
         assertNull(vm.uiState.value.errorMessage)

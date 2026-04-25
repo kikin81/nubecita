@@ -24,7 +24,7 @@ class LoginViewModel
         private fun submitLogin() {
             val handle = uiState.value.handle.trim()
             if (handle.isBlank()) {
-                setState { copy(errorMessage = "Enter a handle to continue.") }
+                setState { copy(errorMessage = LoginError.BlankHandle) }
                 return
             }
             setState { copy(isLoading = true, errorMessage = null) }
@@ -35,8 +35,7 @@ class LoginViewModel
                         setState { copy(isLoading = false) }
                         sendEffect(LoginEffect.LaunchCustomTab(url))
                     }.onFailure { failure ->
-                        val message = failure.message?.takeUnless { it.isBlank() } ?: "Could not start sign-in. Try again."
-                        setState { copy(isLoading = false, errorMessage = message) }
+                        setState { copy(isLoading = false, errorMessage = LoginError.Failure(failure.message)) }
                     }
             }
         }

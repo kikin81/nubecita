@@ -7,8 +7,28 @@ import net.kikin.nubecita.core.common.mvi.UiState
 data class LoginState(
     val handle: String = "",
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
+    val errorMessage: LoginError? = null,
 ) : UiState
+
+/**
+ * UI-resolvable error codes emitted by [LoginViewModel]. The VM stays
+ * Android-resource-free; the screen maps each variant to a stringResource
+ * call when rendering.
+ */
+sealed interface LoginError {
+    /** User submitted with a blank or whitespace-only handle. */
+    data object BlankHandle : LoginError
+
+    /**
+     * Underlying [AuthRepository.beginLogin] returned a failure. The
+     * [cause] message (if non-blank) comes from the network layer / OAuth
+     * server and is shown verbatim; the screen falls back to a generic
+     * resource string when [cause] is null or blank.
+     */
+    data class Failure(
+        val cause: String?,
+    ) : LoginError
+}
 
 sealed interface LoginEvent : UiEvent {
     data class HandleChanged(
@@ -23,9 +43,5 @@ sealed interface LoginEvent : UiEvent {
 sealed interface LoginEffect : UiEffect {
     data class LaunchCustomTab(
         val url: String,
-    ) : LoginEffect
-
-    data class ShowError(
-        val message: String,
     ) : LoginEffect
 }
