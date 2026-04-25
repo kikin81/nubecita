@@ -33,14 +33,18 @@ class MainActivity : ComponentActivity() {
     lateinit var navigator: Navigator
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // installSplashScreen() must run BEFORE super.onCreate so the keep-on-screen
-        // condition takes effect on the first frame. setKeepOnScreenCondition is called
-        // from the platform's frame callback (not a coroutine), so we read state.value
-        // synchronously off the StateFlow.
+        // installSplashScreen() must run BEFORE super.onCreate so the splash claims the
+        // first frame. The keep-on-screen predicate captures `sessionStateProvider`,
+        // which Hilt's @AndroidEntryPoint generated base class injects during
+        // super.onCreate — set the predicate AFTER super to keep the field-access edge
+        // unambiguously safe (canonical Google SplashScreen sample order).
         val splashScreen = installSplashScreen()
-        splashScreen.setKeepOnScreenCondition { sessionStateProvider.state.value is SessionState.Loading }
 
         super.onCreate(savedInstanceState)
+
+        // setKeepOnScreenCondition is invoked on every platform frame callback (not a
+        // coroutine), so the lambda reads state.value synchronously off the StateFlow.
+        splashScreen.setKeepOnScreenCondition { sessionStateProvider.state.value is SessionState.Loading }
 
         enableEdgeToEdge()
         setContent {
