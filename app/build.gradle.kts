@@ -13,6 +13,12 @@ android {
         applicationId = "net.kikin.nubecita"
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField(
+            type = "String",
+            name = "OAUTH_CLIENT_METADATA_URL",
+            value = "\"https://kikin81.github.io/nubecita/oauth/client-metadata.json\"",
+        )
     }
 
     packaging {
@@ -30,7 +36,10 @@ android {
 
 dependencies {
     implementation(project(":core:auth"))
+    implementation(project(":core:common"))
     implementation(project(":designsystem"))
+    implementation(project(":feature:login:api"))
+    implementation(project(":feature:login:impl"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)

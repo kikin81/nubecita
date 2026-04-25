@@ -1,6 +1,6 @@
 package net.kikin.nubecita.ui.main
 
-import net.kikin.nubecita.ui.mvi.UiEffect
+import net.kikin.nubecita.core.common.mvi.UiEffect
 
 sealed interface MainScreenEffect : UiEffect {
     data class ShowError(

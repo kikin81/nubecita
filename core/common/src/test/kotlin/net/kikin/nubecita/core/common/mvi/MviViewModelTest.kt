@@ -1,4 +1,4 @@
-package net.kikin.nubecita.ui.mvi
+package net.kikin.nubecita.core.common.mvi
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
