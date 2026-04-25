@@ -50,7 +50,7 @@ dependencies {
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
-    implementation(libs.coil.compose)
+    implementation(libs.coil.core)
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.client.okhttp)

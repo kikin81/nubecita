@@ -25,7 +25,7 @@ fun NubecitaAvatar(
     model: Any?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    size: Dp = DefaultAvatarSize,
+    size: Dp = DEFAULT_AVATAR_SIZE,
 ) {
     NubecitaAsyncImage(
         model = model,
@@ -38,7 +38,7 @@ fun NubecitaAvatar(
     )
 }
 
-private val DefaultAvatarSize = 40.dp
+private val DEFAULT_AVATAR_SIZE = 40.dp
 
 @Preview(name = "Avatar — placeholder", showBackground = true)
 @Composable
