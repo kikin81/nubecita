@@ -4,8 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import kotlinx.coroutines.delay
 import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.common.R
@@ -18,20 +17,24 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Resolve [RelativeTimeStrings] from the host's Android string + plural
- * resources. Reading [LocalConfiguration] makes this composable invalidate
- * on locale change, so the strings track the active locale without a
- * process restart.
+ * resources. Reads [LocalResources] (Compose-tracked) so the strings
+ * invalidate on locale change without manual configuration plumbing.
+ *
+ * Uses `LocalResources` rather than `LocalContext.current.getString(...)`
+ * because Compose's `LocalContextGetResourceValueCall` lint flags the
+ * latter — `getQuantityString` with a runtime `count` doesn't have a
+ * direct `pluralStringResource` equivalent that survives the
+ * `(Int) -> String` lambda capture our public API uses.
  */
 @Composable
 fun rememberRelativeTimeStrings(): RelativeTimeStrings {
-    val configuration = LocalConfiguration.current
-    val context = LocalContext.current
-    return remember(context, configuration) {
+    val resources = LocalResources.current
+    return remember(resources) {
         RelativeTimeStrings(
-            now = context.getString(R.string.relative_time_now),
-            minutes = { count -> context.resources.getQuantityString(R.plurals.relative_time_minutes, count, count) },
-            hours = { count -> context.resources.getQuantityString(R.plurals.relative_time_hours, count, count) },
-            days = { count -> context.resources.getQuantityString(R.plurals.relative_time_days, count, count) },
+            now = resources.getString(R.string.relative_time_now),
+            minutes = { count -> resources.getQuantityString(R.plurals.relative_time_minutes, count, count) },
+            hours = { count -> resources.getQuantityString(R.plurals.relative_time_hours, count, count) },
+            days = { count -> resources.getQuantityString(R.plurals.relative_time_days, count, count) },
         )
     }
 }
@@ -60,6 +63,7 @@ fun rememberRelativeTimeText(
         initialValue = formatRelativeTime(clock.now(), then, strings),
         then,
         strings,
+        clock,
     ) {
         while (true) {
             val now = clock.now()
@@ -73,11 +77,12 @@ fun rememberRelativeTimeText(
  * boundary so the displayed string never lags by more than ~half the
  * resolution it shows. Past 7 days the format is an absolute date that
  * doesn't change without a calendar flip, so a 1h tick is just a safety net.
+ *
+ * Negative ages (clock skew) flow through the first branch (any
+ * negative duration is `< 1.hours`), giving the same 30s recheck cadence.
  */
 private fun tickInterval(age: Duration): Duration =
     when {
-        age.isNegative() -> 30.seconds
-        age < 1.minutes -> 30.seconds
         age < 1.hours -> 30.seconds
         age < 1.days -> 5.minutes
         else -> 1.hours

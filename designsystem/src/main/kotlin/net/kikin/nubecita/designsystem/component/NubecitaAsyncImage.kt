@@ -3,6 +3,7 @@ package net.kikin.nubecita.designsystem.component
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
@@ -28,7 +29,8 @@ fun NubecitaAsyncImage(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
 ) {
-    val placeholder = ColorPainter(MaterialTheme.colorScheme.surfaceContainerHighest)
+    val placeholderColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    val placeholder = remember(placeholderColor) { ColorPainter(placeholderColor) }
     AsyncImage(
         model = model,
         contentDescription = contentDescription,

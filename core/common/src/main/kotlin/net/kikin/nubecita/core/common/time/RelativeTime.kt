@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.common.time
 
+import androidx.compose.runtime.Stable
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDate
@@ -19,7 +20,17 @@ import kotlin.time.Duration.Companion.minutes
  * pass [English] (or a custom fixture) directly. Production call sites
  * should prefer [rememberRelativeTimeStrings] which resolves these from
  * Android string + plural resources and tracks locale changes.
+ *
+ * `@Stable`: a `data class` with function-typed fields is otherwise
+ * marked unstable by the Compose compiler (it can't prove lambda
+ * equality), which would force [rememberRelativeTimeText]'s
+ * `produceState` to restart its producer coroutine on every parent
+ * recomposition. Promised contract: `equals` reflects observable
+ * behavior — call sites that hold a `RelativeTimeStrings` across
+ * recompositions must keep the same instance (which
+ * [rememberRelativeTimeStrings] does via `remember`).
  */
+@Stable
 data class RelativeTimeStrings(
     val now: String,
     val minutes: (count: Int) -> String,
