@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.nubecita.android.library)
+    alias(libs.plugins.nubecita.android.library.compose)
     alias(libs.plugins.nubecita.android.hilt)
 }
 

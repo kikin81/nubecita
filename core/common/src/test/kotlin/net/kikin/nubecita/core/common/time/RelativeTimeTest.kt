@@ -14,8 +14,9 @@ internal class RelativeTimeTest {
     private val now: Instant = Instant.parse("2026-04-25T12:00:00Z")
     private val utc: TimeZone = TimeZone.UTC
     private val locale: Locale = Locale.ENGLISH
+    private val strings: RelativeTimeStrings = RelativeTimeStrings.English
 
-    private fun format(then: Instant): String = formatRelativeTime(now, then, utc, locale)
+    private fun format(then: Instant): String = formatRelativeTime(now, then, strings, utc, locale)
 
     @Test
     fun `exactly now is now`() {
@@ -103,9 +104,27 @@ internal class RelativeTimeTest {
     @Test
     fun `formats different locale correctly for absolute date`() {
         // Sanity check: passing a non-English locale produces a different month label.
-        val french = formatRelativeTime(now, now - 30.days, utc, Locale.FRENCH)
+        val french = formatRelativeTime(now, now - 30.days, strings, utc, Locale.FRENCH)
         // French abbreviates March as "mars". The exact form differs across JDK
         // releases (some emit "mars", some "mars."), but the prefix is stable.
         assertEquals(true, french.lowercase().startsWith("mars"))
+    }
+
+    @Test
+    fun `custom RelativeTimeStrings is honored`() {
+        // Locks in the i18n contract: the helper sources every user-visible label
+        // from the strings parameter, never from a hardcoded fallback.
+        val spanish =
+            RelativeTimeStrings(
+                now = "ahora",
+                minutes = { "hace $it min" },
+                hours = { "hace $it h" },
+                days = { "hace $it d" },
+            )
+        assertEquals("ahora", formatRelativeTime(now, now, spanish, utc, locale))
+        assertEquals("ahora", formatRelativeTime(now, now - 30.seconds, spanish, utc, locale))
+        assertEquals("hace 5 min", formatRelativeTime(now, now - 5.minutes, spanish, utc, locale))
+        assertEquals("hace 3 h", formatRelativeTime(now, now - 3.hours, spanish, utc, locale))
+        assertEquals("hace 5 d", formatRelativeTime(now, now - 5.days, spanish, utc, locale))
     }
 }

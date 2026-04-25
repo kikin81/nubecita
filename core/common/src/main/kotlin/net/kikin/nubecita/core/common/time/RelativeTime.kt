@@ -12,31 +12,64 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 /**
+ * Localized labels consumed by [formatRelativeTime].
+ *
+ * Decoupling labels from the formatting logic keeps the pure helper
+ * unit-testable without an Android [android.content.Context] — tests
+ * pass [English] (or a custom fixture) directly. Production call sites
+ * should prefer [rememberRelativeTimeStrings] which resolves these from
+ * Android string + plural resources and tracks locale changes.
+ */
+data class RelativeTimeStrings(
+    val now: String,
+    val minutes: (count: Int) -> String,
+    val hours: (count: Int) -> String,
+    val days: (count: Int) -> String,
+) {
+    public companion object {
+        /**
+         * Hard-coded English fallback. Useful for unit tests of the pure
+         * helper and as a defensive default in non-Android contexts. Not
+         * shown to users on Android — those go through resources.
+         */
+        public val English: RelativeTimeStrings =
+            RelativeTimeStrings(
+                now = "now",
+                minutes = { "${it}m" },
+                hours = { "${it}h" },
+                days = { "${it}d" },
+            )
+    }
+}
+
+/**
  * Format [then] as a short relative-time string anchored to [now].
  *
  * Buckets (matching common social-client convention):
- *  - `< 1m`  → "now"
- *  - `< 1h`  → "Nm"  (e.g. "5m")
- *  - `< 1d`  → "Nh"  (e.g. "3h")
- *  - `< 7d`  → "Nd"  (e.g. "5d")
+ *  - `< 1m`  → [strings.now]
+ *  - `< 1h`  → [strings.minutes] (e.g. "5m")
+ *  - `< 1d`  → [strings.hours] (e.g. "3h")
+ *  - `< 7d`  → [strings.days] (e.g. "5d")
  *  - `≥ 7d`  → "MMM d" if same year as [now], else "MMM d, yyyy"
  *
- * Future timestamps (clock skew) are clamped to "now" — never throws.
+ * Future timestamps (clock skew) are clamped to [strings.now] — never throws.
  *
- * Pure: no clock reads, no I/O. Trivially unit-testable. The
- * auto-recomposing Composable wrapper lives in [rememberRelativeTimeText].
+ * Pure: no clock reads, no I/O, no Android Context. Trivially unit-testable
+ * with [RelativeTimeStrings.English] or a custom fixture. The auto-recomposing
+ * Composable wrapper lives in [rememberRelativeTimeText].
  */
 fun formatRelativeTime(
     now: Instant,
     then: Instant,
+    strings: RelativeTimeStrings,
     timeZone: TimeZone = TimeZone.currentSystemDefault(),
     locale: Locale = Locale.getDefault(),
 ): String {
     val delta = now - then
-    if (delta.isNegative() || delta < ONE_MINUTE) return NOW_LABEL
-    if (delta < ONE_HOUR) return "${delta.inWholeMinutes}m"
-    if (delta < ONE_DAY) return "${delta.inWholeHours}h"
-    if (delta < ONE_WEEK) return "${delta.inWholeDays}d"
+    if (delta.isNegative() || delta < ONE_MINUTE) return strings.now
+    if (delta < ONE_HOUR) return strings.minutes(delta.inWholeMinutes.toInt())
+    if (delta < ONE_DAY) return strings.hours(delta.inWholeHours.toInt())
+    if (delta < ONE_WEEK) return strings.days(delta.inWholeDays.toInt())
 
     val nowDate = now.toLocalDateTime(timeZone).date
     val thenDate = then.toLocalDateTime(timeZone).date
@@ -44,7 +77,6 @@ fun formatRelativeTime(
     return DateTimeFormatter.ofPattern(pattern, locale).format(thenDate.toJavaLocalDate())
 }
 
-private const val NOW_LABEL = "now"
 private const val PATTERN_SAME_YEAR = "MMM d"
 private const val PATTERN_DIFFERENT_YEAR = "MMM d, yyyy"
 private val ONE_MINUTE: Duration = 1.minutes
