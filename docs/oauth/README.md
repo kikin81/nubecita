@@ -21,15 +21,21 @@ automatically for `.json` files.)
 | `token_endpoint_auth_method` | `none` | Public client (no client secret). |
 | `grant_types` | `["authorization_code", "refresh_token"]` | Standard OAuth 2.0 flow + refresh. |
 | `response_types` | `["code"]` | Authorization code flow. |
-| `redirect_uris` | `["net.kikin.nubecita:/oauth-redirect"]` | **Single slash** after the scheme, not `://`. Matches the app's `applicationId`. |
+| `redirect_uris` | `["io.github.kikin81:/oauth-redirect"]` | **Single slash** after the scheme, not `://`. Per AT Protocol's Discoverable Client rule the scheme is the FQDN of `client_id` reversed (`kikin81.github.io` → `io.github.kikin81`), **not** the app's `applicationId`. |
 | `scope` | `atproto transition:generic` | Full AT Protocol API access; `transition:generic` is the current umbrella scope Bluesky accepts. |
 
-## Redirect URI convention
+## Redirect URI convention — FQDN reversed, NOT the app's applicationId
 
-The redirect URI scheme `net.kikin.nubecita` must equal the Android
-`applicationId` in `app/build.gradle.kts`. The receiving intent filter
-is wired in `AndroidManifest.xml` (delivered under `nubecita-ck0` —
-this task only hosts the metadata).
+The custom URI scheme `io.github.kikin81` is the FQDN of `client_id`
+(`kikin81.github.io`) reversed. AT Protocol's Discoverable Client rule
+mandates this — it does **not** match the Android `applicationId`
+(`net.kikin.nubecita`). Bluesky's authorization server enforces it at
+PAR time and rejects mismatches with `HTTP 400 invalid_redirect_uri`.
+
+Receiving intent filter (in `app/src/main/AndroidManifest.xml`) declares
+the same scheme + path. When the dev URL swaps to a custom domain
+(e.g. `nubecita.kikin.net`), the reversed scheme also changes
+(`net.kikin.nubecita`) — both sides update together as a single PR.
 
 ## Dev → prod swap
 

@@ -24,18 +24,22 @@
             </intent-filter>
             <!--
                 OAuth redirect — Bluesky's authorization server sends the user back via
-                net.kikin.nubecita:/oauth-redirect after PAR. android:launchMode="singleTask"
+                io.github.kikin81:/oauth-redirect after PAR. android:launchMode="singleTask"
                 ensures the redirect re-delivers to this MainActivity instance via
                 onNewIntent rather than spawning a new task; MainActivity.handleIntent
                 forwards the URI to OAuthRedirectBroker for LoginViewModel to consume.
-                Scheme MUST equal the app's applicationId and the redirect_uris registered
-                in client-metadata.json (see docs/oauth/).
+
+                Scheme MUST be the FQDN of client_id reversed, per AT Protocol's
+                Discoverable Client rule (kikin81.github.io → io.github.kikin81). It does
+                NOT match the app's applicationId (net.kikin.nubecita). The auth server
+                rejects mismatches with HTTP 400 invalid_redirect_uri. See
+                docs/oauth/README.md for the full requirement.
             -->
             <!--
                 AppLinkUrlError suppressed: lint expects an android:host whenever
                 android:path is present (App Link convention for https:// URIs).
                 This is a custom-scheme deep link per RFC 8252 — the redirect URI
-                is "net.kikin.nubecita:/oauth-redirect" with a single slash and no
+                is "io.github.kikin81:/oauth-redirect" with a single slash and no
                 host component, exactly as registered in client-metadata.json.
                 Adding a placeholder host would change the URI shape and break
                 Bluesky's authorization-server matching.
@@ -45,7 +49,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="net.kikin.nubecita"
+                    android:scheme="io.github.kikin81"
                     android:path="/oauth-redirect" />
             </intent-filter>
         </activity>
