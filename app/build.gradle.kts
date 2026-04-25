@@ -33,6 +33,7 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.coil.bom))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":designsystem"))
@@ -49,6 +50,8 @@ dependencies {
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.client.okhttp)
 
