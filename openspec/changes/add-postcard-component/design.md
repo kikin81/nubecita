@@ -37,11 +37,12 @@ PostUi (and its support types AuthorUi, EmbedUi, ImageUi, ViewerStateUi) live in
 
 ### 2. AT Protocol wire-data primitives are explicitly allowed inside `:data:models`
 
-`PostUi.text: String`, `PostUi.facets: ImmutableList<Facet>`, `AuthorUi.did: Did`, `AuthorUi.handle: Handle` — `Facet`, `Did`, `Handle` are imported from `atproto:models` directly. This is the only `atproto:*` dep on `:data:models`.
+`PostUi.text: String`, `PostUi.facets: ImmutableList<Facet>` — `Facet` is imported from `atproto:models` directly. This is the only `atproto:*` dep on `:data:models`. Identifier wrappers from `atproto:runtime` (`Did`, `Handle`, `AtUri`) are deliberately NOT used; UI rendering doesn't need wire-level type safety on identifiers, and pulling in `:runtime` would expose service abstractions (`XrpcClient`, `AuthProvider`) on `:data:models`'s classpath. Mappers unwrap typed identifiers to `String` at the protocol boundary before constructing UI models.
 
 **Why:** These types are wire-data primitives, not service abstractions. Mirroring `Facet` as our own `FacetSpec` would be pure copy-paste — every field would be identical, every change to the upstream lexicon would need to be mirrored manually. The protective intent of "no atproto leak" is to keep DTOs out (`PostView` response envelopes, paginated `getTimeline` cursors, error envelopes) — not to reject the protocol's vocabulary.
 
 **Alternatives considered:**
+- *Use the `Did` / `Handle` typed wrappers from `atproto:runtime` for `AuthorUi`'s identifier fields.* Considered and rejected — these wrappers live in `:runtime`, which also exposes `XrpcClient` / `AuthProvider` (real service abstractions). Adding the dep for two value-class wrappers isn't worth the surface-area inflation, and UI code doesn't validate DIDs / handles anyway. Mappers do the unwrap at construction time.
 - *Mirror Facet as a nubecita-defined `FacetSpec`.* Pure maintenance cost. Rejected.
 - *Pre-build `AnnotatedString` in the mapper and pass it on PostUi.* Mapper is non-Composable, so it would have to use the lower-level `buildBlueskyAnnotatedString` (Tier 2 in atproto-compose) and inject a `SpanStyle` from outside the Compose theme — losing dynamic-color and theme-switch reactivity. Rejected.
 

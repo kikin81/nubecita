@@ -1,7 +1,6 @@
 package net.kikin.nubecita.core.common.time
 
 import androidx.compose.runtime.Stable
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDate
 import kotlinx.datetime.toLocalDateTime
@@ -11,6 +10,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /**
  * Localized labels consumed by [formatRelativeTime].

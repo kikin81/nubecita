@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -59,7 +60,7 @@ private fun SingleImage(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(EMBED_HEIGHT)
+                .heightIn(max = EMBED_HEIGHT)
                 .clip(IMAGE_SHAPE),
         contentScale = ContentScale.Crop,
     )

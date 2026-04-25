@@ -1,5 +1,6 @@
 package net.kikin.nubecita.designsystem.component
 
+import androidx.compose.runtime.Stable
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.PostUi
 
@@ -13,7 +14,15 @@ import net.kikin.nubecita.data.models.PostUi
  *
  * Hosts construct ONE `remember`-d instance per screen and pass it to
  * every PostCard in the list, per Compose's stability rules.
+ *
+ * `@Stable`: data classes with function-typed fields are otherwise
+ * marked unstable by the Compose compiler (it can't prove lambda
+ * equality), which would defeat skip optimizations on every PostCard
+ * inside a `LazyColumn`. Promised contract: `equals` reflects observable
+ * behavior — call sites that hold a `PostCallbacks` across recompositions
+ * MUST keep the same instance (use `remember { PostCallbacks(...) }`).
  */
+@Stable
 data class PostCallbacks(
     val onTap: (PostUi) -> Unit = {},
     val onAuthorTap: (AuthorUi) -> Unit = {},

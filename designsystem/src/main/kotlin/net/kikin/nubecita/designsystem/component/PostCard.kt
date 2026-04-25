@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -115,16 +116,19 @@ private fun RepostedByLine(
     name: String,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Icon(
             imageVector = Icons.Outlined.Repeat,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.height(14.dp),
+            modifier = Modifier.size(14.dp),
         )
-        Spacer(Modifier.height(0.dp))
         Text(
-            text = "  $name reposted",
+            text = "$name reposted",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -134,15 +138,17 @@ private fun RepostedByLine(
 @Composable
 private fun AuthorLine(post: PostUi) {
     val timestamp by rememberRelativeTimeText(then = post.createdAt)
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Text(
             text = post.author.displayName,
             fontWeight = FontWeight.SemiBold,
             style = MaterialTheme.typography.titleMedium,
         )
-        Spacer(Modifier.height(0.dp))
         Text(
-            text = "  @${post.author.handle} · $timestamp",
+            text = "@${post.author.handle} · $timestamp",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

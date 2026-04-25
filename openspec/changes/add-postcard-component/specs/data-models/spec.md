@@ -37,10 +37,10 @@ The module MUST permit AT Protocol wire-data primitive types as field types on U
 - **WHEN** `data class PostUi(val text: String, val facets: ImmutableList<Facet>, ...)` is declared
 - **THEN** the build accepts it; `Facet` is a lexicon primitive and downstream consumers (PostCard) can pass it directly to `rememberBlueskyAnnotatedString`.
 
-#### Scenario: AuthorUi carries a Did and Handle
+#### Scenario: AuthorUi standardizes did and handle on String
 
-- **WHEN** `data class AuthorUi(val did: Did, val handle: Handle, val displayName: String, val avatarUrl: String?)` is declared
-- **THEN** the build accepts it; the typed wrappers preserve the protocol's identity guarantees without forcing downstream code to reach into raw strings.
+- **WHEN** `data class AuthorUi(val did: String, val handle: String, val displayName: String, val avatarUrl: String?)` is declared
+- **THEN** the build accepts it; `AuthorUi` standardizes on `String` for these identity fields rather than the typed wrappers (`Did`, `Handle`) from `atproto:runtime`. UI rendering doesn't need wire-level type safety on identifiers — the mapper unwraps the typed wrappers' `.raw` values before constructing the UI model. Keeping `:data:models` free of `atproto:runtime` is a goal of this capability (see the no-service-abstractions requirement).
 
 ### Requirement: UI models are stable and use immutable collections
 
