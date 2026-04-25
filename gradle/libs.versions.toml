@@ -30,7 +30,7 @@ slackComposeLints = "1.4.2"
 sortDependencies = "0.16"
 spotless = "8.4.0"
 ktlint = "1.4.1"
-composeKtlintRules = "0.5.7"
+composeKtlintRules = "0.5.8"
 
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradlePlugin" }
