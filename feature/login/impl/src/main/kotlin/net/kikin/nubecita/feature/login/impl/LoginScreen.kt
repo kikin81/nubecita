@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.login.impl
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -7,10 +8,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.spacing
 
 @Composable
 fun LoginScreen(
@@ -40,6 +43,7 @@ fun LoginScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun LoginScreen(
     state: LoginState,
@@ -47,21 +51,31 @@ internal fun LoginScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(
+                    horizontal = MaterialTheme.spacing.s6,
+                    vertical = MaterialTheme.spacing.s8,
+                ),
+        verticalArrangement =
+            Arrangement.spacedBy(
+                MaterialTheme.spacing.s4,
+                Alignment.CenterVertically,
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = "Sign in to Bluesky",
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineLarge,
         )
         Text(
             text = "Enter your handle to continue.",
             style = MaterialTheme.typography.bodyMedium,
-            color = LocalContentColor.current.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(MaterialTheme.spacing.s2))
 
         OutlinedTextField(
             value = state.handle,
@@ -71,6 +85,7 @@ internal fun LoginScreen(
             singleLine = true,
             enabled = !state.isLoading,
             isError = state.errorMessage != null,
+            shape = MaterialTheme.shapes.medium,
             keyboardOptions =
                 KeyboardOptions(
                     keyboardType = KeyboardType.Email,
@@ -81,13 +96,15 @@ internal fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        if (state.errorMessage != null) {
-            Text(
-                text = state.errorMessage,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.fillMaxWidth(),
-            )
+        AnimatedVisibility(visible = state.errorMessage != null) {
+            state.errorMessage?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
 
         Button(
@@ -96,9 +113,8 @@ internal fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (state.isLoading) {
-                CircularProgressIndicator(
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.height(20.dp),
+                CircularWavyProgressIndicator(
+                    modifier = Modifier.size(20.dp),
                 )
             } else {
                 Text("Sign in with Bluesky")
