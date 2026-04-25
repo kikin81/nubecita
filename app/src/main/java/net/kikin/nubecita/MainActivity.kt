@@ -9,11 +9,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.feature.login.api.Login
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -21,8 +26,25 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var oauthRedirectBroker: OAuthRedirectBroker
 
+    @Inject
+    lateinit var sessionStateProvider: SessionStateProvider
+
+    @Inject
+    lateinit var navigator: Navigator
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // installSplashScreen() must run BEFORE super.onCreate so the splash claims the
+        // first frame. The keep-on-screen predicate captures `sessionStateProvider`,
+        // which Hilt's @AndroidEntryPoint generated base class injects during
+        // super.onCreate — set the predicate AFTER super to keep the field-access edge
+        // unambiguously safe (canonical Google SplashScreen sample order).
+        val splashScreen = installSplashScreen()
+
         super.onCreate(savedInstanceState)
+
+        // setKeepOnScreenCondition is invoked on every platform frame callback (not a
+        // coroutine), so the lambda reads state.value synchronously off the StateFlow.
+        splashScreen.setKeepOnScreenCondition { sessionStateProvider.state.value is SessionState.Loading }
 
         enableEdgeToEdge()
         setContent {
@@ -32,6 +54,23 @@ class MainActivity : ComponentActivity() {
         // launched MainActivity with the redirect intent. The broker buffers until
         // LoginViewModel's init-time collector subscribes.
         handleIntent(intent)
+
+        // Drive the initial session state read off the splash. Once refresh() completes,
+        // state transitions to SignedIn or SignedOut; the collector below reacts.
+        lifecycleScope.launch { sessionStateProvider.refresh() }
+
+        // Reactive routing — every state transition (cold-start resolution, future signOut)
+        // calls navigator.replaceTo(...). Idempotent: re-emitting the same state with the
+        // same destination already on top of the stack is a Compose no-op.
+        lifecycleScope.launch {
+            sessionStateProvider.state.collect { state ->
+                when (state) {
+                    SessionState.Loading -> Unit
+                    SessionState.SignedOut -> navigator.replaceTo(Login)
+                    is SessionState.SignedIn -> navigator.replaceTo(Main)
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -58,7 +97,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
-        const val OAUTH_REDIRECT_SCHEME = "net.kikin.nubecita"
+        // Per AT Protocol's Discoverable Client rule, the redirect-URI scheme is the FQDN
+        // of client_id reversed (kikin81.github.io → io.github.kikin81), NOT the app's
+        // applicationId. Must match the redirect_uris in client-metadata.json verbatim.
+        const val OAUTH_REDIRECT_SCHEME = "io.github.kikin81"
         const val OAUTH_REDIRECT_PATH = "/oauth-redirect"
     }
 }

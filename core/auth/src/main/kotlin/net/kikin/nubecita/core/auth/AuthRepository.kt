@@ -30,9 +30,30 @@ interface AuthRepository {
      * payload because the session is reachable through the store after
      * success.
      *
+     * On success, also triggers a [SessionStateProvider.refresh] so
+     * reactive consumers (e.g. `MainActivity`'s splash routing) transition
+     * to [SessionState.SignedIn] automatically.
+     *
      * @return [Result.success] with [Unit] on a clean exchange;
      *   [Result.failure] wrapping the underlying exception on malformed
      *   URI, missing PKCE state, server rejection, etc.
      */
     suspend fun completeLogin(redirectUri: String): Result<Unit>
+
+    /**
+     * Revokes the current session at the authorization server's
+     * revocation endpoint and clears the local `OAuthSessionStore`. On
+     * success, also triggers a [SessionStateProvider.refresh] so reactive
+     * consumers transition to [SessionState.SignedOut] automatically.
+     *
+     * If the network revocation call fails, the local session is *not*
+     * cleared either — failures propagate as [Result.failure] so callers
+     * can choose retry / force-clear / surface-error behavior. (Force-
+     * clear is a future affordance for a settings screen.)
+     *
+     * @return [Result.success] with [Unit] on a clean revocation;
+     *   [Result.failure] wrapping the underlying exception on network
+     *   error, revocation endpoint rejection, etc.
+     */
+    suspend fun signOut(): Result<Unit>
 }
