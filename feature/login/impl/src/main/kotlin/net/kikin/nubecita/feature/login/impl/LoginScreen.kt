@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -47,6 +49,7 @@ internal fun LoginScreen(
     modifier: Modifier = Modifier,
 ) {
     val errorText = state.errorMessage?.let { displayStringFor(it) }
+    val focusManager = LocalFocusManager.current
 
     Column(
         modifier =
@@ -90,6 +93,13 @@ internal fun LoginScreen(
                     capitalization = KeyboardCapitalization.None,
                     autoCorrectEnabled = false,
                     imeAction = ImeAction.Go,
+                ),
+            keyboardActions =
+                KeyboardActions(
+                    onGo = {
+                        focusManager.clearFocus()
+                        onEvent(LoginEvent.SubmitLogin)
+                    },
                 ),
             modifier = Modifier.fillMaxWidth(),
         )

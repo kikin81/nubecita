@@ -7,6 +7,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -33,7 +35,14 @@ fun NubecitaPrimaryButton(
     Button(
         onClick = onClick,
         enabled = enabled && !isLoading,
-        modifier = modifier,
+        // Preserve the button's accessible label across both visual states. When isLoading
+        // is true the Text is replaced with a CircularWavyProgressIndicator, which has no
+        // intrinsic label; without this semantics override TalkBack would announce only
+        // "loading" / "progress indicator" with no hint about which action is loading.
+        modifier =
+            modifier.semantics {
+                contentDescription = text
+            },
     ) {
         if (isLoading) {
             CircularWavyProgressIndicator(
