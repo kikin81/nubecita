@@ -16,7 +16,15 @@ allprojects {
     extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension> {
         kotlin {
             target("**/*.kt")
-            targetExclude("**/build/**/*.kt", "**/generated/**/*.kt")
+            // openspec/references/ is a handoff package: copies of code from external
+            // sources (UI kits, sample apps) checked in for inspiration, intended to
+            // be ported into modules with adjusted package names — not built or
+            // linted in-place.
+            targetExclude(
+                "**/build/**/*.kt",
+                "**/generated/**/*.kt",
+                "openspec/references/**/*.kt",
+            )
             ktlint(libs.versions.ktlint.get())
                 .customRuleSets(
                     listOf(

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>Nubecita Icons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 32px 40px; }
+  h1 { font-family: var(--font-display); font-size: 36px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--fg-2); margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  .cell {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 18px 8px; border-radius: 12px;
+    background: var(--surface-container-low); border: 1px solid var(--outline-variant);
+  }
+  .cell svg { width: 28px; height: 28px; color: var(--fg-1); }
+  .cell .n { font-family: var(--font-mono); font-size: 11px; color: var(--fg-2); text-align: center; word-break: break-all; }
+  .controls { display: flex; gap: 12px; margin-bottom: 24px; align-items: center; }
+  .controls button {
+    font-family: var(--font-body); font-size: 14px; font-weight: 600;
+    padding: 8px 16px; border-radius: 999px; border: 1px solid var(--outline);
+    background: transparent; color: var(--fg-1); cursor: pointer;
+  }
+  .controls button.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+</style>
+</head><body>
+<h1>Nubecita Icons</h1>
+<div class="sub">58 icons · 24×24 viewBox · <code>currentColor</code> · feed to Valkyrie as a folder.</div>
+<div class="controls">
+  <button class="active" onclick="setSize(28)">M</button>
+  <button onclick="setSize(20)">S</button>
+  <button onclick="setSize(40)">L</button>
+  <button onclick="setColor('var(--fg-1)')">Default</button>
+  <button onclick="setColor('var(--primary)')">Primary</button>
+  <button onclick="setColor('var(--secondary)')">Peach</button>
+  <button onclick="setColor('var(--tertiary)')">Lilac</button>
+</div>
+<div class="grid" id="grid"></div>
+<script>
+const NAMES = ["home","home_fill","search","menu","arrow_back","arrow_forward","chevron_right","chevron_left","chevron_down","chevron_up","close","more_vert","more_horiz","heart","heart_fill","chat_bubble","repeat","share","bookmark","bookmark_fill","edit","compose","image","gif","mood","mention","send","attach","person","person_add","group","check","plus","minus","bell","bell_fill","settings","palette","shield","lock","language","text_fields","info","help","download","upload","logout","cloud","cloud_fill","sparkle","auto_awesome","memory","menu_book","globe","eye","eye_off","flag","pin"];
+const grid = document.getElementById('grid');
+async function load() {
+  for (const n of NAMES) {
+    const svg = await fetch(`ic_${n}.svg`).then(r => r.text());
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML = svg + `<div class="n">${n}</div>`;
+    grid.appendChild(cell);
+  }
+}
+function setSize(px) {
+  document.querySelectorAll('.cell svg').forEach(s => { s.style.width = px+'px'; s.style.height = px+'px'; });
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+function setColor(c) { document.querySelectorAll('.cell svg').forEach(s => s.style.color = c); }
+load();
+</script>
+</body></html>
