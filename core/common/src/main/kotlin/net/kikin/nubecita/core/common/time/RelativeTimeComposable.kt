@@ -6,7 +6,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalResources
 import kotlinx.coroutines.delay
-import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.common.R
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -14,6 +13,7 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * Resolve [RelativeTimeStrings] from the host's Android string + plural

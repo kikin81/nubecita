@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PostCard author + repost-attribution lines -->
+    <string name="postcard_reposted_by">%1$s reposted</string>
+    <string name="postcard_handle_and_timestamp">@%1$s · %2$s</string>
+
+    <!-- PostCard unsupported-embed chip + friendly type labels.
+         Format: "Unsupported embed: <type>" where <type> is the matching
+         postcard_embed_label_* string. New embed types unlock by adding
+         a new label here AND extending the when() in unsupportedEmbedLabel(). -->
+    <string name="postcard_unsupported_embed_format">Unsupported embed: %1$s</string>
+    <string name="postcard_embed_label_external">link card</string>
+    <string name="postcard_embed_label_record">quoted post</string>
+    <string name="postcard_embed_label_video">video</string>
+    <string name="postcard_embed_label_record_with_media">quoted post with media</string>
+    <string name="postcard_embed_label_unknown">embed</string>
+
+    <!-- PostCard action-row accessibility labels. v1 only the share button needs
+         one (it has no visible count text, so the icon must announce itself).
+         Full per-action labels + active-state announcements tracked in nubecita-zk2. -->
+    <string name="postcard_action_share">Share post</string>
+</resources>
