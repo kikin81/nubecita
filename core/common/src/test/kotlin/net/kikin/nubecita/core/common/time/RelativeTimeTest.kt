@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.common.time
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Locale
 import kotlin.time.Duration.Companion.days
@@ -107,7 +108,7 @@ internal class RelativeTimeTest {
         val french = formatRelativeTime(now, now - 30.days, strings, utc, Locale.FRENCH)
         // French abbreviates March as "mars". The exact form differs across JDK
         // releases (some emit "mars", some "mars."), but the prefix is stable.
-        assertEquals(true, french.lowercase().startsWith("mars"))
+        assertTrue(french.startsWith("mars", ignoreCase = true))
     }
 
     @Test
