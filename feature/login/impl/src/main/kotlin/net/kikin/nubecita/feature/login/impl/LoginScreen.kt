@@ -46,7 +46,7 @@ internal fun LoginScreen(
     onEvent: (LoginEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val errorText = state.errorMessage?.toDisplayString()
+    val errorText = state.errorMessage?.let { displayStringFor(it) }
 
     Column(
         modifier =
@@ -115,10 +115,12 @@ internal fun LoginScreen(
 }
 
 @Composable
-private fun LoginError.toDisplayString(): String =
-    when (this) {
+private fun displayStringFor(error: LoginError): String =
+    when (error) {
         LoginError.BlankHandle -> stringResource(R.string.login_error_blank_handle)
-        is LoginError.Failure -> cause?.takeIf { it.isNotBlank() } ?: stringResource(R.string.login_error_generic_failure)
+        is LoginError.Failure ->
+            error.cause?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.login_error_generic_failure)
     }
 
 @Preview(name = "Empty", showBackground = true)

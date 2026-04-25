@@ -23,6 +23,7 @@ tinkAndroid = "1.21.0"
 nav3Core = "1.1.1"
 lifecycleViewmodelNav3 = "2.10.0"
 screenshot = "0.0.1-alpha14"
+slackComposeLints = "1.4.2"
 sortDependencies = "0.16"
 spotless = "8.4.0"
 ktlint = "1.4.1"
@@ -72,6 +73,7 @@ androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-com
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
 screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot" }
+slack-compose-lints = { module = "com.slack.lint.compose:compose-lint-checks", version.ref = "slackComposeLints" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

@@ -33,6 +33,12 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                         "proguard-rules.pro",
                     )
                 }
+
+                lint {
+                    // XML-only; doesn't catch Compose Text("literal") calls. Compose hardcoded
+                    // strings are caught by Slack's compose-lint-checks (added below).
+                    error += "HardcodedText"
+                }
             }
 
             dependencies {
@@ -45,6 +51,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 "implementation"(libs.findLibrary("hilt-android").get())
                 "debugImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
                 "ksp"(libs.findLibrary("hilt-android-compiler").get())
+                "lintChecks"(libs.findLibrary("slack-compose-lints").get())
             }
         }
     }

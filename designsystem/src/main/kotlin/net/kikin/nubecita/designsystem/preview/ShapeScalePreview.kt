@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:compose:modifier-missing-check")
-
 package net.kikin.nubecita.designsystem.preview
 
 import androidx.compose.foundation.background
@@ -22,13 +20,14 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.extendedShape
 
 @Composable
-fun ShapeBox(
+private fun ShapeBox(
     name: String,
     shape: Shape,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -48,9 +47,7 @@ fun ShapeBox(
 }
 
 @Composable
-fun ShapeScale(
-    modifier: Modifier = Modifier,
-) {
+private fun ShapeScale(modifier: Modifier = Modifier) {
     Column(
         modifier =
             modifier
