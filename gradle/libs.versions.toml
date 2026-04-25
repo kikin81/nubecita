@@ -17,6 +17,7 @@ coroutines = "1.10.2"
 datastore = "1.3.0-alpha08"
 junit = "4.13.2"
 kotlinxCollectionsImmutable = "0.4.0"
+kotlinxDatetime = "0.7.1"
 kotlinxSerializationJson = "1.11.0"
 kotlin = "2.3.21"
 hilt = "2.59.2"
@@ -72,6 +73,7 @@ coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp" }
 junit = { module = "junit:junit", version.ref = "junit" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }

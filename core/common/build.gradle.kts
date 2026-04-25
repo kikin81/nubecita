@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.nubecita.android.library)
+    alias(libs.plugins.nubecita.android.library.compose)
     alias(libs.plugins.nubecita.android.hilt)
 }
 
@@ -13,6 +13,7 @@ dependencies {
     api(libs.androidx.lifecycle.viewmodel.ktx)
     api(libs.androidx.navigation3.runtime)
     api(libs.kotlinx.coroutines.core)
+    api(libs.kotlinx.datetime)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
