@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -44,6 +45,7 @@ internal fun PostStat(
     onClick: () -> Unit = {},
     active: Boolean = false,
     activeColor: Color = MaterialTheme.colorScheme.primary,
+    accessibilityLabel: String? = null,
 ) {
     val tint = if (active) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
@@ -52,12 +54,16 @@ internal fun PostStat(
         modifier =
             modifier
                 .clip(CircleShape)
-                .clickable(onClick = onClick)
+                .clickable(role = Role.Button, onClick = onClick)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
+        // contentDescription wired only when there's no visible count text
+        // (e.g., share button). When count is shown, TalkBack reads the
+        // count + Row's clickable label; the icon stays decorative. Per-
+        // action verbs (Reply / Repost / Like) tracked in nubecita-zk2.
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = if (count.isEmpty()) accessibilityLabel else null,
             tint = tint,
             modifier = Modifier.size(STAT_ICON_SIZE),
         )

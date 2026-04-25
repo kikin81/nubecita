@@ -30,4 +30,19 @@ data class PostCallbacks(
     val onRepost: (PostUi) -> Unit = {},
     val onReply: (PostUi) -> Unit = {},
     val onShare: (PostUi) -> Unit = {},
-)
+) {
+    public companion object {
+        /**
+         * Stable no-op singleton. Use as the default value where a PostCard
+         * call site is preview / placeholder / non-interactive — re-using
+         * this instance is the difference between PostCard skipping
+         * recomposition and rebuilding on every parent change.
+         *
+         * `data class` defaults like `PostCallbacks()` create a new instance
+         * (with new lambda identities) per call, so `default == default` is
+         * `false`. The singleton fixes that — `None == None` is true, and
+         * Compose's stability inference can skip the row.
+         */
+        public val None: PostCallbacks = PostCallbacks()
+    }
+}

@@ -19,8 +19,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /**
  * Screenshot baselines for [PostCard]'s state matrix — six visual
@@ -48,12 +47,14 @@ private fun screenshotPost(
     PostUi(
         id = "screenshot",
         author = screenshotAuthor(),
-        // Pinned 3-minute-old timestamp so relative-time renders "3m" deterministically.
-        // The Composable wrapper still uses Clock.System internally; rememberRelativeTimeText
-        // computes (now - then), so as long as `then` is sufficiently in the past relative
-        // to `now`, the bucket stays stable. 3m comfortably stays in the "Nm" bucket
-        // regardless of test runtime drift.
-        createdAt = Clock.System.now() - 3.minutes,
+        // Pinned to a fixed Instant deep enough in the past that
+        // rememberRelativeTimeText resolves to the absolute-date bucket
+        // (> 7 days). The rendered string is "Oct 15, 2025" regardless of
+        // when the test runs — fully deterministic across CI re-runs and
+        // local generations. Earlier draft used `Clock.System.now() - 3.minutes`
+        // which would render "3m" today but could drift to "4m" / "Apr 25" /
+        // etc. depending on minute-boundary or hours-elapsed-since-baseline.
+        createdAt = SCREENSHOT_CREATED_AT,
         text = text,
         facets = facets,
         embed = embed,
@@ -61,6 +62,8 @@ private fun screenshotPost(
         viewer = viewer,
         repostedBy = repostedBy,
     )
+
+private val SCREENSHOT_CREATED_AT: Instant = Instant.parse("2025-10-15T12:00:00Z")
 
 @PreviewTest
 @Preview(name = "empty-body-light", showBackground = true)

@@ -80,7 +80,7 @@ import kotlin.time.Duration.Companion.minutes
 fun PostCard(
     post: PostUi,
     modifier: Modifier = Modifier,
-    callbacks: PostCallbacks = PostCallbacks(),
+    callbacks: PostCallbacks = PostCallbacks.None,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -99,7 +99,9 @@ fun PostCard(
                     contentDescription = post.author.displayName,
                     modifier = Modifier.clickable { callbacks.onAuthorTap(post.author) },
                 )
-                Column(modifier = Modifier.fillMaxWidth()) {
+                // weight(1f) — claim the remaining width after the avatar. Was
+                // fillMaxWidth() which overflows past the avatar on narrow screens.
+                Column(modifier = Modifier.weight(1f)) {
                     AuthorLine(post = post)
                     Spacer(Modifier.height(4.dp))
                     BodyText(text = post.text, facets = post.facets)
@@ -213,6 +215,7 @@ private fun ActionRow(
             icon = Icons.Outlined.IosShare,
             count = "",
             onClick = { callbacks.onShare(post) },
+            accessibilityLabel = stringResource(R.string.postcard_action_share),
         )
     }
 }

@@ -67,7 +67,9 @@ private fun SkeletonBody(showImagePlaceholder: Boolean) {
                         .clip(CircleShape)
                         .shimmer(),
             )
-            Column(modifier = Modifier.fillMaxWidth()) {
+            // weight(1f) — claim the remaining width after the avatar. Was
+            // fillMaxWidth() which overflows past the avatar (matches PostCard's fix).
+            Column(modifier = Modifier.weight(1f)) {
                 // Display-name + handle bar
                 Box(
                     modifier =
