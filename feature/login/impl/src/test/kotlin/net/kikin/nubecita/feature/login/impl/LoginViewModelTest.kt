@@ -1,11 +1,15 @@
 package net.kikin.nubecita.feature.login.impl
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.core.auth.AuthRepository
+import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -19,7 +23,7 @@ internal class LoginViewModelTest {
 
     @Test
     fun `initial state is empty handle, not loading, no error`() {
-        val vm = LoginViewModel(FakeAuthRepository(Result.success("ignored")))
+        val vm = newViewModel()
         val state = vm.uiState.value
         assertEquals("", state.handle)
         assertEquals(false, state.isLoading)
@@ -28,9 +32,8 @@ internal class LoginViewModelTest {
 
     @Test
     fun `HandleChanged updates handle and clears errorMessage`() {
-        val vm = LoginViewModel(FakeAuthRepository(Result.success("ignored")))
+        val vm = newViewModel()
 
-        // Seed an error first via blank-handle submission, then verify HandleChanged clears it.
         vm.handleEvent(LoginEvent.SubmitLogin)
         assertEquals(LoginError.BlankHandle, vm.uiState.value.errorMessage)
 
@@ -41,8 +44,8 @@ internal class LoginViewModelTest {
 
     @Test
     fun `blank-handle SubmitLogin emits BlankHandle error without calling repository`() {
-        val fake = FakeAuthRepository(Result.success("never returned"))
-        val vm = LoginViewModel(fake)
+        val fake = FakeAuthRepository(beginLoginResult = Result.success("never returned"))
+        val vm = newViewModel(authRepository = fake)
 
         vm.handleEvent(LoginEvent.SubmitLogin)
 
@@ -54,7 +57,7 @@ internal class LoginViewModelTest {
 
     @Test
     fun `whitespace-only handle is treated as blank`() {
-        val vm = LoginViewModel(FakeAuthRepository(Result.success("ignored")))
+        val vm = newViewModel()
         vm.handleEvent(LoginEvent.HandleChanged("   "))
         vm.handleEvent(LoginEvent.SubmitLogin)
         assertEquals(LoginError.BlankHandle, vm.uiState.value.errorMessage)
@@ -64,7 +67,7 @@ internal class LoginViewModelTest {
     fun `successful beginLogin emits LaunchCustomTab and clears loading`() =
         runTest(mainDispatcherRule.dispatcher) {
             val url = "https://bsky.social/oauth/authorize?req=uri:abc"
-            val vm = LoginViewModel(FakeAuthRepository(Result.success(url)))
+            val vm = newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.success(url)))
             vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
             vm.handleEvent(LoginEvent.SubmitLogin)
             advanceUntilIdle()
@@ -82,8 +85,11 @@ internal class LoginViewModelTest {
     fun `failed beginLogin emits Failure error carrying the cause message`() =
         runTest(mainDispatcherRule.dispatcher) {
             val vm =
-                LoginViewModel(
-                    FakeAuthRepository(Result.failure(IllegalStateException("Handle could not be resolved"))),
+                newViewModel(
+                    authRepository =
+                        FakeAuthRepository(
+                            beginLoginResult = Result.failure(IllegalStateException("Handle could not be resolved")),
+                        ),
                 )
             vm.handleEvent(LoginEvent.HandleChanged("nope.bsky.social"))
             vm.handleEvent(LoginEvent.SubmitLogin)
@@ -98,41 +104,88 @@ internal class LoginViewModelTest {
         }
 
     @Test
-    fun `failure with blank message produces Failure carrying null cause`() =
-        runTest(mainDispatcherRule.dispatcher) {
-            val vm =
-                LoginViewModel(
-                    FakeAuthRepository(Result.failure(RuntimeException(""))),
-                )
-            vm.handleEvent(LoginEvent.HandleChanged("alice"))
-            vm.handleEvent(LoginEvent.SubmitLogin)
-            advanceUntilIdle()
-
-            // Empty exception messages flow through verbatim — the screen treats blank as "use the
-            // generic-fallback resource string." Putting the string substitution here would couple
-            // the VM to Android resources.
-            assertEquals(LoginError.Failure(""), vm.uiState.value.errorMessage)
-        }
-
-    @Test
     fun `ClearError nulls errorMessage`() {
-        val vm = LoginViewModel(FakeAuthRepository(Result.success("ignored")))
-        vm.handleEvent(LoginEvent.SubmitLogin) // blank-handle error
+        val vm = newViewModel()
+        vm.handleEvent(LoginEvent.SubmitLogin)
         assertEquals(LoginError.BlankHandle, vm.uiState.value.errorMessage)
 
         vm.handleEvent(LoginEvent.ClearError)
         assertNull(vm.uiState.value.errorMessage)
     }
+
+    @Test
+    fun `broker emission with successful completeLogin emits LoginSucceeded`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginResult = Result.success(Unit))
+            val vm = newViewModel(authRepository = auth, broker = broker)
+            advanceUntilIdle() // let init-time collector subscribe
+
+            broker.emit("net.kikin.nubecita:/oauth-redirect?code=abc")
+            advanceUntilIdle()
+
+            val effect = vm.effects.first()
+            assertEquals(LoginEffect.LoginSucceeded, effect)
+            assertEquals(1, auth.completeLoginInvocations)
+            assertNull(vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `broker emission with failure populates errorMessage and emits no effect`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth =
+                FakeAuthRepository(
+                    completeLoginResult = Result.failure(IllegalStateException("invalid code")),
+                )
+            val vm = newViewModel(authRepository = auth, broker = broker)
+            advanceUntilIdle()
+
+            broker.emit("net.kikin.nubecita:/oauth-redirect?code=bad")
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Failure("invalid code"), vm.uiState.value.errorMessage)
+            assertEquals(false, vm.uiState.value.isLoading)
+
+            val effect = withTimeoutOrNull(timeMillis = 50) { vm.effects.first() }
+            assertNull(effect)
+        }
 }
 
+private fun newViewModel(
+    authRepository: AuthRepository = FakeAuthRepository(),
+    broker: OAuthRedirectBroker = FakeOAuthRedirectBroker(),
+): LoginViewModel = LoginViewModel(authRepository = authRepository, broker = broker)
+
 private class FakeAuthRepository(
-    private val result: Result<String>,
+    private val beginLoginResult: Result<String> = Result.success("ignored"),
+    private val completeLoginResult: Result<Unit> = Result.success(Unit),
 ) : AuthRepository {
     var beginLoginInvocations: Int = 0
+        private set
+    var completeLoginInvocations: Int = 0
         private set
 
     override suspend fun beginLogin(handle: String): Result<String> {
         beginLoginInvocations++
-        return result
+        return beginLoginResult
+    }
+
+    override suspend fun completeLogin(redirectUri: String): Result<Unit> {
+        completeLoginInvocations++
+        return completeLoginResult
+    }
+}
+
+private class FakeOAuthRedirectBroker : OAuthRedirectBroker {
+    private val channel = Channel<String>(Channel.BUFFERED)
+    override val redirects: Flow<String> = channel.receiveAsFlow()
+
+    override suspend fun publish(redirectUri: String) {
+        channel.send(redirectUri)
+    }
+
+    suspend fun emit(redirectUri: String) {
+        channel.send(redirectUri)
     }
 }

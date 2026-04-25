@@ -44,4 +44,12 @@ sealed interface LoginEffect : UiEffect {
     data class LaunchCustomTab(
         val url: String,
     ) : LoginEffect
+
+    /**
+     * The OAuth flow completed successfully and a session is now persisted
+     * in the store. Carries no payload — the screen decides where to
+     * navigate (today: pop the Login destination off the back stack;
+     * `nubecita-30c` will add auth-gated routing decisions on top).
+     */
+    data object LoginSucceeded : LoginEffect
 }

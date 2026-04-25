@@ -14,10 +14,26 @@
         android:theme="@style/Theme.Nubecita">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!--
+                OAuth redirect — Bluesky's authorization server sends the user back via
+                net.kikin.nubecita:/oauth-redirect after PAR. android:launchMode="singleTask"
+                ensures the redirect re-delivers to this MainActivity instance via
+                onNewIntent rather than spawning a new task; MainActivity.handleIntent
+                forwards the URI to OAuthRedirectBroker for LoginViewModel to consume.
+                Scheme MUST equal the app's applicationId and the redirect_uris registered
+                in client-metadata.json (see docs/oauth/).
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="net.kikin.nubecita" />
             </intent-filter>
         </activity>
     </application>

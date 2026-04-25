@@ -10,6 +10,7 @@ dependencies {
     api(project(":feature:login:api"))
 
     implementation(project(":core:auth"))
+    implementation(libs.androidx.browser)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

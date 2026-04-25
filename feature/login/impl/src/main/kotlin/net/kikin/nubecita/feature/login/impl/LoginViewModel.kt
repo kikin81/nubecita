@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.AuthRepository
+import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import javax.inject.Inject
 
@@ -12,7 +13,25 @@ class LoginViewModel
     @Inject
     constructor(
         private val authRepository: AuthRepository,
+        broker: OAuthRedirectBroker,
     ) : MviViewModel<LoginState, LoginEvent, LoginEffect>(LoginState()) {
+        init {
+            // Long-running collection of redirect URIs published by MainActivity.
+            // Cancels automatically when the VM is cleared. Each emission triggers
+            // completeLogin; success → LoginSucceeded effect, failure → state errorMessage.
+            viewModelScope.launch {
+                broker.redirects.collect { redirectUri ->
+                    authRepository
+                        .completeLogin(redirectUri)
+                        .onSuccess {
+                            sendEffect(LoginEffect.LoginSucceeded)
+                        }.onFailure { failure ->
+                            setState { copy(isLoading = false, errorMessage = LoginError.Failure(failure.message)) }
+                        }
+                }
+            }
+        }
+
         override fun handleEvent(event: LoginEvent) {
             when (event) {
                 is LoginEvent.HandleChanged -> setState { copy(handle = event.handle, errorMessage = null) }
@@ -35,6 +54,8 @@ class LoginViewModel
                         setState { copy(isLoading = false) }
                         sendEffect(LoginEffect.LaunchCustomTab(url))
                     }.onFailure { failure ->
+                        // The screen resolves null / blank cause to the generic-failure resource
+                        // string via LoginError.Failure → displayStringFor mapping.
                         setState { copy(isLoading = false, errorMessage = LoginError.Failure(failure.message)) }
                     }
             }
