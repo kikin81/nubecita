@@ -19,7 +19,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject
-    lateinit var oAuthRedirectBroker: OAuthRedirectBroker
+    lateinit var oauthRedirectBroker: OAuthRedirectBroker
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,9 +44,13 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent) {
         val uri = intent.data ?: return
-        if (uri.scheme == OAUTH_REDIRECT_SCHEME) {
+        // Defense in depth: the manifest intent filter constrains scheme + path, but
+        // also re-validate here so a misconfigured filter (or a future second deep link
+        // sharing the scheme) can't leak unrelated URIs into the OAuth completeLogin
+        // path. Path must match the redirect_uri declared in client-metadata.json.
+        if (uri.scheme == OAUTH_REDIRECT_SCHEME && uri.path == OAUTH_REDIRECT_PATH) {
             val redirectUri = uri.toString()
-            lifecycleScope.launch { oAuthRedirectBroker.publish(redirectUri) }
+            lifecycleScope.launch { oauthRedirectBroker.publish(redirectUri) }
             // Consume so configuration changes (rotation, theme switch, dark-mode flip)
             // don't re-fire the redirect handler and double-invoke completeLogin.
             intent.data = null
@@ -55,5 +59,6 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val OAUTH_REDIRECT_SCHEME = "net.kikin.nubecita"
+        const val OAUTH_REDIRECT_PATH = "/oauth-redirect"
     }
 }

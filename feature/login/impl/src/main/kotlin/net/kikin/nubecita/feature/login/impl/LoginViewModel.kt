@@ -24,6 +24,11 @@ class LoginViewModel
                     authRepository
                         .completeLogin(redirectUri)
                         .onSuccess {
+                            // Defensive: today the submit-path has already cleared isLoading
+                            // by the time the redirect arrives, but if a future flow keeps
+                            // isLoading true during the Custom Tab roundtrip, the success
+                            // handler should still leave a clean slate before navigation.
+                            setState { copy(isLoading = false, errorMessage = null) }
                             sendEffect(LoginEffect.LoginSucceeded)
                         }.onFailure { failure ->
                             setState { copy(isLoading = false, errorMessage = LoginError.Failure(failure.message)) }
