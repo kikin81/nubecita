@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.timber)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

@@ -1,7 +1,7 @@
 package net.kikin.nubecita.core.auth
 
-import android.util.Log
 import io.github.kikin81.atproto.oauth.AtOAuth
+import timber.log.Timber
 import javax.inject.Inject
 
 internal class DefaultAuthRepository
@@ -12,19 +12,25 @@ internal class DefaultAuthRepository
     ) : AuthRepository {
         override suspend fun beginLogin(handle: String): Result<String> =
             runCatching { atOAuth.beginLogin(handle) }
-                .onFailure { Log.e(TAG, "beginLogin('$handle') failed", it) }
+                .onFailure { Timber.tag(TAG).e(it, "beginLogin('%s') failed", handle) }
 
         override suspend fun completeLogin(redirectUri: String): Result<Unit> =
             runCatching {
                 atOAuth.completeLogin(redirectUri)
                 sessionStateProvider.refresh()
-            }.onFailure { Log.e(TAG, "completeLogin('$redirectUri') failed", it) }
+            }.onFailure {
+                // Strip the query string before logging — the redirect URI
+                // carries the one-time-use OAuth `code` and the CSRF `state`
+                // value, neither of which belong in any log surface (logcat
+                // today, hypothetical future remote crash reporter tomorrow).
+                Timber.tag(TAG).e(it, "completeLogin('%s') failed", redirectUri.substringBefore('?'))
+            }
 
         override suspend fun signOut(): Result<Unit> =
             runCatching {
                 atOAuth.logout()
                 sessionStateProvider.refresh()
-            }.onFailure { Log.e(TAG, "signOut() failed", it) }
+            }.onFailure { Timber.tag(TAG).e(it, "signOut() failed") }
 
         private companion object {
             // Logcat tag stays under 23 chars (Android Log API ceiling) so it shows up
