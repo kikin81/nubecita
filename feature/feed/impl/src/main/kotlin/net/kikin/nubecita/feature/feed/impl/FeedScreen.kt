@@ -12,6 +12,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -27,6 +28,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
+import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -40,7 +42,7 @@ import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
 
 private const val PREFETCH_DISTANCE = 5
 private const val SHIMMER_PREVIEW_COUNT = 6
@@ -355,25 +357,35 @@ private fun FeedScreenLoadedAppendingPreview() {
 private fun FeedScreenPreviewHost(viewState: FeedScreenViewState) {
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
-    FeedScreenContent(
-        viewState = viewState,
-        listState = listState,
-        snackbarHostState = snackbarHostState,
-        callbacks = PostCallbacks.None,
-        onRefresh = {},
-        onRetry = {},
-        onLoadMore = {},
-    )
+    // Provide a fixed clock so PostCard's relative-time label is
+    // deterministic — pairs with PREVIEW_CREATED_AT below to render "2h".
+    CompositionLocalProvider(LocalClock provides PreviewClock) {
+        FeedScreenContent(
+            viewState = viewState,
+            listState = listState,
+            snackbarHostState = snackbarHostState,
+            callbacks = PostCallbacks.None,
+            onRefresh = {},
+            onRetry = {},
+            onLoadMore = {},
+        )
+    }
 }
 
-private fun previewPosts(count: Int): ImmutableList<PostUi> {
-    // Pin createdAt relative to `now` so the rendered relative-time label
-    // ("2h") is stable across screenshot runs regardless of wall-clock date.
-    // PostCard's `rememberRelativeTimeText` reads `Clock.System.now()` to
-    // compute the label; a fixed `Instant.parse(...)` would drift as days
-    // pass. Mirrors the pattern used in PostCard.kt's own previews.
-    val createdAt = Clock.System.now() - 2.hours
-    return (1..count)
+// Fixed instants for previews + screenshots. Paired with
+// `PreviewClock`, the rendered relative-time label is "2h" forever —
+// no `Clock.System.now()` involved, so screenshots don't drift as
+// wall-clock advances. Tests that want a different bucket override
+// these locally rather than recomputing relative to a live clock.
+private val PREVIEW_NOW = Instant.parse("2026-04-26T12:00:00Z")
+private val PREVIEW_CREATED_AT = Instant.parse("2026-04-26T10:00:00Z")
+
+private object PreviewClock : Clock {
+    override fun now(): Instant = PREVIEW_NOW
+}
+
+private fun previewPosts(count: Int): ImmutableList<PostUi> =
+    (1..count)
         .map { id ->
             PostUi(
                 id = "post-$id",
@@ -384,7 +396,7 @@ private fun previewPosts(count: Int): ImmutableList<PostUi> {
                         displayName = "Preview $id",
                         avatarUrl = null,
                     ),
-                createdAt = createdAt,
+                createdAt = PREVIEW_CREATED_AT,
                 text = "Preview post $id — sample timeline content for the feed-screen previews.",
                 facets = persistentListOf(),
                 embed = EmbedUi.Empty,
@@ -393,4 +405,3 @@ private fun previewPosts(count: Int): ImmutableList<PostUi> {
                 repostedBy = null,
             )
         }.toImmutableList()
-}

@@ -4,12 +4,14 @@ import android.content.res.Configuration
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -18,7 +20,7 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
 
 /**
  * Screenshot baselines for `FeedScreen`'s render-state matrix:
@@ -140,24 +142,31 @@ private fun FeedScreenLoadedAppendingScreenshot() {
 private fun FeedScreenScreenshotHost(viewState: FeedScreenViewState) {
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
-    FeedScreenContent(
-        viewState = viewState,
-        listState = listState,
-        snackbarHostState = snackbarHostState,
-        callbacks = PostCallbacks.None,
-        onRefresh = {},
-        onRetry = {},
-        onLoadMore = {},
-    )
+    // Provide a fixed clock so PostCard's relative-time label is
+    // deterministic — pairs with FIXTURE_CREATED_AT below to render "2h"
+    // forever. No Clock.System.now() reads happen anywhere in this file.
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        FeedScreenContent(
+            viewState = viewState,
+            listState = listState,
+            snackbarHostState = snackbarHostState,
+            callbacks = PostCallbacks.None,
+            onRefresh = {},
+            onRetry = {},
+            onLoadMore = {},
+        )
+    }
 }
 
-private fun fixturePosts(count: Int): ImmutableList<PostUi> {
-    // Pin createdAt relative to `now` so the rendered relative-time label
-    // stays stable across screenshot runs (PostCard reads Clock.System.now()
-    // for the relative-time text). A fixed Instant.parse(...) drifts as days
-    // pass. Mirrors PostCard.kt's own preview pattern.
-    val createdAt = Clock.System.now() - 2.hours
-    return (1..count)
+private val FIXTURE_NOW = Instant.parse("2026-04-26T12:00:00Z")
+private val FIXTURE_CREATED_AT = Instant.parse("2026-04-26T10:00:00Z")
+
+private object FixtureClock : Clock {
+    override fun now(): Instant = FIXTURE_NOW
+}
+
+private fun fixturePosts(count: Int): ImmutableList<PostUi> =
+    (1..count)
         .map { id ->
             PostUi(
                 id = "post-$id",
@@ -168,7 +177,7 @@ private fun fixturePosts(count: Int): ImmutableList<PostUi> {
                         displayName = "Fixture $id",
                         avatarUrl = null,
                     ),
-                createdAt = createdAt,
+                createdAt = FIXTURE_CREATED_AT,
                 text = "Fixture post $id — sample content for the screen-level screenshot matrix.",
                 facets = persistentListOf(),
                 embed = EmbedUi.Empty,
@@ -177,4 +186,3 @@ private fun fixturePosts(count: Int): ImmutableList<PostUi> {
                 repostedBy = null,
             )
         }.toImmutableList()
-}

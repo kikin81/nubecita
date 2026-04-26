@@ -51,13 +51,15 @@ fun rememberRelativeTimeStrings(): RelativeTimeStrings {
  *
  * [strings] defaults to the resource-backed [rememberRelativeTimeStrings];
  * call sites that need to inject a fixture (tests, previews) pass their own.
- * [clock] is parameterized for tests; production call sites pass nothing.
+ * [clock] defaults to [LocalClock] (which is [Clock.System] in production
+ * but can be overridden via `CompositionLocalProvider` for screenshot
+ * tests + previews to avoid drift from a live wall clock).
  */
 @Composable
 fun rememberRelativeTimeText(
     then: Instant,
     strings: RelativeTimeStrings = rememberRelativeTimeStrings(),
-    clock: Clock = Clock.System,
+    clock: Clock = LocalClock.current,
 ): State<String> =
     produceState(
         initialValue = formatRelativeTime(clock.now(), then, strings),
