@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.feed.impl.ui
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,11 +37,17 @@ import net.kikin.nubecita.feature.feed.impl.R
 internal fun FeedEmptyState(
     modifier: Modifier = Modifier,
     onRefresh: () -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxSize()
+                // contentPadding is the host-supplied inset (e.g. Scaffold's
+                // innerPadding for edge-to-edge insets). Applied BEFORE the
+                // internal chrome so the empty-state icon + text stay clear of
+                // system bars while keeping the existing centered layout.
+                .padding(contentPadding)
                 .padding(
                     horizontal = MaterialTheme.spacing.s6,
                     vertical = MaterialTheme.spacing.s8,

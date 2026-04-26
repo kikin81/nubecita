@@ -1,7 +1,11 @@
+@file:OptIn(ExperimentalTextApi::class)
+
 package net.kikin.nubecita.designsystem
 
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.text.googlefonts.GoogleFont
@@ -37,9 +41,33 @@ val MaterialSymbolsRoundedFontFamily =
     )
 
 // Bundled variable .ttf so body text renders instantly with no FOUT on cold start.
+// Roboto Flex is a variable font with a `wght` axis. Without one Font entry per
+// requested FontWeight + matching FontVariation.weight() axis position, the
+// engine renders every weight at the file's default axis value (~700), which
+// collapses Type.kt's scale into a uniformly-bold mush. Per-weight Font entries
+// reference the same .ttf — only variationSettings change.
 val RobotoFlexFontFamily =
     FontFamily(
-        Font(resId = R.font.roboto_flex),
+        Font(
+            resId = R.font.roboto_flex,
+            weight = FontWeight.Normal,
+            variationSettings = FontVariation.Settings(FontVariation.weight(400)),
+        ),
+        Font(
+            resId = R.font.roboto_flex,
+            weight = FontWeight.Medium,
+            variationSettings = FontVariation.Settings(FontVariation.weight(500)),
+        ),
+        Font(
+            resId = R.font.roboto_flex,
+            weight = FontWeight.SemiBold,
+            variationSettings = FontVariation.Settings(FontVariation.weight(600)),
+        ),
+        Font(
+            resId = R.font.roboto_flex,
+            weight = FontWeight.Bold,
+            variationSettings = FontVariation.Settings(FontVariation.weight(700)),
+        ),
     )
 
 val JetBrainsMonoFontFamily =

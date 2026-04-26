@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- PostCard author + repost-attribution lines -->
+    <!-- PostCard author + repost-attribution lines.
+         postcard_handle and postcard_relative_time are rendered as separate
+         Text composables in AuthorLine so the handle can truncate with
+         ellipsis (long bsky handles are common) without dragging the
+         right-pinned timestamp onto a second visual line. -->
     <string name="postcard_reposted_by">%1$s reposted</string>
-    <string name="postcard_handle_and_timestamp">@%1$s · %2$s</string>
+    <string name="postcard_handle">\@%1$s</string>
+    <string name="postcard_relative_time">%1$s</string>
 
     <!-- PostCard unsupported-embed chip + friendly type labels.
          Format: "Unsupported embed: <type>" where <type> is the matching

@@ -140,6 +140,54 @@ private fun PostCardRepostedByScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "long-handle-short-name-light", showBackground = true)
+@Preview(name = "long-handle-short-name-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardLongHandleShortNameScreenshot() {
+    // Locks the AuthorLine truncation contract: a 30+ char handle MUST shrink
+    // with ellipsis on a short display name, while the timestamp stays
+    // right-pinned. Pre-fix, the timestamp wrapped to a second visual line.
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                screenshotPost().copy(
+                    author =
+                        AuthorUi(
+                            did = "did:plc:fakedid000000000000000",
+                            handle = "someverylonghandle.bsky.social",
+                            displayName = "Bob",
+                            avatarUrl = null,
+                        ),
+                ),
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "long-name-and-handle-light", showBackground = true)
+@Preview(name = "long-name-and-handle-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardLongNameAndHandleScreenshot() {
+    // Both displayName and handle are long. Handle shrinks first (weighted),
+    // displayName takes its intrinsic width up to remaining space, timestamp
+    // stays right-pinned by the absorbing Spacer.
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                screenshotPost().copy(
+                    author =
+                        AuthorUi(
+                            did = "did:plc:fakedid000000000000000",
+                            handle = "someverylonghandle.bsky.social",
+                            displayName = "Alexandra Christopherson-Williamson",
+                            avatarUrl = null,
+                        ),
+                ),
+        )
+    }
+}
+
+@PreviewTest
 @Preview(name = "with-facets-light", showBackground = true)
 @Preview(name = "with-facets-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable

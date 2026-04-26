@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -161,6 +162,11 @@ internal fun FeedScreenContent(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
+        // EVERY branch must consume `padding` — without this, the status bar
+        // and gesture bar overlap content under edge-to-edge. Scrollable
+        // surfaces apply via `contentPadding` so the surface itself extends
+        // behind translucent system bars; full-screen state composables
+        // accept a contentPadding parameter and apply it to their root.
         when (viewState) {
             FeedScreenViewState.InitialLoading ->
                 LazyColumn(
@@ -175,12 +181,14 @@ internal fun FeedScreenContent(
                 FeedEmptyState(
                     onRefresh = onRefresh,
                     modifier = Modifier.fillMaxSize(),
+                    contentPadding = padding,
                 )
             is FeedScreenViewState.InitialError ->
                 FeedErrorState(
                     error = viewState.error,
                     onRetry = onRetry,
                     modifier = Modifier.fillMaxSize(),
+                    contentPadding = padding,
                 )
             is FeedScreenViewState.Loaded ->
                 LoadedFeedContent(
@@ -191,6 +199,7 @@ internal fun FeedScreenContent(
                     callbacks = callbacks,
                     onRefresh = onRefresh,
                     onLoadMore = onLoadMore,
+                    contentPadding = padding,
                 )
         }
     }
@@ -207,6 +216,7 @@ private fun LoadedFeedContent(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -216,6 +226,12 @@ private fun LoadedFeedContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
+            // contentPadding (NOT Modifier.padding on the parent) — keeps the
+            // LazyColumn surface extending behind translucent system bars
+            // while pushing the first/last items into the safe area. The
+            // pagination snapshotFlow's visibleItemsInfo already accounts
+            // for contentPadding so the prefetch threshold is unaffected.
+            contentPadding = contentPadding,
         ) {
             items(items = posts, key = { it.id }, contentType = { "post" }) { post ->
                 PostCard(post = post, callbacks = callbacks)
