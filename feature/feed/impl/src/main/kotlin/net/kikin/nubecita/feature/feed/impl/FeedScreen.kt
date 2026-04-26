@@ -1,7 +1,6 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import android.content.res.Configuration
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -20,7 +19,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,7 +39,8 @@ import net.kikin.nubecita.designsystem.component.PostCardShimmer
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
-import kotlin.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 
 private const val PREFETCH_DISTANCE = 5
 private const val SHIMMER_PREVIEW_COUNT = 6
@@ -79,7 +79,13 @@ internal fun FeedScreen(
                 onShare = { viewModel.handleEvent(FeedEvent.OnShareClicked(it)) },
             )
         }
-    val context = LocalContext.current
+    // Pre-resolve snackbar copy via stringResource() at composition time
+    // so locale + dark-mode changes participate in recomposition. Reading
+    // them via context.getString(...) inside the LaunchedEffect would
+    // bypass Compose's resource tracking (lint: LocalContextGetResourceValueCall).
+    val networkErrorMessage = stringResource(R.string.feed_snackbar_error_network)
+    val unauthErrorMessage = stringResource(R.string.feed_snackbar_error_unauthenticated)
+    val unknownErrorMessage = stringResource(R.string.feed_snackbar_error_unknown)
     // Wrap nav callbacks so the long-lived effect collector below keys
     // on `Unit` (one collector for the screen's lifetime) but always
     // calls the most recent lambda the host supplied. Without these,
@@ -102,10 +108,16 @@ internal fun FeedScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is FeedEffect.ShowError -> {
+                    val message =
+                        when (effect.error) {
+                            FeedError.Network -> networkErrorMessage
+                            FeedError.Unauthenticated -> unauthErrorMessage
+                            is FeedError.Unknown -> unknownErrorMessage
+                        }
                     // Replace, don't stack — successive errors during a flapping
                     // network spell would otherwise queue snackbars indefinitely.
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = context.getString(effect.error.snackbarResId()))
+                    snackbarHostState.showSnackbar(message = message)
                 }
                 is FeedEffect.NavigateToPost -> currentOnNavigateToPost(effect.post)
                 is FeedEffect.NavigateToAuthor -> currentOnNavigateToAuthor(effect.authorDid)
@@ -239,14 +251,6 @@ private fun LoadedFeedContent(
     }
 }
 
-@StringRes
-private fun FeedError.snackbarResId(): Int =
-    when (this) {
-        FeedError.Network -> R.string.feed_snackbar_error_network
-        FeedError.Unauthenticated -> R.string.feed_snackbar_error_unauthenticated
-        is FeedError.Unknown -> R.string.feed_snackbar_error_unknown
-    }
-
 // ---------- Previews -------------------------------------------------------
 
 @Preview(name = "Empty", showBackground = true)
@@ -362,8 +366,14 @@ private fun FeedScreenPreviewHost(viewState: FeedScreenViewState) {
     )
 }
 
-private fun previewPosts(count: Int): ImmutableList<PostUi> =
-    (1..count)
+private fun previewPosts(count: Int): ImmutableList<PostUi> {
+    // Pin createdAt relative to `now` so the rendered relative-time label
+    // ("2h") is stable across screenshot runs regardless of wall-clock date.
+    // PostCard's `rememberRelativeTimeText` reads `Clock.System.now()` to
+    // compute the label; a fixed `Instant.parse(...)` would drift as days
+    // pass. Mirrors the pattern used in PostCard.kt's own previews.
+    val createdAt = Clock.System.now() - 2.hours
+    return (1..count)
         .map { id ->
             PostUi(
                 id = "post-$id",
@@ -374,7 +384,7 @@ private fun previewPosts(count: Int): ImmutableList<PostUi> =
                         displayName = "Preview $id",
                         avatarUrl = null,
                     ),
-                createdAt = Instant.parse("2026-04-25T12:00:00Z"),
+                createdAt = createdAt,
                 text = "Preview post $id — sample timeline content for the feed-screen previews.",
                 facets = persistentListOf(),
                 embed = EmbedUi.Empty,
@@ -383,3 +393,4 @@ private fun previewPosts(count: Int): ImmutableList<PostUi> =
                 repostedBy = null,
             )
         }.toImmutableList()
+}

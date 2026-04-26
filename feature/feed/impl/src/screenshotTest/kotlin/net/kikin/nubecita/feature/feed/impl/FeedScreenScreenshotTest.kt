@@ -17,7 +17,8 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
-import kotlin.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 
 /**
  * Screenshot baselines for `FeedScreen`'s render-state matrix:
@@ -150,8 +151,13 @@ private fun FeedScreenScreenshotHost(viewState: FeedScreenViewState) {
     )
 }
 
-private fun fixturePosts(count: Int): ImmutableList<PostUi> =
-    (1..count)
+private fun fixturePosts(count: Int): ImmutableList<PostUi> {
+    // Pin createdAt relative to `now` so the rendered relative-time label
+    // stays stable across screenshot runs (PostCard reads Clock.System.now()
+    // for the relative-time text). A fixed Instant.parse(...) drifts as days
+    // pass. Mirrors PostCard.kt's own preview pattern.
+    val createdAt = Clock.System.now() - 2.hours
+    return (1..count)
         .map { id ->
             PostUi(
                 id = "post-$id",
@@ -162,7 +168,7 @@ private fun fixturePosts(count: Int): ImmutableList<PostUi> =
                         displayName = "Fixture $id",
                         avatarUrl = null,
                     ),
-                createdAt = Instant.parse("2026-04-25T12:00:00Z"),
+                createdAt = createdAt,
                 text = "Fixture post $id — sample content for the screen-level screenshot matrix.",
                 facets = persistentListOf(),
                 embed = EmbedUi.Empty,
@@ -171,3 +177,4 @@ private fun fixturePosts(count: Int): ImmutableList<PostUi> =
                 repostedBy = null,
             )
         }.toImmutableList()
+}
