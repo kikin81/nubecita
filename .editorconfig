@@ -12,7 +12,7 @@ indent_size = 4
 ktlint_standard_no-wildcard-imports = enabled
 ktlint_standard_max-line-length = disabled
 ktlint_function_naming_ignore_when_annotated_with = Composable
-compose_allowed_composition_locals = LocalNubecitaTokens
+compose_allowed_composition_locals = LocalNubecitaTokens,LocalClock
 
 [*.{yml,yaml,json}]
 indent_size = 2

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Empty state -->
+    <string name="feed_empty_title">Your timeline is empty</string>
+    <string name="feed_empty_body">Follow people and their posts will show up here.</string>
+    <string name="feed_empty_action">Refresh</string>
+    <string name="feed_empty_icon_description">Empty timeline</string>
+
+    <!-- Initial-error states (full-screen retry layout) -->
+    <string name="feed_error_network_title">No connection</string>
+    <string name="feed_error_network_body">Check your network and try again.</string>
+    <string name="feed_error_network_icon_description">No network connection</string>
+
+    <string name="feed_error_unauthenticated_title">Sign-in expired</string>
+    <string name="feed_error_unauthenticated_body">Sign in again to keep using nubecita.</string>
+    <string name="feed_error_unauthenticated_icon_description">Authentication required</string>
+
+    <string name="feed_error_unknown_title">Something went wrong</string>
+    <string name="feed_error_unknown_body">An unexpected error occurred while loading your timeline.</string>
+    <string name="feed_error_unknown_icon_description">Unknown error</string>
+
+    <string name="feed_error_action">Try again</string>
+
+    <!-- Snackbar messages — used by FeedScreen for FeedEffect.ShowError. -->
+    <string name="feed_snackbar_error_network">Network error. Pull to retry.</string>
+    <string name="feed_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
+    <string name="feed_snackbar_error_unknown">Couldn\'t refresh. Try again.</string>
+</resources>

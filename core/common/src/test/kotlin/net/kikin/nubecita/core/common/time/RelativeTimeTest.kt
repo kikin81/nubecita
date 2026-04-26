@@ -1,6 +1,5 @@
 package net.kikin.nubecita.core.common.time
 
-import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -10,6 +9,7 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 internal class RelativeTimeTest {
     private val now: Instant = Instant.parse("2026-04-25T12:00:00Z")
