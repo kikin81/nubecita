@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.kikin.nubecita.core.auth.di.AuthCoroutineScope
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -61,8 +62,10 @@ internal class DefaultXrpcClientProvider
                         ?: throw NoSessionException()
                 val existing = cachedClient
                 if (existing != null && cachedDid == activeDid) {
+                    Timber.tag(TAG).d("authenticated() cache HIT did=%s", activeDid)
                     return@withLock existing
                 }
+                Timber.tag(TAG).d("authenticated() cache MISS did=%s — creating fresh client", activeDid)
                 val freshClient = atOAuth.createClient()
                 cachedClient = freshClient
                 cachedDid = activeDid
@@ -76,5 +79,9 @@ internal class DefaultXrpcClientProvider
         internal fun invalidate() {
             cachedClient = null
             cachedDid = null
+        }
+
+        private companion object {
+            const val TAG = "XrpcClientProvider"
         }
     }
