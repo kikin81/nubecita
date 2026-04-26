@@ -8,18 +8,18 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
+import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.DataRepository
-import net.kikin.nubecita.ui.mvi.MainDispatcherRule
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Rule
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class MainScreenViewModelTest {
-    @get:Rule
-    val mainDispatcherRule = MainDispatcherRule()
+    @RegisterExtension
+    val mainDispatcher = MainDispatcherExtension()
 
     @Test
     fun `initial state is Loading with no items`() {
@@ -30,7 +30,7 @@ internal class MainScreenViewModelTest {
 
     @Test
     fun `repository emission populates items and clears isLoading`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val viewModel = MainScreenViewModel(FakeRepository(flow { emit(listOf("Sample")) }))
             advanceUntilIdle()
 
@@ -41,7 +41,7 @@ internal class MainScreenViewModelTest {
 
     @Test
     fun `repository error clears isLoading and emits ShowError effect`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val viewModel =
                 MainScreenViewModel(FakeRepository(flow { throw RuntimeException("DB down") }))
             advanceUntilIdle()
@@ -56,7 +56,7 @@ internal class MainScreenViewModelTest {
 
     @Test
     fun `Refresh resets state to Loading and emits no effect on happy path`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val viewModel = MainScreenViewModel(FakeRepository(flow { emit(listOf("A")) }))
             advanceUntilIdle()
             assertEquals(persistentListOf("A"), viewModel.uiState.value.items)

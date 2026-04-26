@@ -36,6 +36,8 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                     error += "HardcodedText"
                 }
             }
+
+            configureJunitPlatform()
         }
     }
 }

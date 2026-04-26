@@ -17,6 +17,6 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     implementation(libs.tink.android)
 
-    testImplementation(libs.junit)
+    testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
 }

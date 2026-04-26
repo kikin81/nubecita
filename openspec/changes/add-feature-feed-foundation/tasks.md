@@ -1,16 +1,16 @@
 ## 1. Test stack overhaul (subsumes nubecita-e1a)
 
-- [ ] 1.1 Add `junit-jupiter`, `junit-jupiter-engine`, `turbine`, `mockk` aliases to `gradle/libs.versions.toml` (versions chosen against the latest stable as of branch date — pinned, not `latest.release`)
-- [ ] 1.2 Update `build-logic/src/main/kotlin/.../AndroidLibraryConventionPlugin.kt` to call `tasks.withType<Test>().configureEach { useJUnitPlatform() }` and add `junit-jupiter-api` + `junit-jupiter-engine` as default `testImplementation` deps for every consuming module
-- [ ] 1.3 Verify `AndroidFeatureConventionPlugin` and `AndroidLibraryComposeConventionPlugin` inherit the JUnit 5 wiring (or apply it explicitly if they don't extend the library plugin)
-- [ ] 1.4 Add `:core:testing` module (or equivalent shared-test-fixture surface) hosting `MainDispatcherExtension` (JUnit 5 `BeforeEachCallback` + `AfterEachCallback` replacing `MainDispatcherRule`) — depends only on `kotlinx-coroutines-test` + `junit-jupiter-api`. Add module include to `settings.gradle.kts`. Unit-test the extension itself (assert `Dispatchers.Main` swap + restore).
-- [ ] 1.5 Migrate `feature/login/impl/src/test/.../LoginViewModelTest.kt` from JUnit 4 (`@Rule MainDispatcherRule`) to JUnit 5 (`@ExtendWith(MainDispatcherExtension::class)`). All assertions stay; runner change only.
-- [ ] 1.6 Delete `feature/login/impl/src/test/.../MainDispatcherRule.kt` once `LoginViewModelTest` is on the new extension
-- [ ] 1.7 Migrate `data/models/src/test/.../PostUiTest.kt` to JUnit 5 (annotation swap; no assertion changes)
-- [ ] 1.8 Migrate `core/common/src/test/.../time/RelativeTimeTest.kt` (and any sibling test files in `:core:common`) to JUnit 5
-- [ ] 1.9 Run `./gradlew testDebugUnitTest` repo-wide — all tests green on JUnit 5
-- [ ] 1.10 Run `./gradlew :app:compileDebugScreenshotTestKotlin` and `./gradlew :designsystem:validateDebugScreenshotTest` — screenshot tests still compile and run (screenshotTest source set keeps JUnit 4 deps explicit if AGP requires it)
-- [ ] 1.11 Run `./gradlew spotlessCheck` — clean
+- [x] 1.1 Add `junit-jupiter`, `junit-jupiter-engine`, `turbine`, `mockk` aliases to `gradle/libs.versions.toml` (versions chosen against the latest stable as of branch date — pinned, not `latest.release`)
+- [x] 1.2 Update `build-logic/src/main/kotlin/.../AndroidLibraryConventionPlugin.kt` to call `tasks.withType<Test>().configureEach { useJUnitPlatform() }` and add `junit-jupiter-api` + `junit-jupiter-engine` as default `testImplementation` deps for every consuming module
+- [x] 1.3 Verify `AndroidFeatureConventionPlugin` and `AndroidLibraryComposeConventionPlugin` inherit the JUnit 5 wiring (or apply it explicitly if they don't extend the library plugin)
+- [x] 1.4 Add `:core:testing` module (or equivalent shared-test-fixture surface) hosting `MainDispatcherExtension` (JUnit 5 `BeforeEachCallback` + `AfterEachCallback` replacing `MainDispatcherRule`) — depends only on `kotlinx-coroutines-test` + `junit-jupiter-api`. Add module include to `settings.gradle.kts`. Unit-test the extension itself (assert `Dispatchers.Main` swap + restore).
+- [x] 1.5 Migrate `feature/login/impl/src/test/.../LoginViewModelTest.kt` from JUnit 4 (`@Rule MainDispatcherRule`) to JUnit 5 (`@ExtendWith(MainDispatcherExtension::class)`). All assertions stay; runner change only.
+- [x] 1.6 Delete `feature/login/impl/src/test/.../MainDispatcherRule.kt` once `LoginViewModelTest` is on the new extension
+- [x] 1.7 Migrate `data/models/src/test/.../PostUiTest.kt` to JUnit 5 (annotation swap; no assertion changes)
+- [x] 1.8 Migrate `core/common/src/test/.../time/RelativeTimeTest.kt` (and any sibling test files in `:core:common`) to JUnit 5
+- [x] 1.9 Run `./gradlew testDebugUnitTest` repo-wide — all tests green on JUnit 5
+- [x] 1.10 Run `./gradlew :app:compileDebugScreenshotTestKotlin` and `./gradlew :designsystem:validateDebugScreenshotTest` — screenshot tests still compile and run (screenshotTest source set keeps JUnit 4 deps explicit if AGP requires it)
+- [x] 1.11 Run `./gradlew spotlessCheck` — clean
 
 ## 2. MVI convention amendment
 

@@ -10,16 +10,17 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Rule
-import org.junit.Test
+import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class LoginViewModelTest {
-    @get:Rule
-    val mainDispatcherRule = MainDispatcherRule()
+    @RegisterExtension
+    val mainDispatcher = MainDispatcherExtension()
 
     @Test
     fun `initial state is empty handle, not loading, no error`() {
@@ -65,7 +66,7 @@ internal class LoginViewModelTest {
 
     @Test
     fun `successful beginLogin emits LaunchCustomTab and clears loading`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val url = "https://bsky.social/oauth/authorize?req=uri:abc"
             val vm = newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.success(url)))
             vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
@@ -83,7 +84,7 @@ internal class LoginViewModelTest {
 
     @Test
     fun `failed beginLogin emits Failure error carrying the cause message`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val vm =
                 newViewModel(
                     authRepository =
@@ -115,7 +116,7 @@ internal class LoginViewModelTest {
 
     @Test
     fun `broker emission with successful completeLogin emits LoginSucceeded`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val broker = FakeOAuthRedirectBroker()
             val auth = FakeAuthRepository(completeLoginResult = Result.success(Unit))
             val vm = newViewModel(authRepository = auth, broker = broker)
@@ -132,7 +133,7 @@ internal class LoginViewModelTest {
 
     @Test
     fun `broker emission with failure populates errorMessage and emits no effect`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val broker = FakeOAuthRedirectBroker()
             val auth =
                 FakeAuthRepository(

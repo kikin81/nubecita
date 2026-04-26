@@ -8,9 +8,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.crypto.AEADBadTagException
@@ -85,14 +86,15 @@ class EncryptedOAuthSessionStoreTest {
             assertNull(store.load())
         }
 
-    @Test(expected = IllegalStateException::class)
+    @Test
     fun `load propagates unexpected exception types`() =
         runTest {
             val store =
                 EncryptedOAuthSessionStore(
                     ThrowingDataStore(IllegalStateException("not a storage-layer failure")),
                 )
-            store.load()
+            val thrown = runCatching { store.load() }.exceptionOrNull()
+            assertTrue(thrown is IllegalStateException, "expected IllegalStateException, got $thrown")
         }
 }
 

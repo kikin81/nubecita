@@ -45,6 +45,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 }
             }
 
+            configureJunitPlatform()
+
             dependencies {
                 val bom = libs.findLibrary("androidx-compose-bom").get()
                 "implementation"(platform(bom))

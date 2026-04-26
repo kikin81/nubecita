@@ -20,8 +20,6 @@ dependencies {
     implementation(libs.atproto.compose.material3)
     implementation(libs.coil.compose)
 
-    testImplementation(libs.junit)
-
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
 }
