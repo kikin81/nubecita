@@ -4,15 +4,16 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Rule
-import org.junit.Test
+import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class MviViewModelTest {
-    @get:Rule
-    val mainDispatcherRule = MainDispatcherRule()
+    @RegisterExtension
+    val mainDispatcher = MainDispatcherExtension()
 
     private data class State(
         val count: Int = 0,
@@ -55,7 +56,7 @@ internal class MviViewModelTest {
 
     @Test
     fun `effect buffered before collector subscribes is delivered`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val vm = Vm()
             vm.emitEffectDirectly(Effect.Ponged)
             // Let the launched sendEffect coroutine run so the channel receives the item.
@@ -67,7 +68,7 @@ internal class MviViewModelTest {
 
     @Test
     fun `effect delivered once is not re-delivered to later collector`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val vm = Vm()
             vm.handleEvent(Event.Ping)
             testScheduler.runCurrent()
@@ -84,7 +85,7 @@ internal class MviViewModelTest {
 
     @Test
     fun `handleEvent dispatches on event type`() =
-        runTest(mainDispatcherRule.dispatcher) {
+        runTest(mainDispatcher.dispatcher) {
             val vm = Vm()
             vm.handleEvent(Event.Increment)
             vm.handleEvent(Event.Ping)

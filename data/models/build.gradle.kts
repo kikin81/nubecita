@@ -19,6 +19,4 @@ dependencies {
     api(libs.androidx.compose.runtime)
     api(libs.kotlinx.collections.immutable)
     api(libs.kotlinx.datetime)
-
-    testImplementation(libs.junit)
 }

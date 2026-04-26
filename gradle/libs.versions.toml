@@ -16,6 +16,8 @@ coil = "3.4.0"
 coroutines = "1.10.2"
 datastore = "1.3.0-alpha08"
 junit = "4.13.2"
+junitJupiter = "5.11.4"
+junitPlatform = "1.11.4"
 kotlinxCollectionsImmutable = "0.4.0"
 kotlinxDatetime = "0.7.1-0.6.x-compat"
 kotlinxSerializationJson = "1.11.0"
@@ -23,6 +25,8 @@ kotlin = "2.3.21"
 hilt = "2.59.2"
 ksp = "2.3.7"
 ktor = "3.4.3"
+mockk = "1.13.13"
+turbine = "1.2.0"
 tinkAndroid = "1.21.0"
 nav3Core = "1.1.1"
 lifecycleViewmodelNav3 = "2.10.0"
@@ -74,11 +78,18 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose" }
 coil-core = { module = "io.coil-kt.coil3:coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp" }
 junit = { module = "junit:junit", version.ref = "junit" }
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
+junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junitJupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tinkAndroid" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }

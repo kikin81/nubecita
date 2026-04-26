@@ -10,6 +10,7 @@ android {
 
 dependencies {
     api(libs.atproto.oauth)
+    api(libs.atproto.runtime)
 
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.tink)
@@ -17,6 +18,8 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     implementation(libs.tink.android)
 
-    testImplementation(libs.junit)
+    testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
+    testImplementation(libs.turbine)
 }

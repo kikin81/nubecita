@@ -2,11 +2,11 @@ package net.kikin.nubecita.core.auth
 
 import androidx.datastore.core.DataStoreFactory
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Rule
-import org.junit.Test
-import org.junit.rules.TemporaryFolder
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 /**
  * Pure-JVM round trip against a real DataStoreFactory file, without Tink or Keystore
@@ -14,14 +14,15 @@ import org.junit.rules.TemporaryFolder
  * encrypted store will satisfy on-device; instrumented coverage lives under nubecita-16a.
  */
 class AuthModuleGraphTest {
-    @get:Rule
-    val tempFolder = TemporaryFolder()
+    @TempDir
+    lateinit var tempFolder: File
 
     @Test
     fun `round trip through a real file-backed DataStore`() =
         runTest {
-            val file = tempFolder.newFile("oauth_session.pb")
-            file.delete() // DataStore creates the file itself; ensure it starts missing.
+            val file = File(tempFolder, "oauth_session.pb")
+            // DataStore creates the file itself; ensure it starts missing.
+            file.delete()
             val dataStore =
                 DataStoreFactory.create(
                     serializer = OAuthSessionSerializer,

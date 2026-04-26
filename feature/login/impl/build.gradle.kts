@@ -12,6 +12,6 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(libs.androidx.browser)
 
-    testImplementation(libs.junit)
+    testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
 }

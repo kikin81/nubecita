@@ -8,10 +8,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 class AtProtoClientTest {
     // Opt-in gate: this is the smoke test wired to hit public.api.bsky.app
@@ -19,11 +19,11 @@ class AtProtoClientTest {
     // depend on the upstream AppView being reachable, turning transient
     // Bluesky outages into unrelated-PR failures. Instrumented equivalent
     // lands with nubecita-16a.
-    @Before
+    @BeforeEach
     fun skipUnlessIntegrationEnabled() {
         assumeTrue(
-            "Set ATPROTO_INTEGRATION_TESTS=1 to run network-dependent smoke tests",
             System.getenv("ATPROTO_INTEGRATION_TESTS") == "1",
+            "Set ATPROTO_INTEGRATION_TESTS=1 to run network-dependent smoke tests",
         )
     }
 
@@ -51,8 +51,8 @@ class AtProtoClientTest {
                     )
 
                 assertTrue(
-                    "expected did:plc:… but got ${response.did.raw}",
                     response.did.raw.startsWith("did:plc:"),
+                    "expected did:plc:… but got ${response.did.raw}",
                 )
             } finally {
                 httpClient.close()

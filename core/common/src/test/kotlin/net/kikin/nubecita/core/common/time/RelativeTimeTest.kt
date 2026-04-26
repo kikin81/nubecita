@@ -2,9 +2,9 @@ package net.kikin.nubecita.core.common.time
 
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import java.util.Locale
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours

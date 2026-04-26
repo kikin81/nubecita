@@ -3,8 +3,8 @@ package net.kikin.nubecita.core.auth
 import io.github.kikin81.atproto.oauth.OAuthSession
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 class DefaultSessionStateProviderTest {
     @Test

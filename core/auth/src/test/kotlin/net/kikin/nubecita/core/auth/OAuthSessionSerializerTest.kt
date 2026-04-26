@@ -1,11 +1,11 @@
 package net.kikin.nubecita.core.auth
 
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 

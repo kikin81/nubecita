@@ -37,6 +37,8 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":designsystem"))
+    implementation(project(":feature:feed:api"))
+    implementation(project(":feature:feed:impl"))
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
     implementation(libs.androidx.activity.compose)
@@ -57,7 +59,7 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    testImplementation(libs.junit)
+    testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))

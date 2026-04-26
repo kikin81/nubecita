@@ -1,0 +1,86 @@
+{
+  "cursor": null,
+  "feed": [
+    {
+      "post": {
+        "uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3mk3sdiixhs2n",
+        "cid": "bafyreigfkidcu5cvf5w72mhhirpoa2r5ulm2yi5dp3oagnup5udhibnmfe",
+        "author": {
+          "did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+          "handle": "bsky.app",
+          "displayName": "Bluesky",
+          "avatar": "https://cdn.bsky.app/img/avatar/plain/did:plc:z72i7hdynmk6r22z27h6tvur/bafkreihwihm6kpd6zuwhhlro75p5qks5qtrcu55jp3gddbfjsieiv7wuka",
+          "associated": {
+            "chat": {
+              "allowIncoming": "none"
+            },
+            "activitySubscription": {
+              "allowSubscriptions": "followers"
+            }
+          },
+          "labels": [],
+          "createdAt": "2023-04-12T04:53:57.057Z",
+          "verification": {
+            "verifications": [],
+            "verifiedStatus": "none",
+            "trustedVerifierStatus": "valid"
+          }
+        },
+        "record": {
+          "$type": "app.bsky.feed.post",
+          "createdAt": "2026-04-22T15:20:37.187Z",
+          "embed": {
+            "$type": "app.bsky.embed.external",
+            "external": {
+              "description": "Let's see if a feed-builder is it.",
+              "thumb": {
+                "$type": "blob",
+                "ref": {
+                  "$link": "bafkreiekcliyx3zpqteh5t6av42h7lag4atiynwau6dmqszfjhobbdhjgi"
+                },
+                "mimeType": "image/jpeg",
+                "size": 893853
+              },
+              "title": "Bluesky is doubling down",
+              "uri": "https://davidimel.substack.com/p/bluesky-is-looking-for-its-myspace"
+            }
+          },
+          "facets": [
+            {
+              "features": [
+                {
+                  "$type": "app.bsky.richtext.facet#link",
+                  "uri": "https://davidimel.substack.com/p/bluesky-is-looking-for-its-myspace"
+                }
+              ],
+              "index": {
+                "byteEnd": 256,
+                "byteStart": 218
+              }
+            }
+          ],
+          "langs": [
+            "en"
+          ],
+          "text": "Read David Imel\u2019s summary of ATmosphereConf, a recent gathering of folks building on the AT Protocol: \u201cthis conference is nerdy, it\u2019s niche, and most of the people here think they might just save the internet\u201d\ndavidimel.substack.com/p/bluesky-is..."
+        },
+        "embed": {
+          "external": {
+            "uri": "https://davidimel.substack.com/p/bluesky-is-looking-for-its-myspace",
+            "title": "Bluesky is doubling down",
+            "description": "Let's see if a feed-builder is it.",
+            "thumb": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:z72i7hdynmk6r22z27h6tvur/bafkreiekcliyx3zpqteh5t6av42h7lag4atiynwau6dmqszfjhobbdhjgi"
+          },
+          "$type": "app.bsky.embed.external#view"
+        },
+        "bookmarkCount": 93,
+        "replyCount": 102,
+        "repostCount": 117,
+        "likeCount": 1146,
+        "quoteCount": 24,
+        "indexedAt": "2026-04-22T15:20:40.255Z",
+        "labels": []
+      }
+    }
+  ]
+}
