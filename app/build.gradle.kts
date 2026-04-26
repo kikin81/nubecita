@@ -37,6 +37,8 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":designsystem"))
+    implementation(project(":feature:feed:api"))
+    implementation(project(":feature:feed:impl"))
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
     implementation(libs.androidx.activity.compose)

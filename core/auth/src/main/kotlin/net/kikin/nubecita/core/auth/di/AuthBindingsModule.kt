@@ -9,9 +9,11 @@ import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.DefaultAuthRepository
 import net.kikin.nubecita.core.auth.DefaultOAuthRedirectBroker
 import net.kikin.nubecita.core.auth.DefaultSessionStateProvider
+import net.kikin.nubecita.core.auth.DefaultXrpcClientProvider
 import net.kikin.nubecita.core.auth.EncryptedOAuthSessionStore
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.auth.XrpcClientProvider
 import javax.inject.Singleton
 
 @Module
@@ -32,4 +34,8 @@ internal abstract class AuthBindingsModule {
     @Binds
     @Singleton
     internal abstract fun bindSessionStateProvider(impl: DefaultSessionStateProvider): SessionStateProvider
+
+    @Binds
+    @Singleton
+    internal abstract fun bindXrpcClientProvider(impl: DefaultXrpcClientProvider): XrpcClientProvider
 }
