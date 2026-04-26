@@ -7,19 +7,14 @@ import io.github.kikin81.atproto.app.bsky.embed.RecordView
 import io.github.kikin81.atproto.app.bsky.embed.RecordWithMediaView
 import io.github.kikin81.atproto.app.bsky.embed.VideoView
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
+import io.github.kikin81.atproto.app.bsky.feed.Post
 import io.github.kikin81.atproto.app.bsky.feed.PostViewEmbedUnion
 import io.github.kikin81.atproto.app.bsky.feed.ReasonRepost
 import io.github.kikin81.atproto.app.bsky.feed.ViewerState
-import io.github.kikin81.atproto.app.bsky.richtext.Facet
+import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.UnknownOpenUnionMember
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
@@ -30,10 +25,10 @@ import kotlin.time.Instant
 
 /**
  * `Json` instance used to decode the embedded `post.record: JsonObject`
- * payload. Mirrors `XrpcClient.DefaultJson` (`ignoreUnknownKeys = true`)
- * so server additions to the post record schema (new langs, labels,
- * embed payload variants) don't break decode for fields the mapper
- * doesn't read.
+ * payload as a strongly-typed [Post]. Mirrors `XrpcClient.DefaultJson`
+ * (`ignoreUnknownKeys = true`) so server additions to the post record
+ * schema (new tags, labels, embed payload variants) don't break decode
+ * for fields the mapper doesn't read.
  */
 private val recordJson: Json =
     Json {
@@ -46,20 +41,35 @@ private val recordJson: Json =
  * to the UI-ready [PostUi].
  *
  * Returns `null` when the embedded `post.record` JSON cannot be decoded
- * as a well-formed `app.bsky.feed.post` record (missing required `text`,
- * type-incompatible value). The repository's `mapNotNull` filter then
- * drops the entry. The function MUST NOT throw — every spec-conforming
- * `FeedViewPost` produces a non-null `PostUi`.
+ * as a well-formed `app.bsky.feed.post` record (missing required `text`
+ * / `createdAt`, type-incompatible value). The repository's `mapNotNull`
+ * filter then drops the entry. The function MUST NOT throw — every
+ * spec-conforming `FeedViewPost` produces a non-null `PostUi`.
+ *
+ * The record is decoded into the lexicon-generated [Post] data class
+ * rather than walked as a raw `JsonObject`. The compiler-checked field
+ * access eliminates the string-key brittleness of manual extraction and
+ * makes the malformed-record contract a single decode-or-fail call.
  */
 internal fun FeedViewPost.toPostUiOrNull(): PostUi? {
-    val text = post.record.extractTextOrNull() ?: return null
-    val createdAt = post.record.extractCreatedAtOrNull() ?: return null
+    val postRecord =
+        runCatching {
+            recordJson.decodeFromJsonElement(Post.serializer(), post.record)
+        }.getOrNull() ?: return null
+
+    // `Datetime` is a value class wrapping the raw RFC3339 string and does
+    // no validation at construction; a structurally-valid Post can still
+    // carry a malformed timestamp string.
+    val createdAt =
+        runCatching { Instant.parse(postRecord.createdAt.raw) }
+            .getOrNull() ?: return null
+
     return PostUi(
         id = post.uri.raw,
         author = post.author.toAuthorUi(),
         createdAt = createdAt,
-        text = text,
-        facets = post.record.extractFacets(),
+        text = postRecord.text,
+        facets = postRecord.facets.valueOrEmpty().toImmutableList(),
         embed = post.embed.toEmbedUi(),
         stats =
             PostStatsUi(
@@ -127,25 +137,13 @@ internal fun ViewerState?.toViewerStateUi(isFollowingAuthor: Boolean = false): V
     )
 
 /**
- * Returns the `text` field from the embedded `app.bsky.feed.post` record
- * JSON, or `null` if the field is missing or not a string. The lexicon
- * spec requires `text` on `app.bsky.feed.post`, so a missing value is a
- * malformed record — the caller (typically [toPostUiOrNull]) drops the
- * post.
+ * Reads the `value` of an [AtField] for list-shaped fields, treating both
+ * `Missing` (key absent) and `Null` (explicit JSON null) as an empty list.
+ * The mapper doesn't need to distinguish "the author cleared this field"
+ * from "the author never set it" — both produce an empty `PostUi.facets`.
+ *
+ * Earmarked for promotion upstream into `atproto-kotlin`'s runtime —
+ * see [kikin81/atproto-kotlin#32](https://github.com/kikin81/atproto-kotlin/issues/32).
+ * Delete this local extension once that lands and we bump the dep.
  */
-internal fun JsonObject.extractTextOrNull(): String? = runCatching { (this["text"]?.jsonPrimitive)?.content }.getOrNull()
-
-internal fun JsonObject.extractCreatedAtOrNull(): Instant? =
-    runCatching {
-        val raw = (this["createdAt"]?.jsonPrimitive)?.content ?: return@runCatching null
-        Instant.parse(raw)
-    }.getOrNull()
-
-internal fun JsonObject.extractFacets(): ImmutableList<Facet> {
-    val rawFacets = this["facets"] as? JsonArray ?: return persistentListOf()
-    return runCatching {
-        recordJson
-            .decodeFromJsonElement(ListSerializer(Facet.serializer()), rawFacets)
-            .toImmutableList()
-    }.getOrElse { persistentListOf() }
-}
+private fun <T> AtField<List<T>>.valueOrEmpty(): List<T> = (this as? AtField.Defined)?.value ?: emptyList()
