@@ -17,9 +17,9 @@
 
 ## 3. State projection helper
 
-- [ ] 3.1 Add `feature/feed/impl/src/main/kotlin/net/kikin/nubecita/feature/feed/impl/FeedScreenViewState.kt` — `internal sealed interface FeedScreenViewState` with variants `InitialLoading`, `Empty`, `InitialError(error: FeedError)`, `Loaded(posts, isAppending)`. Plus `internal fun FeedState.toViewState(): FeedScreenViewState` implementing the matrix from spec Decision 3.
-- [ ] 3.2 Add `:feature:feed:impl/src/test/kotlin/.../FeedScreenViewStateTest.kt` — JUnit 5 unit tests covering every entry in the matrix table from the spec (six rows × the boolean column). Pure-Kotlin test, no Android.
-- [ ] 3.3 Run `./gradlew :feature:feed:impl:testDebugUnitTest` — green.
+- [x] 3.1 Add `feature/feed/impl/src/main/kotlin/net/kikin/nubecita/feature/feed/impl/FeedScreenViewState.kt` — `internal sealed interface FeedScreenViewState` with variants `InitialLoading`, `Empty`, `InitialError(error: FeedError)`, `Loaded(posts, isAppending)`. Plus `internal fun FeedState.toViewState(): FeedScreenViewState` implementing the matrix from spec Decision 3.
+- [x] 3.2 Add `:feature:feed:impl/src/test/kotlin/.../FeedScreenViewStateTest.kt` — JUnit 5 unit tests covering every entry in the matrix table from the spec (six rows × the boolean column). Pure-Kotlin test, no Android. (11 tests covering all 10 cells of the (5 statuses × 2 emptiness) matrix plus an extra `InitialError(Unauthenticated)` variant.)
+- [x] 3.3 Run `./gradlew :feature:feed:impl:testDebugUnitTest` — green. (FeedScreenViewStateTest: all green.)
 
 ## 4. Production `FeedScreen` composable
 
