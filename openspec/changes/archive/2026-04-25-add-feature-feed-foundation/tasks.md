@@ -83,5 +83,5 @@
 
 - [ ] 10.1 Update `bd update nubecita-4u5 --notes` with a pointer to this openspec change
 - [ ] 10.2 Update `bd update nubecita-e1a --notes` noting it's subsumed by this change (closed alongside `nubecita-4u5` on PR merge)
-- [ ] 10.3 PR body MUST include both `Closes: nubecita-4u5` AND `Closes: nubecita-e1a`
-- [ ] 10.4 After merge: `bd close nubecita-4u5 nubecita-e1a` with reasons referencing the PR + this openspec change name
+- [x] 10.3 PR body MUST include both `Closes: nubecita-4u5` AND `Closes: nubecita-e1a`
+- [x] 10.4 After merge: `bd close nubecita-4u5 nubecita-e1a` with reasons referencing the PR + this openspec change name
