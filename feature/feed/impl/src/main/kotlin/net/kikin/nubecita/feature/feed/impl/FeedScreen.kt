@@ -87,6 +87,14 @@ internal fun FeedScreen(
     // a stale lambda would survive recomposition.
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
+    // Hoist the VM-dispatching callbacks. Inline lambdas at the
+    // FeedScreenContent call site would create new instances per
+    // recomposition; with the FeedScreenContent body skip-friendly
+    // (all params @Stable / @Immutable), preserving lambda identity
+    // here lets it skip recomposition when only `viewState` changes.
+    val onRefresh = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Refresh) } }
+    val onRetry = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Retry) } }
+    val onLoadMore = remember(viewModel) { { viewModel.handleEvent(FeedEvent.LoadMore) } }
 
     LaunchedEffect(Unit) { viewModel.handleEvent(FeedEvent.Load) }
 
@@ -110,9 +118,9 @@ internal fun FeedScreen(
         listState = listState,
         snackbarHostState = snackbarHostState,
         callbacks = callbacks,
-        onRefresh = { viewModel.handleEvent(FeedEvent.Refresh) },
-        onRetry = { viewModel.handleEvent(FeedEvent.Retry) },
-        onLoadMore = { viewModel.handleEvent(FeedEvent.LoadMore) },
+        onRefresh = onRefresh,
+        onRetry = onRetry,
+        onLoadMore = onLoadMore,
         modifier = modifier,
     )
 }
@@ -208,20 +216,25 @@ private fun LoadedFeedContent(
 
     // Pagination trigger — emit exactly once per crossing of the
     // (lastVisibleIndex > posts.size - PREFETCH_DISTANCE) threshold.
-    // distinctUntilChanged() prevents recomposition without layout-info
-    // change from re-firing. The VM is idempotent under in-flight loads
-    // (endReached + Idle guards) so the screen-side check stays tight.
+    // The threshold check lives INSIDE snapshotFlow's lambda so
+    // distinctUntilChanged() debounces the *boolean*, not the index;
+    // without that, every visible-index change past the threshold would
+    // re-fire onLoadMore (10–30/s during scroll). `rememberUpdatedState`
+    // lets the long-lived collector read the latest `posts` and
+    // `onLoadMore` without restarting the LaunchedEffect on every page
+    // append (snapshotFlow re-emits when the wrapped State changes).
+    val currentPosts by rememberUpdatedState(posts)
     val currentOnLoadMore by rememberUpdatedState(onLoadMore)
-    LaunchedEffect(listState, posts.size) {
+    LaunchedEffect(listState) {
         snapshotFlow {
-            listState.layoutInfo.visibleItemsInfo
-                .lastOrNull()
-                ?.index ?: 0
+            val lastVisible =
+                listState.layoutInfo.visibleItemsInfo
+                    .lastOrNull()
+                    ?.index ?: 0
+            lastVisible > currentPosts.size - PREFETCH_DISTANCE
         }.distinctUntilChanged()
-            .collect { lastIdx ->
-                if (lastIdx > posts.size - PREFETCH_DISTANCE) {
-                    currentOnLoadMore()
-                }
+            .collect { pastThreshold ->
+                if (pastThreshold) currentOnLoadMore()
             }
     }
 }
