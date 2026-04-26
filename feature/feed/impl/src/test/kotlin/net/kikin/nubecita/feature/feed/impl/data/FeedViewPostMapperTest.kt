@@ -93,16 +93,38 @@ internal class FeedViewPostMapperTest {
 
     @Test
     fun `missing optional counts default to 0`() {
-        // All fixture posts have at least likeCount + replyCount populated, but we
-        // assert that the mapper preserves zero defaults for any null wire values.
-        val response = decodeFixture("timeline_typical.json")
-        val mapped = response.feed.mapNotNull { it.toPostUiOrNull() }
-        mapped.forEach { post ->
-            assertTrue(post.stats.replyCount >= 0)
-            assertTrue(post.stats.repostCount >= 0)
-            assertTrue(post.stats.likeCount >= 0)
-            assertTrue(post.stats.quoteCount >= 0)
-        }
+        // Synthetic, minimal-but-spec-conforming GetTimelineResponse JSON where
+        // every count field is explicitly absent from the wire — exercises the
+        // mapper's `(post.foo ?: 0L).toInt()` null→0 path that real fixtures
+        // (where bsky.app's posts always carry counts) can't reach.
+        val noCountsJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "author": {
+                    "did": "did:plc:fake000000000000000000",
+                    "handle": "fake.bsky.social"
+                  },
+                  "cid": "bafyreifakecidvalue00000000000000000000000000000",
+                  "indexedAt": "2026-04-25T12:00:00Z",
+                  "uri": "at://did:plc:fake000000000000000000/app.bsky.feed.post/abc",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "post with no counts on the wire",
+                    "createdAt": "2026-04-25T12:00:00Z"
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), noCountsJson)
+        val mapped = response.feed.first().toPostUiOrNull()
+        assertNotNull(mapped)
+        assertEquals(0, mapped!!.stats.replyCount)
+        assertEquals(0, mapped.stats.repostCount)
+        assertEquals(0, mapped.stats.likeCount)
+        assertEquals(0, mapped.stats.quoteCount)
     }
 
     @Test
@@ -137,9 +159,10 @@ internal class FeedViewPostMapperTest {
         val response = decodeFixture("timeline_typical.json")
         val mapped = response.feed.first().toPostUiOrNull()
         assertNotNull(mapped)
-        // Most timeline posts have no facets; the mapper returns an empty list,
-        // not null, so downstream `state.facets` reads are total.
-        assertTrue(mapped!!.facets.isEmpty() || mapped.facets.isNotEmpty())
+        // The first fixture post's record has no `facets` key at all (verified
+        // by inspecting timeline_typical.json). The mapper must return an empty
+        // list, NOT null, so downstream `state.facets` reads are total.
+        assertTrue(mapped!!.facets.isEmpty(), "expected empty facets, got ${mapped.facets}")
     }
 
     private fun decodeFixture(name: String): GetTimelineResponse {

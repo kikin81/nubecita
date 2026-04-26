@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -154,21 +155,24 @@ internal class DefaultXrpcClientProviderTest {
 
 private fun newClient(): XrpcClient = XrpcClient(baseUrl = "https://example.test", httpClient = HttpClient(OkHttp))
 
-private fun newProvider(
+/**
+ * Builds a [DefaultXrpcClientProvider] whose init-time invalidator
+ * collector runs on `runTest`'s [TestScope.backgroundScope]. The
+ * background scope is auto-cancelled when the test completes, so the
+ * collector never leaks across tests. Tests that need to drive the
+ * collector via the test scheduler (i.e., exercise eager invalidation)
+ * still construct their own `StandardTestDispatcher(testScheduler)`-
+ * backed scope inline.
+ */
+private fun TestScope.newProvider(
     atOAuth: AtOAuth,
     sessionStateProvider: SessionStateProvider,
-): DefaultXrpcClientProvider {
-    // Inert scope: the eager-invalidator collector launches under this scope
-    // but isn't driven by the test scheduler, so its behavior doesn't bleed
-    // into tests that exercise lazy invalidation. Tests that need the eager
-    // path construct their own StandardTestDispatcher tied to testScheduler.
-    val inertScope = CoroutineScope(SupervisorJob())
-    return DefaultXrpcClientProvider(
+): DefaultXrpcClientProvider =
+    DefaultXrpcClientProvider(
         atOAuth = atOAuth,
         sessionStateProvider = sessionStateProvider,
-        coroutineScope = inertScope,
+        coroutineScope = backgroundScope,
     )
-}
 
 private class FakeSessionStateProvider(
     private val backing: MutableStateFlow<SessionState>,

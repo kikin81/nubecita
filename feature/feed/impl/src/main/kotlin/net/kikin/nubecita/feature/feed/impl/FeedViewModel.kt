@@ -34,10 +34,13 @@ internal class FeedViewModel
         }
 
         private fun load() {
-            // Idempotency: a second Load (or Retry-while-loading) while initial
-            // load is in flight is a no-op so the UI can dispatch Load on every
-            // recomposition without N concurrent fetches.
-            if (uiState.value.loadStatus == FeedLoadStatus.InitialLoading) return
+            // Allow initial load (from Idle, the default) and Retry from
+            // InitialError. Any other status (InitialLoading, Refreshing,
+            // Appending) means a fetch is already in flight — second Load
+            // is a no-op so the UI can dispatch on every recomposition
+            // without N concurrent fetches racing on setState.
+            val status = uiState.value.loadStatus
+            if (status != FeedLoadStatus.Idle && status !is FeedLoadStatus.InitialError) return
             setState { copy(loadStatus = FeedLoadStatus.InitialLoading) }
             viewModelScope.launch {
                 feedRepository
@@ -52,6 +55,12 @@ internal class FeedViewModel
         }
 
         private fun refresh() {
+            // Refresh and append/initial-load are mutually exclusive per the
+            // mvi-foundation spec: dispatching Refresh while another load is
+            // in flight is a no-op (drop the event rather than queue, so the
+            // back-pressure on a flapping pull-to-refresh gesture stays at the
+            // user's wrist).
+            if (uiState.value.loadStatus != FeedLoadStatus.Idle) return
             setState { copy(loadStatus = FeedLoadStatus.Refreshing) }
             viewModelScope.launch {
                 feedRepository
@@ -80,8 +89,11 @@ internal class FeedViewModel
             // End-of-feed: do nothing. Idempotent — repeat LoadMore once
             // endReached has flipped is a no-op.
             if (current.endReached) return
-            // Don't double-append: if already appending, ignore.
-            if (current.loadStatus == FeedLoadStatus.Appending) return
+            // Mutually exclusive with refresh / initial-load: if any fetch is
+            // already in flight, drop the LoadMore event. Prevents the
+            // overlapping-fetch race where two getTimeline calls both update
+            // posts + nextCursor and the last writer wins non-deterministically.
+            if (current.loadStatus != FeedLoadStatus.Idle) return
             setState { copy(loadStatus = FeedLoadStatus.Appending) }
             viewModelScope.launch {
                 feedRepository

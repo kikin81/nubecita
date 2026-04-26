@@ -106,8 +106,9 @@ internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
         // generator routes any unrecognized `$type` through the Unknown branch,
         // so this fallback is structurally unreachable; route it through the
         // UnknownOpenUnionMember `type` if a future variant slips past the
-        // generator.
-        else -> EmbedUi.Unsupported(typeUri = (this as? UnknownOpenUnionMember)?.type ?: "")
+        // generator. Sentinel `"unknown"` keeps PostCard's friendly-name
+        // label informative if we ever do hit this branch in production.
+        else -> EmbedUi.Unsupported(typeUri = (this as? UnknownOpenUnionMember)?.type ?: "unknown")
     }
 
 internal fun ProfileViewBasic.toAuthorUi(): AuthorUi =

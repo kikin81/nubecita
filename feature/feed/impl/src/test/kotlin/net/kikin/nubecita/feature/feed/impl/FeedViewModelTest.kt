@@ -270,6 +270,113 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `Refresh while InitialLoading is a no-op (mutually exclusive load modes)`() =
+        runTest(mainDispatcher.dispatcher) {
+            val first = CompletableDeferred<Result<TimelinePage>>()
+            val repo = FakeFeedRepository(pageProducer = { _, _ -> first.await() })
+            val vm = FeedViewModel(repo)
+
+            vm.handleEvent(FeedEvent.Load)
+            // VM is now in InitialLoading; Refresh must be dropped.
+            vm.handleEvent(FeedEvent.Refresh)
+
+            first.complete(Result.success(TimelinePage(posts = posts("p1"), nextCursor = null)))
+            advanceUntilIdle()
+
+            assertEquals(1, repo.invocations.size)
+        }
+
+    @Test
+    fun `Refresh while Refreshing is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            val initial = Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1"))
+            val refreshDeferred = CompletableDeferred<Result<TimelinePage>>()
+            var call = 0
+            val repo =
+                FakeFeedRepository(
+                    pageProducer = { _, _ ->
+                        when (call++) {
+                            0 -> initial // initial Load
+                            else -> refreshDeferred.await() // first Refresh
+                        }
+                    },
+                )
+            val vm = FeedViewModel(repo)
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.Refresh) // enters Refreshing
+            // Second Refresh while still Refreshing must be dropped — no third call.
+            vm.handleEvent(FeedEvent.Refresh)
+
+            refreshDeferred.complete(Result.success(TimelinePage(posts = posts("p2"), nextCursor = "c2")))
+            advanceUntilIdle()
+
+            assertEquals(2, repo.invocations.size)
+        }
+
+    @Test
+    fun `LoadMore while Refreshing is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            val initial = Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1"))
+            val refreshDeferred = CompletableDeferred<Result<TimelinePage>>()
+            var call = 0
+            val repo =
+                FakeFeedRepository(
+                    pageProducer = { _, _ ->
+                        when (call++) {
+                            0 -> initial
+                            else -> refreshDeferred.await()
+                        }
+                    },
+                )
+            val vm = FeedViewModel(repo)
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.Refresh) // enters Refreshing
+            // LoadMore while a refresh is in flight would otherwise race the
+            // refresh's setState. The guard drops the event.
+            vm.handleEvent(FeedEvent.LoadMore)
+
+            refreshDeferred.complete(Result.success(TimelinePage(posts = posts("p2"), nextCursor = "c2")))
+            advanceUntilIdle()
+
+            assertEquals(2, repo.invocations.size)
+        }
+
+    @Test
+    fun `LoadMore while another LoadMore is in flight is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            val initial = Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1"))
+            val appendDeferred = CompletableDeferred<Result<TimelinePage>>()
+            var call = 0
+            val repo =
+                FakeFeedRepository(
+                    pageProducer = { _, _ ->
+                        when (call++) {
+                            0 -> initial
+                            else -> appendDeferred.await()
+                        }
+                    },
+                )
+            val vm = FeedViewModel(repo)
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.LoadMore) // enters Appending
+            vm.handleEvent(FeedEvent.LoadMore) // dropped
+
+            appendDeferred.complete(Result.success(TimelinePage(posts = posts("p2"), nextCursor = "c2")))
+            advanceUntilIdle()
+
+            assertEquals(2, repo.invocations.size)
+        }
+
+    @Test
     fun `NoSessionException maps to InitialError(Unauthenticated)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository(pages = listOf(Result.failure(NoSessionException())))
