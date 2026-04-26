@@ -15,7 +15,9 @@ dependencies {
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.tink)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.client.logging)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.timber)
     implementation(libs.tink.android)
 
     testImplementation(project(":core:testing"))
