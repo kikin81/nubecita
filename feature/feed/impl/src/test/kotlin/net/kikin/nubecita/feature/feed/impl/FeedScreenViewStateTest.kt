@@ -64,21 +64,24 @@ internal class FeedScreenViewStateTest {
     // --- non-empty posts --------------------------------------------------
 
     @Test
-    fun `non-empty + Idle maps to Loaded(isAppending = false)`() {
+    fun `non-empty + Idle maps to Loaded(false, false)`() {
         val viewState =
             FeedState(posts = posts("p1", "p2"), loadStatus = FeedLoadStatus.Idle).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
         viewState as FeedScreenViewState.Loaded
         assertEquals(2, viewState.posts.size)
         assertEquals(false, viewState.isAppending)
+        assertEquals(false, viewState.isRefreshing)
     }
 
     @Test
-    fun `non-empty + Refreshing maps to Loaded(isAppending = false)`() {
+    fun `non-empty + Refreshing maps to Loaded(isRefreshing = true)`() {
         val viewState =
             FeedState(posts = posts("p1"), loadStatus = FeedLoadStatus.Refreshing).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
-        assertEquals(false, (viewState as FeedScreenViewState.Loaded).isAppending)
+        viewState as FeedScreenViewState.Loaded
+        assertEquals(false, viewState.isAppending)
+        assertEquals(true, viewState.isRefreshing)
     }
 
     @Test
@@ -86,26 +89,32 @@ internal class FeedScreenViewStateTest {
         val viewState =
             FeedState(posts = posts("p1"), loadStatus = FeedLoadStatus.Appending).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
-        assertEquals(true, (viewState as FeedScreenViewState.Loaded).isAppending)
+        viewState as FeedScreenViewState.Loaded
+        assertEquals(true, viewState.isAppending)
+        assertEquals(false, viewState.isRefreshing)
     }
 
     @Test
-    fun `non-empty + InitialLoading maps to Loaded(isAppending = false) (VM-impossible)`() {
+    fun `non-empty + InitialLoading maps to Loaded(false, false) (VM-impossible)`() {
         val viewState =
             FeedState(posts = posts("p1"), loadStatus = FeedLoadStatus.InitialLoading).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
-        assertEquals(false, (viewState as FeedScreenViewState.Loaded).isAppending)
+        viewState as FeedScreenViewState.Loaded
+        assertEquals(false, viewState.isAppending)
+        assertEquals(false, viewState.isRefreshing)
     }
 
     @Test
-    fun `non-empty + InitialError maps to Loaded(isAppending = false) (VM-impossible)`() {
+    fun `non-empty + InitialError maps to Loaded(false, false) (VM-impossible)`() {
         val viewState =
             FeedState(
                 posts = posts("p1"),
                 loadStatus = FeedLoadStatus.InitialError(FeedError.Network),
             ).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
-        assertEquals(false, (viewState as FeedScreenViewState.Loaded).isAppending)
+        viewState as FeedScreenViewState.Loaded
+        assertEquals(false, viewState.isAppending)
+        assertEquals(false, viewState.isRefreshing)
     }
 }
 

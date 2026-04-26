@@ -144,7 +144,7 @@ The system's `FeedScreen` SHALL dispatch `FeedEvent.Load` from a `LaunchedEffect
 
 ### Requirement: `FeedEffect` is collected once and surfaces snackbar + navigation
 
-The system's `FeedScreen` SHALL collect `viewModel.uiEffect` from a single `LaunchedEffect(Unit)` for the screen's lifetime. The effect handler MUST:
+The system's `FeedScreen` SHALL collect `viewModel.effects` from a single `LaunchedEffect(Unit)` for the screen's lifetime. The effect handler MUST:
 
 - Map `FeedEffect.ShowError(error)` to a snackbar shown via the screen-internal `SnackbarHostState`. Before showing, any current snackbar MUST be dismissed so consecutive errors do not stack.
 - Map `FeedEffect.NavigateToPost(post)` to an injected `onNavigateToPost: (PostUi) -> Unit` callback supplied by the Nav3 entry installer.

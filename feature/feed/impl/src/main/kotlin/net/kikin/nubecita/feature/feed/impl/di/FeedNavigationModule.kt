@@ -16,6 +16,15 @@ internal object FeedNavigationModule {
     @IntoSet
     fun provideFeedEntries(): EntryProviderInstaller =
         {
-            entry<Feed> { FeedScreen() }
+            entry<Feed> {
+                FeedScreen(
+                    // PostDetail screen does not exist yet — wired as a no-op until
+                    // the post-detail epic lands. Replace with `navigator.goTo(PostDetail(post.uri))`.
+                    onNavigateToPost = {},
+                    // Profile screen does not exist yet — wired as a no-op until
+                    // the profile epic lands. Replace with `navigator.goTo(Profile(authorDid))`.
+                    onNavigateToAuthor = {},
+                )
+            }
         }
 }

@@ -30,14 +30,18 @@ internal sealed interface FeedScreenViewState {
     ) : FeedScreenViewState
 
     /**
-     * Posts are present. [isAppending] toggles the tail shimmer; refresh
-     * indication rides on `PullToRefreshBox` separately, so the
-     * Refreshing case still maps to [Loaded] with `isAppending = false`.
+     * Posts are present. [isAppending] toggles the tail shimmer;
+     * [isRefreshing] drives `PullToRefreshBox`'s indicator. The two
+     * are mutually exclusive in practice — [FeedLoadStatus] makes
+     * `Refreshing` and `Appending` unrepresentable simultaneously, so a
+     * `Loaded(isAppending = true, isRefreshing = true)` value never
+     * reaches the screen.
      */
     @Immutable
     data class Loaded(
         val posts: ImmutableList<PostUi>,
         val isAppending: Boolean,
+        val isRefreshing: Boolean,
     ) : FeedScreenViewState
 }
 
@@ -76,5 +80,6 @@ internal fun FeedState.toViewState(): FeedScreenViewState =
         FeedScreenViewState.Loaded(
             posts = posts,
             isAppending = loadStatus == FeedLoadStatus.Appending,
+            isRefreshing = loadStatus == FeedLoadStatus.Refreshing,
         )
     }
