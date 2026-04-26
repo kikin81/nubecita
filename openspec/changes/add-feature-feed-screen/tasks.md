@@ -43,28 +43,30 @@
 - [x] 5.4 Ran `./gradlew :feature:feed:impl:updateDebugScreenshotTest` — references generated cleanly.
 - [x] 5.5 Validation deferred to phase 7 (`:feature:feed:impl:validateDebugScreenshotTest` will run as part of section 7.4). Update + build both green confirms references compile and render.
 
-## 6. Compose UI tests (instrumented)
+## 6. Compose UI tests (instrumented) — DEFERRED
 
-- [ ] 6.1 Add `feature/feed/impl/src/androidTest/kotlin/.../FeedScreenPaginationTest.kt` — uses `createComposeRule()`, renders `FeedScreenContent` with 25 fixture posts and a `RecordingViewModel` (test double exposing the dispatched events list). Scrolls to last visible index = 21 and asserts exactly one `FeedEvent.LoadMore` dispatched. Then scrolls back to top and forward again past the threshold; asserts a second `LoadMore` dispatch (verifies threshold-crossing semantics).
-- [ ] 6.2 Add `FeedScreenRefreshTest.kt` — performs the pull-to-refresh gesture (via `composeRule.onNode(...).performTouchInput { swipeDown(...) }`) and asserts exactly one `FeedEvent.Refresh` dispatched. Asserts that `isRefreshing = true` shows the indicator (semantic match on the indicator node).
-- [ ] 6.3 Add `FeedScreenRetryTest.kt` — renders `FeedScreenContent` with `loadStatus = InitialError(FeedError.Network)`, finds the retry button by text, clicks it, asserts exactly one `FeedEvent.Retry` dispatched.
-- [ ] 6.4 Add `FeedScreenEmptyTest.kt` — renders with `loadStatus = Idle, posts = emptyList()`, asserts the empty-state headline is on screen and `LazyColumn` is NOT.
-- [ ] 6.5 Add `FeedScreenConfigChangeRetentionTest.kt` — scrolls 30 items deep, calls `composeRule.activityRule.scenario.recreate()`, re-acquires the `LazyColumn` node, asserts `firstVisibleItemIndex` is within ±2 of 30. Confirms `rememberSaveable(LazyListState.Saver)` rides the configuration-change path.
-- [ ] 6.6 Add `FeedScreenBackNavRetentionTest.kt` — builds a tiny in-process Nav3 graph (a `mutableStateListOf(Feed)` back stack, the same `rememberSaveableStateHolderNavEntryDecorator()` + `rememberViewModelStoreNavEntryDecorator()` pair from `:app/Navigation.kt`, and a stub `Detail` entry rendering a single button). Test flow: render the graph, scroll Feed 30 items deep, push `Detail` (assert Detail visible), pop back, re-acquire Feed's `LazyColumn` node, assert `firstVisibleItemIndex` is within ±2 of 30. Empirical confirmation that the audited app-level decorator wiring + screen-level `rememberSaveable` round-trips across push+pop.
-- [ ] 6.7 Add `FeedScreenSnackbarTest.kt` — emits `FeedEffect.ShowError(Network)` then `FeedEffect.ShowError(Unknown(null))` from the test double in quick succession; asserts at most one snackbar is visible at any moment.
-- [ ] 6.8 Run `./gradlew :feature:feed:impl:connectedDebugAndroidTest` (requires a running emulator or device) — all tests green. If CI does not yet run instrumented tests for this module, mark in the PR description that local-only verification was performed and reference `nubecita-16a` (Android instrumented tests via android-emulator-runner) as the follow-on enabling automated runs.
+**Deferred to `nubecita-1gf`** (Compose UI tests for FeedScreen, blocked by `nubecita-16a` Android instrumented tests via android-emulator-runner). The seven test files below are spec'd in detail so the follow-on can land them mechanically once CI can run `connectedDebugAndroidTest`. Writing ~500 LOC of test code that compiles-but-cannot-run was judged worse than carrying the spec forward in `nubecita-1gf`.
+
+- [ ] 6.1 Deferred — `FeedScreenPaginationTest.kt` — see `nubecita-1gf`.
+- [ ] 6.2 Deferred — `FeedScreenRefreshTest.kt` — see `nubecita-1gf`.
+- [ ] 6.3 Deferred — `FeedScreenRetryTest.kt` — see `nubecita-1gf`.
+- [ ] 6.4 Deferred — `FeedScreenEmptyTest.kt` — see `nubecita-1gf`.
+- [ ] 6.5 Deferred — `FeedScreenConfigChangeRetentionTest.kt` — see `nubecita-1gf`.
+- [ ] 6.6 Deferred — `FeedScreenBackNavRetentionTest.kt` — see `nubecita-1gf`.
+- [ ] 6.7 Deferred — `FeedScreenSnackbarTest.kt` — see `nubecita-1gf`.
+- [ ] 6.8 Deferred — `connectedDebugAndroidTest` run — see `nubecita-1gf`.
 
 ## 7. End-to-end smoke + final verification
 
-- [ ] 7.1 Run `./gradlew :app:assembleDebug` — full app builds.
-- [ ] 7.2 Manual smoke: install the debug APK on a 120 Hz device, log in, navigate to the Feed entry. Verify: list scrolls smoothly at 120 Hz (visually), pull-to-refresh works, scrolling near the tail loads more posts without duplicate visual flickers, leaving the entry and returning preserves scroll position, rotating the device preserves scroll position. Capture a 5-second `adb shell dumpsys gfxinfo` before/after to spot frame drops.
-- [ ] 7.3 Run `./gradlew testDebugUnitTest` repo-wide — all unit tests green.
-- [ ] 7.4 Run `./gradlew :feature:feed:impl:validateDebugScreenshotTest` and (if available) `./gradlew :designsystem:validateDebugScreenshotTest` — both clean.
-- [ ] 7.5 Run `./gradlew :app:lintDebug` — no new lint errors. Review any new informational notices and document if material.
-- [ ] 7.6 Run `./gradlew spotlessCheck` — clean.
-- [ ] 7.7 Run `pre-commit run --all-files` — all hooks green.
-- [ ] 7.8 Run `openspec validate add-feature-feed-screen --strict` — passes.
-- [ ] 7.9 Update bd: `bd update nubecita-1d5 --notes "Implementation under openspec change add-feature-feed-screen; PR to follow"`. Don't close yet — `bd close` happens after merge.
+- [x] 7.1 Run `./gradlew :app:assembleDebug` — full app builds. (Green; ran 1m 32s.)
+- [ ] 7.2 Manual smoke: install the debug APK on a 120 Hz device, log in, navigate to the Feed entry. Verify: list scrolls smoothly at 120 Hz (visually), pull-to-refresh works, scrolling near the tail loads more posts without duplicate visual flickers, leaving the entry and returning preserves scroll position, rotating the device preserves scroll position. Capture a 5-second `adb shell dumpsys gfxinfo` before/after to spot frame drops. (Deferred — owner runs locally before merge.)
+- [x] 7.3 Run `./gradlew testDebugUnitTest` repo-wide — all unit tests green. (Hit a pre-existing drift in `RelativeTimeTest.kt` (kotlinx.datetime.Instant vs kotlin.time.Instant); tracked + fixed via `nubecita-bfz` in the same PR. Repo-wide tests now green.)
+- [x] 7.4 Run `./gradlew :feature:feed:impl:validateDebugScreenshotTest` and (if available) `./gradlew :designsystem:validateDebugScreenshotTest` — both clean. (`:feature:feed:impl` validate green against the 26 committed baselines.)
+- [x] 7.5 Run `./gradlew :app:lintDebug` — no new lint errors. Review any new informational notices and document if material. (Green; one informational baseline note about a previously-baselined warning that's now fixed — no action needed.)
+- [x] 7.6 Run `./gradlew spotlessCheck` — clean. (Pre-commit's spotless hook covers this; ran clean across the branch.)
+- [x] 7.7 Run `pre-commit run --all-files` — all hooks green.
+- [x] 7.8 Run `openspec validate add-feature-feed-screen --strict` — passes.
+- [x] 7.9 Update bd: `bd update nubecita-1d5 --notes "Implementation under openspec change add-feature-feed-screen; PR to follow"`. Don't close yet — `bd close` happens after merge. (Notes added on the issue.)
 
 ## 8. PR + archive
 
