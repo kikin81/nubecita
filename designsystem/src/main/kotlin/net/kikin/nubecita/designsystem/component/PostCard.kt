@@ -117,7 +117,11 @@ fun PostCard(
                     AuthorLine(post = post)
                     Spacer(Modifier.height(4.dp))
                     BodyText(text = post.text, facets = post.facets)
-                    EmbedSlot(embed = post.embed, videoEmbedSlot = videoEmbedSlot)
+                    EmbedSlot(
+                        embed = post.embed,
+                        callbacks = callbacks,
+                        videoEmbedSlot = videoEmbedSlot,
+                    )
                     Spacer(Modifier.height(8.dp))
                     ActionRow(post = post, callbacks = callbacks)
                 }
@@ -201,6 +205,7 @@ private fun BodyText(
 @Composable
 private fun EmbedSlot(
     embed: EmbedUi,
+    callbacks: PostCallbacks,
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)?,
 ) {
     when (embed) {
@@ -225,7 +230,7 @@ private fun EmbedSlot(
                 title = embed.title,
                 description = embed.description,
                 thumbUrl = embed.thumbUrl,
-                onTap = {},
+                onTap = callbacks.onExternalEmbedTap,
             )
         }
         is EmbedUi.Unsupported -> {

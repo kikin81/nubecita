@@ -30,6 +30,7 @@ data class PostCallbacks(
     val onRepost: (PostUi) -> Unit = {},
     val onReply: (PostUi) -> Unit = {},
     val onShare: (PostUi) -> Unit = {},
+    val onExternalEmbedTap: (uri: String) -> Unit = {},
 ) {
     public companion object {
         /**
