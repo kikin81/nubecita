@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.feed.impl
 
+import android.content.Context
 import android.content.res.Configuration
+import android.media.AudioManager
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +16,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -21,6 +24,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -29,6 +34,8 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -43,6 +50,9 @@ import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
 import net.kikin.nubecita.feature.feed.impl.ui.PostCardVideoEmbed
+import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
+import net.kikin.nubecita.feature.feed.impl.video.createFeedVideoPlayerCoordinator
+import net.kikin.nubecita.feature.feed.impl.video.mostVisibleVideoTarget
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -219,6 +229,30 @@ private fun LoadedFeedContent(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
 ) {
+    // Coordinator is composition-scoped: created once per FeedScreen
+    // entry, released on exit. No `remember(key)` because the screen's
+    // composition lifetime IS the coordinator's lifetime. Inspection
+    // mode (IDE preview / screenshot tests) skips construction —
+    // ExoPlayer in layoutlib is unsafe.
+    val context = LocalContext.current
+    val inInspection = LocalInspectionMode.current
+    val coordinator: FeedVideoPlayerCoordinator? =
+        remember {
+            if (inInspection) {
+                null
+            } else {
+                createFeedVideoPlayerCoordinator(
+                    context = context,
+                    audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager,
+                )
+            }
+        }
+    if (coordinator != null) {
+        DisposableEffect(Unit) {
+            onDispose { coordinator.release() }
+        }
+    }
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -235,10 +269,30 @@ private fun LoadedFeedContent(
             contentPadding = contentPadding,
         ) {
             items(items = posts, key = { it.id }, contentType = { "post" }) { post ->
+                // Hoist the videoEmbedSlot lambda so it's stable across
+                // recompositions of this item — without this, every
+                // recomposition allocates a fresh closure per video card.
+                // Inspection mode (preview / screenshot tests) gets the
+                // phase-B static-poster variant so the screen-level
+                // previews stay layoutlib-safe.
+                val videoSlot: @Composable (EmbedUi.Video) -> Unit =
+                    remember(post.id, coordinator) {
+                        { video ->
+                            if (coordinator != null) {
+                                PostCardVideoEmbed(
+                                    video = video,
+                                    postId = post.id,
+                                    coordinator = coordinator,
+                                )
+                            } else {
+                                PostCardVideoEmbed(video = video)
+                            }
+                        }
+                    }
                 PostCard(
                     post = post,
                     callbacks = callbacks,
-                    videoEmbedSlot = { video -> PostCardVideoEmbed(video = video) },
+                    videoEmbedSlot = videoSlot,
                 )
             }
             if (isAppending) {
@@ -271,6 +325,33 @@ private fun LoadedFeedContent(
             .collect { pastThreshold ->
                 if (pastThreshold) currentOnLoadMore()
             }
+    }
+
+    // Scroll-gated bind flow (per design.md Decision 1 + spec). The
+    // outer `snapshotFlow` watches `isScrollInProgress` and only when
+    // it flips to `false` (scroll has settled) do we run the
+    // visibility math — no per-frame `mostVisibleVideoTarget`
+    // computation during a fling. `MostVisibleVideoTargetTest`
+    // verifies the visibility math; this wiring is too thin to test
+    // on its own.
+    if (coordinator != null) {
+        // Memoize the postId -> PostUi map across recompositions of
+        // LoadedFeedContent (refresh tick, append, like-toggle, etc.).
+        // Recomputed only when `posts` itself changes.
+        val postsById = remember(posts) { posts.associateBy { it.id } }
+        val currentPostsById by rememberUpdatedState(postsById)
+        LaunchedEffect(listState, coordinator) {
+            snapshotFlow { listState.isScrollInProgress }
+                .distinctUntilChanged()
+                .filter { scrolling -> !scrolling }
+                .map {
+                    mostVisibleVideoTarget(
+                        layoutInfo = listState.layoutInfo,
+                        postsById = currentPostsById,
+                    )
+                }.distinctUntilChanged()
+                .collect { target -> coordinator.bindMostVisibleVideo(target) }
+        }
     }
 }
 

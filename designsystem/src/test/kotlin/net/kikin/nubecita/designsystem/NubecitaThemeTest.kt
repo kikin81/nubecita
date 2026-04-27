@@ -41,6 +41,9 @@ class NubecitaThemeTest {
                 onSuccessContainer = NubecitaPalette.Success40,
                 warning = NubecitaPalette.Warning40,
                 onWarning = NubecitaPalette.Neutral100,
+                videoOverlayScrim = NubecitaPalette.Neutral0.copy(alpha = 0.8f),
+                videoOverlayScrimSubtle = NubecitaPalette.Neutral0.copy(alpha = 0.4f),
+                onVideoOverlay = NubecitaPalette.Neutral100,
             )
         assertEquals(NubecitaPalette.Success40, light.success)
     }
@@ -55,6 +58,9 @@ class NubecitaThemeTest {
                     onSuccessContainer = NubecitaPalette.Success40,
                     warning = NubecitaPalette.Warning40,
                     onWarning = NubecitaPalette.Neutral100,
+                    videoOverlayScrim = NubecitaPalette.Neutral0.copy(alpha = 0.8f),
+                    videoOverlayScrimSubtle = NubecitaPalette.Neutral0.copy(alpha = 0.4f),
+                    onVideoOverlay = NubecitaPalette.Neutral100,
                 ),
         )
 }

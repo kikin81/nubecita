@@ -23,6 +23,30 @@ data class NubecitaSemanticColors(
     val onSuccessContainer: Color,
     val warning: Color,
     val onWarning: Color,
+    /**
+     * Strong scrim (≈ 80% black) painted behind compact controls
+     * floating on top of arbitrary video content — duration chips,
+     * mute-icon buttons, etc. **Theme-invariant**: a video player
+     * surface paints user-supplied content underneath, so the
+     * contrast target is the video pixels, not the page background.
+     * Light + dark schemes use the same value.
+     */
+    val videoOverlayScrim: Color,
+    /**
+     * Subtle scrim (≈ 40% black) painted across the full player
+     * surface to host a centered affordance like "tap to resume" —
+     * dimmer than [videoOverlayScrim] so the underlying video stays
+     * legible behind the affordance. **Theme-invariant** for the
+     * same reason as [videoOverlayScrim].
+     */
+    val videoOverlayScrimSubtle: Color,
+    /**
+     * Content color drawn on top of [videoOverlayScrim] /
+     * [videoOverlayScrimSubtle] — icon tint, label text. White so
+     * affordances stay legible against a dark scrim regardless of
+     * the underlying video content. **Theme-invariant**.
+     */
+    val onVideoOverlay: Color,
 )
 
 data class NubecitaDurations(
