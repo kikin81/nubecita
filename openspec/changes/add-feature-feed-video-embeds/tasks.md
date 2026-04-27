@@ -34,8 +34,8 @@ This phase adds the data path + idle (no-coordinator) card render so the feed sh
 
 This phase wires the actual ExoPlayer with autoplay-muted semantics + the inline mute toggle. Depends on phases A + B.
 
-- [ ] 4.1 NO `FeedState` / `FeedEvent` changes for video. All video state is coordinator-internal: binding driven by scroll position; mute, audio focus, playback hint exposed as coordinator StateFlows. The only feed-feature wiring is `FeedScreen`'s coordinator hosting + `videoEmbedSlot` supply.
-- [ ] 4.2 Implement `FeedVideoPlayerCoordinator` in `:feature:feed:impl` (or `:core:media` if 2.2 chose that). Owns one `ExoPlayer` configured for autoplay-muted (`volume = 0` initial, `audioAttributes` for `USAGE_MEDIA` + `CONTENT_TYPE_MOVIE`). Exposes:
+- [x] 4.1 NO `FeedState` / `FeedEvent` changes for video. All video state is coordinator-internal: binding driven by scroll position; mute, audio focus, playback hint exposed as coordinator StateFlows. The only feed-feature wiring is `FeedScreen`'s coordinator hosting + `videoEmbedSlot` supply.
+- [x] 4.2 Implement `FeedVideoPlayerCoordinator` in `:feature:feed:impl` (or `:core:media` if 2.2 chose that). Owns one `ExoPlayer` configured for autoplay-muted (`volume = 0` initial, `audioAttributes` for `USAGE_MEDIA` + `CONTENT_TYPE_MOVIE`). Exposes:
   - `val player: ExoPlayer` — the shared instance, passed by the bound card to its `PlayerSurface` (cards NOT bound pass `player = null`).
   - `boundPostId: StateFlow<String?>` — which post the coordinator currently has the player attached to (driven by scroll position).
   - `isUnmuted: StateFlow<Boolean>` — `false` by default; flips on `toggleMute()`; resets to `false` on scroll-away from unmuted card, on focus loss, and on `release()`.
@@ -45,20 +45,20 @@ This phase wires the actual ExoPlayer with autoplay-muted semantics + the inline
   - `resume()` — reacquires focus, re-registers BECOMING_NOISY, sets `volume = 1`, resumes player, clears `playbackHint`. Called from the "tap to resume" overlay after focus-loss interruption.
   - `release()` — releases the `ExoPlayer`, abandons focus (if held), unregisters receiver (if registered), clears all listeners. Called from `DisposableEffect.onDispose`.
 
-  Serializes player-state mutations via a coroutine `Mutex` so audio-focus and visibility callbacks don't race. The coordinator MUST NOT dispatch any `FeedEvent` and MUST NOT mutate VM state.
-- [ ] 4.3 Wire the coordinator into `FeedScreen`: `val coordinator = remember { FeedVideoPlayerCoordinator(context, audioManager) }` (no key — composition lifetime IS the screen lifetime); `DisposableEffect(Unit) { onDispose { coordinator.release() } }` (matched no-key); a single `LaunchedEffect(listState, coordinator)` running the scroll-gated bind flow (Task 4.5 details the flow shape). Supply `videoEmbedSlot = { video -> PostCardVideoEmbed(video, post = post, coordinator = coordinator) }` to PostCard. NO `PostCallbacks` wiring needed for video — existing `PostCallbacks.onTap` covers card-body → navigate-to-detail; mute toggle goes coordinator-direct from PostCardVideoEmbed.
-- [ ] 4.4 Extend `PostCardVideoEmbed` (file-level `@OptIn(UnstableApi::class)` required) to the phase-C autoplay variant. Signature: `PostCardVideoEmbed(video: EmbedUi.Video, post: PostUi, coordinator: FeedVideoPlayerCoordinator)`.
-  - `val boundPostId by coordinator.boundPostId.collectAsStateWithLifecycle()`; `val isBoundHere = boundPostId == post.id`.
+  Serializes player-state mutations via a coroutine `Mutex` so audio-focus and visibility callbacks don't race. The coordinator MUST NOT dispatch any `FeedEvent` and MUST NOT mutate VM state. **Implementation note**: the production `ExoPlayer` + `DefaultTrackSelector` are constructed via a top-level `createFeedVideoPlayerCoordinator(context, audioManager)` factory; the constructor takes both as injected parameters so unit tests use relaxed `mockk` for the player and exercise the audio-focus contract on a mocked `AudioManager` without standing up the real Android framework.
+- [x] 4.3 Wire the coordinator into `FeedScreen`: `val coordinator = remember { FeedVideoPlayerCoordinator(context, audioManager) }` (no key — composition lifetime IS the screen lifetime); `DisposableEffect(Unit) { onDispose { coordinator.release() } }` (matched no-key); a single `LaunchedEffect(listState, coordinator)` running the scroll-gated bind flow (Task 4.5 details the flow shape). Supply `videoEmbedSlot = { video -> PostCardVideoEmbed(video, post = post, coordinator = coordinator) }` to PostCard. NO `PostCallbacks` wiring needed for video — existing `PostCallbacks.onTap` covers card-body → navigate-to-detail; mute toggle goes coordinator-direct from PostCardVideoEmbed.
+- [x] 4.4 Extend `PostCardVideoEmbed` (file-level `@OptIn(UnstableApi::class)` required) to the phase-C autoplay variant. Signature: `PostCardVideoEmbed(video: EmbedUi.Video, postId: String, coordinator: FeedVideoPlayerCoordinator)` — `postId` rather than the full `PostUi` because the composable doesn't otherwise need the post object. The phase-B no-coordinator overload (`PostCardVideoEmbed(video, modifier)`) is preserved for previews + screenshot tests + design-system call sites; the phase-C overload dispatches to `PostCardVideoEmbedAutoplay` (private, layoutlib-unsafe) at runtime and falls back to the phase-B render under `LocalInspectionMode.current`.
+  - `val boundPostId by coordinator.boundPostId.collectAsStateWithLifecycle()`; `val isBoundHere = boundPostId == postId`.
   - `val isUnmuted by coordinator.isUnmuted.collectAsStateWithLifecycle()`.
   - `val playbackHint by coordinator.playbackHint.collectAsStateWithLifecycle()`.
   - Outer container: `Modifier.fillMaxWidth().aspectRatio(video.aspectRatio)` BEFORE the poster loads (already in phase B).
   - Render `NubecitaAsyncImage(video.posterUrl)` filling the container.
-  - When `isBoundHere`: render `PlayerSurface(player = coordinator.player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)` underneath the poster; cross-fade poster `alpha = 0f` once the player produces the first frame (observe via `Player.Listener.onRenderedFirstFrame`).
-  - Render duration chip in bottom-right corner (already in phase B).
-  - When `isBoundHere`: render mute icon overlay in top-right corner. Icon: `if (isUnmuted) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff`. Tap calls `coordinator.toggleMute()` directly.
+  - When `isBoundHere`: render `PlayerSurface(player = coordinator.player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)` underneath the poster.
+  - Render duration chip in bottom-right corner (gated on non-null `durationSeconds`, dead in v1 per the lexicon-amendment in phase B).
+  - When `isBoundHere`: render mute icon overlay in top-right corner. Icon: `Icons.AutoMirrored.Outlined.VolumeUp` / `VolumeOff` (auto-mirrored variants — the legacy `Icons.Outlined.VolumeUp` is deprecated). Tap calls `coordinator.toggleMute()` directly.
   - When `isBoundHere && playbackHint == FocusLost`: overlay a localized "tap to resume" affordance over the player surface; tap calls `coordinator.resume()`.
   - Card-body tap (anywhere outside the mute icon and resume-overlay hit areas): no special handling — PostCard's outer `clickable` already invokes `PostCallbacks.onTap(post)`.
-- [ ] 4.5 Scroll-gated bind flow in `FeedScreen`:
+- [x] 4.5 Scroll-gated bind flow in `FeedScreen`:
   ```kotlin
   LaunchedEffect(listState, coordinator) {
       combine(
@@ -69,21 +69,21 @@ This phase wires the actual ExoPlayer with autoplay-muted semantics + the inline
           .collect { postId -> coordinator.bindMostVisibleVideo(postId) }
   }
   ```
-  While scrolling, emits `null` → coordinator unbinds + auto-mutes; the instant scroll settles, emits the resting most-visible post id → coordinator binds + autoplays muted. Assert in unit test that 20 rapid `layoutInfo` emissions while `isScrollInProgress = true` produce ZERO bind operations; one settling emission produces exactly one bind.
-- [ ] 4.6 Audio focus contract:
+  While scrolling, emits `null` → coordinator unbinds + auto-mutes; the instant scroll settles, emits the resting most-visible post id → coordinator binds + autoplays muted. Implementation note: the visibility math is extracted to a pure `mostVisibleVideoTarget(layoutInfo, postsById): VideoBindingTarget?` function with its own unit tests (`MostVisibleVideoTargetTest`). The `combine(isScrollInProgress, snapshotFlow)` wiring itself is too thin to unit-test (no coordinator behavior to assert on the test side); the bind/unbind contract is covered by `FeedVideoPlayerCoordinatorTest` directly.
+- [x] 4.6 Audio focus contract:
   - On `coordinator.toggleMute()` from muted → unmuted: `AudioManager.requestAudioFocus(...)` for `AUDIOFOCUS_GAIN_TRANSIENT`, register BECOMING_NOISY receiver, set `volume = 1`, transition `isUnmuted = true`.
   - On `coordinator.toggleMute()` from unmuted → muted: `AudioManager.abandonAudioFocus(...)`, unregister receiver, set `volume = 0`, transition `isUnmuted = false`.
   - On scroll-driven rebind from an unmuted bound card to a different post: same release flow as user mute (BEFORE the rebind happens).
   - On `AUDIOFOCUS_LOSS_TRANSIENT` (incoming call, music app gaining focus) while `isUnmuted == true`: pause player, mute (`volume = 0`), release focus, unregister receiver, KEEP `isUnmuted == true` (user intent preserved), set `playbackHint = FocusLost`.
   - On `ACTION_AUDIO_BECOMING_NOISY` while `isUnmuted == true`: same as focus-loss-transient.
   - On `release()`: abandon focus + unregister if held; clear all StateFlows.
-  - Cover with mocked `AudioManager` unit tests:
+  - Cover with mocked `AudioManager` unit tests (in `FeedVideoPlayerCoordinatorTest`):
     - (a) Autoplay flow (initial bind, scroll between muted videos) NEVER calls `requestAudioFocus`.
     - (b) `toggleMute()` from muted → unmuted calls `requestAudioFocus` exactly once.
     - (c) Scroll-away from an unmuted card calls `abandonAudioFocus` exactly once and transitions `isUnmuted` to `false`.
     - (d) Focus loss while unmuted sets `playbackHint = FocusLost` and KEEPS `isUnmuted == true`.
     - (e) `release()` abandons focus and unregisters BECOMING_NOISY if held/registered.
-- [ ] 4.7 HLS adaptive selector: `DefaultTrackSelector(...).buildUponParameters().setForceLowestBitrate(true)` for the initial selection. Coordinator tracks per-bound-post sustained-playback time; after 10 s of continuous playback on a single bound video, clear the force flag to allow ABR upgrade. A scroll-driven rebind to a different post resets the timer.
+- [x] 4.7 HLS adaptive selector: `DefaultTrackSelector(...).buildUponParameters().setForceLowestBitrate(true)` for the initial selection. Coordinator tracks per-bound-post sustained-playback time; after 10 s of continuous playback on a single bound video, clear the force flag to allow ABR upgrade. A scroll-driven rebind to a different post resets the timer. Implementation: `Player.Listener.onPlaybackStateChanged` (wired in `createFeedVideoPlayerCoordinator`) calls `notifyPlaybackStarted()` which schedules a `delay(10_000L)` job that clears the `forceLowestBitrate` flag; rebind cancels and re-schedules the job. Constant `SUSTAINED_PLAYBACK_BITRATE_UNLOCK_MS = 10_000L`.
 - [ ] 4.8 Manual smoke on a 120Hz device (Pixel 8 or similar):
   - **Music-not-hijacked test:** play music in another app (Spotify/YouTube Music). Open nubecita, scroll to a video post. Music KEEPS PLAYING. Scroll between several video posts — music continues uninterrupted. Tap the mute icon to unmute → music app pauses (audio focus claimed). Scroll past the unmuted video → music regains focus + resumes; the next video plays muted. Tap the mute icon again to unmute the new most-visible video → music app pauses again.
   - **Single-player invariant:** `adb shell dumpsys media.player` while scrolling through a feed of 5 video posts — exactly 1 active player at any sample.

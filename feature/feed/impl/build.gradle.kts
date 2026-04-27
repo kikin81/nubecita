@@ -4,6 +4,14 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.feature.feed.impl"
+
+    // FeedVideoPlayerCoordinator's audio-focus contract tests construct
+    // android.media.AudioAttributes.Builder() in the production path.
+    // Without isReturnDefaultValues, Android's unit-test stub jar
+    // throws "Method setUsage ... not mocked". Tests verify side
+    // effects on a mocked AudioManager + StateFlow transitions, so
+    // letting AudioAttributes calls no-op is safe.
+    testOptions.unitTests.isReturnDefaultValues = true
 }
 
 dependencies {

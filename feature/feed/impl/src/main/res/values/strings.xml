@@ -25,4 +25,9 @@
     <string name="feed_snackbar_error_network">Network error. Pull to retry.</string>
     <string name="feed_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
     <string name="feed_snackbar_error_unknown">Couldn\'t refresh. Try again.</string>
+
+    <!-- PostCardVideoEmbed phase-C overlays (autoplay-muted + tap-to-resume). -->
+    <string name="postcard_video_mute">Mute video</string>
+    <string name="postcard_video_unmute">Unmute video</string>
+    <string name="postcard_video_resume">Tap to resume</string>
 </resources>

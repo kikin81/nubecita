@@ -1,37 +1,60 @@
+@file:androidx.annotation.OptIn(UnstableApi::class)
+
 package net.kikin.nubecita.feature.feed.impl.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.extendedShape
+import net.kikin.nubecita.designsystem.semanticColors
+import net.kikin.nubecita.designsystem.spacing
+import net.kikin.nubecita.feature.feed.impl.R
+import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
+import net.kikin.nubecita.feature.feed.impl.video.PlaybackHint
 import java.util.Locale
 
 /**
  * Renders a Bluesky video embed as a static poster card with an optional
  * duration chip. **Phase B** of the openspec change
  * `add-feature-feed-video-embeds` — no inline playback, no `PlayerSurface`,
- * no mute icon. Phase C (`nubecita-sbc.4`) extends this composable to add
- * the autoplay-muted `PlayerSurface` overlay + mute toggle when bound by
- * the `FeedVideoPlayerCoordinator`.
+ * no mute icon. Phase C extends this composable to add the autoplay-muted
+ * `PlayerSurface` overlay + mute toggle when bound by the
+ * `FeedVideoPlayerCoordinator` (separate overload below).
  *
  * **Aspect-ratio gate.** The outer `Box` applies
  * `Modifier.fillMaxWidth().aspectRatio(video.aspectRatio)` BEFORE
@@ -64,32 +87,221 @@ internal fun PostCardVideoEmbed(
             modifier
                 .fillMaxWidth()
                 .aspectRatio(video.aspectRatio)
-                .clip(VIDEO_CARD_SHAPE),
+                .clip(MaterialTheme.shapes.large),
     ) {
-        if (video.posterUrl != null) {
-            NubecitaAsyncImage(
-                model = video.posterUrl,
-                contentDescription = video.altText,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            GradientPosterFallback(
-                altText = video.altText,
-                modifier = Modifier.fillMaxSize(),
-            )
+        PosterLayer(video = video)
+        DurationChipIfPresent(durationSeconds = video.durationSeconds)
+    }
+}
+
+/**
+ * Phase-C autoplay overload. Layers the `PlayerSurface` + mute icon +
+ * resume overlay on top of the phase-B poster card when the
+ * [coordinator] is bound to [postId]. Falls back to the phase-B render
+ * under `LocalInspectionMode.current` since layoutlib can't construct
+ * `PlayerSurface`.
+ *
+ * **Bound vs. not.** Reads `coordinator.boundPostId` and renders the
+ * poster baseline either way. The bound card additionally renders the
+ * `PlayerSurface` over the poster (the surface paints the video frame
+ * on top of the still poster — no explicit cross-fade is performed;
+ * the surface becomes opaque once the player produces its first
+ * frame), the mute icon overlay, and — if `playbackHint == FocusLost`
+ * — the "tap to resume" affordance. Only the bound card subscribes
+ * to `coordinator.isUnmuted` + `coordinator.playbackHint`, so
+ * flipping the mute state on the bound card does NOT recompose the
+ * off-screen non-bound video cards in the LazyColumn.
+ *
+ * **Tap targets.** The mute icon and resume overlay each consume
+ * their own `clickable` so taps on those affordances do NOT propagate
+ * to PostCard's outer `clickable { callbacks.onTap }`. Anywhere else
+ * on the card body still navigates to detail.
+ */
+@Composable
+internal fun PostCardVideoEmbed(
+    video: EmbedUi.Video,
+    postId: String,
+    coordinator: FeedVideoPlayerCoordinator,
+    modifier: Modifier = Modifier,
+) {
+    if (LocalInspectionMode.current) {
+        // Inspection mode (IDE @Preview, screenshot tests) — render the
+        // phase-B variant; layoutlib can't construct PlayerSurface.
+        PostCardVideoEmbed(video = video, modifier = modifier)
+    } else {
+        PostCardVideoEmbedAutoplay(
+            video = video,
+            postId = postId,
+            coordinator = coordinator,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun PostCardVideoEmbedAutoplay(
+    video: EmbedUi.Video,
+    postId: String,
+    coordinator: FeedVideoPlayerCoordinator,
+    modifier: Modifier = Modifier,
+) {
+    val boundPostId by coordinator.boundPostId.collectAsStateWithLifecycle()
+    val isBoundHere = boundPostId == postId
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .aspectRatio(video.aspectRatio)
+                .clip(MaterialTheme.shapes.large),
+    ) {
+        // Poster (or gradient) is the base layer regardless of bind
+        // state. When bound, the PlayerSurface paints over it; once
+        // the player produces its first frame the surface becomes
+        // opaque and the poster underneath is hidden.
+        PosterLayer(video = video)
+        if (isBoundHere) {
+            // Subscribe to isUnmuted + playbackHint ONLY on the bound
+            // card. Non-bound cards in the LazyColumn don't recompose
+            // when the bound card flips mute state. Extracted into its
+            // own composable so non-bound cards skip subscription.
+            BoundOverlay(coordinator = coordinator)
         }
-        // Smart-cast can't survive a cross-module nullable read; bind to a
-        // local before the null check.
-        val durationSeconds = video.durationSeconds
-        if (durationSeconds != null) {
-            DurationChip(
-                seconds = durationSeconds,
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(8.dp),
-            )
+        DurationChipIfPresent(durationSeconds = video.durationSeconds)
+    }
+}
+
+@Composable
+private fun BoxScope.BoundOverlay(coordinator: FeedVideoPlayerCoordinator) {
+    val isUnmuted by coordinator.isUnmuted.collectAsStateWithLifecycle()
+    val playbackHint by coordinator.playbackHint.collectAsStateWithLifecycle()
+    val onMuteClick = remember(coordinator) { { coordinator.toggleMute() } }
+    val onResumeClick = remember(coordinator) { { coordinator.resume() } }
+
+    PlayerSurface(
+        player = coordinator.player,
+        surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
+        modifier = Modifier.fillMaxSize(),
+    )
+    MuteIconOverlay(
+        isUnmuted = isUnmuted,
+        onClick = onMuteClick,
+        modifier =
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(MaterialTheme.spacing.s2),
+    )
+    if (playbackHint == PlaybackHint.FocusLost) {
+        ResumeOverlay(
+            onClick = onResumeClick,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.PosterLayer(video: EmbedUi.Video) {
+    if (video.posterUrl != null) {
+        NubecitaAsyncImage(
+            model = video.posterUrl,
+            contentDescription = video.altText,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        GradientPosterFallback(
+            altText = video.altText,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.DurationChipIfPresent(durationSeconds: Int?) {
+    // Smart-cast can't survive a cross-module nullable read; bind to a
+    // local before the null check.
+    val seconds = durationSeconds ?: return
+    DurationChip(
+        seconds = seconds,
+        modifier =
+            Modifier
+                .align(Alignment.BottomEnd)
+                .padding(MaterialTheme.spacing.s2),
+    )
+}
+
+@Composable
+private fun MuteIconOverlay(
+    isUnmuted: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val (icon, label) =
+        if (isUnmuted) {
+            Icons.AutoMirrored.Outlined.VolumeUp to stringResource(R.string.postcard_video_mute)
+        } else {
+            Icons.AutoMirrored.Outlined.VolumeOff to stringResource(R.string.postcard_video_unmute)
+        }
+    Box(
+        modifier =
+            modifier
+                .size(MaterialTheme.spacing.s8)
+                .clip(MaterialTheme.extendedShape.pill)
+                .background(MaterialTheme.semanticColors.videoOverlayScrim)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = label },
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.semanticColors.onVideoOverlay,
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .size(MaterialTheme.spacing.s5),
+        )
+    }
+}
+
+@Composable
+private fun ResumeOverlay(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val resumeLabel = stringResource(R.string.postcard_video_resume)
+    Box(
+        modifier =
+            modifier
+                .background(MaterialTheme.semanticColors.videoOverlayScrimSubtle)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = resumeLabel },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .clip(MaterialTheme.extendedShape.pill)
+                    .background(MaterialTheme.semanticColors.videoOverlayScrim)
+                    .padding(
+                        horizontal = MaterialTheme.spacing.s4,
+                        vertical = MaterialTheme.spacing.s3,
+                    ),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s2),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.PlayArrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.semanticColors.onVideoOverlay,
+                    modifier = Modifier.size(MaterialTheme.spacing.s5),
+                )
+                Text(
+                    text = resumeLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.semanticColors.onVideoOverlay,
+                )
+            }
         }
     }
 }
@@ -133,14 +345,17 @@ private fun DurationChip(
     Box(
         modifier =
             modifier
-                .clip(DURATION_CHIP_SHAPE)
-                .background(DURATION_CHIP_SCRIM)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .clip(MaterialTheme.shapes.small)
+                .background(MaterialTheme.semanticColors.videoOverlayScrim)
+                .padding(
+                    horizontal = MaterialTheme.spacing.s2,
+                    vertical = MaterialTheme.spacing.s1,
+                ),
     ) {
         Text(
             text = formatDuration(seconds),
             style = MaterialTheme.typography.labelMedium,
-            color = Color.White,
+            color = MaterialTheme.semanticColors.onVideoOverlay,
         )
     }
 }
@@ -162,10 +377,6 @@ private fun formatDuration(seconds: Int): String {
         String.format(Locale.ROOT, "%d:%02d", m, s)
     }
 }
-
-private val VIDEO_CARD_SHAPE = RoundedCornerShape(16.dp)
-private val DURATION_CHIP_SHAPE = RoundedCornerShape(8.dp)
-private val DURATION_CHIP_SCRIM = Color(0xCC000000)
 
 @Preview(name = "Video — with poster", showBackground = true)
 @Composable

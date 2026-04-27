@@ -94,6 +94,9 @@ private fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             onSuccessContainer = NubecitaPalette.Success90,
             warning = NubecitaPalette.Warning80,
             onWarning = NubecitaPalette.Neutral10,
+            videoOverlayScrim = VideoOverlayScrim,
+            videoOverlayScrimSubtle = VideoOverlayScrimSubtle,
+            onVideoOverlay = OnVideoOverlay,
         )
     } else {
         NubecitaSemanticColors(
@@ -103,8 +106,20 @@ private fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             onSuccessContainer = NubecitaPalette.Success40,
             warning = NubecitaPalette.Warning40,
             onWarning = NubecitaPalette.Neutral100,
+            videoOverlayScrim = VideoOverlayScrim,
+            videoOverlayScrimSubtle = VideoOverlayScrimSubtle,
+            onVideoOverlay = OnVideoOverlay,
         )
     }
+
+// Video overlay tokens are theme-invariant — they sit on top of
+// arbitrary user-supplied video content, so the contrast target is
+// the video pixels rather than the page background. Held as named
+// constants here (vs inlining `Color(0xCC...).copy(...)` at every
+// call site) so the values stay consistent and the intent is named.
+private val VideoOverlayScrim = NubecitaPalette.Neutral0.copy(alpha = 0.8f)
+private val VideoOverlayScrimSubtle = NubecitaPalette.Neutral0.copy(alpha = 0.4f)
+private val OnVideoOverlay = NubecitaPalette.Neutral100
 
 private enum class ContrastLevel { Standard, Medium, High }
 
