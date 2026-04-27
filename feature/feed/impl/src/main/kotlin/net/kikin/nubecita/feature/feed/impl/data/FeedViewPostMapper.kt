@@ -85,11 +85,10 @@ internal fun FeedViewPost.toPostUiOrNull(): PostUi? {
 
 /**
  * Maps the [PostViewEmbedUnion] open-union variant to PostCard's
- * [EmbedUi] surface (Empty / Images / Video / Unsupported(typeUri)).
- * Future `EmbedUi` variants (External per nubecita-aku, Record per
- * nubecita-6vq, RecordWithMedia per nubecita-umn) become compile errors
- * at this `when` once they're added to `EmbedUi`, surfacing the work
- * needed.
+ * [EmbedUi] surface (Empty / Images / Video / External / Unsupported).
+ * Future `EmbedUi` variants (Record per nubecita-6vq, RecordWithMedia
+ * per nubecita-umn) become compile errors at this `when` once they're
+ * added to `EmbedUi`, surfacing the work needed.
  */
 internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     when (this) {
@@ -106,7 +105,13 @@ internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
                             )
                         }.toImmutableList(),
             )
-        is ExternalView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.external")
+        is ExternalView ->
+            EmbedUi.External(
+                uri = external.uri.raw,
+                title = external.title,
+                description = external.description,
+                thumbUrl = external.thumb?.raw,
+            )
         is RecordView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.record")
         is VideoView -> toVideoEmbedUi()
         is RecordWithMediaView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
