@@ -1,17 +1,17 @@
 ## 1. Pre-flight
 
-- [ ] 1.1 Branch off main per bd-workflow once `nubecita-sbc.1` is ready (this proposal lands first; no implementation tasks claim until then).
-- [ ] 1.2 Confirm Bluesky's `app.bsky.embed.video#view` lexicon is exposed in the current `atproto-kotlin` version. If a deserializer is missing, open an upstream issue in `kikin81/atproto-kotlin` (concrete shape: `gh issue create --repo kikin81/atproto-kotlin --title "Missing app.bsky.embed.video#view deserializer" --body ...`) describing the missing types + linking back to this task's bd id; track the upstream issue URL in this task's bd notes.
+- [x] 1.1 Branch off main per bd-workflow once `nubecita-sbc.1` is ready (this proposal lands first; no implementation tasks claim until then).
+- [x] 1.2 Confirm Bluesky's `app.bsky.embed.video#view` lexicon is exposed in the current `atproto-kotlin` version. If a deserializer is missing, open an upstream issue in `kikin81/atproto-kotlin` (concrete shape: `gh issue create --repo kikin81/atproto-kotlin --title "Missing app.bsky.embed.video#view deserializer" --body ...`) describing the missing types + linking back to this task's bd id; track the upstream issue URL in this task's bd notes.
 - [ ] 1.3 Sample-test: identify a public `at://` post with a video embed; confirm the HLS playlist + segments are CDN-served without auth.
 
 ## 2. Implementation phase A — `nubecita-sbc.1` (deps + smoke test)
 
 This phase ships in its own bd issue / branch; deps add must merge before phases B + C.
 
-- [ ] 2.1 Add Media3 catalog entries to `gradle/libs.versions.toml`: `media3 = "1.10.0"` (or current stable at implementation time), `media3-exoplayer`, `media3-exoplayer-hls`, `media3-ui-compose` (NOT the legacy `media3-ui` artifact — we're using `PlayerSurface`, not `PlayerView`).
-- [ ] 2.2 Decide `:core:media` vs inline (per Decision 6 in design.md). Document the choice in the issue's notes.
-- [ ] 2.3 Throwaway smoke composable in `:designsystem` previews or `:app` debug — construct an `ExoPlayer` (with `volume = 0`), play a sample bsky HLS URL, render via `PlayerSurface(player = exoPlayer, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)` (file-level `@OptIn(UnstableApi::class)` required). Confirm: HLS variant negotiation works; `PlayerSurface` renders cleanly under `@Preview` (empty placeholder, not a crash); audio is silent (no `requestAudioFocus` calls observed in logs); no Tink + DataStore-DB conflicts; ProGuard rules don't strip Media3 (add consumer-rules if needed).
-- [ ] 2.4 `./gradlew :app:assembleDebug :app:bundleRelease` — measure APK size delta. Document in the issue.
+- [x] 2.1 Add Media3 catalog entries to `gradle/libs.versions.toml`: `media3 = "1.10.0"` (or current stable at implementation time), `media3-exoplayer`, `media3-exoplayer-hls`, `media3-ui-compose` (NOT the legacy `media3-ui` artifact — we're using `PlayerSurface`, not `PlayerView`).
+- [x] 2.2 Decide `:core:media` vs inline (per Decision 6 in design.md). Document the choice in the issue's notes.
+- [x] 2.3 Throwaway smoke composable in `:designsystem` previews or `:app` debug — construct an `ExoPlayer` (with `volume = 0`), play a sample bsky HLS URL, render via `PlayerSurface(player = exoPlayer, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)` (file-level `@OptIn(UnstableApi::class)` required). Confirm: HLS variant negotiation works; `PlayerSurface` renders cleanly under `@Preview` (empty placeholder, not a crash); audio is silent (no `requestAudioFocus` calls observed in logs); no Tink + DataStore-DB conflicts; ProGuard rules don't strip Media3 (add consumer-rules if needed).
+- [x] 2.4 `./gradlew :app:assembleDebug :app:bundleRelease` — measure APK size delta. Document in the issue.
 
 ## 3. Implementation phase B — `nubecita-sbc.3` (data path + thumbnail-only render)
 

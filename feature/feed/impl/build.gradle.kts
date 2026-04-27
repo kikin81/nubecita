@@ -15,6 +15,9 @@ dependencies {
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.ui.compose)
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))
