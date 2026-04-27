@@ -206,6 +206,10 @@ private fun ActionRow(
     post: PostUi,
     callbacks: PostCallbacks,
 ) {
+    // Reply / share are one-shot actions (Role.Button); like / repost are
+    // toggles (Role.Switch). The toggle path announces on/off state via
+    // PostStat's Modifier.toggleable, so the label here is the noun being
+    // toggled ("Like", "Repost") — not the inverse-action verb ("Unlike").
     Row(
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.padding(top = 4.dp),
@@ -213,27 +217,32 @@ private fun ActionRow(
         PostStat(
             icon = Icons.Outlined.ChatBubbleOutline,
             count = post.stats.replyCount.toString(),
+            accessibilityLabel = stringResource(R.string.postcard_action_reply),
             onClick = { callbacks.onReply(post) },
         )
         PostStat(
             icon = Icons.Outlined.Repeat,
             count = post.stats.repostCount.toString(),
+            accessibilityLabel = stringResource(R.string.postcard_action_repost),
             active = post.viewer.isRepostedByViewer,
+            toggleable = true,
             activeColor = MaterialTheme.colorScheme.tertiary,
             onClick = { callbacks.onRepost(post) },
         )
         PostStat(
             icon = if (post.viewer.isLikedByViewer) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
             count = post.stats.likeCount.toString(),
+            accessibilityLabel = stringResource(R.string.postcard_action_like),
             active = post.viewer.isLikedByViewer,
+            toggleable = true,
             activeColor = MaterialTheme.colorScheme.secondary,
             onClick = { callbacks.onLike(post) },
         )
         PostStat(
             icon = Icons.Outlined.IosShare,
             count = "",
-            onClick = { callbacks.onShare(post) },
             accessibilityLabel = stringResource(R.string.postcard_action_share),
+            onClick = { callbacks.onShare(post) },
         )
     }
 }
