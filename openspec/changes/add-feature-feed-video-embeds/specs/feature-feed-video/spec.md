@@ -2,12 +2,22 @@
 
 ### Requirement: `FeedViewPostMapper` dispatches `app.bsky.embed.video#view` to `EmbedUi.Video`
 
-`FeedViewPostMapper.toEmbedUi` MUST recognize the `app.bsky.embed.video#view` discriminator on the embed union and produce an `EmbedUi.Video` instance carrying the poster URL, the HLS playlist URL (m3u8), the aspect ratio (`width:height` from the lexicon), the duration in seconds, and the optional alt-text. Posts whose video lexicon is well-formed MUST yield a non-null `EmbedUi.Video`. Posts whose video lexicon is missing required fields (e.g. no playlist URL) MUST fall through to `EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")` rather than throwing.
+`FeedViewPostMapper.toEmbedUi` MUST recognize the `app.bsky.embed.video#view` discriminator on the embed union and produce an `EmbedUi.Video` instance carrying the optional poster URL, the HLS playlist URL (m3u8), the aspect ratio (`width:height` from the lexicon, defaulting to 16:9 when absent), and the optional alt-text. The `durationSeconds` field MUST be `null` for v1 — the lexicon does not currently expose duration. Posts whose video lexicon is well-formed (contains a non-empty `playlist`) MUST yield a non-null `EmbedUi.Video`. Posts whose video lexicon is missing the required `playlist` field MUST fall through to `EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")` rather than throwing. Posts whose video view omits the optional `thumbnail` MUST still yield `EmbedUi.Video` (with `posterUrl = null`); the render layer handles the null case.
 
 #### Scenario: Well-formed video view produces EmbedUi.Video
 
-- **WHEN** `toEmbedUi` is called on a `PostViewEmbedUnion` whose discriminator is `app.bsky.embed.video#view` and whose payload contains poster + playlist + aspect ratio + duration
-- **THEN** the result is `EmbedUi.Video` with all fields populated; `EmbedUi.Unsupported` is NOT produced
+- **WHEN** `toEmbedUi` is called on a `PostViewEmbedUnion` whose discriminator is `app.bsky.embed.video#view` and whose payload contains playlist + thumbnail + aspect ratio
+- **THEN** the result is `EmbedUi.Video` with `playlistUrl`, `posterUrl`, and `aspectRatio` populated; `durationSeconds` is `null`; `EmbedUi.Unsupported` is NOT produced
+
+#### Scenario: Video view without thumbnail still produces EmbedUi.Video
+
+- **WHEN** `toEmbedUi` is called on a video view whose optional `thumbnail` field is absent
+- **THEN** the result is `EmbedUi.Video(posterUrl = null, ...)`; the render layer renders a gradient placeholder
+
+#### Scenario: Video view without aspect ratio uses 16:9 fallback
+
+- **WHEN** `toEmbedUi` is called on a video view whose optional `aspectRatio` field is absent
+- **THEN** the result is `EmbedUi.Video(aspectRatio = 1.777f, ...)`; the render layer never observes a null aspect ratio
 
 #### Scenario: Malformed video view falls through to Unsupported
 
@@ -18,8 +28,8 @@
 
 PostCard's `EmbedSlot` (in `:designsystem`) MUST dispatch on `EmbedUi.Video` by invoking a host-supplied `videoEmbedSlot: @Composable (EmbedUi.Video) -> Unit` lambda. The feed feature MUST supply a `PostCardVideoEmbed` composable (defined in `:feature:feed:impl`) that satisfies all of:
 
-- Renders the poster image filling the card width with the lexicon's aspect ratio.
-- Renders a duration chip in the bottom-right corner formatted as `m:ss` (or `h:mm:ss` for ≥ 1h).
+- Renders the poster image filling the card width with the lexicon's aspect ratio. When `posterUrl` is null, renders a gradient placeholder filling the same aspect ratio.
+- Renders a duration chip in the bottom-right corner formatted as `m:ss` (or `h:mm:ss` for ≥ 1h) **only when `durationSeconds` is non-null**. The lexicon does not currently expose duration, so v1 ships with no chip rendered for any post; the chip code path stays in place for the future when duration is sourced.
 - When the post is the coordinator's currently-bound post (most-visible video card whose `visible-fraction > 0.6`), renders `PlayerSurface(player = coordinator.player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)` underneath the poster and cross-fades the poster out as the first frame arrives. Other video cards in the same composition tree MUST pass `player = null` to their `PlayerSurface` (or omit it) so only one surface holds the shared `ExoPlayer`.
 - Renders a mute / unmute icon overlay in the top-right corner, driven by `coordinator.isUnmuted: StateFlow<Boolean>`. Tapping the icon MUST call `coordinator.toggleMute()` directly (PostCardVideoEmbed lives in `:feature:feed:impl`, same module as the coordinator — no `PostCallbacks` round-trip needed).
 - Tap on the card body (anywhere outside the mute icon's hit area) MUST invoke `PostCallbacks.onTap(post)` — the existing PostCard tap callback — which the feed feature wires to navigate to the post-detail screen.

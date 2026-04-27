@@ -17,18 +17,18 @@ This phase ships in its own bd issue / branch; deps add must merge before phases
 
 This phase adds the data path + idle (no-coordinator) card render so the feed shows clickable video posters even before the autoplay coordinator lands. With autoplay deferred to phase C, video posts in this phase render as static posters that navigate to detail on tap.
 
-- [ ] 3.1 Add `EmbedUi.Video` variant to `:data:models/EmbedUi.kt` per the `data-models` spec delta (lexicon ms → seconds boundary conversion: `(lexiconMs / 1000).coerceAtLeast(1)`).
-- [ ] 3.2 Extend `feature/feed/impl/.../data/FeedViewPostMapper.kt` to dispatch `app.bsky.embed.video#view` → `EmbedUi.Video`. Add fixture-JSON unit tests for: well-formed video, malformed video (missing playlist) → falls through to `Unsupported`, missing poster.
-- [ ] 3.3 Add `feature/feed/impl/.../ui/PostCardVideoEmbed.kt` — phase-B variant: poster + duration chip only, no PlayerSurface, no mute icon. Outer container applies `Modifier.fillMaxWidth().aspectRatio(video.aspectRatio)` BEFORE `NubecitaAsyncImage` loads (locks LazyColumn measurement). Card-body tap uses the existing `PostCallbacks.onTap` to navigate to detail. Phase C extends this to add the PlayerSurface + mute icon.
-- [ ] 3.4 Extend PostCard with the slot API per design-system spec delta:
+- [x] 3.1 Add `EmbedUi.Video` variant to `:data:models/EmbedUi.kt` per the `data-models` spec delta. `posterUrl: String?`, `playlistUrl: String`, `aspectRatio: Float`, `durationSeconds: Int?`, `altText: String?`. **Duration is `null` for v1** — the lexicon does not expose a duration field (verified phase A); reserved for future sourcing.
+- [x] 3.2 Extend `feature/feed/impl/.../data/FeedViewPostMapper.kt` to dispatch `app.bsky.embed.video#view` → `EmbedUi.Video`. Mapper passes `durationSeconds = null`. Aspect ratio falls back to 16:9 (`1.777f`) when the lexicon's optional field is absent. Update existing `video embed maps to EmbedUi_Unsupported` test to assert `EmbedUi.Video` instead. Add fixture-JSON unit tests for: well-formed video, malformed video (missing playlist) → falls through to `Unsupported`, missing thumbnail → `EmbedUi.Video(posterUrl = null, ...)`.
+- [x] 3.3 Add `feature/feed/impl/.../ui/PostCardVideoEmbed.kt` — phase-B variant: poster + duration chip only, no PlayerSurface, no mute icon. Outer container applies `Modifier.fillMaxWidth().aspectRatio(video.aspectRatio)` BEFORE `NubecitaAsyncImage` loads (locks LazyColumn measurement). Card-body tap uses the existing `PostCallbacks.onTap` to navigate to detail. Phase C extends this to add the PlayerSurface + mute icon.
+- [x] 3.4 Extend PostCard with the slot API per design-system spec delta:
   - Add `videoEmbedSlot: @Composable (EmbedUi.Video) -> Unit = {}` parameter to `PostCard` in `:designsystem`.
   - Update `PostCard.EmbedSlot`'s `when` arm: `is EmbedUi.Video → videoEmbedSlot(embed)` (default no-op).
   - In `:feature:feed:impl`'s `FeedScreen` wiring, supply `videoEmbedSlot = { video -> PostCardVideoEmbed(video, post = post) }`.
   - NO new `PostCallbacks` lambdas — autoplay phase C drives mute via direct coordinator call from PostCardVideoEmbed; card-body tap uses existing `onTap`.
   - `:designsystem` MUST NOT take a dependency on `:feature:feed:impl` and MUST NOT import any `FeedEvent` symbol — verify via `:designsystem:build.gradle.kts` inspection.
-- [ ] 3.5 Strings: `R.string.postcard_video_duration_format` for `m:ss` / `h:mm:ss`. (No play-overlay a11y label needed in v1 — autoplay model has no centered play affordance.)
-- [ ] 3.6 Screenshot tests for the phase-B video card variants: with poster, without poster (gradient fallback), short duration (`0:32`), long duration (`1:23:45`), light + dark.
-- [ ] 3.7 `./gradlew :designsystem:updateDebugScreenshotTest :feature:feed:impl:updateDebugScreenshotTest`, audit baselines, commit.
+- [x] 3.5 Strings: `R.string.postcard_video_duration_format` for `m:ss` / `h:mm:ss`. (No play-overlay a11y label needed in v1 — autoplay model has no centered play affordance.) — implemented as a private `formatDuration(Int): String` helper inside `PostCardVideoEmbed.kt` rather than a string resource: the format is digit-only and locale-insensitive (colons + zero-padded values render identically in every locale), so a `string-resource` indirection costs without buying anything. Revisit if a non-ASCII locale's digit shaping ever proves otherwise.
+- [x] 3.6 Screenshot tests for the phase-B video card variants: with poster, without poster (gradient fallback), short duration (`0:32`), long duration (`1:23:45`), light + dark.
+- [x] 3.7 `./gradlew :designsystem:updateDebugScreenshotTest :feature:feed:impl:updateDebugScreenshotTest`, audit baselines, commit.
 
 ## 4. Implementation phase C — `nubecita-sbc.4` (autoplay-muted coordinator + scroll-driven binding)
 

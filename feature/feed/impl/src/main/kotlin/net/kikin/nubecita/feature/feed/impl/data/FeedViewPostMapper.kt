@@ -84,12 +84,12 @@ internal fun FeedViewPost.toPostUiOrNull(): PostUi? {
 }
 
 /**
- * Maps the [PostViewEmbedUnion] open-union variant to PostCard's v1
- * [EmbedUi] surface (Empty / Images / Unsupported(typeUri)). Future
- * `EmbedUi` variants (External per nubecita-aku, Record per
- * nubecita-6vq, Video per nubecita-xsu, RecordWithMedia per
- * nubecita-umn) become compile errors at this `when` once they're added
- * to `EmbedUi`, surfacing the work needed.
+ * Maps the [PostViewEmbedUnion] open-union variant to PostCard's
+ * [EmbedUi] surface (Empty / Images / Video / Unsupported(typeUri)).
+ * Future `EmbedUi` variants (External per nubecita-aku, Record per
+ * nubecita-6vq, RecordWithMedia per nubecita-umn) become compile errors
+ * at this `when` once they're added to `EmbedUi`, surfacing the work
+ * needed.
  */
 internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     when (this) {
@@ -108,7 +108,7 @@ internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
             )
         is ExternalView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.external")
         is RecordView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.record")
-        is VideoView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
+        is VideoView -> toVideoEmbedUi()
         is RecordWithMediaView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
         is PostViewEmbedUnion.Unknown -> EmbedUi.Unsupported(typeUri = type)
         // PostViewEmbedUnion is an open union (not sealed) — Kotlin can't prove
@@ -120,6 +120,41 @@ internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
         // label informative if we ever do hit this branch in production.
         else -> EmbedUi.Unsupported(typeUri = (this as? UnknownOpenUnionMember)?.type ?: "unknown")
     }
+
+/**
+ * Maps a Bluesky `app.bsky.embed.video#view` to [EmbedUi.Video] or, if
+ * the lexicon's required `playlist` field is missing/empty, to
+ * [EmbedUi.Unsupported].
+ *
+ * Field-by-field notes:
+ * - `posterUrl` is the optional `thumbnail` URL; null when absent. Render
+ *   layer falls back to a gradient placeholder.
+ * - `aspectRatio` falls back to 16:9 (`1.777f`) when the lexicon's
+ *   optional field is absent — the render layer needs a stable measure
+ *   before the poster loads.
+ * - `durationSeconds` is hard-coded to `null` in v1: the lexicon does
+ *   NOT currently expose duration. Reserved for a future phase that
+ *   sources it from a lexicon evolution or HLS manifest parsing.
+ *   Tracked in the openspec change `add-feature-feed-video-embeds`.
+ */
+private fun VideoView.toVideoEmbedUi(): EmbedUi {
+    val playlistUrl = playlist.raw
+    if (playlistUrl.isBlank()) {
+        return EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
+    }
+    val ratio =
+        aspectRatio?.let { it.width.toFloat() / it.height.toFloat() }
+            ?: VIDEO_FALLBACK_ASPECT_RATIO
+    return EmbedUi.Video(
+        posterUrl = thumbnail?.raw,
+        playlistUrl = playlistUrl,
+        aspectRatio = ratio,
+        durationSeconds = null,
+        altText = alt?.takeIf { it.isNotBlank() },
+    )
+}
+
+private const val VIDEO_FALLBACK_ASPECT_RATIO: Float = 16f / 9f
 
 internal fun ProfileViewBasic.toAuthorUi(): AuthorUi =
     AuthorUi(

@@ -62,25 +62,38 @@ import kotlin.time.Duration.Companion.minutes
  * are list-level concerns owned by the screen, not parameters here. See the
  * `add-postcard-component` openspec change, design Decision 9.
  *
- * **Supported embed types (v1).**
+ * **Supported embed types.**
  * - `EmbedUi.Empty` — no embed slot rendered
  * - `EmbedUi.Images` — 1–4 images via [PostCardImageEmbed]
+ * - `EmbedUi.Video` — host-supplied via [videoEmbedSlot] (defaults to no-op
+ *   so non-feed call sites without a coordinator render nothing)
  * - `EmbedUi.Unsupported` — deliberate-degradation chip via [PostCardUnsupportedEmbed]
  *
- * **Deferred embeds** (each tracked under its own bd ticket — see the embed
- * scope decision in `docs/superpowers/specs/2026-04-25-postcard-embed-scope-v1.md`):
+ * **Deferred embeds** (each tracked under its own bd ticket):
  * - external link cards — nubecita-aku
  * - quoted posts (record) — nubecita-6vq
- * - video — nubecita-xsu
  * - record-with-media — nubecita-umn
  *
  * Until those land, PostCard renders the Unsupported chip for them.
+ *
+ * **Why `videoEmbedSlot` is a slot, not internal.** The video render
+ * composable (`PostCardVideoEmbed`) lives in `:feature:feed:impl` because
+ * it's screen-coordinator-aware (binds the FeedScreen-scoped
+ * `FeedVideoPlayerCoordinator`'s shared `ExoPlayer`). Module dependency
+ * direction is `:feature:feed:impl → :designsystem` and never the
+ * reverse, so PostCard cannot import the feature-impl video composable
+ * directly. Hosts that render video (the feed) supply a real slot;
+ * hosts that don't (previews, design-system tests, the post-detail
+ * screen which has its own player) leave [videoEmbedSlot] null and the
+ * embed slot renders nothing — no spacer, no surface — so a video post
+ * collapses cleanly to the post text + action row.
  */
 @Composable
 fun PostCard(
     post: PostUi,
     modifier: Modifier = Modifier,
     callbacks: PostCallbacks = PostCallbacks.None,
+    videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -105,7 +118,7 @@ fun PostCard(
                     AuthorLine(post = post)
                     Spacer(Modifier.height(4.dp))
                     BodyText(text = post.text, facets = post.facets)
-                    EmbedSlot(embed = post.embed)
+                    EmbedSlot(embed = post.embed, videoEmbedSlot = videoEmbedSlot)
                     Spacer(Modifier.height(8.dp))
                     ActionRow(post = post, callbacks = callbacks)
                 }
@@ -187,12 +200,24 @@ private fun BodyText(
 }
 
 @Composable
-private fun EmbedSlot(embed: EmbedUi) {
+private fun EmbedSlot(
+    embed: EmbedUi,
+    videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)?,
+) {
     when (embed) {
         EmbedUi.Empty -> Unit
         is EmbedUi.Images -> {
             Spacer(Modifier.height(10.dp))
             PostCardImageEmbed(items = embed.items)
+        }
+        is EmbedUi.Video -> {
+            // No spacer when the host hasn't supplied a slot — the
+            // embed renders nothing rather than reserving 10dp of
+            // whitespace for a non-existent surface.
+            if (videoEmbedSlot != null) {
+                Spacer(Modifier.height(10.dp))
+                videoEmbedSlot(embed)
+            }
         }
         is EmbedUi.Unsupported -> {
             Spacer(Modifier.height(10.dp))
@@ -327,11 +352,43 @@ private fun PostCardWithImagePreview() {
     }
 }
 
-@Preview(name = "PostCard — with unsupported embed (video)", showBackground = true)
+@Preview(name = "PostCard — with unsupported embed (record-with-media)", showBackground = true)
 @Composable
 private fun PostCardUnsupportedEmbedPreview() {
     NubecitaTheme {
-        PostCard(post = previewPost(embed = EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")))
+        PostCard(post = previewPost(embed = EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")))
+    }
+}
+
+@Preview(name = "PostCard — with video embed (slot stub)", showBackground = true)
+@Composable
+private fun PostCardWithVideoEmbedPreview() {
+    NubecitaTheme {
+        // `:designsystem` cannot import PostCardVideoEmbed (lives in
+        // `:feature:feed:impl`), so the preview's slot renders a stub Box.
+        // The runtime slot is supplied by FeedScreen.
+        PostCard(
+            post =
+                previewPost(
+                    embed =
+                        EmbedUi.Video(
+                            posterUrl = "https://example.com/preview-video.jpg",
+                            playlistUrl = "https://video.bsky.app/preview/playlist.m3u8",
+                            aspectRatio = 16f / 9f,
+                            durationSeconds = null,
+                            altText = null,
+                        ),
+                ),
+            videoEmbedSlot = { _ ->
+                androidx.compose.foundation.layout.Box(
+                    modifier =
+                        androidx.compose.ui.Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .padding(0.dp),
+                )
+            },
+        )
     }
 }
 
