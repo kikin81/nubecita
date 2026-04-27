@@ -83,7 +83,13 @@ val nubecitaTypography =
                 fontFamily = RobotoFlexFontFamily,
                 fontWeight = FontWeight.Normal,
                 fontSize = 17.sp,
-                lineHeight = 26.sp,
+                // ratio 1.29 — feed-density tight (matches Bluesky's reference
+                // ~1.25-1.30). M3 default 1.5 / our prior 1.53 was long-form-
+                // reading air; in a scrollable feed where post bodies are
+                // typically 1-3 lines, that vertical air made the feed look
+                // less dense than peer clients. 22sp keeps comfortable read
+                // for multi-line posts while halving the cross-card cost.
+                lineHeight = 22.sp,
             ),
         bodyMedium =
             TextStyle(

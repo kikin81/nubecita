@@ -5,14 +5,18 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -74,76 +78,88 @@ internal fun LoginScreen(
     val errorText = state.errorMessage?.let { displayStringFor(it) }
     val focusManager = LocalFocusManager.current
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(
-                    horizontal = MaterialTheme.spacing.s6,
-                    vertical = MaterialTheme.spacing.s8,
+    // Scaffold + WindowInsets.safeDrawing (which includes IME) is the canonical
+    // edge-to-edge pattern for a screen with a TextField — keeps the handle
+    // field visible when the soft keyboard opens AND keeps title/submit clear
+    // of status / gesture bars without an opaque scrim. consumeWindowInsets
+    // prevents a future nested scrollable from double-insetting.
+    Scaffold(
+        modifier = modifier,
+        contentWindowInsets = WindowInsets.safeDrawing,
+    ) { innerPadding ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
+                    .padding(
+                        horizontal = MaterialTheme.spacing.s6,
+                        vertical = MaterialTheme.spacing.s8,
+                    ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    MaterialTheme.spacing.s4,
+                    Alignment.CenterVertically,
                 ),
-        verticalArrangement =
-            Arrangement.spacedBy(
-                MaterialTheme.spacing.s4,
-                Alignment.CenterVertically,
-            ),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.login_title),
-            style = MaterialTheme.typography.headlineLarge,
-        )
-        Text(
-            text = stringResource(R.string.login_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.login_title),
+                style = MaterialTheme.typography.headlineLarge,
+            )
+            Text(
+                text = stringResource(R.string.login_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-        Spacer(Modifier.height(MaterialTheme.spacing.s2))
+            Spacer(Modifier.height(MaterialTheme.spacing.s2))
 
-        OutlinedTextField(
-            value = state.handle,
-            onValueChange = { onEvent(LoginEvent.HandleChanged(it)) },
-            label = { Text(stringResource(R.string.login_handle_label)) },
-            placeholder = { Text(stringResource(R.string.login_handle_placeholder)) },
-            singleLine = true,
-            enabled = !state.isLoading,
-            isError = errorText != null,
-            shape = MaterialTheme.shapes.medium,
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    capitalization = KeyboardCapitalization.None,
-                    autoCorrectEnabled = false,
-                    imeAction = ImeAction.Go,
-                ),
-            keyboardActions =
-                KeyboardActions(
-                    onGo = {
-                        focusManager.clearFocus()
-                        onEvent(LoginEvent.SubmitLogin)
-                    },
-                ),
-            modifier = Modifier.fillMaxWidth(),
-        )
+            OutlinedTextField(
+                value = state.handle,
+                onValueChange = { onEvent(LoginEvent.HandleChanged(it)) },
+                label = { Text(stringResource(R.string.login_handle_label)) },
+                placeholder = { Text(stringResource(R.string.login_handle_placeholder)) },
+                singleLine = true,
+                enabled = !state.isLoading,
+                isError = errorText != null,
+                shape = MaterialTheme.shapes.medium,
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = false,
+                        imeAction = ImeAction.Go,
+                    ),
+                keyboardActions =
+                    KeyboardActions(
+                        onGo = {
+                            focusManager.clearFocus()
+                            onEvent(LoginEvent.SubmitLogin)
+                        },
+                    ),
+                modifier = Modifier.fillMaxWidth(),
+            )
 
-        AnimatedVisibility(visible = errorText != null) {
-            errorText?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            AnimatedVisibility(visible = errorText != null) {
+                errorText?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
-        }
 
-        NubecitaPrimaryButton(
-            onClick = { onEvent(LoginEvent.SubmitLogin) },
-            text = stringResource(R.string.login_submit),
-            isLoading = state.isLoading,
-            modifier = Modifier.fillMaxWidth(),
-        )
+            NubecitaPrimaryButton(
+                onClick = { onEvent(LoginEvent.SubmitLogin) },
+                text = stringResource(R.string.login_submit),
+                isLoading = state.isLoading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

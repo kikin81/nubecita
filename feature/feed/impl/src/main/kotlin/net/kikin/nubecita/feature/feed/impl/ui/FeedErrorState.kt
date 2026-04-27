@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.feed.impl.ui
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,12 +41,17 @@ internal fun FeedErrorState(
     error: FeedError,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
     val copy = error.toCopy()
     Column(
         modifier =
             modifier
                 .fillMaxSize()
+                // contentPadding from host Scaffold (edge-to-edge inset).
+                // Applied before internal chrome so retry button stays clear
+                // of system bars without disturbing the centered layout.
+                .padding(contentPadding)
                 .padding(
                     horizontal = MaterialTheme.spacing.s6,
                     vertical = MaterialTheme.spacing.s8,

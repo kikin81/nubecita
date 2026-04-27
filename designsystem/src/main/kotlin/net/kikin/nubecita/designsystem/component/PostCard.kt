@@ -24,7 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.kikin81.atproto.app.bsky.richtext.Facet
@@ -148,13 +148,31 @@ private fun AuthorLine(post: PostUi) {
     ) {
         Text(
             text = post.author.displayName,
-            fontWeight = FontWeight.SemiBold,
             style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
+        // weight(1f) — handle claims ALL remaining space after displayName +
+        // timestamp take their intrinsic widths. Text aligns left within its
+        // slot, so a short handle hugs the displayName and the timestamp
+        // stays right-pinned. A long handle ellipsizes only when its content
+        // would overflow the full available slot — never earlier. The prior
+        // weight(1f, fill = false) + Spacer(weight(1f)) split forced a 50/50
+        // contention that ellipsized handles much earlier than necessary
+        // (kikin81/nubecita#54 review feedback).
         Text(
-            text = stringResource(R.string.postcard_handle_and_timestamp, post.author.handle, timestamp),
+            text = stringResource(R.string.postcard_handle, post.author.handle),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stringResource(R.string.postcard_relative_time, timestamp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }
