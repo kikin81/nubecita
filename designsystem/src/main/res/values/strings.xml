@@ -20,8 +20,15 @@
     <string name="postcard_embed_label_record_with_media">quoted post with media</string>
     <string name="postcard_embed_label_unknown">embed</string>
 
-    <!-- PostCard action-row accessibility labels. v1 only the share button needs
-         one (it has no visible count text, so the icon must announce itself).
-         Full per-action labels + active-state announcements tracked in nubecita-zk2. -->
+    <!-- PostCard action-row accessibility labels. Reply / share are
+         one-shot actions: passed as clickable's onClickLabel so TalkBack
+         announces "Double-tap to <verb>". Like / repost are toggles:
+         passed as the Icon's contentDescription, with PostStat using
+         Modifier.toggleable + Role.Switch so TalkBack announces the
+         on/off state alongside the noun ("Like, switch, on, double tap
+         to toggle"). -->
+    <string name="postcard_action_reply">Reply</string>
+    <string name="postcard_action_repost">Repost</string>
+    <string name="postcard_action_like">Like</string>
     <string name="postcard_action_share">Share post</string>
 </resources>

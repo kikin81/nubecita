@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -36,34 +37,61 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  *
  * Pass an empty `count` string for cells that don't show a number (e.g.
  * the share button).
+ *
+ * `toggleable` selects the a11y semantics:
+ * - `false` (default) — one-shot action (reply, share). Uses
+ *   `Modifier.clickable(role = Role.Button, onClickLabel = accessibilityLabel)`.
+ *   TalkBack announces "Double-tap to <label>".
+ * - `true` — on/off toggle (like, repost). Uses
+ *   `Modifier.toggleable(value = active, role = Role.Switch)` and sets the
+ *   Icon's `contentDescription = accessibilityLabel`. TalkBack announces
+ *   "<label>, switch, <on|off>, double tap to toggle" so the user gets BOTH
+ *   the action and the current state — the implicit-state-via-action-verb
+ *   pattern (e.g. "Unlike") was insufficient because it omitted on/off.
  */
 @Composable
 internal fun PostStat(
     icon: ImageVector,
     count: String,
+    accessibilityLabel: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
     active: Boolean = false,
+    toggleable: Boolean = false,
     activeColor: Color = MaterialTheme.colorScheme.primary,
-    accessibilityLabel: String? = null,
 ) {
     val tint = if (active) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+    val interactionModifier =
+        if (toggleable) {
+            Modifier.toggleable(
+                value = active,
+                role = Role.Switch,
+                onValueChange = { onClick() },
+            )
+        } else {
+            Modifier.clickable(
+                role = Role.Button,
+                onClickLabel = accessibilityLabel,
+                onClick = onClick,
+            )
+        }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier =
             modifier
                 .clip(CircleShape)
-                .clickable(role = Role.Button, onClick = onClick)
+                .then(interactionModifier)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
-        // contentDescription wired only when there's no visible count text
-        // (e.g., share button). When count is shown, TalkBack reads the
-        // count + Row's clickable label; the icon stays decorative. Per-
-        // action verbs (Reply / Repost / Like) tracked in nubecita-zk2.
+        // For toggleable cells, the Icon carries the contentDescription so
+        // TalkBack has a noun to attach to the "switch, on/off" announcement.
+        // For non-toggleable cells, the action verb comes via clickable's
+        // onClickLabel above and the Icon stays decorative — avoids double-
+        // announcement.
         Icon(
             imageVector = icon,
-            contentDescription = if (count.isEmpty()) accessibilityLabel else null,
+            contentDescription = if (toggleable) accessibilityLabel else null,
             tint = tint,
             modifier = Modifier.size(STAT_ICON_SIZE),
         )
@@ -84,10 +112,10 @@ private val STAT_ICON_SIZE = 18.dp
 private fun PostStatInactivePreview() {
     NubecitaTheme {
         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            PostStat(icon = Icons.Outlined.ChatBubbleOutline, count = "12")
-            PostStat(icon = Icons.Outlined.Repeat, count = "4")
-            PostStat(icon = Icons.Outlined.FavoriteBorder, count = "86")
-            PostStat(icon = Icons.Outlined.IosShare, count = "")
+            PostStat(icon = Icons.Outlined.ChatBubbleOutline, count = "12", accessibilityLabel = "Reply")
+            PostStat(icon = Icons.Outlined.Repeat, count = "4", accessibilityLabel = "Repost")
+            PostStat(icon = Icons.Outlined.FavoriteBorder, count = "86", accessibilityLabel = "Like")
+            PostStat(icon = Icons.Outlined.IosShare, count = "", accessibilityLabel = "Share post")
         }
     }
 }
@@ -97,20 +125,22 @@ private fun PostStatInactivePreview() {
 private fun PostStatActivePreview() {
     NubecitaTheme {
         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            PostStat(icon = Icons.Outlined.ChatBubbleOutline, count = "12")
+            PostStat(icon = Icons.Outlined.ChatBubbleOutline, count = "12", accessibilityLabel = "Reply")
             PostStat(
                 icon = Icons.Outlined.Repeat,
                 count = "5",
+                accessibilityLabel = "Undo repost",
                 active = true,
                 activeColor = MaterialTheme.colorScheme.tertiary,
             )
             PostStat(
                 icon = Icons.Filled.Favorite,
                 count = "87",
+                accessibilityLabel = "Unlike",
                 active = true,
                 activeColor = MaterialTheme.colorScheme.secondary,
             )
-            PostStat(icon = Icons.Outlined.IosShare, count = "")
+            PostStat(icon = Icons.Outlined.IosShare, count = "", accessibilityLabel = "Share post")
         }
     }
 }
