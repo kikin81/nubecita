@@ -19,6 +19,7 @@ dependencies {
 
     implementation(project(":core:auth"))
     implementation(project(":data:models"))
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
