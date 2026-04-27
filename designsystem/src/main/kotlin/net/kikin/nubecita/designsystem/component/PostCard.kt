@@ -65,12 +65,11 @@ import kotlin.time.Duration.Companion.minutes
  * **Supported embed types.**
  * - `EmbedUi.Empty` — no embed slot rendered
  * - `EmbedUi.Images` — 1–4 images via [PostCardImageEmbed]
- * - `EmbedUi.Video` — host-supplied via [videoEmbedSlot] (defaults to no-op
- *   so non-feed call sites without a coordinator render nothing)
+ * - `EmbedUi.Video` — host-supplied via [videoEmbedSlot]
+ * - `EmbedUi.External` — native link-preview card via [PostCardExternalEmbed]
  * - `EmbedUi.Unsupported` — deliberate-degradation chip via [PostCardUnsupportedEmbed]
  *
  * **Deferred embeds** (each tracked under its own bd ticket):
- * - external link cards — nubecita-aku
  * - quoted posts (record) — nubecita-6vq
  * - record-with-media — nubecita-umn
  *
@@ -219,6 +218,16 @@ private fun EmbedSlot(
                 videoEmbedSlot(embed)
             }
         }
+        is EmbedUi.External -> {
+            Spacer(Modifier.height(10.dp))
+            PostCardExternalEmbed(
+                uri = embed.uri,
+                title = embed.title,
+                description = embed.description,
+                thumbUrl = embed.thumbUrl,
+                onTap = {},
+            )
+        }
         is EmbedUi.Unsupported -> {
             Spacer(Modifier.height(10.dp))
             PostCardUnsupportedEmbed(typeUri = embed.typeUri)
@@ -346,6 +355,25 @@ private fun PostCardWithImagePreview() {
                                         aspectRatio = 1.5f,
                                     ),
                                 ),
+                        ),
+                ),
+        )
+    }
+}
+
+@Preview(name = "PostCard — with external link card", showBackground = true)
+@Composable
+private fun PostCardWithExternalEmbedPreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    embed =
+                        EmbedUi.External(
+                            uri = "https://www.theverge.com/tech/elon-altman-court-battle",
+                            title = "Elon Musk and Sam Altman's court battle over the future of OpenAI",
+                            description = "The billionaire battle goes to court.",
+                            thumbUrl = "https://example.com/preview-external-thumb.jpg",
                         ),
                 ),
         )
