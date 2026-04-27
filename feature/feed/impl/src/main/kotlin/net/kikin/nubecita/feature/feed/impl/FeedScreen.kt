@@ -42,6 +42,7 @@ import net.kikin.nubecita.designsystem.component.PostCardShimmer
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
+import net.kikin.nubecita.feature.feed.impl.ui.PostCardVideoEmbed
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -234,7 +235,11 @@ private fun LoadedFeedContent(
             contentPadding = contentPadding,
         ) {
             items(items = posts, key = { it.id }, contentType = { "post" }) { post ->
-                PostCard(post = post, callbacks = callbacks)
+                PostCard(
+                    post = post,
+                    callbacks = callbacks,
+                    videoEmbedSlot = { video -> PostCardVideoEmbed(video = video) },
+                )
             }
             if (isAppending) {
                 item(key = "appending", contentType = "appending") {

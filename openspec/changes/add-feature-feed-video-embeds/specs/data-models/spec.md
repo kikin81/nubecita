@@ -4,13 +4,13 @@
 
 The `EmbedUi` sealed interface in `:data:models` MUST expose a `Video` data class variant carrying:
 
-- `posterUrl: String` — fully-qualified URL to the JPEG/WebP poster.
-- `playlistUrl: String` — fully-qualified URL to the HLS .m3u8 playlist.
-- `aspectRatio: Float` — width / height ratio from the lexicon (e.g. `1.777f` for 16:9). Used to size the poster + PlayerView surface.
-- `durationSeconds: Int` — duration in seconds (the lexicon carries milliseconds; `FeedViewPostMapper` performs the conversion at the boundary, with a 1-second floor for very short clips so the render layer never displays `0:00`).
+- `posterUrl: String?` — fully-qualified URL to the JPEG/WebP poster, or `null` when the lexicon's `view` form omits the optional `thumbnail` field. The render layer falls back to a gradient placeholder when null.
+- `playlistUrl: String` — fully-qualified URL to the HLS .m3u8 playlist. Required by the lexicon `view` form; the mapper falls through to `EmbedUi.Unsupported` when absent.
+- `aspectRatio: Float` — width / height ratio from the lexicon (e.g. `1.777f` for 16:9). Used to size the poster + PlayerView surface. The mapper supplies a 16:9 fallback (`1.777f`) when the lexicon omits the optional `aspectRatio` field, since the render layer needs a stable measurement before the poster loads.
+- `durationSeconds: Int?` — duration in seconds, or `null` when not available. **The `app.bsky.embed.video#view` lexicon does NOT currently expose a duration field** (verified against the upstream Bluesky lexicon; only `cid`, `playlist`, `thumbnail`, `aspectRatio`, `presentation`, `alt` are present). The mapper SHALL pass `null` for v1; the field is reserved for a future phase that sources duration either from a lexicon evolution or from the HLS manifest's `EXT-X-PLAYLIST-TYPE: VOD` segments after the player loads. Render layer renders the duration chip ONLY when this field is non-null.
 - `altText: String?` — optional alt-text for accessibility surfaces.
 
-The `EmbedUi` sealed interface remains `@Immutable` (the convention `EmbedUi` already follows — variants inherit the annotation and MUST contain only immutable value fields). All five new fields are immutable values, so `EmbedUi.Video` satisfies the existing stability contract without per-variant annotation. A null `EmbedUi` instance is NOT permissible — every well-formed video view yields a non-null `EmbedUi.Video`; a malformed view yields `EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")` instead.
+The `EmbedUi` sealed interface remains `@Immutable` (the convention `EmbedUi` already follows — variants inherit the annotation and MUST contain only immutable value fields). All five new fields are immutable values, so `EmbedUi.Video` satisfies the existing stability contract without per-variant annotation. A null `EmbedUi` instance is NOT permissible — every well-formed video view yields a non-null `EmbedUi.Video`; a malformed view (missing required `playlist`) yields `EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")` instead.
 
 #### Scenario: Video variant is part of the sealed hierarchy
 

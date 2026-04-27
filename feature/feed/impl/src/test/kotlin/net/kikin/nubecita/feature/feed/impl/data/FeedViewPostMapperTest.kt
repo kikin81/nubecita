@@ -75,8 +75,138 @@ internal class FeedViewPostMapperTest {
     }
 
     @Test
-    fun `video embed maps to EmbedUi_Unsupported with the video lexicon URI`() {
+    fun `well-formed video embed maps to EmbedUi_Video with playlist + thumbnail + aspect ratio`() {
         val response = decodeFixture("timeline_with_video_embed.json")
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        val video = mapped!!.embed as EmbedUi.Video
+        assertEquals(
+            "https://video.bsky.app/watch/did%3Aplc%3Az72i7hdynmk6r22z27h6tvur/bafkreifhuv36ji7vcq3tmdjltceyrfaat6vdccn2pklxf7j7dgsobdlgbm/playlist.m3u8",
+            video.playlistUrl,
+        )
+        assertEquals(
+            "https://video.bsky.app/watch/did%3Aplc%3Az72i7hdynmk6r22z27h6tvur/bafkreifhuv36ji7vcq3tmdjltceyrfaat6vdccn2pklxf7j7dgsobdlgbm/thumbnail.jpg",
+            video.posterUrl,
+        )
+        // Fixture aspectRatio is 381 / 800 ≈ 0.476 (portrait/gif video).
+        assertEquals(381f / 800f, video.aspectRatio, 0.0001f)
+        // Lexicon does not currently expose duration; mapper passes null in v1.
+        assertNull(video.durationSeconds)
+        assertNull(video.altText)
+    }
+
+    @Test
+    fun `video embed without thumbnail maps to EmbedUi_Video with posterUrl null`() {
+        // Synthetic video view that omits the optional `thumbnail` field.
+        // The mapper must still produce EmbedUi.Video with posterUrl = null
+        // (render layer falls back to a gradient placeholder).
+        val noThumbnailJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake000000000000000000/app.bsky.feed.post/no-thumb",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake000000000000000000",
+                    "handle": "fake.bsky.social"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "video without a thumbnail",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  },
+                  "embed": {
+                    "${'$'}type": "app.bsky.embed.video#view",
+                    "cid": "bafkreifake0000000000000000000000000000000000",
+                    "playlist": "https://video.bsky.app/watch/did%3Aplc%3Afake/bafkreifake/playlist.m3u8",
+                    "aspectRatio": { "height": 1080, "width": 1920 }
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), noThumbnailJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        val video = mapped!!.embed as EmbedUi.Video
+        assertNull(video.posterUrl)
+        assertEquals(1920f / 1080f, video.aspectRatio, 0.0001f)
+    }
+
+    @Test
+    fun `video embed without aspectRatio falls back to 16-9`() {
+        // Synthetic video view that omits the optional `aspectRatio` field.
+        // The mapper must supply 16:9 (1.777f) so the render layer never
+        // observes a null aspect — the LazyColumn measurement pass needs a
+        // stable height before the poster loads.
+        val noAspectJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake000000000000000000/app.bsky.feed.post/no-aspect",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake000000000000000000",
+                    "handle": "fake.bsky.social"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "video without aspectRatio",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  },
+                  "embed": {
+                    "${'$'}type": "app.bsky.embed.video#view",
+                    "cid": "bafkreifake0000000000000000000000000000000000",
+                    "playlist": "https://video.bsky.app/watch/did%3Aplc%3Afake/bafkreifake/playlist.m3u8"
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), noAspectJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        val video = mapped!!.embed as EmbedUi.Video
+        assertEquals(16f / 9f, video.aspectRatio, 0.0001f)
+    }
+
+    @Test
+    fun `video embed with empty playlist falls through to Unsupported`() {
+        // Synthetic video view whose required `playlist` is the empty
+        // string — the mapper MUST fall through to Unsupported rather
+        // than produce a EmbedUi.Video that points nowhere.
+        val emptyPlaylistJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake000000000000000000/app.bsky.feed.post/empty-playlist",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake000000000000000000",
+                    "handle": "fake.bsky.social"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "video with empty playlist",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  },
+                  "embed": {
+                    "${'$'}type": "app.bsky.embed.video#view",
+                    "cid": "bafkreifake0000000000000000000000000000000000",
+                    "playlist": "",
+                    "aspectRatio": { "height": 1080, "width": 1920 }
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), emptyPlaylistJson)
         val mapped = response.feed.single().toPostUiOrNull()
         assertNotNull(mapped)
         assertEquals(EmbedUi.Unsupported(typeUri = "app.bsky.embed.video"), mapped!!.embed)
