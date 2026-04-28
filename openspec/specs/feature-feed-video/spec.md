@@ -5,7 +5,6 @@
 HLS-backed video playback inside the feed. Covers the data-path mapping for `app.bsky.embed.video#view`, the rendered card surface (poster + optional duration chip + autoplay-muted player surface + mute toggle + tap-to-resume affordance), the single-player coordinator that owns one materialized `ExoPlayer` instance scoped to `FeedScreen`'s composition lifetime and binds it to the most-visible video card, and the lifecycle / inset / audio-focus contracts those moving parts must satisfy.
 
 The spec was authored as the openspec change `add-feature-feed-video-embeds` (archived 2026-04-27) and shipped across three implementation PRs: deps + smoke (`nubecita-sbc.1`, PR #57), data path + thumbnail render (`nubecita-sbc.3`, PR #58), and autoplay coordinator + mute toggle (`nubecita-sbc.4`, PR #59).
-
 ## Requirements
 ### Requirement: `FeedViewPostMapper` dispatches `app.bsky.embed.video#view` to `EmbedUi.Video`
 
@@ -79,7 +78,23 @@ The system SHALL maintain at most one materialized `ExoPlayer` instance across t
 
 ### Requirement: Coordinator binds to the most-visible video card based purely on scroll position
 
-The system's `FeedVideoPlayerCoordinator` MUST bind the player to the topmost video card whose visible-fraction exceeds 0.6. There is NO separate user gesture required to "play" a video; binding is purely scroll-driven. When the bound card scrolls below the threshold (no visible video card meets the criterion), the coordinator MUST `pause()` the player AND release audio focus IF currently held (i.e. `isUnmuted` was `true` — the user had unmuted this card). The `isUnmuted` state MUST also reset to `false` on this scroll-away — unmute does not carry over to the next visible video; the user must explicitly unmute the new bound card if they want audio.
+The system's `FeedVideoPlayerCoordinator` MUST bind the player to the topmost feed item whose visible-fraction exceeds 0.6 AND which carries an addressable video target. There is NO separate user gesture required to "play" a video; binding is purely scroll-driven. When the bound card scrolls below the threshold (no visible video card meets the criterion), the coordinator MUST `pause()` the player AND release audio focus IF currently held (i.e. `isUnmuted` was `true` — the user had unmuted this card). The `isUnmuted` state MUST also reset to `false` on this scroll-away — unmute does not carry over to the next visible video; the user must explicitly unmute the new bound card if they want audio.
+
+A feed item is "addressable" for video binding when EITHER:
+
+- its `embed is EmbedUi.Video` (parent video), OR
+- its `embed is EmbedUi.Record` whose `quotedPost.embed is QuotedEmbedUi.Video` (quoted-post video).
+
+When a feed item carries both a parent video and a quoted-post video (vanishingly rare in real-world data — a video post that quotes another video post), the parent video MUST win — this is the "B-lite" precedence rule per the design.
+
+The `VideoBindingTarget(postId, playlistUrl)` data class shape MUST NOT change. The bind identity (`postId`) MUST be the URI of the post whose video plays:
+
+- For a parent video: `postId = post.id` (the parent's AT URI; unchanged from prior behavior).
+- For a quoted-post video: `postId = quotedPost.uri` (the quoted post's AT URI).
+
+This makes bind identities naturally distinct between a parent video and a quoted video for the same feed item, and across different feed items' quoted videos, without a `Source` tag or a synthetic `#quoted` suffix on the bind key. The coordinator's existing "is this the same target as before?" rebind logic continues to work unchanged.
+
+The visibility math MUST remain at the parent feed-item granularity — it MUST NOT use `Modifier.onGloballyPositioned` callbacks, sub-rect computation, or any per-composable position reporting. A quoted video binds when its parent feed item passes the existing 0.6 visible-fraction threshold; a sub-rect refinement (true "where on screen is the quoted video") is explicitly out of scope for this change and is the natural promotion path if real-world feedback shows the parent-item-granular bind picks the wrong target.
 
 #### Scenario: Scroll between two video cards (both muted)
 
@@ -101,6 +116,21 @@ The system's `FeedVideoPlayerCoordinator` MUST bind the player to the topmost vi
 - **WHEN** the user is actively scrolling (`LazyListState.isScrollInProgress == true`) and `visibleItemsInfo` emits 20 times in 1.5 seconds
 - **THEN** the coordinator MUST perform ZERO bind/unbind operations during the active scroll
 - **AND** the instant `isScrollInProgress` flips to `false`, the coordinator binds to the resting most-visible video card (if any) — no time-based debounce delay between settle and bind
+
+#### Scenario: Quoted-post video binds when the parent has no own video
+
+- **WHEN** the topmost feed item meeting the 0.6 visibility threshold has `embed is EmbedUi.Record` whose `quotedPost.embed is QuotedEmbedUi.Video` with `playlistUrl = "https://video.bsky.app/.../q.m3u8"`
+- **THEN** `mostVisibleVideoTarget` returns `VideoBindingTarget(postId = quotedPost.uri, playlistUrl = "https://video.bsky.app/.../q.m3u8")`; the coordinator binds the player to this target
+
+#### Scenario: Parent video wins over quoted video on the same feed item
+
+- **WHEN** the topmost feed item meeting the 0.6 visibility threshold has BOTH `embed is EmbedUi.Video` (parent) with `playlistUrl = "p.m3u8"` AND a quoted post that also carries a `QuotedEmbedUi.Video` with `playlistUrl = "q.m3u8"`
+- **THEN** `mostVisibleVideoTarget` returns `VideoBindingTarget(postId = post.id, playlistUrl = "p.m3u8")` — the parent video; the quoted video is NOT considered
+
+#### Scenario: Topmost rule applies across mixed parent/quoted videos
+
+- **WHEN** post `A` (parent video, offset 0) and post `B` (quoted video, offset 800) are both visible above the 0.6 threshold simultaneously
+- **THEN** `mostVisibleVideoTarget` returns `A`'s parent-video target — topmost wins, regardless of whether the candidate is a parent or quoted video
 
 ### Requirement: Audio focus is claimed ONLY on explicit user unmute; never on autoplay
 
