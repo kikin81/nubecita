@@ -56,8 +56,8 @@
 
 ## 6. Verification + close-out
 
-- [ ] 6.1 `./gradlew :feature:feed:impl:testDebugUnitTest :data:models:testDebugUnitTest` — all mapper + coordinator + model tests green.
-- [ ] 6.2 `./gradlew :designsystem:validateDebugScreenshotTest` — all new baselines green.
-- [ ] 6.3 `./gradlew spotlessCheck lint` — clean.
-- [ ] 6.4 Manual smoke on Pixel emulator: feed containing each of (resolved quote with text-only / image / external / video; `RecordUnavailable` synthetic post; quote-of-quote synthetic post) — visual rendering matches the design and the official client where applicable.
-- [ ] 6.5 120 Hz scroll spot check on a feed weighted toward quoted-post content; no jank when entering / leaving items with quoted videos.
+- [x] 6.1 `./gradlew :feature:feed:impl:testDebugUnitTest :data:models:testDebugUnitTest` — all mapper + coordinator + model tests green.
+- [x] 6.2 `./gradlew :designsystem:validateDebugScreenshotTest :feature:feed:impl:validateDebugScreenshotTest` — all new baselines green (12 quoted-post + 2 unavailable + 2 with-video baselines added in this change).
+- [x] 6.3 `./gradlew spotlessCheck lint` — clean. (1 baselined issue from prior work no longer reproduces — net improvement; 5 unrelated lint warnings carried from before this change.)
+- [ ] 6.4 Manual smoke on Pixel emulator: feed containing each of (resolved quote with text-only / image / external / video; `RecordUnavailable` synthetic post; quote-of-quote synthetic post) — visual rendering matches the design and the official client where applicable. **(Device-side; user task.)**
+- [ ] 6.5 120 Hz scroll spot check on a feed weighted toward quoted-post content; no jank when entering / leaving items with quoted videos. **(Device-side; user task.)**
