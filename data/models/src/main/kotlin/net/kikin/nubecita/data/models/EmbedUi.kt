@@ -21,22 +21,42 @@ import kotlinx.collections.immutable.ImmutableList
  * - [RecordUnavailable] — `app.bsky.embed.record#view{NotFound,Blocked,Detached}`
  *   plus the open-union `Unknown` fallback; rendered as a "Quoted post
  *   unavailable" chip
- * - [Unsupported] — any embed type outside the current scope
- *   (`#recordWithMedia`); rendered as a deliberate "Unsupported embed"
- *   chip, NOT an error
+ * - [RecordWithMedia] — `app.bsky.embed.recordWithMedia#view`, composition
+ *   of a quoted post (resolved or unavailable) and a media embed (images,
+ *   video, or external)
+ * - [Unsupported] — any embed type outside the current scope; rendered as
+ *   a deliberate "Unsupported embed" chip, NOT an error
  *
- * Future variants (one per follow-on bd ticket):
- * - `RecordWithMedia` (nubecita-umn)
+ * The marker sealed interfaces [RecordOrUnavailable] and [MediaEmbed]
+ * exist purely to constrain [RecordWithMedia]'s slots at the type system —
+ * they add no behavior, only type-discriminating membership.
  */
 @Immutable
 public sealed interface EmbedUi {
+    /**
+     * Marker sealed interface — the set of variants that can occupy
+     * [RecordWithMedia]'s `record` slot. Implemented by [Record] and
+     * [RecordUnavailable] only; no other variant SHOULD declare this
+     * marker. Existing solely to express the recursion-bound role at
+     * compile time.
+     */
+    public sealed interface RecordOrUnavailable : EmbedUi
+
+    /**
+     * Marker sealed interface — the set of variants that can occupy
+     * [RecordWithMedia]'s `media` slot. Implemented by [Images],
+     * [Video], and [External] only; matches the lexicon's
+     * `RecordWithMediaViewMediaUnion` known members exactly.
+     */
+    public sealed interface MediaEmbed : EmbedUi
+
     /** No embed on this post. */
     public data object Empty : EmbedUi
 
     /** 1–4 images. */
     public data class Images(
         val items: ImmutableList<ImageUi>,
-    ) : EmbedUi
+    ) : MediaEmbed
 
     /**
      * Bluesky `app.bsky.embed.video#view`.
@@ -67,7 +87,7 @@ public sealed interface EmbedUi {
         val aspectRatio: Float,
         val durationSeconds: Int?,
         val altText: String?,
-    ) : EmbedUi
+    ) : MediaEmbed
 
     /**
      * Bluesky `app.bsky.embed.external#view`.
@@ -95,7 +115,7 @@ public sealed interface EmbedUi {
         val title: String,
         val description: String,
         val thumbUrl: String?,
-    ) : EmbedUi
+    ) : MediaEmbed
 
     /**
      * Bluesky `app.bsky.embed.record#viewRecord`.
@@ -111,7 +131,7 @@ public sealed interface EmbedUi {
      */
     public data class Record(
         val quotedPost: QuotedPostUi,
-    ) : EmbedUi
+    ) : RecordOrUnavailable
 
     /**
      * Bluesky `app.bsky.embed.record#view{NotFound,Blocked,Detached}`
@@ -124,7 +144,7 @@ public sealed interface EmbedUi {
      */
     public data class RecordUnavailable(
         val reason: Reason,
-    ) : EmbedUi {
+    ) : RecordOrUnavailable {
         public enum class Reason {
             /** Wire shape: `app.bsky.embed.record#viewNotFound` (post deleted or never existed). */
             NotFound,
@@ -146,9 +166,28 @@ public sealed interface EmbedUi {
     }
 
     /**
+     * Bluesky `app.bsky.embed.recordWithMedia#view`.
+     *
+     * Composition of a quoted post (or its unavailable stub) plus a
+     * media embed (images, video, or external link card). The render
+     * layer lays media above the quoted card — matches the official
+     * Bluesky Android client; visual grouping comes from adjacency,
+     * not a bounding container.
+     *
+     * Recursion bounds enforced at the type system:
+     * - [record] is [RecordOrUnavailable] — never `Images`/`Video`/`External`,
+     *   never another `RecordWithMedia`, never `Empty`/`Unsupported`.
+     * - [media] is [MediaEmbed] — never any record-shaped variant,
+     *   never `RecordWithMedia` itself.
+     */
+    public data class RecordWithMedia(
+        val record: RecordOrUnavailable,
+        val media: MediaEmbed,
+    ) : EmbedUi
+
+    /**
      * Embed type not supported by the current PostCard build. The lexicon
-     * URI (e.g. `"app.bsky.embed.recordWithMedia"`) is carried for debug
-     * labeling.
+     * URI is carried for debug labeling.
      */
     public data class Unsupported(
         val typeUri: String,

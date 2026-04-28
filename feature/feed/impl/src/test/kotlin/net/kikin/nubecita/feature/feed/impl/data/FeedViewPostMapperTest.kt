@@ -691,6 +691,232 @@ internal class FeedViewPostMapperTest {
         assertTrue(mapped!!.facets.isEmpty(), "expected empty facets, got ${mapped.facets}")
     }
 
+    // ---------- RecordWithMedia (umn) ----------
+
+    @Test
+    fun `recordWithMedia with resolved record + Images media maps to EmbedUi_RecordWithMedia`() {
+        val mapped = decodeAndMapSingle(recordWithMediaJson(media = imagesMediaSnippet(2)))
+        val rwm = mapped.embed as EmbedUi.RecordWithMedia
+        val record = rwm.record as EmbedUi.Record
+        assertEquals("at://did:plc:fake/app.bsky.feed.post/quoted", record.quotedPost.uri)
+        assertEquals("quoted text", record.quotedPost.text)
+        val media = rwm.media as EmbedUi.Images
+        assertEquals(2, media.items.size)
+    }
+
+    @Test
+    fun `recordWithMedia with resolved record + External media maps with precomputed domain`() {
+        val mapped = decodeAndMapSingle(recordWithMediaJson(media = externalMediaSnippet()))
+        val rwm = mapped.embed as EmbedUi.RecordWithMedia
+        val media = rwm.media as EmbedUi.External
+        assertEquals("https://www.example.com/article", media.uri)
+        assertEquals("example.com", media.domain)
+    }
+
+    @Test
+    fun `recordWithMedia with resolved record + Video media maps to EmbedUi_RecordWithMedia`() {
+        val mapped = decodeAndMapSingle(recordWithMediaJson(media = videoMediaSnippet()))
+        val rwm = mapped.embed as EmbedUi.RecordWithMedia
+        val media = rwm.media as EmbedUi.Video
+        assertEquals("https://video.bsky.app/m.m3u8", media.playlistUrl)
+        assertEquals(1920f / 1080f, media.aspectRatio, 0.0001f)
+    }
+
+    @Test
+    fun `recordWithMedia with viewNotFound record + Images media maps to RecordUnavailable + Images`() {
+        val mapped =
+            decodeAndMapSingle(
+                recordWithMediaJson(
+                    recordSnippet = unavailableRecordSnippet("viewNotFound", extra = "\"notFound\": true"),
+                    media = imagesMediaSnippet(1),
+                ),
+            )
+        val rwm = mapped.embed as EmbedUi.RecordWithMedia
+        assertEquals(
+            EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
+            rwm.record,
+        )
+        assertInstanceOf(EmbedUi.Images::class.java, rwm.media)
+    }
+
+    @Test
+    fun `recordWithMedia with viewBlocked record + External media maps to Blocked + External`() {
+        val mapped =
+            decodeAndMapSingle(
+                recordWithMediaJson(
+                    recordSnippet =
+                        unavailableRecordSnippet(
+                            "viewBlocked",
+                            extra =
+                                """"blocked": true, "author": { "did": "did:plc:fake", "viewer": {} }""",
+                        ),
+                    media = externalMediaSnippet(),
+                ),
+            )
+        val rwm = mapped.embed as EmbedUi.RecordWithMedia
+        assertEquals(
+            EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Blocked),
+            rwm.record,
+        )
+        assertInstanceOf(EmbedUi.External::class.java, rwm.media)
+    }
+
+    @Test
+    fun `recordWithMedia with malformed quoted-record value maps to RecordUnavailable_Unknown record + media still renders`() {
+        // Quoted record's value JSON missing the required `text` field.
+        val malformedRecord =
+            """
+            "record": {
+              "${'$'}type": "app.bsky.embed.record#view",
+              "record": {
+                "${'$'}type": "app.bsky.embed.record#viewRecord",
+                "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                "cid": "bafyreifakequotedcid000000000000000000000000000",
+                "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                "indexedAt": "2026-04-26T12:00:00Z",
+                "value": {
+                  "${'$'}type": "app.bsky.feed.post",
+                  "createdAt": "2026-04-26T12:00:00Z"
+                }
+              }
+            }
+            """.trimIndent()
+        val mapped =
+            decodeAndMapSingle(
+                recordWithMediaJson(recordSnippet = malformedRecord, media = imagesMediaSnippet(1)),
+            )
+        val rwm = mapped.embed as EmbedUi.RecordWithMedia
+        assertEquals(
+            EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Unknown),
+            rwm.record,
+        )
+        assertInstanceOf(EmbedUi.Images::class.java, rwm.media)
+        // Parent post NEVER dropped because of malformed quoted record.
+        assertEquals("parent post text", mapped.text)
+    }
+
+    @Test
+    fun `recordWithMedia with empty video playlist falls through to EmbedUi_Unsupported`() {
+        val emptyPlaylistMedia =
+            """
+            "media": {
+              "${'$'}type": "app.bsky.embed.video#view",
+              "cid": "bafkreifakevidcid0000000000000000000000000000",
+              "playlist": ""
+            }
+            """.trimIndent()
+        val mapped = decodeAndMapSingle(recordWithMediaJson(media = emptyPlaylistMedia))
+        assertEquals(
+            EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia"),
+            mapped.embed,
+        )
+    }
+
+    @Test
+    fun `recordWithMedia with unknown media variant falls through to EmbedUi_Unsupported`() {
+        val unknownMedia =
+            """
+            "media": {
+              "${'$'}type": "app.bsky.embed.somethingNew#view"
+            }
+            """.trimIndent()
+        val mapped = decodeAndMapSingle(recordWithMediaJson(media = unknownMedia))
+        assertEquals(
+            EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia"),
+            mapped.embed,
+        )
+    }
+
+    /**
+     * Builds a `getTimeline` JSON whose post embed is a
+     * `recordWithMedia#view` carrying the supplied [recordSnippet] (a
+     * `"record": {...}` block) and [media] (a `"media": {...}` block).
+     * Defaults to a resolved viewRecord + standard text content for the
+     * common happy-path tests.
+     */
+    private fun recordWithMediaJson(
+        recordSnippet: String = resolvedRecordSnippet(),
+        media: String,
+    ): String =
+        wrapAsTimelineJson(
+            """
+            "embed": {
+              "${'$'}type": "app.bsky.embed.recordWithMedia#view",
+              $recordSnippet,
+              $media
+            }
+            """.trimIndent(),
+        )
+
+    private fun resolvedRecordSnippet(): String =
+        """
+        "record": {
+          "${'$'}type": "app.bsky.embed.record#view",
+          "record": {
+            "${'$'}type": "app.bsky.embed.record#viewRecord",
+            "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+            "cid": "bafyreifakequotedcid000000000000000000000000000",
+            "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+            "indexedAt": "2026-04-26T12:00:00Z",
+            "value": {
+              "${'$'}type": "app.bsky.feed.post",
+              "text": "quoted text",
+              "createdAt": "2026-04-26T12:00:00Z"
+            }
+          }
+        }
+        """.trimIndent()
+
+    private fun unavailableRecordSnippet(
+        viewType: String,
+        extra: String,
+    ): String =
+        """
+        "record": {
+          "${'$'}type": "app.bsky.embed.record#view",
+          "record": {
+            "${'$'}type": "app.bsky.embed.record#$viewType",
+            "uri": "at://did:plc:fake/app.bsky.feed.post/missing",
+            $extra
+          }
+        }
+        """.trimIndent()
+
+    private fun imagesMediaSnippet(count: Int): String {
+        val images =
+            (1..count).joinToString(",") { i ->
+                """{ "thumb": "https://cdn/t$i.jpg", "fullsize": "https://cdn/f$i.jpg", "alt": "" }"""
+            }
+        return """
+            "media": {
+              "${'$'}type": "app.bsky.embed.images#view",
+              "images": [$images]
+            }
+            """.trimIndent()
+    }
+
+    private fun externalMediaSnippet(): String =
+        """
+        "media": {
+          "${'$'}type": "app.bsky.embed.external#view",
+          "external": {
+            "uri": "https://www.example.com/article",
+            "title": "Article title",
+            "description": "A short description"
+          }
+        }
+        """.trimIndent()
+
+    private fun videoMediaSnippet(): String =
+        """
+        "media": {
+          "${'$'}type": "app.bsky.embed.video#view",
+          "cid": "bafkreifakevidcid0000000000000000000000000000",
+          "playlist": "https://video.bsky.app/m.m3u8",
+          "aspectRatio": { "width": 1920, "height": 1080 }
+        }
+        """.trimIndent()
+
     private fun decodeFixture(name: String): GetTimelineResponse {
         val classLoader = checkNotNull(this::class.java.classLoader) { "test class loader missing" }
         val text =
