@@ -187,17 +187,25 @@ class MainShellNavState(
  *
  * @param startRoute The top-level route the user always exits through.
  *   Must appear in [topLevelRoutes].
- * @param topLevelRoutes The complete set of top-level routes the shell
- *   manages. The order is irrelevant for correctness; the per-tab map is
- *   keyed by [NavKey] identity.
+ * @param topLevelRoutes The ordered list of top-level routes the shell
+ *   manages. **Iteration order is load-bearing**: this factory issues one
+ *   `rememberNavBackStack(key)` call per element in order, and Compose
+ *   keys those `remember` slots by composer position. A reordered list
+ *   across recompositions would re-associate persisted stacks with the
+ *   wrong keys. List was chosen over `Set` so the contract is enforced
+ *   by the type system. Must contain unique keys (enforced via require)
+ *   and must include [startRoute].
  */
 @Composable
 fun rememberMainShellNavState(
     startRoute: NavKey,
-    topLevelRoutes: Set<NavKey>,
+    topLevelRoutes: List<NavKey>,
 ): MainShellNavState {
     require(startRoute in topLevelRoutes) {
         "startRoute=$startRoute must be in topLevelRoutes=$topLevelRoutes."
+    }
+    require(topLevelRoutes.toSet().size == topLevelRoutes.size) {
+        "topLevelRoutes must contain unique keys (got $topLevelRoutes)."
     }
 
     val topLevelKeyState =

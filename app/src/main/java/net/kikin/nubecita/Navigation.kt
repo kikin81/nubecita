@@ -13,7 +13,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.EntryPointAccessors
 import net.kikin.nubecita.navigation.NavigationEntryPoint
-import net.kikin.nubecita.ui.main.MainScreen
+import net.kikin.nubecita.shell.MainShell
 
 @Composable
 fun MainNavigation(modifier: Modifier = Modifier) {
@@ -23,7 +23,7 @@ fun MainNavigation(modifier: Modifier = Modifier) {
             EntryPointAccessors.fromApplication(context.applicationContext, NavigationEntryPoint::class.java)
         }
     val navigator = remember(entryPoint) { entryPoint.navigator() }
-    val installers = remember(entryPoint) { entryPoint.entryProviderInstallers() }
+    val outerInstallers = remember(entryPoint) { entryPoint.outerEntryProviderInstallers() }
 
     NavDisplay(
         modifier = modifier,
@@ -48,9 +48,9 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                     Box(modifier = Modifier.fillMaxSize())
                 }
                 entry<Main> {
-                    MainScreen(modifier = Modifier.safeDrawingPadding())
+                    MainShell(modifier = Modifier.safeDrawingPadding())
                 }
-                installers.forEach { installer -> installer() }
+                outerInstallers.forEach { installer -> installer() }
             },
     )
 }
