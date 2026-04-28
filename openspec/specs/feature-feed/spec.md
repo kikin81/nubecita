@@ -85,11 +85,14 @@ The system's `toEmbedUi` mapping function SHALL produce:
 - `EmbedUi.External` for `app.bsky.embed.external#view` (per `nubecita-aku`)
 - `EmbedUi.Record` for `app.bsky.embed.record#viewRecord` (per `nubecita-6vq`)
 - `EmbedUi.RecordUnavailable` for `app.bsky.embed.record#view{NotFound,Blocked,Detached}` and the `Unknown` open-union fallback (per `nubecita-6vq`)
-- `EmbedUi.Unsupported(typeUri = ...)` for every other lexicon embed type, including `app.bsky.embed.recordWithMedia#view` and any unknown `Unknown`-variant payload from the open union
+- `EmbedUi.RecordWithMedia` for `app.bsky.embed.recordWithMedia#view` (per `nubecita-umn`)
+- `EmbedUi.Unsupported(typeUri = ...)` for any unknown `Unknown`-variant payload from the open union
 
 The `typeUri` field in `EmbedUi.Unsupported` MUST carry the fully-qualified lexicon NSID so PostCard's `PostCardUnsupportedEmbed` can render the friendly-name label per the design-system spec.
 
-This dispatch MUST be exhaustive over the `PostViewEmbedUnion` sealed type. When future changes extend `EmbedUi` (e.g., `EmbedUi.RecordWithMedia` per `nubecita-umn`), the mapper MUST be updated in the same change that adds the variant — the sealed type makes this a compile error otherwise.
+This dispatch MUST be exhaustive over the `PostViewEmbedUnion` sealed type. Future lexicon evolution that adds a new embed type MUST be handled in the same change that adds the variant — the sealed type makes this a compile error otherwise.
+
+The construction of `EmbedUi.Images` / `EmbedUi.Video` / `EmbedUi.External` MUST go through three private wrapper-construction helpers (`ImagesView.toEmbedUiImages`, `VideoView.toEmbedUiVideo`, `ExternalView.toEmbedUiExternal`) shared between the top-level dispatch and the new media-side dispatch in `RecordWithMediaView.toEmbedUiRecordWithMedia`. Inline duplicated construction at the two call sites is forbidden — it would risk drift (e.g. an `aspectRatio` calculation tweak applied in one path and forgotten in the other).
 
 #### Scenario: Images embed maps to EmbedUi.Images
 
@@ -110,6 +113,21 @@ This dispatch MUST be exhaustive over the `PostViewEmbedUnion` sealed type. When
 
 - **WHEN** `toEmbedUi` is called with a `RecordView` whose `record` union member is `RecordViewNotFound` / `RecordViewBlocked` / `RecordViewDetached` respectively
 - **THEN** the result is `EmbedUi.RecordUnavailable(Reason.NotFound)` / `Reason.Blocked` / `Reason.Detached` accordingly
+
+#### Scenario: RecordWithMedia embed maps to EmbedUi.RecordWithMedia with composed record + media
+
+- **WHEN** `toEmbedUi` is called with a `PostViewEmbedUnion.AppBskyEmbedRecordWithMediaView` whose `record` resolves to a `RecordViewRecord` (decodable) and whose `media` is an `ImagesView` carrying two image items
+- **THEN** the result is `EmbedUi.RecordWithMedia(record = EmbedUi.Record(quotedPost), media = EmbedUi.Images(items))` where the inner `quotedPost` is constructed by the same `RecordViewRecord.toEmbedUiRecord` helper used by the top-level `Record` arm, and `items` is the same `ImmutableList<ImageUi>` the top-level `Images` arm would produce — single source of truth for both wrapper constructions
+
+#### Scenario: RecordWithMedia with malformed media falls through to EmbedUi.Unsupported
+
+- **WHEN** `toEmbedUi` is called with a `RecordWithMediaView` whose `media` is a `VideoView` with a blank `playlist` field (or whose `media` is the open-union `Unknown` variant)
+- **THEN** the result is `EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")` — the whole composition falls through. The record side is NOT rendered standalone; half-rendering a recordWithMedia loses the post's communicative intent.
+
+#### Scenario: RecordWithMedia with unavailable record still renders the media
+
+- **WHEN** `toEmbedUi` is called with a `RecordWithMediaView` whose `record.record` is `RecordViewNotFound` and whose `media` is a valid `ImagesView`
+- **THEN** the result is `EmbedUi.RecordWithMedia(record = EmbedUi.RecordUnavailable(Reason.NotFound), media = EmbedUi.Images(items))` — the unavailable record degrades gracefully (per its lexicon-defined `viewNotFound` shape) while the media still renders
 
 #### Scenario: Unknown embed maps to EmbedUi.Unsupported
 
@@ -469,27 +487,33 @@ The system SHALL place `FeedEmptyState` and `FeedErrorState` composables under `
 
 ### Requirement: `FeedScreen` hosts a `FeedVideoPlayerCoordinator` scoped to its composition lifetime and supplies the `videoEmbedSlot` to PostCard
 
-`FeedScreen` MUST instantiate a `FeedVideoPlayerCoordinator` in `remember { ... }` (no key — composition lifetime IS the screen lifetime). A `DisposableEffect(Unit) { onDispose { coordinator.release() } }` (matched no-key with the `remember`) MUST release the coordinator's resources (ExoPlayer instance, audio focus if held, BECOMING_NOISY receiver if registered, retained `MediaItem` references) when `FeedScreen` leaves composition. The coordinator observes `LazyListState.layoutInfo.visibleItemsInfo` via `snapshotFlow` (gated on `isScrollInProgress` per the feature-feed-video binding requirement) to determine the most-visible video card and bind the player accordingly — no `FeedState` field drives this; binding is purely scroll-driven. `FeedScreen` MUST supply `videoEmbedSlot = { video -> PostCardVideoEmbed(video, post = ..., coordinator = coordinator) }` to PostCard so video embeds render via the feature-impl composable bound to the screen's coordinator. NO `FeedState` or `FeedEvent` additions for video — all video playback state (binding, mute, audio focus, playback hint) is coordinator-internal.
+`FeedScreen` MUST host a `FeedVideoPlayerCoordinator` scoped to its composition lifetime — created in the screen's `LoadedFeedContent` `remember { }` block and released via `DisposableEffect.onDispose`. The coordinator is the single owner of the screen's `ExoPlayer` instance per the `feature-feed-video` spec.
 
-#### Scenario: Screen exit releases the coordinator's resources
+For each visible feed item, `LoadedFeedContent` MUST build a `videoEmbedSlot: @Composable (EmbedUi.Video) -> Unit` lambda keyed by `(post.id, coordinator)` and pass it as the `videoEmbedSlot` parameter to `PostCard`. The slot's body invokes `PostCardVideoEmbed(video, postId = post.id, coordinator)` for the autoplay path, falling through to the phase-B static-poster path under `LocalInspectionMode.current`.
 
-- **WHEN** the user navigates away from `FeedScreen` (back press, route change)
-- **THEN** the coordinator's `release()` runs synchronously in `DisposableEffect.onDispose`; the ExoPlayer instance is destroyed; audio focus is abandoned (if held); the BECOMING_NOISY receiver is unregistered (if registered)
+For each visible feed item, `LoadedFeedContent` MUST ALSO build a `quotedVideoEmbedSlot: @Composable ((QuotedEmbedUi.Video) -> Unit)?` lambda when `post.embed.quotedRecord != null`, keyed by `(post.embed.quotedRecord!!.uri, coordinator)`, and pass it as the `quotedVideoEmbedSlot` parameter to `PostCard`. The slot is null when the post carries no quoted post (whether top-level or inside a `RecordWithMedia.record`).
 
-#### Scenario: Configuration change recreates the coordinator
+The `EmbedUi.quotedRecord` extension property (defined in `:data:models`) is the canonical answer to "where does this post's quoted content live." `LoadedFeedContent` MUST NOT inline the chained-cast pattern (e.g. `(post.embed as? EmbedUi.Record)?.quotedPost?.uri`) at the slot-builder site — single source of truth in the model layer.
 
-- **WHEN** the device is rotated while a video is autoplaying
-- **THEN** `FeedScreen` is disposed and recreated by the platform (no `android:configChanges` declared on `MainActivity`, so rotation triggers an Activity recreation); the coordinator's `release()` runs in `DisposableEffect.onDispose`; the new `FeedScreen` instance constructs a fresh coordinator + ExoPlayer; the new bound video starts autoplaying from position 0 muted (no audio surprise on rotation, because no audio focus was held)
+#### Scenario: Coordinator is composition-scoped to FeedScreen
 
-#### Scenario: FeedState contains no video-specific fields
+- **WHEN** `FeedScreen` enters composition
+- **THEN** exactly one `FeedVideoPlayerCoordinator` is constructed (via `remember`) AND a `DisposableEffect` registers `onDispose { coordinator.release() }` so the coordinator's `ExoPlayer` is released when the screen leaves composition
 
-- **WHEN** `FeedState`'s declaration is inspected
-- **THEN** there are NO video-specific fields (`currentlyPlayingPostId`, `unmutedPostId`, etc.) — all video state lives in the coordinator's StateFlows that the bound card collects directly
+#### Scenario: Slot builder for top-level quoted post
 
-#### Scenario: FeedEvent contains no video-specific variants
+- **WHEN** `LoadedFeedContent` renders a feed item whose `post.embed is EmbedUi.Record(quotedPost = qp)`
+- **THEN** the `quotedVideoSlot` lambda passed to `PostCard.quotedVideoEmbedSlot` is non-null and is `remember`-keyed by `(qp.uri, coordinator)`
 
-- **WHEN** `FeedEvent`'s sealed hierarchy is inspected
-- **THEN** there are NO video-specific variants (`OnVideoPlay`, `OnVideoPause`, etc.) — the coordinator's mute/unmute/resume actions are invoked directly by `PostCardVideoEmbed` without an MVI round-trip
+#### Scenario: Slot builder for quoted post inside RecordWithMedia
+
+- **WHEN** `LoadedFeedContent` renders a feed item whose `post.embed is EmbedUi.RecordWithMedia(record = EmbedUi.Record(quotedPost = qp), ...)`
+- **THEN** the `quotedVideoSlot` lambda passed to `PostCard.quotedVideoEmbedSlot` is non-null and is `remember`-keyed by `(qp.uri, coordinator)` — same as the top-level case, via the shared `EmbedUi.quotedRecord` extension
+
+#### Scenario: Slot builder is null when the post carries no quoted content
+
+- **WHEN** `LoadedFeedContent` renders a feed item whose `post.embed.quotedRecord` returns null (any of `Empty`, `Images`, `Video`, `External`, `RecordUnavailable`, `RecordWithMedia` whose `record` is `RecordUnavailable`, or `Unsupported`)
+- **THEN** `quotedVideoSlot` is null and PostCard does not invoke any quoted-video composable for the item
 
 ### Requirement: Inner-embed mapping for quoted posts is bounded at one level by the type system
 
