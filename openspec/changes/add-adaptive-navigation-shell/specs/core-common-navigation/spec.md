@@ -2,7 +2,7 @@
 
 ### Requirement: `:core:common:navigation` provides `MainShellNavState` Compose-owned multi-tab state holder
 
-`:core:common:navigation` SHALL expose a public `MainShellNavState` class and a `@Composable rememberMainShellNavState(startRoute: NavKey, topLevelRoutes: Set<NavKey>): MainShellNavState` factory. The class SHALL hold:
+`:core:common:navigation` SHALL expose a public `MainShellNavState` class and a `@Composable rememberMainShellNavState(startRoute: NavKey, topLevelRoutes: List<NavKey>): MainShellNavState` factory. `topLevelRoutes` SHALL be a `List` (not `Set`) because the factory issues one `rememberNavBackStack(key)` call per element in iteration order and Compose keys those `remember` slots by composer position; a reordered iteration would re-associate persisted stacks with the wrong keys. The factory SHALL `require` that `topLevelRoutes` contains unique elements and includes `startRoute`. The class SHALL hold:
 
 - `topLevelKey: NavKey` — the active tab, mutable.
 - A per-top-level-route map of back stacks (`NavBackStack<NavKey>` per route).
