@@ -1,0 +1,63 @@
+## 1. Data model in `:data:models`
+
+- [ ] 1.1 Add `QuotedEmbedUi` sealed interface (`Empty`, `Images`, `Video`, `External`, `QuotedThreadChip`, `Unsupported`); `@Immutable` at interface level; deliberately no `Record` variant. Add unit test that exhaustive `when (embed: QuotedEmbedUi)` over the variants compiles without an `else` branch.
+- [ ] 1.2 Add `@Immutable` `QuotedPostUi(uri, cid, author, createdAt, text, facets, embed)` data class.
+- [ ] 1.3 Add `EmbedUi.Record(quotedPost: QuotedPostUi)` and `EmbedUi.RecordUnavailable(reason: Reason)` variants on the sealed `EmbedUi` interface; `Reason` is the nested enum (`NotFound`, `Blocked`, `Detached`, `Unknown`).
+- [ ] 1.4 Add temporary `PostCard.EmbedSlot` `when` arms for `EmbedUi.Record` and `EmbedUi.RecordUnavailable` that route to `PostCardUnsupportedEmbed("app.bsky.embed.record")`. Keeps compilation green while the real composables are pending in tasks 3 + 4. Update `PostCard.kt` only — do NOT add new composables in this commit.
+
+## 2. Mapper in `:feature:feed:impl`
+
+- [ ] 2.1 Extract `ImagesView.toImageUiList(): ImmutableList<ImageUi>` and `VideoView.toVideoPayload(): VideoPayload?` private helpers from existing `toEmbedUi` / `toVideoEmbedUi`. Refactor parent `Images` and `Video` arms to use them. Re-run existing `FeedViewPostMapperTest` — should be green with zero behavior change.
+- [ ] 2.2 Add `RecordViewRecord.toEmbedUiRecord(): EmbedUi.Record?` — decodes `value: JsonObject` via the shared `recordJson`, parses `createdAt`, populates `QuotedPostUi`. Returns null on decode / parse failure (caller maps to `RecordUnavailable.Unknown`).
+- [ ] 2.3 Add `RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi` — exhaustive dispatch covering `Images` / `Video` (via shared payload helper, with playlist-blank → `Unsupported`) / `External` (with precomputed domain via existing `displayDomainOf`) / `RecordView` → `QuotedThreadChip` / `RecordWithMediaView` → `Unsupported` / `Unknown` → `Unsupported(typeUri)`.
+- [ ] 2.4 Replace the `RecordView -> EmbedUi.Unsupported("app.bsky.embed.record")` arm in `toEmbedUi` with a dispatch over `RecordViewRecordUnion`'s 4 + 1 variants (`RecordViewRecord` → `toEmbedUiRecord()` ?: `Unknown`; `NotFound` / `Blocked` / `Detached` → respective `Reason`).
+- [ ] 2.5 Add `FeedViewPostMapperTest` cases:
+  - Resolved record with each inner-embed shape (Empty / Images / External / Video; nested RecordView → `QuotedThreadChip`; `RecordWithMediaView` → `Unsupported`)
+  - `NotFound` / `Blocked` / `Detached` wire variants → corresponding `Reason`
+  - Malformed quoted record `value` → `RecordUnavailable.Unknown`; parent post still maps non-null
+  - Malformed quoted `createdAt` → `RecordUnavailable.Unknown`
+- [ ] 2.6 Update existing `record embed maps to EmbedUi_Unsupported` test (currently asserts the old behavior on `timeline_with_repost.json`) — assert the new `EmbedUi.Record` shape with the fixture's quoted-post fields.
+
+## 3. `PostCardRecordUnavailable` composable in `:designsystem`
+
+- [ ] 3.1 Add `PostCardRecordUnavailable(reason: EmbedUi.RecordUnavailable.Reason, modifier)`. `surfaceContainerHighest`, `RoundedCornerShape(8.dp)`, padded label "Quoted post unavailable" in `labelMedium` + `onSurfaceVariant`. The `reason` parameter is accepted for forward compat but does not vary the rendered output.
+- [ ] 3.2 Update PostCard's `EmbedUi.RecordUnavailable` arm to use the new composable (replaces the temporary `PostCardUnsupportedEmbed` route from task 1.4).
+- [ ] 3.3 Add @Preview composables (one `Reason`).
+- [ ] 3.4 Add `PostCardRecordUnavailableScreenshotTest` × {light, dark} = 2 baselines.
+- [ ] 3.5 Add unit test asserting all four `Reason` values produce the same rendered text.
+
+## 4. `PostCardQuotedPost` composable in `:designsystem`
+
+- [ ] 4.1 Add `PostCardQuotedPost(quotedPost: QuotedPostUi, modifier, quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null)`. `surfaceContainerLow`, `RoundedCornerShape(12.dp)`. NO `Modifier.clickable` — v1 ships without a tap target per Decision 4.
+- [ ] 4.2 Implement author row: 32 dp `NubecitaAvatar`, single non-wrapping line "Display Name @handle · 4h" with the existing `PostCard.AuthorLine`-style truncation rules.
+- [ ] 4.3 Implement body text: `bodyMedium`, no `maxLines` cap.
+- [ ] 4.4 Implement private `QuotedEmbedSlot` composable — exhaustive `when (embed: QuotedEmbedUi)` over Empty / Images (reuse `PostCardImageEmbed`) / External (reuse `PostCardExternalEmbed` with `onTap = {}`) / Video (`quotedVideoEmbedSlot?.invoke(embed)`) / QuotedThreadChip / Unsupported (reuse `PostCardUnsupportedEmbed`).
+- [ ] 4.5 Implement the `QuotedThreadChip` placeholder render — same surface treatment as `PostCardRecordUnavailable`, copy "View thread".
+- [ ] 4.6 Add `quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null` parameter to `PostCard`; thread to `PostCardQuotedPost` when dispatching `EmbedUi.Record`. Default null preserves the `:designsystem`-only Media3-free preview path.
+- [ ] 4.7 Update PostCard's `EmbedUi.Record` arm to use the new composable (replaces the temporary `PostCardUnsupportedEmbed` route from task 1.4).
+- [ ] 4.8 Add @Preview composables for `PostCardQuotedPost`: text-only / with-image / with-external / with-thread-chip / with-unsupported variants.
+- [ ] 4.9 Add `PostCardQuotedPostScreenshotTest` × {light, dark}: text-only, with-image, with-external, with-thread-chip = 8 baselines. (Video baseline lands in task 5.)
+- [ ] 4.10 Add a `PostCard` `@Preview` pair showing a parent post containing a quoted post, to exercise the integrated dispatch in the existing PostCard preview matrix.
+
+## 5. Coordinator extension + quoted video render in `:feature:feed:impl`
+
+- [ ] 5.1 Add private helper `videoBindingFor(post: PostUi): VideoBindingTarget?` in `VideoBindingTarget.kt` — parent video first (`postId = post.id`), fallback to `(post.embed as? EmbedUi.Record)?.quotedPost.embed as? QuotedEmbedUi.Video` (`postId = quotedPost.uri`).
+- [ ] 5.2 Update `mostVisibleVideoTarget` to call `videoBindingFor` instead of inlining the parent-only `(post.embed as? EmbedUi.Video)` extraction. Visibility threshold logic unchanged.
+- [ ] 5.3 Extend `MostVisibleVideoTargetTest`:
+  - Parent has no video, quoted has video, item ≥ 0.6 → `VideoBindingTarget(quotedPost.uri, video.playlistUrl)`
+  - Parent has video, quoted has video, item ≥ 0.6 → parent wins
+  - Quoted-only-video item below threshold → null
+  - Topmost rule across mixed parent/quoted: post A (parent video, offset 0) + post B (quoted video, offset 800) both above threshold → A wins
+  - `videoBindingFor` standalone: parent / quoted / Empty / Unsupported / RecordUnavailable → expected outcome
+- [ ] 5.4 Add `PostCardVideoEmbed(quotedVideo: QuotedEmbedUi.Video, postId: String, coordinator: FeedVideoPlayerCoordinator)` overload in `:feature:feed:impl`. Unpacks to the same private impl (`PostCardVideoEmbedImpl(posterUrl, playlistUrl, aspectRatio, bindKey = postId, coordinator)`) shared with the parent overload.
+- [ ] 5.5 In `FeedScreen.LoadedFeedContent`, build `quotedVideoSlot: @Composable ((QuotedEmbedUi.Video) -> Unit)?` per item. Closure captures `quotedPost.uri` (extracted via `(post.embed as? EmbedUi.Record)?.quotedPost?.uri`); `remember(quotedUri, coordinator)` keys the slot. Inspection mode (preview / screenshot tests) returns null per the existing pattern.
+- [ ] 5.6 Pass `quotedVideoEmbedSlot = quotedVideoSlot` when constructing `PostCard` for each item.
+- [ ] 5.7 Add a `PostCardQuotedPost` screenshot baseline for the with-video case using the static-poster phase-B `PostCardVideoEmbed` (the screenshot env is layoutlib — ExoPlayer is unsafe). 2 baselines (light + dark).
+
+## 6. Verification + close-out
+
+- [ ] 6.1 `./gradlew :feature:feed:impl:testDebugUnitTest :data:models:testDebugUnitTest` — all mapper + coordinator + model tests green.
+- [ ] 6.2 `./gradlew :designsystem:validateDebugScreenshotTest` — all new baselines green.
+- [ ] 6.3 `./gradlew spotlessCheck lint` — clean.
+- [ ] 6.4 Manual smoke on Pixel emulator: feed containing each of (resolved quote with text-only / image / external / video; `RecordUnavailable` synthetic post; quote-of-quote synthetic post) — visual rendering matches the design and the official client where applicable.
+- [ ] 6.5 120 Hz scroll spot check on a feed weighted toward quoted-post content; no jank when entering / leaving items with quoted videos.
