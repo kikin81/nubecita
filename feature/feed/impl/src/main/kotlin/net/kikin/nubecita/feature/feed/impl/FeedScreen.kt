@@ -1,8 +1,10 @@
 package net.kikin.nubecita.feature.feed.impl
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.res.Configuration
 import android.media.AudioManager
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,6 +57,7 @@ import net.kikin.nubecita.feature.feed.impl.video.createFeedVideoPlayerCoordinat
 import net.kikin.nubecita.feature.feed.impl.video.mostVisibleVideoTarget
 import kotlin.time.Clock
 import kotlin.time.Instant
+import android.net.Uri as AndroidUri
 
 private const val PREFETCH_DISTANCE = 5
 private const val SHIMMER_PREVIEW_COUNT = 6
@@ -82,8 +85,9 @@ internal fun FeedScreen(
     val viewState = remember(state) { state.toViewState() }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     val callbacks =
-        remember(viewModel) {
+        remember(viewModel, context) {
             PostCallbacks(
                 onTap = { viewModel.handleEvent(FeedEvent.OnPostTapped(it)) },
                 onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
@@ -91,6 +95,23 @@ internal fun FeedScreen(
                 onRepost = { viewModel.handleEvent(FeedEvent.OnRepostClicked(it)) },
                 onReply = { viewModel.handleEvent(FeedEvent.OnReplyClicked(it)) },
                 onShare = { viewModel.handleEvent(FeedEvent.OnShareClicked(it)) },
+                onExternalEmbedTap = { uri ->
+                    // Narrowed catch: silent no-op only for the documented
+                    // "no CCT-capable browser installed" case (per
+                    // nubecita-aku scope). Other launch failures (rare
+                    // SecurityException / RuntimeException from the
+                    // browser lib) propagate so genuine bugs surface in
+                    // logcat instead of being hidden by a blanket catch.
+                    try {
+                        CustomTabsIntent
+                            .Builder()
+                            .setShowTitle(true)
+                            .build()
+                            .launchUrl(context, AndroidUri.parse(uri))
+                    } catch (_: ActivityNotFoundException) {
+                        // No browser available — silent no-op.
+                    }
+                },
             )
         }
     // Pre-resolve snackbar copy via stringResource() at composition time

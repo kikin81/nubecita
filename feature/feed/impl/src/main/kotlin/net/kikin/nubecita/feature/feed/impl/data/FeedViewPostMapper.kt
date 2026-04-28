@@ -85,11 +85,10 @@ internal fun FeedViewPost.toPostUiOrNull(): PostUi? {
 
 /**
  * Maps the [PostViewEmbedUnion] open-union variant to PostCard's
- * [EmbedUi] surface (Empty / Images / Video / Unsupported(typeUri)).
- * Future `EmbedUi` variants (External per nubecita-aku, Record per
- * nubecita-6vq, RecordWithMedia per nubecita-umn) become compile errors
- * at this `when` once they're added to `EmbedUi`, surfacing the work
- * needed.
+ * [EmbedUi] surface (Empty / Images / Video / External / Unsupported).
+ * Future `EmbedUi` variants (Record per nubecita-6vq, RecordWithMedia
+ * per nubecita-umn) become compile errors at this `when` once they're
+ * added to `EmbedUi`, surfacing the work needed.
  */
 internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     when (this) {
@@ -106,7 +105,14 @@ internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
                             )
                         }.toImmutableList(),
             )
-        is ExternalView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.external")
+        is ExternalView ->
+            EmbedUi.External(
+                uri = external.uri.raw,
+                domain = displayDomainOf(external.uri.raw),
+                title = external.title,
+                description = external.description,
+                thumbUrl = external.thumb?.raw,
+            )
         is RecordView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.record")
         is VideoView -> toVideoEmbedUi()
         is RecordWithMediaView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
@@ -155,6 +161,21 @@ private fun VideoView.toVideoEmbedUi(): EmbedUi {
 }
 
 private const val VIDEO_FALLBACK_ASPECT_RATIO: Float = 16f / 9f
+
+/**
+ * Precomputes the user-readable display host for an external embed URI.
+ * Strips a leading `www.` from the parsed host; falls back to the full
+ * URI when the input is opaque or malformed (e.g. `mailto:foo@bar.com`)
+ * so the render layer always has *something* to show.
+ *
+ * Uses `java.net.URI` rather than `android.net.Uri` so the mapper stays
+ * JVM-pure and the unit-test path runs without a device runtime stub.
+ */
+private fun displayDomainOf(uri: String): String =
+    runCatching { java.net.URI(uri).host }
+        .getOrNull()
+        ?.removePrefix("www.")
+        ?: uri
 
 internal fun ProfileViewBasic.toAuthorUi(): AuthorUi =
     AuthorUi(

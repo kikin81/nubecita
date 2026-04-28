@@ -67,11 +67,108 @@ internal class FeedViewPostMapperTest {
     }
 
     @Test
-    fun `external embed maps to EmbedUi_Unsupported with the lexicon URI`() {
+    fun `external embed maps to EmbedUi_External with uri title description and thumbUrl`() {
         val response = decodeFixture("timeline_with_external_embed.json")
         val mapped = response.feed.single().toPostUiOrNull()
         assertNotNull(mapped)
-        assertEquals(EmbedUi.Unsupported(typeUri = "app.bsky.embed.external"), mapped!!.embed)
+        val external = mapped!!.embed as EmbedUi.External
+        assertEquals("https://davidimel.substack.com/p/bluesky-is-looking-for-its-myspace", external.uri)
+        assertEquals("davidimel.substack.com", external.domain)
+        assertEquals("Bluesky is doubling down", external.title)
+        assertEquals("Let's see if a feed-builder is it.", external.description)
+        // The thumb is a server-side preview-card URL produced by the appview;
+        // existence is what the assertion checks (the exact URL shape is
+        // appview-internal and may evolve).
+        assertNotNull(external.thumbUrl)
+    }
+
+    @Test
+    fun `external embed without thumb maps to EmbedUi_External with thumbUrl null`() {
+        // Synthetic external view that omits the optional `thumb` field.
+        // The mapper must still produce EmbedUi.External; the render layer
+        // omits the thumb section entirely (text-only card).
+        val noThumbJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake000000000000000000/app.bsky.feed.post/no-thumb",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake000000000000000000",
+                    "handle": "fake.bsky.social"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "external without a thumb",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  },
+                  "embed": {
+                    "${'$'}type": "app.bsky.embed.external#view",
+                    "external": {
+                      "uri": "https://example.com/article",
+                      "title": "Article without a thumbnail",
+                      "description": "A short description."
+                    }
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), noThumbJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        val external = mapped!!.embed as EmbedUi.External
+        assertEquals("https://example.com/article", external.uri)
+        assertEquals("example.com", external.domain)
+        assertEquals("Article without a thumbnail", external.title)
+        assertNull(external.thumbUrl)
+    }
+
+    @Test
+    fun `external embed with empty title and description still maps to EmbedUi_External`() {
+        // The lexicon types title and description as non-null String, but
+        // Bluesky permits empty strings (e.g. when the OG scraper finds
+        // nothing). The mapper must pass them through; the render layer
+        // skips empty rows rather than treating empty as Unsupported.
+        val emptyFieldsJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake000000000000000000/app.bsky.feed.post/empty-fields",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake000000000000000000",
+                    "handle": "fake.bsky.social"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "external with empty title/description",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  },
+                  "embed": {
+                    "${'$'}type": "app.bsky.embed.external#view",
+                    "external": {
+                      "uri": "https://example.com/no-metadata",
+                      "title": "",
+                      "description": ""
+                    }
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), emptyFieldsJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        val external = mapped!!.embed as EmbedUi.External
+        assertEquals("https://example.com/no-metadata", external.uri)
+        assertEquals("example.com", external.domain)
+        assertEquals("", external.title)
+        assertEquals("", external.description)
     }
 
     @Test

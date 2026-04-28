@@ -15,15 +15,13 @@ import kotlinx.collections.immutable.ImmutableList
  *
  * - [Empty] — post has no embed
  * - [Images] — `app.bsky.embed.images`, 1–4 images
- * - [Video] — `app.bsky.embed.video#view`, HLS-backed video post (rendered
- *   per phase B as poster + optional duration chip; phase C wires inline
- *   playback via `:feature:feed:impl`'s `FeedVideoPlayerCoordinator`)
- * - [Unsupported] — any embed type outside the current scope (`#external`,
- *   `#record`, `#recordWithMedia`); rendered as a deliberate "Unsupported
- *   embed" chip, NOT an error
+ * - [Video] — `app.bsky.embed.video#view`, HLS-backed video post
+ * - [External] — `app.bsky.embed.external#view`, native link-preview card
+ * - [Unsupported] — any embed type outside the current scope (`#record`,
+ *   `#recordWithMedia`); rendered as a deliberate "Unsupported embed"
+ *   chip, NOT an error
  *
  * Future variants (one per follow-on bd ticket):
- * - `External` (nubecita-aku)
  * - `Record` (nubecita-6vq)
  * - `RecordWithMedia` (nubecita-umn)
  */
@@ -66,6 +64,34 @@ public sealed interface EmbedUi {
         val aspectRatio: Float,
         val durationSeconds: Int?,
         val altText: String?,
+    ) : EmbedUi
+
+    /**
+     * Bluesky `app.bsky.embed.external#view`.
+     *
+     * Native link-preview card. The atproto-kotlin lib already produces
+     * fetchable URLs via `Uri.raw` for both `external.uri` and
+     * `external.thumb`; no blob-ref → CDN URL construction is required
+     * on the nubecita side.
+     *
+     * - [uri] is the linked URL (full, raw).
+     * - [domain] is the precomputed display host (`uri` host with a leading
+     *   `www.` stripped; falls back to the full URI when the URI is opaque
+     *   or malformed). Computed once at mapping time so the render layer
+     *   can display it without per-recomposition `Uri.parse` cost in
+     *   scrolling lists (120 Hz target).
+     * - [title] / [description] are non-null per the lexicon but Bluesky
+     *   permits empty strings — the render layer skips empty rows.
+     * - [thumbUrl] is null when the optional `thumb` field is absent;
+     *   the render layer omits the thumb section entirely (text-only
+     *   card, no placeholder).
+     */
+    public data class External(
+        val uri: String,
+        val domain: String,
+        val title: String,
+        val description: String,
+        val thumbUrl: String?,
     ) : EmbedUi
 
     /**
