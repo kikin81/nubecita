@@ -13,6 +13,14 @@ local.properties
 *.keystore
 keystore.properties
 
+# Firebase service-account credentials (NEVER commit; loaded from
+# FIREBASE_SERVICE_ACCOUNT GitHub secret in release.yaml). Note:
+# app/google-services.json IS committed — it's package + SHA-1 scoped and
+# safe in a public repo.
+firebase-sa-*.json
+firebase-service-account*.json
+google-application-credentials*.json
+
 # OS
 .DS_Store
 Thumbs.db

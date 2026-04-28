@@ -1,0 +1,12 @@
+# Gitleaks configuration. Extends the default ruleset and allowlists files
+# that legitimately contain "secret-shaped" values that are not actually
+# secrets in our threat model.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Firebase google-services.json — the API key inside is package-name + SHA-1-fingerprint scoped, so a fork cannot authenticate as our app without our signing keystore. This is the standard Android+Firebase pattern even for public repos. See: https://firebase.google.com/support/troubleshooter/oauth-and-api-keys"
+paths = [
+    '''app/google-services\.json''',
+]

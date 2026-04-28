@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "231886524292",
+    "project_id": "nubecita-2a4c1",
+    "storage_bucket": "nubecita-2a4c1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:231886524292:android:39f7396cfb287cb01297d1",
+        "android_client_info": {
+          "package_name": "net.kikin.nubecita"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS9PpChCOhgL6lJ5HaREtMrK77ozfyw48"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
