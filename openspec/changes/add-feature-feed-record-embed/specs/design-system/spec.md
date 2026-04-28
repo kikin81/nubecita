@@ -74,9 +74,9 @@ The composable's layout, top to bottom:
 
 - `QuotedEmbedUi.Empty` → no embed rendered
 - `QuotedEmbedUi.Images` → `PostCardImageEmbed(items = embed.items)` — same leaf composable the parent `EmbedSlot` uses
-- `QuotedEmbedUi.External` → `PostCardExternalEmbed(uri, domain, title, description, thumbUrl, onTap = {})` — same leaf composable the parent `EmbedSlot` uses; tap is a no-op inside a quoted card (the outer card owns the tap surface, even though it's deferred in v1)
+- `QuotedEmbedUi.External` → `PostCardExternalEmbed(uri, domain, title, description, thumbUrl, onTap = null)` — same leaf composable the parent `EmbedSlot` uses; passing a `null` `onTap` causes `PostCardExternalEmbed` to omit `Modifier.clickable` entirely so the inner card has no ripple, no tap target, no clickable semantics. v1 ships with no tap target on the quoted card; the outer card surface will own a tap target in a follow-up bd issue paired with the post-detail destination.
 - `QuotedEmbedUi.Video` → `quotedVideoEmbedSlot?.invoke(embed)` — when the host did not supply a slot, no video is rendered (default-null behavior preserves `:designsystem`'s media-free preview / screenshot tests)
-- `QuotedEmbedUi.QuotedThreadChip` → small surface-tile placeholder with copy "View thread" in `labelMedium` + `onSurfaceVariant` — same surface treatment as `PostCardRecordUnavailable`, different copy
+- `QuotedEmbedUi.QuotedThreadChip` → small surface-tile placeholder with copy "View thread" in `bodySmall` + `onSurfaceVariant` — same surface treatment as `PostCardRecordUnavailable`, different copy
 - `QuotedEmbedUi.Unsupported` → `PostCardUnsupportedEmbed(typeUri = embed.typeUri)` — reuses the existing friendly-name mapping leaf composable
 
 The `QuotedEmbedUi` dispatch MUST be exhaustive at compile time. Because `QuotedEmbedUi` deliberately excludes a `Record` variant (per the data-models spec), this dispatch site CAN NOT have an arm for nested record embeds — the recursion bound is structural, not runtime.
@@ -89,7 +89,7 @@ The `QuotedEmbedUi` dispatch MUST be exhaustive at compile time. Because `Quoted
 #### Scenario: Quoted thread chip renders "View thread"
 
 - **WHEN** `PostCardQuotedPost` renders a `QuotedPostUi` whose `embed is QuotedEmbedUi.QuotedThreadChip`
-- **THEN** a small surface-tile is rendered carrying `Text("View thread")` in `labelMedium` + `onSurfaceVariant`; no further descent into a doubly-quoted post occurs
+- **THEN** a small surface-tile is rendered carrying `Text("View thread")` in `bodySmall` + `onSurfaceVariant`; no further descent into a doubly-quoted post occurs
 
 #### Scenario: Default null video slot renders nothing
 

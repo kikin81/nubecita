@@ -36,11 +36,16 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                         getDefaultProguardFile("proguard-android-optimize.txt"),
                         "proguard-rules.pro",
                     )
-                    // Debug-signed release for local perf verification (gfxinfo,
-                    // Perfetto, Macrobenchmark) — release runtime characteristics
-                    // without the AGP "no signing config" install failure. Production
-                    // signing config lands separately when the release pipeline ships.
-                    signingConfig = signingConfigs.getByName("debug")
+                    // Debug-signed release is opt-in via -PdebugSignedRelease=true.
+                    // Used for local perf verification (gfxinfo, Perfetto,
+                    // Macrobenchmark) — release runtime characteristics without
+                    // the AGP "no signing config" install failure. Off by default
+                    // so CI / future distribution flows aren't accidentally
+                    // shipping debug-signed APKs. Production signing config lands
+                    // separately when the release pipeline ships.
+                    if ((findProperty("debugSignedRelease") as? String).toBoolean()) {
+                        signingConfig = signingConfigs.getByName("debug")
+                    }
                 }
 
                 lint {

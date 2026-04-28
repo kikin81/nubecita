@@ -20,7 +20,7 @@
 
 ## 3. `PostCardRecordUnavailable` composable in `:designsystem`
 
-- [x] 3.1 Add `PostCardRecordUnavailable(reason: EmbedUi.RecordUnavailable.Reason, modifier)`. `surfaceContainerHighest`, `RoundedCornerShape(8.dp)`, padded label "Quoted post unavailable" in `labelMedium` + `onSurfaceVariant`. The `reason` parameter is accepted for forward compat but does not vary the rendered output.
+- [x] 3.1 Add `PostCardRecordUnavailable(reason: EmbedUi.RecordUnavailable.Reason, modifier)`. `surfaceContainerHighest`, `RoundedCornerShape(8.dp)`, padded label "Quoted post unavailable" in `bodySmall` + `onSurfaceVariant` (matches the existing `PostCardUnsupportedEmbed` chip pattern). The `reason` parameter is accepted for forward compat but does not vary the rendered output.
 - [x] 3.2 Update PostCard's `EmbedUi.RecordUnavailable` arm to use the new composable (replaces the temporary `PostCardUnsupportedEmbed` route from task 1.4).
 - [x] 3.3 Add @Preview composables (one `Reason`).
 - [x] 3.4 Add `PostCardRecordUnavailableScreenshotTest` × {light, dark} = 2 baselines.
@@ -31,7 +31,7 @@
 - [x] 4.1 Add `PostCardQuotedPost(quotedPost: QuotedPostUi, modifier, quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null)`. `surfaceContainerLow`, `RoundedCornerShape(12.dp)`. NO `Modifier.clickable` — v1 ships without a tap target per Decision 4.
 - [x] 4.2 Implement author row: 32 dp `NubecitaAvatar`, single non-wrapping line "Display Name @handle · 4h" with the existing `PostCard.AuthorLine`-style truncation rules.
 - [x] 4.3 Implement body text: `bodyMedium`, no `maxLines` cap.
-- [x] 4.4 Implement private `QuotedEmbedSlot` composable — exhaustive `when (embed: QuotedEmbedUi)` over Empty / Images (reuse `PostCardImageEmbed`) / External (reuse `PostCardExternalEmbed` with `onTap = {}`) / Video (`quotedVideoEmbedSlot?.invoke(embed)`) / QuotedThreadChip / Unsupported (reuse `PostCardUnsupportedEmbed`).
+- [x] 4.4 Implement private `QuotedEmbedSlot` composable — exhaustive `when (embed: QuotedEmbedUi)` over Empty / Images (reuse `PostCardImageEmbed`) / External (reuse `PostCardExternalEmbed` with `onTap = null`, which causes the leaf to omit `Modifier.clickable` entirely so the inner card is genuinely non-interactive) / Video (`quotedVideoEmbedSlot?.invoke(embed)`) / QuotedThreadChip / Unsupported (reuse `PostCardUnsupportedEmbed`).
 - [x] 4.5 Implement the `QuotedThreadChip` placeholder render — same surface treatment as `PostCardRecordUnavailable`, copy "View thread".
 - [x] 4.6 Add `quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null` parameter to `PostCard`; thread to `PostCardQuotedPost` when dispatching `EmbedUi.Record`. Default null preserves the `:designsystem`-only Media3-free preview path.
 - [x] 4.7 Update PostCard's `EmbedUi.Record` arm to use the new composable (replaces the temporary `PostCardUnsupportedEmbed` route from task 1.4).
