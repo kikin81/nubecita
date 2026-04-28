@@ -10,6 +10,8 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
+import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -122,6 +124,150 @@ internal class MostVisibleVideoTargetTest {
         assertEquals(VideoBindingTarget("post-video", "https://video.m3u8"), target)
     }
 
+    // ---------- Quoted-post video extension ----------
+
+    @Test
+    fun `quoted-post video binds when parent has no own video`() {
+        // Parent is a text post that quotes a video post; bind identity
+        // is the quoted post's URI, not the parent's id.
+        val quotedUri = "at://did:plc:fake/app.bsky.feed.post/quoted"
+        val posts =
+            mapOf(
+                "post-text-quoting-video" to
+                    quotedVideoPost(
+                        parentId = "post-text-quoting-video",
+                        quotedUri = quotedUri,
+                        quotedPlaylistUrl = "https://video.bsky.app/q.m3u8",
+                    ),
+            )
+        val info =
+            layoutInfo(
+                items = listOf(itemInfo(key = "post-text-quoting-video", offset = 0, size = 600)),
+            )
+        val target = mostVisibleVideoTarget(info, posts)
+        assertEquals(VideoBindingTarget(quotedUri, "https://video.bsky.app/q.m3u8"), target)
+    }
+
+    // No test for "parent video wins over quoted video on the same
+    // item" — `PostUi.embed` is a single sealed slot, so a feed item
+    // structurally cannot carry both `EmbedUi.Video` AND `EmbedUi.Record`
+    // simultaneously through the public mapper. The parent-first
+    // ordering in `videoBindingFor` is a defensive guarantee for an
+    // unreachable case; the standalone tests below cover the orderings
+    // that ARE structurally reachable (parent-only, quoted-only, neither).
+
+    @Test
+    fun `topmost rule applies across mixed parent and quoted videos`() {
+        // Post A (offset 0, parent video) and Post B (offset 800,
+        // quoted video) both visible above threshold. Topmost wins.
+        val posts =
+            mapOf(
+                "post-a-parent" to videoPost("post-a-parent", "https://a.m3u8"),
+                "post-b-quoted" to
+                    quotedVideoPost(
+                        parentId = "post-b-quoted",
+                        quotedUri = "at://did:plc:b/app.bsky.feed.post/q",
+                        quotedPlaylistUrl = "https://b.m3u8",
+                    ),
+            )
+        val info =
+            layoutInfo(
+                items =
+                    listOf(
+                        itemInfo(key = "post-a-parent", offset = 0, size = 600),
+                        itemInfo(key = "post-b-quoted", offset = 600, size = 600), // 600/600 = 1.0
+                    ),
+            )
+        val target = mostVisibleVideoTarget(info, posts)
+        // A is at the top of the viewport — it wins, even though B is
+        // also fully visible (topmost, not max-visible).
+        assertEquals(VideoBindingTarget("post-a-parent", "https://a.m3u8"), target)
+    }
+
+    @Test
+    fun `quoted-post video below threshold yields null target`() {
+        // Same shape as the existing parent-only "below threshold"
+        // case, but for the quoted-video path.
+        val quotedUri = "at://did:plc:fake/app.bsky.feed.post/quoted"
+        val posts =
+            mapOf(
+                "post-text-quoting-video" to
+                    quotedVideoPost(
+                        parentId = "post-text-quoting-video",
+                        quotedUri = quotedUri,
+                        quotedPlaylistUrl = "https://q.m3u8",
+                    ),
+            )
+        // Item at offset 700, size 1000 → visible 500/1000 = 0.5 (below 0.6).
+        val info =
+            layoutInfo(
+                items = listOf(itemInfo(key = "post-text-quoting-video", offset = 700, size = 1000)),
+            )
+        assertNull(mostVisibleVideoTarget(info, posts))
+    }
+
+    // ---------- videoBindingFor standalone tests ----------
+
+    @Test
+    fun `videoBindingFor returns parent target when parent video is present`() {
+        val post = videoPost("post-id", "https://parent.m3u8")
+        assertEquals(
+            VideoBindingTarget("post-id", "https://parent.m3u8"),
+            videoBindingFor(post),
+        )
+    }
+
+    @Test
+    fun `videoBindingFor returns quoted target when only quoted video is present`() {
+        val post =
+            quotedVideoPost(
+                parentId = "parent",
+                quotedUri = "at://did:plc:q/app.bsky.feed.post/q",
+                quotedPlaylistUrl = "https://q.m3u8",
+            )
+        assertEquals(
+            VideoBindingTarget("at://did:plc:q/app.bsky.feed.post/q", "https://q.m3u8"),
+            videoBindingFor(post),
+        )
+    }
+
+    @Test
+    fun `videoBindingFor returns null for text-only posts`() {
+        assertNull(videoBindingFor(textPost("post-id")))
+    }
+
+    @Test
+    fun `videoBindingFor returns null for posts with non-video quoted embed`() {
+        // Quote a post whose own embed is empty — there's no video
+        // anywhere on this feed item.
+        val post =
+            textPost("parent").copy(
+                embed =
+                    EmbedUi.Record(
+                        quotedPost =
+                            QuotedPostUi(
+                                uri = "at://did:plc:q/app.bsky.feed.post/q",
+                                cid = "bafyq",
+                                author = fakeAuthor(),
+                                createdAt = Instant.fromEpochSeconds(0),
+                                text = "quoted text",
+                                facets = persistentListOf<Facet>(),
+                                embed = QuotedEmbedUi.Empty,
+                            ),
+                    ),
+            )
+        assertNull(videoBindingFor(post))
+    }
+
+    @Test
+    fun `videoBindingFor returns null for RecordUnavailable`() {
+        val post =
+            textPost("parent").copy(
+                embed = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
+            )
+        assertNull(videoBindingFor(post))
+    }
+
     private fun layoutInfo(items: List<LazyListItemInfo>): LazyListLayoutInfo {
         val mocked = mockk<LazyListLayoutInfo>()
         every { mocked.visibleItemsInfo } returns items
@@ -174,5 +320,47 @@ internal class MostVisibleVideoTargetTest {
                     durationSeconds = null,
                     altText = null,
                 ),
+        )
+
+    /**
+     * A parent post whose own embed is a `Record` carrying a
+     * `QuotedPostUi` whose own embed is a video. This is the wire
+     * shape that drives the quoted-video bind path in
+     * [mostVisibleVideoTarget].
+     */
+    private fun quotedVideoPost(
+        parentId: String,
+        quotedUri: String,
+        quotedPlaylistUrl: String,
+    ): PostUi =
+        textPost(parentId).copy(
+            embed =
+                EmbedUi.Record(
+                    quotedPost =
+                        QuotedPostUi(
+                            uri = quotedUri,
+                            cid = "bafyqcid000000000000000000000000000000000",
+                            author = fakeAuthor(),
+                            createdAt = Instant.fromEpochSeconds(0),
+                            text = "quoted post text",
+                            facets = persistentListOf<Facet>(),
+                            embed =
+                                QuotedEmbedUi.Video(
+                                    posterUrl = null,
+                                    playlistUrl = quotedPlaylistUrl,
+                                    aspectRatio = 16f / 9f,
+                                    durationSeconds = null,
+                                    altText = null,
+                                ),
+                        ),
+                ),
+        )
+
+    private fun fakeAuthor(): AuthorUi =
+        AuthorUi(
+            did = "did:plc:fake",
+            handle = "fake.bsky.social",
+            displayName = "Fake",
+            avatarUrl = null,
         )
 }

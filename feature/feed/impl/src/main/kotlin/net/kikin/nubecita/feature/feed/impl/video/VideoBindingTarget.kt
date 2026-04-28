@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.feed.impl.video
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
 
 /**
  * What [FeedVideoPlayerCoordinator.bindMostVisibleVideo] needs to
@@ -51,7 +52,7 @@ internal fun mostVisibleVideoTarget(
         .mapNotNull { item ->
             val key = item.key as? String ?: return@mapNotNull null
             val post = postsById[key] ?: return@mapNotNull null
-            val embed = post.embed as? EmbedUi.Video ?: return@mapNotNull null
+            val target = videoBindingFor(post) ?: return@mapNotNull null
             val itemStart = item.offset
             val itemEnd = item.offset + item.size
             val visibleStart = itemStart.coerceAtLeast(viewportStart)
@@ -59,12 +60,46 @@ internal fun mostVisibleVideoTarget(
             val visibleHeight = (visibleEnd - visibleStart).coerceAtLeast(0)
             val fraction =
                 if (item.size > 0) visibleHeight.toFloat() / item.size.toFloat() else 0f
-            if (fraction > VISIBILITY_THRESHOLD) {
-                VideoBindingTarget(postId = post.id, playlistUrl = embed.playlistUrl)
-            } else {
-                null
-            }
+            if (fraction > VISIBILITY_THRESHOLD) target else null
         }.firstOrNull()
+}
+
+/**
+ * Resolves a feed item to the [VideoBindingTarget] that should bind
+ * the player when this item is the topmost visible video card.
+ *
+ * Precedence (B-lite per `add-feature-feed-record-embed`'s design):
+ *
+ * 1. **Parent video** — if `post.embed is EmbedUi.Video`, the bind
+ *    identity is the parent post's id (`post.id`). Same shape as
+ *    the pre-record-embed coordinator behavior.
+ * 2. **Quoted-post video** — if the parent has no own video but
+ *    `post.embed is EmbedUi.Record` whose `quotedPost.embed is
+ *    QuotedEmbedUi.Video`, the bind identity is the quoted post's
+ *    AT URI (`quotedPost.uri`). Naturally distinct from any parent
+ *    bind key.
+ * 3. **Neither** → `null`. The item carries no addressable video.
+ *
+ * The parent-video-wins rule covers the (vanishingly rare) case of
+ * a video post that quotes another video post — the parent is the
+ * post the user is "on" when scrolling reaches that item, so
+ * binding to its own video matches user intent.
+ *
+ * Visibility math is unchanged — this function only resolves the
+ * candidate target for an item; the caller still gates on the 0.6
+ * visible-fraction threshold at the parent feed-item level. Sub-rect
+ * geometry for quoted videos is explicitly out of scope.
+ */
+internal fun videoBindingFor(post: PostUi): VideoBindingTarget? {
+    (post.embed as? EmbedUi.Video)?.let { video ->
+        return VideoBindingTarget(postId = post.id, playlistUrl = video.playlistUrl)
+    }
+    (post.embed as? EmbedUi.Record)?.quotedPost?.let { quoted ->
+        (quoted.embed as? QuotedEmbedUi.Video)?.let { video ->
+            return VideoBindingTarget(postId = quoted.uri, playlistUrl = video.playlistUrl)
+        }
+    }
+    return null
 }
 
 /**

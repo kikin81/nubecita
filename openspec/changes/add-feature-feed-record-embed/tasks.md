@@ -41,18 +41,18 @@
 
 ## 5. Coordinator extension + quoted video render in `:feature:feed:impl`
 
-- [ ] 5.1 Add private helper `videoBindingFor(post: PostUi): VideoBindingTarget?` in `VideoBindingTarget.kt` — parent video first (`postId = post.id`), fallback to `(post.embed as? EmbedUi.Record)?.quotedPost.embed as? QuotedEmbedUi.Video` (`postId = quotedPost.uri`).
-- [ ] 5.2 Update `mostVisibleVideoTarget` to call `videoBindingFor` instead of inlining the parent-only `(post.embed as? EmbedUi.Video)` extraction. Visibility threshold logic unchanged.
-- [ ] 5.3 Extend `MostVisibleVideoTargetTest`:
+- [x] 5.1 Add private helper `videoBindingFor(post: PostUi): VideoBindingTarget?` in `VideoBindingTarget.kt` — parent video first (`postId = post.id`), fallback to `(post.embed as? EmbedUi.Record)?.quotedPost.embed as? QuotedEmbedUi.Video` (`postId = quotedPost.uri`).
+- [x] 5.2 Update `mostVisibleVideoTarget` to call `videoBindingFor` instead of inlining the parent-only `(post.embed as? EmbedUi.Video)` extraction. Visibility threshold logic unchanged.
+- [x] 5.3 Extend `MostVisibleVideoTargetTest`:
   - Parent has no video, quoted has video, item ≥ 0.6 → `VideoBindingTarget(quotedPost.uri, video.playlistUrl)`
-  - Parent has video, quoted has video, item ≥ 0.6 → parent wins
+  - Parent has video, quoted has video, item ≥ 0.6 → parent wins **(skipped: structurally inexpressible — `PostUi.embed` is a single sealed slot, can't carry both `EmbedUi.Video` AND `EmbedUi.Record`. The parent-first ordering in `videoBindingFor` is a defensive guarantee for an unreachable case; covered structurally by the standalone `videoBindingFor returns parent target` test below.)**
   - Quoted-only-video item below threshold → null
-  - Topmost rule across mixed parent/quoted: post A (parent video, offset 0) + post B (quoted video, offset 800) both above threshold → A wins
-  - `videoBindingFor` standalone: parent / quoted / Empty / Unsupported / RecordUnavailable → expected outcome
-- [ ] 5.4 Add `PostCardVideoEmbed(quotedVideo: QuotedEmbedUi.Video, postId: String, coordinator: FeedVideoPlayerCoordinator)` overload in `:feature:feed:impl`. Unpacks to the same private impl (`PostCardVideoEmbedImpl(posterUrl, playlistUrl, aspectRatio, bindKey = postId, coordinator)`) shared with the parent overload.
-- [ ] 5.5 In `FeedScreen.LoadedFeedContent`, build `quotedVideoSlot: @Composable ((QuotedEmbedUi.Video) -> Unit)?` per item. Closure captures `quotedPost.uri` (extracted via `(post.embed as? EmbedUi.Record)?.quotedPost?.uri`); `remember(quotedUri, coordinator)` keys the slot. Inspection mode (preview / screenshot tests) returns null per the existing pattern.
-- [ ] 5.6 Pass `quotedVideoEmbedSlot = quotedVideoSlot` when constructing `PostCard` for each item.
-- [ ] 5.7 Add a `PostCardQuotedPost` screenshot baseline for the with-video case using the static-poster phase-B `PostCardVideoEmbed` (the screenshot env is layoutlib — ExoPlayer is unsafe). 2 baselines (light + dark).
+  - Topmost rule across mixed parent/quoted: post A (parent video, offset 0) + post B (quoted video, offset 600) both above threshold → A wins
+  - `videoBindingFor` standalone: parent / quoted / Empty / RecordUnavailable / non-Video record embed → expected outcome
+- [x] 5.4 Add `PostCardVideoEmbed(quotedVideo: QuotedEmbedUi.Video, postId: String, coordinator: FeedVideoPlayerCoordinator)` overload in `:feature:feed:impl`. Adapts to the parent `EmbedUi.Video` shape via a memoized `remember(quotedVideo) { quotedVideo.toEmbedUiVideo() }` and forwards to the existing parent autoplay overload — single rendering pipeline. Phase-B overload added in parallel for the inspection-mode / no-coordinator path.
+- [x] 5.5 In `FeedScreen.LoadedFeedContent`, build `quotedVideoSlot: @Composable ((QuotedEmbedUi.Video) -> Unit)?` per item. Closure captures `quotedPost.uri` (extracted via `(post.embed as? EmbedUi.Record)?.quotedPost?.uri`); `remember(quotedUri, coordinator)` keys the slot. Slot is null when this item carries no quoted post.
+- [x] 5.6 Pass `quotedVideoEmbedSlot = quotedVideoSlot` when constructing `PostCard` for each item.
+- [x] 5.7 Add a `PostCardQuotedPost` screenshot baseline for the with-video case using the static-poster phase-B `PostCardVideoEmbed`. Lives in `:feature:feed:impl`'s screenshot test source set (because the slot's body imports the phase-B `PostCardVideoEmbed` which is internal to this module). 2 baselines (light + dark).
 
 ## 6. Verification + close-out
 
