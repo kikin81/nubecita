@@ -42,6 +42,34 @@ internal class PostUiTest {
     }
 
     @Test
+    fun `RecordUnavailable Reason enumerates exactly the four expected variants in stable order`() {
+        // The render layer collapses all four to a single chip ("Quoted
+        // post unavailable") per the YAGNI design — but the wire-side
+        // distinction is preserved for telemetry / future per-variant
+        // copy upgrades. Adding a 5th Reason should break this test and
+        // force a deliberate decision about copy + UI implications.
+        assertEquals(
+            listOf(
+                EmbedUi.RecordUnavailable.Reason.NotFound,
+                EmbedUi.RecordUnavailable.Reason.Blocked,
+                EmbedUi.RecordUnavailable.Reason.Detached,
+                EmbedUi.RecordUnavailable.Reason.Unknown,
+            ),
+            EmbedUi.RecordUnavailable.Reason
+                .values()
+                .toList(),
+        )
+    }
+
+    @Test
+    fun `RecordUnavailable variants with the same Reason are structurally equal`() {
+        val a = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound)
+        val b = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound)
+        assertEquals(a, b)
+        assertEquals(a.hashCode(), b.hashCode())
+    }
+
+    @Test
     fun `PostStatsUi defaults are all zero`() {
         val stats = PostStatsUi()
         assertEquals(0, stats.replyCount)

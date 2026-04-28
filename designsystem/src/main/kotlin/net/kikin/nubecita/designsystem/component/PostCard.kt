@@ -41,6 +41,8 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
+import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
@@ -93,6 +95,7 @@ fun PostCard(
     modifier: Modifier = Modifier,
     callbacks: PostCallbacks = PostCallbacks.None,
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
+    quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -121,6 +124,7 @@ fun PostCard(
                         embed = post.embed,
                         callbacks = callbacks,
                         videoEmbedSlot = videoEmbedSlot,
+                        quotedVideoEmbedSlot = quotedVideoEmbedSlot,
                     )
                     Spacer(Modifier.height(8.dp))
                     ActionRow(post = post, callbacks = callbacks)
@@ -207,6 +211,7 @@ private fun EmbedSlot(
     embed: EmbedUi,
     callbacks: PostCallbacks,
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)?,
+    quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)?,
 ) {
     when (embed) {
         EmbedUi.Empty -> Unit
@@ -233,6 +238,17 @@ private fun EmbedSlot(
                 thumbUrl = embed.thumbUrl,
                 onTap = callbacks.onExternalEmbedTap,
             )
+        }
+        is EmbedUi.Record -> {
+            Spacer(Modifier.height(10.dp))
+            PostCardQuotedPost(
+                quotedPost = embed.quotedPost,
+                quotedVideoEmbedSlot = quotedVideoEmbedSlot,
+            )
+        }
+        is EmbedUi.RecordUnavailable -> {
+            Spacer(Modifier.height(10.dp))
+            PostCardRecordUnavailable(reason = embed.reason)
         }
         is EmbedUi.Unsupported -> {
             Spacer(Modifier.height(10.dp))
@@ -382,6 +398,53 @@ private fun PostCardWithExternalEmbedPreview() {
                             description = "The billionaire battle goes to court.",
                             thumbUrl = "https://example.com/preview-external-thumb.jpg",
                         ),
+                ),
+        )
+    }
+}
+
+@Preview(name = "PostCard — with quoted post (text-only quote)", showBackground = true)
+@Composable
+private fun PostCardWithQuotedPostPreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    embed =
+                        EmbedUi.Record(
+                            quotedPost =
+                                QuotedPostUi(
+                                    uri = "at://did:plc:quoted/app.bsky.feed.post/q",
+                                    cid = "bafyreifakequotedcid000000000000000000000000000",
+                                    author =
+                                        net.kikin.nubecita.data.models.AuthorUi(
+                                            did = "did:plc:quoted",
+                                            handle = "acyn.bsky.social",
+                                            displayName = "Acyn",
+                                            avatarUrl = null,
+                                        ),
+                                    createdAt = Clock.System.now() - 60.minutes,
+                                    text =
+                                        "Bluesky's quoted-post rendering needs to match the official " +
+                                            "client — full text, single-line author, no action row, " +
+                                            "embed dispatch including video.",
+                                    facets = persistentListOf(),
+                                    embed = QuotedEmbedUi.Empty,
+                                ),
+                        ),
+                ),
+        )
+    }
+}
+
+@Preview(name = "PostCard — with quoted post unavailable", showBackground = true)
+@Composable
+private fun PostCardWithRecordUnavailablePreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    embed = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
                 ),
         )
     }

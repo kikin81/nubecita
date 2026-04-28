@@ -43,6 +43,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
@@ -310,10 +311,37 @@ private fun LoadedFeedContent(
                             }
                         }
                     }
+                // Quoted-post video slot. Bind identity is the QUOTED
+                // post's URI (per mostVisibleVideoTarget's
+                // videoBindingFor) so the coordinator naturally
+                // distinguishes parent vs quoted videos. Slot is null
+                // when this item doesn't carry a quoted post — the
+                // remember sits at the same call site every
+                // recomposition (key flip drops the lambda cleanly).
+                val quotedVideoUri = (post.embed as? EmbedUi.Record)?.quotedPost?.uri
+                val quotedVideoSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
+                    remember(quotedVideoUri, coordinator) {
+                        if (quotedVideoUri == null) {
+                            null
+                        } else {
+                            { qVideo ->
+                                if (coordinator != null) {
+                                    PostCardVideoEmbed(
+                                        quotedVideo = qVideo,
+                                        postId = quotedVideoUri,
+                                        coordinator = coordinator,
+                                    )
+                                } else {
+                                    PostCardVideoEmbed(quotedVideo = qVideo)
+                                }
+                            }
+                        }
+                    }
                 PostCard(
                     post = post,
                     callbacks = callbacks,
                     videoEmbedSlot = videoSlot,
+                    quotedVideoEmbedSlot = quotedVideoSlot,
                 )
             }
             if (isAppending) {

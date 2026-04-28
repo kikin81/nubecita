@@ -38,6 +38,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.extendedShape
@@ -137,6 +138,66 @@ internal fun PostCardVideoEmbed(
         )
     }
 }
+
+/**
+ * Phase-B overload for a quoted-post video. Adapts the
+ * `QuotedEmbedUi.Video` (carried by a `QuotedPostUi`) to the same
+ * field-set the parent `EmbedUi.Video` overload renders. Used by
+ * the `:designsystem` `quotedVideoEmbedSlot` lambda when no
+ * coordinator is available (preview / screenshot tests).
+ */
+@Composable
+internal fun PostCardVideoEmbed(
+    quotedVideo: QuotedEmbedUi.Video,
+    modifier: Modifier = Modifier,
+) {
+    val asEmbedUiVideo = remember(quotedVideo) { quotedVideo.toEmbedUiVideo() }
+    PostCardVideoEmbed(video = asEmbedUiVideo, modifier = modifier)
+}
+
+/**
+ * Phase-C autoplay overload for a quoted-post video. Adapts to the
+ * parent `EmbedUi.Video` shape and forwards to the existing autoplay
+ * pipeline; the bind identity is the quoted post's AT URI (passed in
+ * as [postId]) so the coordinator's "is this the same target?"
+ * rebind logic naturally distinguishes parent and quoted videos.
+ *
+ * Inspection mode falls through to the phase-B overload as the
+ * parent does — layoutlib can't construct `PlayerSurface`.
+ */
+@Composable
+internal fun PostCardVideoEmbed(
+    quotedVideo: QuotedEmbedUi.Video,
+    postId: String,
+    coordinator: FeedVideoPlayerCoordinator,
+    modifier: Modifier = Modifier,
+) {
+    val asEmbedUiVideo = remember(quotedVideo) { quotedVideo.toEmbedUiVideo() }
+    PostCardVideoEmbed(
+        video = asEmbedUiVideo,
+        postId = postId,
+        coordinator = coordinator,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Adapter — converts a quoted-post video to the parent video
+ * shape. Wrapper-type duplication on the data side (per the
+ * compile-time recursion bound) becomes wrapper-type unification
+ * here, where the renderer doesn't care which sealed type carries
+ * the field-set. Memoized via `remember(quotedVideo)` at each call
+ * site so the allocation lands once per visible quoted-video, not
+ * per recomposition.
+ */
+private fun QuotedEmbedUi.Video.toEmbedUiVideo(): EmbedUi.Video =
+    EmbedUi.Video(
+        posterUrl = posterUrl,
+        playlistUrl = playlistUrl,
+        aspectRatio = aspectRatio,
+        durationSeconds = durationSeconds,
+        altText = altText,
+    )
 
 @Composable
 private fun PostCardVideoEmbedAutoplay(

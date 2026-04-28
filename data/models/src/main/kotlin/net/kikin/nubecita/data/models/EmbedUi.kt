@@ -17,12 +17,15 @@ import kotlinx.collections.immutable.ImmutableList
  * - [Images] — `app.bsky.embed.images`, 1–4 images
  * - [Video] — `app.bsky.embed.video#view`, HLS-backed video post
  * - [External] — `app.bsky.embed.external#view`, native link-preview card
- * - [Unsupported] — any embed type outside the current scope (`#record`,
- *   `#recordWithMedia`); rendered as a deliberate "Unsupported embed"
+ * - [Record] — `app.bsky.embed.record#viewRecord`, resolved quoted post
+ * - [RecordUnavailable] — `app.bsky.embed.record#view{NotFound,Blocked,Detached}`
+ *   plus the open-union `Unknown` fallback; rendered as a "Quoted post
+ *   unavailable" chip
+ * - [Unsupported] — any embed type outside the current scope
+ *   (`#recordWithMedia`); rendered as a deliberate "Unsupported embed"
  *   chip, NOT an error
  *
  * Future variants (one per follow-on bd ticket):
- * - `Record` (nubecita-6vq)
  * - `RecordWithMedia` (nubecita-umn)
  */
 @Immutable
@@ -95,8 +98,57 @@ public sealed interface EmbedUi {
     ) : EmbedUi
 
     /**
+     * Bluesky `app.bsky.embed.record#viewRecord`.
+     *
+     * A quoted post that resolved successfully — the lexicon
+     * carried the full quoted-post payload (author + record value
+     * + optional inner embeds). The render layer renders this at
+     * near-parent density via `PostCardQuotedPost`.
+     *
+     * The [quotedPost] type ([QuotedPostUi]) carries an embed of
+     * type [QuotedEmbedUi] (NOT [EmbedUi]) — the recursion bound
+     * is enforced at the type system, see [QuotedEmbedUi].
+     */
+    public data class Record(
+        val quotedPost: QuotedPostUi,
+    ) : EmbedUi
+
+    /**
+     * Bluesky `app.bsky.embed.record#view{NotFound,Blocked,Detached}`
+     * and the open-union `Unknown` fallback.
+     *
+     * The render layer renders a single-stub chip ("Quoted post
+     * unavailable") regardless of [reason]. The reason is carried for
+     * forward compat (per-variant copy upgrade) and for telemetry /
+     * debug consumers; v1 does not vary copy by reason.
+     */
+    public data class RecordUnavailable(
+        val reason: Reason,
+    ) : EmbedUi {
+        public enum class Reason {
+            /** Wire shape: `app.bsky.embed.record#viewNotFound` (post deleted or never existed). */
+            NotFound,
+
+            /** Wire shape: `app.bsky.embed.record#viewBlocked` (block relationship). */
+            Blocked,
+
+            /** Wire shape: `app.bsky.embed.record#viewDetached` (author detached the quote). */
+            Detached,
+
+            /**
+             * Open-union `Unknown` member, OR a `viewRecord` whose
+             * record `value` failed to decode as a valid
+             * `app.bsky.feed.post`, OR whose `createdAt` failed to
+             * parse as RFC3339.
+             */
+            Unknown,
+        }
+    }
+
+    /**
      * Embed type not supported by the current PostCard build. The lexicon
-     * URI (e.g. `"app.bsky.embed.record"`) is carried for debug labeling.
+     * URI (e.g. `"app.bsky.embed.recordWithMedia"`) is carried for debug
+     * labeling.
      */
     public data class Unsupported(
         val typeUri: String,
