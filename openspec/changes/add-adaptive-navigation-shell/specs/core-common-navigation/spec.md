@@ -1,0 +1,78 @@
+## ADDED Requirements
+
+### Requirement: `:core:common:navigation` provides `MainShellNavState` Compose-owned multi-tab state holder
+
+`:core:common:navigation` SHALL expose a public `MainShellNavState` class and a `@Composable rememberMainShellNavState(startRoute: NavKey, topLevelRoutes: Set<NavKey>): MainShellNavState` factory. The class SHALL hold:
+
+- `topLevelKey: NavKey` — the active tab, mutable.
+- A per-top-level-route map of back stacks (`NavBackStack<NavKey>` per route).
+- A flattened `backStack: SnapshotStateList<NavKey>` view suitable for passing to `NavDisplay.backStack`, computed across the active tabs in "exit through home" order.
+
+The class SHALL expose:
+
+- `addTopLevel(key: NavKey)` — switch active tab; preserve the outgoing tab's stack.
+- `add(key: NavKey)` — push `key` onto the active tab's stack.
+- `removeLast()` — pop. If the popped key is a top-level route, the active tab SHALL switch back toward the start route per the recipe's "exit through home" rule.
+
+The factory SHALL persist `topLevelKey` via `rememberSerializable(... NavKeySerializer ...)` and per-tab back stacks via `rememberNavBackStack(...)`, so configuration change and process death restore the prior state.
+
+The class SHALL NOT be `@Inject`-able. It is intended to be created inside a Composable's body.
+
+#### Scenario: Tab switch preserves outgoing stack
+
+- **WHEN** `addTopLevel(SearchHome)` is called from a state where the active tab is Feed and the Feed stack contains `[FeedHome, Profile("alice")]`
+- **THEN** `topLevelKey` SHALL become `SearchHome`, and a subsequent `addTopLevel(FeedHome)` SHALL restore Feed with the stack `[FeedHome, Profile("alice")]` intact
+
+#### Scenario: Process-death round-trip restores state
+
+- **WHEN** a `MainShellNavState` is created via `rememberMainShellNavState(...)`, mutated to `[FeedHome, Profile("alice")]` on Feed, and the hosting Composable goes through a `saveInstanceState` → `recreate()` cycle
+- **THEN** the post-recreation `MainShellNavState` SHALL report `topLevelKey == Feed` and the Feed back stack `[FeedHome, Profile("alice")]`
+
+### Requirement: `:core:common:navigation` exposes `LocalMainShellNavState` `CompositionLocal`
+
+`:core:common:navigation` SHALL expose `val LocalMainShellNavState: ProvidableCompositionLocal<MainShellNavState>` with no default value. `MainShell` SHALL provide it via `CompositionLocalProvider` so that descendant Composables can call `LocalMainShellNavState.current` to obtain the active state holder.
+
+ViewModels SHALL NOT access `LocalMainShellNavState`. CompositionLocals are not reachable from a `ViewModel` — this constraint is enforced by the type system.
+
+#### Scenario: Descendant Composable reads MainShellNavState from CompositionLocal
+
+- **WHEN** a screen Composable inside the inner `NavDisplay` reads `LocalMainShellNavState.current` and calls `add(Profile(handle = "alice"))`
+- **THEN** the active tab's back stack SHALL gain the `Profile(handle = "alice")` entry
+
+#### Scenario: Reading LocalMainShellNavState outside MainShell throws
+
+- **WHEN** a Composable not hosted inside `MainShell`'s `CompositionLocalProvider` reads `LocalMainShellNavState.current`
+- **THEN** an `IllegalStateException` SHALL be thrown stating that no `MainShellNavState` is provided
+
+### Requirement: `:core:common:navigation` provides `@OuterShell` and `@MainShell` Hilt qualifier annotations
+
+`:core:common:navigation` SHALL expose two `@Qualifier`-annotated annotations:
+
+- `@OuterShell` — for `EntryProviderInstaller` providers contributing to the outer `NavDisplay` (Splash, Login, the `Main` wrapper entry).
+- `@MainShell` — for `EntryProviderInstaller` providers contributing to the inner `NavDisplay` hosted by `MainShell` (Feed, Search, Chats, You + their sub-routes).
+
+Both qualifiers SHALL be retained at `BINARY` level. Feature modules contributing entries SHALL annotate their `@Provides @IntoSet` declarations with exactly one of these qualifiers. `:app`'s `NavigationEntryPoint` SHALL expose two distinct accessor methods, one annotated with each qualifier, returning `Set<@JvmSuppressWildcards EntryProviderInstaller>`.
+
+#### Scenario: Outer-shell binding is collected via @OuterShell accessor
+
+- **WHEN** a feature module declares `@Provides @IntoSet @OuterShell fun provide…(): EntryProviderInstaller = { entry<X> { … } }`
+- **THEN** the binding SHALL be retrievable via `NavigationEntryPoint.outerEntryProviderInstallers()` and SHALL NOT appear in `NavigationEntryPoint.mainShellEntryProviderInstallers()`
+
+#### Scenario: MainShell binding is collected via @MainShell accessor
+
+- **WHEN** a feature module declares `@Provides @IntoSet @MainShell fun provide…(): EntryProviderInstaller = { entry<X> { … } }`
+- **THEN** the binding SHALL be retrievable via `NavigationEntryPoint.mainShellEntryProviderInstallers()` and SHALL NOT appear in `NavigationEntryPoint.outerEntryProviderInstallers()`
+
+#### Scenario: Unqualified binding is no longer collected
+
+- **WHEN** a feature module declares `@Provides @IntoSet fun provide…(): EntryProviderInstaller = { entry<X> { … } }` without either qualifier
+- **THEN** the binding SHALL NOT be collected by either accessor and the entry SHALL NOT be reachable through any `NavDisplay`
+
+### Requirement: Existing feature modules migrate to qualified bindings
+
+`:feature:login:impl`'s `EntryProviderInstaller` provider SHALL be annotated `@OuterShell`. `:feature:feed:impl`'s `EntryProviderInstaller` provider SHALL be annotated `@MainShell`. After this change, no `:feature:*:impl` module in the repository SHALL `@Provides @IntoSet` an `EntryProviderInstaller` without either `@OuterShell` or `@MainShell`.
+
+#### Scenario: Repository scan finds no unqualified providers
+
+- **WHEN** the repository is scanned for `@Provides @IntoSet fun .*: EntryProviderInstaller`
+- **THEN** every match SHALL also carry `@OuterShell` or `@MainShell` on the same provider declaration
