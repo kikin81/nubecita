@@ -18,6 +18,9 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    outputs:
+      new-release-published: ${{ steps.release.outputs.new-release-published }}
+      new-release-version: ${{ steps.release.outputs.new-release-version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -38,11 +41,51 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Release
+        id: release
         uses: open-turo/actions-jvm/release@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # TODO: Firebase App Distribution is deferred to a follow-up design.
-      # When enabled, add a step here that uploads the release APK using
-      # `wzieba/Firebase-Distribution-Github-Action` or the Firebase CLI.
-      # Required secrets: FIREBASE_APP_ID, FIREBASE_SERVICE_ACCOUNT.
+  distribute:
+    name: Distribute Debug APK
+    needs: release
+    if: needs.release.outputs.new-release-published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout post-bump main
+        # Explicitly check out post-bump main so the build picks up
+        # semantic-release's version-bump commit. Without ref:main we'd build
+        # from the workflow's triggering SHA (pre-bump) and the APK's
+        # versionName would lag the release notes.
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Capture built SHA
+        # github.sha is the workflow's triggering SHA (pre-bump). After
+        # checkout of main, HEAD is the post-bump commit — capture it so
+        # the release notes match the APK actually being uploaded.
+        id: built
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Decode service account key
+        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" | base64 -d > /tmp/firebase-sa-key.json
+
+      - name: Build and distribute
+        run: ./gradlew assembleDebug appDistributionUploadDebug
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa-key.json
+          APP_DISTRIBUTION_RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"

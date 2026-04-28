@@ -1,6 +1,10 @@
+import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
+
 plugins {
     alias(libs.plugins.nubecita.android.application)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.appdistribution)
     jacoco
 }
 
@@ -10,13 +14,26 @@ android {
     defaultConfig {
         applicationId = "net.kikin.nubecita"
         versionCode = 1
-        versionName = "1.0"
+        versionName = project.property("version").toString()
 
         buildConfigField(
             type = "String",
             name = "OAUTH_CLIENT_METADATA_URL",
             value = "\"https://kikin81.github.io/nubecita/oauth/client-metadata.json\"",
         )
+    }
+
+    buildTypes {
+        debug {
+            firebaseAppDistribution {
+                groups = "internal-testers"
+                // providers.environmentVariable(...) is configuration-cache-aware:
+                // Gradle tracks the env var as an input and invalidates the cache
+                // when it changes between runs, unlike System.getenv() which bakes
+                // the value into the cache silently.
+                releaseNotes = providers.environmentVariable("APP_DISTRIBUTION_RELEASE_NOTES").orElse("").get()
+            }
+        }
     }
 
     packaging {
@@ -34,6 +51,7 @@ android {
 
 dependencies {
     implementation(platform(libs.coil.bom))
+    implementation(platform(libs.firebase.bom))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":designsystem"))
@@ -54,11 +72,14 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.coil.core)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.timber)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    debugImplementation(libs.firebase.appcheck.debug)
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
