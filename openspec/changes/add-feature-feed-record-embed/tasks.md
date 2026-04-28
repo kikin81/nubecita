@@ -28,16 +28,16 @@
 
 ## 4. `PostCardQuotedPost` composable in `:designsystem`
 
-- [ ] 4.1 Add `PostCardQuotedPost(quotedPost: QuotedPostUi, modifier, quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null)`. `surfaceContainerLow`, `RoundedCornerShape(12.dp)`. NO `Modifier.clickable` — v1 ships without a tap target per Decision 4.
-- [ ] 4.2 Implement author row: 32 dp `NubecitaAvatar`, single non-wrapping line "Display Name @handle · 4h" with the existing `PostCard.AuthorLine`-style truncation rules.
-- [ ] 4.3 Implement body text: `bodyMedium`, no `maxLines` cap.
-- [ ] 4.4 Implement private `QuotedEmbedSlot` composable — exhaustive `when (embed: QuotedEmbedUi)` over Empty / Images (reuse `PostCardImageEmbed`) / External (reuse `PostCardExternalEmbed` with `onTap = {}`) / Video (`quotedVideoEmbedSlot?.invoke(embed)`) / QuotedThreadChip / Unsupported (reuse `PostCardUnsupportedEmbed`).
-- [ ] 4.5 Implement the `QuotedThreadChip` placeholder render — same surface treatment as `PostCardRecordUnavailable`, copy "View thread".
-- [ ] 4.6 Add `quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null` parameter to `PostCard`; thread to `PostCardQuotedPost` when dispatching `EmbedUi.Record`. Default null preserves the `:designsystem`-only Media3-free preview path.
-- [ ] 4.7 Update PostCard's `EmbedUi.Record` arm to use the new composable (replaces the temporary `PostCardUnsupportedEmbed` route from task 1.4).
-- [ ] 4.8 Add @Preview composables for `PostCardQuotedPost`: text-only / with-image / with-external / with-thread-chip / with-unsupported variants.
-- [ ] 4.9 Add `PostCardQuotedPostScreenshotTest` × {light, dark}: text-only, with-image, with-external, with-thread-chip = 8 baselines. (Video baseline lands in task 5.)
-- [ ] 4.10 Add a `PostCard` `@Preview` pair showing a parent post containing a quoted post, to exercise the integrated dispatch in the existing PostCard preview matrix.
+- [x] 4.1 Add `PostCardQuotedPost(quotedPost: QuotedPostUi, modifier, quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null)`. `surfaceContainerLow`, `RoundedCornerShape(12.dp)`. NO `Modifier.clickable` — v1 ships without a tap target per Decision 4.
+- [x] 4.2 Implement author row: 32 dp `NubecitaAvatar`, single non-wrapping line "Display Name @handle · 4h" with the existing `PostCard.AuthorLine`-style truncation rules.
+- [x] 4.3 Implement body text: `bodyMedium`, no `maxLines` cap.
+- [x] 4.4 Implement private `QuotedEmbedSlot` composable — exhaustive `when (embed: QuotedEmbedUi)` over Empty / Images (reuse `PostCardImageEmbed`) / External (reuse `PostCardExternalEmbed` with `onTap = {}`) / Video (`quotedVideoEmbedSlot?.invoke(embed)`) / QuotedThreadChip / Unsupported (reuse `PostCardUnsupportedEmbed`).
+- [x] 4.5 Implement the `QuotedThreadChip` placeholder render — same surface treatment as `PostCardRecordUnavailable`, copy "View thread".
+- [x] 4.6 Add `quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null` parameter to `PostCard`; thread to `PostCardQuotedPost` when dispatching `EmbedUi.Record`. Default null preserves the `:designsystem`-only Media3-free preview path.
+- [x] 4.7 Update PostCard's `EmbedUi.Record` arm to use the new composable (replaces the temporary `PostCardUnsupportedEmbed` route from task 1.4).
+- [x] 4.8 Add @Preview composables for `PostCardQuotedPost`: text-only / with-image / with-external / with-thread-chip / with-unsupported variants.
+- [x] 4.9 Add `PostCardQuotedPostScreenshotTest` × {light, dark}: text-only, with-image, with-external, with-thread-chip = 8 baselines. (Video baseline lands in task 5.)
+- [x] 4.10 Add a `PostCard` `@Preview` pair showing a parent post containing a quoted post, to exercise the integrated dispatch in the existing PostCard preview matrix.
 
 ## 5. Coordinator extension + quoted video render in `:feature:feed:impl`
 
