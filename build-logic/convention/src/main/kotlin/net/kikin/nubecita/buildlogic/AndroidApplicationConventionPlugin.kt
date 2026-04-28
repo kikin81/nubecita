@@ -36,6 +36,11 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                         getDefaultProguardFile("proguard-android-optimize.txt"),
                         "proguard-rules.pro",
                     )
+                    // Debug-signed release for local perf verification (gfxinfo,
+                    // Perfetto, Macrobenchmark) — release runtime characteristics
+                    // without the AGP "no signing config" install failure. Production
+                    // signing config lands separately when the release pipeline ships.
+                    signingConfig = signingConfigs.getByName("debug")
                 }
 
                 lint {
@@ -45,6 +50,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 }
             }
 
+            configureComposeCompilerReports()
             configureJunitPlatform()
 
             dependencies {

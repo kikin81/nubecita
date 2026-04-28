@@ -25,6 +25,8 @@ class AndroidLibraryComposeConventionPlugin : Plugin<Project> {
                 experimentalProperties["android.experimental.enableScreenshotTest"] = true
             }
 
+            configureComposeCompilerReports()
+
             dependencies {
                 val bom = libs.findLibrary("androidx-compose-bom").get()
                 "implementation"(platform(bom))
