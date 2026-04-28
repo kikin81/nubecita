@@ -3,7 +3,9 @@ package net.kikin.nubecita.feature.feed.impl.data
 import io.github.kikin81.atproto.app.bsky.feed.GetTimelineResponse
 import kotlinx.serialization.json.Json
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -310,12 +312,309 @@ internal class FeedViewPostMapperTest {
     }
 
     @Test
-    fun `record embed maps to EmbedUi_Unsupported with the record lexicon URI`() {
-        // The repost fixture's post carries a record (quote-post) embed
+    fun `record embed (viewRecord) maps to EmbedUi_Record with quoted post fields populated`() {
+        // The repost fixture's post quotes albert-breer's post; that quoted
+        // post itself quotes surf.social, so the inner embed is the recursion-
+        // bound sentinel.
         val response = decodeFixture("timeline_with_repost.json")
         val mapped = response.feed.single().toPostUiOrNull()
         assertNotNull(mapped)
-        assertEquals(EmbedUi.Unsupported(typeUri = "app.bsky.embed.record"), mapped!!.embed)
+        val record = mapped!!.embed as EmbedUi.Record
+        val quoted = record.quotedPost
+        assertEquals("at://did:plc:aokijbva3wrsbt7sqsvm4g5w/app.bsky.feed.post/3mjxaa6tti22w", quoted.uri)
+        assertEquals("bafyreif723oiwg4goatyl2miyjifwcvggqi62i2mlrubfkwadsvfy4smaa", quoted.cid)
+        assertEquals("albert-breer.bsky.social", quoted.author.handle)
+        assertTrue(quoted.text.startsWith("We're doing an AMA here"), "unexpected text: ${quoted.text}")
+        // albert-breer's post quotes surf.social — the recursion bound kicks in here.
+        assertEquals(QuotedEmbedUi.QuotedThreadChip, quoted.embed)
+        // The fixture carries a single link facet on the quoted post's text.
+        assertEquals(1, quoted.facets.size)
+    }
+
+    @Test
+    fun `record viewNotFound maps to EmbedUi_RecordUnavailable_NotFound`() {
+        val mapped = decodeAndMapSingle(quotedPostEmbedJson(viewType = "viewNotFound"))
+        assertEquals(
+            EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
+            mapped.embed,
+        )
+    }
+
+    @Test
+    fun `record viewBlocked maps to EmbedUi_RecordUnavailable_Blocked`() {
+        val mapped = decodeAndMapSingle(quotedPostEmbedJson(viewType = "viewBlocked"))
+        assertEquals(
+            EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Blocked),
+            mapped.embed,
+        )
+    }
+
+    @Test
+    fun `record viewDetached maps to EmbedUi_RecordUnavailable_Detached`() {
+        val mapped = decodeAndMapSingle(quotedPostEmbedJson(viewType = "viewDetached"))
+        assertEquals(
+            EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Detached),
+            mapped.embed,
+        )
+    }
+
+    @Test
+    fun `record viewRecord with malformed value maps to RecordUnavailable_Unknown and the parent still maps`() {
+        // Quoted record `value` is missing the required `text` field —
+        // decode fails. Parent post must still map to a non-null PostUi.
+        val malformedJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "createdAt": "2026-04-26T12:00:00Z"
+                    }
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(malformedJson)
+        assertEquals(
+            EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Unknown),
+            mapped.embed,
+        )
+        // Parent text is preserved — the malformed quoted record did not
+        // tank the parent post mapping.
+        assertEquals("parent post text", mapped.text)
+    }
+
+    @Test
+    fun `record viewRecord with malformed createdAt maps to RecordUnavailable_Unknown`() {
+        // The quoted record's `value` decodes (text + createdAt fields
+        // present) but createdAt is "not-a-date" — Instant.parse throws.
+        val badCreatedAtJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "quoted text",
+                      "createdAt": "not-a-date"
+                    }
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(badCreatedAtJson)
+        assertEquals(
+            EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Unknown),
+            mapped.embed,
+        )
+    }
+
+    @Test
+    fun `record viewRecord with inner Images embed maps quotedPost_embed to QuotedEmbedUi_Images`() {
+        val innerImagesJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "quoted text",
+                      "createdAt": "2026-04-26T12:00:00Z"
+                    },
+                    "embeds": [
+                      {
+                        "${'$'}type": "app.bsky.embed.images#view",
+                        "images": [
+                          { "thumb": "https://cdn/t.jpg", "fullsize": "https://cdn/f.jpg", "alt": "" },
+                          { "thumb": "https://cdn/t2.jpg", "fullsize": "https://cdn/f2.jpg", "alt": "" }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(innerImagesJson)
+        val quoted = (mapped.embed as EmbedUi.Record).quotedPost
+        val images = quoted.embed as QuotedEmbedUi.Images
+        assertEquals(2, images.items.size)
+        assertEquals("https://cdn/f.jpg", images.items[0].url)
+    }
+
+    @Test
+    fun `record viewRecord with inner External embed maps quotedPost_embed to QuotedEmbedUi_External with precomputed domain`() {
+        val innerExternalJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "quoted text",
+                      "createdAt": "2026-04-26T12:00:00Z"
+                    },
+                    "embeds": [
+                      {
+                        "${'$'}type": "app.bsky.embed.external#view",
+                        "external": {
+                          "uri": "https://www.example.com/article",
+                          "title": "Article",
+                          "description": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(innerExternalJson)
+        val quoted = (mapped.embed as EmbedUi.Record).quotedPost
+        val external = quoted.embed as QuotedEmbedUi.External
+        assertEquals("https://www.example.com/article", external.uri)
+        assertEquals("example.com", external.domain)
+    }
+
+    @Test
+    fun `record viewRecord with inner Video embed maps quotedPost_embed to QuotedEmbedUi_Video`() {
+        val innerVideoJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "quoted text",
+                      "createdAt": "2026-04-26T12:00:00Z"
+                    },
+                    "embeds": [
+                      {
+                        "${'$'}type": "app.bsky.embed.video#view",
+                        "cid": "bafkreifakevidcid0000000000000000000000000000",
+                        "playlist": "https://video.bsky.app/.../q.m3u8",
+                        "aspectRatio": { "width": 1920, "height": 1080 }
+                      }
+                    ]
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(innerVideoJson)
+        val quoted = (mapped.embed as EmbedUi.Record).quotedPost
+        val video = quoted.embed as QuotedEmbedUi.Video
+        assertEquals("https://video.bsky.app/.../q.m3u8", video.playlistUrl)
+        assertEquals(1920f / 1080f, video.aspectRatio, 0.0001f)
+    }
+
+    @Test
+    fun `record viewRecord with inner Video embed missing playlist falls through to QuotedEmbedUi_Unsupported`() {
+        val innerBlankPlaylistJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "quoted text",
+                      "createdAt": "2026-04-26T12:00:00Z"
+                    },
+                    "embeds": [
+                      {
+                        "${'$'}type": "app.bsky.embed.video#view",
+                        "cid": "bafkreifakevidcid0000000000000000000000000000",
+                        "playlist": ""
+                      }
+                    ]
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(innerBlankPlaylistJson)
+        val quoted = (mapped.embed as EmbedUi.Record).quotedPost
+        assertEquals(QuotedEmbedUi.Unsupported("app.bsky.embed.video"), quoted.embed)
+    }
+
+    @Test
+    fun `record viewRecord with inner RecordWithMedia maps quotedPost_embed to QuotedEmbedUi_Unsupported`() {
+        // Synthetic minimal recordWithMedia view — inner shape doesn't matter
+        // for the dispatch test, only the top-level $type does.
+        val innerRwmJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "quoted text",
+                      "createdAt": "2026-04-26T12:00:00Z"
+                    },
+                    "embeds": [
+                      {
+                        "${'$'}type": "app.bsky.embed.recordWithMedia#view",
+                        "record": {
+                          "${'$'}type": "app.bsky.embed.record#view",
+                          "record": {
+                            "${'$'}type": "app.bsky.embed.record#viewNotFound",
+                            "uri": "at://did:plc:fake/app.bsky.feed.post/inner",
+                            "notFound": true
+                          }
+                        },
+                        "media": {
+                          "${'$'}type": "app.bsky.embed.images#view",
+                          "images": []
+                        }
+                      }
+                    ]
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(innerRwmJson)
+        val quoted = (mapped.embed as EmbedUi.Record).quotedPost
+        assertInstanceOf(QuotedEmbedUi.Unsupported::class.java, quoted.embed)
+        assertEquals("app.bsky.embed.recordWithMedia", (quoted.embed as QuotedEmbedUi.Unsupported).typeUri)
     }
 
     @Test
@@ -399,5 +698,75 @@ internal class FeedViewPostMapperTest {
                 "fixture $name not found on test classpath"
             }.bufferedReader().use { it.readText() }
         return json.decodeFromString(GetTimelineResponse.serializer(), text)
+    }
+
+    /**
+     * Decode an inline `getTimeline` JSON string, then map the single
+     * (and only) post via `toPostUiOrNull`, asserting non-null.
+     * Centralizes the boilerplate the synthetic-JSON tests would
+     * otherwise duplicate.
+     */
+    private fun decodeAndMapSingle(timelineJson: String): net.kikin.nubecita.data.models.PostUi {
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), timelineJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        return mapped!!
+    }
+
+    /**
+     * Builds a minimal one-post timeline whose post.embed slot is the
+     * provided JSON snippet. The parent post itself carries text
+     * "parent post text" — we assert this in the malformed-quoted-record
+     * test to confirm the parent isn't dropped.
+     */
+    private fun wrapAsTimelineJson(embedJsonSnippet: String): String =
+        """
+        {
+          "feed": [{
+            "post": {
+              "uri": "at://did:plc:fakeparent/app.bsky.feed.post/parent",
+              "cid": "bafyreifakeparentcid00000000000000000000000000",
+              "author": {
+                "did": "did:plc:fakeparent",
+                "handle": "parent.bsky.social"
+              },
+              "indexedAt": "2026-04-26T12:00:00Z",
+              "record": {
+                "${'$'}type": "app.bsky.feed.post",
+                "text": "parent post text",
+                "createdAt": "2026-04-26T12:00:00Z"
+              },
+              $embedJsonSnippet
+            }
+          }]
+        }
+        """.trimIndent()
+
+    /**
+     * Builds a timeline whose post embed is one of the lexicon's
+     * `app.bsky.embed.record#view{NotFound,Blocked,Detached}` shapes.
+     * [viewType] is the bare type fragment (e.g. "viewNotFound").
+     */
+    private fun quotedPostEmbedJson(viewType: String): String {
+        val variantFields =
+            when (viewType) {
+                "viewNotFound" -> "\"notFound\": true"
+                "viewBlocked" ->
+                    """"blocked": true, "author": { "did": "did:plc:fake", "viewer": {} }"""
+                "viewDetached" -> "\"detached\": true"
+                else -> error("unknown viewType: $viewType")
+            }
+        return wrapAsTimelineJson(
+            """
+            "embed": {
+              "${'$'}type": "app.bsky.embed.record#view",
+              "record": {
+                "${'$'}type": "app.bsky.embed.record#$viewType",
+                "uri": "at://did:plc:fake/app.bsky.feed.post/missing",
+                $variantFields
+              }
+            }
+            """.trimIndent(),
+        )
     }
 }

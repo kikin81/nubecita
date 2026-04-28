@@ -7,16 +7,16 @@
 
 ## 2. Mapper in `:feature:feed:impl`
 
-- [ ] 2.1 Extract `ImagesView.toImageUiList(): ImmutableList<ImageUi>` and `VideoView.toVideoPayload(): VideoPayload?` private helpers from existing `toEmbedUi` / `toVideoEmbedUi`. Refactor parent `Images` and `Video` arms to use them. Re-run existing `FeedViewPostMapperTest` — should be green with zero behavior change.
-- [ ] 2.2 Add `RecordViewRecord.toEmbedUiRecord(): EmbedUi.Record?` — decodes `value: JsonObject` via the shared `recordJson`, parses `createdAt`, populates `QuotedPostUi`. Returns null on decode / parse failure (caller maps to `RecordUnavailable.Unknown`).
-- [ ] 2.3 Add `RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi` — exhaustive dispatch covering `Images` / `Video` (via shared payload helper, with playlist-blank → `Unsupported`) / `External` (with precomputed domain via existing `displayDomainOf`) / `RecordView` → `QuotedThreadChip` / `RecordWithMediaView` → `Unsupported` / `Unknown` → `Unsupported(typeUri)`.
-- [ ] 2.4 Replace the `RecordView -> EmbedUi.Unsupported("app.bsky.embed.record")` arm in `toEmbedUi` with a dispatch over `RecordViewRecordUnion`'s 4 + 1 variants (`RecordViewRecord` → `toEmbedUiRecord()` ?: `Unknown`; `NotFound` / `Blocked` / `Detached` → respective `Reason`).
-- [ ] 2.5 Add `FeedViewPostMapperTest` cases:
+- [x] 2.1 Extract `ImagesView.toImageUiList(): ImmutableList<ImageUi>` and `VideoView.toVideoPayload(): VideoPayload?` private helpers from existing `toEmbedUi` / `toVideoEmbedUi`. Refactor parent `Images` and `Video` arms to use them. Re-run existing `FeedViewPostMapperTest` — should be green with zero behavior change.
+- [x] 2.2 Add `RecordViewRecord.toEmbedUiRecord(): EmbedUi.Record?` — decodes `value: JsonObject` via the shared `recordJson`, parses `createdAt`, populates `QuotedPostUi`. Returns null on decode / parse failure (caller maps to `RecordUnavailable.Unknown`).
+- [x] 2.3 Add `RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi` — exhaustive dispatch covering `Images` / `Video` (via shared payload helper, with playlist-blank → `Unsupported`) / `External` (with precomputed domain via existing `displayDomainOf`) / `RecordView` → `QuotedThreadChip` / `RecordWithMediaView` → `Unsupported` / `Unknown` → `Unsupported(typeUri)`.
+- [x] 2.4 Replace the `RecordView -> EmbedUi.Unsupported("app.bsky.embed.record")` arm in `toEmbedUi` with a dispatch over `RecordViewRecordUnion`'s 4 + 1 variants (`RecordViewRecord` → `toEmbedUiRecord()` ?: `Unknown`; `NotFound` / `Blocked` / `Detached` → respective `Reason`).
+- [x] 2.5 Add `FeedViewPostMapperTest` cases:
   - Resolved record with each inner-embed shape (Empty / Images / External / Video; nested RecordView → `QuotedThreadChip`; `RecordWithMediaView` → `Unsupported`)
   - `NotFound` / `Blocked` / `Detached` wire variants → corresponding `Reason`
   - Malformed quoted record `value` → `RecordUnavailable.Unknown`; parent post still maps non-null
   - Malformed quoted `createdAt` → `RecordUnavailable.Unknown`
-- [ ] 2.6 Update existing `record embed maps to EmbedUi_Unsupported` test (currently asserts the old behavior on `timeline_with_repost.json`) — assert the new `EmbedUi.Record` shape with the fixture's quoted-post fields.
+- [x] 2.6 Update existing `record embed maps to EmbedUi_Unsupported` test (currently asserts the old behavior on `timeline_with_repost.json`) — assert the new `EmbedUi.Record` shape with the fixture's quoted-post fields.
 
 ## 3. `PostCardRecordUnavailable` composable in `:designsystem`
 

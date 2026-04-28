@@ -4,6 +4,11 @@ import io.github.kikin81.atproto.app.bsky.actor.ProfileViewBasic
 import io.github.kikin81.atproto.app.bsky.embed.ExternalView
 import io.github.kikin81.atproto.app.bsky.embed.ImagesView
 import io.github.kikin81.atproto.app.bsky.embed.RecordView
+import io.github.kikin81.atproto.app.bsky.embed.RecordViewBlocked
+import io.github.kikin81.atproto.app.bsky.embed.RecordViewDetached
+import io.github.kikin81.atproto.app.bsky.embed.RecordViewNotFound
+import io.github.kikin81.atproto.app.bsky.embed.RecordViewRecord
+import io.github.kikin81.atproto.app.bsky.embed.RecordViewRecordEmbedsUnion
 import io.github.kikin81.atproto.app.bsky.embed.RecordWithMediaView
 import io.github.kikin81.atproto.app.bsky.embed.VideoView
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
@@ -13,6 +18,7 @@ import io.github.kikin81.atproto.app.bsky.feed.ReasonRepost
 import io.github.kikin81.atproto.app.bsky.feed.ViewerState
 import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.UnknownOpenUnionMember
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.Json
 import net.kikin.nubecita.data.models.AuthorUi
@@ -20,6 +26,8 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
+import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import kotlin.time.Instant
 
@@ -85,26 +93,15 @@ internal fun FeedViewPost.toPostUiOrNull(): PostUi? {
 
 /**
  * Maps the [PostViewEmbedUnion] open-union variant to PostCard's
- * [EmbedUi] surface (Empty / Images / Video / External / Unsupported).
- * Future `EmbedUi` variants (Record per nubecita-6vq, RecordWithMedia
- * per nubecita-umn) become compile errors at this `when` once they're
- * added to `EmbedUi`, surfacing the work needed.
+ * [EmbedUi] surface (Empty / Images / Video / External / Record /
+ * RecordUnavailable / Unsupported). Future `EmbedUi` variants
+ * (RecordWithMedia per nubecita-umn) become compile errors at this
+ * `when` once they're added to `EmbedUi`.
  */
 internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     when (this) {
         null -> EmbedUi.Empty
-        is ImagesView ->
-            EmbedUi.Images(
-                items =
-                    images
-                        .map { image ->
-                            ImageUi(
-                                url = image.fullsize.raw,
-                                altText = image.alt.takeIf { it.isNotBlank() },
-                                aspectRatio = image.aspectRatio?.let { it.width.toFloat() / it.height.toFloat() },
-                            )
-                        }.toImmutableList(),
-            )
+        is ImagesView -> EmbedUi.Images(items = toImageUiList())
         is ExternalView ->
             EmbedUi.External(
                 uri = external.uri.raw,
@@ -113,8 +110,17 @@ internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
                 description = external.description,
                 thumbUrl = external.thumb?.raw,
             )
-        is RecordView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.record")
-        is VideoView -> toVideoEmbedUi()
+        is RecordView -> toEmbedUiFromRecordView()
+        is VideoView ->
+            toVideoPayload()?.let { p ->
+                EmbedUi.Video(
+                    posterUrl = p.posterUrl,
+                    playlistUrl = p.playlistUrl,
+                    aspectRatio = p.aspectRatio,
+                    durationSeconds = p.durationSeconds,
+                    altText = p.altText,
+                )
+            } ?: EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
         is RecordWithMediaView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
         is PostViewEmbedUnion.Unknown -> EmbedUi.Unsupported(typeUri = type)
         // PostViewEmbedUnion is an open union (not sealed) — Kotlin can't prove
@@ -128,30 +134,141 @@ internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     }
 
 /**
- * Maps a Bluesky `app.bsky.embed.video#view` to [EmbedUi.Video] or, if
- * the lexicon's required `playlist` field is missing/empty, to
- * [EmbedUi.Unsupported].
+ * Dispatches a [RecordView] over its `record` open-union member. The
+ * 4 post-shaped variants map to [EmbedUi.Record] / [EmbedUi.RecordUnavailable];
+ * everything else (Generator/List/StarterPack/Labeler "quote-a-feed"
+ * cases plus the Unknown open-union fallback) falls through to
+ * [EmbedUi.RecordUnavailable.Reason.Unknown] — none of those is a
+ * post we can render, and "Quoted post unavailable" is the cheapest
+ * honest user-facing answer. Future tickets can route the
+ * non-post variants through their own Unsupported chips with proper
+ * friendly-name labels.
+ */
+private fun RecordView.toEmbedUiFromRecordView(): EmbedUi =
+    when (val r = record) {
+        is RecordViewRecord -> r.toEmbedUiRecord() ?: EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Unknown)
+        is RecordViewNotFound -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound)
+        is RecordViewBlocked -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Blocked)
+        is RecordViewDetached -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Detached)
+        else -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Unknown)
+    }
+
+/**
+ * Decodes a [RecordViewRecord] into [EmbedUi.Record]. Returns `null`
+ * (caller maps to `RecordUnavailable.Unknown`) when the embedded
+ * `value: JsonObject` cannot be decoded as a valid `app.bsky.feed.post`
+ * (missing required `text` / `createdAt`, type-incompatible value),
+ * or when the decoded `createdAt` is not a parseable RFC3339 timestamp.
+ *
+ * The parent post is NEVER dropped because of a malformed quoted
+ * record — that's the contract enforced by [FeedViewPost.toPostUiOrNull]'s
+ * caller.
+ */
+private fun RecordViewRecord.toEmbedUiRecord(): EmbedUi.Record? {
+    val rec =
+        runCatching { recordJson.decodeFromJsonElement(Post.serializer(), value) }
+            .getOrNull() ?: return null
+    val parsedCreatedAt =
+        runCatching { Instant.parse(rec.createdAt.raw) }
+            .getOrNull() ?: return null
+    return EmbedUi.Record(
+        quotedPost =
+            QuotedPostUi(
+                uri = uri.raw,
+                cid = cid.raw,
+                author = author.toAuthorUi(),
+                createdAt = parsedCreatedAt,
+                text = rec.text,
+                facets = rec.facets.valueOrEmpty().toImmutableList(),
+                embed = embeds?.firstOrNull().toQuotedEmbedUi(),
+            ),
+    )
+}
+
+/**
+ * Maps a quoted post's inner embed (the first element of the lexicon's
+ * `embeds` list — multiples are theoretically allowed but practically
+ * 0–1) to [QuotedEmbedUi]. The recursion bound is enforced here: a
+ * nested [RecordView] maps to [QuotedEmbedUi.QuotedThreadChip]; the
+ * mapper does NOT recurse into the doubly-quoted post.
+ */
+private fun RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi =
+    when (this) {
+        null -> QuotedEmbedUi.Empty
+        is ImagesView -> QuotedEmbedUi.Images(items = toImageUiList())
+        is VideoView ->
+            toVideoPayload()?.let { p ->
+                QuotedEmbedUi.Video(
+                    posterUrl = p.posterUrl,
+                    playlistUrl = p.playlistUrl,
+                    aspectRatio = p.aspectRatio,
+                    durationSeconds = p.durationSeconds,
+                    altText = p.altText,
+                )
+            } ?: QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
+        is ExternalView ->
+            QuotedEmbedUi.External(
+                uri = external.uri.raw,
+                domain = displayDomainOf(external.uri.raw),
+                title = external.title,
+                description = external.description,
+                thumbUrl = external.thumb?.raw,
+            )
+        is RecordView -> QuotedEmbedUi.QuotedThreadChip
+        is RecordWithMediaView -> QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
+        is RecordViewRecordEmbedsUnion.Unknown -> QuotedEmbedUi.Unsupported(typeUri = type)
+        // Open-union fallback — see toEmbedUi's same-shaped comment.
+        else -> QuotedEmbedUi.Unsupported(typeUri = (this as? UnknownOpenUnionMember)?.type ?: "unknown")
+    }
+
+/**
+ * Shared payload helpers — extracted from `toEmbedUi` and used by
+ * both the parent dispatch and the inner-quote dispatch. Wrapper
+ * variants ([EmbedUi.Images] vs [QuotedEmbedUi.Images], etc.)
+ * remain duplicated to keep the recursion bound expressible at the
+ * type system, but the underlying construction logic lives once.
+ */
+private fun ImagesView.toImageUiList(): ImmutableList<ImageUi> =
+    images
+        .map { image ->
+            ImageUi(
+                url = image.fullsize.raw,
+                altText = image.alt.takeIf { it.isNotBlank() },
+                aspectRatio = image.aspectRatio?.let { it.width.toFloat() / it.height.toFloat() },
+            )
+        }.toImmutableList()
+
+/**
+ * The five fields required to render a Bluesky video embed
+ * (`app.bsky.embed.video#view`). Returned as `null` from
+ * [toVideoPayload] when the lexicon's required `playlist` is blank;
+ * each call site maps that to its own `Unsupported` variant.
  *
  * Field-by-field notes:
- * - `posterUrl` is the optional `thumbnail` URL; null when absent. Render
- *   layer falls back to a gradient placeholder.
- * - `aspectRatio` falls back to 16:9 (`1.777f`) when the lexicon's
+ * - [posterUrl] is the optional `thumbnail` URL; null when absent.
+ * - [aspectRatio] falls back to 16:9 (`1.777f`) when the lexicon's
  *   optional field is absent — the render layer needs a stable measure
  *   before the poster loads.
- * - `durationSeconds` is hard-coded to `null` in v1: the lexicon does
+ * - [durationSeconds] is hard-coded to `null` in v1: the lexicon does
  *   NOT currently expose duration. Reserved for a future phase that
- *   sources it from a lexicon evolution or HLS manifest parsing.
- *   Tracked in the openspec change `add-feature-feed-video-embeds`.
+ *   sources it from a lexicon evolution or HLS manifest parsing
+ *   (tracked in `add-feature-feed-video-embeds`).
  */
-private fun VideoView.toVideoEmbedUi(): EmbedUi {
+private data class VideoPayload(
+    val posterUrl: String?,
+    val playlistUrl: String,
+    val aspectRatio: Float,
+    val durationSeconds: Int?,
+    val altText: String?,
+)
+
+private fun VideoView.toVideoPayload(): VideoPayload? {
     val playlistUrl = playlist.raw
-    if (playlistUrl.isBlank()) {
-        return EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
-    }
+    if (playlistUrl.isBlank()) return null
     val ratio =
         aspectRatio?.let { it.width.toFloat() / it.height.toFloat() }
             ?: VIDEO_FALLBACK_ASPECT_RATIO
-    return EmbedUi.Video(
+    return VideoPayload(
         posterUrl = thumbnail?.raw,
         playlistUrl = playlistUrl,
         aspectRatio = ratio,
