@@ -250,6 +250,16 @@ private fun EmbedSlot(
             Spacer(Modifier.height(10.dp))
             PostCardRecordUnavailable(reason = embed.reason)
         }
+        is EmbedUi.RecordWithMedia -> {
+            Spacer(Modifier.height(10.dp))
+            PostCardRecordWithMediaEmbed(
+                record = embed.record,
+                media = embed.media,
+                onExternalMediaTap = callbacks.onExternalEmbedTap,
+                videoEmbedSlot = videoEmbedSlot,
+                quotedVideoEmbedSlot = quotedVideoEmbedSlot,
+            )
+        }
         is EmbedUi.Unsupported -> {
             Spacer(Modifier.height(10.dp))
             PostCardUnsupportedEmbed(typeUri = embed.typeUri)
@@ -450,11 +460,58 @@ private fun PostCardWithRecordUnavailablePreview() {
     }
 }
 
-@Preview(name = "PostCard — with unsupported embed (record-with-media)", showBackground = true)
+@Preview(name = "PostCard — with recordWithMedia (resolved + Images)", showBackground = true)
+@Composable
+private fun PostCardWithRecordWithMediaImagesPreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    embed =
+                        EmbedUi.RecordWithMedia(
+                            record =
+                                EmbedUi.Record(
+                                    quotedPost =
+                                        QuotedPostUi(
+                                            uri = "at://did:plc:quoted/app.bsky.feed.post/q",
+                                            cid = "bafyreifakequotedcid000000000000000000000000000",
+                                            author =
+                                                AuthorUi(
+                                                    did = "did:plc:quoted",
+                                                    handle = "acyn.bsky.social",
+                                                    displayName = "Acyn",
+                                                    avatarUrl = null,
+                                                ),
+                                            createdAt = Clock.System.now() - 60.minutes,
+                                            text =
+                                                "Bluesky post being quoted by the parent — " +
+                                                    "the parent's media renders above this card.",
+                                            facets = persistentListOf(),
+                                            embed = QuotedEmbedUi.Empty,
+                                        ),
+                                ),
+                            media =
+                                EmbedUi.Images(
+                                    items =
+                                        persistentListOf(
+                                            ImageUi(
+                                                url = "https://example.com/preview.jpg",
+                                                altText = null,
+                                                aspectRatio = 16f / 9f,
+                                            ),
+                                        ),
+                                ),
+                        ),
+                ),
+        )
+    }
+}
+
+@Preview(name = "PostCard — with unsupported embed (something new)", showBackground = true)
 @Composable
 private fun PostCardUnsupportedEmbedPreview() {
     NubecitaTheme {
-        PostCard(post = previewPost(embed = EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")))
+        PostCard(post = previewPost(embed = EmbedUi.Unsupported(typeUri = "app.bsky.embed.somethingNew")))
     }
 }
 

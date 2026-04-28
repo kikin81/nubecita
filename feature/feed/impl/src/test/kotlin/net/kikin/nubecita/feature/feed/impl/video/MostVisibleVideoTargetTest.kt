@@ -268,6 +268,93 @@ internal class MostVisibleVideoTargetTest {
         assertNull(videoBindingFor(post))
     }
 
+    // ---------- RecordWithMedia (umn) ----------
+
+    @Test
+    fun `recordWithMedia media-Video binds with parent post id`() {
+        val post = recordWithMediaPost(parentId = "parent", media = videoMedia("https://m.m3u8"))
+        val info = layoutInfo(items = listOf(itemInfo(key = "parent", offset = 0, size = 600)))
+        val target = mostVisibleVideoTarget(info, mapOf("parent" to post))
+        assertEquals(VideoBindingTarget("parent", "https://m.m3u8"), target)
+    }
+
+    @Test
+    fun `recordWithMedia record's nested quoted-post video binds with quoted uri when media is non-video`() {
+        val quotedUri = "at://did:plc:q/app.bsky.feed.post/q"
+        val post =
+            recordWithMediaPost(
+                parentId = "parent",
+                record = recordWithQuotedVideo(quotedUri, "https://q.m3u8"),
+                media = imagesMedia(),
+            )
+        val info = layoutInfo(items = listOf(itemInfo(key = "parent", offset = 0, size = 600)))
+        val target = mostVisibleVideoTarget(info, mapOf("parent" to post))
+        assertEquals(VideoBindingTarget(quotedUri, "https://q.m3u8"), target)
+    }
+
+    @Test
+    fun `recordWithMedia media-Video wins over nested quoted-post video on the same item`() {
+        val quotedUri = "at://did:plc:q/app.bsky.feed.post/q"
+        val post =
+            recordWithMediaPost(
+                parentId = "parent",
+                record = recordWithQuotedVideo(quotedUri, "https://q.m3u8"),
+                media = videoMedia("https://m.m3u8"),
+            )
+        val info = layoutInfo(items = listOf(itemInfo(key = "parent", offset = 0, size = 600)))
+        val target = mostVisibleVideoTarget(info, mapOf("parent" to post))
+        assertEquals(VideoBindingTarget("parent", "https://m.m3u8"), target)
+    }
+
+    @Test
+    fun `videoBindingFor returns recordWithMedia media target when only media is video`() {
+        val post = recordWithMediaPost(parentId = "parent", media = videoMedia("https://m.m3u8"))
+        assertEquals(
+            VideoBindingTarget("parent", "https://m.m3u8"),
+            videoBindingFor(post),
+        )
+    }
+
+    @Test
+    fun `videoBindingFor returns nested quoted target inside recordWithMedia when media is non-video`() {
+        val quotedUri = "at://did:plc:q/app.bsky.feed.post/q"
+        val post =
+            recordWithMediaPost(
+                parentId = "parent",
+                record = recordWithQuotedVideo(quotedUri, "https://q.m3u8"),
+                media = imagesMedia(),
+            )
+        assertEquals(
+            VideoBindingTarget(quotedUri, "https://q.m3u8"),
+            videoBindingFor(post),
+        )
+    }
+
+    @Test
+    fun `videoBindingFor returns null for recordWithMedia with no videos anywhere`() {
+        val post =
+            recordWithMediaPost(
+                parentId = "parent",
+                record = EmbedUi.Record(quotedPost = quotedPostWith(QuotedEmbedUi.Empty)),
+                media = imagesMedia(),
+            )
+        assertNull(videoBindingFor(post))
+    }
+
+    @Test
+    fun `videoBindingFor returns media target when recordWithMedia record is unavailable + media is video`() {
+        val post =
+            recordWithMediaPost(
+                parentId = "parent",
+                record = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
+                media = videoMedia("https://m.m3u8"),
+            )
+        assertEquals(
+            VideoBindingTarget("parent", "https://m.m3u8"),
+            videoBindingFor(post),
+        )
+    }
+
     private fun layoutInfo(items: List<LazyListItemInfo>): LazyListLayoutInfo {
         val mocked = mockk<LazyListLayoutInfo>()
         every { mocked.visibleItemsInfo } returns items
@@ -362,5 +449,65 @@ internal class MostVisibleVideoTargetTest {
             handle = "fake.bsky.social",
             displayName = "Fake",
             avatarUrl = null,
+        )
+
+    /**
+     * A parent post whose embed is a `RecordWithMedia` carrying the
+     * supplied [record] and [media]. Defaults to a resolved-quote
+     * record with an empty inner embed — caller overrides for the
+     * cases that need specific inner shapes.
+     */
+    private fun recordWithMediaPost(
+        parentId: String,
+        record: EmbedUi.RecordOrUnavailable =
+            EmbedUi.Record(quotedPost = quotedPostWith(QuotedEmbedUi.Empty)),
+        media: EmbedUi.MediaEmbed,
+    ): PostUi =
+        textPost(parentId).copy(
+            embed = EmbedUi.RecordWithMedia(record = record, media = media),
+        )
+
+    private fun recordWithQuotedVideo(
+        quotedUri: String,
+        playlistUrl: String,
+    ): EmbedUi.Record =
+        EmbedUi.Record(
+            quotedPost =
+                quotedPostWith(
+                    embed =
+                        QuotedEmbedUi.Video(
+                            posterUrl = null,
+                            playlistUrl = playlistUrl,
+                            aspectRatio = 16f / 9f,
+                            durationSeconds = null,
+                            altText = null,
+                        ),
+                    uri = quotedUri,
+                ),
+        )
+
+    private fun videoMedia(playlistUrl: String): EmbedUi.Video =
+        EmbedUi.Video(
+            posterUrl = null,
+            playlistUrl = playlistUrl,
+            aspectRatio = 16f / 9f,
+            durationSeconds = null,
+            altText = null,
+        )
+
+    private fun imagesMedia(): EmbedUi.Images = EmbedUi.Images(items = persistentListOf())
+
+    private fun quotedPostWith(
+        embed: QuotedEmbedUi,
+        uri: String = "at://did:plc:q/app.bsky.feed.post/q",
+    ): QuotedPostUi =
+        QuotedPostUi(
+            uri = uri,
+            cid = "bafyqcid000000000000000000000000000000000",
+            author = fakeAuthor(),
+            createdAt = Instant.fromEpochSeconds(0),
+            text = "quoted text",
+            facets = persistentListOf<Facet>(),
+            embed = embed,
         )
 }

@@ -45,6 +45,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.data.models.quotedRecord
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
@@ -315,10 +316,14 @@ private fun LoadedFeedContent(
                 // post's URI (per mostVisibleVideoTarget's
                 // videoBindingFor) so the coordinator naturally
                 // distinguishes parent vs quoted videos. Slot is null
-                // when this item doesn't carry a quoted post — the
-                // remember sits at the same call site every
-                // recomposition (key flip drops the lambda cleanly).
-                val quotedVideoUri = (post.embed as? EmbedUi.Record)?.quotedPost?.uri
+                // when this item doesn't carry a quoted post (whether
+                // top-level EmbedUi.Record or nested inside an
+                // EmbedUi.RecordWithMedia.record) — the `quotedRecord`
+                // extension covers both shapes via a single source of
+                // truth in :data:models. The remember sits at the
+                // same call site every recomposition (key flip drops
+                // the lambda cleanly).
+                val quotedVideoUri = post.embed.quotedRecord?.uri
                 val quotedVideoSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
                     remember(quotedVideoUri, coordinator) {
                         if (quotedVideoUri == null) {

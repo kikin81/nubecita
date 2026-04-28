@@ -10,6 +10,7 @@ import io.github.kikin81.atproto.app.bsky.embed.RecordViewNotFound
 import io.github.kikin81.atproto.app.bsky.embed.RecordViewRecord
 import io.github.kikin81.atproto.app.bsky.embed.RecordViewRecordEmbedsUnion
 import io.github.kikin81.atproto.app.bsky.embed.RecordWithMediaView
+import io.github.kikin81.atproto.app.bsky.embed.RecordWithMediaViewMediaUnion
 import io.github.kikin81.atproto.app.bsky.embed.VideoView
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.Post
@@ -94,34 +95,16 @@ internal fun FeedViewPost.toPostUiOrNull(): PostUi? {
 /**
  * Maps the [PostViewEmbedUnion] open-union variant to PostCard's
  * [EmbedUi] surface (Empty / Images / Video / External / Record /
- * RecordUnavailable / Unsupported). Future `EmbedUi` variants
- * (RecordWithMedia per nubecita-umn) become compile errors at this
- * `when` once they're added to `EmbedUi`.
+ * RecordUnavailable / RecordWithMedia / Unsupported).
  */
 internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     when (this) {
         null -> EmbedUi.Empty
-        is ImagesView -> EmbedUi.Images(items = toImageUiList())
-        is ExternalView ->
-            EmbedUi.External(
-                uri = external.uri.raw,
-                domain = displayDomainOf(external.uri.raw),
-                title = external.title,
-                description = external.description,
-                thumbUrl = external.thumb?.raw,
-            )
-        is RecordView -> toEmbedUiFromRecordView()
-        is VideoView ->
-            toVideoPayload()?.let { p ->
-                EmbedUi.Video(
-                    posterUrl = p.posterUrl,
-                    playlistUrl = p.playlistUrl,
-                    aspectRatio = p.aspectRatio,
-                    durationSeconds = p.durationSeconds,
-                    altText = p.altText,
-                )
-            } ?: EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
-        is RecordWithMediaView -> EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
+        is ImagesView -> toEmbedUiImages()
+        is ExternalView -> toEmbedUiExternal()
+        is RecordView -> toRecordOrUnavailable()
+        is VideoView -> toEmbedUiVideo() ?: EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
+        is RecordWithMediaView -> toEmbedUiRecordWithMedia()
         is PostViewEmbedUnion.Unknown -> EmbedUi.Unsupported(typeUri = type)
         // PostViewEmbedUnion is an open union (not sealed) — Kotlin can't prove
         // exhaustiveness across the known + Unknown variants alone. The
@@ -143,14 +126,59 @@ internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
  * honest user-facing answer. Future tickets can route the
  * non-post variants through their own Unsupported chips with proper
  * friendly-name labels.
+ *
+ * Return type is [EmbedUi.RecordOrUnavailable] (not the broader
+ * `EmbedUi`) because every output is structurally one of the two.
+ * Callers that need an `EmbedUi` get the upcast for free since the
+ * marker extends `EmbedUi`. Callers that need to feed a
+ * `RecordWithMedia.record` slot — which is `RecordOrUnavailable`-typed —
+ * use it directly without an `as` cast.
  */
-private fun RecordView.toEmbedUiFromRecordView(): EmbedUi =
+private fun RecordView.toRecordOrUnavailable(): EmbedUi.RecordOrUnavailable =
     when (val r = record) {
         is RecordViewRecord -> r.toEmbedUiRecord() ?: EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Unknown)
         is RecordViewNotFound -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound)
         is RecordViewBlocked -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Blocked)
         is RecordViewDetached -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Detached)
         else -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Unknown)
+    }
+
+/**
+ * Composes a [RecordWithMediaView] into [EmbedUi.RecordWithMedia],
+ * or falls the whole composition through to
+ * [EmbedUi.Unsupported] when the media side is malformed (empty
+ * video playlist, unknown lexicon variant). The asymmetry with the
+ * record side — which always produces a [EmbedUi.RecordOrUnavailable]
+ * via graceful unavailable variants — is deliberate: half-rendering
+ * a recordWithMedia (media-only without the quote) loses the post's
+ * communicative intent, but the record's lexicon-defined unavailable
+ * shapes carry author intent.
+ */
+private fun RecordWithMediaView.toEmbedUiRecordWithMedia(): EmbedUi {
+    val mediaPart =
+        media.toMediaEmbed()
+            ?: return EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
+    val recordPart = record.toRecordOrUnavailable()
+    return EmbedUi.RecordWithMedia(record = recordPart, media = mediaPart)
+}
+
+/**
+ * Maps a [RecordWithMediaViewMediaUnion] to [EmbedUi.MediaEmbed].
+ * Returns `null` for the malformed-media cases (empty video
+ * playlist, unknown lexicon variant) — caller falls the whole
+ * composition through to [EmbedUi.Unsupported].
+ *
+ * Routes through the same wrapper-construction helpers
+ * ([toEmbedUiImages], [toEmbedUiVideo], [toEmbedUiExternal]) used by
+ * the parent [toEmbedUi] dispatch — single source of truth for
+ * wrapper construction, no risk of drift between the two paths.
+ */
+private fun RecordWithMediaViewMediaUnion.toMediaEmbed(): EmbedUi.MediaEmbed? =
+    when (this) {
+        is ImagesView -> toEmbedUiImages()
+        is VideoView -> toEmbedUiVideo()
+        is ExternalView -> toEmbedUiExternal()
+        else -> null
     }
 
 /**
@@ -237,6 +265,40 @@ private fun ImagesView.toImageUiList(): ImmutableList<ImageUi> =
                 aspectRatio = image.aspectRatio?.let { it.width.toFloat() / it.height.toFloat() },
             )
         }.toImmutableList()
+
+/**
+ * Wrapper-construction helpers — extracted so the parent
+ * [toEmbedUi] dispatch and [toMediaEmbed] (used by
+ * [toEmbedUiRecordWithMedia]) share one path. Inline construction
+ * at both call sites would risk drift (e.g. an `aspectRatio`
+ * calculation tweak applied in one path and forgotten in the other).
+ *
+ * These build on top of the payload helpers ([toImageUiList],
+ * [toVideoPayload]) — the payload helpers stay because the
+ * inner-quote dispatch (`toQuotedEmbedUi` from 6vq) needs the inner
+ * data without the parent-style wrapper.
+ */
+private fun ImagesView.toEmbedUiImages(): EmbedUi.Images = EmbedUi.Images(items = toImageUiList())
+
+private fun VideoView.toEmbedUiVideo(): EmbedUi.Video? =
+    toVideoPayload()?.let { p ->
+        EmbedUi.Video(
+            posterUrl = p.posterUrl,
+            playlistUrl = p.playlistUrl,
+            aspectRatio = p.aspectRatio,
+            durationSeconds = p.durationSeconds,
+            altText = p.altText,
+        )
+    }
+
+private fun ExternalView.toEmbedUiExternal(): EmbedUi.External =
+    EmbedUi.External(
+        uri = external.uri.raw,
+        domain = displayDomainOf(external.uri.raw),
+        title = external.title,
+        description = external.description,
+        thumbUrl = external.thumb?.raw,
+    )
 
 /**
  * The five fields required to render a Bluesky video embed
