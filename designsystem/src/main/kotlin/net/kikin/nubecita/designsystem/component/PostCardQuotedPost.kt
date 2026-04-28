@@ -168,7 +168,14 @@ private fun QuotedEmbedSlot(
                 title = embed.title,
                 description = embed.description,
                 thumbUrl = embed.thumbUrl,
-                onTap = {},
+                // Hoisted no-op — an inline `{}` would allocate a new
+                // lambda every recomposition and force PostCardExternalEmbed
+                // to recompose on every parent change. Tap behavior on a
+                // quoted card is deferred to a follow-up bd issue (paired
+                // with the post-detail destination); for now the inner
+                // external card is non-interactive while the surrounding
+                // card surface stays a single visual unit.
+                onTap = QuotedExternalNoOp,
             )
         }
         is QuotedEmbedUi.Video -> {
@@ -211,6 +218,15 @@ private fun QuotedThreadChip(modifier: Modifier = Modifier) {
 
 private val QUOTED_CARD_SHAPE = RoundedCornerShape(12.dp)
 private val CHIP_SHAPE = RoundedCornerShape(8.dp)
+
+/**
+ * Stable lambda identity for the no-op tap target on inner external
+ * embeds. Used by [QuotedEmbedSlot] so [PostCardExternalEmbed]'s
+ * `onTap` parameter doesn't churn with a fresh `{}` allocation per
+ * recomposition (which would force unnecessary recomposition of the
+ * leaf composable on every parent change).
+ */
+private val QuotedExternalNoOp: (String) -> Unit = {}
 
 // ---------- Previews ----------
 
