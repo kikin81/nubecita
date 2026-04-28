@@ -18,7 +18,6 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.designsystem.NubecitaTheme
-import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.login.api.Login
 import javax.inject.Inject
 
@@ -68,11 +67,12 @@ class MainActivity : ComponentActivity() {
                 when (state) {
                     SessionState.Loading -> Unit
                     SessionState.SignedOut -> navigator.replaceTo(Login)
-                    // Temporary post-login destination — Feed directly. Once the app
-                    // shell (nubecita-cif) lands a top app bar + bottom nav + FAB
-                    // wrapper, this routes to the shell instead and Feed becomes a
-                    // tab inside it. Tracked under nubecita-o2i.
-                    is SessionState.SignedIn -> navigator.replaceTo(Feed)
+                    // Signed-in users land on the adaptive `Main` shell (nubecita-8m4),
+                    // which hosts NavigationSuiteScaffold + the inner NavDisplay. Feed
+                    // is the start tab inside the shell, not a top-level destination on
+                    // the outer back stack — Feed is now @MainShell-qualified and isn't
+                    // installed in the outer NavDisplay's entry provider.
+                    is SessionState.SignedIn -> navigator.replaceTo(Main)
                 }
             }
         }
