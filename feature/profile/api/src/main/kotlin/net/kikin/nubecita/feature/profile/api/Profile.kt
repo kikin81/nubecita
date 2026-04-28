@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
  * - `Profile(handle = "alice.bsky.social")` — another user's profile.
  *   Pushed onto the *active* tab's back stack from inside any tab (e.g.,
  *   tapping an author handle in a Feed post) per the design's cross-tab
- *   navigation rule (see add-adaptive-navigation-shell/design.md D7).
+ *   navigation rule (see openspec/changes/add-adaptive-navigation-shell/design.md D7).
  *
  * Lives in `:feature:profile:api` so cross-feature modules that need to
  * push `Profile` onto the back stack can depend on `:feature:profile:api`
