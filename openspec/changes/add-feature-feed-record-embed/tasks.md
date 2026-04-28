@@ -1,9 +1,9 @@
 ## 1. Data model in `:data:models`
 
-- [ ] 1.1 Add `QuotedEmbedUi` sealed interface (`Empty`, `Images`, `Video`, `External`, `QuotedThreadChip`, `Unsupported`); `@Immutable` at interface level; deliberately no `Record` variant. Add unit test that exhaustive `when (embed: QuotedEmbedUi)` over the variants compiles without an `else` branch.
-- [ ] 1.2 Add `@Immutable` `QuotedPostUi(uri, cid, author, createdAt, text, facets, embed)` data class.
-- [ ] 1.3 Add `EmbedUi.Record(quotedPost: QuotedPostUi)` and `EmbedUi.RecordUnavailable(reason: Reason)` variants on the sealed `EmbedUi` interface; `Reason` is the nested enum (`NotFound`, `Blocked`, `Detached`, `Unknown`).
-- [ ] 1.4 Add temporary `PostCard.EmbedSlot` `when` arms for `EmbedUi.Record` and `EmbedUi.RecordUnavailable` that route to `PostCardUnsupportedEmbed("app.bsky.embed.record")`. Keeps compilation green while the real composables are pending in tasks 3 + 4. Update `PostCard.kt` only — do NOT add new composables in this commit.
+- [x] 1.1 Add `QuotedEmbedUi` sealed interface (`Empty`, `Images`, `Video`, `External`, `QuotedThreadChip`, `Unsupported`); `@Immutable` at interface level; deliberately no `Record` variant. Add unit test that exhaustive `when (embed: QuotedEmbedUi)` over the variants compiles without an `else` branch.
+- [x] 1.2 Add `@Immutable` `QuotedPostUi(uri, cid, author, createdAt, text, facets, embed)` data class.
+- [x] 1.3 Add `EmbedUi.Record(quotedPost: QuotedPostUi)` and `EmbedUi.RecordUnavailable(reason: Reason)` variants on the sealed `EmbedUi` interface; `Reason` is the nested enum (`NotFound`, `Blocked`, `Detached`, `Unknown`).
+- [x] 1.4 Add temporary `PostCard.EmbedSlot` `when` arms for `EmbedUi.Record` and `EmbedUi.RecordUnavailable` that route to `PostCardUnsupportedEmbed("app.bsky.embed.record")`. Keeps compilation green while the real composables are pending in tasks 3 + 4. Update `PostCard.kt` only — do NOT add new composables in this commit.
 
 ## 2. Mapper in `:feature:feed:impl`
 

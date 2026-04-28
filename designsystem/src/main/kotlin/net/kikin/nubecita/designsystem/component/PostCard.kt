@@ -234,6 +234,20 @@ private fun EmbedSlot(
                 onTap = callbacks.onExternalEmbedTap,
             )
         }
+        is EmbedUi.Record -> {
+            // Temporary placeholder until `PostCardQuotedPost` lands
+            // in nubecita-6vq task 4. Routing to PostCardUnsupportedEmbed
+            // keeps the visual fallback unchanged for users while the
+            // type-system extension and mapper dispatch land first.
+            Spacer(Modifier.height(10.dp))
+            PostCardUnsupportedEmbed(typeUri = "app.bsky.embed.record")
+        }
+        is EmbedUi.RecordUnavailable -> {
+            // Temporary placeholder until `PostCardRecordUnavailable`
+            // lands in nubecita-6vq task 3.
+            Spacer(Modifier.height(10.dp))
+            PostCardUnsupportedEmbed(typeUri = "app.bsky.embed.record")
+        }
         is EmbedUi.Unsupported -> {
             Spacer(Modifier.height(10.dp))
             PostCardUnsupportedEmbed(typeUri = embed.typeUri)
