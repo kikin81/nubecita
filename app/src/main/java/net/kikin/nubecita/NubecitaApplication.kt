@@ -5,9 +5,8 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import dagger.hilt.android.HiltAndroidApp
+import net.kikin.nubecita.firebase.appCheckFactory
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -23,14 +22,10 @@ class NubecitaApplication :
         // Install App Check provider before any Firebase service is touched.
         // FirebaseInitProvider has already run (it's a manifest ContentProvider,
         // earlier than Application.onCreate), so FirebaseAppCheck.getInstance() is
-        // safe here.
-        val factory =
-            if (BuildConfig.DEBUG) {
-                DebugAppCheckProviderFactory.getInstance()
-            } else {
-                PlayIntegrityAppCheckProviderFactory.getInstance()
-            }
-        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(factory)
+        // safe here. The factory is selected at compile time via source-set split:
+        // app/src/debug/.../AppCheckFactory.kt vs app/src/release/.../AppCheckFactory.kt
+        // — keeps DebugAppCheckProviderFactory off the release classpath.
+        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(appCheckFactory())
 
         // Plant a DebugTree in debug builds only — release builds get no tree, so
         // every Timber.* call short-circuits to a no-op without a per-call BuildConfig

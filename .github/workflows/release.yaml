@@ -62,6 +62,13 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Capture built SHA
+        # github.sha is the workflow's triggering SHA (pre-bump). After
+        # checkout of main, HEAD is the post-bump commit — capture it so
+        # the release notes match the APK actually being uploaded.
+        id: built
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
@@ -81,4 +88,4 @@ jobs:
         run: ./gradlew assembleDebug appDistributionUploadDebug
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa-key.json
-          APP_DISTRIBUTION_RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ github.sha }}"
+          APP_DISTRIBUTION_RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"

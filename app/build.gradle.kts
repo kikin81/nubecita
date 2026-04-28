@@ -27,7 +27,11 @@ android {
         debug {
             firebaseAppDistribution {
                 groups = "internal-testers"
-                releaseNotes = System.getenv("APP_DISTRIBUTION_RELEASE_NOTES") ?: ""
+                // providers.environmentVariable(...) is configuration-cache-aware:
+                // Gradle tracks the env var as an input and invalidates the cache
+                // when it changes between runs, unlike System.getenv() which bakes
+                // the value into the cache silently.
+                releaseNotes = providers.environmentVariable("APP_DISTRIBUTION_RELEASE_NOTES").orElse("").get()
             }
         }
     }
