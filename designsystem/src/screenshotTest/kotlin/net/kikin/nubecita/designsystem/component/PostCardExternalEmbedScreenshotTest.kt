@@ -24,6 +24,7 @@ private fun PostCardExternalEmbedWithThumbScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         PostCardExternalEmbed(
             uri = PREVIEW_URI,
+            domain = PREVIEW_DOMAIN,
             title = PREVIEW_TITLE,
             description = PREVIEW_DESCRIPTION,
             thumbUrl = PREVIEW_THUMB,
@@ -40,6 +41,7 @@ private fun PostCardExternalEmbedNoThumbScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         PostCardExternalEmbed(
             uri = PREVIEW_URI,
+            domain = PREVIEW_DOMAIN,
             title = PREVIEW_TITLE,
             description = PREVIEW_DESCRIPTION,
             thumbUrl = null,
@@ -49,6 +51,7 @@ private fun PostCardExternalEmbedNoThumbScreenshot() {
 }
 
 private const val PREVIEW_URI: String = "https://www.theverge.com/tech/elon-altman-court-battle"
+private const val PREVIEW_DOMAIN: String = "theverge.com"
 private const val PREVIEW_TITLE: String = "Elon Musk and Sam Altman's court battle over the future of OpenAI"
 private const val PREVIEW_DESCRIPTION: String = "The billionaire battle goes to court."
 private const val PREVIEW_THUMB: String = "https://example.com/preview-external-thumb.jpg"

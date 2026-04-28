@@ -227,6 +227,7 @@ private fun EmbedSlot(
             Spacer(Modifier.height(10.dp))
             PostCardExternalEmbed(
                 uri = embed.uri,
+                domain = embed.domain,
                 title = embed.title,
                 description = embed.description,
                 thumbUrl = embed.thumbUrl,
@@ -376,6 +377,7 @@ private fun PostCardWithExternalEmbedPreview() {
                     embed =
                         EmbedUi.External(
                             uri = "https://www.theverge.com/tech/elon-altman-court-battle",
+                            domain = "theverge.com",
                             title = "Elon Musk and Sam Altman's court battle over the future of OpenAI",
                             description = "The billionaire battle goes to court.",
                             thumbUrl = "https://example.com/preview-external-thumb.jpg",

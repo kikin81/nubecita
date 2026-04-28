@@ -75,6 +75,11 @@ public sealed interface EmbedUi {
      * on the nubecita side.
      *
      * - [uri] is the linked URL (full, raw).
+     * - [domain] is the precomputed display host (`uri` host with a leading
+     *   `www.` stripped; falls back to the full URI when the URI is opaque
+     *   or malformed). Computed once at mapping time so the render layer
+     *   can display it without per-recomposition `Uri.parse` cost in
+     *   scrolling lists (120 Hz target).
      * - [title] / [description] are non-null per the lexicon but Bluesky
      *   permits empty strings — the render layer skips empty rows.
      * - [thumbUrl] is null when the optional `thumb` field is absent;
@@ -83,6 +88,7 @@ public sealed interface EmbedUi {
      */
     public data class External(
         val uri: String,
+        val domain: String,
         val title: String,
         val description: String,
         val thumbUrl: String?,

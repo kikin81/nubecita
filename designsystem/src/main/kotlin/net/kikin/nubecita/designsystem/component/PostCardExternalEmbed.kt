@@ -1,6 +1,5 @@
 package net.kikin.nubecita.designsystem.component
 
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -39,12 +38,13 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  *   is omitted entirely (text-only card; no placeholder, no gradient).
  * - Title (titleMedium), description (bodyMedium) — each capped at 2 lines
  *   with ellipsis. Empty strings are skipped (no empty `Text` row).
- * - Domain footer: globe icon + host (`Uri.parse(uri).host?.removePrefix("www.")`,
- *   falling back to the full URI when the host is null for opaque inputs).
+ * - Domain footer: globe icon + [domain] (precomputed at mapping time so
+ *   no `Uri.parse` runs per recomposition during scroll).
  */
 @Composable
 fun PostCardExternalEmbed(
     uri: String,
+    domain: String,
     title: String,
     description: String,
     thumbUrl: String?,
@@ -107,7 +107,7 @@ fun PostCardExternalEmbed(
                         modifier = Modifier.size(16.dp),
                     )
                     Text(
-                        text = displayHost(uri),
+                        text = domain,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -121,22 +121,13 @@ fun PostCardExternalEmbed(
 
 private const val THUMB_ASPECT: Float = 1.91f
 
-/**
- * Extracts a user-readable host from [uri]. Falls back to the full URI
- * when `Uri.parse(uri).host` is null (opaque or malformed inputs).
- *
- * `Uri` here is `android.net.Uri`, not the atproto-kotlin runtime `Uri`
- * — the composable takes a `String` to keep `:designsystem` free of
- * lib-type leakage.
- */
-private fun displayHost(uri: String): String = Uri.parse(uri).host?.removePrefix("www.") ?: uri
-
 @Preview(name = "External embed — with thumb", showBackground = true)
 @Composable
 private fun PostCardExternalEmbedWithThumbPreview() {
     NubecitaTheme {
         PostCardExternalEmbed(
             uri = PREVIEW_URI,
+            domain = PREVIEW_DOMAIN,
             title = PREVIEW_TITLE,
             description = PREVIEW_DESCRIPTION,
             thumbUrl = PREVIEW_THUMB,
@@ -151,6 +142,7 @@ private fun PostCardExternalEmbedNoThumbPreview() {
     NubecitaTheme {
         PostCardExternalEmbed(
             uri = PREVIEW_URI,
+            domain = PREVIEW_DOMAIN,
             title = PREVIEW_TITLE,
             description = PREVIEW_DESCRIPTION,
             thumbUrl = null,
@@ -160,6 +152,7 @@ private fun PostCardExternalEmbedNoThumbPreview() {
 }
 
 private const val PREVIEW_URI: String = "https://www.theverge.com/tech/elon-altman-court-battle"
+private const val PREVIEW_DOMAIN: String = "theverge.com"
 private const val PREVIEW_TITLE: String = "Elon Musk and Sam Altman's court battle over the future of OpenAI"
 private const val PREVIEW_DESCRIPTION: String = "The billionaire battle goes to court."
 private const val PREVIEW_THUMB: String = "https://example.com/preview-external-thumb.jpg"

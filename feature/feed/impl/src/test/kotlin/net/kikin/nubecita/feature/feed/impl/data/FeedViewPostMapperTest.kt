@@ -73,6 +73,7 @@ internal class FeedViewPostMapperTest {
         assertNotNull(mapped)
         val external = mapped!!.embed as EmbedUi.External
         assertEquals("https://davidimel.substack.com/p/bluesky-is-looking-for-its-myspace", external.uri)
+        assertEquals("davidimel.substack.com", external.domain)
         assertEquals("Bluesky is doubling down", external.title)
         assertEquals("Let's see if a feed-builder is it.", external.description)
         // The thumb is a server-side preview-card URL produced by the appview;
@@ -120,6 +121,7 @@ internal class FeedViewPostMapperTest {
         assertNotNull(mapped)
         val external = mapped!!.embed as EmbedUi.External
         assertEquals("https://example.com/article", external.uri)
+        assertEquals("example.com", external.domain)
         assertEquals("Article without a thumbnail", external.title)
         assertNull(external.thumbUrl)
     }
@@ -163,6 +165,8 @@ internal class FeedViewPostMapperTest {
         val mapped = response.feed.single().toPostUiOrNull()
         assertNotNull(mapped)
         val external = mapped!!.embed as EmbedUi.External
+        assertEquals("https://example.com/no-metadata", external.uri)
+        assertEquals("example.com", external.domain)
         assertEquals("", external.title)
         assertEquals("", external.description)
     }

@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.feed.impl
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.res.Configuration
 import android.media.AudioManager
@@ -95,12 +96,20 @@ internal fun FeedScreen(
                 onReply = { viewModel.handleEvent(FeedEvent.OnReplyClicked(it)) },
                 onShare = { viewModel.handleEvent(FeedEvent.OnShareClicked(it)) },
                 onExternalEmbedTap = { uri ->
-                    runCatching {
+                    // Narrowed catch: silent no-op only for the documented
+                    // "no CCT-capable browser installed" case (per
+                    // nubecita-aku scope). Other launch failures (rare
+                    // SecurityException / RuntimeException from the
+                    // browser lib) propagate so genuine bugs surface in
+                    // logcat instead of being hidden by a blanket catch.
+                    try {
                         CustomTabsIntent
                             .Builder()
                             .setShowTitle(true)
                             .build()
                             .launchUrl(context, AndroidUri.parse(uri))
+                    } catch (_: ActivityNotFoundException) {
+                        // No browser available — silent no-op.
                     }
                 },
             )
