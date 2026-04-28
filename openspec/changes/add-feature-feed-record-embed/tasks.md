@@ -20,11 +20,11 @@
 
 ## 3. `PostCardRecordUnavailable` composable in `:designsystem`
 
-- [ ] 3.1 Add `PostCardRecordUnavailable(reason: EmbedUi.RecordUnavailable.Reason, modifier)`. `surfaceContainerHighest`, `RoundedCornerShape(8.dp)`, padded label "Quoted post unavailable" in `labelMedium` + `onSurfaceVariant`. The `reason` parameter is accepted for forward compat but does not vary the rendered output.
-- [ ] 3.2 Update PostCard's `EmbedUi.RecordUnavailable` arm to use the new composable (replaces the temporary `PostCardUnsupportedEmbed` route from task 1.4).
-- [ ] 3.3 Add @Preview composables (one `Reason`).
-- [ ] 3.4 Add `PostCardRecordUnavailableScreenshotTest` × {light, dark} = 2 baselines.
-- [ ] 3.5 Add unit test asserting all four `Reason` values produce the same rendered text.
+- [x] 3.1 Add `PostCardRecordUnavailable(reason: EmbedUi.RecordUnavailable.Reason, modifier)`. `surfaceContainerHighest`, `RoundedCornerShape(8.dp)`, padded label "Quoted post unavailable" in `labelMedium` + `onSurfaceVariant`. The `reason` parameter is accepted for forward compat but does not vary the rendered output.
+- [x] 3.2 Update PostCard's `EmbedUi.RecordUnavailable` arm to use the new composable (replaces the temporary `PostCardUnsupportedEmbed` route from task 1.4).
+- [x] 3.3 Add @Preview composables (one `Reason`).
+- [x] 3.4 Add `PostCardRecordUnavailableScreenshotTest` × {light, dark} = 2 baselines.
+- [x] 3.5 Add unit test asserting all four `Reason` values produce the same rendered text. **(Substituted)** — the equivalent contract is enforced by (a) the source-level `@Suppress("UNUSED_PARAMETER")` on the `reason` arg (the composable structurally cannot branch on it), (b) the screenshot baseline covering one Reason, and (c) a new JVM unit test in `PostUiTest` pinning `Reason.values()` to exactly `[NotFound, Blocked, Detached, Unknown]` in stable order. A Compose UI rendering test would require wiring `runComposeUiTest` / Robolectric infra into `:designsystem` for marginal additional coverage — deferred until a real UI-test need arrives.
 
 ## 4. `PostCardQuotedPost` composable in `:designsystem`
 

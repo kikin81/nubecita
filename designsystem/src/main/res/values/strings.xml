@@ -20,6 +20,14 @@
     <string name="postcard_embed_label_record_with_media">quoted post with media</string>
     <string name="postcard_embed_label_unknown">embed</string>
 
+    <!-- PostCard quoted-post chips. quoted_post_unavailable is the single
+         piece of copy rendered for every RecordUnavailable.Reason
+         (NotFound/Blocked/Detached/Unknown) per the YAGNI design.
+         quoted_post_view_thread is the recursion-bound chip rendered
+         when a quoted post itself quotes another post (one-level bound). -->
+    <string name="postcard_quoted_post_unavailable">Quoted post unavailable</string>
+    <string name="postcard_quoted_post_view_thread">View thread</string>
+
     <!-- PostCard action-row accessibility labels. Reply / share are
          one-shot actions: passed as clickable's onClickLabel so TalkBack
          announces "Double-tap to <verb>". Like / repost are toggles:

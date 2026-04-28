@@ -243,10 +243,8 @@ private fun EmbedSlot(
             PostCardUnsupportedEmbed(typeUri = "app.bsky.embed.record")
         }
         is EmbedUi.RecordUnavailable -> {
-            // Temporary placeholder until `PostCardRecordUnavailable`
-            // lands in nubecita-6vq task 3.
             Spacer(Modifier.height(10.dp))
-            PostCardUnsupportedEmbed(typeUri = "app.bsky.embed.record")
+            PostCardRecordUnavailable(reason = embed.reason)
         }
         is EmbedUi.Unsupported -> {
             Spacer(Modifier.height(10.dp))
