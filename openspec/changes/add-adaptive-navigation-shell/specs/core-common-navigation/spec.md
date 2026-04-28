@@ -20,13 +20,13 @@ The class SHALL NOT be `@Inject`-able. It is intended to be created inside a Com
 
 #### Scenario: Tab switch preserves outgoing stack
 
-- **WHEN** `addTopLevel(SearchHome)` is called from a state where the active tab is Feed and the Feed stack contains `[FeedHome, Profile("alice")]`
-- **THEN** `topLevelKey` SHALL become `SearchHome`, and a subsequent `addTopLevel(FeedHome)` SHALL restore Feed with the stack `[FeedHome, Profile("alice")]` intact
+- **WHEN** `addTopLevel(Search)` is called from a state where the active tab is Feed and the Feed stack contains `[Feed, Profile("alice")]`
+- **THEN** `topLevelKey` SHALL become `Search`, and a subsequent `addTopLevel(Feed)` SHALL restore Feed with the stack `[Feed, Profile("alice")]` intact
 
 #### Scenario: Process-death round-trip restores state
 
-- **WHEN** a `MainShellNavState` is created via `rememberMainShellNavState(...)`, mutated to `[FeedHome, Profile("alice")]` on Feed, and the hosting Composable goes through a `saveInstanceState` → `recreate()` cycle
-- **THEN** the post-recreation `MainShellNavState` SHALL report `topLevelKey == Feed` and the Feed back stack `[FeedHome, Profile("alice")]`
+- **WHEN** a `MainShellNavState` is created via `rememberMainShellNavState(...)`, mutated so the active tab is Feed with stack `[Feed, Profile("alice")]`, and the hosting Composable goes through a `saveInstanceState` → `recreate()` cycle
+- **THEN** the post-recreation `MainShellNavState` SHALL report `topLevelKey == Feed` and the Feed back stack `[Feed, Profile("alice")]`
 
 ### Requirement: `:core:common:navigation` exposes `LocalMainShellNavState` `CompositionLocal`
 
