@@ -1,0 +1,46 @@
+## 1. Foundation primitives (`:core:common:navigation`)
+
+- [ ] 1.1 Create `core/common/src/main/kotlin/net/kikin/nubecita/core/common/navigation/MainShellNavState.kt` containing the `MainShellNavState` class (per-tab back stacks, active-tab pointer, flattened `backStack` view, `addTopLevel` / `add` / `removeLast` semantics implementing the recipe's "exit through home" rule) and the `@Composable rememberMainShellNavState(startRoute, topLevelRoutes)` factory using `rememberSerializable(MutableStateSerializer(NavKeySerializer()))` for the active-tab pointer and `rememberNavBackStack(...)` per top-level route. **No tests** — covered by 1.4.
+- [ ] 1.2 Create `core/common/src/main/kotlin/net/kikin/nubecita/core/common/navigation/LocalMainShellNavState.kt` exposing `val LocalMainShellNavState: ProvidableCompositionLocal<MainShellNavState>` constructed via `compositionLocalOf { error("...") }` (no default — reading outside `MainShell` MUST throw). **No tests** — covered by 1.4 (the throw-on-default scenario).
+- [ ] 1.3 Create `core/common/src/main/kotlin/net/kikin/nubecita/core/common/navigation/NavQualifiers.kt` with `@OuterShell` and `@MainShell` Hilt `@Qualifier`-annotated annotations, `BINARY` retention. **No tests** — used at compile time; verified by 5.x migrations + 4.3 partitioned EntryPoint wiring compiling.
+- [ ] 1.4 **Unit tests** in `core/common/src/test/kotlin/.../navigation/MainShellNavStateTest.kt` covering: (a) `addTopLevel` switches the active tab and preserves the outgoing tab's stack; (b) returning to a previous tab restores its stack at the same depth; (c) `removeLast` from a sub-route pops within the active tab; (d) `removeLast` from a non-start top-level destination switches the active tab to the start route ("exit through home"); (e) `removeLast` from start-route top-level surfaces the empty case so the host can defer to system back; (f) round-trip via `saveable.runRestoring(...)` (or equivalent) restores `topLevelKey` and per-tab stacks unchanged. **Adds 6 unit tests.**
+
+## 2. Stub feature api modules
+
+- [ ] 2.1 Create `feature/search/api/` module via `nubecita.android.library` convention plugin. Add `feature/search/api/src/main/kotlin/net/kikin/nubecita/feature/search/api/Search.kt` with `@Serializable data object Search : NavKey`. **No tests** — verified by 2.4 build.
+- [ ] 2.2 Create `feature/chats/api/` module via `nubecita.android.library` convention plugin. Add `feature/chats/api/src/main/kotlin/net/kikin/nubecita/feature/chats/api/Chats.kt` with `@Serializable data object Chats : NavKey`. **No tests** — verified by 2.4 build.
+- [ ] 2.3 Create `feature/profile/api/` module via `nubecita.android.library` convention plugin. Add `feature/profile/api/src/main/kotlin/net/kikin/nubecita/feature/profile/api/Profile.kt` with `@Serializable data class Profile(val handle: String? = null) : NavKey` (null = current user) and `feature/profile/api/src/main/kotlin/.../Settings.kt` with `@Serializable data object Settings : NavKey`. **No tests** — verified by 2.4 build.
+- [ ] 2.4 Register the three new modules in `settings.gradle.kts`; verify with `./gradlew :feature:search:api:assembleDebug :feature:chats:api:assembleDebug :feature:profile:api:assembleDebug`. **No tests** — green build is the verification.
+
+## 3. Compose dependency
+
+- [ ] 3.1 Add `androidx.compose.material3.adaptive:adaptive-navigation-suite` to `gradle/libs.versions.toml` (under the version aligned with the existing Compose Material3 BoM). Wire as an `implementation` dependency on `:app`'s `build.gradle.kts`. **No tests** — verified by 4.1 compiling.
+
+## 4. `MainShell` composable
+
+- [ ] 4.1 Create `app/src/main/java/net/kikin/nubecita/shell/MainShell.kt` hosting `NavigationSuiteScaffold` (configured to render `NavigationBar` at compact width and `NavigationRail` at medium / expanded widths via a custom `navigationSuiteType` param suppressing drawer mode). Items: Feed (Home icon), Search (Search icon), Chats (ChatBubble icons), You (Person icon), in that order. The scaffold's content lambda creates `mainShellNavState = rememberMainShellNavState(startRoute = Feed, topLevelRoutes = setOf(Feed, Search, Chats, Profile(null)))` and provides it via `CompositionLocalProvider(LocalMainShellNavState provides mainShellNavState)` around an inner `NavDisplay(backStack = mainShellNavState.backStack, onBack = { mainShellNavState.removeLast() }, entryProvider = entryProvider { installers.forEach { it() } })`. **No tests** — covered by 4.5 + 7.1.
+- [ ] 4.2 Add `:app/src/main/java/net/kikin/nubecita/shell/MainShellPlaceholderModule.kt` with three `@Provides @IntoSet @MainShell` functions returning `EntryProviderInstaller` lambdas that register `entry<Search> { … }`, `entry<Chats> { … }`, and `entry<Profile> { … }` with placeholder Composables labeled "Search — coming soon", etc. **No tests** — covered by 4.5 chrome screenshots.
+- [ ] 4.3 Update `app/src/main/java/net/kikin/nubecita/navigation/NavigationEntryPoint.kt` to expose two qualified accessors: `@OuterShell fun outerEntryProviderInstallers(): Set<@JvmSuppressWildcards EntryProviderInstaller>` and `@MainShell fun mainShellEntryProviderInstallers(): Set<@JvmSuppressWildcards EntryProviderInstaller>`. Remove the legacy unqualified `entryProviderInstallers()` accessor. **No tests** — verified by 6.1 outer NavDisplay rebuild and 4.5 screenshots.
+- [ ] 4.4 Add `@Preview` Composables for `MainShell` at compact (widthDp=360), medium (widthDp=600), and expanded (widthDp=840) widths in `app/src/main/java/.../shell/MainShellPreviews.kt`. **Adds 3 previews.**
+- [ ] 4.5 **Screenshot tests** in `app/src/screenshotTest/.../shell/MainShellScreenshotTest.kt` for the chrome swap: (a) compact width renders `NavigationBar`, (b) medium width renders `NavigationRail`, (c) expanded width renders `NavigationRail`, (d) selected-tab indicator on each of the four destinations at compact width. **Adds 7 screenshot tests** (3 widths + 4 selected-state variants).
+
+## 5. Migrate existing feature modules to qualifiers
+
+- [ ] 5.1 `feature/login/impl/src/main/kotlin/.../di/LoginNavigationModule.kt` — add `@OuterShell` annotation on the `provideLoginEntries` `@Provides @IntoSet` function. Keep the import of `EntryProviderInstaller` and `Login` unchanged. **No tests** — exercised by existing `LoginScreenViewModelTest` continuing to pass and by the outer `NavDisplay` rendering Login (smoke covered by existing tests).
+- [ ] 5.2 `feature/feed/impl/src/main/kotlin/.../di/FeedNavigationModule.kt` — add `@MainShell` annotation on the `provideFeedEntries` `@Provides @IntoSet` function. **No tests** — exercised by 4.5 screenshot tests showing Feed renders inside `MainShell`.
+
+## 6. Wire `MainShell` into outer navigation; remove placeholder
+
+- [ ] 6.1 Update `app/src/main/java/net/kikin/nubecita/Navigation.kt` so the `entry<Main>` block renders `MainShell()` (with the inner `NavDisplay`'s default `safeDrawingPadding`) instead of `MainScreen(modifier = Modifier.safeDrawingPadding())`. The outer `NavDisplay`'s `entryProvider` SHALL invoke only the `@OuterShell` installer set retrieved via `entryPoint.outerEntryProviderInstallers()`. **No tests** — covered by 4.5 + existing login flow tests.
+- [ ] 6.2 Delete the placeholder Main screen and its scaffolding: `app/src/main/java/net/kikin/nubecita/ui/main/MainScreen.kt`, `MainScreenContent.kt` (if separated), `MainScreenViewModel.kt`, `MainScreenState.kt`, `MainScreenEvent.kt`, `MainScreenEffect.kt`, `app/src/test/java/.../MainScreenViewModelTest.kt`, `app/src/screenshotTest/java/.../MainScreenScreenshotTest.kt`, and `app/src/androidTest/java/.../MainScreenTest.kt` (the empty/template test, if it still exists). **Removes 1 unit test class + 1 screenshot test class.**
+- [ ] 6.3 Run `./gradlew :app:assembleDebug spotlessCheck lint :app:checkSortDependencies` to verify the partitioned EntryPoint compiles cleanly with no orphaned unqualified bindings. **No tests** — green build is the verification.
+
+## 7. Process-death persistence verification (closes nubecita-3it)
+
+- [ ] 7.1 **Instrumented test** in `app/src/androidTest/java/.../shell/MainShellPersistenceTest.kt` using `ActivityScenario` to (a) launch the app to `MainShell`, (b) switch to Search and push a sub-route, (c) call `recreate()` to simulate process death, (d) assert the active tab is still Search and the sub-route is still on top. **Adds 1 instrumented test.**
+- [ ] 7.2 Close `nubecita-3it` with a reason citing the spec scenario "Process death preserves tab and sub-route" and the test added in 7.1.
+
+## 8. Documentation
+
+- [ ] 8.1 Update `CLAUDE.md` MVI conventions section to document the `UiEffect.Navigate(target: NavKey)` pattern: VMs emit `NavigateTo(target)` as a `UiEffect`, screen Composables collect via `LaunchedEffect` and call `LocalMainShellNavState.current.add(target)`. Note that `MainShellNavState` is intentionally not Hilt-injectable. **No tests** — docs.
+- [ ] 8.2 Update `CLAUDE.md` module conventions section to document the `:feature:<name>:api`-only stub pattern (api module exports NavKeys; placeholder rendering lives in `:app` until `:impl` lands) and the `@OuterShell` / `@MainShell` qualifier-tagging convention for `EntryProviderInstaller` providers. **No tests** — docs.
