@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,21 +65,24 @@ public fun PostCardQuotedPost(
     modifier: Modifier = Modifier,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clip(QUOTED_CARD_SHAPE)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+    // Surface (not Column + clip + background) so LocalContentColor
+    // resolves to the right contrast against surfaceContainerLow and
+    // tonal-elevation semantics match other embed cards in the design
+    // system (PostCardExternalEmbed, PostCardImageEmbed).
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = QUOTED_CARD_SHAPE,
+        modifier = modifier.fillMaxWidth(),
     ) {
-        QuotedAuthorLine(quotedPost = quotedPost)
-        Spacer(Modifier.height(4.dp))
-        QuotedBodyText(quotedPost = quotedPost)
-        QuotedEmbedSlot(
-            embed = quotedPost.embed,
-            quotedVideoEmbedSlot = quotedVideoEmbedSlot,
-        )
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            QuotedAuthorLine(quotedPost = quotedPost)
+            Spacer(Modifier.height(4.dp))
+            QuotedBodyText(quotedPost = quotedPost)
+            QuotedEmbedSlot(
+                embed = quotedPost.embed,
+                quotedVideoEmbedSlot = quotedVideoEmbedSlot,
+            )
+        }
     }
 }
 
@@ -168,14 +172,14 @@ private fun QuotedEmbedSlot(
                 title = embed.title,
                 description = embed.description,
                 thumbUrl = embed.thumbUrl,
-                // Hoisted no-op — an inline `{}` would allocate a new
-                // lambda every recomposition and force PostCardExternalEmbed
-                // to recompose on every parent change. Tap behavior on a
-                // quoted card is deferred to a follow-up bd issue (paired
-                // with the post-detail destination); for now the inner
-                // external card is non-interactive while the surrounding
-                // card surface stays a single visual unit.
-                onTap = QuotedExternalNoOp,
+                // Null onTap → PostCardExternalEmbed omits Modifier.clickable
+                // entirely, so the inner external card is genuinely
+                // non-interactive (no ripple, no tap target). Tap behavior
+                // for the quoted card as a whole is deferred to a follow-up
+                // bd issue paired with the post-detail destination — wiring
+                // lands once for the whole card surface, not for each inner
+                // affordance.
+                onTap = null,
             )
         }
         is QuotedEmbedUi.Video -> {
@@ -218,15 +222,6 @@ private fun QuotedThreadChip(modifier: Modifier = Modifier) {
 
 private val QUOTED_CARD_SHAPE = RoundedCornerShape(12.dp)
 private val CHIP_SHAPE = RoundedCornerShape(8.dp)
-
-/**
- * Stable lambda identity for the no-op tap target on inner external
- * embeds. Used by [QuotedEmbedSlot] so [PostCardExternalEmbed]'s
- * `onTap` parameter doesn't churn with a fresh `{}` allocation per
- * recomposition (which would force unnecessary recomposition of the
- * leaf composable on every parent change).
- */
-private val QuotedExternalNoOp: (String) -> Unit = {}
 
 // ---------- Previews ----------
 

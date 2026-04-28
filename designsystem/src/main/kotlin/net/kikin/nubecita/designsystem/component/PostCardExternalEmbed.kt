@@ -40,6 +40,14 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  *   with ellipsis. Empty strings are skipped (no empty `Text` row).
  * - Domain footer: globe icon + [domain] (precomputed at mapping time so
  *   no `Uri.parse` runs per recomposition during scroll).
+ *
+ * [onTap] is nullable. A non-null lambda makes the whole surface a tap
+ * target via `Modifier.clickable` (with the standard ripple). A `null`
+ * lambda omits the clickable entirely — the surface paints with no tap
+ * affordance and no ripple feedback. Quoted-post slot in
+ * `PostCardQuotedPost` passes null; the in-feed parent path passes the
+ * `PostCallbacks.onExternalEmbedTap` lambda which the host wires to a
+ * `CustomTabsIntent` launcher.
  */
 @Composable
 fun PostCardExternalEmbed(
@@ -48,13 +56,19 @@ fun PostCardExternalEmbed(
     title: String,
     description: String,
     thumbUrl: String?,
-    onTap: (uri: String) -> Unit,
+    onTap: ((uri: String) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val surfaceModifier =
+        if (onTap == null) {
+            modifier.fillMaxWidth()
+        } else {
+            modifier.fillMaxWidth().clickable { onTap(uri) }
+        }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(16.dp),
-        modifier = modifier.fillMaxWidth().clickable { onTap(uri) },
+        modifier = surfaceModifier,
     ) {
         Column {
             if (thumbUrl != null) {
