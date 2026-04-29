@@ -3,6 +3,11 @@ name: CI
 on:
   workflow_dispatch:
   pull_request:
+    # `labeled` is here so adding `run-instrumented` on a PR re-fires CI.
+    # Other jobs are unaffected — they re-run identically; the
+    # `instrumented` job's `if:` condition gates its execution on the
+    # label's presence.
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
 
