@@ -77,12 +77,12 @@ The change adds three screenshot tests at three window-size classes, exercising 
 | Window class | Width | Expected layout |
 |---|---|---|
 | Compact | 360dp | Bar at bottom; Feed fills content area; placeholder NOT composed |
-| Medium | 700dp | Rail at start; Feed in left pane; `FeedDetailPlaceholder` in right pane |
-| Expanded | 1200dp | Rail at start; Feed in left pane; `FeedDetailPlaceholder` in right pane |
+| Medium | 600dp | Rail at start; Feed in left pane; `FeedDetailPlaceholder` in right pane |
+| Expanded | 840dp | Rail at start; Feed in left pane; `FeedDetailPlaceholder` in right pane |
 
-Tests live in `:app/src/screenshotTest/.../shell/MainShellListDetailScreenshotTest.kt` alongside `MainShellChromeScreenshotTest`. Each test uses `@PreviewScreenSizes` or an explicit `@Preview(device = "spec:width=…dp,height=…dp")` to fix the window class, hands a fake `EntryProviderInstaller` set into `MainShellChrome` (the existing Hilt-free wrapper), and captures the rendered tree. The fake installers register a Feed entry with the real `listPane{}` metadata; this validates the metadata is wired correctly without requiring a fully-stood-up Hilt graph.
+Widths match the existing `MainShellChromeScreenshotTest`'s file-private `COMPACT_WIDTH_DP = 360`, `MEDIUM_WIDTH_DP = 600`, `EXPANDED_WIDTH_DP = 840` constants — same Material 3 adaptive thresholds drive both this strategy and `NavigationSuiteScaffold`'s bar↔rail swap, so reusing the values keeps one set of edge cases under test.
 
-A separate non-screenshot unit test asserts that `MainShell`'s `NavDisplay` invocation includes `sceneStrategies` — guards against accidental regression to single-pane during refactor.
+Tests live in `:app/src/screenshotTest/.../shell/MainShellListDetailScreenshotTest.kt` alongside `MainShellChromeScreenshotTest` and follow that file's `@PreviewTest` + `@Preview(name = ..., widthDp = ..., heightDp = ...)` pairing — `@PreviewTest` (`com.android.tools.screenshot.PreviewTest`) is required for the AGP screenshot runner to pick up the function; the paired `@Preview` keeps in-IDE rendering. Each composable hands a fake `EntryProviderInstaller` set into `MainShellChrome` (the existing Hilt-free wrapper); the fake installers register a Feed entry with the real `listPane{}` metadata, validating the metadata is wired correctly without requiring a fully-stood-up Hilt graph. The screenshot baselines themselves act as the regression guard against accidental "drops `sceneStrategies`" refactors — if the inner `NavDisplay` ever reverts to single-pane, the medium and expanded baselines change visibly.
 
 ## Risks & mitigations
 
@@ -95,11 +95,11 @@ The dependency is in alpha. Sonatype audit (`pkg:maven/androidx.compose.material
 - During implementation, prefer the latest alpha that is *aligned* with our `nav3Core = "1.1.1"`. Per the AndroidX adaptive release notes, mismatched alphas can produce metadata-key drift. Re-check the alignment in task 1.1.
 - After this change ships, watch for `adaptive-navigation3` graduation to `beta`/stable — re-run `sonatype-guide` and re-evaluate any newly-disclosed CVEs at that point. Tracked informally; no scheduled task.
 
-### R2 — `listPane{}` metadata depends on Feed entry being top-of-stack-or-followed-by-detailPane
+### R2 — Mistakenly tagging a full-screen sub-route with `detailPane()` would break pane semantics
 
-If a future change inadvertently pushes a non-`detailPane()` entry on top of Feed (e.g. Settings full-screen pushed via Feed's UiEffect), the strategy's behavior on medium/expanded is to render Feed as left pane and Settings as the "detail" — visually wrong.
+If a future change inadvertently marks a full-screen sub-route on top of Feed *with* `detailPane()` metadata (e.g. Settings is pushed via Feed's `UiEffect.Navigate` and the author copies the `PostDetail` registration shape including its `detailPane()` annotation), the strategy on medium/expanded would render Feed as the left pane and Settings as the "detail" pane — visually wrong, since Settings is meant to fully obscure the list/detail scene, not coexist with it. Without `detailPane()` metadata the strategy correctly falls through to single-pane (Settings covers everything), so the failure mode is specifically "incorrect metadata," not "missing metadata."
 
-**Mitigation:** Settings (and any analogous full-screen sub-route) must NOT carry `detailPane()` metadata. Without metadata, the strategy treats the entry as a single-pane scene that obscures both list and detail. This is the correct behavior. We document the rule in the spec delta ("Entries that should fully obscure the list pane SHALL NOT supply `detailPane()` metadata") so reviewers catch any mistaken metadata.
+**Mitigation:** the spec delta makes the rule explicit (`app-navigation-shell` Requirement #3: "Full-screen sub-routes do NOT declare `detailPane` metadata") so reviewers catch any mistaken `detailPane()` annotation on screens that aren't semantically a detail of the entry below them. The screenshot test in this change does not exercise this case (no Settings entry exists yet); when Settings or an analogous full-screen sub-route is added, that change SHOULD include a screenshot baseline at expanded width verifying single-pane fallback.
 
 ### R3 — Saved state interplay with the strategy
 
