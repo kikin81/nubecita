@@ -53,8 +53,11 @@ import androidx.compose.ui.unit.dp
  * @param color The line color. Callers typically pass
  *   `MaterialTheme.colorScheme.outlineVariant` — the same color the
  *   reference uses.
- * @param gutterX The x-coordinate of the line in dp. Default 41dp
- *   matches a 20dp horizontal padding + 44dp avatar.
+ * @param gutterX The x-coordinate of the line in dp. Default 42dp
+ *   centers the line on a 44dp avatar with 20dp horizontal padding
+ *   (avatar center = 20 + 22). `drawLine` strokes are centered on the
+ *   coordinate, so a 2dp line at gutterX=42 spans 41-43, visually
+ *   centered through the avatar.
  * @param avatarTop The y-coordinate where the avatar starts. The
  *   `connectAbove` line stops here so it doesn't overlap the avatar.
  * @param avatarBottom The y-coordinate where the avatar ends. The
