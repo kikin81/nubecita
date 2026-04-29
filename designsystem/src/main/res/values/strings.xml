@@ -39,4 +39,16 @@
     <string name="postcard_action_repost">Repost</string>
     <string name="postcard_action_like">Like</string>
     <string name="postcard_action_share">Share post</string>
+
+    <!-- ThreadFold copy. thread_fold_view_full_thread is both the visible
+         label and the clickable's onClickLabel so TalkBack announces
+         "View full thread, button, double-tap to View full thread".
+         thread_fold_more_count is a quantity string for the optional
+         "· N more" elision indicator (English doesn't differ between
+         one and other; resource enables proper localization elsewhere). -->
+    <string name="thread_fold_view_full_thread">View full thread</string>
+    <plurals name="thread_fold_more_count">
+        <item quantity="one">· %1$d more</item>
+        <item quantity="other">· %1$d more</item>
+    </plurals>
 </resources>
