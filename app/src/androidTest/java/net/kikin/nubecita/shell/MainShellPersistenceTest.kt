@@ -2,17 +2,15 @@ package net.kikin.nubecita.shell
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.StateRestorationTester
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.feed.api.Feed
@@ -21,6 +19,7 @@ import net.kikin.nubecita.feature.search.api.Search
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Verifies that `MainShellNavState`'s persistence mechanism (the
@@ -36,9 +35,6 @@ import org.junit.runner.RunWith
  * the persistence behavior under test is driven by Compose's saveable
  * machinery, which `StateRestorationTester` exercises identically (and
  * without needing a real `MainActivity` + auth flow + Hilt graph).
- *
- * Runs locally today; will be picked up by CI when nubecita-16a (CI
- * emulator runner) lands.
  */
 @RunWith(AndroidJUnit4::class)
 class MainShellPersistenceTest {
@@ -48,7 +44,13 @@ class MainShellPersistenceTest {
     @Test
     fun mainShellNavState_survivesStateRestoration() {
         val tester = StateRestorationTester(composeTestRule)
-        var mutationTrigger by mutableStateOf(false)
+        // Captured each composition via SideEffect so the test thread can
+        // mutate the state holder once via `runOnIdle` instead of inside a
+        // `LaunchedEffect`. A `LaunchedEffect`-based mutation would re-fire
+        // after the restore-recreate cycle and double-push, leaving
+        // `[Feed, Search, Profile, Profile]` (size 4) instead of the
+        // expected size 3.
+        val stateRef = AtomicReference<MainShellNavState>()
 
         tester.setContent {
             val state =
@@ -56,13 +58,7 @@ class MainShellPersistenceTest {
                     startRoute = Feed,
                     topLevelRoutes = listOf(Feed, Search, Chats, Profile(handle = null)),
                 )
-
-            LaunchedEffect(mutationTrigger) {
-                if (mutationTrigger) {
-                    state.addTopLevel(Search)
-                    state.add(Profile(handle = "alice.bsky.social"))
-                }
-            }
+            SideEffect { stateRef.set(state) }
 
             Column {
                 Text(
@@ -87,9 +83,14 @@ class MainShellPersistenceTest {
         composeTestRule.onNodeWithTag("activeKey").assertTextEquals("Feed")
         composeTestRule.onNodeWithTag("backStackSize").assertTextEquals("1")
 
-        // Trigger mutation: active becomes Search; Profile pushed onto Search's stack.
-        // Flattened stack is [Feed (start), Search (top-level of active), Profile (sub-route)].
-        composeTestRule.runOnIdle { mutationTrigger = true }
+        // Mutate once on the test thread: active becomes Search; Profile
+        // pushed onto Search's stack. Flattened stack is
+        // [Feed (start), Search (top-level of active), Profile (sub-route)].
+        composeTestRule.runOnIdle {
+            val state = checkNotNull(stateRef.get()) { "stateRef not initialized" }
+            state.addTopLevel(Search)
+            state.add(Profile(handle = "alice.bsky.social"))
+        }
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithTag("activeKey").assertTextEquals("Search")
