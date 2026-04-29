@@ -188,6 +188,22 @@ private fun PostCardLongNameAndHandleScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "thread-cluster-parent-light", showBackground = true)
+@Preview(name = "thread-cluster-parent-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardThreadClusterParentScreenshot() {
+    // Locks the connector-bearing visual: connectAbove + connectBelow both
+    // true matches the "parent" position inside a ReplyCluster — line draws
+    // through the avatar gutter from y=0 to avatarTop, and from avatarBottom
+    // to size.height. Geometry overrides (gutterX=40, avatarTop=14,
+    // avatarBottom=54) compensate for PostCard's actual 40dp avatar with
+    // 14dp vertical padding (the threadConnector defaults assume 44dp/12dp).
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(post = screenshotPost(), connectAbove = true, connectBelow = true)
+    }
+}
+
+@PreviewTest
 @Preview(name = "with-facets-light", showBackground = true)
 @Preview(name = "with-facets-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable

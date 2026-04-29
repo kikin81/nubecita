@@ -6,20 +6,26 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 
 /**
  * One frame's worth of UI state for the Following timeline screen.
  *
- * `posts`, `nextCursor`, and `endReached` are flat fields per the MVI
+ * `feedItems`, `nextCursor`, and `endReached` are flat fields per the MVI
  * convention's "independent flags stay flat" rule. `loadStatus` is a
  * sealed sum (per the amended convention's "mutually-exclusive view
  * modes" carve-out) so the type system makes invalid combinations like
  * `isInitialLoading=true && isRefreshing=true` unrepresentable.
+ *
+ * Each [FeedItemUi] is one logical feed entry — either a
+ * [FeedItemUi.Single] standalone post or a [FeedItemUi.ReplyCluster]
+ * carrying root + parent + leaf for cross-author reply rendering.
+ * Pagination + scroll plumbing keys on the leaf's URI in either case.
  */
 @Immutable
 data class FeedState(
-    val posts: ImmutableList<PostUi> = persistentListOf(),
+    val feedItems: ImmutableList<FeedItemUi> = persistentListOf(),
     val nextCursor: String? = null,
     val endReached: Boolean = false,
     val loadStatus: FeedLoadStatus = FeedLoadStatus.Idle,

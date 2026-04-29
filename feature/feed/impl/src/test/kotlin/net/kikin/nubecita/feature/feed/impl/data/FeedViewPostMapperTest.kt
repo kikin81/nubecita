@@ -3,8 +3,10 @@ package net.kikin.nubecita.feature.feed.impl.data
 import io.github.kikin81.atproto.app.bsky.feed.GetTimelineResponse
 import kotlinx.serialization.json.Json
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -825,6 +827,80 @@ internal class FeedViewPostMapperTest {
             EmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia"),
             mapped.embed,
         )
+    }
+
+    // ---------- FeedItemUi (cross-author thread cluster) ----------
+
+    @Test
+    fun `toFeedItemUiOrNull with reply == null produces Single`() {
+        // timeline_typical entry [1] is a standalone post (no top-level reply).
+        val response = decodeFixture("timeline_typical.json")
+        val standalone = response.feed[1]
+        val item = standalone.toFeedItemUiOrNull()
+        assertInstanceOf(FeedItemUi.Single::class.java, item)
+        val single = item as FeedItemUi.Single
+        assertEquals(standalone.post.uri.raw, single.post.id)
+    }
+
+    @Test
+    fun `toFeedItemUiOrNull with PostView parent and null grandparent produces ReplyCluster with hasEllipsis = false`() {
+        val response = decodeFixture("timeline_with_reply.json")
+        val item = response.feed.single().toFeedItemUiOrNull()
+        assertInstanceOf(FeedItemUi.ReplyCluster::class.java, item)
+        val cluster = item as FeedItemUi.ReplyCluster
+        assertEquals("leaf.bsky.social", cluster.leaf.author.handle)
+        assertEquals("parent.bsky.social", cluster.parent.author.handle)
+        assertEquals("root.bsky.social", cluster.root.author.handle)
+        assertFalse(cluster.hasEllipsis)
+    }
+
+    @Test
+    fun `toFeedItemUiOrNull when grandparentAuthor did matches root author did produces ReplyCluster with hasEllipsis = false`() {
+        // Fixture entry [0]: grandparentAuthor.did == root.author.did → no fold.
+        val response = decodeFixture("timeline_with_reply_grandparent.json")
+        val item = response.feed[0].toFeedItemUiOrNull()
+        val cluster = assertInstanceOf(FeedItemUi.ReplyCluster::class.java, item)
+        assertFalse(cluster.hasEllipsis)
+    }
+
+    @Test
+    fun `toFeedItemUiOrNull when grandparentAuthor did differs from root author did produces ReplyCluster with hasEllipsis = true`() {
+        // Fixture entry [1]: grandparentAuthor.did distinct from root.author.did → fold.
+        val response = decodeFixture("timeline_with_reply_grandparent.json")
+        val item = response.feed[1].toFeedItemUiOrNull()
+        val cluster = assertInstanceOf(FeedItemUi.ReplyCluster::class.java, item)
+        assertTrue(cluster.hasEllipsis)
+    }
+
+    @Test
+    fun `toFeedItemUiOrNull with BlockedPost parent falls back to Single`() {
+        val response = decodeFixture("timeline_with_reply_blocked_parent.json")
+        val item = response.feed.single().toFeedItemUiOrNull()
+        val single = assertInstanceOf(FeedItemUi.Single::class.java, item)
+        assertEquals("leaf.bsky.social", single.post.author.handle)
+    }
+
+    @Test
+    fun `toFeedItemUiOrNull with NotFoundPost parent falls back to Single`() {
+        val response = decodeFixture("timeline_with_reply_notfound_parent.json")
+        val item = response.feed.single().toFeedItemUiOrNull()
+        val single = assertInstanceOf(FeedItemUi.Single::class.java, item)
+        assertEquals("leaf.bsky.social", single.post.author.handle)
+    }
+
+    @Test
+    fun `toFeedItemUiOrNull with direct reply to root produces ReplyCluster where parent_id equals root_id`() {
+        // Wire shape where replyRef.parent.uri == replyRef.root.uri (any
+        // direct reply to a root post — common for self-threads). The
+        // mapper still produces both fields; the renderer (ThreadCluster)
+        // is responsible for collapsing the duplicate slot. This test
+        // locks the data-layer contract: parent.id and root.id are
+        // the same string after projection.
+        val response = decodeFixture("timeline_with_direct_reply_to_root.json")
+        val item = response.feed.single().toFeedItemUiOrNull()
+        val cluster = assertInstanceOf(FeedItemUi.ReplyCluster::class.java, item)
+        assertEquals(cluster.root.id, cluster.parent.id)
+        assertFalse(cluster.hasEllipsis)
     }
 
     /**

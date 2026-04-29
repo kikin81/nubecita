@@ -1,0 +1,116 @@
+{
+  "feed": [
+    {
+      "post": {
+        "uri": "at://did:plc:fakeleaf1111111111111/app.bsky.feed.post/leaf-gp-eq-root",
+        "cid": "bafyreifakeleaf1cid00000000000000000000000000000",
+        "author": {
+          "did": "did:plc:fakeleaf1111111111111",
+          "handle": "leaf1.bsky.social",
+          "displayName": "Leaf One"
+        },
+        "indexedAt": "2026-04-26T12:00:00Z",
+        "record": {
+          "$type": "app.bsky.feed.post",
+          "text": "leaf, gp == root",
+          "createdAt": "2026-04-26T12:00:00Z"
+        }
+      },
+      "reply": {
+        "parent": {
+          "$type": "app.bsky.feed.defs#postView",
+          "uri": "at://did:plc:fakeparent111111111111/app.bsky.feed.post/parent1",
+          "cid": "bafyreifakeparent1cid000000000000000000000000000",
+          "author": {
+            "did": "did:plc:fakeparent111111111111",
+            "handle": "parent1.bsky.social",
+            "displayName": "Parent One"
+          },
+          "indexedAt": "2026-04-25T12:00:00Z",
+          "record": {
+            "$type": "app.bsky.feed.post",
+            "text": "parent, child of root directly",
+            "createdAt": "2026-04-25T12:00:00Z"
+          }
+        },
+        "root": {
+          "$type": "app.bsky.feed.defs#postView",
+          "uri": "at://did:plc:fakeroot11111111111111/app.bsky.feed.post/root1",
+          "cid": "bafyreifakeroot1cid0000000000000000000000000000",
+          "author": {
+            "did": "did:plc:fakeroot11111111111111",
+            "handle": "root1.bsky.social",
+            "displayName": "Root One"
+          },
+          "indexedAt": "2026-04-24T12:00:00Z",
+          "record": {
+            "$type": "app.bsky.feed.post",
+            "text": "root one",
+            "createdAt": "2026-04-24T12:00:00Z"
+          }
+        },
+        "grandparentAuthor": {
+          "did": "did:plc:fakeroot11111111111111",
+          "handle": "root1.bsky.social",
+          "displayName": "Root One"
+        }
+      }
+    },
+    {
+      "post": {
+        "uri": "at://did:plc:fakeleaf2222222222222/app.bsky.feed.post/leaf-gp-neq-root",
+        "cid": "bafyreifakeleaf2cid00000000000000000000000000000",
+        "author": {
+          "did": "did:plc:fakeleaf2222222222222",
+          "handle": "leaf2.bsky.social",
+          "displayName": "Leaf Two"
+        },
+        "indexedAt": "2026-04-26T13:00:00Z",
+        "record": {
+          "$type": "app.bsky.feed.post",
+          "text": "leaf, gp distinct from root",
+          "createdAt": "2026-04-26T13:00:00Z"
+        }
+      },
+      "reply": {
+        "parent": {
+          "$type": "app.bsky.feed.defs#postView",
+          "uri": "at://did:plc:fakeparent222222222222/app.bsky.feed.post/parent2",
+          "cid": "bafyreifakeparent2cid000000000000000000000000000",
+          "author": {
+            "did": "did:plc:fakeparent222222222222",
+            "handle": "parent2.bsky.social",
+            "displayName": "Parent Two"
+          },
+          "indexedAt": "2026-04-25T13:00:00Z",
+          "record": {
+            "$type": "app.bsky.feed.post",
+            "text": "parent, sits under a non-root grandparent",
+            "createdAt": "2026-04-25T13:00:00Z"
+          }
+        },
+        "root": {
+          "$type": "app.bsky.feed.defs#postView",
+          "uri": "at://did:plc:fakeroot22222222222222/app.bsky.feed.post/root2",
+          "cid": "bafyreifakeroot2cid0000000000000000000000000000",
+          "author": {
+            "did": "did:plc:fakeroot22222222222222",
+            "handle": "root2.bsky.social",
+            "displayName": "Root Two"
+          },
+          "indexedAt": "2026-04-24T13:00:00Z",
+          "record": {
+            "$type": "app.bsky.feed.post",
+            "text": "root two",
+            "createdAt": "2026-04-24T13:00:00Z"
+          }
+        },
+        "grandparentAuthor": {
+          "did": "did:plc:fakegrandparent222222",
+          "handle": "grandparent2.bsky.social",
+          "displayName": "Grandparent Two"
+        }
+      }
+    }
+  ]
+}

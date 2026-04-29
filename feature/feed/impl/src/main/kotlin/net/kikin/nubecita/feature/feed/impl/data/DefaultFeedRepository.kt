@@ -31,7 +31,7 @@ internal class DefaultFeedRepository
                             ),
                         )
                     TimelinePage(
-                        posts = response.feed.mapNotNull { it.toPostUiOrNull() }.toImmutableList(),
+                        feedItems = response.feed.mapNotNull { it.toFeedItemUiOrNull() }.toImmutableList(),
                         nextCursor = response.cursor,
                     )
                 }.onFailure { throwable ->

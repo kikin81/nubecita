@@ -1,7 +1,7 @@
 package net.kikin.nubecita.feature.feed.impl.data
 
 import kotlinx.collections.immutable.ImmutableList
-import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.FeedItemUi
 
 /**
  * `app.bsky.feed.getTimeline` fetch surface scoped to `:feature:feed:impl`.
@@ -19,12 +19,14 @@ internal interface FeedRepository {
 }
 
 /**
- * One paginated page of timeline posts. [nextCursor] is the cursor to
- * pass on the next request to fetch the page after this one; `null`
- * signals end-of-feed.
+ * One paginated page of timeline items. Each entry is a [FeedItemUi] —
+ * either a [FeedItemUi.Single] standalone post or a
+ * [FeedItemUi.ReplyCluster] carrying root + parent + leaf for cross-author
+ * reply rendering. [nextCursor] is the cursor to pass on the next request
+ * to fetch the page after this one; `null` signals end-of-feed.
  */
 internal data class TimelinePage(
-    val posts: ImmutableList<PostUi>,
+    val feedItems: ImmutableList<FeedItemUi>,
     val nextCursor: String?,
 )
 

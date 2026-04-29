@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -35,7 +36,7 @@ internal class FeedViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeFeedRepository(
-                    pages = listOf(Result.success(TimelinePage(posts = posts("p1", "p2"), nextCursor = "c1"))),
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1"))),
                 )
             val vm = FeedViewModel(repo)
 
@@ -43,7 +44,7 @@ internal class FeedViewModelTest {
             advanceUntilIdle()
 
             val state = vm.uiState.value
-            assertEquals(2, state.posts.size)
+            assertEquals(2, state.feedItems.size)
             assertEquals("c1", state.nextCursor)
             assertEquals(false, state.endReached)
             assertEquals(FeedLoadStatus.Idle, state.loadStatus)
@@ -55,7 +56,7 @@ internal class FeedViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeFeedRepository(
-                    pages = listOf(Result.success(TimelinePage(posts = persistentListOf(), nextCursor = null))),
+                    pages = listOf(Result.success(TimelinePage(feedItems = persistentListOf(), nextCursor = null))),
                 )
             val vm = FeedViewModel(repo)
 
@@ -63,7 +64,7 @@ internal class FeedViewModelTest {
             advanceUntilIdle()
 
             val state = vm.uiState.value
-            assertTrue(state.posts.isEmpty())
+            assertTrue(state.feedItems.isEmpty())
             assertEquals(true, state.endReached)
             assertEquals(FeedLoadStatus.Idle, state.loadStatus)
         }
@@ -81,7 +82,7 @@ internal class FeedViewModelTest {
             assertTrue(status is FeedLoadStatus.InitialError, "expected InitialError, got $status")
             assertEquals(FeedError.Network, (status as FeedLoadStatus.InitialError).error)
             assertTrue(
-                vm.uiState.value.posts
+                vm.uiState.value.feedItems
                     .isEmpty(),
             )
         }
@@ -94,7 +95,7 @@ internal class FeedViewModelTest {
                     pages =
                         listOf(
                             Result.failure(IOException("transient")),
-                            Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1")),
+                            Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = "c1")),
                         ),
                 )
             val vm = FeedViewModel(repo)
@@ -107,7 +108,7 @@ internal class FeedViewModelTest {
             advanceUntilIdle()
 
             val state = vm.uiState.value
-            assertEquals(1, state.posts.size)
+            assertEquals(1, state.feedItems.size)
             assertEquals(FeedLoadStatus.Idle, state.loadStatus)
             assertEquals(2, repo.invocations.size)
         }
@@ -119,8 +120,8 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages =
                         listOf(
-                            Result.success(TimelinePage(posts = posts("p1", "p2"), nextCursor = "c1")),
-                            Result.success(TimelinePage(posts = posts("p3"), nextCursor = "c2")),
+                            Result.success(TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1")),
+                            Result.success(TimelinePage(feedItems = feedItems("p3"), nextCursor = "c2")),
                         ),
                 )
             val vm = FeedViewModel(repo)
@@ -132,7 +133,7 @@ internal class FeedViewModelTest {
             advanceUntilIdle()
 
             val state = vm.uiState.value
-            assertEquals(listOf("p3"), state.posts.map { it.id })
+            assertEquals(listOf("p3"), state.feedItems.map { it.key })
             assertEquals("c2", state.nextCursor)
             assertEquals(FeedLoadStatus.Idle, state.loadStatus)
         }
@@ -144,7 +145,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages =
                         listOf(
-                            Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1")),
+                            Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = "c1")),
                             Result.failure(IOException("refresh failed")),
                         ),
                 )
@@ -163,7 +164,7 @@ internal class FeedViewModelTest {
             }
 
             val state = vm.uiState.value
-            assertEquals(listOf("p1"), state.posts.map { it.id })
+            assertEquals(listOf("p1"), state.feedItems.map { it.key })
             assertEquals("c1", state.nextCursor)
             assertEquals(FeedLoadStatus.Idle, state.loadStatus)
         }
@@ -175,9 +176,9 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages =
                         listOf(
-                            Result.success(TimelinePage(posts = posts("p1", "p2"), nextCursor = "c1")),
+                            Result.success(TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1")),
                             // Page 2 deliberately repeats p2 (server-side cursor desync) — must be deduped.
-                            Result.success(TimelinePage(posts = posts("p2", "p3", "p4"), nextCursor = "c2")),
+                            Result.success(TimelinePage(feedItems = feedItems("p2", "p3", "p4"), nextCursor = "c2")),
                         ),
                 )
             val vm = FeedViewModel(repo)
@@ -189,7 +190,7 @@ internal class FeedViewModelTest {
             advanceUntilIdle()
 
             val state = vm.uiState.value
-            assertEquals(listOf("p1", "p2", "p3", "p4"), state.posts.map { it.id })
+            assertEquals(listOf("p1", "p2", "p3", "p4"), state.feedItems.map { it.key })
             assertEquals("c2", state.nextCursor)
             assertEquals(FeedLoadStatus.Idle, state.loadStatus)
         }
@@ -201,7 +202,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages =
                         listOf(
-                            Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1")),
+                            Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = "c1")),
                             Result.failure(IOException("page fetch failed")),
                         ),
                 )
@@ -219,7 +220,7 @@ internal class FeedViewModelTest {
             }
 
             val state = vm.uiState.value
-            assertEquals(listOf("p1"), state.posts.map { it.id })
+            assertEquals(listOf("p1"), state.feedItems.map { it.key })
             // Cursor preserved so retry can replay against the same page boundary.
             assertEquals("c1", state.nextCursor)
             assertEquals(FeedLoadStatus.Idle, state.loadStatus)
@@ -230,7 +231,7 @@ internal class FeedViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeFeedRepository(
-                    pages = listOf(Result.success(TimelinePage(posts = posts("p1"), nextCursor = null))),
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
             val vm = FeedViewModel(repo)
 
@@ -263,7 +264,7 @@ internal class FeedViewModelTest {
             vm.handleEvent(FeedEvent.Load)
             vm.handleEvent(FeedEvent.Load)
 
-            first.complete(Result.success(TimelinePage(posts = posts("p1"), nextCursor = null)))
+            first.complete(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null)))
             advanceUntilIdle()
 
             assertEquals(1, repo.invocations.size)
@@ -280,7 +281,7 @@ internal class FeedViewModelTest {
             // VM is now in InitialLoading; Refresh must be dropped.
             vm.handleEvent(FeedEvent.Refresh)
 
-            first.complete(Result.success(TimelinePage(posts = posts("p1"), nextCursor = null)))
+            first.complete(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null)))
             advanceUntilIdle()
 
             assertEquals(1, repo.invocations.size)
@@ -289,7 +290,7 @@ internal class FeedViewModelTest {
     @Test
     fun `Refresh while Refreshing is a no-op`() =
         runTest(mainDispatcher.dispatcher) {
-            val initial = Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1"))
+            val initial = Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = "c1"))
             val refreshDeferred = CompletableDeferred<Result<TimelinePage>>()
             var call = 0
             val repo =
@@ -310,7 +311,7 @@ internal class FeedViewModelTest {
             // Second Refresh while still Refreshing must be dropped — no third call.
             vm.handleEvent(FeedEvent.Refresh)
 
-            refreshDeferred.complete(Result.success(TimelinePage(posts = posts("p2"), nextCursor = "c2")))
+            refreshDeferred.complete(Result.success(TimelinePage(feedItems = feedItems("p2"), nextCursor = "c2")))
             advanceUntilIdle()
 
             assertEquals(2, repo.invocations.size)
@@ -319,7 +320,7 @@ internal class FeedViewModelTest {
     @Test
     fun `LoadMore while Refreshing is a no-op`() =
         runTest(mainDispatcher.dispatcher) {
-            val initial = Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1"))
+            val initial = Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = "c1"))
             val refreshDeferred = CompletableDeferred<Result<TimelinePage>>()
             var call = 0
             val repo =
@@ -341,7 +342,7 @@ internal class FeedViewModelTest {
             // refresh's setState. The guard drops the event.
             vm.handleEvent(FeedEvent.LoadMore)
 
-            refreshDeferred.complete(Result.success(TimelinePage(posts = posts("p2"), nextCursor = "c2")))
+            refreshDeferred.complete(Result.success(TimelinePage(feedItems = feedItems("p2"), nextCursor = "c2")))
             advanceUntilIdle()
 
             assertEquals(2, repo.invocations.size)
@@ -350,7 +351,7 @@ internal class FeedViewModelTest {
     @Test
     fun `LoadMore while another LoadMore is in flight is a no-op`() =
         runTest(mainDispatcher.dispatcher) {
-            val initial = Result.success(TimelinePage(posts = posts("p1"), nextCursor = "c1"))
+            val initial = Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = "c1"))
             val appendDeferred = CompletableDeferred<Result<TimelinePage>>()
             var call = 0
             val repo =
@@ -370,7 +371,7 @@ internal class FeedViewModelTest {
             vm.handleEvent(FeedEvent.LoadMore) // enters Appending
             vm.handleEvent(FeedEvent.LoadMore) // dropped
 
-            appendDeferred.complete(Result.success(TimelinePage(posts = posts("p2"), nextCursor = "c2")))
+            appendDeferred.complete(Result.success(TimelinePage(feedItems = feedItems("p2"), nextCursor = "c2")))
             advanceUntilIdle()
 
             assertEquals(2, repo.invocations.size)
@@ -454,7 +455,7 @@ internal class FeedViewModelTest {
         }
 }
 
-private fun posts(vararg ids: String): ImmutableList<PostUi> = ids.map { samplePost(it) }.toImmutableList()
+private fun feedItems(vararg ids: String): ImmutableList<FeedItemUi> = ids.map { FeedItemUi.Single(samplePost(it)) }.toImmutableList()
 
 private fun samplePost(id: String): PostUi =
     PostUi(

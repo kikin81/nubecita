@@ -1,0 +1,55 @@
+{
+  "feed": [
+    {
+      "post": {
+        "uri": "at://did:plc:fakeleaf0000000000000/app.bsky.feed.post/leaf-direct",
+        "cid": "bafyreifakeleafdirect00000000000000000000000000",
+        "author": {
+          "did": "did:plc:fakeleaf0000000000000",
+          "handle": "selfreply.bsky.social",
+          "displayName": "Self Reply Author"
+        },
+        "indexedAt": "2026-04-26T12:30:00Z",
+        "record": {
+          "$type": "app.bsky.feed.post",
+          "text": "direct reply to my own root post (self-thread)",
+          "createdAt": "2026-04-26T12:30:00Z"
+        }
+      },
+      "reply": {
+        "parent": {
+          "$type": "app.bsky.feed.defs#postView",
+          "uri": "at://did:plc:fakeleaf0000000000000/app.bsky.feed.post/root",
+          "cid": "bafyreifakeselfrootcid000000000000000000000000",
+          "author": {
+            "did": "did:plc:fakeleaf0000000000000",
+            "handle": "selfreply.bsky.social",
+            "displayName": "Self Reply Author"
+          },
+          "indexedAt": "2026-04-26T12:00:00Z",
+          "record": {
+            "$type": "app.bsky.feed.post",
+            "text": "the original root post",
+            "createdAt": "2026-04-26T12:00:00Z"
+          }
+        },
+        "root": {
+          "$type": "app.bsky.feed.defs#postView",
+          "uri": "at://did:plc:fakeleaf0000000000000/app.bsky.feed.post/root",
+          "cid": "bafyreifakeselfrootcid000000000000000000000000",
+          "author": {
+            "did": "did:plc:fakeleaf0000000000000",
+            "handle": "selfreply.bsky.social",
+            "displayName": "Self Reply Author"
+          },
+          "indexedAt": "2026-04-26T12:00:00Z",
+          "record": {
+            "$type": "app.bsky.feed.post",
+            "text": "the original root post",
+            "createdAt": "2026-04-26T12:00:00Z"
+          }
+        }
+      }
+    }
+  ]
+}
