@@ -61,7 +61,7 @@ import androidx.compose.ui.unit.dp
 fun ThreadFold(
     modifier: Modifier = Modifier,
     count: Int = 0,
-    gutterX: Dp = 41.dp,
+    gutterX: Dp = 42.dp,
     onClick: () -> Unit = {},
 ) {
     val connectorColor = MaterialTheme.colorScheme.outlineVariant

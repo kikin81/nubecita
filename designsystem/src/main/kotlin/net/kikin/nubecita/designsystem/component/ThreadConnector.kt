@@ -27,13 +27,19 @@ import androidx.compose.ui.unit.dp
  *  └───┴────────────────────────────────────────────────  ┘
  * ```
  *
- * The default geometry (`gutterX = 41.dp`, `avatarTop = 12.dp`,
- * `avatarBottom = 56.dp`) matches the reference design system's
- * `ThreadPost` (20dp horizontal padding + 44dp avatar centered = line
- * at 41dp; 12dp top padding gates `avatarTop`; 12dp + 44dp = 56dp gates
- * `avatarBottom`). Override only if your post layout uses different
- * padding/avatar dimensions — the defaults are load-bearing for
- * `PostCard`, `ThreadPost`, and downstream cluster compositions.
+ * The default geometry (`gutterX = 42.dp`, `avatarTop = 12.dp`,
+ * `avatarBottom = 56.dp`) matches a 20dp horizontal padding + 44dp
+ * avatar layout: avatar horizontal center = 20 + 22 = 42dp. Compose's
+ * `drawLine` strokes are centered on the coordinate, so passing
+ * `gutterX = 42` produces a 2dp line spanning x=41 to x=43 —
+ * visually centered through the avatar. The 12dp top padding +
+ * 44dp avatar height gives `avatarTop = 12` and
+ * `avatarBottom = 12 + 44 = 56`.
+ *
+ * Override only if your post layout uses different padding/avatar
+ * dimensions — the defaults are load-bearing for `PostCard`,
+ * `ThreadPost`, and downstream cluster compositions, which all assume
+ * a single canonical gutter so cross-component lines stay continuous.
  *
  * Pass `connectAbove = false, connectBelow = false` to disable both
  * lines (effectively no-op draw); typically you'd just not apply this
@@ -60,7 +66,7 @@ fun Modifier.threadConnector(
     connectAbove: Boolean,
     connectBelow: Boolean,
     color: Color,
-    gutterX: Dp = 41.dp,
+    gutterX: Dp = 42.dp,
     avatarTop: Dp = 12.dp,
     avatarBottom: Dp = 56.dp,
     strokeWidth: Dp = 2.dp,
