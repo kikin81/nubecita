@@ -21,9 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.R
 
 /**
  * The "View full thread" fold — sits between non-adjacent posts in a
@@ -66,12 +70,13 @@ fun ThreadFold(
 ) {
     val connectorColor = MaterialTheme.colorScheme.outlineVariant
     val dotColor = MaterialTheme.colorScheme.outline
+    val label = stringResource(R.string.thread_fold_view_full_thread)
 
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
                 .drawWithContent {
                     drawContent()
                     val xPx = gutterX.toPx()
@@ -105,7 +110,7 @@ fun ThreadFold(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "View full thread",
+                text = label,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.bodyLarge,
@@ -113,7 +118,7 @@ fun ThreadFold(
             if (count > 0) {
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "· $count more",
+                    text = pluralStringResource(R.plurals.thread_fold_more_count, count, count),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

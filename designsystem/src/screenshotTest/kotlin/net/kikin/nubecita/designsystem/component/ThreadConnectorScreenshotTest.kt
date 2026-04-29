@@ -26,9 +26,9 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * single placeholder "post" (just an avatar circle + a body text line)
  * so the line geometry is the only thing that varies between cases.
  *
- * The "neither flag" (no-op) case is exercised by the ktdoc on the
- * modifier itself; no baseline since the rendered output is identical
- * to a post without the modifier applied.
+ * The "neither flag" (no-op) case does not have a screenshot baseline,
+ * since the rendered output is identical to a post without the modifier
+ * applied.
  */
 
 private const val WIDTH_DP: Int = 360
