@@ -82,7 +82,17 @@ Both composables share the same tint contract: a `tint`/`color` parameter defaul
 
 ## Open Questions
 
-<!-- None at design time. -->
+### Q1: Which font supplies the "nubecita" wordmark glyphs?
+
+The reference `logo.svg` renders the wordmark as `<text class="nb-wordmark">nubecita</text>`, but `nb-wordmark` is **not defined** in `openspec/references/design-system/colors_and_type.css`. The reference design system declares three font families (`Fraunces` — display; `Roboto Flex` — body; `JetBrains Mono` — mono) but does not pin one to the wordmark.
+
+Decision 3 (wordmark as paths) cannot be executed until this is resolved. Three candidate resolutions:
+
+1. **Fraunces (display)** — recommended. Already the brand display font, expressive serif suits a logo wordmark, SIL OFL license permits glyph-as-path embedding.
+2. **Roboto Flex (body)** — also SIL OFL; reads more "UI" than "brand" but consistent with the body type.
+3. **Compose Text inline** — reverses Decision 3. Render `Row { NubecitaLogomark(); Text("nubecita", style = ...) }` instead of a vector drawable. Trades hermetic rendering for simpler integration.
+
+Implementer's task 0.1 records the resolution before any vector-drawable conversion happens.
 
 ## Risks / Trade-offs
 

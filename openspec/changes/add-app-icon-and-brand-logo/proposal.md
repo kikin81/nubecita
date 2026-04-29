@@ -52,7 +52,7 @@ This change replaces the placeholder launcher icon with our adaptive brand mark,
 - No new unit tests (composables are pure rendering; theme is XML-only).
 
 **Build / runtime:**
-- No new dependencies (`androidx.core:core-splashscreen` is already pulled in transitively; `installSplashScreen()` is in use).
+- No new dependencies. `androidx.core:core-splashscreen` is already declared directly by `:app` (`app/build.gradle.kts:69` — `implementation(libs.androidx.core.splashscreen)`); `installSplashScreen()` is in use.
 - `apk` size reduced slightly — the deleted webp's are larger than the new vector drawables.
 
 **Rollout:** Single PR. No feature flag, no migration. Visible on first install + on app upgrade (the launcher caches icon assets, so existing installs may need the launcher to refresh; manual fix is reinstall).

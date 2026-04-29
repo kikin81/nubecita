@@ -2,7 +2,7 @@
 
 ### Requirement: `:app` defines a `Splash` NavKey as the start destination
 
-`:app` SHALL define `@Serializable data object Splash : NavKey` and SHALL update `StartDestinationModule.provideStartDestination()` to return `Splash` (replacing the prior `Main` start destination). `MainNavigation` SHALL register an `entry<Splash>` rendering a `NubecitaLogomark` (from `:designsystem`) centered over `MaterialTheme.colorScheme.background`. The system SplashScreen API overlays this composable via `setKeepOnScreenCondition` while session bootstrap runs; once the system splash dismisses, the composable below is already drawing the same brand cloud, eliminating any flash of empty surface between dismiss and the route swap to Login or Main.
+`:app` SHALL define `@Serializable data object Splash : NavKey` as the start destination returned by `StartDestinationModule.provideStartDestination()`. `MainNavigation` SHALL register an `entry<Splash>` rendering a `NubecitaLogomark` (from `:designsystem`) centered over `MaterialTheme.colorScheme.background`. The system SplashScreen API overlays this composable via `setKeepOnScreenCondition` while session bootstrap runs; once the system splash dismisses, the composable below is already drawing the same brand cloud, eliminating any flash of empty surface between dismiss and the route swap to Login or Main.
 
 #### Scenario: Cold start shows the system splash, then the routed destination
 
