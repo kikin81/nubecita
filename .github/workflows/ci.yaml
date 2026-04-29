@@ -178,3 +178,85 @@ jobs:
             if (stale) {
               await github.rest.issues.deleteComment({ owner, repo, comment_id: stale.id });
             }
+
+  instrumented:
+    name: Instrumented tests
+    # Slow + resource-heavy. Don't run on every PR — opt in via the
+    # `run-instrumented` label, run unconditionally on push to main, and
+    # let maintainers trigger manually via the workflow_dispatch button.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-instrumented'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # KVM is needed for x86_64 emulator hardware acceleration on the
+      # ubuntu-latest runner. Without this, emulator boot time goes from
+      # ~30s to several minutes.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Cache the AVD snapshot so subsequent runs skip image creation.
+      # Bump the cache key (e.g. `avd-cache-v2-...`) when the API level
+      # or profile below changes.
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-cache-v1-api35-pixel6
+
+      - name: Create AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "AVD created and cached"
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest
+
+      - name: Upload androidTest reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: androidTest-reports
+          path: app/build/reports/androidTests/
+          if-no-files-found: ignore
+          retention-days: 14
