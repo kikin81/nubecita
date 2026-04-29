@@ -2,7 +2,7 @@
 
 ### Requirement: `FeedViewPostMapper` exposes `toFeedItemUiOrNull` as the entry-point projection
 
-`:feature:feed:impl/data/FeedViewPostMapper.kt` SHALL expose a public extension `fun FeedViewPost.toFeedItemUiOrNull(): FeedItemUi?` as the entry-point mapper from a wire `FeedViewPost` to a renderable `FeedItemUi`. The function SHALL return:
+`:feature:feed:impl/data/FeedViewPostMapper.kt` SHALL expose an `internal fun FeedViewPost.toFeedItemUiOrNull(): FeedItemUi?` extension as the entry-point mapper from a wire `FeedViewPost` to a renderable `FeedItemUi`. (The existing mapper API is module-`internal`; this matches that visibility.) The function SHALL return:
 
 - `FeedItemUi.Single(leaf)` when `reply` is null or when `reply.parent` is a non-`PostView` lexicon variant (`BlockedPost`, `NotFoundPost`).
 - `FeedItemUi.ReplyCluster(root, parent, leaf, hasEllipsis)` when `reply.parent` is a `PostView` AND `reply.root` is a `PostView`. The `hasEllipsis` field SHALL be `true` when `replyRef.grandparentAuthor != null && grandparentAuthor.did != root.author.did`, else `false`.

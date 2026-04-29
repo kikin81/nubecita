@@ -119,7 +119,27 @@ When either flag is true, `PostCard`'s root `Modifier` chain applies `Modifier.t
 | parent | true | true |
 | leaf | true | false |
 
-Connector geometry uses the modifier's defaults (gutterX=42dp, avatarTop=12dp, avatarBottom=56dp), which match `PostCard`'s avatar layout. No per-cluster geometry override needed.
+**Geometry mismatch between PR #77's defaults and PostCard's actual layout — explained.** PR #77 (`nubecita-m28.2`'s primitives) shipped `Modifier.threadConnector` and `ThreadFold` with defaults `gutterX = 42.dp, avatarTop = 12.dp, avatarBottom = 56.dp` derived from the reference design's `ThreadPost.kt` (which assumes a 44dp avatar at 20dp horizontal + 12dp vertical padding). Production `PostCard` actually uses `NubecitaAvatar` at 40dp (the design-system constant `DEFAULT_AVATAR_SIZE = 40.dp`) with 20dp horizontal + 14dp vertical padding — so the avatar center is at x=40 (not 42), avatarTop=14 (not 12), avatarBottom=54 (not 56).
+
+PostCard and ThreadCluster apply the modifier with explicit overrides matching PostCard's geometry:
+
+```kotlin
+Modifier.threadConnector(
+    connectAbove = ...,
+    connectBelow = ...,
+    color = MaterialTheme.colorScheme.outlineVariant,
+    gutterX = 40.dp,
+    avatarTop = 14.dp,
+    avatarBottom = 54.dp,
+)
+```
+
+`ThreadCluster` passes `gutterX = 40.dp` to its internal `ThreadFold` so the connector line stays continuous through the fold.
+
+Two ways to reconcile longer-term:
+
+- **Override at the integration site** (this PR's choice): keeps PR #77's standalone screenshot baselines unchanged (they were rendered against placeholder boxes, not real PostCards).
+- **Update the modifier defaults to PostCard's geometry** (future cleanup): forces baseline regeneration on the standalone tests + an API churn on every existing call site of the primitives. File a separate ticket if other consumers ever need different geometry and we want to break the 1:1 modifier↔PostCard binding.
 
 This unblocks `nubecita-m28.2` Section A (PostCard integration was the part that wasn't shipped in PR #77's primitives-only scope).
 

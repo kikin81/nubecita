@@ -20,7 +20,7 @@ This unblocks `nubecita-m28.2` Section A's "PostCard integration" sub-scope whic
 
 `:designsystem/component/ThreadCluster.kt` SHALL expose a public `@Composable fun ThreadCluster(...)` that renders a feed-level reply cluster: root post on top, optional `ThreadFold` between root and parent, parent post, leaf post — joined by avatar-gutter connector lines.
 
-The signature SHALL be (parameter order per the project's Compose convention — modifier first, required params, then defaulted/lambda):
+The signature SHALL be (parameter order per the project's Compose convention used by `PostCard` and `ThreadFold` — required params first, then `modifier`, then other defaulted params, then trailing lambdas):
 
 ```kotlin
 @Composable
@@ -28,8 +28,8 @@ fun ThreadCluster(
     root: PostUi,
     parent: PostUi,
     leaf: PostUi,
-    callbacks: PostCallbacks,
     modifier: Modifier = Modifier,
+    callbacks: PostCallbacks = PostCallbacks.None,
     hasEllipsis: Boolean = false,
     leafVideoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
     leafQuotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,

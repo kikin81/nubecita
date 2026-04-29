@@ -25,7 +25,7 @@
 ## 5. ViewState + ViewModel projection
 
 - [ ] 5.1 In `:feature:feed:impl/FeedScreenViewState.kt`, rename `Loaded.posts: ImmutableList<PostUi>` to `Loaded.feedItems: ImmutableList<FeedItemUi>`. Update the data-class generated equality / copy to match.
-- [ ] 5.2 In `:feature:feed:impl/FeedViewModel.kt`, find the projection from session state → `FeedScreenViewState.Loaded` and replace `feedViewPosts.mapNotNull { it.toPostUiOrNull() }` with `feedViewPosts.mapNotNull { it.toFeedItemUiOrNull() }`. Toolong as the test fixtures pass.
+- [ ] 5.2 In `:feature:feed:impl/FeedViewModel.kt`, find the projection from session state → `FeedScreenViewState.Loaded` and replace `feedViewPosts.mapNotNull { it.toPostUiOrNull() }` with `feedViewPosts.mapNotNull { it.toFeedItemUiOrNull() }`. Verify by running `./gradlew :feature:feed:impl:testDebugUnitTest` — existing fixtures should still pass.
 - [ ] 5.3 Update `:feature:feed:impl/src/test/.../FeedScreenViewStateTest.kt` to use `feedItems = ...` in fixtures. Mirror the existing `posts = ...` test helpers.
 
 ## 6. `FeedScreen` dispatch
