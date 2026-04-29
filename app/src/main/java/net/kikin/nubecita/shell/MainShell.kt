@@ -1,0 +1,218 @@
+package net.kikin.nubecita.shell
+
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
+import dagger.hilt.android.EntryPointAccessors
+import net.kikin.nubecita.R
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
+import net.kikin.nubecita.feature.chats.api.Chats
+import net.kikin.nubecita.feature.feed.api.Feed
+import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.api.Search
+import net.kikin.nubecita.navigation.NavigationEntryPoint
+
+/**
+ * Top-level adaptive navigation shell hosted by the `Main` `NavEntry`.
+ *
+ * Wraps an inner `NavDisplay` in `NavigationSuiteScaffold`, which auto-
+ * swaps `NavigationBar` (compact widths) → `NavigationRail` (medium and
+ * expanded widths). Drawer mode is suppressed: with only four
+ * destinations, a permanent drawer wastes screen real estate.
+ *
+ * The four top-level destinations — Feed, Search, Chats, You — are
+ * registered via the `@MainShell`-qualified `EntryProviderInstaller` set
+ * collected from feature modules. `:feature:feed:impl` provides the Feed
+ * entry; the other three are provided by `:app`'s
+ * [MainShellPlaceholderModule] until each feature's own epic stands up
+ * its `:impl` module.
+ *
+ * Per-tab back-stack state lives in `MainShellNavState`, created via
+ * `rememberMainShellNavState(...)` in this composable's body. The state
+ * is exposed to descendant Composables via [LocalMainShellNavState] so
+ * tab-internal navigation can flow through the MVI `UiEffect.Navigate`
+ * pattern without VMs ever touching the navigator (see the change
+ * `add-adaptive-navigation-shell` design doc decision D2).
+ *
+ * Lifecycle: when the outer `Navigator` transitions away from `Main`
+ * (e.g. `replaceTo(Login)` on logout), this composable leaves
+ * composition, the `remember`'d `MainShellNavState` is GC'd, and any
+ * per-tab residue is discarded.
+ */
+@Composable
+fun MainShell(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val entryPoint =
+        remember(context) {
+            EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                NavigationEntryPoint::class.java,
+            )
+        }
+    val installers = remember(entryPoint) { entryPoint.mainShellEntryProviderInstallers() }
+
+    val mainShellNavState =
+        rememberMainShellNavState(
+            startRoute = Feed,
+            topLevelRoutes = TopLevelDestinations.map { it.key },
+        )
+
+    // Default `calculateFromAdaptiveInfo` returns `NavigationDrawer` at
+    // expanded widths on some form factors. With only four destinations,
+    // a permanent drawer is overkill — collapse to rail in that case.
+    val adaptiveInfo = currentWindowAdaptiveInfo()
+    val defaultLayoutType = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
+    val layoutType =
+        if (defaultLayoutType == NavigationSuiteType.NavigationDrawer) {
+            NavigationSuiteType.NavigationRail
+        } else {
+            defaultLayoutType
+        }
+
+    CompositionLocalProvider(LocalMainShellNavState provides mainShellNavState) {
+        MainShellChrome(
+            activeKey = mainShellNavState.topLevelKey,
+            onTabClick = { mainShellNavState.addTopLevel(it) },
+            layoutType = layoutType,
+            modifier = modifier,
+        ) {
+            NavDisplay(
+                backStack = mainShellNavState.backStack,
+                onBack = { mainShellNavState.removeLast() },
+                // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
+                // it itself. Supply only the public decorators required for hiltViewModel()
+                // and saved state to work inside NavEntries.
+                entryDecorators =
+                    listOf(
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator(),
+                    ),
+                entryProvider =
+                    entryProvider {
+                        installers.forEach { installer -> installer() }
+                    },
+            )
+        }
+    }
+}
+
+/**
+ * Hilt-free chrome wrapper isolated from `MainShell` so previews and
+ * screenshot tests can exercise the bar/rail swap and selected-state
+ * indicators without standing up an entry-point or a back stack.
+ *
+ * @param activeKey The currently selected top-level destination's [NavKey].
+ *   Drives which item renders in selected (filled icon) state.
+ * @param onTabClick Invoked when the user taps a navigation item.
+ * @param layoutType Forces a specific [NavigationSuiteType]. Production
+ *   callers compute this from `currentWindowAdaptiveInfo()`; previews and
+ *   tests pass a fixed value to assert each layout independently.
+ * @param content The inner content rendered alongside the bar/rail —
+ *   typically the inner `NavDisplay`.
+ */
+@Composable
+internal fun MainShellChrome(
+    activeKey: NavKey,
+    onTabClick: (NavKey) -> Unit,
+    layoutType: NavigationSuiteType,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    NavigationSuiteScaffold(
+        modifier = modifier.fillMaxSize(),
+        layoutType = layoutType,
+        navigationSuiteItems = {
+            TopLevelDestinations.forEach { destination ->
+                val isSelected = activeKey == destination.key
+                item(
+                    selected = isSelected,
+                    onClick = { onTabClick(destination.key) },
+                    icon = {
+                        Icon(
+                            imageVector =
+                                if (isSelected) {
+                                    destination.iconSelected
+                                } else {
+                                    destination.iconUnselected
+                                },
+                            // The accessible name comes from `label` below; setting
+                            // `contentDescription` to the same string would make
+                            // TalkBack announce the destination twice.
+                            contentDescription = null,
+                        )
+                    },
+                    label = { Text(stringResource(destination.labelRes)) },
+                )
+            }
+        },
+        content = content,
+    )
+}
+
+internal data class TopLevelDestination(
+    val key: NavKey,
+    val iconSelected: ImageVector,
+    val iconUnselected: ImageVector,
+    val labelRes: Int,
+)
+
+/**
+ * The four top-level destinations rendered in the navigation suite, in
+ * display order (Feed first, You last). Order is load-bearing: the inner
+ * `NavDisplay`'s flattened back stack is computed using Feed as the start
+ * route per the recipe's "exit through home" rule, and the
+ * `NavigationSuiteScaffold` items render in iteration order.
+ */
+internal val TopLevelDestinations: List<TopLevelDestination> =
+    listOf(
+        TopLevelDestination(
+            key = Feed,
+            iconSelected = Icons.Filled.Home,
+            iconUnselected = Icons.Outlined.Home,
+            labelRes = R.string.main_shell_tab_feed,
+        ),
+        TopLevelDestination(
+            key = Search,
+            iconSelected = Icons.Filled.Search,
+            iconUnselected = Icons.Outlined.Search,
+            labelRes = R.string.main_shell_tab_search,
+        ),
+        TopLevelDestination(
+            key = Chats,
+            iconSelected = Icons.Filled.ChatBubble,
+            iconUnselected = Icons.Outlined.ChatBubbleOutline,
+            labelRes = R.string.main_shell_tab_chats,
+        ),
+        TopLevelDestination(
+            key = Profile(handle = null),
+            iconSelected = Icons.Filled.Person,
+            iconUnselected = Icons.Outlined.Person,
+            labelRes = R.string.main_shell_tab_you,
+        ),
+    )

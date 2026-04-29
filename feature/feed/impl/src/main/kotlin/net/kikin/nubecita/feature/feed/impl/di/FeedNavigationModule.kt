@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.FeedScreen
 
@@ -14,6 +15,7 @@ import net.kikin.nubecita.feature.feed.impl.FeedScreen
 internal object FeedNavigationModule {
     @Provides
     @IntoSet
+    @MainShell
     fun provideFeedEntries(): EntryProviderInstaller =
         {
             entry<Feed> {

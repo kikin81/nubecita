@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Nubecita</string>
+    <string name="main_shell_tab_feed">Feed</string>
+    <string name="main_shell_tab_search">Search</string>
+    <string name="main_shell_tab_chats">Chats</string>
+    <string name="main_shell_tab_you">You</string>
+    <string name="main_shell_settings">Settings</string>
+    <string name="main_shell_placeholder_coming_soon">%1$s — coming soon</string>
 </resources>
