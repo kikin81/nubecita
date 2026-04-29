@@ -161,7 +161,10 @@ internal fun MainShellChrome(
                                 } else {
                                     destination.iconUnselected
                                 },
-                            contentDescription = stringResource(destination.labelRes),
+                            // The accessible name comes from `label` below; setting
+                            // `contentDescription` to the same string would make
+                            // TalkBack announce the destination twice.
+                            contentDescription = null,
                         )
                     },
                     label = { Text(stringResource(destination.labelRes)) },

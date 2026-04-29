@@ -71,7 +71,7 @@ internal object MainShellPlaceholderModule {
                 PlaceholderScreen(label = stringResource(R.string.main_shell_tab_you))
             }
             entry<Settings> {
-                PlaceholderScreen(label = "Settings")
+                PlaceholderScreen(label = stringResource(R.string.main_shell_settings))
             }
         }
 }
