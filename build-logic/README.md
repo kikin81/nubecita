@@ -9,6 +9,7 @@ Composite build pulled into the root via `pluginManagement { includeBuild("build
 | `nubecita.android.library` | `com.android.library`, `sort-dependencies`, `compileSdk = 37`, `minSdk = 26`, Java 17 source/target, JVM 17 toolchain, `consumerProguardFiles("consumer-rules.pro")`, default test instrumentation runner, release build type with standard ProGuard files | `:core:auth` |
 | `nubecita.android.library.compose` | Above + `org.jetbrains.kotlin.plugin.compose`, `buildFeatures.compose = true`, Compose BOM + base Compose deps (`ui`, `material3`, `ui-tooling-preview`, `ui-tooling` debug-only) | `:designsystem` |
 | `nubecita.android.hilt` | `com.google.dagger.hilt.android`, `com.google.devtools.ksp`, `hilt-android` runtime + `hilt-android-compiler` via KSP | `:core:auth` |
+| `nubecita.android.jacoco` | `jacoco`, pinned tool version, JaCoCo agent on every Test task, per-module `jacocoTestReport` over the `debug` variant | Applied transitively by `nubecita.android.library` and `nubecita.android.application` — every Android module gets it |
 | `nubecita.android.feature` | Meta: `library` + `library.compose` + `hilt`, plus `:designsystem` project dep + `lifecycle-viewmodel-compose` + `lifecycle-runtime-compose` + `hilt-navigation-compose` + `navigation3-runtime` + `navigation3-ui` + `kotlinx-collections-immutable` | `:feature:*:impl` modules (none yet — created by the upcoming `add-feature-login` change) |
 | `nubecita.android.application` | `com.android.application`, `sort-dependencies`, Compose + Hilt + KSP plugins, `compileSdk/minSdk/targetSdk`, JVM 17 toolchain, `buildFeatures.buildConfig = true; compose = true`, default release build type, base Compose + Hilt + `hilt-navigation-compose` deps | `:app` |
 
@@ -75,6 +76,7 @@ build-logic/
         ├── AndroidLibraryConventionPlugin.kt
         ├── AndroidLibraryComposeConventionPlugin.kt
         ├── AndroidHiltConventionPlugin.kt
+        ├── AndroidJacocoConventionPlugin.kt
         ├── AndroidFeatureConventionPlugin.kt
         └── AndroidApplicationConventionPlugin.kt
 ```

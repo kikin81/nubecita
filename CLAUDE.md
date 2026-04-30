@@ -12,7 +12,7 @@ Pending: Room (persistence), Coil (images), `atproto-kotlin` (networking) — li
 ./gradlew :app:assembleDebug
 ./gradlew testDebugUnitTest
 ./gradlew spotlessCheck lint
-./gradlew :app:jacocoTestReport
+./gradlew jacocoTestReportAggregated
 
 pre-commit run --all-files
 ```

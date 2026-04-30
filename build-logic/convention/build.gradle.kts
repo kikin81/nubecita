@@ -37,6 +37,10 @@ gradlePlugin {
             id = "nubecita.android.hilt"
             implementationClass = "net.kikin.nubecita.buildlogic.AndroidHiltConventionPlugin"
         }
+        register("androidJacoco") {
+            id = "nubecita.android.jacoco"
+            implementationClass = "net.kikin.nubecita.buildlogic.AndroidJacocoConventionPlugin"
+        }
         register("androidFeature") {
             id = "nubecita.android.feature"
             implementationClass = "net.kikin.nubecita.buildlogic.AndroidFeatureConventionPlugin"

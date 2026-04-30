@@ -137,5 +137,6 @@ sort-dependencies = { id = "com.squareup.sort-dependencies", version.ref = "sort
 nubecita-android-library = { id = "nubecita.android.library", version = "unspecified" }
 nubecita-android-library-compose = { id = "nubecita.android.library.compose", version = "unspecified" }
 nubecita-android-hilt = { id = "nubecita.android.hilt", version = "unspecified" }
+nubecita-android-jacoco = { id = "nubecita.android.jacoco", version = "unspecified" }
 nubecita-android-feature = { id = "nubecita.android.feature", version = "unspecified" }
 nubecita-android-application = { id = "nubecita.android.application", version = "unspecified" }

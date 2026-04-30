@@ -1,3 +1,5 @@
+import org.gradle.testing.jacoco.tasks.JacocoReport
+
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     alias(libs.plugins.android.application) apply false
@@ -12,6 +14,34 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.sort.dependencies) apply false
     alias(libs.plugins.spotless) apply false
+    jacoco
+}
+
+jacoco {
+    toolVersion = "0.8.14"
+}
+
+// Single aggregated coverage report consumed by CI's madrapps/jacoco-report
+// step. Each Android module contributes its own jacocoTestReport via the
+// nubecita.android.jacoco convention plugin and self-registers into this
+// task's classDirectories / sourceDirectories / executionData inputs — so
+// adding a module is zero-touch here.
+tasks.register<JacocoReport>("jacocoTestReportAggregated") {
+    group = "verification"
+    description = "Aggregates JaCoCo unit-test coverage across every module."
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        xml.outputLocation.set(
+            layout.buildDirectory.file(
+                "reports/jacoco/aggregated/jacocoTestReportAggregated.xml",
+            ),
+        )
+        html.outputLocation.set(
+            layout.buildDirectory.dir("reports/jacoco/aggregated/html"),
+        )
+    }
 }
 
 allprojects {

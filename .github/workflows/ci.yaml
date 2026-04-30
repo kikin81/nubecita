@@ -73,13 +73,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Unit tests with coverage
-        run: ./gradlew :app:jacocoTestReport
+        run: ./gradlew jacocoTestReportAggregated
 
       - name: Coverage report
         if: github.event_name == 'pull_request'
         uses: madrapps/jacoco-report@v1.7.2
         with:
-          paths: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          paths: build/reports/jacoco/aggregated/jacocoTestReportAggregated.xml
           token: ${{ secrets.GITHUB_TOKEN }}
           min-coverage-overall: 0
           min-coverage-changed-files: 0
