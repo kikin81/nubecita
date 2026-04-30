@@ -11,11 +11,13 @@ import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
- * Screenshot baselines for [NubecitaLogomark]. Each preview captures a
- * tint variant in light + dark via stacked `@Preview` annotations. Baselines
- * live under `src/screenshotTestDebug/reference/`. Regenerate after
- * intentional visual changes with
- * `./gradlew :designsystem:updateDebugScreenshotTest`.
+ * Screenshot baselines for [NubecitaLogomark]. The default-tint case
+ * captures both light and dark via stacked `@Preview` annotations; the
+ * custom-tint case captures only light, since a Compose-side tint
+ * override is intentionally palette-independent (the dark variant would
+ * render identically). Baselines live under
+ * `src/screenshotTestDebug/reference/`. Regenerate after intentional
+ * visual changes with `./gradlew :designsystem:updateDebugScreenshotTest`.
  */
 
 @PreviewTest

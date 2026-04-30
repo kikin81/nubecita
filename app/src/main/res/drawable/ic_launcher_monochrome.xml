@@ -4,8 +4,9 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Y coordinates shifted up by 4 to match the foreground centering
-         correction (see ic_launcher_foreground.xml comment). -->
+    <!-- Same cloud silhouette as ic_launcher_foreground.xml (smile arcs
+         dropped — themed-icon convention is a single-fill silhouette).
+         See the foreground drawable for source/regeneration notes. -->
     <path android:fillColor="#FFFFFFFF" android:pathData="M19,60 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 Z" />
     <path android:fillColor="#FFFFFFFF" android:pathData="M32,48 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z" />
     <path android:fillColor="#FFFFFFFF" android:pathData="M57,60 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 Z" />

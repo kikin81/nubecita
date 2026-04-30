@@ -1,11 +1,9 @@
 package net.kikin.nubecita
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -55,11 +53,11 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                 // brief window between the system splash dismissing and the route
                 // swap shows brand identity instead of an empty background.
                 entry<Splash> {
+                    // Background is painted by MainActivity's outer Surface
+                    // (MaterialTheme.colorScheme.background) — no .background()
+                    // here to avoid an extra draw pass on every cold start.
                     Box(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.background),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
                         NubecitaLogomark(modifier = Modifier.size(96.dp))

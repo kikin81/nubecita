@@ -5,10 +5,15 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Cloud body (white). All Y coordinates shifted up by 4 from the
-         source-of-truth in ~/Downloads/android-launcher to center the
-         cloud's bounding box (y range 30..86 → 26..82) on the viewport's
-         vertical midline at y=54. Without the shift, the cloud reads
+    <!-- Cloud body (white). 108×108 viewport (the adaptive icon size);
+         the cloud's bounding box covers y range 26..82, centered on the
+         viewport's vertical midline at y=54. The base shape is a
+         hand-tuned adaptive port of openspec/references/design-system/
+         assets/logomark.svg — added smile arcs and a base bar with
+         rounded corners; reshaped from the source's overlapping circles
+         + rect into 4 paths sized for the 66dp safe zone. To regenerate,
+         start from logomark.svg and re-tune for the adaptive surface;
+         keep the bbox vertical center on y=54 or the cloud will read
          bottom-heavy under circular launcher masks. -->
     <path android:fillColor="#FFFFFF" android:pathData="M19,60 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 Z" />
     <path android:fillColor="#FFFFFF" android:pathData="M32,48 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z" />
