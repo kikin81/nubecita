@@ -3,15 +3,19 @@ package net.kikin.nubecita
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.EntryPointAccessors
+import net.kikin.nubecita.designsystem.component.NubecitaLogomark
 import net.kikin.nubecita.navigation.NavigationEntryPoint
 import net.kikin.nubecita.shell.MainShell
 
@@ -40,12 +44,24 @@ fun MainNavigation(modifier: Modifier = Modifier) {
             ),
         entryProvider =
             entryProvider {
-                // The system SplashScreen API overlays this empty surface via
+                // The system SplashScreen API overlays this surface via
                 // setKeepOnScreenCondition while SessionStateProvider is still Loading.
                 // Once the bootstrap resolves, MainActivity's reactive collector calls
                 // navigator.replaceTo(Main or Login) and Splash leaves the back stack.
+                //
+                // We render the brand cloud here (rather than an empty Box) so the
+                // brief window between the system splash dismissing and the route
+                // swap shows brand identity instead of an empty background.
                 entry<Splash> {
-                    Box(modifier = Modifier.fillMaxSize())
+                    // Background is painted by MainActivity's outer Surface
+                    // (MaterialTheme.colorScheme.background) — no .background()
+                    // here to avoid an extra draw pass on every cold start.
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        NubecitaLogomark(modifier = Modifier.size(96.dp))
+                    }
                 }
                 entry<Main> {
                     MainShell(modifier = Modifier.safeDrawingPadding())

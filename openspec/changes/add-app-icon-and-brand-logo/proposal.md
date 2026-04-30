@@ -10,9 +10,13 @@ This change replaces the placeholder launcher icon with our adaptive brand mark,
 - **Brand color resource** — new `res/values/colors.xml` with `@color/brand_sky_blue` = `#0A7AFF` as the single source of truth.
 - **Delete legacy raster mipmaps** — the dpi-bucketed `mipmap-{m,h,xh,xxh,xxxh}dpi/ic_launcher*.webp` files are vestigial under `minSdk = 28` (every device renders adaptive). Removed.
 - **System SplashScreen theme** — repoint `Theme.Nubecita` parent to `Theme.SplashScreen`, set `windowSplashScreenBackground` = `@color/brand_sky_blue`, `windowSplashScreenAnimatedIcon` = `@drawable/ic_launcher_foreground`, `postSplashScreenTheme` = a new `Theme.Nubecita.PostSplash` carrying the prior `Material.Light.NoActionBar` parent.
-- **`NubecitaLogo` + `NubecitaLogomark` composables (`:designsystem`)** — new `component/NubecitaLogo.kt` exposing two public `@Composable` entry points. `NubecitaLogomark` renders the cloud-only mark from `nubecita_logomark.xml` (square aspect, default tint `MaterialTheme.colorScheme.primary`); `NubecitaLogo` renders cloud + "nubecita" wordmark from `nubecita_logo.xml` (~3.3:1 aspect, default color `MaterialTheme.colorScheme.primary`). Wordmark is rasterized as paths in the vector — no font dependency at render time.
+- **`NubecitaLogomark` composable (`:designsystem`)** — new `component/NubecitaLogo.kt` exposing one public `@Composable` entry point. `NubecitaLogomark` renders the cloud-only mark from `nubecita_logomark.xml` (square aspect, default tint `MaterialTheme.colorScheme.primary`).
 - **`Splash` route renders the logomark** — `app/Navigation.kt`'s `entry<Splash>` swaps from an empty `Box` to a centered `NubecitaLogomark` over `MaterialTheme.colorScheme.background`, eliminating the brief flash of empty surface between system-splash dismiss and the route swap to Login or Main.
-- **`LoginScreen` shows the wordmark logo** — insert `NubecitaLogo` above the title `Text` in the existing centered column.
+
+**Descoped from this change** (deferred to a follow-up):
+
+- Wordmark composable (`NubecitaLogo`) and `nubecita_logo.xml` vector — wordmark glyph→path conversion needs an offline tool pass and a font choice the design system hasn't pinned. Out of scope until the wordmark source is settled. Spec deltas, design Decisions 3 + 5, Open Q1, and tasks 0.x / 3.2 / 3.4 (NubecitaLogo half) / 3.5 (NubecitaLogo half) / 4.1 (logo half) / 6 / 7 captured the intent and remain in the change file as deferred record.
+- `LoginScreen` brand-mark insertion — the original intent was to drop the wordmark logo above the title; without the wordmark, the standalone logomark would be redundant with the existing title text. Defer until the wordmark lands.
 
 ## Capabilities
 
@@ -20,7 +24,7 @@ This change replaces the placeholder launcher icon with our adaptive brand mark,
 <!-- None — extends existing capabilities only. -->
 
 ### Modified Capabilities
-- `design-system`: adds `NubecitaLogo` and `NubecitaLogomark` composables backed by vector drawables; adds two content-description string resources.
+- `design-system`: adds `NubecitaLogomark` composable backed by a vector drawable; adds one content-description string resource.
 - `app-splash-routing`: `Theme.Nubecita` becomes a `Theme.SplashScreen` configured with the brand cloud + sky-blue background; the `Splash` `entry<Splash>` renders `NubecitaLogomark` instead of an empty `Box`.
 
 ### Removed Capabilities
@@ -38,17 +42,13 @@ This change replaces the placeholder launcher icon with our adaptive brand mark,
 - `app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml` — same `<monochrome>` pointer change.
 - `app/src/main/res/mipmap-{m,h,xh,xxh,xxxh}dpi/ic_launcher*.webp` — deleted (10 files).
 - `app/src/main/java/net/kikin/nubecita/Navigation.kt` — `entry<Splash>` body.
-- `designsystem/src/main/kotlin/.../component/NubecitaLogo.kt` — new file.
+- `designsystem/src/main/kotlin/.../component/NubecitaLogo.kt` — new file (logomark only; wordmark `NubecitaLogo` deferred).
 - `designsystem/src/main/res/drawable/nubecita_logomark.xml` — new file.
-- `designsystem/src/main/res/drawable/nubecita_logo.xml` — new file.
-- `designsystem/src/main/res/values/strings.xml` — two new content-description strings.
-- `designsystem/src/screenshotTest/.../component/NubecitaLogoScreenshotTest.kt` — new file (~6 baselines).
-- `feature/login/impl/src/main/kotlin/.../LoginScreen.kt` — insert logo above title.
-- `feature/login/impl/src/screenshotTest/.../LoginScreenScreenshotTest.kt` — baselines regenerate (no test code change).
+- `designsystem/src/main/res/values/strings.xml` — one new content-description string (`logomark_content_description`).
+- `designsystem/src/screenshotTest/.../component/NubecitaLogoScreenshotTest.kt` — new file (3 logomark baselines).
 
 **Tests:**
-- New `NubecitaLogoScreenshotTest.kt` baselines: light/dark × {logomark default tint, logo default tint, logomark with custom tint} = 6 PNGs.
-- `LoginScreenScreenshotTest.kt` baselines regenerate to include the logo (5 existing variants × light/dark).
+- New `NubecitaLogoScreenshotTest.kt` baselines: 3 PNGs — logomark default-light, logomark default-dark, logomark custom-tint-light. (Wordmark baselines deferred with the wordmark composable.)
 - No new unit tests (composables are pure rendering; theme is XML-only).
 
 **Build / runtime:**

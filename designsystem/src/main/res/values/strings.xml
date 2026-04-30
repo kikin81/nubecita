@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Brand-mark accessibility label announced by TalkBack when the
+         NubecitaLogomark composable is the sole content of a focusable
+         container. -->
+    <string name="logomark_content_description">Nubecita</string>
+
     <!-- PostCard author + repost-attribution lines.
          postcard_handle and postcard_relative_time are rendered as separate
          Text composables in AuthorLine so the handle can truncate with
