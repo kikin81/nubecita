@@ -1,15 +1,38 @@
 package net.kikin.nubecita.shell
 
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
+import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
 import net.kikin.nubecita.feature.chats.api.Chats
@@ -106,4 +129,124 @@ class MainShellPersistenceTest {
         composeTestRule.onNodeWithTag("backStackSize").assertTextEquals("3")
         composeTestRule.onNodeWithTag("backStackContents").assertTextEquals("Feed,Search,Profile")
     }
+
+    /**
+     * Verifies that `ListDetailSceneStrategy`'s pane state survives a
+     * `medium → compact → medium` rotation round-trip when the back stack
+     * is `[Feed]`. After both restorations the placeholder must be
+     * composed in the right pane on medium, just as it was before the
+     * round-trip.
+     *
+     * Width is overridden via `LocalConfiguration.screenWidthDp` rather
+     * than a real device rotation — the strategy's width branching reads
+     * from `currentWindowAdaptiveInfo()` which derives from
+     * `LocalConfiguration`, so this exercises the same code path.
+     *
+     * Uses a fake harness rather than the production `MainShell`: the
+     * real `FeedDetailPlaceholder` is `internal` to `:feature:feed:impl`
+     * and `MainShell` requires a Hilt graph to compose. The fake's role
+     * is to drive the strategy with the same `listPane{}` metadata shape
+     * the production wiring uses; the placeholder is identified by
+     * [PLACEHOLDER_TAG] so the assertion is content-agnostic. Visual
+     * correctness of the real placeholder is covered by
+     * `FeedDetailPlaceholderScreenshotTest` in `:feature:feed:impl`.
+     */
+    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
+    @Test
+    fun listDetailPlaceholder_survivesMediumToCompactToMediumRotation() {
+        val tester = StateRestorationTester(composeTestRule)
+        var widthDp by mutableStateOf(MEDIUM_WIDTH_DP)
+
+        tester.setContent {
+            val baseConfig = LocalConfiguration.current
+            val overrideConfig =
+                remember(baseConfig, widthDp) {
+                    Configuration(baseConfig).apply { screenWidthDp = widthDp }
+                }
+            CompositionLocalProvider(LocalConfiguration provides overrideConfig) {
+                ListDetailHarness()
+            }
+        }
+
+        // At medium width: placeholder is composed in the right pane.
+        composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertIsDisplayed()
+
+        // Rotate to compact: strategy collapses to single-pane, placeholder
+        // is no longer composed. Configuration changes in real Android trigger
+        // an activity recreate, which `emulateSavedInstanceStateRestore` mirrors.
+        widthDp = COMPACT_WIDTH_DP
+        tester.emulateSavedInstanceStateRestore()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertDoesNotExist()
+
+        // Rotate back to medium: strategy expands to two-pane again, and
+        // because the back stack persisted (`[Feed]`) the placeholder
+        // reappears in the right pane.
+        widthDp = MEDIUM_WIDTH_DP
+        tester.emulateSavedInstanceStateRestore()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertIsDisplayed()
+    }
 }
+
+/**
+ * Test harness that mirrors `MainShell`'s inner `NavDisplay` wiring: a
+ * back stack of `[Feed]`, a real `ListDetailSceneStrategy`, and an entry
+ * registered with `listPane{}` metadata + a placeholder tagged
+ * [PLACEHOLDER_TAG] for assertion. Production decorators
+ * (`SaveableStateHolderNavEntryDecorator`,
+ * `ViewModelStoreNavEntryDecorator`) are included so the saved-state
+ * machinery exercised by `StateRestorationTester` matches the real
+ * `MainShell`.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@androidx.compose.runtime.Composable
+private fun ListDetailHarness() {
+    val backStack: SnapshotStateList<NavKey> =
+        remember { mutableStateListOf<NavKey>(Feed) }
+    val sceneStrategy =
+        rememberListDetailSceneStrategy<NavKey>(
+            directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(currentWindowAdaptiveInfo()),
+        )
+
+    val fakeFeedInstaller: EntryProviderInstaller = {
+        entry<Feed>(
+            metadata =
+                ListDetailSceneStrategy.listPane(
+                    detailPlaceholder = {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .testTag(PLACEHOLDER_TAG),
+                        ) {
+                            Text(text = "fake-detail-placeholder")
+                        }
+                    },
+                ),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Text(text = "fake-feed-list")
+            }
+        }
+    }
+
+    NavDisplay(
+        backStack = backStack,
+        onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
+        sceneStrategies = listOf(sceneStrategy),
+        entryDecorators =
+            listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator(),
+            ),
+        entryProvider =
+            entryProvider {
+                fakeFeedInstaller()
+            },
+    )
+}
+
+private const val PLACEHOLDER_TAG = "list-detail-placeholder"
+private const val COMPACT_WIDTH_DP = 360
+private const val MEDIUM_WIDTH_DP = 600

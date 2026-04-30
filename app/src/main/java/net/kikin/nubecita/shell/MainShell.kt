@@ -12,7 +12,10 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
+import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
@@ -60,11 +63,21 @@ import net.kikin.nubecita.navigation.NavigationEntryPoint
  * pattern without VMs ever touching the navigator (see the change
  * `add-adaptive-navigation-shell` design doc decision D2).
  *
+ * The inner `NavDisplay` is supplied a `ListDetailSceneStrategy`. On
+ * compact widths the strategy passes through to the existing single-pane
+ * scene; on medium/expanded widths, entries marked with
+ * `ListDetailSceneStrategy.listPane{}` metadata render in the left pane
+ * with their `detailPlaceholder` (or the next `detailPane()` entry on the
+ * stack) in the right pane. Entries with no metadata render full-screen
+ * regardless of width — the strategy is opt-in per entry. See the
+ * `adopt-list-detail-scene-strategy` change for the full requirement set.
+ *
  * Lifecycle: when the outer `Navigator` transitions away from `Main`
  * (e.g. `replaceTo(Login)` on logout), this composable leaves
  * composition, the `remember`'d `MainShellNavState` is GC'd, and any
  * per-tab residue is discarded.
  */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun MainShell(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -83,10 +96,23 @@ fun MainShell(modifier: Modifier = Modifier) {
             topLevelRoutes = TopLevelDestinations.map { it.key },
         )
 
+    // Shared between the scene strategy below and the bar/rail selector
+    // further down — both need the same window-class signal.
+    val adaptiveInfo = currentWindowAdaptiveInfo()
+
+    // The default `calculatePaneScaffoldDirective` only enables two-pane
+    // layout at Expanded widths (≥840dp). Bluesky/X/Threads convention —
+    // and what design.md predicts — is two-pane at Medium widths (≥600dp,
+    // i.e. tablet portrait) too, so use the explicit
+    // `…WithTwoPanesOnMediumWidth` directive variant.
+    val sceneStrategy =
+        rememberListDetailSceneStrategy<NavKey>(
+            directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo),
+        )
+
     // Default `calculateFromAdaptiveInfo` returns `NavigationDrawer` at
     // expanded widths on some form factors. With only four destinations,
     // a permanent drawer is overkill — collapse to rail in that case.
-    val adaptiveInfo = currentWindowAdaptiveInfo()
     val defaultLayoutType = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
     val layoutType =
         if (defaultLayoutType == NavigationSuiteType.NavigationDrawer) {
@@ -105,6 +131,7 @@ fun MainShell(modifier: Modifier = Modifier) {
             NavDisplay(
                 backStack = mainShellNavState.backStack,
                 onBack = { mainShellNavState.removeLast() },
+                sceneStrategies = listOf(sceneStrategy),
                 // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
                 // it itself. Supply only the public decorators required for hiltViewModel()
                 // and saved state to work inside NavEntries.

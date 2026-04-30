@@ -19,7 +19,9 @@ Wrap each list host (Feed, future Profile) in `NavigableListDetailPaneScaffold` 
 
 ### Approach B (chosen) — `ListDetailSceneStrategy` on the inner `NavDisplay`
 
-Add `sceneStrategies = listOf(rememberListDetailSceneStrategy<NavKey>())` to `MainShell`'s inner `NavDisplay`. Mark each list-pane entry with `metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = …)` and each detail-pane entry with `metadata = ListDetailSceneStrategy.detailPane()`. The strategy walks the back stack, sees consecutive list+detail entries, and composes them as a `TwoPaneScene` on medium/expanded; on compact it falls through to single-pane (top entry only).
+Add `sceneStrategies = listOf(rememberListDetailSceneStrategy<NavKey>(directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(currentWindowAdaptiveInfo())))` to `MainShell`'s inner `NavDisplay`. Mark each list-pane entry with `metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = …)` and each detail-pane entry with `metadata = ListDetailSceneStrategy.detailPane()`. The strategy walks the back stack, sees consecutive list+detail entries, and composes them as a `TwoPaneScene` on medium/expanded; on compact it falls through to single-pane (top entry only).
+
+The explicit `…WithTwoPanesOnMediumWidth` directive is required because the default `calculatePaneScaffoldDirective` only enables a two-pane layout at Expanded widths (≥840dp). Bluesky/X/Threads convention — and what tablet portrait users expect — is two-pane already at Medium widths (≥600dp), which the alternate directive provides without further customization. Using the default would make the Medium screenshot baseline render as single-pane, contradicting the screenshot strategy table below.
 
 **Why chosen:**
 1. **One source of truth.** `MainShellNavState` remains the only back stack. Process-death + saved-state already wired through the existing nav3 decorators apply transparently to whatever the strategy renders.

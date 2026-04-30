@@ -30,4 +30,8 @@
     <string name="postcard_video_mute">Mute video</string>
     <string name="postcard_video_unmute">Unmute video</string>
     <string name="postcard_video_resume">Tap to resume</string>
+
+    <!-- ListDetailSceneStrategy detail-pane placeholder, shown on medium/expanded
+         widths when the back stack is `[Feed]` (no detail entry selected). -->
+    <string name="feed_detail_placeholder_select">Select a post to read</string>
 </resources>
