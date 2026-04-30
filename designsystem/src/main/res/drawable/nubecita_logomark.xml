@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Brand cloud logomark, ported from
+    openspec/references/design-system/assets/logomark-mono.svg.
+
+    Source SVG wraps 4 shapes in `<g transform="translate(4, 16)">`. Android
+    vector drawables don't support group transforms reliably across renderers,
+    so the translation is baked into each pathData (cx+4, cy+16; x+4, y+16).
+
+    All fills are #FFFFFFFF — NubecitaLogomark applies ColorFilter.tint(...) at
+    render time so the actual rendered color follows the composable's `tint`
+    parameter (default = MaterialTheme.colorScheme.primary).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="72dp"
+    android:height="72dp"
+    android:viewportWidth="72"
+    android:viewportHeight="72">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M22,42 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M20,36 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M42,42 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M14,46 h48 a7,7 0 0 1 7,7 v0 a7,7 0 0 1 -7,7 h-48 a7,7 0 0 1 -7,-7 v0 a7,7 0 0 1 7,-7 Z" />
+</vector>

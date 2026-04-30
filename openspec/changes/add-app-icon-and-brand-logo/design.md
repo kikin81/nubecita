@@ -48,7 +48,7 @@ The reference SVG was designed for a static end-state (e.g. marketing materials,
 
 **Rationale:** `:app` `minSdk = 28`. The raster variants are guaranteed-dead code that wastes ~10KB of APK and adds 10 files of cognitive load to the resource tree. Lint will warn that mipmap-anydpi-v26 isn't backed by a fallback; suppress with `tools:ignore="MissingDefaultResource"` on the adaptive-icon `<adaptive-icon>` root, or accept the warning (it's not an error).
 
-### Decision 3: Wordmark is paths, not text
+### Decision 3: Wordmark is paths, not text  *(deferred — wordmark cut from this change)*
 
 **Context:** The wordmark in `logo.svg` is rendered via SVG `<text>` and a class-styled font (`class="nb-wordmark"`). Reproducing this in an Android vector drawable would either require:
 1. Embedding the wordmark text as `<path>` elements (paths-from-glyphs), OR
@@ -70,7 +70,7 @@ The cost is a one-time SVG → vector-drawable conversion that bakes a specific 
 
 The `:designsystem` module already exposes `MaterialTheme.colorScheme.primary` which currently resolves to brand sky in the static (non-dynamic-color) palette per the `add-designsystem-theme` change. The launcher icon and splash theme can NOT reference Compose theme tokens (they're XML resources resolved before any Compose composition runs), hence the duplicate `@color` resource. The two sources represent the same concept; the duplication is a structural necessity, not a design smell.
 
-### Decision 5: `NubecitaLogo` and `NubecitaLogomark` are separate composables
+### Decision 5: `NubecitaLogo` and `NubecitaLogomark` are separate composables  *(only `NubecitaLogomark` shipped — `NubecitaLogo` deferred with the wordmark)*
 
 **Context:** The reference ships two related marks: the cloud-only logomark (square) and the cloud + wordmark logo (wide).
 
@@ -80,19 +80,21 @@ The `:designsystem` module already exposes `MaterialTheme.colorScheme.primary` w
 
 Both composables share the same tint contract: a `tint`/`color` parameter defaulted to `MaterialTheme.colorScheme.primary`, applied via `ColorFilter.tint(...)` over an `Image(painter = painterResource(...))`. The vector drawables use `android:fillColor="#FFFFFFFF"` as the base color — `ColorFilter.tint` then recolors to the requested tint.
 
+**Status (this change):** Only `NubecitaLogomark` is implemented. `NubecitaLogo` (cloud + wordmark) is deferred to a follow-up that resolves the wordmark glyph→path source (Open Q1).
+
 ## Open Questions
 
-### Q1: Which font supplies the "nubecita" wordmark glyphs?
+### Q1: Which font supplies the "nubecita" wordmark glyphs?  *(unresolved — wordmark deferred to follow-up)*
 
 The reference `logo.svg` renders the wordmark as `<text class="nb-wordmark">nubecita</text>`, but `nb-wordmark` is **not defined** in `openspec/references/design-system/colors_and_type.css`. The reference design system declares three font families (`Fraunces` — display; `Roboto Flex` — body; `JetBrains Mono` — mono) but does not pin one to the wordmark.
 
 Decision 3 (wordmark as paths) cannot be executed until this is resolved. Three candidate resolutions:
 
-1. **Fraunces (display)** — recommended. Already the brand display font, expressive serif suits a logo wordmark, SIL OFL license permits glyph-as-path embedding.
-2. **Roboto Flex (body)** — also SIL OFL; reads more "UI" than "brand" but consistent with the body type.
+1. **Fraunces (display)** — already the brand display font, expressive serif suits a logo wordmark, SIL OFL license permits glyph-as-path embedding. Currently loaded via Google Downloadable Fonts (not bundled), so a `Text`-based render would FOUT on cold start.
+2. **Roboto Flex (body)** — bundled at `designsystem/src/main/res/font/roboto_flex.ttf`; reads more "UI" than "brand" but available without download. A `Text`-based render avoids FOUT.
 3. **Compose Text inline** — reverses Decision 3. Render `Row { NubecitaLogomark(); Text("nubecita", style = ...) }` instead of a vector drawable. Trades hermetic rendering for simpler integration.
 
-Implementer's task 0.1 records the resolution before any vector-drawable conversion happens.
+**Status (this change):** Wordmark cut from scope. Resolution moves with the follow-up that ships `NubecitaLogo` and the LoginScreen brand-mark insertion.
 
 ## Risks / Trade-offs
 
