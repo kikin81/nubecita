@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.appdistribution)
+    alias(libs.plugins.firebase.crashlytics)
     jacoco
 }
 
@@ -79,6 +80,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.appcheck.playintegrity)
+    implementation(libs.firebase.crashlytics)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.timber)
