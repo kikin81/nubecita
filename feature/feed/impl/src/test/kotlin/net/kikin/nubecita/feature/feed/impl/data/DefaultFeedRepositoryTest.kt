@@ -39,7 +39,7 @@ internal class DefaultFeedRepositoryTest {
 
             assertTrue(result.isSuccess, "expected success, got ${result.exceptionOrNull()}")
             val page = result.getOrThrow()
-            assertEquals(3, page.posts.size)
+            assertEquals(3, page.feedItems.size)
             assertEquals("next-page-cursor-typical", page.nextCursor)
         }
 
@@ -59,7 +59,7 @@ internal class DefaultFeedRepositoryTest {
             val page = repo.getTimeline(cursor = null).getOrThrow()
             // Fixture has 2 entries (1 well-formed, 1 stripped of `text`).
             // The mapper drops the malformed one, so the page has exactly 1 post.
-            assertEquals(1, page.posts.size)
+            assertEquals(1, page.feedItems.size)
         }
 
     @Test

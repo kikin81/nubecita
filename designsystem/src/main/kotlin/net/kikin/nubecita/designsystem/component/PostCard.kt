@@ -94,10 +94,35 @@ fun PostCard(
     post: PostUi,
     modifier: Modifier = Modifier,
     callbacks: PostCallbacks = PostCallbacks.None,
+    connectAbove: Boolean = false,
+    connectBelow: Boolean = false,
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    // PostCard uses NubecitaAvatar (40dp) with 20dp horizontal + 14dp vertical
+    // padding, so the avatar center is at x = 20 + 20 = 40dp, NOT the
+    // threadConnector default of 42dp. Override the gutter geometry here so
+    // the connector lines visually pass through the avatar center.
+    //
+    // avatarTop / avatarBottom intentionally leave a ~6dp gap on each side
+    // of the avatar so the line doesn't touch the avatar circle — matches
+    // TikTok's threaded-reply look (cleaner than bsky-style flush-to-avatar).
+    // Avatar occupies y=14 to y=54; the line above ends at y=8, the line
+    // below starts at y=60.
+    val connectorModifier =
+        if (connectAbove || connectBelow) {
+            Modifier.threadConnector(
+                connectAbove = connectAbove,
+                connectBelow = connectBelow,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                gutterX = 40.dp,
+                avatarTop = 8.dp,
+                avatarBottom = 60.dp,
+            )
+        } else {
+            Modifier
+        }
+    Column(modifier = modifier.then(connectorModifier).fillMaxWidth()) {
         Column(
             modifier =
                 Modifier
@@ -131,7 +156,15 @@ fun PostCard(
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        // Suppress the divider when this PostCard sits inside a thread cluster
+        // and is followed by another cluster post (i.e., connectBelow=true).
+        // The thread connector line crossing through a horizontal divider
+        // creates visual noise; the cluster's bottom card (leaf, with
+        // connectBelow=false) keeps its divider so the cluster boundary is
+        // still visible against the next feed item.
+        if (!connectBelow) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
     }
 }
 

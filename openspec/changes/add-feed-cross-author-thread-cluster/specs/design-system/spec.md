@@ -59,6 +59,12 @@ Internal layout SHALL be a `Column`:
 - **WHEN** `ThreadCluster(root, parent, leaf, callbacks, hasEllipsis = true)` is composed
 - **THEN** the rendered output is a `Column` containing `PostCard(root, connectBelow = true)` + `ThreadFold(onClick = onFoldTap)` + `PostCard(parent, connectAbove = true, connectBelow = true)` + `PostCard(leaf, connectAbove = true)`
 
+#### Scenario: ThreadCluster collapses the parent slot when parent equals root
+
+- **WHEN** `ThreadCluster(root, parent, leaf, callbacks, hasEllipsis = false)` is composed AND `parent.id == root.id` (i.e., the leaf is a direct reply to the root post — common for self-threads or any direct reply)
+- **THEN** the rendered output is a `Column` containing `PostCard(root, connectBelow = true)` + `PostCard(leaf, connectAbove = true)` only — the `parent` slot is NOT rendered (rendering it would visually duplicate the root post)
+- **AND** no `ThreadFold` is rendered
+
 #### Scenario: ThreadCluster passes leaf-only video slot
 
 - **WHEN** the caller supplies a non-null `leafVideoEmbedSlot`

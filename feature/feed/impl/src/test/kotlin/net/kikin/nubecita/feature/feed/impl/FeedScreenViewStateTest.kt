@@ -5,6 +5,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -14,14 +15,14 @@ import org.junit.jupiter.api.Test
 import kotlin.time.Instant
 
 /**
- * Total over the (loadStatus × posts.isEmpty()) matrix — 5 statuses × 2
+ * Total over the (loadStatus × feedItems.isEmpty()) matrix — 5 statuses × 2
  * emptiness = 10 cells. Each cell asserts the screen-private projection
  * picks the correct render branch, including the four cells the VM never
  * produces (kept here as defensive fallbacks per
  * `feature-feed`'s "render matrix is total over `FeedState`" requirement).
  */
 internal class FeedScreenViewStateTest {
-    // --- empty posts ------------------------------------------------------
+    // --- empty feedItems --------------------------------------------------
 
     @Test
     fun `empty + Idle maps to Empty`() {
@@ -61,15 +62,15 @@ internal class FeedScreenViewStateTest {
         assertEquals(FeedScreenViewState.Empty, viewState)
     }
 
-    // --- non-empty posts --------------------------------------------------
+    // --- non-empty feedItems ----------------------------------------------
 
     @Test
     fun `non-empty + Idle maps to Loaded(false, false)`() {
         val viewState =
-            FeedState(posts = posts("p1", "p2"), loadStatus = FeedLoadStatus.Idle).toViewState()
+            FeedState(feedItems = feedItems("p1", "p2"), loadStatus = FeedLoadStatus.Idle).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
         viewState as FeedScreenViewState.Loaded
-        assertEquals(2, viewState.posts.size)
+        assertEquals(2, viewState.feedItems.size)
         assertEquals(false, viewState.isAppending)
         assertEquals(false, viewState.isRefreshing)
     }
@@ -77,7 +78,7 @@ internal class FeedScreenViewStateTest {
     @Test
     fun `non-empty + Refreshing maps to Loaded(isRefreshing = true)`() {
         val viewState =
-            FeedState(posts = posts("p1"), loadStatus = FeedLoadStatus.Refreshing).toViewState()
+            FeedState(feedItems = feedItems("p1"), loadStatus = FeedLoadStatus.Refreshing).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
         viewState as FeedScreenViewState.Loaded
         assertEquals(false, viewState.isAppending)
@@ -87,7 +88,7 @@ internal class FeedScreenViewStateTest {
     @Test
     fun `non-empty + Appending maps to Loaded(isAppending = true)`() {
         val viewState =
-            FeedState(posts = posts("p1"), loadStatus = FeedLoadStatus.Appending).toViewState()
+            FeedState(feedItems = feedItems("p1"), loadStatus = FeedLoadStatus.Appending).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
         viewState as FeedScreenViewState.Loaded
         assertEquals(true, viewState.isAppending)
@@ -97,7 +98,7 @@ internal class FeedScreenViewStateTest {
     @Test
     fun `non-empty + InitialLoading maps to Loaded(false, false) (VM-impossible)`() {
         val viewState =
-            FeedState(posts = posts("p1"), loadStatus = FeedLoadStatus.InitialLoading).toViewState()
+            FeedState(feedItems = feedItems("p1"), loadStatus = FeedLoadStatus.InitialLoading).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
         viewState as FeedScreenViewState.Loaded
         assertEquals(false, viewState.isAppending)
@@ -108,7 +109,7 @@ internal class FeedScreenViewStateTest {
     fun `non-empty + InitialError maps to Loaded(false, false) (VM-impossible)`() {
         val viewState =
             FeedState(
-                posts = posts("p1"),
+                feedItems = feedItems("p1"),
                 loadStatus = FeedLoadStatus.InitialError(FeedError.Network),
             ).toViewState()
         assertTrue(viewState is FeedScreenViewState.Loaded)
@@ -118,7 +119,7 @@ internal class FeedScreenViewStateTest {
     }
 }
 
-private fun posts(vararg ids: String): ImmutableList<PostUi> = ids.map { samplePost(it) }.toImmutableList()
+private fun feedItems(vararg ids: String): ImmutableList<FeedItemUi> = ids.map { FeedItemUi.Single(samplePost(it)) }.toImmutableList()
 
 private fun samplePost(id: String): PostUi =
     PostUi(

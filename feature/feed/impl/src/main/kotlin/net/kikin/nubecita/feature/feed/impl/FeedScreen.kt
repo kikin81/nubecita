@@ -34,13 +34,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
@@ -50,6 +50,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
+import net.kikin.nubecita.designsystem.component.ThreadCluster
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
@@ -226,7 +227,7 @@ internal fun FeedScreenContent(
                 )
             is FeedScreenViewState.Loaded ->
                 LoadedFeedContent(
-                    posts = viewState.posts,
+                    feedItems = viewState.feedItems,
                     isAppending = viewState.isAppending,
                     isRefreshing = viewState.isRefreshing,
                     listState = listState,
@@ -242,7 +243,7 @@ internal fun FeedScreenContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LoadedFeedContent(
-    posts: ImmutableList<PostUi>,
+    feedItems: ImmutableList<FeedItemUi>,
     isAppending: Boolean,
     isRefreshing: Boolean,
     listState: LazyListState,
@@ -291,7 +292,24 @@ private fun LoadedFeedContent(
             // for contentPadding so the prefetch threshold is unaffected.
             contentPadding = contentPadding,
         ) {
-            items(items = posts, key = { it.id }, contentType = { "post" }) { post ->
+            items(
+                items = feedItems,
+                key = { it.key },
+                contentType = {
+                    when (it) {
+                        is FeedItemUi.Single -> "single"
+                        is FeedItemUi.ReplyCluster -> "cluster"
+                    }
+                },
+            ) { item ->
+                // The video coordinator binds against the leaf URI for both
+                // Single and ReplyCluster (clusters are leaf-only video targets
+                // — see ThreadCluster KDoc + design.md decision D3).
+                val leaf =
+                    when (item) {
+                        is FeedItemUi.Single -> item.post
+                        is FeedItemUi.ReplyCluster -> item.leaf
+                    }
                 // Hoist the videoEmbedSlot lambda so it's stable across
                 // recompositions of this item — without this, every
                 // recomposition allocates a fresh closure per video card.
@@ -299,12 +317,12 @@ private fun LoadedFeedContent(
                 // phase-B static-poster variant so the screen-level
                 // previews stay layoutlib-safe.
                 val videoSlot: @Composable (EmbedUi.Video) -> Unit =
-                    remember(post.id, coordinator) {
+                    remember(leaf.id, coordinator) {
                         { video ->
                             if (coordinator != null) {
                                 PostCardVideoEmbed(
                                     video = video,
-                                    postId = post.id,
+                                    postId = leaf.id,
                                     coordinator = coordinator,
                                 )
                             } else {
@@ -323,7 +341,7 @@ private fun LoadedFeedContent(
                 // truth in :data:models. The remember sits at the
                 // same call site every recomposition (key flip drops
                 // the lambda cleanly).
-                val quotedVideoUri = post.embed.quotedRecord?.uri
+                val quotedVideoUri = leaf.embed.quotedRecord?.uri
                 val quotedVideoSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
                     remember(quotedVideoUri, coordinator) {
                         if (quotedVideoUri == null) {
@@ -342,12 +360,25 @@ private fun LoadedFeedContent(
                             }
                         }
                     }
-                PostCard(
-                    post = post,
-                    callbacks = callbacks,
-                    videoEmbedSlot = videoSlot,
-                    quotedVideoEmbedSlot = quotedVideoSlot,
-                )
+                when (item) {
+                    is FeedItemUi.Single ->
+                        PostCard(
+                            post = item.post,
+                            callbacks = callbacks,
+                            videoEmbedSlot = videoSlot,
+                            quotedVideoEmbedSlot = quotedVideoSlot,
+                        )
+                    is FeedItemUi.ReplyCluster ->
+                        ThreadCluster(
+                            root = item.root,
+                            parent = item.parent,
+                            leaf = item.leaf,
+                            callbacks = callbacks,
+                            hasEllipsis = item.hasEllipsis,
+                            leafVideoEmbedSlot = videoSlot,
+                            leafQuotedVideoEmbedSlot = quotedVideoSlot,
+                        )
+                }
             }
             if (isAppending) {
                 item(key = "appending", contentType = "appending") {
@@ -358,15 +389,15 @@ private fun LoadedFeedContent(
     }
 
     // Pagination trigger — emit exactly once per crossing of the
-    // (lastVisibleIndex > posts.size - PREFETCH_DISTANCE) threshold.
+    // (lastVisibleIndex > feedItems.size - PREFETCH_DISTANCE) threshold.
     // The threshold check lives INSIDE snapshotFlow's lambda so
     // distinctUntilChanged() debounces the *boolean*, not the index;
     // without that, every visible-index change past the threshold would
     // re-fire onLoadMore (10–30/s during scroll). `rememberUpdatedState`
-    // lets the long-lived collector read the latest `posts` and
+    // lets the long-lived collector read the latest `feedItems` and
     // `onLoadMore` without restarting the LaunchedEffect on every page
     // append (snapshotFlow re-emits when the wrapped State changes).
-    val currentPosts by rememberUpdatedState(posts)
+    val currentFeedItems by rememberUpdatedState(feedItems)
     val currentOnLoadMore by rememberUpdatedState(onLoadMore)
     LaunchedEffect(listState) {
         snapshotFlow {
@@ -374,7 +405,7 @@ private fun LoadedFeedContent(
                 listState.layoutInfo.visibleItemsInfo
                     .lastOrNull()
                     ?.index ?: 0
-            lastVisible > currentPosts.size - PREFETCH_DISTANCE
+            lastVisible > currentFeedItems.size - PREFETCH_DISTANCE
         }.distinctUntilChanged()
             .collect { pastThreshold ->
                 if (pastThreshold) currentOnLoadMore()
@@ -389,10 +420,21 @@ private fun LoadedFeedContent(
     // verifies the visibility math; this wiring is too thin to test
     // on its own.
     if (coordinator != null) {
-        // Memoize the postId -> PostUi map across recompositions of
+        // Memoize the leafId -> PostUi map across recompositions of
         // LoadedFeedContent (refresh tick, append, like-toggle, etc.).
-        // Recomputed only when `posts` itself changes.
-        val postsById = remember(posts) { posts.associateBy { it.id } }
+        // Recomputed only when `feedItems` itself changes. For ReplyCluster
+        // entries, only the leaf is registered — root + parent posts in a
+        // cluster receive videoEmbedSlot = null and don't participate in
+        // the coordinator (design D3).
+        val postsById =
+            remember(feedItems) {
+                feedItems.associate { item ->
+                    when (item) {
+                        is FeedItemUi.Single -> item.post.id to item.post
+                        is FeedItemUi.ReplyCluster -> item.leaf.id to item.leaf
+                    }
+                }
+            }
         val currentPostsById by rememberUpdatedState(postsById)
         LaunchedEffect(listState, coordinator) {
             snapshotFlow { listState.isScrollInProgress }
@@ -464,7 +506,7 @@ private fun FeedScreenLoadedPreview() {
         FeedScreenPreviewHost(
             viewState =
                 FeedScreenViewState.Loaded(
-                    posts = previewPosts(count = 5),
+                    feedItems = previewFeedItems(),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -480,7 +522,7 @@ private fun FeedScreenLoadedRefreshingPreview() {
         FeedScreenPreviewHost(
             viewState =
                 FeedScreenViewState.Loaded(
-                    posts = previewPosts(count = 5),
+                    feedItems = previewFeedItems(),
                     isAppending = false,
                     isRefreshing = true,
                 ),
@@ -496,7 +538,7 @@ private fun FeedScreenLoadedAppendingPreview() {
         FeedScreenPreviewHost(
             viewState =
                 FeedScreenViewState.Loaded(
-                    posts = previewPosts(count = 5),
+                    feedItems = previewFeedItems(),
                     isAppending = true,
                     isRefreshing = false,
                 ),
@@ -540,24 +582,44 @@ private object PreviewClock : Clock {
     override fun now(): Instant = PREVIEW_NOW
 }
 
-private fun previewPosts(count: Int): ImmutableList<PostUi> =
-    (1..count)
-        .map { id ->
-            PostUi(
-                id = "post-$id",
-                author =
-                    AuthorUi(
-                        did = "did:plc:preview-$id",
-                        handle = "preview$id.bsky.social",
-                        displayName = "Preview $id",
-                        avatarUrl = null,
-                    ),
-                createdAt = PREVIEW_CREATED_AT,
-                text = "Preview post $id — sample timeline content for the feed-screen previews.",
-                facets = persistentListOf(),
-                embed = EmbedUi.Empty,
-                stats = PostStatsUi(replyCount = 1, repostCount = 2, likeCount = 12),
-                viewer = ViewerStateUi(),
-                repostedBy = null,
-            )
-        }.toImmutableList()
+private fun previewPost(
+    id: String,
+    text: String = "Preview post $id — sample timeline content for the feed-screen previews.",
+): PostUi =
+    PostUi(
+        id = "post-$id",
+        author =
+            AuthorUi(
+                did = "did:plc:preview-$id",
+                handle = "preview$id.bsky.social",
+                displayName = "Preview $id",
+                avatarUrl = null,
+            ),
+        createdAt = PREVIEW_CREATED_AT,
+        text = text,
+        facets = persistentListOf(),
+        embed = EmbedUi.Empty,
+        stats = PostStatsUi(replyCount = 1, repostCount = 2, likeCount = 12),
+        viewer = ViewerStateUi(),
+        repostedBy = null,
+    )
+
+/**
+ * Mixed preview fixture with at least one [FeedItemUi.Single] and one
+ * [FeedItemUi.ReplyCluster] (with ellipsis) so the visual contrast
+ * between standalone posts and reply clusters is exercised in the IDE
+ * preview pane and screenshot baselines.
+ */
+private fun previewFeedItems(): ImmutableList<FeedItemUi> =
+    persistentListOf<FeedItemUi>(
+        FeedItemUi.Single(post = previewPost("1", text = "Preview post 1 — a typical standalone feed entry.")),
+        FeedItemUi.Single(post = previewPost("2", text = "Preview post 2 — another standalone entry.")),
+        FeedItemUi.ReplyCluster(
+            root = previewPost("root", text = "Root post that started the conversation."),
+            parent = previewPost("parent", text = "Immediate parent — what the leaf is replying to."),
+            leaf = previewPost("leaf", text = "Leaf reply — the post that surfaced in the timeline."),
+            hasEllipsis = true,
+        ),
+        FeedItemUi.Single(post = previewPost("4", text = "Preview post 4 — back to a standalone entry.")),
+        FeedItemUi.Single(post = previewPost("5", text = "Preview post 5 — closing out the fixture.")),
+    )

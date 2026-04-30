@@ -14,6 +14,7 @@ import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -96,7 +97,7 @@ private fun FeedScreenLoadedScreenshot() {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
-                    posts = fixturePosts(count = 3),
+                    feedItems = fixtureFeedItems(count = 3),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -113,9 +114,30 @@ private fun FeedScreenLoadedRefreshingScreenshot() {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
-                    posts = fixturePosts(count = 3),
+                    feedItems = fixtureFeedItems(count = 3),
                     isAppending = false,
                     isRefreshing = true,
+                ),
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "loaded-with-cluster-light", showBackground = true)
+@Preview(name = "loaded-with-cluster-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FeedScreenLoadedWithClusterScreenshot() {
+    // Loaded viewState with a Single + a ReplyCluster (with ellipsis) to
+    // verify the cluster renders correctly within the feed and visually
+    // contrasts with neighboring singles. Locks the cross-author thread
+    // cluster integration end-to-end.
+    NubecitaTheme(dynamicColor = false) {
+        FeedScreenScreenshotHost(
+            viewState =
+                FeedScreenViewState.Loaded(
+                    feedItems = fixtureFeedItemsWithCluster(),
+                    isAppending = false,
+                    isRefreshing = false,
                 ),
         )
     }
@@ -130,7 +152,7 @@ private fun FeedScreenLoadedAppendingScreenshot() {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
-                    posts = fixturePosts(count = 3),
+                    feedItems = fixtureFeedItems(count = 3),
                     isAppending = true,
                     isRefreshing = false,
                 ),
@@ -165,24 +187,47 @@ private object FixtureClock : Clock {
     override fun now(): Instant = FIXTURE_NOW
 }
 
-private fun fixturePosts(count: Int): ImmutableList<PostUi> =
+private fun fixturePost(
+    id: String,
+    text: String = "Fixture post $id — sample content for the screen-level screenshot matrix.",
+): PostUi =
+    PostUi(
+        id = "post-$id",
+        author =
+            AuthorUi(
+                did = "did:plc:fixture-$id",
+                handle = "fixture$id.bsky.social",
+                displayName = "Fixture $id",
+                avatarUrl = null,
+            ),
+        createdAt = FIXTURE_CREATED_AT,
+        text = text,
+        facets = persistentListOf(),
+        embed = EmbedUi.Empty,
+        stats = PostStatsUi(replyCount = 1, repostCount = 2, likeCount = 12),
+        viewer = ViewerStateUi(),
+        repostedBy = null,
+    )
+
+private fun fixtureFeedItems(count: Int): ImmutableList<FeedItemUi> =
     (1..count)
-        .map { id ->
-            PostUi(
-                id = "post-$id",
-                author =
-                    AuthorUi(
-                        did = "did:plc:fixture-$id",
-                        handle = "fixture$id.bsky.social",
-                        displayName = "Fixture $id",
-                        avatarUrl = null,
-                    ),
-                createdAt = FIXTURE_CREATED_AT,
-                text = "Fixture post $id — sample content for the screen-level screenshot matrix.",
-                facets = persistentListOf(),
-                embed = EmbedUi.Empty,
-                stats = PostStatsUi(replyCount = 1, repostCount = 2, likeCount = 12),
-                viewer = ViewerStateUi(),
-                repostedBy = null,
-            )
-        }.toImmutableList()
+        .map { id -> FeedItemUi.Single(post = fixturePost(id.toString())) }
+        .toImmutableList()
+
+/**
+ * Mixed fixture for the cluster screenshot baseline — a [FeedItemUi.Single]
+ * sandwiched by a [FeedItemUi.ReplyCluster] (with ellipsis) and another
+ * [FeedItemUi.Single]. Locks the visual contrast between standalone posts
+ * and clusters in the screen-level capture.
+ */
+private fun fixtureFeedItemsWithCluster(): ImmutableList<FeedItemUi> =
+    persistentListOf<FeedItemUi>(
+        FeedItemUi.Single(post = fixturePost("1", text = "First standalone post in the screenshot fixture.")),
+        FeedItemUi.ReplyCluster(
+            root = fixturePost("root", text = "Root post that started a thread."),
+            parent = fixturePost("parent", text = "Immediate parent — child of an elided post above."),
+            leaf = fixturePost("leaf", text = "Leaf reply — surfaced into the timeline."),
+            hasEllipsis = true,
+        ),
+        FeedItemUi.Single(post = fixturePost("3", text = "Trailing standalone post after the cluster.")),
+    )

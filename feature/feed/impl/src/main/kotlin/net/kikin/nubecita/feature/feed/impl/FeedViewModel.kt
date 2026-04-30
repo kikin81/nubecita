@@ -8,6 +8,7 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
+import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import java.io.IOException
 import javax.inject.Inject
 
@@ -70,14 +71,14 @@ internal class FeedViewModel
                         // when the entire feed fits in one page).
                         setState {
                             copy(
-                                posts = page.posts,
+                                feedItems = page.feedItems.dedupeClusterContext().toImmutableList(),
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                                 loadStatus = FeedLoadStatus.Idle,
                             )
                         }
                     }.onFailure { throwable ->
-                        // Preserve posts on refresh failure; surface as a snackbar.
+                        // Preserve feedItems on refresh failure; surface as a snackbar.
                         setState { copy(loadStatus = FeedLoadStatus.Idle) }
                         sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
                     }
@@ -92,7 +93,7 @@ internal class FeedViewModel
             // Mutually exclusive with refresh / initial-load: if any fetch is
             // already in flight, drop the LoadMore event. Prevents the
             // overlapping-fetch race where two getTimeline calls both update
-            // posts + nextCursor and the last writer wins non-deterministically.
+            // feedItems + nextCursor and the last writer wins non-deterministically.
             if (current.loadStatus != FeedLoadStatus.Idle) return
             setState { copy(loadStatus = FeedLoadStatus.Appending) }
             viewModelScope.launch {
@@ -100,21 +101,23 @@ internal class FeedViewModel
                     .getTimeline(cursor = current.nextCursor)
                     .onSuccess { page ->
                         setState {
-                            // De-dupe by id so a server returning a page that overlaps
-                            // the current tail (rare but possible during cursor
-                            // resyncs) doesn't show the same post twice.
-                            val seen = posts.mapTo(HashSet()) { it.id }
-                            val merged = (posts + page.posts.filter { seen.add(it.id) }).toImmutableList()
+                            // De-dupe by FeedItemUi.key so a server returning a page
+                            // that overlaps the current tail (rare but possible during
+                            // cursor resyncs) doesn't show the same item twice. The
+                            // key is the leaf URI for ReplyCluster and the post URI
+                            // for Single — stable across paging.
+                            val seen = feedItems.mapTo(HashSet()) { it.key }
+                            val merged = (feedItems + page.feedItems.filter { seen.add(it.key) })
                             copy(
-                                posts = merged,
+                                feedItems = merged.dedupeClusterContext().toImmutableList(),
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                                 loadStatus = FeedLoadStatus.Idle,
                             )
                         }
                     }.onFailure { throwable ->
-                        // Preserve posts AND cursor on append failure so the user can
-                        // retry from the same page boundary.
+                        // Preserve feedItems AND cursor on append failure so the user
+                        // can retry from the same page boundary.
                         setState { copy(loadStatus = FeedLoadStatus.Idle) }
                         sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
                     }
@@ -122,11 +125,12 @@ internal class FeedViewModel
         }
 
         private fun applyInitialPage(page: TimelinePage) {
+            val deduped = page.feedItems.dedupeClusterContext().toImmutableList()
             setState {
                 copy(
-                    posts = page.posts,
+                    feedItems = deduped,
                     nextCursor = page.nextCursor,
-                    endReached = page.nextCursor == null || page.posts.isEmpty(),
+                    endReached = page.nextCursor == null || deduped.isEmpty(),
                     loadStatus = FeedLoadStatus.Idle,
                 )
             }

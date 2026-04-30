@@ -1,0 +1,48 @@
+{
+  "feed": [
+    {
+      "post": {
+        "uri": "at://did:plc:fakeleaf0000000000000/app.bsky.feed.post/leaf-blocked",
+        "cid": "bafyreifakeleafcid000000000000000000000000000000",
+        "author": {
+          "did": "did:plc:fakeleaf0000000000000",
+          "handle": "leaf.bsky.social",
+          "displayName": "Leaf Author"
+        },
+        "indexedAt": "2026-04-26T12:00:00Z",
+        "record": {
+          "$type": "app.bsky.feed.post",
+          "text": "leaf reply whose parent we can't see",
+          "createdAt": "2026-04-26T12:00:00Z"
+        }
+      },
+      "reply": {
+        "parent": {
+          "$type": "app.bsky.feed.defs#blockedPost",
+          "uri": "at://did:plc:fakeparent000000000000/app.bsky.feed.post/blocked",
+          "blocked": true,
+          "author": {
+            "did": "did:plc:fakeparent000000000000",
+            "viewer": {}
+          }
+        },
+        "root": {
+          "$type": "app.bsky.feed.defs#postView",
+          "uri": "at://did:plc:fakeroot00000000000000/app.bsky.feed.post/root",
+          "cid": "bafyreifakerootcid000000000000000000000000000000",
+          "author": {
+            "did": "did:plc:fakeroot00000000000000",
+            "handle": "root.bsky.social",
+            "displayName": "Root Author"
+          },
+          "indexedAt": "2026-04-24T12:00:00Z",
+          "record": {
+            "$type": "app.bsky.feed.post",
+            "text": "root post",
+            "createdAt": "2026-04-24T12:00:00Z"
+          }
+        }
+      }
+    }
+  ]
+}
