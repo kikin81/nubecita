@@ -17,6 +17,7 @@ coroutines = "1.10.2"
 datastore = "1.3.0-alpha08"
 firebaseAppDistribution = "5.2.1"
 firebaseBom = "34.12.0"
+firebaseCrashlytics = "3.0.7"
 googleServices = "4.4.4"
 junit = "4.13.2"
 junitJupiter = "5.14.4"
@@ -89,6 +90,7 @@ firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 firebase-appcheck-debug = { module = "com.google.firebase:firebase-appcheck-debug" }
 firebase-appcheck-playintegrity = { module = "com.google.firebase:firebase-appcheck-playintegrity" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
 junit = { module = "junit:junit", version.ref = "junit" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
@@ -126,6 +128,7 @@ compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose-screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }
 firebase-appdistribution = { id = "com.google.firebase.appdistribution", version.ref = "firebaseAppDistribution" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlytics" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
