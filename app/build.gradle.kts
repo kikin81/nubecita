@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.appdistribution)
     alias(libs.plugins.firebase.crashlytics)
-    jacoco
 }
 
 android {
@@ -102,42 +101,4 @@ dependencies {
 tasks.register("publish") {
     description = "No-op publish task to satisfy semantic-release verification in CI"
     group = "publishing"
-}
-
-jacoco {
-    toolVersion = "0.8.14"
-}
-
-tasks.register<JacocoReport>("jacocoTestReport") {
-    dependsOn("testDebugUnitTest")
-
-    reports {
-        xml.required.set(true)
-        html.required.set(true)
-    }
-
-    val fileFilter =
-        listOf(
-            "**/R.class",
-            "**/R\$*.class",
-            "**/BuildConfig.*",
-            "**/Manifest*.*",
-            "**/*Test*.*",
-            "android/**/*.*",
-            "**/*\$Lambda\$*.*",
-            "**/*\$inlined\$*.*",
-        )
-
-    val debugTree =
-        fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug") {
-            exclude(fileFilter)
-        }
-
-    classDirectories.setFrom(debugTree)
-    sourceDirectories.setFrom(files("src/main/java", "src/main/kotlin"))
-    executionData.setFrom(
-        fileTree(layout.buildDirectory.get()) {
-            include("jacoco/*.exec", "outputs/unit_test_code_coverage/**/*.exec")
-        },
-    )
 }

@@ -10,6 +10,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
         with(target) {
             pluginManager.apply("com.android.library")
             pluginManager.apply("com.squareup.sort-dependencies")
+            pluginManager.apply("nubecita.android.jacoco")
 
             extensions.configure<LibraryExtension> {
                 configureKotlinAndroid(this)
@@ -20,6 +21,14 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 }
 
                 buildTypes {
+                    debug {
+                        // Routes test execution through JaCoCo's runtime agent so
+                        // testDebugUnitTest emits .exec files that the per-module
+                        // jacocoTestReport task (and the root aggregated task) can
+                        // read. Without this flag, AGP runs unit tests but no
+                        // coverage data is produced.
+                        enableUnitTestCoverage = true
+                    }
                     release {
                         isMinifyEnabled = false
                         proguardFiles(

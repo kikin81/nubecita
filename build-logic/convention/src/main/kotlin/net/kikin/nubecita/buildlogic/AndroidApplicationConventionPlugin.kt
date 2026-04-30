@@ -15,6 +15,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.android.compose.screenshot")
             pluginManager.apply("com.google.dagger.hilt.android")
             pluginManager.apply("com.google.devtools.ksp")
+            pluginManager.apply("nubecita.android.jacoco")
 
             extensions.configure<ApplicationExtension> {
                 configureKotlinAndroid(this)
@@ -29,6 +30,15 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
 
                 @Suppress("UnstableApiUsage")
                 experimentalProperties["android.experimental.enableScreenshotTest"] = true
+
+                buildTypes.getByName("debug").apply {
+                    // Routes test execution through JaCoCo's runtime agent so
+                    // testDebugUnitTest emits .exec files that the per-module
+                    // jacocoTestReport task (and the root aggregated task) can
+                    // read. Without this flag, AGP runs unit tests but no
+                    // coverage data is produced.
+                    enableUnitTestCoverage = true
+                }
 
                 buildTypes.getByName("release").apply {
                     isMinifyEnabled = false
