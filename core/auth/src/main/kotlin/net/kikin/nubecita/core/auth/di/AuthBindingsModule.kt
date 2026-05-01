@@ -16,9 +16,20 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import javax.inject.Singleton
 
+/**
+ * Hilt bindings for `:core:auth`'s repository / state-provider interfaces.
+ *
+ * The class itself is publicly addressable (rather than `internal`) so
+ * downstream feature modules' instrumentation tests can swap individual
+ * bindings via `@TestInstallIn(replaces = [AuthBindingsModule::class])`.
+ * Kotlin's `internal` modifier is per-Gradle-module, so an internal
+ * binding module would be invisible to `:feature:*:impl/src/androidTest/`
+ * and the swap target wouldn't compile. The bound implementations remain
+ * `internal` — only the module class itself is addressable.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
-internal abstract class AuthBindingsModule {
+abstract class AuthBindingsModule {
     @Binds
     @Singleton
     internal abstract fun bindOAuthSessionStore(impl: EncryptedOAuthSessionStore): OAuthSessionStore
