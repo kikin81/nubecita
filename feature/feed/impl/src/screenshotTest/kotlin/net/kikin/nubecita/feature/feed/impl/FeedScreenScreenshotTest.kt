@@ -193,6 +193,7 @@ private fun fixturePost(
 ): PostUi =
     PostUi(
         id = "post-$id",
+        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
         author =
             AuthorUi(
                 did = "did:plc:fixture-$id",

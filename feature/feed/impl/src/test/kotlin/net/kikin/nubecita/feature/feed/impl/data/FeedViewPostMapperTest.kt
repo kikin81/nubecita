@@ -52,6 +52,69 @@ internal class FeedViewPostMapperTest {
     }
 
     @Test
+    fun `cid is propagated from PostView to PostUi`() {
+        // Required so the host VM can build a StrongRef when the user
+        // taps like / repost — without the cid we couldn't address the
+        // record at all.
+        val response = decodeFixture("timeline_typical.json")
+        val mapped = response.feed.first().toPostUiOrNull()
+        assertNotNull(mapped)
+        assertTrue(mapped!!.cid.isNotBlank(), "cid must be non-blank for downstream StrongRef construction")
+    }
+
+    @Test
+    fun `viewer like and repost AT URIs are propagated to ViewerStateUi`() {
+        // Synthetic post whose viewer block carries both like and repost
+        // AT URIs — the mapper should surface them so the VM can later
+        // call deleteRecord against the right records.
+        val likeUri = "at://did:plc:viewer/app.bsky.feed.like/3lk1"
+        val repostUri = "at://did:plc:viewer/app.bsky.feed.repost/3lr1"
+        val viewerJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake/app.bsky.feed.post/v1",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake",
+                    "handle": "fake.bsky.social"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "post liked + reposted by the viewer",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  },
+                  "viewer": {
+                    "like": "$likeUri",
+                    "repost": "$repostUri"
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), viewerJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        assertEquals(true, mapped!!.viewer.isLikedByViewer)
+        assertEquals(true, mapped.viewer.isRepostedByViewer)
+        assertEquals(likeUri, mapped.viewer.likeUri)
+        assertEquals(repostUri, mapped.viewer.repostUri)
+    }
+
+    @Test
+    fun `viewer like and repost are null when the viewer block is absent`() {
+        val response = decodeFixture("timeline_typical.json")
+        val mapped = response.feed.first().toPostUiOrNull()
+        assertNotNull(mapped)
+        assertEquals(false, mapped!!.viewer.isLikedByViewer)
+        assertEquals(false, mapped.viewer.isRepostedByViewer)
+        assertNull(mapped.viewer.likeUri)
+        assertNull(mapped.viewer.repostUri)
+    }
+
+    @Test
     fun `posts with no embed map to EmbedUi_Empty`() {
         val response = decodeFixture("timeline_typical.json")
         response.feed.forEach { entry ->

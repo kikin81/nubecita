@@ -114,6 +114,7 @@ private fun previewPost(
 ): PostUi =
     PostUi(
         id = id,
+        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
         author =
             AuthorUi(
                 did = "did:plc:$id",

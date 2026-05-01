@@ -77,6 +77,7 @@ internal class PostShareIntentTest {
     ): PostUi =
         PostUi(
             id = id,
+            cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
             author =
                 AuthorUi(
                     did = "did:plc:fakedid000000000000000",

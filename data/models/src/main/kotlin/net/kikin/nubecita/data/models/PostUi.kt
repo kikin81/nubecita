@@ -25,6 +25,15 @@ import kotlin.time.Instant
 @Stable
 public data class PostUi(
     val id: String,
+    /**
+     * The post's content-addressed CID, paired with [id] (its AT URI) to
+     * form the `StrongRef` that `app.bsky.feed.like` and
+     * `app.bsky.feed.repost` records target. Required because the host
+     * VM constructs the StrongRef when calling
+     * `LikeRepostRepository.like(...)` / `repost(...)` — without the CID
+     * we'd be left guessing or fetching the post again.
+     */
+    val cid: String,
     val author: AuthorUi,
     val createdAt: Instant,
     val text: String,
