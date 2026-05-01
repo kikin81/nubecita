@@ -1,6 +1,7 @@
 package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -48,6 +49,13 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  *   "<label>, switch, <on|off>, double tap to toggle" so the user gets BOTH
  *   the action and the current state — the implicit-state-via-action-verb
  *   pattern (e.g. "Unlike") was insufficient because it omitted on/off.
+ *
+ * Optional [onLongClick] adds a long-press gesture (e.g. share → copy
+ * permalink). Only honored on non-toggleable cells; passing it
+ * alongside `toggleable = true` is ignored so we don't fight a
+ * `Role.Switch`'s own long-press semantics. `combinedClickable` fires
+ * the system's long-press haptic automatically — no manual
+ * `LocalHapticFeedback` plumbing needed.
  */
 @Composable
 internal fun PostStat(
@@ -56,24 +64,33 @@ internal fun PostStat(
     accessibilityLabel: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
     active: Boolean = false,
     toggleable: Boolean = false,
     activeColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     val tint = if (active) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
     val interactionModifier =
-        if (toggleable) {
-            Modifier.toggleable(
-                value = active,
-                role = Role.Switch,
-                onValueChange = { onClick() },
-            )
-        } else {
-            Modifier.clickable(
-                role = Role.Button,
-                onClickLabel = accessibilityLabel,
-                onClick = onClick,
-            )
+        when {
+            toggleable ->
+                Modifier.toggleable(
+                    value = active,
+                    role = Role.Switch,
+                    onValueChange = { onClick() },
+                )
+            onLongClick != null ->
+                Modifier.combinedClickable(
+                    role = Role.Button,
+                    onClickLabel = accessibilityLabel,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                )
+            else ->
+                Modifier.clickable(
+                    role = Role.Button,
+                    onClickLabel = accessibilityLabel,
+                    onClick = onClick,
+                )
         }
     Row(
         verticalAlignment = Alignment.CenterVertically,

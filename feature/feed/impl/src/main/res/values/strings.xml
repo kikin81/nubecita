@@ -26,6 +26,10 @@
     <string name="feed_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
     <string name="feed_snackbar_error_unknown">Couldn\'t refresh. Try again.</string>
 
+    <!-- Long-press on the share button copies the post permalink to the clipboard. -->
+    <string name="feed_snackbar_link_copied">Link copied to clipboard</string>
+    <string name="feed_clipboard_label_post_link">Bluesky post link</string>
+
     <!-- PostCardVideoEmbed phase-C overlays (autoplay-muted + tap-to-resume). -->
     <string name="postcard_video_mute">Mute video</string>
     <string name="postcard_video_unmute">Unmute video</string>

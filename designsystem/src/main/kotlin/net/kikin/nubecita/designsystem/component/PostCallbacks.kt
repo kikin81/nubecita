@@ -30,6 +30,12 @@ data class PostCallbacks(
     val onRepost: (PostUi) -> Unit = {},
     val onReply: (PostUi) -> Unit = {},
     val onShare: (PostUi) -> Unit = {},
+    /**
+     * Long-press on the share button. Hosts wire this to a "copy
+     * permalink" path (Threads-style). Defaults to a no-op so previews
+     * and non-feed call sites stay one-line.
+     */
+    val onShareLongPress: (PostUi) -> Unit = {},
     val onExternalEmbedTap: (uri: String) -> Unit = {},
 ) {
     public companion object {

@@ -342,6 +342,7 @@ private fun ActionRow(
             count = "",
             accessibilityLabel = stringResource(R.string.postcard_action_share),
             onClick = { callbacks.onShare(post) },
+            onLongClick = { callbacks.onShareLongPress(post) },
         )
     }
 }

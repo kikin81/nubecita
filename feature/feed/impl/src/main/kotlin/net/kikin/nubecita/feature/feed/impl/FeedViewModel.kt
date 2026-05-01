@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
+import net.kikin.nubecita.feature.feed.impl.share.toShareIntent
 import java.io.IOException
 import javax.inject.Inject
 
@@ -30,7 +31,9 @@ internal class FeedViewModel
                 is FeedEvent.OnLikeClicked -> Unit
                 is FeedEvent.OnRepostClicked -> Unit
                 is FeedEvent.OnReplyClicked -> Unit
-                is FeedEvent.OnShareClicked -> Unit
+                is FeedEvent.OnShareClicked -> sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
+                is FeedEvent.OnShareLongPressed ->
+                    sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))
             }
         }
 

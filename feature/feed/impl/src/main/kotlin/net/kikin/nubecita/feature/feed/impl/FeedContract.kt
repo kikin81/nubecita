@@ -8,6 +8,7 @@ import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.feature.feed.impl.share.PostShareIntent
 
 /**
  * One frame's worth of UI state for the Following timeline screen.
@@ -134,6 +135,11 @@ sealed interface FeedEvent : UiEvent {
     data class OnShareClicked(
         val post: PostUi,
     ) : FeedEvent
+
+    /** Long-press on the share button — copy the post permalink to the clipboard. */
+    data class OnShareLongPressed(
+        val post: PostUi,
+    ) : FeedEvent
 }
 
 sealed interface FeedEffect : UiEffect {
@@ -153,5 +159,27 @@ sealed interface FeedEffect : UiEffect {
     @Immutable
     data class NavigateToAuthor(
         val authorDid: String,
+    ) : FeedEffect
+
+    /**
+     * Hand a pre-computed share payload to the screen so it can fire
+     * `Intent.ACTION_SEND` via the system share sheet. The VM produces
+     * the payload (so unit tests can assert it) and the screen owns
+     * the platform Intent dispatch.
+     */
+    @Immutable
+    data class SharePost(
+        val intent: PostShareIntent,
+    ) : FeedEffect
+
+    /**
+     * Copy a post permalink to the system clipboard. Fired on long-press
+     * of the share button (Threads-style). The screen handles the
+     * platform `ClipboardManager` write and surfaces a confirmation
+     * snackbar.
+     */
+    @Immutable
+    data class CopyPermalink(
+        val permalink: String,
     ) : FeedEffect
 }
