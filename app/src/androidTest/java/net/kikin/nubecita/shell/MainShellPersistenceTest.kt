@@ -1,16 +1,15 @@
 package net.kikin.nubecita.shell
 
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.Posture
+import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -19,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
@@ -32,6 +30,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.window.core.layout.WindowSizeClass
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
@@ -137,10 +136,15 @@ class MainShellPersistenceTest {
      * composed in the right pane on medium, just as it was before the
      * round-trip.
      *
-     * Width is overridden via `LocalConfiguration.screenWidthDp` rather
-     * than a real device rotation — the strategy's width branching reads
-     * from `currentWindowAdaptiveInfo()` which derives from
-     * `LocalConfiguration`, so this exercises the same code path.
+     * Width is injected by passing a synthetic [WindowAdaptiveInfo] into
+     * [ListDetailHarness] rather than overriding `LocalConfiguration.screenWidthDp`.
+     * The newer `currentWindowAdaptiveInfo` API (and its V2 successor) reads from
+     * `WindowMetrics`, not `LocalConfiguration`, so the override approach was a
+     * silent no-op on phone-class emulators (whose actual width is ~400dp =
+     * compact, regardless of the override). Injecting `WindowAdaptiveInfo`
+     * directly keeps the directive computation exactly matched with production
+     * (`calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth`) while making
+     * the width deterministic across emulator profiles.
      *
      * Uses a fake harness rather than the production `MainShell`: the
      * real `FeedDetailPlaceholder` is `internal` to `:feature:feed:impl`
@@ -155,17 +159,10 @@ class MainShellPersistenceTest {
     @Test
     fun listDetailPlaceholder_survivesMediumToCompactToMediumRotation() {
         val tester = StateRestorationTester(composeTestRule)
-        var widthDp by mutableStateOf(MEDIUM_WIDTH_DP)
+        var adaptiveInfo by mutableStateOf(adaptiveInfoForWidth(MEDIUM_WIDTH_DP))
 
         tester.setContent {
-            val baseConfig = LocalConfiguration.current
-            val overrideConfig =
-                remember(baseConfig, widthDp) {
-                    Configuration(baseConfig).apply { screenWidthDp = widthDp }
-                }
-            CompositionLocalProvider(LocalConfiguration provides overrideConfig) {
-                ListDetailHarness()
-            }
+            ListDetailHarness(windowAdaptiveInfo = adaptiveInfo)
         }
 
         // At medium width: placeholder is composed in the right pane.
@@ -174,7 +171,7 @@ class MainShellPersistenceTest {
         // Rotate to compact: strategy collapses to single-pane, placeholder
         // is no longer composed. Configuration changes in real Android trigger
         // an activity recreate, which `emulateSavedInstanceStateRestore` mirrors.
-        widthDp = COMPACT_WIDTH_DP
+        adaptiveInfo = adaptiveInfoForWidth(COMPACT_WIDTH_DP)
         tester.emulateSavedInstanceStateRestore()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertDoesNotExist()
@@ -182,12 +179,36 @@ class MainShellPersistenceTest {
         // Rotate back to medium: strategy expands to two-pane again, and
         // because the back stack persisted (`[Feed]`) the placeholder
         // reappears in the right pane.
-        widthDp = MEDIUM_WIDTH_DP
+        adaptiveInfo = adaptiveInfoForWidth(MEDIUM_WIDTH_DP)
         tester.emulateSavedInstanceStateRestore()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertIsDisplayed()
     }
 }
+
+/**
+ * Build a [WindowAdaptiveInfo] for the given [widthDp] — width is what the
+ * strategy under test branches on; height + posture are stable defaults
+ * because nothing in the test reads them.
+ *
+ * Uses [WindowSizeClass.compute] (not the raw constructor) because
+ * `calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth` does
+ * exact-equality matching against the breakpoint constants
+ * (0/600/840/1200/1600 dp). `compute` buckets the requested width down
+ * to the nearest breakpoint so a 360 dp request becomes the Compact
+ * bucket (minWidthDp=0), matching what the framework produces at runtime.
+ * Constructing `WindowSizeClass(minWidthDp = 360, ...)` directly would
+ * miss every `when` arm and fall into the L/XL `else` branch (3 panes).
+ */
+private fun adaptiveInfoForWidth(widthDp: Int): WindowAdaptiveInfo =
+    WindowAdaptiveInfo(
+        windowSizeClass =
+            WindowSizeClass.compute(
+                dpWidth = widthDp.toFloat(),
+                dpHeight = HEIGHT_DP.toFloat(),
+            ),
+        windowPosture = Posture(),
+    )
 
 /**
  * Test harness that mirrors `MainShell`'s inner `NavDisplay` wiring: a
@@ -201,12 +222,12 @@ class MainShellPersistenceTest {
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @androidx.compose.runtime.Composable
-private fun ListDetailHarness() {
+private fun ListDetailHarness(windowAdaptiveInfo: WindowAdaptiveInfo) {
     val backStack: SnapshotStateList<NavKey> =
         remember { mutableStateListOf<NavKey>(Feed) }
     val sceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(
-            directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(currentWindowAdaptiveInfo()),
+            directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(windowAdaptiveInfo),
         )
 
     val fakeFeedInstaller: EntryProviderInstaller = {
@@ -250,3 +271,4 @@ private fun ListDetailHarness() {
 private const val PLACEHOLDER_TAG = "list-detail-placeholder"
 private const val COMPACT_WIDTH_DP = 360
 private const val MEDIUM_WIDTH_DP = 600
+private const val HEIGHT_DP = 800
