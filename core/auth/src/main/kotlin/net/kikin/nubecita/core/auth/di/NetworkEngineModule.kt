@@ -18,7 +18,7 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
-internal object NetworkEngineModule {
+object NetworkEngineModule {
     @Provides
     @Singleton
     fun provideHttpClientEngine(): HttpClientEngine = OkHttp.create()
