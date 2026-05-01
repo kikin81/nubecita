@@ -1,0 +1,148 @@
+package net.kikin.nubecita.feature.feed.impl.data
+
+import io.github.kikin81.atproto.app.bsky.feed.Like
+import io.github.kikin81.atproto.app.bsky.feed.Repost
+import io.github.kikin81.atproto.com.atproto.repo.CreateRecordRequest
+import io.github.kikin81.atproto.com.atproto.repo.DeleteRecordRequest
+import io.github.kikin81.atproto.com.atproto.repo.RepoService
+import io.github.kikin81.atproto.com.atproto.repo.StrongRef
+import io.github.kikin81.atproto.runtime.AtIdentifier
+import io.github.kikin81.atproto.runtime.AtUri
+import io.github.kikin81.atproto.runtime.Datetime
+import io.github.kikin81.atproto.runtime.Nsid
+import io.github.kikin81.atproto.runtime.RecordKey
+import io.github.kikin81.atproto.runtime.encodeRecord
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import timber.log.Timber
+import javax.inject.Inject
+import kotlin.time.Clock
+
+internal class DefaultLikeRepostRepository
+    @Inject
+    constructor(
+        private val xrpcClientProvider: XrpcClientProvider,
+        private val sessionStateProvider: SessionStateProvider,
+        @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
+    ) : LikeRepostRepository {
+        override suspend fun like(post: StrongRef): Result<AtUri> = createRecord(LIKE_NSID, post) { createdAt, subject -> Like(createdAt = createdAt, subject = subject) }
+
+        override suspend fun unlike(likeUri: AtUri): Result<Unit> = deleteRecord(LIKE_NSID, likeUri)
+
+        override suspend fun repost(post: StrongRef): Result<AtUri> = createRecord(REPOST_NSID, post) { createdAt, subject -> Repost(createdAt = createdAt, subject = subject) }
+
+        override suspend fun unrepost(repostUri: AtUri): Result<Unit> = deleteRecord(REPOST_NSID, repostUri)
+
+        // Both like and repost share the same shape: serialize a typed record
+        // with $type, send via createRecord, return the new record's uri.
+        // The caller passes a builder that closes over the record's typed
+        // representation so we keep the per-collection NSID in one place.
+        private suspend inline fun <reified T> createRecord(
+            collection: String,
+            subject: StrongRef,
+            crossinline buildRecord: (createdAt: Datetime, subject: StrongRef) -> T,
+        ): Result<AtUri> =
+            withContext(dispatcher) {
+                runCatching {
+                    val viewerDid = currentViewerDid()
+                    val client = xrpcClientProvider.authenticated()
+                    val record =
+                        encodeRecord(
+                            record = buildRecord(nowDatetime(), subject),
+                            type = collection,
+                        )
+                    val response =
+                        RepoService(client).createRecord(
+                            CreateRecordRequest(
+                                collection = Nsid(collection),
+                                repo = AtIdentifier(viewerDid),
+                                record = record,
+                            ),
+                        )
+                    response.uri
+                }.onFailure { throwable ->
+                    // Surface the throwable identity for observability — same
+                    // rationale as DefaultFeedRepository. The atproto stack
+                    // wraps engine failures, and without this log we'd be
+                    // guessing whether a "create-record failed" effect came
+                    // from a network blip, an auth refresh failure, or a
+                    // server-side validation error.
+                    Timber.tag(TAG).e(
+                        throwable,
+                        "createRecord(%s) failed: %s",
+                        collection,
+                        throwable.javaClass.name,
+                    )
+                }
+            }
+
+        private suspend fun deleteRecord(
+            collection: String,
+            recordUri: AtUri,
+        ): Result<Unit> =
+            withContext(dispatcher) {
+                runCatching {
+                    val (repo, rkey) = parseAtUri(recordUri)
+                    val client = xrpcClientProvider.authenticated()
+                    RepoService(client).deleteRecord(
+                        DeleteRecordRequest(
+                            collection = Nsid(collection),
+                            repo = AtIdentifier(repo),
+                            rkey = RecordKey(rkey),
+                        ),
+                    )
+                    Unit
+                }.onFailure { throwable ->
+                    Timber.tag(TAG).e(
+                        throwable,
+                        "deleteRecord(%s, %s) failed: %s",
+                        collection,
+                        recordUri.raw,
+                        throwable.javaClass.name,
+                    )
+                }
+            }
+
+        private fun currentViewerDid(): String {
+            val signedIn =
+                sessionStateProvider.state.value as? SessionState.SignedIn
+                    ?: throw NoSessionException()
+            return signedIn.did
+        }
+
+        private fun nowDatetime(): Datetime = Datetime(Clock.System.now().toString())
+
+        // AT URI shape: at://<repo>/<collection>/<rkey>. The repository
+        // intentionally does NOT validate the collection segment against the
+        // expected NSID — the caller is responsible for passing a uri that
+        // belongs to the right collection (the like uri to unlike, the repost
+        // uri to unrepost). A wrong-collection uri would be rejected by the
+        // PDS and surface as a failure, which is the right outcome.
+        //
+        // TODO(atproto-kotlin#57): replace with upstream `AtUri.parse()`
+        // once the helper lands — kikin81/atproto-kotlin#57 tracks adding a
+        // typed (repo, collection, rkey, fragment) parser to the runtime.
+        private fun parseAtUri(uri: AtUri): Pair<String, String> {
+            val raw = uri.raw
+            require(raw.startsWith(AT_URI_SCHEME)) {
+                "AT URI must start with 'at://', got: $raw"
+            }
+            val parts = raw.removePrefix(AT_URI_SCHEME).split('/')
+            require(parts.size >= 3 && parts.all { it.isNotEmpty() }) {
+                "AT URI must have repo/collection/rkey segments, got: $raw"
+            }
+            return parts[0] to parts[2]
+        }
+
+        private companion object {
+            const val LIKE_NSID = "app.bsky.feed.like"
+            const val REPOST_NSID = "app.bsky.feed.repost"
+            const val AT_URI_SCHEME = "at://"
+            const val TAG = "LikeRepostRepository"
+        }
+    }
