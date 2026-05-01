@@ -1,4 +1,4 @@
-package net.kikin.nubecita.testing
+package net.kikin.nubecita.core.testing.android
 
 import androidx.activity.ComponentActivity
 import dagger.hilt.android.AndroidEntryPoint
@@ -11,8 +11,9 @@ import dagger.hilt.android.AndroidEntryPoint
  * `@HiltAndroidTest` + `HiltAndroidRule`, then call `setContent { ... }`
  * on the rule to drive the Composable under test.
  *
- * Registered in `app/src/androidTest/AndroidManifest.xml` so the
- * instrumentation APK can launch it.
+ * Registered in this module's `AndroidManifest.xml` so consumer modules'
+ * androidTest manifest mergers pick it up automatically — no per-consumer
+ * manifest entry required.
  */
 @AndroidEntryPoint
 class HiltTestActivity : ComponentActivity()
