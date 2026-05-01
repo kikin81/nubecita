@@ -5,7 +5,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
@@ -31,8 +31,8 @@ internal object HttpClientModule {
 
     @Provides
     @Singleton
-    fun provideHttpClient(): HttpClient =
-        HttpClient(OkHttp) {
+    fun provideHttpClient(engine: HttpClientEngine): HttpClient =
+        HttpClient(engine) {
             install(HttpTimeout) {
                 requestTimeoutMillis = 30_000
                 connectTimeoutMillis = 10_000
