@@ -103,6 +103,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.ktor.client.mock)
     kspAndroidTest(libs.hilt.android.compiler)
 }
 
