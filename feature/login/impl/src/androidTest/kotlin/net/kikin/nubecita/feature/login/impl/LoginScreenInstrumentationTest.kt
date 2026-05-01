@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.login.impl
 
+import android.app.Activity
+import android.app.Instrumentation
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.test.hasSetTextAction
@@ -8,9 +10,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.espresso.intent.Intents.intended
+import androidx.test.espresso.intent.Intents.intending
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasData
 import androidx.test.espresso.intent.rule.IntentsRule
+import androidx.test.platform.app.InstrumentationRegistry
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
@@ -37,6 +41,12 @@ import org.junit.Test
  * `@TestInstallIn(replaces = [AuthBindingsModule::class])` —
  * `FakeAuthRepository.beginLogin(...)` returns a fixed authorization
  * URL that the test asserts the launched intent points at.
+ *
+ * The `Intent.ACTION_VIEW` is stubbed via Espresso `intending(...)` so
+ * the actual browser launch is intercepted — without the stub, the
+ * Custom Tab intent would resolve to a real browser on the emulator
+ * and could pollute test isolation or flake when no browser is
+ * installed.
  */
 @HiltAndroidTest
 class LoginScreenInstrumentationTest {
@@ -55,6 +65,11 @@ class LoginScreenInstrumentationTest {
     @Before
     fun setUp() {
         hiltRule.inject()
+
+        // Intercept Custom Tab launches so the real browser doesn't open
+        // on the emulator. The intent is still recorded for intended(...).
+        intending(hasAction(Intent.ACTION_VIEW))
+            .respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
     }
 
     @Test
@@ -70,22 +85,35 @@ class LoginScreenInstrumentationTest {
         // on label/placeholder string values.
         composeTestRule.onNode(hasSetTextAction()).performTextInput(VALID_HANDLE)
 
-        composeTestRule.onNodeWithText(SUBMIT_BUTTON_TEXT).performClick()
+        // Resolve the button text from the module's string resource so
+        // copy / localization changes don't break the test.
+        val submitText =
+            InstrumentationRegistry
+                .getInstrumentation()
+                .targetContext
+                .getString(R.string.login_submit)
+        composeTestRule.onNodeWithText(submitText).performClick()
 
-        // CustomTabsIntent.launchUrl(context, uri) fires
-        // Intent.ACTION_VIEW with the URI as data. Match on action +
-        // data only — CustomTabsIntent attaches additional bundle
-        // extras (browser-helper flags) we don't care about asserting.
-        intended(
-            allOf(
-                hasAction(Intent.ACTION_VIEW),
-                hasData(Uri.parse(FakeAuthRepository.DEFAULT_AUTHORIZATION_URL)),
-            ),
-        )
+        // The submit click → ViewModel.submitLogin() → coroutine →
+        // sendEffect(LaunchCustomTab) → LaunchedEffect collector →
+        // CustomTabsIntent.launchUrl(...) chain is asynchronous. Poll
+        // intended(...) under composeTestRule.waitUntil so the
+        // assertion succeeds as soon as the intent has been recorded
+        // rather than failing on a fixed instant.
+        composeTestRule.waitUntil(timeoutMillis = INTENT_WAIT_TIMEOUT_MILLIS) {
+            runCatching {
+                intended(
+                    allOf(
+                        hasAction(Intent.ACTION_VIEW),
+                        hasData(Uri.parse(FakeAuthRepository.DEFAULT_AUTHORIZATION_URL)),
+                    ),
+                )
+            }.isSuccess
+        }
     }
 
     private companion object {
         const val VALID_HANDLE = "alice.bsky.social"
-        const val SUBMIT_BUTTON_TEXT = "Sign in with Bluesky"
+        const val INTENT_WAIT_TIMEOUT_MILLIS = 5_000L
     }
 }
