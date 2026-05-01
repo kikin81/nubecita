@@ -16,6 +16,10 @@ android {
         versionCode = 1
         versionName = project.property("version").toString()
 
+        // Override the convention-plugin default (AndroidJUnitRunner) with our
+        // Hilt-aware runner so @HiltAndroidTest tests can boot HiltTestApplication.
+        testInstrumentationRunner = "net.kikin.nubecita.testing.HiltTestRunner"
+
         buildConfigField(
             type = "String",
             name = "OAUTH_CLIENT_METADATA_URL",
@@ -95,8 +99,11 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.espresso.intents)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.android.compiler)
 }
 
 tasks.register("publish") {
