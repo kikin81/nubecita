@@ -32,10 +32,14 @@ data class PostCallbacks(
     val onShare: (PostUi) -> Unit = {},
     /**
      * Long-press on the share button. Hosts wire this to a "copy
-     * permalink" path (Threads-style). Defaults to a no-op so previews
-     * and non-feed call sites stay one-line.
+     * permalink" path (Threads-style). `null` (the default) disables
+     * the long-press gesture entirely so PostStat doesn't advertise a
+     * long-press action that no-ops — important for previews and
+     * non-feed PostCard call sites that pass `PostCallbacks.None`,
+     * where TalkBack would otherwise announce a long-press action that
+     * does nothing.
      */
-    val onShareLongPress: (PostUi) -> Unit = {},
+    val onShareLongPress: ((PostUi) -> Unit)? = null,
     val onExternalEmbedTap: (uri: String) -> Unit = {},
 ) {
     public companion object {

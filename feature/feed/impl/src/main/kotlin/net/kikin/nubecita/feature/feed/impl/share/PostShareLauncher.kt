@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.feed.impl.share
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 
@@ -13,10 +14,12 @@ import android.content.Intent
  *
  * `Intent.createChooser` forces the system share sheet (instead of any
  * default app the user may have set) so every share is a deliberate
- * picker. `FLAG_ACTIVITY_NEW_TASK` is required when the caller is a
- * non-Activity Context — FeedScreen runs inside an Activity but adding
- * the flag is harmless and guards against future composition-local
- * Context changes.
+ * picker. `FLAG_ACTIVITY_NEW_TASK` is added **only** when the caller
+ * isn't an Activity — adding it from an Activity context puts the
+ * chooser/target in a new task, which can leave the user on the
+ * launcher (instead of returning to nubecita) when they back out of
+ * the share target. From a non-Activity Context, the flag is required
+ * by `Context.startActivity`'s contract.
  */
 internal fun Context.launchPostShare(intent: PostShareIntent) {
     val sendIntent =
@@ -26,7 +29,9 @@ internal fun Context.launchPostShare(intent: PostShareIntent) {
         }
     val chooser =
         Intent.createChooser(sendIntent, null).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (this@launchPostShare !is Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
         }
     startActivity(chooser)
 }

@@ -55,7 +55,9 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * alongside `toggleable = true` is ignored so we don't fight a
  * `Role.Switch`'s own long-press semantics. `combinedClickable` fires
  * the system's long-press haptic automatically — no manual
- * `LocalHapticFeedback` plumbing needed.
+ * `LocalHapticFeedback` plumbing needed. Pair with [onLongClickLabel]
+ * so TalkBack announces what long-press will do (e.g. "Copy link")
+ * instead of a generic "press and hold."
  */
 @Composable
 internal fun PostStat(
@@ -65,6 +67,7 @@ internal fun PostStat(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
     active: Boolean = false,
     toggleable: Boolean = false,
     activeColor: Color = MaterialTheme.colorScheme.primary,
@@ -82,6 +85,7 @@ internal fun PostStat(
                 Modifier.combinedClickable(
                     role = Role.Button,
                     onClickLabel = accessibilityLabel,
+                    onLongClickLabel = onLongClickLabel,
                     onClick = onClick,
                     onLongClick = onLongClick,
                 )

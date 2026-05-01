@@ -44,6 +44,10 @@
     <string name="postcard_action_repost">Repost</string>
     <string name="postcard_action_like">Like</string>
     <string name="postcard_action_share">Share post</string>
+    <!-- Long-press on the share button copies the post permalink. Surfaced
+         to TalkBack via combinedClickable's onLongClickLabel so the
+         long-press action gets a meaningful announcement. -->
+    <string name="postcard_action_copy_link">Copy link to post</string>
 
     <!-- ThreadFold copy. thread_fold_view_full_thread is both the visible
          label and the clickable's onClickLabel so TalkBack announces

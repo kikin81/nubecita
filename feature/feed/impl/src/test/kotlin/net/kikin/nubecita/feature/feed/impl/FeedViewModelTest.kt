@@ -427,6 +427,7 @@ internal class FeedViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
             val vm = FeedViewModel(repo)
+            val before = vm.uiState.value
             val post =
                 samplePost("p1").copy(
                     id = "at://did:plc:fake/app.bsky.feed.post/3krkey1",
@@ -445,7 +446,7 @@ internal class FeedViewModelTest {
                 assertEquals(intent.permalink, intent.text)
             }
             // No state mutation — share is a pure side effect.
-            assertSame(vm.uiState.value, vm.uiState.value)
+            assertSame(before, vm.uiState.value)
         }
 
     @Test
