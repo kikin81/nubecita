@@ -59,7 +59,7 @@ internal class DefaultLikeRepostRepositoryTest {
 
             val request = capture.requests.single()
             assertEquals("/xrpc/com.atproto.repo.createRecord", request.url.encodedPath)
-            val body = jsonObjectBody(request)
+            val body = jsonObjectBody(capture.bodies.single())
             assertEquals("app.bsky.feed.like", body["collection"]!!.jsonPrimitive.content)
             assertEquals(viewerDid, body["repo"]!!.jsonPrimitive.content)
             val record = body["record"]!!.jsonObject
@@ -87,7 +87,7 @@ internal class DefaultLikeRepostRepositoryTest {
 
             val request = capture.requests.single()
             assertEquals("/xrpc/com.atproto.repo.createRecord", request.url.encodedPath)
-            val body = jsonObjectBody(request)
+            val body = jsonObjectBody(capture.bodies.single())
             assertEquals("app.bsky.feed.repost", body["collection"]!!.jsonPrimitive.content)
             assertEquals(viewerDid, body["repo"]!!.jsonPrimitive.content)
             val record = body["record"]!!.jsonObject
@@ -108,7 +108,7 @@ internal class DefaultLikeRepostRepositoryTest {
             assertTrue(result.isSuccess, "expected success, got ${result.exceptionOrNull()}")
             val request = capture.requests.single()
             assertEquals("/xrpc/com.atproto.repo.deleteRecord", request.url.encodedPath)
-            val body = jsonObjectBody(request)
+            val body = jsonObjectBody(capture.bodies.single())
             assertEquals("app.bsky.feed.like", body["collection"]!!.jsonPrimitive.content)
             assertEquals(viewerDid, body["repo"]!!.jsonPrimitive.content)
             assertEquals("3lklike", body["rkey"]!!.jsonPrimitive.content)
@@ -125,7 +125,7 @@ internal class DefaultLikeRepostRepositoryTest {
             assertTrue(result.isSuccess, "expected success, got ${result.exceptionOrNull()}")
             val request = capture.requests.single()
             assertEquals("/xrpc/com.atproto.repo.deleteRecord", request.url.encodedPath)
-            val body = jsonObjectBody(request)
+            val body = jsonObjectBody(capture.bodies.single())
             assertEquals("app.bsky.feed.repost", body["collection"]!!.jsonPrimitive.content)
             assertEquals(viewerDid, body["repo"]!!.jsonPrimitive.content)
             assertEquals("3lkrepost", body["rkey"]!!.jsonPrimitive.content)
@@ -162,7 +162,6 @@ internal class DefaultLikeRepostRepositoryTest {
     @Test
     fun `like fails with NoSessionException when no session is signed in`() =
         runTest {
-            val engine = MockEngine { respondError(HttpStatusCode.OK) }
             val repository =
                 DefaultLikeRepostRepository(
                     xrpcClientProvider = ThrowingXrpcClientProvider { throw NoSessionException() },
@@ -174,9 +173,6 @@ internal class DefaultLikeRepostRepositoryTest {
 
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull() is NoSessionException)
-            // The MockEngine MUST NOT be hit — we never had a session to begin with.
-            // (No request capture on this engine anyway; the lack of a respond() body
-            // would fail the engine if a request reached it.)
         }
 
     @Test
@@ -219,6 +215,44 @@ internal class DefaultLikeRepostRepositoryTest {
             assertTrue(capture.requests.isEmpty(), "no request should be sent for a malformed AT URI")
         }
 
+    @Test
+    fun `unlike rejects an AT URI with extra path segments`() =
+        runTest {
+            // at://repo/coll/rkey/extra used to slip past parseAtUri (parts.size >= 3)
+            // and silently dispatch a deleteRecord against parts[2] = rkey while
+            // dropping the trailing /extra. The tightened contract is parts.size == 3,
+            // so this MUST fail fast without hitting the engine.
+            val capture = RecordingEngine.respondingWith(deleteRecordResponseJson())
+            val repository = newRepository(capture.engine, UnconfinedTestDispatcher(testScheduler))
+
+            val result = repository.unlike(AtUri("at://$viewerDid/app.bsky.feed.like/3lklike/extra"))
+
+            assertTrue(result.isFailure)
+            assertTrue(
+                result.exceptionOrNull() is IllegalArgumentException,
+                "expected IllegalArgumentException, got ${result.exceptionOrNull()}",
+            )
+            assertTrue(capture.requests.isEmpty(), "no request should be sent for an over-segmented AT URI")
+        }
+
+    @Test
+    fun `unlike strips a trailing fragment before extracting the rkey`() =
+        runTest {
+            // Defensive: per the AT URI spec, fragments select sub-record components
+            // (`#main` etc.). A like / repost record has no sub-records, so we
+            // strip rather than reject — the fragment-bearing URI still addresses
+            // the same record, and an unstripped fragment would land in the rkey
+            // field as `3lklike#main` and produce a malformed PDS request.
+            val capture = RecordingEngine.respondingWith(deleteRecordResponseJson())
+            val repository = newRepository(capture.engine, UnconfinedTestDispatcher(testScheduler))
+
+            val result = repository.unlike(AtUri("${createdLikeUri.raw}#main"))
+
+            assertTrue(result.isSuccess, "expected success, got ${result.exceptionOrNull()}")
+            val body = jsonObjectBody(capture.bodies.single())
+            assertEquals("3lklike", body["rkey"]!!.jsonPrimitive.content)
+        }
+
     private fun newRepository(
         engine: MockEngine,
         dispatcher: kotlinx.coroutines.test.TestDispatcher,
@@ -235,11 +269,7 @@ internal class DefaultLikeRepostRepositoryTest {
             httpClient = HttpClient(engine),
         )
 
-    private fun jsonObjectBody(request: HttpRequestData) =
-        Json
-            .parseToJsonElement(
-                (request.body as TextContent).text,
-            ).jsonObject
+    private fun jsonObjectBody(body: String) = Json.parseToJsonElement(body).jsonObject
 
     private fun createRecordResponseJson(
         uri: AtUri,
@@ -255,27 +285,39 @@ internal class DefaultLikeRepostRepositoryTest {
         """.trimIndent()
 }
 
-/** Captures every request the [MockEngine] receives so tests can assert URL + body shape. */
+/**
+ * Captures every request the [MockEngine] receives so tests can assert URL +
+ * body shape. The body is materialized as a string inside the engine callback
+ * (where the [io.ktor.http.content.OutgoingContent] is guaranteed-readable)
+ * and exposed via [bodies] — tests assert against that list rather than
+ * casting the stored [HttpRequestData] after the fact, so a future change
+ * that has [io.github.kikin81.atproto.runtime.XrpcClient] send a streaming
+ * body won't silently break the cast.
+ */
 private class RecordingEngine private constructor(
     val engine: MockEngine,
     val requests: List<HttpRequestData>,
+    val bodies: List<String>,
 ) {
     companion object {
         fun respondingWith(body: String): RecordingEngine {
-            val captured = mutableListOf<HttpRequestData>()
+            val capturedRequests = mutableListOf<HttpRequestData>()
+            val capturedBodies = mutableListOf<String>()
             val engine =
                 MockEngine { request ->
-                    // Force the OutgoingContent to materialize as TextContent BEFORE we
-                    // store the request — the body needs to be read while still in the
-                    // engine's send phase, otherwise the channel may close.
-                    captured += request
+                    capturedRequests += request
+                    capturedBodies += (request.body as? TextContent)?.text.orEmpty()
                     respond(
                         content = ByteReadChannel(body),
                         status = HttpStatusCode.OK,
                         headers = headersOf("Content-Type", "application/json"),
                     )
                 }
-            return RecordingEngine(engine = engine, requests = captured)
+            return RecordingEngine(
+                engine = engine,
+                requests = capturedRequests,
+                bodies = capturedBodies,
+            )
         }
     }
 }

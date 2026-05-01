@@ -98,11 +98,16 @@ internal class DefaultLikeRepostRepository
                     )
                     Unit
                 }.onFailure { throwable ->
+                    // Mirror DefaultXrpcClientProvider's redaction policy — the
+                    // recordUri carries the viewer's DID, which we keep out of
+                    // log surfaces that may be captured by a future release
+                    // crash reporter. The throwable's stack carries the
+                    // underlying server / network cause; collection is enough
+                    // to disambiguate which path failed.
                     Timber.tag(TAG).e(
                         throwable,
-                        "deleteRecord(%s, %s) failed: %s",
+                        "deleteRecord(%s) failed: %s",
                         collection,
-                        recordUri.raw,
                         throwable.javaClass.name,
                     )
                 }
@@ -124,17 +129,27 @@ internal class DefaultLikeRepostRepository
         // uri to unrepost). A wrong-collection uri would be rejected by the
         // PDS and surface as a failure, which is the right outcome.
         //
+        // Fragments (`#...`) are stripped — record URIs don't address
+        // sub-records, and a fragment-bearing rkey would be rejected by the
+        // PDS. Stripping is semantically safe (the same record is referenced
+        // regardless of fragment).
+        //
+        // The require() messages intentionally omit the offending raw URI
+        // because it carries the viewer's DID — see the redaction note on
+        // the deleteRecord onFailure log.
+        //
         // TODO(atproto-kotlin#57): replace with upstream `AtUri.parse()`
         // once the helper lands — kikin81/atproto-kotlin#57 tracks adding a
         // typed (repo, collection, rkey, fragment) parser to the runtime.
         private fun parseAtUri(uri: AtUri): Pair<String, String> {
             val raw = uri.raw
             require(raw.startsWith(AT_URI_SCHEME)) {
-                "AT URI must start with 'at://', got: $raw"
+                "AT URI must start with 'at://'"
             }
-            val parts = raw.removePrefix(AT_URI_SCHEME).split('/')
-            require(parts.size >= 3 && parts.all { it.isNotEmpty() }) {
-                "AT URI must have repo/collection/rkey segments, got: $raw"
+            val withoutFragment = raw.substringBefore('#')
+            val parts = withoutFragment.removePrefix(AT_URI_SCHEME).split('/')
+            require(parts.size == AT_URI_RECORD_SEGMENTS && parts.all { it.isNotEmpty() }) {
+                "AT URI must be exactly at://<repo>/<collection>/<rkey>"
             }
             return parts[0] to parts[2]
         }
@@ -143,6 +158,7 @@ internal class DefaultLikeRepostRepository
             const val LIKE_NSID = "app.bsky.feed.like"
             const val REPOST_NSID = "app.bsky.feed.repost"
             const val AT_URI_SCHEME = "at://"
+            const val AT_URI_RECORD_SEGMENTS = 3
             const val TAG = "LikeRepostRepository"
         }
     }
