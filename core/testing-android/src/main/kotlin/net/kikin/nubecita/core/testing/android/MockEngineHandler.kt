@@ -1,4 +1,4 @@
-package net.kikin.nubecita.testing
+package net.kikin.nubecita.core.testing.android
 
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respondError

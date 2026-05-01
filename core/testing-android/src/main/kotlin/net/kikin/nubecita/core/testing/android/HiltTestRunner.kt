@@ -1,4 +1,4 @@
-package net.kikin.nubecita.testing
+package net.kikin.nubecita.core.testing.android
 
 import android.app.Application
 import android.content.Context
@@ -6,13 +6,18 @@ import androidx.test.runner.AndroidJUnitRunner
 import dagger.hilt.android.testing.HiltTestApplication
 
 /**
- * Custom [AndroidJUnitRunner] that boots [HiltTestApplication] in place of the
- * production [net.kikin.nubecita.NubecitaApplication] so `@HiltAndroidTest`
- * tests can drive the Hilt component graph.
+ * Custom [AndroidJUnitRunner] that boots [HiltTestApplication] in place of
+ * the production [net.kikin.nubecita.NubecitaApplication] so
+ * `@HiltAndroidTest` tests can drive the Hilt component graph.
  *
- * Wired via `defaultConfig.testInstrumentationRunner` in `app/build.gradle.kts`.
+ * Wire via `defaultConfig.testInstrumentationRunner` in each consuming
+ * module's `build.gradle.kts`:
+ * ```kotlin
+ * testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
+ * ```
  *
- * **What this swap loses.** [net.kikin.nubecita.NubecitaApplication.onCreate] does not run, so:
+ * **What this swap loses.** [net.kikin.nubecita.NubecitaApplication.onCreate]
+ * does not run, so:
  * - The Firebase App Check provider factory (`installAppCheckProviderFactory`)
  *   is **not** installed. `FirebaseApp.getInstance()` and the per-SDK
  *   auto-init via [com.google.firebase.provider.FirebaseInitProvider] (a

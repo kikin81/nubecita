@@ -16,9 +16,13 @@ android {
         versionCode = 1
         versionName = project.property("version").toString()
 
-        // Override the convention-plugin default (AndroidJUnitRunner) with our
-        // Hilt-aware runner so @HiltAndroidTest tests can boot HiltTestApplication.
-        testInstrumentationRunner = "net.kikin.nubecita.testing.HiltTestRunner"
+        // Override the convention-plugin default (AndroidJUnitRunner) with the
+        // Hilt-aware runner from :core:testing-android so @HiltAndroidTest tests
+        // can boot HiltTestApplication. :app currently has no @HiltAndroidTest
+        // tests itself (FirebaseInitTest + MainShellPersistenceTest are plain
+        // AndroidJUnit4); the runner stays Hilt-compatible for forthcoming
+        // cross-feature E2E tests.
+        testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
 
         buildConfigField(
             type = "String",
@@ -95,15 +99,13 @@ dependencies {
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
 
+    androidTestImplementation(project(":core:testing-android"))
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.espresso.intents)
     androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.hilt.android.testing)
-    androidTestImplementation(libs.ktor.client.mock)
     kspAndroidTest(libs.hilt.android.compiler)
 }
 
