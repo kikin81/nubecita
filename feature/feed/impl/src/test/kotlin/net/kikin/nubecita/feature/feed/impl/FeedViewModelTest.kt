@@ -539,6 +539,61 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `OnLikeClicked rollback after concurrent refresh preserves the fresh post fields`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Initial load surfaces a stale-text version of the post. While the
+            // like call is suspended (CompletableDeferred), a Refresh fires and
+            // replaces the post with a fresh-text version (different text, fresh
+            // likeCount). The like then fails — rollback must revert ONLY the
+            // like-related fields and keep the fresh text + the server-canonical
+            // count. This is the regression Copilot flagged in
+            // https://github.com/kikin81/nubecita/pull/93#discussion_r3173862702.
+            val postId = "at://repo/app.bsky.feed.post/p1"
+            val stale = samplePost(postId, stats = PostStatsUi(likeCount = 5)).copy(text = "stale text")
+            val fresh = samplePost(postId, stats = PostStatsUi(likeCount = 50)).copy(text = "fresh text from refresh")
+            val refreshPage = Result.success(TimelinePage(persistentListOf(FeedItemUi.Single(fresh)), null))
+            val initialPage = Result.success(TimelinePage(persistentListOf(FeedItemUi.Single(stale)), null))
+            var pageCall = 0
+            val repo =
+                FakeFeedRepository(
+                    pageProducer = { _, _ ->
+                        when (pageCall++) {
+                            0 -> initialPage
+                            else -> refreshPage
+                        }
+                    },
+                )
+            val likeDeferred = CompletableDeferred<Result<AtUri>>()
+            val likeRepo = FakeLikeRepostRepository(likeResult = { likeDeferred.await() })
+            val vm = FeedViewModel(repo, likeRepo)
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            // Tap like on the stale post — optimistic flip lands.
+            vm.handleEvent(FeedEvent.OnLikeClicked(stale))
+            // Refresh while the like is in flight — replaces the post with the
+            // fresh version (which the server says has likeCount=50 and didn't
+            // include the failed optimistic +1).
+            vm.handleEvent(FeedEvent.Refresh)
+            advanceUntilIdle()
+            // Now resolve the like with a failure — triggers rollback.
+            likeDeferred.complete(Result.failure(IOException("server hiccup")))
+            advanceUntilIdle()
+
+            val rolledBack =
+                vm.uiState.value.feedItems
+                    .first()
+                    .leafPost()
+            // Like fields reverted to the snapshot's pre-tap state.
+            assertEquals(false, rolledBack.viewer.isLikedByViewer)
+            assertEquals(null, rolledBack.viewer.likeUri)
+            // Fresh text and fresh count from the refresh are preserved — NOT
+            // clobbered by the snapshot's stale text / count=5.
+            assertEquals("fresh text from refresh", rolledBack.text)
+            assertEquals(50, rolledBack.stats.likeCount)
+        }
+
+    @Test
     fun `OnLikeClicked targeting the cluster root updates only that post`() =
         runTest(mainDispatcher.dispatcher) {
             val rootPost = samplePost(id = "at://repo/app.bsky.feed.post/root", stats = PostStatsUi(likeCount = 1))

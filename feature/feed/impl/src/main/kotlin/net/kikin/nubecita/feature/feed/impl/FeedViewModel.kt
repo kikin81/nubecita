@@ -208,7 +208,30 @@ internal class FeedViewModel
                             copy(feedItems = feedItems.replacePost(currentPost.copy(viewer = newViewer)))
                         }
                     }.onFailure { throwable ->
-                        setState { copy(feedItems = feedItems.replacePost(snapshot)) }
+                        // If the post is still our optimistic write (the
+                        // common case — no concurrent refresh / append),
+                        // restore the snapshot wholesale. If a concurrent
+                        // update landed mid-call, only revert the like-
+                        // related fields; the fresh text/author/embed/
+                        // stats and the server-canonical likeCount stay
+                        // put, since the user's optimistic +1/-1 never
+                        // persisted on the server.
+                        setState {
+                            val currentPost = feedItems.findPost(post.id) ?: return@setState this
+                            val rolledBack =
+                                if (currentPost === optimistic) {
+                                    snapshot
+                                } else {
+                                    currentPost.copy(
+                                        viewer =
+                                            currentPost.viewer.copy(
+                                                isLikedByViewer = snapshot.viewer.isLikedByViewer,
+                                                likeUri = snapshot.viewer.likeUri,
+                                            ),
+                                    )
+                                }
+                            copy(feedItems = feedItems.replacePost(rolledBack))
+                        }
                         sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
                     }
             }
@@ -263,7 +286,27 @@ internal class FeedViewModel
                             copy(feedItems = feedItems.replacePost(currentPost.copy(viewer = newViewer)))
                         }
                     }.onFailure { throwable ->
-                        setState { copy(feedItems = feedItems.replacePost(snapshot)) }
+                        // Mirror [toggleLike]'s rollback policy — restore
+                        // the snapshot wholesale only when the optimistic
+                        // write is still in place; otherwise revert just
+                        // the repost-related fields onto the concurrent
+                        // update so fresh non-repost data is preserved.
+                        setState {
+                            val currentPost = feedItems.findPost(post.id) ?: return@setState this
+                            val rolledBack =
+                                if (currentPost === optimistic) {
+                                    snapshot
+                                } else {
+                                    currentPost.copy(
+                                        viewer =
+                                            currentPost.viewer.copy(
+                                                isRepostedByViewer = snapshot.viewer.isRepostedByViewer,
+                                                repostUri = snapshot.viewer.repostUri,
+                                            ),
+                                    )
+                                }
+                            copy(feedItems = feedItems.replacePost(rolledBack))
+                        }
                         sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
                     }
             }
