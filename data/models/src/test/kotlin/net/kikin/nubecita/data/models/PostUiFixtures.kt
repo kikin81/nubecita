@@ -23,6 +23,7 @@ internal object PostUiFixtures {
 
     fun fakePost(
         id: String = "p1",
+        cid: String = "bafyreifakefakefakefakefakefakefakefakefakefake",
         author: AuthorUi = fakeAuthor(),
         createdAt: Instant = Instant.parse("2026-04-25T12:00:00Z"),
         text: String = "Hello from the test fixture.",
@@ -31,5 +32,5 @@ internal object PostUiFixtures {
         stats: PostStatsUi = PostStatsUi(),
         viewer: ViewerStateUi = ViewerStateUi(),
         repostedBy: String? = null,
-    ): PostUi = PostUi(id, author, createdAt, text, facets, embed, stats, viewer, repostedBy)
+    ): PostUi = PostUi(id, cid, author, createdAt, text, facets, embed, stats, viewer, repostedBy)
 }

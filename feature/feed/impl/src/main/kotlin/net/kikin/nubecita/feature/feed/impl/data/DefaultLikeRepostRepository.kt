@@ -12,6 +12,7 @@ import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Nsid
 import io.github.kikin81.atproto.runtime.RecordKey
 import io.github.kikin81.atproto.runtime.encodeRecord
+import io.github.kikin81.atproto.runtime.parseOrNull
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.NoSessionException
@@ -92,8 +93,8 @@ internal class DefaultLikeRepostRepository
                     RepoService(client).deleteRecord(
                         DeleteRecordRequest(
                             collection = Nsid(collection),
-                            repo = AtIdentifier(repo),
-                            rkey = RecordKey(rkey),
+                            repo = repo,
+                            rkey = rkey,
                         ),
                     )
                     Unit
@@ -122,43 +123,37 @@ internal class DefaultLikeRepostRepository
 
         private fun nowDatetime(): Datetime = Datetime(Clock.System.now().toString())
 
-        // AT URI shape: at://<repo>/<collection>/<rkey>. The repository
-        // intentionally does NOT validate the collection segment against the
-        // expected NSID — the caller is responsible for passing a uri that
-        // belongs to the right collection (the like uri to unlike, the repost
-        // uri to unrepost). A wrong-collection uri would be rejected by the
-        // PDS and surface as a failure, which is the right outcome.
+        // The repository intentionally does NOT validate the collection
+        // segment against the expected NSID — the caller is responsible for
+        // passing a uri that belongs to the right collection (the like uri
+        // to unlike, the repost uri to unrepost). A wrong-collection uri
+        // would be rejected by the PDS and surface as a failure, which is
+        // the right outcome.
         //
-        // Fragments (`#...`) are stripped — record URIs don't address
-        // sub-records, and a fragment-bearing rkey would be rejected by the
-        // PDS. Stripping is semantically safe (the same record is referenced
-        // regardless of fragment).
+        // Fragments (`#...`) are stripped by the upstream parser — record
+        // URIs don't address sub-records, and a fragment-bearing rkey would
+        // be rejected by the PDS. Stripping is semantically safe (the same
+        // record is referenced regardless of fragment).
         //
-        // The require() messages intentionally omit the offending raw URI
-        // because it carries the viewer's DID — see the redaction note on
-        // the deleteRecord onFailure log.
-        //
-        // TODO(atproto-kotlin#57): replace with upstream `AtUri.parse()`
-        // once the helper lands — kikin81/atproto-kotlin#57 tracks adding a
-        // typed (repo, collection, rkey, fragment) parser to the runtime.
-        private fun parseAtUri(uri: AtUri): Pair<String, String> {
-            val raw = uri.raw
-            require(raw.startsWith(AT_URI_SCHEME)) {
-                "AT URI must start with 'at://'"
-            }
-            val withoutFragment = raw.substringBefore('#')
-            val parts = withoutFragment.removePrefix(AT_URI_SCHEME).split('/')
-            require(parts.size == AT_URI_RECORD_SEGMENTS && parts.all { it.isNotEmpty() }) {
-                "AT URI must be exactly at://<repo>/<collection>/<rkey>"
-            }
-            return parts[0] to parts[2]
+        // We use `parseOrNull` + a local require() rather than upstream
+        // `parse()` because parse()'s IllegalArgumentException message
+        // includes the raw URI, which carries the viewer's DID — see the
+        // redaction note on the deleteRecord onFailure log.
+        private fun parseAtUri(uri: AtUri): Pair<AtIdentifier, RecordKey> {
+            val parts =
+                requireNotNull(uri.parseOrNull()) {
+                    "AT URI is not structurally valid"
+                }
+            val rkey =
+                requireNotNull(parts.rkey) {
+                    "AT URI must be exactly at://<repo>/<collection>/<rkey>"
+                }
+            return parts.repo to rkey
         }
 
         private companion object {
             const val LIKE_NSID = "app.bsky.feed.like"
             const val REPOST_NSID = "app.bsky.feed.repost"
-            const val AT_URI_SCHEME = "at://"
-            const val AT_URI_RECORD_SEGMENTS = 3
             const val TAG = "LikeRepostRepository"
         }
     }

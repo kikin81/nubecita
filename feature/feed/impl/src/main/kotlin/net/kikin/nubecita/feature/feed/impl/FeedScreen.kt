@@ -609,6 +609,7 @@ private fun previewPost(
 ): PostUi =
     PostUi(
         id = "post-$id",
+        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
         author =
             AuthorUi(
                 did = "did:plc:preview-$id",

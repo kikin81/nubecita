@@ -55,6 +55,7 @@ private fun fixedPost(
 ): PostUi =
     PostUi(
         id = id,
+        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
         author = author,
         createdAt = FIXED_CREATED_AT,
         text = text,

@@ -376,6 +376,7 @@ private fun previewPost(
 ): PostUi =
     PostUi(
         id = "preview",
+        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
         author = previewAuthor(),
         createdAt = Clock.System.now() - 3.minutes,
         text = text,
@@ -614,6 +615,67 @@ private fun PostCardWithFacetsPreview() {
             )
         PostCard(
             post = previewPost(text = text, facets = persistentListOf(mention, link)),
+        )
+    }
+}
+
+// Like × repost permutation matrix for the action row. Counts are
+// pinned per cell so the like / repost count diff between the
+// neutral / liked / reposted / both branches is visible at a glance
+// in the IDE preview pane.
+
+@Preview(name = "PostCard — viewer neutral", showBackground = true)
+@Composable
+private fun PostCardViewerNeutralPreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    stats = PostStatsUi(replyCount = 12, repostCount = 4, likeCount = 86),
+                    viewer = ViewerStateUi(isLikedByViewer = false, isRepostedByViewer = false),
+                ),
+        )
+    }
+}
+
+@Preview(name = "PostCard — viewer liked", showBackground = true)
+@Composable
+private fun PostCardViewerLikedPreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    stats = PostStatsUi(replyCount = 12, repostCount = 4, likeCount = 87),
+                    viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = false),
+                ),
+        )
+    }
+}
+
+@Preview(name = "PostCard — viewer reposted", showBackground = true)
+@Composable
+private fun PostCardViewerRepostedPreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    stats = PostStatsUi(replyCount = 12, repostCount = 5, likeCount = 86),
+                    viewer = ViewerStateUi(isLikedByViewer = false, isRepostedByViewer = true),
+                ),
+        )
+    }
+}
+
+@Preview(name = "PostCard — viewer liked + reposted", showBackground = true)
+@Composable
+private fun PostCardViewerLikedAndRepostedPreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    stats = PostStatsUi(replyCount = 12, repostCount = 5, likeCount = 87),
+                    viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = true),
+                ),
         )
     }
 }

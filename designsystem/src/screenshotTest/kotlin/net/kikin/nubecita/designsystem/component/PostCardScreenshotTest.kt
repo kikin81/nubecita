@@ -46,6 +46,7 @@ private fun screenshotPost(
 ): PostUi =
     PostUi(
         id = "screenshot",
+        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
         author = screenshotAuthor(),
         // Pinned to a fixed Instant deep enough in the past that
         // rememberRelativeTimeText resolves to the absolute-date bucket
@@ -222,6 +223,76 @@ private fun PostCardWithFacetsScreenshot() {
             )
         PostCard(
             post = screenshotPost(text = text, facets = persistentListOf(mention, link)),
+        )
+    }
+}
+
+// Like × repost permutation matrix for the action row. Pinned counts
+// surface every cell of the 2 × 2 matrix; the corresponding `viewer`
+// flags drive PostStat's icon swap (filled vs outlined) and active-color
+// tint. nubecita-8f6.2 acceptance: previews for liked/unliked × reposted/
+// not-reposted permutations + screenshot baselines for the action row.
+
+@PreviewTest
+@Preview(name = "viewer-neutral-light", showBackground = true)
+@Preview(name = "viewer-neutral-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardViewerNeutralScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                screenshotPost(
+                    stats = PostStatsUi(replyCount = 12, repostCount = 4, likeCount = 86),
+                    viewer = ViewerStateUi(isLikedByViewer = false, isRepostedByViewer = false),
+                ),
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "viewer-liked-light", showBackground = true)
+@Preview(name = "viewer-liked-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardViewerLikedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                screenshotPost(
+                    stats = PostStatsUi(replyCount = 12, repostCount = 4, likeCount = 87),
+                    viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = false),
+                ),
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "viewer-reposted-light", showBackground = true)
+@Preview(name = "viewer-reposted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardViewerRepostedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                screenshotPost(
+                    stats = PostStatsUi(replyCount = 12, repostCount = 5, likeCount = 86),
+                    viewer = ViewerStateUi(isLikedByViewer = false, isRepostedByViewer = true),
+                ),
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "viewer-liked-and-reposted-light", showBackground = true)
+@Preview(name = "viewer-liked-and-reposted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardViewerLikedAndRepostedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                screenshotPost(
+                    stats = PostStatsUi(replyCount = 12, repostCount = 5, likeCount = 87),
+                    viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = true),
+                ),
         )
     }
 }

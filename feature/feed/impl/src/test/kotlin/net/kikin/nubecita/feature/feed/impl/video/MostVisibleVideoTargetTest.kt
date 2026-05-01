@@ -378,6 +378,7 @@ internal class MostVisibleVideoTargetTest {
     private fun textPost(id: String): PostUi =
         PostUi(
             id = id,
+            cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
             author =
                 AuthorUi(
                     did = "did:plc:fake",

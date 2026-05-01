@@ -165,6 +165,7 @@ private fun PostView.toPostUiCore(repostedBy: String? = null): PostUi? {
 
     return PostUi(
         id = uri.raw,
+        cid = cid.raw,
         author = author.toAuthorUi(),
         createdAt = createdAt,
         text = postRecord.text,
@@ -459,6 +460,8 @@ internal fun ViewerState?.toViewerStateUi(isFollowingAuthor: Boolean = false): V
         isLikedByViewer = this?.like != null,
         isRepostedByViewer = this?.repost != null,
         isFollowingAuthor = isFollowingAuthor,
+        likeUri = this?.like?.raw,
+        repostUri = this?.repost?.raw,
     )
 
 /**

@@ -124,6 +124,7 @@ private fun feedItems(vararg ids: String): ImmutableList<FeedItemUi> = ids.map {
 private fun samplePost(id: String): PostUi =
     PostUi(
         id = id,
+        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
         author =
             AuthorUi(
                 did = "did:plc:fake",

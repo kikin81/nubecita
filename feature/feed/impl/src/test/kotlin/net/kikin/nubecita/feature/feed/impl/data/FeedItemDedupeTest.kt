@@ -122,6 +122,7 @@ internal class FeedItemDedupeTest {
     private fun samplePost(id: String): PostUi =
         PostUi(
             id = id,
+            cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
             author =
                 AuthorUi(
                     did = "did:plc:$id",
