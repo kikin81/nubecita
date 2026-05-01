@@ -407,7 +407,7 @@ internal class FeedViewModelTest {
         }
 
     @Test
-    fun `OnRepostClicked, OnReplyClicked, OnShareClicked are no-ops`() =
+    fun `OnRepostClicked and OnReplyClicked are no-ops`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
             val vm = FeedViewModel(repo)
@@ -416,11 +416,59 @@ internal class FeedViewModelTest {
 
             vm.handleEvent(FeedEvent.OnRepostClicked(post))
             vm.handleEvent(FeedEvent.OnReplyClicked(post))
-            vm.handleEvent(FeedEvent.OnShareClicked(post))
             advanceUntilIdle()
 
             assertSame(before, vm.uiState.value)
             assertEquals(0, repo.invocations.size)
+        }
+
+    @Test
+    fun `OnShareClicked emits SharePost with bsky_app permalink as the share text`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo)
+            val before = vm.uiState.value
+            val post =
+                samplePost("p1").copy(
+                    id = "at://did:plc:fake/app.bsky.feed.post/3krkey1",
+                )
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.OnShareClicked(post))
+
+                val effect = awaitItem()
+                assertTrue(effect is FeedEffect.SharePost, "expected SharePost, got $effect")
+                val intent = (effect as FeedEffect.SharePost).intent
+                assertEquals(
+                    "https://bsky.app/profile/fake.bsky.social/post/3krkey1",
+                    intent.permalink,
+                )
+                assertEquals(intent.permalink, intent.text)
+            }
+            // No state mutation — share is a pure side effect.
+            assertSame(before, vm.uiState.value)
+        }
+
+    @Test
+    fun `OnShareLongPressed emits CopyPermalink (no surrounding share text)`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo)
+            val post =
+                samplePost("p1").copy(
+                    id = "at://did:plc:fake/app.bsky.feed.post/3krkey9",
+                )
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.OnShareLongPressed(post))
+
+                val effect = awaitItem()
+                assertTrue(effect is FeedEffect.CopyPermalink, "expected CopyPermalink, got $effect")
+                assertEquals(
+                    "https://bsky.app/profile/fake.bsky.social/post/3krkey9",
+                    (effect as FeedEffect.CopyPermalink).permalink,
+                )
+            }
         }
 
     @Test

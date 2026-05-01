@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Configuration
 import android.media.AudioManager
@@ -51,6 +53,7 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
 import net.kikin.nubecita.designsystem.component.ThreadCluster
+import net.kikin.nubecita.feature.feed.impl.share.launchPostShare
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
@@ -98,6 +101,7 @@ internal fun FeedScreen(
                 onRepost = { viewModel.handleEvent(FeedEvent.OnRepostClicked(it)) },
                 onReply = { viewModel.handleEvent(FeedEvent.OnReplyClicked(it)) },
                 onShare = { viewModel.handleEvent(FeedEvent.OnShareClicked(it)) },
+                onShareLongPress = { viewModel.handleEvent(FeedEvent.OnShareLongPressed(it)) },
                 onExternalEmbedTap = { uri ->
                     // Narrowed catch: silent no-op only for the documented
                     // "no CCT-capable browser installed" case (per
@@ -124,6 +128,12 @@ internal fun FeedScreen(
     val networkErrorMessage = stringResource(R.string.feed_snackbar_error_network)
     val unauthErrorMessage = stringResource(R.string.feed_snackbar_error_unauthenticated)
     val unknownErrorMessage = stringResource(R.string.feed_snackbar_error_unknown)
+    val linkCopiedMessage = stringResource(R.string.feed_snackbar_link_copied)
+    val clipLabel = stringResource(R.string.feed_clipboard_label_post_link)
+    val clipboardManager =
+        remember(context) {
+            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        }
     // Wrap nav callbacks so the long-lived effect collector below keys
     // on `Unit` (one collector for the screen's lifetime) but always
     // calls the most recent lambda the host supplied. Without these,
@@ -159,6 +169,17 @@ internal fun FeedScreen(
                 }
                 is FeedEffect.NavigateToPost -> currentOnNavigateToPost(effect.post)
                 is FeedEffect.NavigateToAuthor -> currentOnNavigateToAuthor(effect.authorDid)
+                is FeedEffect.SharePost -> context.launchPostShare(effect.intent)
+                is FeedEffect.CopyPermalink -> {
+                    clipboardManager.setPrimaryClip(
+                        ClipData.newPlainText(clipLabel, effect.permalink),
+                    )
+                    // Replace any pending error snackbar — a fresh "link
+                    // copied" confirmation outranks a stale network error
+                    // for the moment the user just took action.
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = linkCopiedMessage)
+                }
             }
         }
     }

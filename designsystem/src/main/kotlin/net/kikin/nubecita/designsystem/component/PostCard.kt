@@ -342,6 +342,12 @@ private fun ActionRow(
             count = "",
             accessibilityLabel = stringResource(R.string.postcard_action_share),
             onClick = { callbacks.onShare(post) },
+            // Only opt into combinedClickable's long-press path when the
+            // host actually supplied a handler — keeps PostCallbacks.None
+            // call sites (previews, non-feed hosts) on the plain clickable
+            // path so TalkBack doesn't advertise a no-op long-press.
+            onLongClick = callbacks.onShareLongPress?.let { handler -> { handler(post) } },
+            onLongClickLabel = stringResource(R.string.postcard_action_copy_link),
         )
     }
 }
