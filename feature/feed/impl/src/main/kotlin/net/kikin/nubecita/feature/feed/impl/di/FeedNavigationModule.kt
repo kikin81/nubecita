@@ -8,10 +8,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.FeedScreen
 import net.kikin.nubecita.feature.feed.impl.ui.FeedDetailPlaceholder
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -33,12 +35,12 @@ internal object FeedNavigationModule {
                         detailPlaceholder = { FeedDetailPlaceholder() },
                     ),
             ) {
+                val navState = LocalMainShellNavState.current
                 FeedScreen(
-                    // PostDetail screen does not exist yet — wired as a no-op until
-                    // the post-detail epic lands. Replace with `navigator.goTo(PostDetail(post.uri))`.
-                    onNavigateToPost = {},
+                    onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
                     // Profile screen does not exist yet — wired as a no-op until
-                    // the profile epic lands. Replace with `navigator.goTo(Profile(authorDid))`.
+                    // the profile epic lands. Replace with `navState.add(Profile(handle = …))`
+                    // once the profile :impl module surfaces a handle-from-DID resolver.
                     onNavigateToAuthor = {},
                 )
             }

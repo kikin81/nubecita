@@ -149,10 +149,17 @@ sealed interface FeedEffect : UiEffect {
         val error: FeedError,
     ) : FeedEffect
 
-    /** Navigate to the post detail screen. */
+    /**
+     * Navigate to the post detail screen for the tapped post.
+     *
+     * Carries just the AT URI (not the full [PostUi]) — the detail
+     * screen's VM re-fetches the canonical thread via getPostThread
+     * keyed on the URI, so the feed-side projection of the post is
+     * load-bearing here only for its identity.
+     */
     @Immutable
     data class NavigateToPost(
-        val post: PostUi,
+        val postUri: String,
     ) : FeedEffect
 
     /** Navigate to the author's profile screen. */

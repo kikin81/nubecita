@@ -68,6 +68,8 @@ dependencies {
     implementation(project(":feature:feed:impl"))
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
+    implementation(project(":feature:postdetail:api"))
+    implementation(project(":feature:postdetail:impl"))
     implementation(project(":feature:profile:api"))
     implementation(project(":feature:search:api"))
     implementation(libs.androidx.activity.compose)
