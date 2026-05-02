@@ -83,7 +83,7 @@ private const val SHIMMER_PREVIEW_COUNT = 6
 @Composable
 internal fun FeedScreen(
     modifier: Modifier = Modifier,
-    onNavigateToPost: (PostUi) -> Unit = {},
+    onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
     viewModel: FeedViewModel = hiltViewModel(),
 ) {
@@ -167,7 +167,7 @@ internal fun FeedScreen(
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)
                 }
-                is FeedEffect.NavigateToPost -> currentOnNavigateToPost(effect.post)
+                is FeedEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is FeedEffect.NavigateToAuthor -> currentOnNavigateToAuthor(effect.authorDid)
                 is FeedEffect.SharePost -> context.launchPostShare(effect.intent)
                 is FeedEffect.CopyPermalink -> {

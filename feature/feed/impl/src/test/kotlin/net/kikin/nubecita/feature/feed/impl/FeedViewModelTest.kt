@@ -689,18 +689,18 @@ internal class FeedViewModelTest {
         }
 
     @Test
-    fun `OnPostTapped emits NavigateToPost with the tapped post`() =
+    fun `OnPostTapped emits NavigateToPost with the tapped post's URI`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
             val vm = FeedViewModel(repo, FakeLikeRepostRepository())
-            val post = samplePost("p1")
+            val post = samplePost("at://did:plc:fake/app.bsky.feed.post/p1")
 
             vm.effects.test {
                 vm.handleEvent(FeedEvent.OnPostTapped(post))
 
                 val effect = awaitItem()
                 assertTrue(effect is FeedEffect.NavigateToPost)
-                assertSame(post, (effect as FeedEffect.NavigateToPost).post)
+                assertEquals(post.id, (effect as FeedEffect.NavigateToPost).postUri)
             }
         }
 

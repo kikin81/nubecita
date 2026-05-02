@@ -34,7 +34,7 @@ internal class FeedViewModel
                 FeedEvent.LoadMore -> loadMore()
                 FeedEvent.Retry -> load()
                 FeedEvent.ClearError -> Unit
-                is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post))
+                is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
                 is FeedEvent.OnAuthorTapped -> sendEffect(FeedEffect.NavigateToAuthor(event.authorDid))
                 is FeedEvent.OnLikeClicked -> toggleLike(event.post)
                 is FeedEvent.OnRepostClicked -> toggleRepost(event.post)

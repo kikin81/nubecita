@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Top-bar title and back-button content description. -->
+    <string name="postdetail_title">Post</string>
+    <string name="postdetail_back_content_description">Back</string>
+
+    <!-- Initial-error full-screen retry layout copy. -->
+    <string name="postdetail_error_network_title">No connection</string>
+    <string name="postdetail_error_unauthenticated_title">Sign-in expired</string>
+    <string name="postdetail_error_notfound_title">Post not found</string>
+    <string name="postdetail_error_unknown_title">Something went wrong</string>
+    <string name="postdetail_error_action">Try again</string>
+
+    <!-- Inline placeholder copy for blocked / not-found sibling posts in the thread. -->
+    <string name="postdetail_inline_blocked">Post unavailable</string>
+    <string name="postdetail_inline_notfound">Post deleted</string>
+
+    <!-- Snackbar messages — used for non-sticky refresh failures via PostDetailEffect.ShowError. -->
+    <string name="postdetail_snackbar_error_network">Network error. Pull to retry.</string>
+    <string name="postdetail_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
+    <string name="postdetail_snackbar_error_notfound">This post is no longer available.</string>
+    <string name="postdetail_snackbar_error_unknown">Couldn\'t refresh. Try again.</string>
+</resources>
