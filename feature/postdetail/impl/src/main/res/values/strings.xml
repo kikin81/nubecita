@@ -20,4 +20,13 @@
     <string name="postdetail_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
     <string name="postdetail_snackbar_error_notfound">This post is no longer available.</string>
     <string name="postdetail_snackbar_error_unknown">Couldn\'t refresh. Try again.</string>
+
+    <!-- Floating reply composer FAB. -->
+    <string name="postdetail_reply_fab_content_description">Reply to post</string>
+
+    <!-- Transient acknowledgement Snackbars surfaced when a navigation effect targets a destination
+         that has not yet shipped. They tell the user the tap registered without blocking the way a
+         dialog would. Each will be removed when its target route lands. -->
+    <string name="postdetail_snackbar_composer_coming_soon">Reply composer coming soon</string>
+    <string name="postdetail_snackbar_media_viewer_coming_soon">Fullscreen viewer coming soon</string>
 </resources>

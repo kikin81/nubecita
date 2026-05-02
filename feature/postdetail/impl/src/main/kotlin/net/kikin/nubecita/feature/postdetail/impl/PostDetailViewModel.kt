@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.data.PostThreadRepository
+import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 import java.io.IOException
 
 /**
@@ -43,6 +44,27 @@ internal class PostDetailViewModel
                 PostDetailEvent.Retry -> load()
                 is PostDetailEvent.OnPostTapped -> sendEffect(PostDetailEffect.NavigateToPost(event.postUri))
                 is PostDetailEvent.OnAuthorTapped -> sendEffect(PostDetailEffect.NavigateToAuthor(event.authorDid))
+                PostDetailEvent.OnReplyClicked -> {
+                    // The composer's parent context is the focus post —
+                    // route.postUri is the canonical focus URI passed in
+                    // from the entry point, so we don't need to walk the
+                    // items list to discover it. Drop silently while the
+                    // initial load hasn't produced a Focus row (the FAB
+                    // is composed in the loaded state, but the user could
+                    // tap mid-refresh; emitting an effect with no Focus
+                    // resolved would feel arbitrary).
+                    val focusUri = uiState.value.items.firstOrNull { it is ThreadItem.Focus }
+                    if (focusUri != null) {
+                        sendEffect(PostDetailEffect.NavigateToComposer(parentPostUri = route.postUri))
+                    }
+                }
+                is PostDetailEvent.OnFocusImageClicked ->
+                    sendEffect(
+                        PostDetailEffect.NavigateToMediaViewer(
+                            postUri = route.postUri,
+                            imageIndex = event.imageIndex,
+                        ),
+                    )
             }
         }
 

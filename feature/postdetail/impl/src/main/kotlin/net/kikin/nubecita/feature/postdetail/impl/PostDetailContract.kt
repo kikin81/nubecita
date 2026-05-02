@@ -116,6 +116,27 @@ internal sealed interface PostDetailEvent : UiEvent {
     data class OnAuthorTapped(
         val authorDid: String,
     ) : PostDetailEvent
+
+    /**
+     * Tap on the floating reply composer FAB. Resolves the focus URI
+     * out of state at the VM and emits [PostDetailEffect.NavigateToComposer]
+     * — same effect surface as future PostCard-action-row reply triggers
+     * when those land. Idempotent against the load lifecycle: if the VM
+     * hasn't resolved a focus yet (still in `InitialLoading` /
+     * `InitialError`), the event is dropped silently.
+     */
+    data object OnReplyClicked : PostDetailEvent
+
+    /**
+     * Tap on a focus-post image. The screen routes this to the
+     * fullscreen media viewer (or, until that destination ships,
+     * surfaces a transient acknowledgement Snackbar — see
+     * [PostDetailEffect.NavigateToMediaViewer] for the missing-route
+     * contract).
+     */
+    data class OnFocusImageClicked(
+        val imageIndex: Int,
+    ) : PostDetailEvent
 }
 
 internal sealed interface PostDetailEffect : UiEffect {
@@ -135,5 +156,35 @@ internal sealed interface PostDetailEffect : UiEffect {
     @Immutable
     data class NavigateToAuthor(
         val authorDid: String,
+    ) : PostDetailEffect
+
+    /**
+     * Push the reply composer keyed to the given parent post URI.
+     * Until the composer feature module ships its NavKey (tracked
+     * in nubecita-8f6.3), the screen's effect collector logs a
+     * Timber breadcrumb tagged `PostDetailScreen` AND surfaces a
+     * transient "Reply coming soon" Snackbar so the FAB tap registers
+     * tactile feedback rather than feeling broken.
+     */
+    @Immutable
+    data class NavigateToComposer(
+        val parentPostUri: String,
+    ) : PostDetailEffect
+
+    /**
+     * Push the fullscreen media viewer for the given focus post +
+     * image index. Until that destination ships in
+     * `:core:common:navigation`, the screen's effect collector logs a
+     * Timber breadcrumb tagged `PostDetailScreen` AND surfaces a
+     * transient "Fullscreen viewer coming soon" Snackbar — same
+     * acknowledgement-not-broken pattern as [NavigateToComposer].
+     * String-typed `postUri` matches the rest of the effect surface
+     * (`NavigateToPost`, `NavigateToAuthor`); `AtUri(...)` construction
+     * is deferred to the XRPC boundary if downstream code needs it.
+     */
+    @Immutable
+    data class NavigateToMediaViewer(
+        val postUri: String,
+        val imageIndex: Int,
     ) : PostDetailEffect
 }
