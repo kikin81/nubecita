@@ -111,6 +111,30 @@ private fun PostDetailScreenLoadedRefreshingScreenshot() {
     }
 }
 
+/**
+ * The visual contract m28.5.2 ships: Focus Post on `surfaceContainerHigh`
+ * with 24dp rounded corners, sat between Ancestor(s) and Reply rows on
+ * the default `surface` background. Pure ancestor → focus → replies
+ * shape (no Blocked / NotFound inline siblings) so the fixture's only
+ * purpose is locking the container-color + shape contrast.
+ *
+ * Per `add-postdetail-m3-expressive-treatment` design Decision 6, the
+ * contrast pair MUST be captured in BOTH light and dark themes — light-
+ * only or dark-only would let an asymmetry (crisp in one mode, washed
+ * out in the other) ship without explicit human review.
+ */
+@PreviewTest
+@Preview(name = "container-hierarchy-light", showBackground = true)
+@Preview(name = "container-hierarchy-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenContainerHierarchyScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostDetailScreenScreenshotHost(
+            state = PostDetailState(items = containerHierarchyThread(), loadStatus = PostDetailLoadStatus.Idle),
+        )
+    }
+}
+
 @Composable
 private fun PostDetailScreenScreenshotHost(state: PostDetailState) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -169,6 +193,20 @@ private fun fixtureThread(): ImmutableList<ThreadItem> =
         ThreadItem.Ancestor(post = fixturePost("ancestor", text = "Ancestor — what kicked off the thread.")),
         ThreadItem.Focus(post = fixturePost("focus", text = "Focused post — the one tapped from the feed.")),
         ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked"),
+        ThreadItem.Reply(post = fixturePost("reply-1", text = "Top-level reply — direct child of the focus."), depth = 1),
+        ThreadItem.Reply(post = fixturePost("reply-2", text = "Another top-level reply — sibling of reply-1."), depth = 1),
+    )
+
+/**
+ * Clean ancestor → focus → replies thread for the container-hierarchy
+ * contrast fixture. No Blocked / NotFound siblings so the rendered
+ * surface is dominated by the surfaceContainerHigh ↔ surface contrast
+ * the m28.5.2 visual treatment is locking.
+ */
+private fun containerHierarchyThread(): ImmutableList<ThreadItem> =
+    persistentListOf<ThreadItem>(
+        ThreadItem.Ancestor(post = fixturePost("ancestor", text = "Ancestor — what kicked off the thread.")),
+        ThreadItem.Focus(post = fixturePost("focus", text = "Focused post — sits on surfaceContainerHigh with 24dp rounded corners.")),
         ThreadItem.Reply(post = fixturePost("reply-1", text = "Top-level reply — direct child of the focus."), depth = 1),
         ThreadItem.Reply(post = fixturePost("reply-2", text = "Another top-level reply — sibling of reply-1."), depth = 1),
     )

@@ -19,10 +19,10 @@
 
 ## 2. PostDetailScreen: Focus Post container hierarchy
 
-- [ ] 2.1 In `PostDetailScreen`, wrap the rendering of `ThreadItem.Focus` in a `Surface` with `color = MaterialTheme.colorScheme.surfaceContainerHigh` and `shape = RoundedCornerShape(24.dp)`. Default elevation; no custom shadow. Ancestors / Replies / Folds keep their existing PostCard rendering on the default `surface` background.
-- [ ] 2.2 Add a screenshot-test fixture under `feature/postdetail/impl/src/screenshotTest/` rendering a Focus + ancestors + replies thread under `NubecitaTheme(darkTheme = false)`.
-- [ ] 2.3 Add the paired fixture under `NubecitaTheme(darkTheme = true)`. The light/dark pair is the visual contract this change ships — both must be present.
-- [ ] 2.4 Spot-check the 24dp shape doesn't clip PostCard's internal padding awkwardly. If it does, fall back to 20dp before considering any custom drawing (tracked in `design.md` Risks).
+- [x] 2.1 In `PostDetailScreen`, wrap the rendering of `ThreadItem.Focus` in a `Surface` with `color = MaterialTheme.colorScheme.surfaceContainerHigh` and `shape = RoundedCornerShape(24.dp)`. Default elevation; no custom shadow. Ancestors / Replies / Folds keep their existing PostCard rendering on the default `surface` background.
+- [x] 2.2 Add a screenshot-test fixture under `feature/postdetail/impl/src/screenshotTest/` rendering a Focus + ancestors + replies thread under `NubecitaTheme(darkTheme = false)`.
+- [x] 2.3 Add the paired fixture under `NubecitaTheme(darkTheme = true)`. The light/dark pair is the visual contract this change ships — both must be present.
+- [x] 2.4 Spot-check the 24dp shape doesn't clip PostCard's internal padding awkwardly. If it does, fall back to 20dp before considering any custom drawing (tracked in `design.md` Risks).
 
 ## 3. PostDetailScreen: floating reply composer
 

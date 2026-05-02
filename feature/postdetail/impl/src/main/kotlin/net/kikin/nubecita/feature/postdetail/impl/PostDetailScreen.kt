@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
@@ -19,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -240,7 +242,17 @@ private fun LoadedThread(
             items(items = items, key = { it.key }) { item ->
                 when (item) {
                     is ThreadItem.Ancestor -> PostCard(post = item.post, callbacks = callbacks)
-                    is ThreadItem.Focus -> PostCard(post = item.post, callbacks = callbacks)
+                    is ThreadItem.Focus ->
+                        Surface(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = RoundedCornerShape(FOCUS_CONTAINER_CORNER_RADIUS),
+                        ) {
+                            PostCard(post = item.post, callbacks = callbacks)
+                        }
                     is ThreadItem.Reply -> PostCard(post = item.post, callbacks = callbacks)
                     is ThreadItem.Blocked ->
                         InlineUnavailableRow(
@@ -416,6 +428,16 @@ private fun PostDetailScreenPreviewHost(state: PostDetailState) {
         )
     }
 }
+
+/**
+ * Container shape radius for the Focus Post per `add-postdetail-m3-expressive-treatment`
+ * design Decision 1. 24dp gives an ~8dp visual breathing margin between
+ * PostCard's internal 16dp text padding and the surface's rounded edge.
+ * Risks-section fallback: if the corner clips PostCard's padding awkwardly
+ * (e.g. on a wide-screen tablet split-pane), drop to 20dp before introducing
+ * any custom drawing.
+ */
+private val FOCUS_CONTAINER_CORNER_RADIUS = 24.dp
 
 private val PREVIEW_NOW = Instant.parse("2026-04-26T12:00:00Z")
 private val PREVIEW_CREATED_AT = Instant.parse("2026-04-26T10:00:00Z")
