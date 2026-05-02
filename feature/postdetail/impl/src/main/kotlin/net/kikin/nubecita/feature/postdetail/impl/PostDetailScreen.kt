@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.postdetail.impl
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,7 +22,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -29,12 +32,23 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.common.time.LocalClock
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Hilt-aware post-detail screen.
@@ -50,10 +64,12 @@ import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
  * # m28.5.1 visual scope
  *
  * Plain `LazyColumn` rendering each [ThreadItem] as the existing
- * `:designsystem` PostCard. Standard M3 `TopAppBar` with back arrow.
- * No expressive container hierarchy, no carousel, no floating composer
- * — those land in m28.5.2. Reviewers should be able to tell at a glance
- * "this PR isn't trying to look pretty yet."
+ * `:designsystem` PostCard, wrapped in a stock M3 `PullToRefreshBox`
+ * so swipe-down dispatches [PostDetailEvent.Refresh] (the snackbar copy
+ * already says "Pull to retry"). Standard M3 `TopAppBar` with back
+ * arrow. No expressive container hierarchy, no carousel, no floating
+ * composer — those land in m28.5.2. Reviewers should be able to tell
+ * at a glance "this PR isn't trying to look pretty yet."
  */
 @Composable
 internal fun PostDetailScreen(
@@ -80,12 +96,17 @@ internal fun PostDetailScreen(
         }
 
     val onRetry = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.Retry) } }
+    val onRefresh = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.Refresh) } }
     val currentOnBack by rememberUpdatedState(onBack)
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
 
     // Pre-resolve snackbar copy at composition time so locale changes
     // participate in recomposition (lint: LocalContextGetResourceValueCall).
+    // The four resolutions always run; cost is a cached resource lookup.
+    // Don't push these into the LaunchedEffect's `when` branch — that
+    // re-trips the lint, and the effect collector doesn't see Configuration
+    // changes the way composition does.
     val networkErrorMessage = stringResource(R.string.postdetail_snackbar_error_network)
     val unauthErrorMessage = stringResource(R.string.postdetail_snackbar_error_unauthenticated)
     val notFoundErrorMessage = stringResource(R.string.postdetail_snackbar_error_notfound)
@@ -121,6 +142,7 @@ internal fun PostDetailScreen(
         callbacks = callbacks,
         onBack = currentOnBack,
         onRetry = onRetry,
+        onRefresh = onRefresh,
         modifier = modifier,
     )
 }
@@ -133,6 +155,7 @@ internal fun PostDetailScreenContent(
     callbacks: PostCallbacks,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -166,6 +189,8 @@ internal fun PostDetailScreenContent(
             ->
                 LoadedThread(
                     items = state.items,
+                    isRefreshing = status is PostDetailLoadStatus.Refreshing,
+                    onRefresh = onRefresh,
                     callbacks = callbacks,
                     contentPadding = padding,
                 )
@@ -173,34 +198,43 @@ internal fun PostDetailScreenContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LoadedThread(
     items: ImmutableList<ThreadItem>,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     callbacks: PostCallbacks,
     contentPadding: PaddingValues,
 ) {
-    LazyColumn(
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = contentPadding,
     ) {
-        items(items = items, key = { it.key }) { item ->
-            when (item) {
-                is ThreadItem.Ancestor -> PostCard(post = item.post, callbacks = callbacks)
-                is ThreadItem.Focus -> PostCard(post = item.post, callbacks = callbacks)
-                is ThreadItem.Reply -> PostCard(post = item.post, callbacks = callbacks)
-                is ThreadItem.Blocked ->
-                    InlineUnavailableRow(
-                        label = stringResource(R.string.postdetail_inline_blocked),
-                    )
-                is ThreadItem.NotFound ->
-                    InlineUnavailableRow(
-                        label = stringResource(R.string.postdetail_inline_notfound),
-                    )
-                is ThreadItem.Fold -> {
-                    // m28.5.1 mapper does not emit Fold; leaving the case
-                    // explicit here so the exhaustive-when stays compile-
-                    // checked. m28.5.2's visual treatment will render a
-                    // "View more" affordance here.
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+        ) {
+            items(items = items, key = { it.key }) { item ->
+                when (item) {
+                    is ThreadItem.Ancestor -> PostCard(post = item.post, callbacks = callbacks)
+                    is ThreadItem.Focus -> PostCard(post = item.post, callbacks = callbacks)
+                    is ThreadItem.Reply -> PostCard(post = item.post, callbacks = callbacks)
+                    is ThreadItem.Blocked ->
+                        InlineUnavailableRow(
+                            label = stringResource(R.string.postdetail_inline_blocked),
+                        )
+                    is ThreadItem.NotFound ->
+                        InlineUnavailableRow(
+                            label = stringResource(R.string.postdetail_inline_notfound),
+                        )
+                    is ThreadItem.Fold -> {
+                        // m28.5.1 mapper does not emit Fold; leaving the case
+                        // explicit here so the exhaustive-when stays compile-
+                        // checked. m28.5.2's visual treatment will render a
+                        // "View more" affordance here.
+                    }
                 }
             }
         }
@@ -275,3 +309,134 @@ private fun ErrorState(
         }
     }
 }
+
+// ---------- Previews -------------------------------------------------------
+
+@Preview(name = "InitialLoading", showBackground = true)
+@Preview(name = "InitialLoading — dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenInitialLoadingPreview() {
+    NubecitaTheme {
+        PostDetailScreenPreviewHost(
+            state = PostDetailState(loadStatus = PostDetailLoadStatus.InitialLoading),
+        )
+    }
+}
+
+@Preview(name = "InitialError — Network", showBackground = true)
+@Preview(name = "InitialError — Network — dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenInitialErrorNetworkPreview() {
+    NubecitaTheme {
+        PostDetailScreenPreviewHost(
+            state =
+                PostDetailState(
+                    loadStatus = PostDetailLoadStatus.InitialError(PostDetailError.Network),
+                ),
+        )
+    }
+}
+
+@Preview(name = "InitialError — NotFound", showBackground = true)
+@Preview(name = "InitialError — NotFound — dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenInitialErrorNotFoundPreview() {
+    NubecitaTheme {
+        PostDetailScreenPreviewHost(
+            state =
+                PostDetailState(
+                    loadStatus = PostDetailLoadStatus.InitialError(PostDetailError.NotFound),
+                ),
+        )
+    }
+}
+
+@Preview(name = "Loaded", showBackground = true)
+@Preview(name = "Loaded — dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenLoadedPreview() {
+    NubecitaTheme {
+        PostDetailScreenPreviewHost(
+            state = PostDetailState(items = previewThread(), loadStatus = PostDetailLoadStatus.Idle),
+        )
+    }
+}
+
+@Preview(name = "Loaded + Refreshing", showBackground = true)
+@Preview(name = "Loaded + Refreshing — dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenLoadedRefreshingPreview() {
+    NubecitaTheme {
+        PostDetailScreenPreviewHost(
+            state = PostDetailState(items = previewThread(), loadStatus = PostDetailLoadStatus.Refreshing),
+        )
+    }
+}
+
+/**
+ * Stateless preview/test host — wraps [PostDetailScreenContent] with a
+ * fresh `SnackbarHostState` and a fixed clock so the call site only
+ * supplies the `state` to vary across previews.
+ */
+@Composable
+private fun PostDetailScreenPreviewHost(state: PostDetailState) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    // Provide a fixed clock so PostCard's relative-time label stays
+    // deterministic across IDE re-renders — pairs with PREVIEW_CREATED_AT
+    // below so the rendered relative-time label is "2h" forever.
+    CompositionLocalProvider(LocalClock provides PreviewClock) {
+        PostDetailScreenContent(
+            state = state,
+            snackbarHostState = snackbarHostState,
+            callbacks = PostCallbacks.None,
+            onBack = {},
+            onRetry = {},
+            onRefresh = {},
+        )
+    }
+}
+
+private val PREVIEW_NOW = Instant.parse("2026-04-26T12:00:00Z")
+private val PREVIEW_CREATED_AT = Instant.parse("2026-04-26T10:00:00Z")
+
+private object PreviewClock : Clock {
+    override fun now(): Instant = PREVIEW_NOW
+}
+
+private fun previewPost(
+    id: String,
+    text: String = "Preview post $id — sample post-detail content.",
+): PostUi =
+    PostUi(
+        id = "post-$id",
+        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
+        author =
+            AuthorUi(
+                did = "did:plc:preview-$id",
+                handle = "preview$id.bsky.social",
+                displayName = "Preview $id",
+                avatarUrl = null,
+            ),
+        createdAt = PREVIEW_CREATED_AT,
+        text = text,
+        facets = persistentListOf(),
+        embed = EmbedUi.Empty,
+        stats = PostStatsUi(replyCount = 1, repostCount = 2, likeCount = 12),
+        viewer = ViewerStateUi(),
+        repostedBy = null,
+    )
+
+/**
+ * Mixed thread fixture for the loaded previews: one ancestor, the
+ * focus, an inline blocked sibling, and two top-level replies. Hits
+ * every rendered ThreadItem variant in m28.5.1's mapper output (Fold
+ * is reserved for m28.5.2 so it's omitted).
+ */
+private fun previewThread(): ImmutableList<ThreadItem> =
+    persistentListOf<ThreadItem>(
+        ThreadItem.Ancestor(post = previewPost("ancestor", text = "Ancestor — what kicked off the thread.")),
+        ThreadItem.Focus(post = previewPost("focus", text = "Focused post — the one tapped from the feed.")),
+        ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked"),
+        ThreadItem.Reply(post = previewPost("reply-1", text = "Top-level reply — direct child of the focus."), depth = 1),
+        ThreadItem.Reply(post = previewPost("reply-2", text = "Another top-level reply — sibling of reply-1."), depth = 1),
+    )
