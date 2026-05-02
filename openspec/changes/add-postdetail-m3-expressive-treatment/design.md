@@ -31,6 +31,20 @@ This change is purely UI-layer. No data flow changes, no new HTTP boundaries, no
 
 ## Decisions
 
+### Decision 0: Extract shared atproto-mapping helpers to `:core:feed-mapping` rather than duplicate inline in `PostThreadMapper`
+
+**Choice:** Create a new `:core:feed-mapping` Android library module owning the atproto-wire-type → UI-model conversion primitives: `toPostUiCore` (the post-projection core), `toAuthorUi`, `toViewerStateUi`, the `toEmbedUi` dispatch, and the three private wrapper-construction helpers (`ImagesView.toEmbedUiImages`, `VideoView.toEmbedUiVideo`, `ExternalView.toEmbedUiExternal`). Both `:feature:feed:impl`'s `FeedViewPostMapper` and `:feature:postdetail:impl`'s `PostThreadMapper` depend on it. `PostThreadMapper`'s previously-deferred `EmbedUi.Empty` placeholder is replaced by full embed dispatch through the shared helpers.
+
+**Why this over alternatives:**
+
+- *A2 — Inline embed mapping into `PostThreadMapper` directly* — fast, but creates the ~200-line duplication that the m28.5.1 mapper KDoc explicitly warned against. Bluesky lexicon updates (a new embed variant, an aspect-ratio calculation tweak, a `RecordWithMedia` variant addition) would have to be applied in two places, with high probability of drift. Rejected.
+- *B — Defer the extraction to a separate prerequisite proposal that lands before this one* — preserves single-purpose PRs, but stalls m28.5.2 on a dependency PR for what's a clearly-scoped, low-risk refactor. Rejected; the extraction is small enough to bundle here.
+- *Put the helpers in `:data:models`* — would force `:data:models` to depend on `atproto-runtime`, coupling pure UI types to wire-protocol types. Rejected on dependency-direction grounds.
+
+The extraction matches the explicit earmark in m28.5.1's `PostThreadMapper` KDoc: *"Full embed mapping... will get extracted to a new `:core:feed-mapping` module during m28.5.2's visual treatment."* Honoring that contract here makes m28.5.2 a complete vertical slice (data foundation + UI polish) rather than a UI-only patch on a half-finished foundation.
+
+**Behavior preservation contract.** The feed's screenshot fixtures MUST stay byte-for-byte identical through the extraction. The extraction is a pure relocation: same inputs produce same outputs from the same code, just compiled in a different module. The feed's screenshot test suite is the regression baseline.
+
 ### Decision 1: Focus Post emphasis via container color + shape, not typography
 
 **Choice:** Wrap `ThreadItem.Focus`'s `PostCard` in a `Surface` with `MaterialTheme.colorScheme.surfaceContainerHigh` background and `RoundedCornerShape(24.dp)`. Default elevation; no custom shadow. Ancestors / Replies / Fold render the existing `PostCard` defaults on `MaterialTheme.colorScheme.surface`.
