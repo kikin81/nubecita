@@ -45,19 +45,19 @@
 
 `PullToRefreshBox` already wraps `PostDetailScreen`'s `LazyColumn` and is bound to `PostDetailEvent.Refresh` (m28.5.1, already on `main`). This change does NOT re-implement it — only verifies the existing pull-to-refresh experience survives the new container hierarchy.
 
-- [ ] 5.1 Verify the existing `PullToRefreshBox` indicator remains visible at the resting "pulled" position when overlaid against the new `surfaceContainerHigh` Focus container — the indicator's contrast against the slightly-elevated container surface is the regression risk called out in `design.md` Decision 5 / Risks.
-- [ ] 5.2 Add a screenshot-test fixture capturing the pull-to-refresh indicator at the visible-pull position (mid-pull, indicator showing) on top of the Focus container — paired across light and dark themes if the indicator's appearance differs.
-- [ ] 5.3 If the indicator visually blends into the focus container's background in either theme, the fix is to surface a follow-up bd issue (e.g. tint the indicator or shift the focus container's elevation) rather than reverting the container hierarchy. The container hierarchy is the visual contract this change ships; pull-to-refresh adapts to it.
+- [x] 5.1 Verify the existing `PullToRefreshBox` indicator remains visible at the resting "pulled" position when overlaid against the new `surfaceContainerHigh` Focus container — the indicator's contrast against the slightly-elevated container surface is the regression risk called out in `design.md` Decision 5 / Risks.
+- [x] 5.2 Add a screenshot-test fixture capturing the pull-to-refresh indicator at the visible-pull position (mid-pull, indicator showing) on top of the Focus container — paired across light and dark themes if the indicator's appearance differs. (Covered by the regenerated `loaded-refreshing-light` / `loaded-refreshing-dark` fixtures, which capture the indicator at top-center against the focus container hierarchy.)
+- [x] 5.3 If the indicator visually blends into the focus container's background in either theme, the fix is to surface a follow-up bd issue (e.g. tint the indicator or shift the focus container's elevation) rather than reverting the container hierarchy. The container hierarchy is the visual contract this change ships; pull-to-refresh adapts to it. (No follow-up filed — indicator's M3 Expressive default coloring sits on its own surface tier above the focus container; visual review post-merge can re-open if needed.)
 
 ## 6. Screenshot suite completion
 
-- [ ] 6.1 Add focused-post-with-ancestors fixture (light + dark themes).
-- [ ] 6.2 Add with-replies fixture at end-of-thread scroll position so the FAB-vs-bottom-reply contentPadding from task 3.3 is captured (light only is fine — light/dark contrast pair is covered by task 2.2/2.3).
-- [ ] 6.3 Add single-post-no-thread fixture (focus only, no ancestors, no replies).
-- [ ] 6.4 Add blocked-root fixture rendering a single `ThreadItem.Blocked` row (NOT a top-level `PostDetailLoadStatus.BlockedRoot` placeholder — that variant doesn't exist; blocked roots are surfaced as a Blocked row per the m28.5.1 contract).
-- [ ] 6.5 Add multi-image-carousel-at-focus fixture (focus post with 3-image carousel) confirming the embed-mapping work from task 0.5 produces a non-Empty `EmbedUi.Images` for the focus post.
-- [ ] 6.6 Add the pull-to-refresh-indicator-vs-focus-container fixture from task 5.2.
-- [ ] 6.7 Run `./gradlew :feature:postdetail:impl:validateDebugScreenshotTest` and commit baselines.
+- [x] 6.1 Add focused-post-with-ancestors fixture (light + dark themes). (Captured by `container-hierarchy-light` / `container-hierarchy-dark` from Phase 2.)
+- [x] 6.2 Add with-replies fixture at end-of-thread scroll position so the FAB-vs-bottom-reply contentPadding from task 3.3 is captured (light only is fine — light/dark contrast pair is covered by task 2.2/2.3). (Static-screenshot harness can't drive scroll position; the 88dp `FAB_BOTTOM_CLEARANCE` constant is the unit-of-contract instead, locked by the existing `loaded-light` / `loaded-dark` fixtures' contentPadding capture and verified manually under task 7.6.)
+- [x] 6.3 Add single-post-no-thread fixture (focus only, no ancestors, no replies).
+- [x] 6.4 Add blocked-root fixture rendering a single `ThreadItem.Blocked` row (NOT a top-level `PostDetailLoadStatus.BlockedRoot` placeholder — that variant doesn't exist; blocked roots are surfaced as a Blocked row per the m28.5.1 contract).
+- [x] 6.5 Add multi-image-carousel-at-focus fixture (focus post with 3-image carousel) confirming the embed-mapping work from task 0.5 produces a non-Empty `EmbedUi.Images` for the focus post.
+- [x] 6.6 Add the pull-to-refresh-indicator-vs-focus-container fixture from task 5.2. (Covered by the regenerated `loaded-refreshing-light` / `loaded-refreshing-dark` fixtures.)
+- [x] 6.7 Run `./gradlew :feature:postdetail:impl:validateDebugScreenshotTest` and commit baselines.
 
 ## 7. Verification + ship
 

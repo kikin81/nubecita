@@ -135,6 +135,110 @@ private fun PostDetailScreenContainerHierarchyScreenshot() {
     }
 }
 
+/**
+ * Single Focus post with no ancestors and no replies — locks the
+ * standalone-post rendering shape (the surfaceContainerHigh container
+ * sits in isolation, top of the screen below the TopAppBar; the FAB
+ * still anchors at the bottom).
+ */
+@PreviewTest
+@Preview(name = "single-post-light", showBackground = true)
+@Composable
+private fun PostDetailScreenSinglePostScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostDetailScreenScreenshotHost(
+            state =
+                PostDetailState(
+                    items =
+                        persistentListOf(
+                            ThreadItem.Focus(post = fixturePost("solo", text = "Standalone post — no thread context.")),
+                        ),
+                    loadStatus = PostDetailLoadStatus.Idle,
+                ),
+        )
+    }
+}
+
+/**
+ * Top-level `ThreadItem.Blocked` — the lexicon's `#blockedPost` at
+ * focus position renders as an inline-row placeholder (NOT a top-level
+ * `PostDetailLoadStatus.BlockedRoot` — that variant doesn't exist;
+ * blocked roots come through the mapper as a single `ThreadItem.Blocked`
+ * entry per the m28.5.1 contract).
+ */
+@PreviewTest
+@Preview(name = "blocked-root-light", showBackground = true)
+@Composable
+private fun PostDetailScreenBlockedRootScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostDetailScreenScreenshotHost(
+            state =
+                PostDetailState(
+                    items =
+                        persistentListOf<ThreadItem>(
+                            ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked"),
+                        ),
+                    loadStatus = PostDetailLoadStatus.Idle,
+                ),
+        )
+    }
+}
+
+/**
+ * Focus post carrying a 3-image embed — confirms the m28.5.2 mapping
+ * extraction (Phase 0) projects images correctly through to the focus
+ * surface, AND that the design system's HorizontalMultiBrowseCarousel
+ * branch (Phase 1) renders inside the surfaceContainerHigh container.
+ *
+ * Pre-m28.5.2 the focus would have collapsed to `EmbedUi.Empty`
+ * regardless of the lexicon-side embed (m28.5.1 placeholder); this
+ * fixture is the regression baseline that locks the full embed
+ * dispatch path on the post-detail screen.
+ */
+@PreviewTest
+@Preview(name = "multi-image-carousel-at-focus-light", showBackground = true)
+@Composable
+private fun PostDetailScreenMultiImageCarouselAtFocusScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostDetailScreenScreenshotHost(
+            state =
+                PostDetailState(
+                    items =
+                        persistentListOf<ThreadItem>(
+                            ThreadItem.Focus(
+                                post =
+                                    fixturePost("focus-with-3-images")
+                                        .copy(
+                                            embed =
+                                                EmbedUi.Images(
+                                                    items =
+                                                        persistentListOf(
+                                                            net.kikin.nubecita.data.models.ImageUi(
+                                                                url = "https://example.com/preview-0.jpg",
+                                                                altText = "Image 0",
+                                                                aspectRatio = 1.5f,
+                                                            ),
+                                                            net.kikin.nubecita.data.models.ImageUi(
+                                                                url = "https://example.com/preview-1.jpg",
+                                                                altText = "Image 1",
+                                                                aspectRatio = 1.5f,
+                                                            ),
+                                                            net.kikin.nubecita.data.models.ImageUi(
+                                                                url = "https://example.com/preview-2.jpg",
+                                                                altText = "Image 2",
+                                                                aspectRatio = 1.5f,
+                                                            ),
+                                                        ),
+                                                ),
+                                        ),
+                            ),
+                        ),
+                    loadStatus = PostDetailLoadStatus.Idle,
+                ),
+        )
+    }
+}
+
 @Composable
 private fun PostDetailScreenScreenshotHost(state: PostDetailState) {
     val snackbarHostState = remember { SnackbarHostState() }
