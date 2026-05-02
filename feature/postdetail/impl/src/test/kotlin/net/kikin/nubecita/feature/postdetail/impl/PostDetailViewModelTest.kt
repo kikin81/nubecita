@@ -335,6 +335,54 @@ internal class PostDetailViewModelTest {
             }
         }
 
+    @Test
+    fun `OnReplyClicked after a successful Load emits NavigateToComposer with the focus URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, focusUri = "at://focus")
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnReplyClicked)
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.NavigateToComposer)
+                assertEquals("at://focus", (effect as PostDetailEffect.NavigateToComposer).parentPostUri)
+            }
+        }
+
+    @Test
+    fun `OnReplyClicked while no Focus is loaded is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            // VM is in default Idle state with no items — the FAB should
+            // still be visible (it lives in Scaffold's slot regardless of
+            // load status), but tapping it before a Focus resolves is a
+            // silent drop, not an arbitrary effect.
+            val vm = newVm(FakeRepo())
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnReplyClicked)
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `OnFocusImageClicked emits NavigateToMediaViewer with the focus URI and image index`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo(), focusUri = "at://focus")
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnFocusImageClicked(imageIndex = 2))
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.NavigateToMediaViewer)
+                val nav = effect as PostDetailEffect.NavigateToMediaViewer
+                assertEquals("at://focus", nav.postUri)
+                assertEquals(2, nav.imageIndex)
+            }
+        }
+
     // ---------- helpers ----------
 
     private fun newVm(
