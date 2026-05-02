@@ -23,6 +23,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -65,11 +67,13 @@ import kotlin.time.Instant
  *
  * Plain `LazyColumn` rendering each [ThreadItem] as the existing
  * `:designsystem` PostCard, wrapped in a stock M3 `PullToRefreshBox`
- * so swipe-down dispatches [PostDetailEvent.Refresh] (the snackbar copy
- * already says "Pull to retry"). Standard M3 `TopAppBar` with back
- * arrow. No expressive container hierarchy, no carousel, no floating
- * composer — those land in m28.5.2. Reviewers should be able to tell
- * at a glance "this PR isn't trying to look pretty yet."
+ * with the M3 Expressive `PullToRefreshDefaults.LoadingIndicator`
+ * (morphing-polygon shape) so swipe-down dispatches
+ * [PostDetailEvent.Refresh] — snackbar copy already says "Pull to
+ * retry". Standard M3 `TopAppBar` with back arrow. No expressive
+ * container hierarchy, no carousel, no floating composer — those land
+ * in m28.5.2. Reviewers should be able to tell at a glance "this PR
+ * isn't trying to look pretty yet."
  */
 @Composable
 internal fun PostDetailScreen(
@@ -207,10 +211,27 @@ private fun LoadedThread(
     callbacks: PostCallbacks,
     contentPadding: PaddingValues,
 ) {
+    // Hoist the state so the same instance feeds both PullToRefreshBox
+    // (which drives `distanceFraction` from the gesture) and the indicator
+    // slot (which reads `distanceFraction` to morph the polygon shapes).
+    // Without sharing, the indicator would render against an independent
+    // state and never animate.
+    val pullState = rememberPullToRefreshState()
     PullToRefreshBox(
+        state = pullState,
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
+        indicator = {
+            // M3 Expressive contained LoadingIndicator — the morphing
+            // polygon shape from material.io's pull-to-refresh sample,
+            // pinned to the box's top-center per Material guidance.
+            PullToRefreshDefaults.LoadingIndicator(
+                state = pullState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        },
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
