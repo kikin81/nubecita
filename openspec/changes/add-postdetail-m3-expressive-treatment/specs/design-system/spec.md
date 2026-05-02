@@ -6,7 +6,7 @@ The `PostCard` composable in `:designsystem` SHALL conditionally swap its image-
 
 The carousel's preferred-item-width MUST be sized to the same target as PostCard's existing single-image preferred width so that single-image and first-slide-of-multi-image rendering are visually consistent in the feed. Carousel slide aspect ratios MUST be per-slide (the carousel's default behavior); mixed-aspect-ratio posts (portrait + landscape in the same embed) MUST NOT be normalized via letterboxing.
 
-The swap MUST live inside PostCard's existing image-embed branch — no new public composable, no new public API. PostCard's caller-facing signature is unchanged.
+The swap MUST live inside PostCard's existing image-embed branch — no new public composable, no new public API. PostCard's caller-facing signature MAY be extended with **additive, backwards-compatible** parameters (e.g. `onImageClick: (imageIndex: Int) -> Unit = {}` with a default no-op so existing call sites compile unchanged), but MUST NOT remove or change the meaning of any existing parameter. The post-detail feature requires the per-image-index click callback to dispatch its `NavigateToMediaViewer(imageIndex)` effect; consumers that don't pass the callback (the feed, future profile / search surfaces) keep their current behavior — the default no-op makes the swap a no-op for them.
 
 #### Scenario: Multi-image post renders the carousel
 
@@ -18,10 +18,15 @@ The swap MUST live inside PostCard's existing image-embed branch — no new publ
 - **WHEN** `PostCard` is composed with an `EmbedUi.Images` value whose `images.size == 1`
 - **THEN** the rendered output matches the pre-change single-image PostCard byte-for-byte at the screenshot level — no carousel container, no slide chrome, no preferred-item-width sizing logic
 
-#### Scenario: Caller signature unchanged
+#### Scenario: Existing call sites compile unchanged
 
-- **WHEN** any consumer of `PostCard` (FeedScreen, PostDetailScreen, future surfaces) is inspected
-- **THEN** the call site is unmodified by this change — the carousel swap is internal to PostCard, never visible at the call boundary
+- **WHEN** any consumer that did NOT pass `onImageClick` (FeedScreen, future profile / search surfaces) is recompiled against the updated PostCard
+- **THEN** the call site compiles without modification — the new parameter has a default no-op value, and no behavioral change is observable in single-image OR multi-image posts in those surfaces (multi-image posts get the carousel rendering but tapping a slide is a no-op when no callback was passed)
+
+#### Scenario: Post-detail wires the per-index callback
+
+- **WHEN** `PostDetailScreen` composes the Focus PostCard
+- **THEN** the call passes `onImageClick = { index -> /* dispatch NavigateToMediaViewer */ }`, and tapping a slide invokes the callback with the slide's index
 
 #### Scenario: Mixed-aspect carousel does not letterbox
 

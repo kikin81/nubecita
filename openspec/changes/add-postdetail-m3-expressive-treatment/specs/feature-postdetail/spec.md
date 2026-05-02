@@ -89,6 +89,8 @@ The screen SHALL render the `ThreadItem.Focus` `PostCard` inside a `Surface` who
 
 The screen SHALL render a circle-shaped floating reply affordance in the `Scaffold`'s `floatingActionButton` slot. The affordance MUST be implemented via `androidx.compose.material3.FloatingActionButton` (or an M3 Expressive FAB variant if available at the catalog's material3 version) — never via a hand-positioned `Box` / custom drawing. On tap, the screen MUST construct the composer `NavKey` shipped by `nubecita-8f6.3` and push it via `LocalMainShellNavState.current.add(...)`. The affordance MUST always be visible — no hide-on-scroll behavior in v1 (an explicitly-deferred decision per `design.md`).
 
+Because the FAB floats above the LazyColumn at a fixed anchor, the LazyColumn MUST apply a bottom `contentPadding` equal to at least `FAB height + standard edge spacing` (target ~80–100dp) so the user can scroll the bottom-most reply completely above the FAB. Without this padding the FAB permanently occludes the lower half of the last reply when the user reaches the end of the thread — captured as a screenshot test in the with-replies fixture.
+
 #### Scenario: FAB visible at all scroll positions
 
 - **WHEN** the user scrolls the LazyColumn from the top of the ancestors region to the bottom of the replies region
@@ -98,6 +100,11 @@ The screen SHALL render a circle-shaped floating reply affordance in the `Scaffo
 
 - **WHEN** the user taps the floating reply FAB
 - **THEN** the screen's effect collector invokes `LocalMainShellNavState.current.add(<composer NavKey from nubecita-8f6.3>)` — the same call shape used by the PostCard reply button
+
+#### Scenario: Bottom contentPadding clears the FAB
+
+- **WHEN** the user scrolls to the bottom of a thread whose reply count fills the viewport
+- **THEN** the LazyColumn's bottom `contentPadding` allows the final reply to scroll fully above the FAB anchor — no portion of any reply is occluded by the FAB at the resting scroll position
 
 ### Requirement: Multi-image embed renders via M3 carousel at the focus position
 
@@ -115,7 +122,9 @@ The screen SHALL allow the standard `:designsystem` `PostCard` image-embed rende
 
 ### Requirement: Image tap dispatches a media-viewer navigation effect
 
-The screen SHALL emit a `PostDetailEffect.NavigateToMediaViewer(uri: AtUri, imageIndex: Int)` effect on every image tap inside the Focus post and inside the multi-image carousel slides. The screen's effect collector MUST handle the effect by routing to the fullscreen media viewer destination via `LocalMainShellNavState.current.add(...)`. If the fullscreen media viewer route does not yet exist in `:core:common:navigation`, the collector MUST log a debug Timber entry and treat the effect as a no-op — the tap MUST NOT crash, and a follow-up bd issue MUST be filed tracking the missing destination.
+The screen SHALL emit a `PostDetailEffect.NavigateToMediaViewer(uri: AtUri, imageIndex: Int)` effect on every image tap inside the Focus post and inside the multi-image carousel slides. The screen's effect collector MUST handle the effect by routing to the fullscreen media viewer destination via `LocalMainShellNavState.current.add(...)`.
+
+If the fullscreen media viewer route does not yet exist in `:core:common:navigation`, the collector MUST (a) log a debug Timber entry tagged `PostDetailScreen` and (b) surface a transient Snackbar on the screen's `SnackbarHostState` reading "Fullscreen viewer coming soon" (or equivalent localized string). The Snackbar gives immediate tactile feedback that the tap registered, without blocking the user's flow the way a dialog would. The tap MUST NOT crash, and a follow-up bd issue MUST be filed tracking the missing destination. When the destination route ships in a follow-up change, the Snackbar branch is removed and the effect collector calls `LocalMainShellNavState.current.add(<media viewer NavKey>)` instead — call sites in PostCard and the carousel slides do not change.
 
 #### Scenario: Image tap on focus single-image post emits effect
 
@@ -127,10 +136,10 @@ The screen SHALL emit a `PostDetailEffect.NavigateToMediaViewer(uri: AtUri, imag
 - **WHEN** the user taps the second slide of a three-image Focus carousel
 - **THEN** `PostDetailEffect.NavigateToMediaViewer(uri = post.uri, imageIndex = 1)` is sent
 
-#### Scenario: Missing media-viewer route is a logged no-op
+#### Scenario: Missing media-viewer route surfaces a snackbar
 
 - **WHEN** the effect collector receives `NavigateToMediaViewer` and the media-viewer `NavKey` type is not yet declared in `:core:common:navigation`
-- **THEN** the collector logs a Timber debug entry tagged `PostDetailScreen` and returns; the user-visible result is a tap with no transition, never a crash
+- **THEN** the collector logs a Timber debug entry tagged `PostDetailScreen` AND shows a transient Snackbar on the screen's `SnackbarHostState` with the "coming soon" copy; the user-visible result is a tap that produces a brief acknowledgment but no navigation transition — never a crash, never a blocking dialog
 
 ### Requirement: Pull-to-refresh wraps the LazyColumn
 

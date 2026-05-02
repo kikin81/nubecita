@@ -69,17 +69,20 @@ The conditional swap is internal to PostCard's existing image-embed branch — c
 
 The FAB choice keeps the elevation / shape / semantics within the M3 vocabulary. If the M3 Expressive material3 library version on the catalog ships an "expressive" FAB variant, prefer it; otherwise the standard FAB with default elevation is sufficient.
 
-### Decision 4: Image tap stubbed as no-op until the fullscreen viewer route exists
+**Occlusion safeguard.** Because the FAB anchors above the LazyColumn at a fixed position, the LazyColumn MUST apply a bottom `contentPadding` of approximately FAB-height + standard edge spacing (~80–100dp combined) so the user can scroll the bottom-most reply fully above the FAB. Without this padding the FAB permanently occludes the lower portion of the last reply when the user reaches the end of the thread — a subtle bug that the with-replies screenshot fixture catches.
 
-**Choice:** Wire the image tap (both single-image and per-carousel-slide) to call a `PostDetailEffect.NavigateToMediaViewer(uri)` effect. The screen collects the effect; if the destination route doesn't exist in `:core:common:navigation`, log a debug Timber line and emit nothing. File a follow-up bd issue tracking the missing viewer.
+### Decision 4: Image tap stubbed as Snackbar-acknowledged no-op until the fullscreen viewer route exists
+
+**Choice:** Wire the image tap (both single-image and per-carousel-slide) to dispatch a `PostDetailEffect.NavigateToMediaViewer(uri, imageIndex)` effect. The screen's effect collector navigates to the media-viewer destination if it exists; if the destination route doesn't exist in `:core:common:navigation` yet, the collector (a) logs a debug Timber entry, AND (b) surfaces a transient `Snackbar` on the screen's `SnackbarHostState` reading "Fullscreen viewer coming soon". File a follow-up bd issue tracking the missing viewer.
 
 **Why this over alternatives:**
 
 - *Don't wire the tap at all* — leaves a tap target on the image that does nothing, which is worse UX than a delayed-arrival viewer. Rejected.
 - *Crash / throw on tap* — explicitly bad. Rejected.
-- *Show a placeholder dialog* — competes for visual attention with the actual content. Rejected.
+- *Show a placeholder dialog* — competes for visual attention with the actual content; blocks the user's flow. Rejected.
+- *Pure silent no-op (Timber-only)* — initial choice in an earlier draft. Rejected on review: a silent no-op feels like a broken app. Testers / users repeatedly tap the image expecting something to happen. The Snackbar is a transient acknowledgment that costs the user nothing but tells them the tap registered.
 
-The no-op is invisible to the user (no affordance change, no visible state). When the viewer ships, the tap is wired through with no further changes to PostDetailScreen's tap handlers — only the effect dispatch site needs an update. Document in a Timber log so manual QA can verify the wiring is in place.
+The Snackbar is the middle ground between a silent no-op (which feels broken) and a dialog (which blocks). It's M3-native (`SnackbarHost` + `SnackbarHostState`), auto-dismisses, and stops competing for attention immediately. When the viewer ships, the tap is wired through with no changes to PostDetailScreen's tap handlers — only the effect collector's missing-route branch is removed and replaced with `LocalMainShellNavState.current.add(<media viewer NavKey>)`. The Timber log stays for the lifetime of the codebase as a debug breadcrumb.
 
 ### Decision 5: Pull-to-refresh anchored above the entire LazyColumn, mirroring `FeedScreen`
 

@@ -16,17 +16,18 @@
 
 - [ ] 3.1 Add a `FloatingActionButton` (M3 Expressive variant if available at the catalog's material3 version, else the standard variant) to `PostDetailScreen`'s `Scaffold` `floatingActionButton` slot. Always visible — no hide-on-scroll.
 - [ ] 3.2 Wire the FAB tap to push the composer NavKey shipped by `nubecita-8f6.3` via `LocalMainShellNavState.current.add(...)` — same call shape as the PostCard reply button.
-- [ ] 3.3 Add a unit test (or screen-level instrumentation test, if cheaper) confirming the FAB exists in the semantics tree and is tappable independent of scroll position.
-- [ ] 3.4 Add the FAB to the screenshot-test fixtures (it should appear in the focused-post-with-ancestors and with-replies snapshots).
+- [ ] 3.3 Apply bottom `contentPadding` to the LazyColumn equal to FAB height + standard edge spacing (target ~80–100dp combined) so the FAB never occludes the bottom-most reply when the user scrolls to the end of the thread. (Test: the with-replies screenshot fixture from task 6.2 must show the last reply's action row fully visible above the FAB at the resting end-of-thread scroll position — capture at the scroll-end position, not just at the top.)
+- [ ] 3.4 Add a unit test (or screen-level instrumentation test, if cheaper) confirming the FAB exists in the semantics tree and is tappable independent of scroll position.
+- [ ] 3.5 Add the FAB to the screenshot-test fixtures (it should appear in the focused-post-with-ancestors and with-replies snapshots).
 
 ## 4. PostDetailScreen: image tap → media-viewer effect
 
 - [ ] 4.1 Add `PostDetailEffect.NavigateToMediaViewer(uri: AtUri, imageIndex: Int)` to the `PostDetailContract.kt` effect sealed type.
 - [ ] 4.2 Wire the image tap inside the Focus PostCard's image embed (single-image path) to dispatch the effect with `imageIndex = 0`.
-- [ ] 4.3 Wire the image tap inside each multi-image carousel slide (in `:designsystem` PostCard) to dispatch the effect with the slide index. (May require a callback parameter on PostCard's image-embed branch — keep PostCard's caller-facing signature unchanged unless a callback addition is unavoidable; in that case, default it to a no-op so existing call sites don't break.)
-- [ ] 4.4 In `PostDetailScreen`'s effect collector, handle `NavigateToMediaViewer` by pushing the media-viewer `NavKey` if it exists in `:core:common:navigation`. If it does NOT exist, log a Timber debug entry tagged `PostDetailScreen` and treat the effect as a no-op.
-- [ ] 4.5 File a follow-up bd issue for the missing fullscreen media viewer route (from main, not from inside the worktree). Cross-reference its bd id in this change's PR description.
-- [ ] 4.6 Add a unit test covering the no-op-and-log path so the missing-route fallback stays correct.
+- [ ] 4.3 Add an additive `onImageClick: (imageIndex: Int) -> Unit = {}` parameter to `:designsystem` PostCard's image-embed branch (default no-op so feed and other consumers compile unchanged). Wire each multi-image carousel slide and the single-image path to invoke the callback with the slide / image index. (Test: existing PostCard call sites in FeedScreen recompile without modification; new call site in PostDetailScreen passes the callback that dispatches the effect.)
+- [ ] 4.4 In `PostDetailScreen`'s effect collector, handle `NavigateToMediaViewer` by pushing the media-viewer `NavKey` if it exists in `:core:common:navigation`. If it does NOT exist, (a) log a Timber debug entry tagged `PostDetailScreen` AND (b) show a transient Snackbar on the screen's `SnackbarHostState` reading "Fullscreen viewer coming soon" (or equivalent localized string). The Snackbar gives tactile feedback that the tap registered without blocking the user the way a dialog would. (Test: unit test for the missing-route branch confirms both the Timber log AND the Snackbar dispatch.)
+- [ ] 4.5 File a follow-up bd issue for the missing fullscreen media viewer route (from main, not from inside the worktree). Cross-reference its bd id in this change's PR description and in the Timber/Snackbar code comments so the future-removal site is grep-able.
+- [ ] 4.6 Add a unit test covering the missing-route fallback path so the Snackbar + Timber pair stays correct as a regression baseline.
 
 ## 5. PostDetailScreen: pull-to-refresh
 
