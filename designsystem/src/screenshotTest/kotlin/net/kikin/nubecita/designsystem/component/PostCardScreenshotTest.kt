@@ -118,6 +118,91 @@ private fun PostCardWithImageScreenshot() {
     }
 }
 
+// Multi-image carousel coverage. Two fixtures lock the carousel branch
+// behavior post-m28.5.2:
+//
+// - `with-3-images`: uniform 1.5 aspect ratio across 3 slides — exercises
+//   the carousel keyline math against equally-sized items so the
+//   per-slide width comes purely from the M3 default `preferredItemWidth`
+//   token. Single-image fixtures (`with-image-*`) MUST stay byte-for-byte
+//   unchanged through this addition; the conditional `images.size > 1`
+//   branch is the only path that touched.
+// - `with-3-images-mixed-aspect`: one portrait (0.5) + two landscape (1.78)
+//   slides. Locks the carousel's behavior under non-uniform per-slide
+//   sizing — the spec's design.md Risks section flags this as the place
+//   uneven slide heights surface. Don't try to size to tallest;
+//   variance is the contract.
+
+@PreviewTest
+@Preview(name = "with-3-images-light", showBackground = true)
+@Preview(name = "with-3-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardWith3ImagesScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                screenshotPost(
+                    embed =
+                        EmbedUi.Images(
+                            items =
+                                persistentListOf(
+                                    ImageUi(
+                                        url = "https://example.com/preview-0.jpg",
+                                        altText = "Preview image 0",
+                                        aspectRatio = 1.5f,
+                                    ),
+                                    ImageUi(
+                                        url = "https://example.com/preview-1.jpg",
+                                        altText = "Preview image 1",
+                                        aspectRatio = 1.5f,
+                                    ),
+                                    ImageUi(
+                                        url = "https://example.com/preview-2.jpg",
+                                        altText = "Preview image 2",
+                                        aspectRatio = 1.5f,
+                                    ),
+                                ),
+                        ),
+                ),
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "with-3-images-mixed-aspect-light", showBackground = true)
+@Preview(name = "with-3-images-mixed-aspect-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardWith3ImagesMixedAspectScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                screenshotPost(
+                    embed =
+                        EmbedUi.Images(
+                            items =
+                                persistentListOf(
+                                    ImageUi(
+                                        url = "https://example.com/preview-portrait.jpg",
+                                        altText = "Portrait image",
+                                        aspectRatio = 0.5f,
+                                    ),
+                                    ImageUi(
+                                        url = "https://example.com/preview-landscape-0.jpg",
+                                        altText = "Landscape image 0",
+                                        aspectRatio = 16f / 9f,
+                                    ),
+                                    ImageUi(
+                                        url = "https://example.com/preview-landscape-1.jpg",
+                                        altText = "Landscape image 1",
+                                        aspectRatio = 16f / 9f,
+                                    ),
+                                ),
+                        ),
+                ),
+        )
+    }
+}
+
 @PreviewTest
 @Preview(name = "unsupported-embed-light", showBackground = true)
 @Preview(name = "unsupported-embed-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)

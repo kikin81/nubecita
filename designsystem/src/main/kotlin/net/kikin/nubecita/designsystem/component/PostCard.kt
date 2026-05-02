@@ -98,6 +98,7 @@ fun PostCard(
     connectBelow: Boolean = false,
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
+    onImageClick: (imageIndex: Int) -> Unit = {},
 ) {
     // PostCard uses NubecitaAvatar (40dp) with 20dp horizontal + 14dp vertical
     // padding, so the avatar center is at x = 20 + 20 = 40dp, NOT the
@@ -150,6 +151,7 @@ fun PostCard(
                         callbacks = callbacks,
                         videoEmbedSlot = videoEmbedSlot,
                         quotedVideoEmbedSlot = quotedVideoEmbedSlot,
+                        onImageClick = onImageClick,
                     )
                     Spacer(Modifier.height(8.dp))
                     ActionRow(post = post, callbacks = callbacks)
@@ -245,12 +247,13 @@ private fun EmbedSlot(
     callbacks: PostCallbacks,
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)?,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)?,
+    onImageClick: (imageIndex: Int) -> Unit,
 ) {
     when (embed) {
         EmbedUi.Empty -> Unit
         is EmbedUi.Images -> {
             Spacer(Modifier.height(10.dp))
-            PostCardImageEmbed(items = embed.items)
+            PostCardImageEmbed(items = embed.items, onImageClick = onImageClick)
         }
         is EmbedUi.Video -> {
             // No spacer when the host hasn't supplied a slot — the

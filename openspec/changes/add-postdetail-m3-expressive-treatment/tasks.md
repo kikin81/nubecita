@@ -11,11 +11,11 @@
 
 ## 1. Design system: multi-image carousel + per-image-index callback in PostCard
 
-- [ ] 1.1 Add `androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel` usage inside `:designsystem` `PostCard`'s existing image-embed branch — conditional on `images.size > 1`. Single-image path unchanged. The carousel uses M3's default `preferredItemWidth` token (do NOT attempt to clone the single-image path's `fillMaxWidth() + heightIn(max = EMBED_HEIGHT)` sizing — they're not equivalent surfaces).
-- [ ] 1.2 Add an additive `onImageClick: (imageIndex: Int) -> Unit = {}` parameter to PostCard (default no-op). Wire it from the single-image path (`imageIndex = 0`) and from each carousel slide (`imageIndex = slide.index`). Existing call sites compile unchanged.
-- [ ] 1.3 Add a screenshot-test fixture under `:designsystem` rendering a 3-image PostCard via the carousel. Confirm `:feature:feed:impl`'s single-image PostCard fixtures remain byte-for-byte unchanged after the swap.
-- [ ] 1.4 Add a screenshot-test fixture under `:designsystem` for a mixed-aspect-ratio (1 portrait + 2 landscape) 3-image carousel to lock per-slide sizing behavior.
-- [ ] 1.5 Run `./gradlew :designsystem:validateDebugScreenshotTest :feature:feed:impl:validateDebugScreenshotTest` and confirm only the new multi-image fixtures changed; every single-image fixture stays untouched.
+- [x] 1.1 Add `androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel` usage inside `:designsystem` `PostCard`'s existing image-embed branch — conditional on `images.size > 1`. Single-image path unchanged. The carousel uses M3's default `preferredItemWidth` token (do NOT attempt to clone the single-image path's `fillMaxWidth() + heightIn(max = EMBED_HEIGHT)` sizing — they're not equivalent surfaces).
+- [x] 1.2 Add an additive `onImageClick: (imageIndex: Int) -> Unit = {}` parameter to PostCard (default no-op). Wire it from the single-image path (`imageIndex = 0`) and from each carousel slide (`imageIndex = slide.index`). Existing call sites compile unchanged.
+- [x] 1.3 Add a screenshot-test fixture under `:designsystem` rendering a 3-image PostCard via the carousel. Confirm `:feature:feed:impl`'s single-image PostCard fixtures remain byte-for-byte unchanged after the swap.
+- [x] 1.4 Add a screenshot-test fixture under `:designsystem` for a mixed-aspect-ratio (1 portrait + 2 landscape) 3-image carousel to lock per-slide sizing behavior.
+- [x] 1.5 Run `./gradlew :designsystem:validateDebugScreenshotTest :feature:feed:impl:validateDebugScreenshotTest` and confirm only the new multi-image fixtures changed; every single-image fixture stays untouched.
 
 ## 2. PostDetailScreen: Focus Post container hierarchy
 
