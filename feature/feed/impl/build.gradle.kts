@@ -26,6 +26,7 @@ dependencies {
     api(project(":feature:feed:api"))
 
     implementation(project(":core:auth"))
+    implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
     // PostDetailRoute NavKey — pushed onto the back stack when a feed
     // post body is tapped. Imports `:api` only; never `:impl`.

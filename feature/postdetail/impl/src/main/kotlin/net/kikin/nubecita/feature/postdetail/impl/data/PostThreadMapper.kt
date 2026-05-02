@@ -1,26 +1,15 @@
 package net.kikin.nubecita.feature.postdetail.impl.data
 
-import io.github.kikin81.atproto.app.bsky.actor.ProfileViewBasic
 import io.github.kikin81.atproto.app.bsky.feed.BlockedPost
 import io.github.kikin81.atproto.app.bsky.feed.GetPostThreadResponseThreadUnion
 import io.github.kikin81.atproto.app.bsky.feed.NotFoundPost
-import io.github.kikin81.atproto.app.bsky.feed.Post
-import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPost
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPostParentUnion
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPostRepliesUnion
-import io.github.kikin81.atproto.app.bsky.feed.ViewerState
-import io.github.kikin81.atproto.runtime.AtField
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.serialization.json.Json
-import net.kikin.nubecita.data.models.AuthorUi
-import net.kikin.nubecita.data.models.EmbedUi
-import net.kikin.nubecita.data.models.PostStatsUi
-import net.kikin.nubecita.data.models.PostUi
-import net.kikin.nubecita.data.models.ViewerStateUi
-import kotlin.time.Instant
+import net.kikin.nubecita.core.feedmapping.toPostUiCore
 
 /**
  * Maps `app.bsky.feed.getPostThread`'s `thread` open-union response onto
@@ -48,20 +37,9 @@ import kotlin.time.Instant
  * `createdAt`) yields the empty list — the same surface the VM uses for
  * "thread unavailable".
  *
- * # Why the embed slot is collapsed to [EmbedUi.Empty]
- *
- * m28.5.1's scope is "data + VM + minimal loaded screen". Full embed
- * mapping (images, video, quotes, recordWithMedia) duplicates ~200
- * lines of `:feature:feed:impl/data/FeedViewPostMapper.kt` and the
- * shared bits will get extracted to a new `:core:feed-mapping` module
- * during m28.5.2's visual treatment. Until then, every projected
- * [PostUi] gets [EmbedUi.Empty] — the screen renders text + author +
- * action row only, which the task explicitly accepts ("Don't worry if
- * it looks plain — that's the point.").
- *
- * Earmark for the eventual extraction: the four feed-impl helpers
- * needed verbatim are `toPostUiCore`, `toAuthorUi`, `toViewerStateUi`,
- * and `valueOrEmpty`.
+ * Per-post projection (record decode, embed dispatch, author / viewer
+ * mapping) is delegated to `:core:feed-mapping`'s [toPostUiCore] —
+ * single source of truth shared with `:feature:feed:impl`.
  */
 internal fun GetPostThreadResponseThreadUnion.toThreadItems(): ImmutableList<ThreadItem> =
     when (this) {
@@ -135,79 +113,3 @@ private fun ThreadViewPostRepliesUnion.toReplyItems(depth: Int): List<ThreadItem
         is NotFoundPost -> listOf(ThreadItem.NotFound(uri = uri.raw))
         else -> emptyList()
     }
-
-/**
- * `Json` instance used to decode the embedded `post.record: JsonObject`
- * payload as a strongly-typed [Post]. Mirrors `XrpcClient.DefaultJson`
- * (`ignoreUnknownKeys = true`) so server additions to the post record
- * schema don't break decoding for fields the mapper doesn't read.
- *
- * Local copy of the same instance maintained in
- * `:feature:feed:impl/data/FeedViewPostMapper.kt`. To be unified with
- * that copy when the shared mapping module is extracted in m28.5.2.
- */
-private val recordJson: Json =
-    Json {
-        ignoreUnknownKeys = true
-        explicitNulls = false
-    }
-
-/**
- * Project a [PostView] into the UI-ready [PostUi]. Returns `null` when
- * the embedded `record: JsonObject` cannot be decoded as a well-formed
- * `app.bsky.feed.post` record (missing required `text` / `createdAt`,
- * type-incompatible value), or when the decoded `createdAt` is not a
- * parseable RFC3339 timestamp.
- *
- * m28.5.1 collapses the embed slot to [EmbedUi.Empty] regardless of the
- * lexicon-side embed type — see [toThreadItems]'s KDoc for the full
- * rationale and m28.5.2 follow-up.
- */
-private fun PostView.toPostUiCore(): PostUi? {
-    val postRecord =
-        runCatching {
-            recordJson.decodeFromJsonElement(Post.serializer(), record)
-        }.getOrNull() ?: return null
-
-    val createdAt =
-        runCatching { Instant.parse(postRecord.createdAt.raw) }
-            .getOrNull() ?: return null
-
-    return PostUi(
-        id = uri.raw,
-        cid = cid.raw,
-        author = author.toAuthorUi(),
-        createdAt = createdAt,
-        text = postRecord.text,
-        facets = postRecord.facets.valueOrEmpty().toImmutableList(),
-        embed = EmbedUi.Empty,
-        stats =
-            PostStatsUi(
-                replyCount = (replyCount ?: 0L).toInt(),
-                repostCount = (repostCount ?: 0L).toInt(),
-                likeCount = (likeCount ?: 0L).toInt(),
-                quoteCount = (quoteCount ?: 0L).toInt(),
-            ),
-        viewer = viewer.toViewerStateUi(isFollowingAuthor = author.viewer?.following != null),
-        repostedBy = null,
-    )
-}
-
-private fun ProfileViewBasic.toAuthorUi(): AuthorUi =
-    AuthorUi(
-        did = did.raw,
-        handle = handle.raw,
-        displayName = displayName?.takeIf { it.isNotBlank() } ?: handle.raw,
-        avatarUrl = avatar?.raw,
-    )
-
-private fun ViewerState?.toViewerStateUi(isFollowingAuthor: Boolean = false): ViewerStateUi =
-    ViewerStateUi(
-        isLikedByViewer = this?.like != null,
-        isRepostedByViewer = this?.repost != null,
-        isFollowingAuthor = isFollowingAuthor,
-        likeUri = this?.like?.raw,
-        repostUri = this?.repost?.raw,
-    )
-
-private fun <T> AtField<List<T>>.valueOrEmpty(): List<T> = (this as? AtField.Defined)?.value ?: emptyList()

@@ -10,6 +10,7 @@ dependencies {
     api(project(":feature:postdetail:api"))
 
     implementation(project(":core:auth"))
+    implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.atproto.models)
