@@ -4,6 +4,8 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -155,9 +158,15 @@ internal fun PostDetailScreen(
                     // breadcrumb and surface a transient acknowledgement
                     // Snackbar so the FAB tap registers tactile feedback
                     // without blocking the user the way a dialog would.
+                    //
+                    // Log the rkey only — the AtUri's DID segment is
+                    // third-party PII; the rkey alone identifies the post
+                    // within a known dataset, matching the redaction pattern
+                    // in :core:auth's DefaultXrpcClientProvider and the
+                    // post-thread repository's failure logging.
                     Timber.tag("PostDetailScreen").d(
-                        "NavigateToComposer for parent=%s — composer route not yet wired (nubecita-8f6.3); falling back to Snackbar",
-                        effect.parentPostUri,
+                        "NavigateToComposer for parent rkey=%s — composer route not yet wired (nubecita-8f6.3); falling back to Snackbar",
+                        effect.parentPostUri.substringAfterLast('/'),
                     )
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = composerComingSoonMessage)
@@ -167,10 +176,11 @@ internal fun PostDetailScreen(
                     // in :core:common:navigation — tracked under nubecita-e02.
                     // Same acknowledgement-not-broken pattern as
                     // NavigateToComposer above. Removal site is grep-able via
-                    // this Timber tag + the Snackbar string id.
+                    // this Timber tag + the Snackbar string id. Same rkey-
+                    // only redaction policy applies.
                     Timber.tag("PostDetailScreen").d(
-                        "NavigateToMediaViewer for post=%s index=%d — media viewer route not yet wired (nubecita-e02); falling back to Snackbar",
-                        effect.postUri,
+                        "NavigateToMediaViewer for post rkey=%s index=%d — media viewer route not yet wired (nubecita-e02); falling back to Snackbar",
+                        effect.postUri.substringAfterLast('/'),
                         effect.imageIndex,
                     )
                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -223,21 +233,24 @@ internal fun PostDetailScreenContent(
             )
         },
         floatingActionButton = {
-            // Visible in the loaded states (Idle / Refreshing) — design
-            // Decision 3 says "always visible, no hide-on-scroll", which
-            // refers to scroll behavior; gating against initial-loading /
-            // initial-error keeps the FAB from advertising a "Reply"
-            // action when the post hasn't resolved yet (TalkBack would
-            // announce it as actionable). Standard FloatingActionButton
-            // (M3 baseline elevation, circle shape, primaryContainer tint
-            // by default); the catalog's material3 1.5.0-alpha18 ships
-            // M3 Expressive size variants but the design intent is
-            // "Threads-style without the Threads-shape" — the standard
-            // FAB nails the vocabulary without reaching for an Expressive
-            // size we'd then have to tune for the bottom-padding clearance.
-            val showFab =
-                state.loadStatus is PostDetailLoadStatus.Idle ||
-                    state.loadStatus is PostDetailLoadStatus.Refreshing
+            // Design Decision 3 says "always visible, no hide-on-scroll",
+            // which refers to scroll behavior. Gating on `items.isNotEmpty()`
+            // (rather than just `loadStatus`) keeps the FAB hidden through
+            // the default-Idle pre-load frame too — a fresh `PostDetailState()`
+            // is `Idle` with empty items before the first Load resolves, and
+            // showing a "Reply to post" affordance against zero items is the
+            // unloaded-state issue the gate is trying to avoid. Once a Focus
+            // is in items, the FAB stays visible across Idle ↔ Refreshing
+            // (refresh in progress doesn't hide it).
+            //
+            // Standard FloatingActionButton (M3 baseline elevation, circle
+            // shape, primaryContainer tint); the catalog's material3
+            // 1.5.0-alpha18 ships M3 Expressive size variants but the design
+            // intent is "Threads-style without the Threads-shape" — the
+            // standard FAB nails the vocabulary without reaching for an
+            // Expressive size we'd then have to tune for bottom-padding
+            // clearance.
+            val showFab = state.items.isNotEmpty()
             if (showFab) {
                 FloatingActionButton(onClick = onReply) {
                     Icon(
@@ -293,13 +306,23 @@ private fun LoadedThread(
     // thread scroll position. Per design.md Decision 3 occlusion safeguard
     // (~80–100dp combined): 56dp standard FAB + 16dp Material edge spacing
     // + 16dp safety margin = 88dp.
+    //
+    // Preserves Scaffold's start/end insets (landscape system bars,
+    // adaptive split-pane horizontal safe-area padding) instead of
+    // hardcoding them to 0.dp — without this the thread content would
+    // render under those insets on layouts that supply non-zero
+    // horizontal padding. Resolution requires the LayoutDirection so RTL
+    // locales pick up the right side of the inset pair.
+    val layoutDirection = LocalLayoutDirection.current
     val mergedContentPadding =
-        PaddingValues(
-            top = contentPadding.calculateTopPadding(),
-            bottom = contentPadding.calculateBottomPadding() + FAB_BOTTOM_CLEARANCE,
-            start = 0.dp,
-            end = 0.dp,
-        )
+        remember(contentPadding, layoutDirection) {
+            PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding() + FAB_BOTTOM_CLEARANCE,
+                start = contentPadding.calculateStartPadding(layoutDirection),
+                end = contentPadding.calculateEndPadding(layoutDirection),
+            )
+        }
     PullToRefreshBox(
         state = pullState,
         isRefreshing = isRefreshing,

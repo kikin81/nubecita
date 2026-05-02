@@ -41,19 +41,25 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * mappers SHOULD never produce an empty list, but the empty branch is
  * defensive (renders nothing rather than throwing).
  *
- * Image taps fire [onImageClick] with the per-image index. Default is
- * a no-op so existing call sites that don't care about taps (the feed,
- * which has no media-viewer wiring as of m28.5.2) compile unchanged.
+ * [onImageClick] is **opt-in** by being nullable with a default of `null`:
+ * - `null` (default) — image cells render WITHOUT a clickable wrapper,
+ *   so taps bubble up to the parent `PostCard`'s body-tap clickable.
+ *   This is the contract the feed relies on (tapping any region of a
+ *   PostCard, including the embed, opens post-detail).
+ * - non-null — the per-image cell intercepts the tap and dispatches
+ *   `onImageClick(index)`. Used by the post-detail Focus PostCard to
+ *   open the fullscreen media viewer; the parent body-tap still fires
+ *   for non-image regions.
  */
 @Composable
 fun PostCardImageEmbed(
     items: ImmutableList<ImageUi>,
     modifier: Modifier = Modifier,
-    onImageClick: (imageIndex: Int) -> Unit = {},
+    onImageClick: ((imageIndex: Int) -> Unit)? = null,
 ) {
     when (items.size) {
         0 -> Unit
-        1 -> SingleImage(items[0], modifier, onClick = { onImageClick(0) })
+        1 -> SingleImage(items[0], modifier, onClick = onImageClick?.let { handler -> { handler(0) } })
         else -> MultiImageCarousel(items, modifier, onImageClick)
     }
 }
@@ -62,8 +68,10 @@ fun PostCardImageEmbed(
 private fun SingleImage(
     image: ImageUi,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit = {},
+    onClick: (() -> Unit)? = null,
 ) {
+    val clickModifier =
+        if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
     NubecitaAsyncImage(
         model = image.url,
         contentDescription = image.altText,
@@ -72,7 +80,7 @@ private fun SingleImage(
                 .fillMaxWidth()
                 .heightIn(max = EMBED_HEIGHT)
                 .clip(IMAGE_SHAPE)
-                .clickable(onClick = onClick),
+                .then(clickModifier),
         contentScale = ContentScale.Crop,
     )
 }
@@ -99,7 +107,7 @@ private fun SingleImage(
 private fun MultiImageCarousel(
     items: ImmutableList<ImageUi>,
     modifier: Modifier = Modifier,
-    onImageClick: (imageIndex: Int) -> Unit = {},
+    onImageClick: ((imageIndex: Int) -> Unit)? = null,
 ) {
     val state = rememberCarouselState(itemCount = { items.size })
     HorizontalMultiBrowseCarousel(
@@ -112,12 +120,18 @@ private fun MultiImageCarousel(
         itemSpacing = EMBED_GAP,
     ) { index ->
         val image = items[index]
+        // Only attach a per-slide clickable when the caller actually
+        // wired one; otherwise the parent PostCard's body-tap claims
+        // the gesture, matching the feed's "tap anywhere → post detail"
+        // contract.
+        val clickModifier =
+            if (onImageClick != null) Modifier.clickable { onImageClick(index) } else Modifier
         Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .clip(IMAGE_SHAPE)
-                    .clickable { onImageClick(index) },
+                    .then(clickModifier),
         ) {
             NubecitaAsyncImage(
                 model = image.url,
