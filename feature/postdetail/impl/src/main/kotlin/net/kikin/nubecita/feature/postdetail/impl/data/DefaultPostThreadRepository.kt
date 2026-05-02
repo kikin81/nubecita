@@ -31,10 +31,19 @@ internal class DefaultPostThreadRepository
                     // :feature:feed:impl/data/DefaultFeedRepository — emits the
                     // throwable's javaClass.name so the Unknown-error VM branch
                     // doesn't swallow which atproto-stack exception we hit.
+                    //
+                    // Logs the post's rkey (the segment after the final `/`)
+                    // rather than the full AtUri because the URI's DID
+                    // segment is third-party PII. The rkey alone identifies
+                    // the post within a known dataset, matches the
+                    // redaction policy used in :core:auth's
+                    // DefaultXrpcClientProvider for cache-event logging,
+                    // and keeps the diagnostic signal we actually need
+                    // (which post failed, which exception type).
                     Timber.tag(TAG).e(
                         throwable,
-                        "getPostThread(uri=%s) failed: %s",
-                        uri,
+                        "getPostThread(rkey=%s) failed: %s",
+                        uri.substringAfterLast('/'),
                         throwable.javaClass.name,
                     )
                 }
