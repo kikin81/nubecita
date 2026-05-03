@@ -122,7 +122,7 @@ internal class FeedViewModel
                             // `add-feed-same-author-thread-chain` design
                             // Decision 3, arbitrary cursor cuts shouldn't
                             // visually break a self-thread chain.
-                            val (boundaryMergedExisting, boundaryMergedPage) =
+                            val merge =
                                 mergeChainBoundary(
                                     existing = feedItems,
                                     newPageItems = page.feedItems,
@@ -133,8 +133,8 @@ internal class FeedViewModel
                             // cursor resyncs) doesn't show the same item twice. The
                             // key is the leaf URI for ReplyCluster / SelfThreadChain
                             // and the post URI for Single — stable across paging.
-                            val seen = boundaryMergedExisting.mapTo(HashSet()) { it.key }
-                            val merged = (boundaryMergedExisting + boundaryMergedPage.filter { seen.add(it.key) })
+                            val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
+                            val merged = (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
                             copy(
                                 feedItems = merged.dedupeClusterContext().toImmutableList(),
                                 nextCursor = page.nextCursor,
@@ -337,20 +337,35 @@ internal class FeedViewModel
     }
 
 /**
+ * Result of [mergeChainBoundary]. Two `ImmutableList<FeedItemUi>` fields
+ * with named slots — the previous `Pair<ImmutableList, ImmutableList>`
+ * shape was a destructuring footgun: a future caller writing
+ * `val (page, existing) = mergeChainBoundary(...)` (wrong order) would
+ * compile cleanly and silently render the feed out of order. Named
+ * fields make the intent unambiguous at every call site.
+ */
+private data class ChainBoundaryMerge(
+    /**
+     * Existing `feedItems` with the tail popped if it was absorbed into
+     * a chain at the new page's head; otherwise unchanged.
+     */
+    val trimmedExisting: ImmutableList<FeedItemUi>,
+    /**
+     * The new page's `feedItems` with its first entry replaced by an
+     * absorbing [FeedItemUi.SelfThreadChain] when the merge fired;
+     * otherwise unchanged.
+     */
+    val pageWithAbsorbedHead: ImmutableList<FeedItemUi>,
+)
+
+/**
  * Page-boundary chain merge. Given the existing `feedItems` and a
  * freshly-loaded `TimelinePage`, attempt to absorb the existing tail
  * into the new page's first feed item if the strict link rule holds.
  *
- * Returns a pair of `(boundaryMergedExisting, boundaryMergedPage)`:
- *
- * - `boundaryMergedExisting` is `existing` with its last entry popped
- *   (the tail was absorbed) OR `existing` unchanged (no merge happened).
- * - `boundaryMergedPage` is `newPageItems` with its first entry replaced
- *   by an absorbing [FeedItemUi.SelfThreadChain] (the merge happened) OR
- *   `newPageItems` unchanged (no merge happened).
- *
- * Caller appends the two halves; subsequent dedupe-by-key handles any
- * server-side overlap independently.
+ * Caller appends [ChainBoundaryMerge.trimmedExisting] to
+ * [ChainBoundaryMerge.pageWithAbsorbedHead]; subsequent dedupe-by-key
+ * handles any server-side overlap independently.
  *
  * Merge is rejected (no-op) when:
  * - `existing` is empty or `newPageItems` / `newPageWirePosts` is empty.
@@ -373,9 +388,9 @@ private fun mergeChainBoundary(
     existing: ImmutableList<FeedItemUi>,
     newPageItems: ImmutableList<FeedItemUi>,
     newPageWirePosts: ImmutableList<FeedViewPost>,
-): Pair<ImmutableList<FeedItemUi>, ImmutableList<FeedItemUi>> {
+): ChainBoundaryMerge {
     if (existing.isEmpty() || newPageItems.isEmpty() || newPageWirePosts.isEmpty()) {
-        return existing to newPageItems
+        return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = newPageItems)
     }
 
     val existingTail = existing.last()
@@ -383,13 +398,14 @@ private fun mergeChainBoundary(
         when (existingTail) {
             is FeedItemUi.Single -> listOf(existingTail.post)
             is FeedItemUi.SelfThreadChain -> existingTail.posts
-            is FeedItemUi.ReplyCluster -> return existing to newPageItems
+            is FeedItemUi.ReplyCluster ->
+                return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = newPageItems)
         }
     val tailLeafPost = tailPosts.last()
 
     val firstWire = newPageWirePosts.first()
     if (!tailLeafPost.linksToWire(firstWire)) {
-        return existing to newPageItems
+        return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = newPageItems)
     }
 
     // Extract the new page's first-item posts to prepend the existing
@@ -414,8 +430,10 @@ private fun mergeChainBoundary(
             posts = (tailPosts + newFirstPosts).toImmutableList(),
         )
 
-    return existing.dropLast(1).toImmutableList() to
-        (listOf<FeedItemUi>(absorbedFirst) + newPageItems.drop(1)).toImmutableList()
+    return ChainBoundaryMerge(
+        trimmedExisting = existing.dropLast(1).toImmutableList(),
+        pageWithAbsorbedHead = (listOf<FeedItemUi>(absorbedFirst) + newPageItems.drop(1)).toImmutableList(),
+    )
 }
 
 /**
