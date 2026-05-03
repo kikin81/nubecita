@@ -51,16 +51,18 @@ class FeedItemUiTest {
     }
 
     @Test
-    fun `Single and ReplyCluster are exhaustive when targets`() {
+    fun `Single, ReplyCluster, and SelfThreadChain are exhaustive when targets`() {
         // The compiler verifies exhaustiveness; this test exists so a
-        // future variant addition (e.g. SelfThreadChain) breaks this
-        // compile and forces the implementer to update render
-        // dispatch sites everywhere.
+        // future variant addition breaks this compile and forces the
+        // implementer to update render dispatch sites everywhere.
+        // (Updated when SelfThreadChain landed in m28.4 — the test
+        // tripwire fired exactly as designed.)
         val item: FeedItemUi = FeedItemUi.Single(PostUiFixtures.fakePost())
         val rendered: String =
             when (item) {
                 is FeedItemUi.Single -> "single"
                 is FeedItemUi.ReplyCluster -> "cluster"
+                is FeedItemUi.SelfThreadChain -> "chain"
             }
         assertEquals("single", rendered)
     }

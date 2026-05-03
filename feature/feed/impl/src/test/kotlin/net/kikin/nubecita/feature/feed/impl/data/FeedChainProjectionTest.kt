@@ -36,16 +36,16 @@ internal class FeedChainProjectionTest {
     fun `three consecutive same-author self-replies project to one SelfThreadChain`() {
         val response =
             decodeTimeline(
-                feedEntry(uri = "at://did:plc:alice/post/1", authorDid = "did:plc:alice"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/2",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/1", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                 ),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/3",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/2", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/3",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/2", "did:plc:alice000000000000000000"),
                 ),
             )
 
@@ -54,22 +54,22 @@ internal class FeedChainProjectionTest {
         assertEquals(1, items.size)
         val chain = assertInstanceOf(FeedItemUi.SelfThreadChain::class.java, items[0])
         assertEquals(3, chain.posts.size)
-        assertEquals("at://did:plc:alice/post/1", chain.posts[0].id)
-        assertEquals("at://did:plc:alice/post/2", chain.posts[1].id)
-        assertEquals("at://did:plc:alice/post/3", chain.posts[2].id)
+        assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", chain.posts[0].id)
+        assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/2", chain.posts[1].id)
+        assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/3", chain.posts[2].id)
         // Leaf-anchored key matches the last post's URI.
-        assertEquals("at://did:plc:alice/post/3", chain.key)
+        assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/3", chain.key)
     }
 
     @Test
     fun `two consecutive same-author self-replies project to one SelfThreadChain`() {
         val response =
             decodeTimeline(
-                feedEntry(uri = "at://did:plc:alice/post/1", authorDid = "did:plc:alice"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/2",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/1", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                 ),
             )
 
@@ -86,21 +86,21 @@ internal class FeedChainProjectionTest {
         // does NOT match B.replyX.uri, so the link rule rejects.
         val response =
             decodeTimeline(
-                feedEntry(uri = "at://did:plc:alice/post/1", authorDid = "did:plc:alice"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/2",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/1", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                 ),
                 feedEntry(
-                    uri = "at://did:plc:bob/post/x",
-                    authorDid = "did:plc:bob",
-                    replyParent = ReplyParent("at://did:plc:bob/post/0", "did:plc:bob"),
+                    uri = "at://did:plc:bob00000000000000000000/app.bsky.feed.post/x",
+                    authorDid = "did:plc:bob00000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:bob00000000000000000000/app.bsky.feed.post/0", "did:plc:bob00000000000000000000"),
                 ),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/3",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/2", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/3",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/2", "did:plc:alice000000000000000000"),
                 ),
             )
 
@@ -117,18 +117,18 @@ internal class FeedChainProjectionTest {
         // detection only collapses adjacent same-author runs; orphans
         // surface unchanged.
         val orphan = assertInstanceOf(FeedItemUi.ReplyCluster::class.java, items[2])
-        assertEquals("at://did:plc:alice/post/3", orphan.leaf.id)
+        assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/3", orphan.leaf.id)
     }
 
     @Test
     fun `reposted entry on the next side breaks the chain`() {
         val response =
             decodeTimeline(
-                feedEntry(uri = "at://did:plc:alice/post/1", authorDid = "did:plc:alice"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/2",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/1", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                     reposterHandle = "did:plc:reposter",
                 ),
             )
@@ -151,14 +151,14 @@ internal class FeedChainProjectionTest {
         val response =
             decodeTimeline(
                 feedEntry(
-                    uri = "at://did:plc:alice/post/1",
-                    authorDid = "did:plc:alice",
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1",
+                    authorDid = "did:plc:alice000000000000000000",
                     reposterHandle = "did:plc:reposter",
                 ),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/2",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/1", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                 ),
             )
 
@@ -179,12 +179,12 @@ internal class FeedChainProjectionTest {
         // strict rule rejects skip-ahead chains.
         val response =
             decodeTimeline(
-                feedEntry(uri = "at://did:plc:alice/post/1", authorDid = "did:plc:alice"),
-                feedEntry(uri = "at://did:plc:alice/post/2", authorDid = "did:plc:alice"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2", authorDid = "did:plc:alice000000000000000000"),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/3",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/1", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/3",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                 ),
             )
 
@@ -206,13 +206,13 @@ internal class FeedChainProjectionTest {
     fun `parent author DID mismatch breaks the chain`() {
         val response =
             decodeTimeline(
-                feedEntry(uri = "at://did:plc:alice/post/1", authorDid = "did:plc:alice"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                 feedEntry(
                     // post.author = alice, but reply.parent.author = bob —
                     // not a same-author self-reply.
-                    uri = "at://did:plc:alice/post/2",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/1", "did:plc:bob"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:bob00000000000000000000"),
                 ),
             )
 
@@ -226,8 +226,8 @@ internal class FeedChainProjectionTest {
     fun `non-chain entries flow through the per-entry projection unchanged`() {
         val response =
             decodeTimeline(
-                feedEntry(uri = "at://did:plc:alice/post/1", authorDid = "did:plc:alice"),
-                feedEntry(uri = "at://did:plc:bob/post/1", authorDid = "did:plc:bob"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
+                feedEntry(uri = "at://did:plc:bob/post/1", authorDid = "did:plc:bob00000000000000000000"),
             )
 
         val items = response.feed.toFeedItemsUi()
@@ -237,7 +237,7 @@ internal class FeedChainProjectionTest {
         assertEquals(2, items.size)
         val first = assertInstanceOf(FeedItemUi.Single::class.java, items[0])
         val second = assertInstanceOf(FeedItemUi.Single::class.java, items[1])
-        assertEquals("at://did:plc:alice/post/1", first.post.id)
+        assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", first.post.id)
         assertEquals("at://did:plc:bob/post/1", second.post.id)
     }
 
@@ -245,13 +245,13 @@ internal class FeedChainProjectionTest {
     fun `chain followed by Single keeps both as separate items`() {
         val response =
             decodeTimeline(
-                feedEntry(uri = "at://did:plc:alice/post/1", authorDid = "did:plc:alice"),
+                feedEntry(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                 feedEntry(
-                    uri = "at://did:plc:alice/post/2",
-                    authorDid = "did:plc:alice",
-                    replyParent = ReplyParent("at://did:plc:alice/post/1", "did:plc:alice"),
+                    uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                    authorDid = "did:plc:alice000000000000000000",
+                    replyParent = ReplyParent("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                 ),
-                feedEntry(uri = "at://did:plc:bob/post/1", authorDid = "did:plc:bob"),
+                feedEntry(uri = "at://did:plc:bob/post/1", authorDid = "did:plc:bob00000000000000000000"),
             )
 
         val items = response.feed.toFeedItemsUi()

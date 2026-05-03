@@ -42,9 +42,13 @@ A chain SHALL be a maximal run of linked entries (size ≥ 2). Non-linked entrie
 
 ### Requirement: Page-boundary chain merge preserves chains across pagination cuts
 
-The system's `FeedViewModel` SHALL merge chains across pagination boundaries. In both `applyInitialPage` (replacing `feedItems` on initial load + refresh) AND in the `LoadMore` reducer step (appending a new page), the VM MUST attempt to extend the existing tail of `feedItems` into a chain with the incoming page's head before appending. The merge is a fixed-point loop: after extending the tail, the VM MUST attempt to extend again with the next entry, until the new page's head no longer satisfies the link rule with the (possibly-grown) tail.
+The system's `FeedViewModel` SHALL merge chains across pagination boundaries in the `LoadMore` reducer step (appending a new page). The VM MUST attempt to absorb the existing tail of `feedItems` into the incoming page's first feed item before appending, so an arbitrary cursor cut never visually splits a self-thread chain.
 
-The merge logic operates over both projected `FeedItemUi` values AND the wire-level `FeedViewPost` data (for the `reply.parent.uri` check). The new `TimelinePage` carrier MUST expose both surfaces.
+The merge runs only in `LoadMore`. `applyInitialPage` and `Refresh` REPLACE `feedItems` entirely, so there is no existing tail to merge — chain detection within the new page is already complete via the page-internal `toFeedItemsUi` projection.
+
+The merge is a single-step extension, not an iterative loop. The page-internal projection has already grouped consecutive linked entries within the new page into one `SelfThreadChain` at the head; the boundary merge prepends the existing tail's posts to that head item. Subsequent new-page entries are unaffected — the strict link rule's adjacency requirement is preserved by construction.
+
+The merge logic operates over both projected `FeedItemUi` values AND the wire-level `FeedViewPost` data (for the `reply.parent.uri` check). The new `TimelinePage` carrier MUST expose both surfaces. The merge MUST also strip a leading cursor-resync overlap (a new-page wire entry whose `post.uri` matches the existing tail's leaf URI) before running the link check, so the chain extends across the overlap rather than rejecting and rendering visually split.
 
 #### Scenario: Chain extends across a pagination boundary
 
@@ -67,6 +71,11 @@ The merge logic operates over both projected `FeedItemUi` values AND the wire-le
 
 - **WHEN** the merge produces a `SelfThreadChain` whose leaf is `A.reply2` and a subsequent `LoadMore` returns a page that re-includes `A.reply2` at its head
 - **THEN** the existing `seen.add(it.key)` de-dupe step (keyed on `FeedItemUi.key`) SHALL drop the duplicate `A.reply2` entry. The chain's `key == A.reply2.id`, so the duplicate fails `seen.add` and is filtered out before merge attempts.
+
+#### Scenario: Cursor-resync overlap at the page head extends rather than splits
+
+- **WHEN** `feedItems` ends with `Single(A.post1)` and the new page's wire entries are `[A.post1, A.reply2, ...]` — the server replayed the existing tail's leaf as the first wire entry (cursor-resync overlap), and `A.reply2.reply.parent.uri == A.post1.uri`
+- **THEN** the merge SHALL strip the leading overlap entry (`A.post1`) from both the wire and projected feed-items lists in lockstep, then run the link check against the next wire entry (`A.reply2`). Because the link rule passes, the result is `[..., SelfThreadChain([A.post1, A.reply2]), ...]` — the chain extends across the resync rather than rendering visually split with `A.post1` shown twice.
 
 ### Requirement: `SelfThreadChain` rendering uses existing `PostCard` connector flags
 

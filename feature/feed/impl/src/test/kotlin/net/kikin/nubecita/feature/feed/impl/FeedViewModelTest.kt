@@ -712,11 +712,11 @@ internal class FeedViewModelTest {
             val vm = FeedViewModel(repo, FakeLikeRepostRepository())
 
             vm.effects.test {
-                vm.handleEvent(FeedEvent.OnAuthorTapped("did:plc:alice"))
+                vm.handleEvent(FeedEvent.OnAuthorTapped("did:plc:alice000000000000000000"))
 
                 val effect = awaitItem()
                 assertTrue(effect is FeedEffect.NavigateToAuthor)
-                assertEquals("did:plc:alice", (effect as FeedEffect.NavigateToAuthor).authorDid)
+                assertEquals("did:plc:alice000000000000000000", (effect as FeedEffect.NavigateToAuthor).authorDid)
             }
         }
 
@@ -730,7 +730,7 @@ internal class FeedViewModelTest {
                 chainTimelinePage(
                     cursor = "c1",
                     chainEntries(
-                        ChainEntrySpec(uri = "at://alice/1", authorDid = "did:plc:alice"),
+                        ChainEntrySpec(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                     ),
                 )
             val page2 =
@@ -738,9 +738,9 @@ internal class FeedViewModelTest {
                     cursor = null,
                     chainEntries(
                         ChainEntrySpec(
-                            uri = "at://alice/2",
-                            authorDid = "did:plc:alice",
-                            replyParent = ParentRef("at://alice/1", "did:plc:alice"),
+                            uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                            authorDid = "did:plc:alice000000000000000000",
+                            replyParent = ParentRef("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                         ),
                     ),
                 )
@@ -758,8 +758,8 @@ internal class FeedViewModelTest {
             assertTrue(chain is FeedItemUi.SelfThreadChain, "expected SelfThreadChain, got $chain")
             chain as FeedItemUi.SelfThreadChain
             assertEquals(2, chain.posts.size)
-            assertEquals("at://alice/1", chain.posts[0].id)
-            assertEquals("at://alice/2", chain.posts[1].id)
+            assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", chain.posts[0].id)
+            assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/2", chain.posts[1].id)
         }
 
     @Test
@@ -769,14 +769,14 @@ internal class FeedViewModelTest {
                 chainTimelinePage(
                     cursor = "c1",
                     chainEntries(
-                        ChainEntrySpec(uri = "at://alice/1", authorDid = "did:plc:alice"),
+                        ChainEntrySpec(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                     ),
                 )
             val page2 =
                 chainTimelinePage(
                     cursor = null,
                     chainEntries(
-                        ChainEntrySpec(uri = "at://bob/1", authorDid = "did:plc:bob"),
+                        ChainEntrySpec(uri = "at://did:plc:bob00000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:bob00000000000000000000"),
                     ),
                 )
             val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
@@ -801,11 +801,11 @@ internal class FeedViewModelTest {
                 chainTimelinePage(
                     cursor = "c1",
                     chainEntries(
-                        ChainEntrySpec(uri = "at://alice/1", authorDid = "did:plc:alice"),
+                        ChainEntrySpec(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                         ChainEntrySpec(
-                            uri = "at://alice/2",
-                            authorDid = "did:plc:alice",
-                            replyParent = ParentRef("at://alice/1", "did:plc:alice"),
+                            uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                            authorDid = "did:plc:alice000000000000000000",
+                            replyParent = ParentRef("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                         ),
                     ),
                 )
@@ -814,9 +814,9 @@ internal class FeedViewModelTest {
                     cursor = null,
                     chainEntries(
                         ChainEntrySpec(
-                            uri = "at://alice/3",
-                            authorDid = "did:plc:alice",
-                            replyParent = ParentRef("at://alice/2", "did:plc:alice"),
+                            uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/3",
+                            authorDid = "did:plc:alice000000000000000000",
+                            replyParent = ParentRef("at://did:plc:alice000000000000000000/app.bsky.feed.post/2", "did:plc:alice000000000000000000"),
                         ),
                     ),
                 )
@@ -832,7 +832,51 @@ internal class FeedViewModelTest {
             assertEquals(1, items.size)
             val chain = items.single() as FeedItemUi.SelfThreadChain
             assertEquals(3, chain.posts.size)
-            assertEquals("at://alice/3", chain.posts.last().id)
+            assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/3", chain.posts.last().id)
+        }
+
+    @Test
+    fun `LoadMore extends a chain across cursor-resync overlap (server replays the existing tail)`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Page 1 ends on alice/1. Page 2's first wire entry is alice/1
+            // again (server resync overlap), then the actual successor
+            // alice/2. The boundary merge MUST skip the duplicate and
+            // run the link check against alice/2, otherwise the chain
+            // would render visually split.
+            val page1 =
+                chainTimelinePage(
+                    cursor = "c1",
+                    chainEntries(
+                        ChainEntrySpec(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
+                    ),
+                )
+            val page2 =
+                chainTimelinePage(
+                    cursor = null,
+                    chainEntries(
+                        // Overlap: server replays alice/1 as the first entry.
+                        ChainEntrySpec(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
+                        ChainEntrySpec(
+                            uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                            authorDid = "did:plc:alice000000000000000000",
+                            replyParent = ParentRef("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
+                        ),
+                    ),
+                )
+            val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
+            val vm = FeedViewModel(repo, FakeLikeRepostRepository())
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            vm.handleEvent(FeedEvent.LoadMore)
+            advanceUntilIdle()
+
+            val items = vm.uiState.value.feedItems
+            assertEquals(1, items.size, "tail merged across the resync overlap into one chain")
+            val chain = items.single() as FeedItemUi.SelfThreadChain
+            assertEquals(2, chain.posts.size)
+            assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", chain.posts[0].id)
+            assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/2", chain.posts[1].id)
         }
 
     @Test
@@ -845,20 +889,20 @@ internal class FeedViewModelTest {
                 chainTimelinePage(
                     cursor = null,
                     chainEntries(
-                        ChainEntrySpec(uri = "at://alice/1", authorDid = "did:plc:alice"),
+                        ChainEntrySpec(uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/1", authorDid = "did:plc:alice000000000000000000"),
                         ChainEntrySpec(
-                            uri = "at://alice/2",
-                            authorDid = "did:plc:alice",
-                            replyParent = ParentRef("at://alice/1", "did:plc:alice"),
+                            uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/2",
+                            authorDid = "did:plc:alice000000000000000000",
+                            replyParent = ParentRef("at://did:plc:alice000000000000000000/app.bsky.feed.post/1", "did:plc:alice000000000000000000"),
                         ),
                         ChainEntrySpec(
-                            uri = "at://alice/3",
-                            authorDid = "did:plc:alice",
-                            replyParent = ParentRef("at://alice/2", "did:plc:alice"),
+                            uri = "at://did:plc:alice000000000000000000/app.bsky.feed.post/3",
+                            authorDid = "did:plc:alice000000000000000000",
+                            replyParent = ParentRef("at://did:plc:alice000000000000000000/app.bsky.feed.post/2", "did:plc:alice000000000000000000"),
                         ),
                     ),
                 )
-            val likeRepo = FakeLikeRepostRepository(likeResult = { Result.success(AtUri("at://alice/like/1")) })
+            val likeRepo = FakeLikeRepostRepository(likeResult = { Result.success(AtUri("at://did:plc:alice000000000000000000/app.bsky.feed.like/1")) })
             val repo = FakeFeedRepository(pages = listOf(Result.success(page)))
             val vm = FeedViewModel(repo, likeRepo)
 

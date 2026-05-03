@@ -403,9 +403,26 @@ private fun mergeChainBoundary(
         }
     val tailLeafPost = tailPosts.last()
 
-    val firstWire = newPageWirePosts.first()
+    // Strip a leading cursor-resync overlap before running the link
+    // check: if the server replays the existing tail's leaf as the new
+    // page's first wire entry, dropping it lets the link rule fire
+    // against the actual successor (wirePosts[1]) rather than rejecting
+    // and leaving the chain visually split. Both the wire list and the
+    // projected feed items list are trimmed in lockstep so they stay
+    // index-aligned for the absorption step below.
+    val (effectiveWirePosts, effectivePageItems) =
+        stripLeadingTailOverlap(
+            tailLeafId = tailLeafPost.id,
+            wirePosts = newPageWirePosts,
+            pageItems = newPageItems,
+        )
+    if (effectiveWirePosts.isEmpty() || effectivePageItems.isEmpty()) {
+        return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = effectivePageItems)
+    }
+
+    val firstWire = effectiveWirePosts.first()
     if (!tailLeafPost.linksToWire(firstWire)) {
-        return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = newPageItems)
+        return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = effectivePageItems)
     }
 
     // Extract the new page's first-item posts to prepend the existing
@@ -418,22 +435,82 @@ private fun mergeChainBoundary(
     //   matters — the cluster's root/parent context is exactly the post
     //   at the end of the existing tail (alice/N) which we're already
     //   prepending. Adding root/parent again would duplicate it.
-    val newFirstItem = newPageItems.first()
+    val newFirstItem = effectivePageItems.first()
     val newFirstPosts: List<PostUi> =
         when (newFirstItem) {
             is FeedItemUi.Single -> listOf(newFirstItem.post)
             is FeedItemUi.ReplyCluster -> listOf(newFirstItem.leaf)
             is FeedItemUi.SelfThreadChain -> newFirstItem.posts
         }
+    // Defense in depth: even after the leading-overlap strip above, drop
+    // any prefix of newFirstPosts whose URIs match the existing tail's
+    // posts. A future server overlap shape we haven't seen yet won't
+    // produce a duplicated post inside the merged chain.
+    val tailIds = tailPosts.mapTo(HashSet()) { it.id }
+    val deduplicatedNewFirstPosts = newFirstPosts.dropWhile { it.id in tailIds }
+    if (deduplicatedNewFirstPosts.isEmpty()) {
+        return ChainBoundaryMerge(
+            trimmedExisting = existing,
+            pageWithAbsorbedHead = effectivePageItems.drop(1).toImmutableList(),
+        )
+    }
     val absorbedFirst =
         FeedItemUi.SelfThreadChain(
-            posts = (tailPosts + newFirstPosts).toImmutableList(),
+            posts = (tailPosts + deduplicatedNewFirstPosts).toImmutableList(),
         )
 
     return ChainBoundaryMerge(
         trimmedExisting = existing.dropLast(1).toImmutableList(),
-        pageWithAbsorbedHead = (listOf<FeedItemUi>(absorbedFirst) + newPageItems.drop(1)).toImmutableList(),
+        pageWithAbsorbedHead = (listOf<FeedItemUi>(absorbedFirst) + effectivePageItems.drop(1)).toImmutableList(),
     )
+}
+
+/**
+ * Drops a leading new-page entry whose post URI matches the existing
+ * tail's leaf URI — the cursor-resync overlap pattern. Trims both the
+ * wire-level and projected-feed-items lists in lockstep so the
+ * boundary-merge link check runs against the next NEW wire entry.
+ *
+ * Three projection shapes the leading wire entry might take:
+ * - [FeedItemUi.Single] / [FeedItemUi.ReplyCluster]: drop both lists' first
+ *   element together (the projection consumed exactly one wire entry).
+ * - [FeedItemUi.SelfThreadChain]: the chain's leading post is the
+ *   overlap; drop the chain's first post (collapse to a Single if the
+ *   remaining size is 1, or a smaller chain if ≥ 2). Drop the matching
+ *   wire entry. The chain's body is preserved so post-overlap entries
+ *   still flow into the boundary merge.
+ *
+ * Repeats while the leading wire entry's URI keeps matching the tail
+ * leaf — handles the rare multi-entry overlap pattern transparently.
+ */
+private fun stripLeadingTailOverlap(
+    tailLeafId: String,
+    wirePosts: ImmutableList<FeedViewPost>,
+    pageItems: ImmutableList<FeedItemUi>,
+): Pair<ImmutableList<FeedViewPost>, ImmutableList<FeedItemUi>> {
+    var w: List<FeedViewPost> = wirePosts
+    var p: List<FeedItemUi> = pageItems
+    while (w.isNotEmpty() && p.isNotEmpty() && w
+            .first()
+            .post.uri.raw == tailLeafId
+    ) {
+        w = w.drop(1)
+        val firstItem = p.first()
+        val replacementHead: List<FeedItemUi> =
+            when (firstItem) {
+                is FeedItemUi.Single, is FeedItemUi.ReplyCluster -> emptyList()
+                is FeedItemUi.SelfThreadChain -> {
+                    val chainTail = firstItem.posts.drop(1)
+                    when (chainTail.size) {
+                        0 -> emptyList() // unreachable: SelfThreadChain invariant size >= 2
+                        1 -> listOf(FeedItemUi.Single(chainTail.first()))
+                        else -> listOf(FeedItemUi.SelfThreadChain(chainTail.toImmutableList()))
+                    }
+                }
+            }
+        p = replacementHead + p.drop(1)
+    }
+    return w.toImmutableList() to p.toImmutableList()
 }
 
 /**
