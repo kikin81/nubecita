@@ -811,4 +811,5 @@ private fun FeedItemUi.leafPost(): PostUi =
     when (this) {
         is FeedItemUi.Single -> post
         is FeedItemUi.ReplyCluster -> leaf
+        is FeedItemUi.SelfThreadChain -> posts.last()
     }

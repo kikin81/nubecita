@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.media.AudioManager
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -320,16 +321,21 @@ private fun LoadedFeedContent(
                     when (it) {
                         is FeedItemUi.Single -> "single"
                         is FeedItemUi.ReplyCluster -> "cluster"
+                        is FeedItemUi.SelfThreadChain -> "chain"
                     }
                 },
             ) { item ->
-                // The video coordinator binds against the leaf URI for both
-                // Single and ReplyCluster (clusters are leaf-only video targets
-                // — see ThreadCluster KDoc + design.md decision D3).
+                // The video coordinator binds against the leaf URI for
+                // Single, ReplyCluster, AND SelfThreadChain — clusters
+                // and chains are leaf-only video targets (see
+                // ThreadCluster KDoc + design.md decision D3 from m28.3,
+                // applied here by symmetry per
+                // `add-feed-same-author-thread-chain` task 5.2).
                 val leaf =
                     when (item) {
                         is FeedItemUi.Single -> item.post
                         is FeedItemUi.ReplyCluster -> item.leaf
+                        is FeedItemUi.SelfThreadChain -> item.posts.last()
                     }
                 // Hoist the videoEmbedSlot lambda so it's stable across
                 // recompositions of this item — without this, every
@@ -399,6 +405,37 @@ private fun LoadedFeedContent(
                             leafVideoEmbedSlot = videoSlot,
                             leafQuotedVideoEmbedSlot = quotedVideoSlot,
                         )
+                    is FeedItemUi.SelfThreadChain -> {
+                        // Same-author chain: render N PostCards stacked
+                        // vertically with avatar-gutter connector flags
+                        // wired by index. Per design Decision 5: first
+                        // → connectBelow only; middle → both; last →
+                        // connectAbove only. Modifier.threadConnector
+                        // (PR #77) draws the line through PostCard's
+                        // existing connector machinery — no new
+                        // :designsystem composable needed.
+                        //
+                        // Only the leaf post participates in the video
+                        // coordinator (matches ReplyCluster's leaf-only
+                        // video binding). Non-leaf chain posts get
+                        // videoEmbedSlot = null, so any video embed in
+                        // those positions collapses cleanly per
+                        // PostCard's videoEmbedSlot KDoc.
+                        val chainLastIndex = item.posts.lastIndex
+                        Column {
+                            item.posts.forEachIndexed { index, chainPost ->
+                                val isLeaf = index == chainLastIndex
+                                PostCard(
+                                    post = chainPost,
+                                    callbacks = callbacks,
+                                    connectAbove = index > 0,
+                                    connectBelow = index < chainLastIndex,
+                                    videoEmbedSlot = if (isLeaf) videoSlot else null,
+                                    quotedVideoEmbedSlot = if (isLeaf) quotedVideoSlot else null,
+                                )
+                            }
+                        }
+                    }
                 }
             }
             if (isAppending) {
@@ -453,6 +490,7 @@ private fun LoadedFeedContent(
                     when (item) {
                         is FeedItemUi.Single -> item.post.id to item.post
                         is FeedItemUi.ReplyCluster -> item.leaf.id to item.leaf
+                        is FeedItemUi.SelfThreadChain -> item.posts.last().id to item.posts.last()
                     }
                 }
             }
