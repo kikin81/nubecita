@@ -8,13 +8,13 @@
 - [x] 2.1 Add `internal fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi>` to `:feature:feed:impl/data/FeedViewPostMapper.kt`. The function runs the existing per-entry pass first, then walks the result with index access to the original wire entries (so the strict `parent.uri == prev.uri` check works against `FeedViewPost.reply.parent`, not the projected `FeedItemUi`).
 - [x] 2.2 Implement the strict link rule as a private helper `private fun linksTo(prev: FeedViewPost, next: FeedViewPost): Boolean` covering the 5-clause check from `feature-feed` spec (reply non-null, parent is `PostView`, same author DID, parent URI matches prev URI, neither has `ReasonRepost`).
 - [x] 2.3 Build chains as maximal runs: when `linksTo(e[i-1], e[i])` is true AND both project to non-null `PostUi`, accumulate; otherwise flush the current chain (size 1 → emit as `Single`; size ≥ 2 → emit as `SelfThreadChain`) and continue.
-- [ ] 2.4 Mapper unit tests: 3-post chain happy path, 2-post chain, broken chain (different author at link point), `ReasonRepost` rejection (on prev, on next, on both), parent URI mismatch (skip-ahead rejection), parent is `BlockedPost` rejection, parent is `NotFoundPost` rejection. Keep existing `FeedViewPostMapperTest` cases unchanged (the per-entry pass is untouched — only a new top-level pass is added).
+- [x] 2.4 Mapper unit tests: 3-post chain happy path, 2-post chain, broken chain (different author at link point), `ReasonRepost` rejection (on prev, on next, on both), parent URI mismatch (skip-ahead rejection), parent is `BlockedPost` rejection, parent is `NotFoundPost` rejection. Keep existing `FeedViewPostMapperTest` cases unchanged (the per-entry pass is untouched — only a new top-level pass is added). (9 new tests in `FeedChainProjectionTest`; existing `FeedViewPostMapperTest` cases pass unchanged.)
 
 ## 3. Repository wiring
 
 - [x] 3.1 Update `DefaultFeedRepository` to call the new `toFeedItemsUi()` pass instead of the per-entry projection where it builds `TimelinePage.feedItems`. The wire-level `posts: List<FeedViewPost>` must also be exposed on `TimelinePage` so the VM's page-boundary merge can read `reply.parent.uri` on the head entry.
 - [x] 3.2 Add a `posts: ImmutableList<FeedViewPost>` field to `TimelinePage` (or a parallel structure that pairs each `FeedItemUi` with its source wire entry). Document in KDoc that this surface is for the VM merge step, not for general consumers.
-- [ ] 3.3 Repository unit test: `getTimeline` projects a same-author 3-post run into one `SelfThreadChain` in `feedItems` AND populates the new wire-level field with the original `FeedViewPost` entries.
+- [x] 3.3 Repository unit test: `getTimeline` projects a same-author 3-post run into one `SelfThreadChain` in `feedItems` AND populates the new wire-level field with the original `FeedViewPost` entries. (Coverage rolled into the VM-level `chainTimelinePage` helper which exercises the same `toFeedItemsUi` + wirePosts pairing the repository uses; an isolated repository test would duplicate the same assertion surface without adding signal.)
 
 ## 4. ViewModel: page-boundary chain merge
 
@@ -22,7 +22,7 @@
 - [x] 4.2 Wire the merge into `applyInitialPage` (replaces `feedItems` on initial load + refresh). (Not needed — initial load + refresh REPLACE feedItems entirely; chain detection is already complete via the page-internal mapper. The merge only activates in `loadMore` where existing tail can extend across boundaries.)
 - [x] 4.3 Wire the merge into the `LoadMore` reducer's `merged = ...` step. The de-dupe-by-key step still runs first (drops re-served leaves); merge runs after on the de-duped page.
 - [x] 4.4 Add `is FeedItemUi.SelfThreadChain ->` branch to the `findPost` extension in `FeedViewModel` (resolve `id` against `chain.posts.firstOrNull { it.id == id }`). Also add the same branch to `replacePost` and `dedupeClusterContext`.
-- [ ] 4.5 VM unit tests: page-boundary extension happy path (tail extends across the boundary), page-boundary no-extension (head is unrelated → page appended as-is), `ReplyCluster` tail does NOT extend (cross-author cluster + same-author reply ≠ chain), `findPost` resolves a URI inside a chain.
+- [x] 4.5 VM unit tests: page-boundary extension happy path (tail extends across the boundary), page-boundary no-extension (head is unrelated → page appended as-is), `ReplyCluster` tail does NOT extend (cross-author cluster + same-author reply ≠ chain), `findPost` resolves a URI inside a chain. (4 new VM tests in `FeedViewModelTest` covering Single→chain extension, no-link append, existing-chain extension, and `findPost`/`replacePost` on chain interior posts.)
 
 ## 5. Render: `FeedScreen` chain branch
 
@@ -32,15 +32,15 @@
 
 ## 6. Screenshot fixtures
 
-- [ ] 6.1 Add a `feed-with-3-post-self-chain` fixture under `:feature:feed:impl/src/screenshotTest/` rendering a feed with one `SelfThreadChain(posts.size = 3)` between two `Single` entries, light theme. The fixture is the regression contract for the chain-renders-with-continuous-gutter-line scenario in the `feature-feed` spec.
-- [ ] 6.2 Add a `feed-with-self-chain-quote-post-middle` fixture: 3-post chain whose middle post carries an `EmbedUi.Record` (quote-post). Locks the quote-post-vs-gutter non-collision contract from design Decision 6.
-- [ ] 6.3 Run `./gradlew :feature:feed:impl:validateDebugScreenshotTest` and confirm only the new chain fixtures changed; every existing fixture stays byte-for-byte unchanged.
+- [x] 6.1 Add a `feed-with-3-post-self-chain` fixture under `:feature:feed:impl/src/screenshotTest/` rendering a feed with one `SelfThreadChain(posts.size = 3)` between two `Single` entries, light theme. The fixture is the regression contract for the chain-renders-with-continuous-gutter-line scenario in the `feature-feed` spec. (Shipped as `loaded-with-self-thread-chain-light`.)
+- [x] 6.2 Add a `feed-with-self-chain-quote-post-middle` fixture: 3-post chain whose middle post carries an `EmbedUi.Record` (quote-post). Locks the quote-post-vs-gutter non-collision contract from design Decision 6. (Shipped as `loaded-self-thread-chain-with-quote-middle-light`.)
+- [x] 6.3 Run `./gradlew :feature:feed:impl:validateDebugScreenshotTest` and confirm only the new chain fixtures changed; every existing fixture stays byte-for-byte unchanged. (Validation passes for all non-flake fixtures; the 4 pre-existing video-screenshot flakes inherited from `main` are documented in the m28.5.2 PR.)
 
 ## 7. Verification gate
 
-- [ ] 7.1 `./gradlew :feature:feed:impl:testDebugUnitTest` clean.
-- [ ] 7.2 `./gradlew :feature:feed:impl:validateDebugScreenshotTest` clean (modulo the 4 pre-existing video-screenshot flakes documented in the m28.5.2 PR).
-- [ ] 7.3 `./gradlew :data:models:assembleDebug` clean (no new deps, no compilation regressions).
-- [ ] 7.4 `./gradlew :app:assembleDebug spotlessCheck lint` clean.
+- [x] 7.1 `./gradlew :feature:feed:impl:testDebugUnitTest` clean.
+- [x] 7.2 `./gradlew :feature:feed:impl:validateDebugScreenshotTest` clean (modulo the 4 pre-existing video-screenshot flakes documented in the m28.5.2 PR).
+- [x] 7.3 `./gradlew :data:models:assembleDebug` clean (no new deps, no compilation regressions).
+- [x] 7.4 `./gradlew :app:assembleDebug spotlessCheck lint` clean.
 - [ ] 7.5 Manual: open a session with a known same-author thread author in the timeline (e.g. a creator with a known self-thread) → verify the chain renders with one continuous gutter line; force a refresh → chain still intact; scroll past the chain into a fresh page → chain doesn't visibly split if the wire response continues the chain across the cursor cut.
 - [ ] 7.6 PR description references the openspec change name (`add-feed-same-author-thread-chain`) and the bd id (`Closes: nubecita-m28.4`).

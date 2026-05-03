@@ -392,24 +392,27 @@ private fun mergeChainBoundary(
         return existing to newPageItems
     }
 
+    // Extract the new page's first-item posts to prepend the existing
+    // tail to. The page-internal projection might have produced any of:
+    // - a Single (the wire entry didn't link to anything within the page)
+    // - a SelfThreadChain (the wire entry was the head of a within-page chain)
+    // - a ReplyCluster (the wire entry has a `reply.parent` that's a real
+    //   PostView; the per-entry mapper eagerly produces a ReplyCluster
+    //   regardless of author DID). For chain purposes, only the leaf
+    //   matters — the cluster's root/parent context is exactly the post
+    //   at the end of the existing tail (alice/N) which we're already
+    //   prepending. Adding root/parent again would duplicate it.
     val newFirstItem = newPageItems.first()
-    val absorbedFirst: FeedItemUi.SelfThreadChain =
+    val newFirstPosts: List<PostUi> =
         when (newFirstItem) {
-            is FeedItemUi.Single ->
-                FeedItemUi.SelfThreadChain(
-                    posts = (tailPosts + newFirstItem.post).toImmutableList(),
-                )
-            is FeedItemUi.SelfThreadChain ->
-                FeedItemUi.SelfThreadChain(
-                    posts = (tailPosts + newFirstItem.posts).toImmutableList(),
-                )
-            // The strict link rule requires the wire entry to be a self-
-            // reply, which the per-entry mapper would project as a Single
-            // (or fold into a same-author chain). A ReplyCluster at the
-            // page head therefore cannot have passed the link check above
-            // — but the exhaustive when keeps the type system honest.
-            is FeedItemUi.ReplyCluster -> return existing to newPageItems
+            is FeedItemUi.Single -> listOf(newFirstItem.post)
+            is FeedItemUi.ReplyCluster -> listOf(newFirstItem.leaf)
+            is FeedItemUi.SelfThreadChain -> newFirstItem.posts
         }
+    val absorbedFirst =
+        FeedItemUi.SelfThreadChain(
+            posts = (tailPosts + newFirstPosts).toImmutableList(),
+        )
 
     return existing.dropLast(1).toImmutableList() to
         (listOf<FeedItemUi>(absorbedFirst) + newPageItems.drop(1)).toImmutableList()

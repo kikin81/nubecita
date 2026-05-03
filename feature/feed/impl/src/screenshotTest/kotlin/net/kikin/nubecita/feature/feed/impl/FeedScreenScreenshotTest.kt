@@ -17,6 +17,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
@@ -144,6 +145,48 @@ private fun FeedScreenLoadedWithClusterScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "loaded-with-self-thread-chain-light", showBackground = true)
+@Composable
+private fun FeedScreenLoadedWithSelfThreadChainScreenshot() {
+    // Mixed fixture: standalone post → 3-post same-author chain →
+    // standalone post. Locks the m28.4 contract — the chain renders as
+    // ONE LazyColumn item (a Column of 3 PostCards) joined by a
+    // continuous avatar-gutter connector line via Modifier.threadConnector.
+    NubecitaTheme(dynamicColor = false) {
+        FeedScreenScreenshotHost(
+            viewState =
+                FeedScreenViewState.Loaded(
+                    feedItems = fixtureFeedItemsWithSelfThreadChain(),
+                    isAppending = false,
+                    isRefreshing = false,
+                ),
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "loaded-self-thread-chain-with-quote-middle-light", showBackground = true)
+@Composable
+private fun FeedScreenSelfThreadChainQuoteMiddleScreenshot() {
+    // Locks design Decision 6 of `add-feed-same-author-thread-chain`:
+    // a chain whose middle post carries an `EmbedUi.Record` (quote post)
+    // renders the quote chrome inside the body content slot WITHOUT
+    // colliding with the avatar-gutter connector line. PostCard's
+    // body/gutter geometry keeps the two surfaces apart by
+    // construction; this fixture is the regression contract.
+    NubecitaTheme(dynamicColor = false) {
+        FeedScreenScreenshotHost(
+            viewState =
+                FeedScreenViewState.Loaded(
+                    feedItems = fixtureFeedItemsWithSelfThreadChainAndQuoteMiddle(),
+                    isAppending = false,
+                    isRefreshing = false,
+                ),
+        )
+    }
+}
+
+@PreviewTest
 @Preview(name = "loaded-appending-light", showBackground = true)
 @Preview(name = "loaded-appending-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
@@ -232,3 +275,119 @@ private fun fixtureFeedItemsWithCluster(): ImmutableList<FeedItemUi> =
         ),
         FeedItemUi.Single(post = fixturePost("3", text = "Trailing standalone post after the cluster.")),
     )
+
+/**
+ * `Single` → 3-post `SelfThreadChain` (all by the same author) →
+ * `Single`. The chain renders as one LazyColumn item containing three
+ * stacked `PostCard`s with `connectAbove` / `connectBelow` flags wired
+ * by index, joined by a continuous avatar-gutter connector line.
+ */
+private fun fixtureFeedItemsWithSelfThreadChain(): ImmutableList<FeedItemUi> {
+    val chainAuthor =
+        AuthorUi(
+            did = "did:plc:fixture-chain",
+            handle = "chainauthor.bsky.social",
+            displayName = "Chain Author",
+            avatarUrl = null,
+        )
+
+    fun chainPost(
+        id: String,
+        text: String,
+    ): PostUi =
+        PostUi(
+            id = id,
+            cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
+            author = chainAuthor,
+            createdAt = FIXTURE_CREATED_AT,
+            text = text,
+            facets = persistentListOf(),
+            embed = EmbedUi.Empty,
+            stats = PostStatsUi(replyCount = 1, repostCount = 0, likeCount = 4),
+            viewer = ViewerStateUi(),
+            repostedBy = null,
+        )
+    return persistentListOf(
+        FeedItemUi.Single(post = fixturePost("standalone-before", text = "A standalone post above the self-thread chain.")),
+        FeedItemUi.SelfThreadChain(
+            posts =
+                persistentListOf(
+                    chainPost("at://chain/1", "First post in the same-author chain — root of the self-thread."),
+                    chainPost("at://chain/2", "Second post — replies to the first; same author."),
+                    chainPost("at://chain/3", "Third post — replies to the second; chain leaf."),
+                ),
+        ),
+        FeedItemUi.Single(post = fixturePost("standalone-after", text = "A standalone post below the chain.")),
+    )
+}
+
+/**
+ * 3-post chain whose middle post carries an `EmbedUi.Record` quote
+ * embed. Locks the
+ * `add-feed-same-author-thread-chain` design Decision 6 contract:
+ * the avatar-gutter connector and the quote-post chrome are
+ * geometrically isolated (gutter is left of the avatar; quote chrome
+ * sits inside the body slot) and the two surfaces don't visually
+ * collide.
+ */
+private fun fixtureFeedItemsWithSelfThreadChainAndQuoteMiddle(): ImmutableList<FeedItemUi> {
+    val chainAuthor =
+        AuthorUi(
+            did = "did:plc:fixture-quoter",
+            handle = "quoter.bsky.social",
+            displayName = "Quote Chain",
+            avatarUrl = null,
+        )
+    val quotedAuthor =
+        AuthorUi(
+            did = "did:plc:fixture-quoted",
+            handle = "quoted.bsky.social",
+            displayName = "Quoted Author",
+            avatarUrl = null,
+        )
+    val quotedEmbed =
+        EmbedUi.Record(
+            quotedPost =
+                net.kikin.nubecita.data.models.QuotedPostUi(
+                    uri = "at://quoted/post/q",
+                    cid = "bafyreifakequotedcid000000000000000000000000000",
+                    author = quotedAuthor,
+                    createdAt = FIXTURE_CREATED_AT,
+                    text = "A quoted post by an unrelated author — the chain's middle post links to it.",
+                    facets = persistentListOf(),
+                    embed = QuotedEmbedUi.Empty,
+                ),
+        )
+
+    fun chainPost(
+        id: String,
+        text: String,
+        embed: EmbedUi = EmbedUi.Empty,
+    ): PostUi =
+        PostUi(
+            id = id,
+            cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
+            author = chainAuthor,
+            createdAt = FIXTURE_CREATED_AT,
+            text = text,
+            facets = persistentListOf(),
+            embed = embed,
+            stats = PostStatsUi(replyCount = 1, repostCount = 0, likeCount = 7),
+            viewer = ViewerStateUi(),
+            repostedBy = null,
+        )
+    return persistentListOf(
+        FeedItemUi.SelfThreadChain(
+            posts =
+                persistentListOf(
+                    chainPost("at://qchain/1", "Chain root — plain text."),
+                    chainPost(
+                        id = "at://qchain/2",
+                        text = "Middle post quotes a separate post.",
+                        embed = quotedEmbed,
+                    ),
+                    chainPost("at://qchain/3", "Chain leaf — plain text after the quote."),
+                ),
+        ),
+    )
+}

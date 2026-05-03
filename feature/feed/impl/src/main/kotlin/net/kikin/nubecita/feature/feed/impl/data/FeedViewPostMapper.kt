@@ -133,15 +133,6 @@ private fun ReplyRef.hasEllipsisRelativeToRoot(rootAuthorDid: String): Boolean {
 internal fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
     if (isEmpty()) return persistentListOf()
 
-    // Per-entry projection first; preserve the wire entry alongside its
-    // projection so the strict link rule (step 4) can read
-    // `prev.post.uri` directly without re-walking the source list.
-    val projected: List<Pair<FeedViewPost, FeedItemUi>> =
-        mapNotNull { wire ->
-            wire.toFeedItemUiOrNull()?.let { projection -> wire to projection }
-        }
-    if (projected.isEmpty()) return persistentListOf()
-
     val out = mutableListOf<FeedItemUi>()
     val pendingChain = mutableListOf<PostUi>()
     var pendingChainPrev: FeedViewPost? = null
@@ -150,13 +141,13 @@ internal fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
         when (pendingChain.size) {
             0 -> Unit
             1 -> {
-                // A solo "chain" is just the original projection — re-emit
-                // whatever the per-entry pass produced for it (could be
-                // Single or ReplyCluster). The pending list collapses to
-                // one entry only when the link broke after a single post,
-                // so we re-pluck its original FeedItemUi from the source.
-                val solo = projected.first { it.first === pendingChainPrev }.second
-                out += solo
+                // Solo chain — fall back to the per-entry projection so a
+                // wire entry whose `reply.parent` is a (non-chained)
+                // PostView still surfaces as a ReplyCluster (cross-author
+                // reply context). The chain accumulator buffered the post
+                // hoping it would link to a successor; since it didn't,
+                // re-project from the wire to recover the canonical shape.
+                pendingChainPrev?.toFeedItemUiOrNull()?.let { out += it }
             }
             else -> out += FeedItemUi.SelfThreadChain(posts = pendingChain.toImmutableList())
         }
@@ -164,28 +155,15 @@ internal fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
         pendingChainPrev = null
     }
 
-    for ((wire, projection) in projected) {
-        val singlePost = (projection as? FeedItemUi.Single)?.post
-
-        if (singlePost == null || pendingChainPrev == null) {
-            // Either the entry isn't a Single (ReplyCluster / future variant
-            // ineligible for chain) OR there's no chain in flight.
-            flushChain()
-            if (singlePost != null) {
-                pendingChain += singlePost
-                pendingChainPrev = wire
-            } else {
-                out += projection
-            }
-            continue
-        }
-
-        if (linksTo(prev = pendingChainPrev!!, next = wire)) {
-            pendingChain += singlePost
+    for (wire in this) {
+        val postUi = wire.toPostUiOrNull() ?: continue // malformed record — skip per FeedRepository contract
+        val prev = pendingChainPrev
+        if (prev != null && linksTo(prev = prev, next = wire)) {
+            pendingChain += postUi
             pendingChainPrev = wire
         } else {
             flushChain()
-            pendingChain += singlePost
+            pendingChain += postUi
             pendingChainPrev = wire
         }
     }
