@@ -490,10 +490,14 @@ private fun stripLeadingTailOverlap(
 ): Pair<ImmutableList<FeedViewPost>, ImmutableList<FeedItemUi>> {
     var w: List<FeedViewPost> = wirePosts
     var p: List<FeedItemUi> = pageItems
-    while (w.isNotEmpty() && p.isNotEmpty() && w
-            .first()
-            .post.uri.raw == tailLeafId
-    ) {
+    while (true) {
+        if (w.isEmpty() || p.isEmpty()) break
+        if (w
+                .first()
+                .post.uri.raw != tailLeafId
+        ) {
+            break
+        }
         w = w.drop(1)
         val firstItem = p.first()
         val replacementHead: List<FeedItemUi> =
