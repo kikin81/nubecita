@@ -76,6 +76,14 @@ fun ThreadFold(
     gutterX: Dp = 42.dp,
     onClick: () -> Unit = {},
 ) {
+    require(gutterX >= ROW_HORIZONTAL_PADDING) {
+        "ThreadFold gutterX ($gutterX) must be >= ROW_HORIZONTAL_PADDING " +
+            "($ROW_HORIZONTAL_PADDING) — smaller values produce a negative " +
+            "dots-column width which crashes Modifier.width at measurement. " +
+            "All real callers (avatar-gutter values for PostCard layouts) " +
+            "are well above 20.dp; this guard fails loudly if a future caller " +
+            "passes an unusual value rather than producing invisible dots."
+    }
     val connectorColor = MaterialTheme.colorScheme.outlineVariant
     val dotColor = MaterialTheme.colorScheme.outline
     val label = stringResource(R.string.thread_fold_view_full_thread)
