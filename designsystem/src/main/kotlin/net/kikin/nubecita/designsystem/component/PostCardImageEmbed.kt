@@ -31,11 +31,12 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  *   MUST stay byte-for-byte unchanged when the multi-image branch is
  *   added.
  * - **Multi-image (`items.size > 1`):** delegates to M3's
- *   [HorizontalMultiBrowseCarousel]. Each slide is a single image clipped
- *   to the same 16dp shape; the carousel manages keyline-based sizing
- *   (large + medium + small slides simultaneously visible) and snap
- *   scrolling. No custom shape morphing — the M3 default item shape
- *   delta does the visual work.
+ *   [HorizontalMultiBrowseCarousel]. Each slide masks to the same 16dp
+ *   base shape via [CarouselItemScope.maskClip], which lets the carousel
+ *   morph the corner radius across the keyline math (slides shrink and
+ *   pill-shape as they leave the center keyline). Using a plain
+ *   [Modifier.clip] here would freeze the shape and defeat the keyline
+ *   morphing — that is the bug fixed in nubecita-eaw.
  *
  * The lexicon allows 0–4 images per `app.bsky.embed.images` payload;
  * mappers SHOULD never produce an empty list, but the empty branch is
@@ -130,7 +131,7 @@ private fun MultiImageCarousel(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .clip(IMAGE_SHAPE)
+                    .maskClip(IMAGE_SHAPE)
                     .then(clickModifier),
         ) {
             NubecitaAsyncImage(
