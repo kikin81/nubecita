@@ -14,13 +14,23 @@ import kotlinx.coroutines.flow.asSharedFlow
  *
  * # Contract
  *
- * The flow is a hot [SharedFlow] with `replay = 0` and no extra buffer
- * (`extraBufferCapacity = 0`) — emissions while no subscriber is
- * collecting are dropped silently. That's the right semantic: a tab
- * that isn't the visible one has no list to scroll, so its missing
- * subscriber is a feature, not a bug. Producers MUST use
- * [MutableSharedFlow.tryEmit] (which returns `false` and no-ops on
- * "no subscriber" rather than suspending or buffering).
+ * The flow is a hot [SharedFlow] with `replay = 0` and a single-slot
+ * buffer (`extraBufferCapacity = 1`,
+ * `BufferOverflow.DROP_OLDEST`). The buffer choice is deliberate:
+ *
+ * - **No replay** — late subscribers don't see prior emissions. A tab
+ *   that just became visible doesn't auto-scroll on entry.
+ * - **Single-slot buffer + DROP_OLDEST** — [MutableSharedFlow.tryEmit]
+ *   always succeeds. If the consumer's `collect { ... }` body is
+ *   mid-suspend (e.g. running an `animateScrollToItem` from a prior
+ *   emission, or restarting between recompositions), the new emission
+ *   buffers and is delivered as soon as the body returns. Rapid
+ *   double-taps collapse into a single scroll-to-top (DROP_OLDEST
+ *   discards the buffered older one). Pure rendezvous semantics
+ *   (`buffer = 0`) silently drop emissions during these windows, which
+ *   manifests as "the tap registered but nothing happened."
+ * - Producers should still call [MutableSharedFlow.tryEmit] (not
+ *   `emit`) so the producer never suspends.
  *
  * Producers MUST emit ONLY on tab RE-TAP (`tappedTab == activeTab`),
  * never on a tab SWITCH. Firing on tab switch would defeat the

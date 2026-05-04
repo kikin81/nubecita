@@ -4,9 +4,9 @@
 
 The system SHALL expose a `ProvidableCompositionLocal<SharedFlow<Unit>>` named `LocalScrollToTopSignal` from `:core:common:navigation`. The contract:
 
-- The flow MUST be a hot `SharedFlow<Unit>` with `replay = 0` and no extra buffer (`extraBufferCapacity = 0`). Emissions while no subscriber is collecting MUST be dropped silently.
+- The flow MUST be a hot `SharedFlow<Unit>` with `replay = 0` and a single-slot drop-oldest buffer (`extraBufferCapacity = 1`, `BufferOverflow.DROP_OLDEST`). The buffer guarantees `tryEmit` always succeeds even when the consumer's `collect { ... }` body is mid-suspend (e.g. running an animation from a prior emission, or briefly restarting between recompositions). Rapid double-taps from the producer collapse into a single delivered emission (DROP_OLDEST discards the older buffered one).
 - The default value MUST be an empty `SharedFlow<Unit>` (a `MutableSharedFlow<Unit>(replay = 0).asSharedFlow()`) so previews / screenshot tests / detached compositions don't need to wrap the host in a custom `CompositionLocalProvider`. Reading the default and collecting from it MUST be a runtime no-op.
-- The producer (typically `MainShell`) is the sole writer; consumers are read-only via the `SharedFlow<Unit>` shape (not `MutableSharedFlow`). The CompositionLocal MUST NOT expose write capability to consumers.
+- The producer (typically `MainShell`) is the sole writer; consumers are read-only via the `SharedFlow<Unit>` shape (not `MutableSharedFlow`). The CompositionLocal MUST NOT expose write capability to consumers. The producer SHOULD `remember` the `asSharedFlow()` wrapper so the CompositionLocal value stays stable across recompositions (otherwise consumers' `LaunchedEffect`s keyed on the flow restart unnecessarily).
 - Consumers (feature screens) collect the flow inside a `LaunchedEffect` keyed on `(signal, listState)` (or equivalent stable keys) and call `LazyListState.animateScrollToItem(0)`. The signal carries no payload — it's a pure trigger.
 
 #### Scenario: Producer emits, single consumer scrolls
@@ -14,10 +14,15 @@ The system SHALL expose a `ProvidableCompositionLocal<SharedFlow<Unit>>` named `
 - **WHEN** a `LocalScrollToTopSignal` provider emits `Unit` while a feature screen has an active `LaunchedEffect` collector
 - **THEN** the collector receives the emission within one frame and calls `animateScrollToItem(0)` on the bound `LazyListState`.
 
-#### Scenario: Emission with no subscriber is dropped silently
+#### Scenario: Emission with no awaiting subscriber buffers and delivers when collection resumes
 
-- **WHEN** the producer calls `tryEmit(Unit)` and no consumer is currently collecting (e.g., the visible tab doesn't host a list-bearing screen)
-- **THEN** `tryEmit` returns `false` and no scroll behavior occurs anywhere. The emission is silently lost; the producer MUST NOT block, throw, or buffer.
+- **WHEN** the producer calls `tryEmit(Unit)` and the consumer's `collect { ... }` body is currently mid-suspend (or briefly restarting between recompositions)
+- **THEN** `tryEmit` returns `true` (the single-slot buffer accepts the emission) and the emission is delivered as soon as the consumer's body returns to its awaiting state.
+
+#### Scenario: Rapid double-emit collapses into a single delivered emission
+
+- **WHEN** the producer calls `tryEmit(Unit)` twice within a window where the consumer's body is mid-suspend
+- **THEN** the buffer's DROP_OLDEST policy keeps only the most recent emission. The consumer's body runs once with `Unit` after returning to the awaiting state; the older buffered emission is discarded. (The user perceives a single scroll-to-top, not two queued.)
 
 #### Scenario: Default value supports preview composition
 
