@@ -38,4 +38,9 @@
     <!-- ListDetailSceneStrategy detail-pane placeholder, shown on medium/expanded
          widths when the back stack is `[Feed]` (no detail entry selected). -->
     <string name="feed_detail_placeholder_select">Select a post to read</string>
+
+    <!-- Floating "scroll to top" FAB content description. The FAB appears in
+         FeedScreen after the user scrolls past the threshold (5 items). Tapping
+         it animates the LazyColumn back to position 0. -->
+    <string name="feed_scroll_to_top">Scroll to top</string>
 </resources>
