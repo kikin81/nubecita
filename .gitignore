@@ -2,6 +2,11 @@
 .gradle/
 build/
 
+# Release build artifacts (used as the local AAB drop dir for
+# `bundleRelease` smoke tests and Firebase App Distribution uploads —
+# the AAB is a 22MB+ binary that should never be committed).
+app/release/
+
 # IDE
 .idea/
 *.iml

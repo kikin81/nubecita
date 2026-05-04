@@ -1,4 +1,5 @@
 import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.nubecita.android.application)
@@ -8,12 +9,50 @@ plugins {
     alias(libs.plugins.firebase.crashlytics)
 }
 
+// Release signing material is loaded from `keystore.properties` (gitignored)
+// when present, otherwise from env vars so CI can inject secrets without
+// writing a file. Both sources are optional — when neither resolves a
+// storeFile, the release signingConfig stays unconfigured and `bundleRelease`
+// will fail with AGP's standard "no signing config" error rather than silently
+// producing a debug-signed release.
+val keystoreProps =
+    Properties().apply {
+        val f = rootProject.file("keystore.properties")
+        if (f.exists()) f.inputStream().use(::load)
+    }
+
+fun keystoreValue(
+    propKey: String,
+    envKey: String,
+): String? =
+    keystoreProps.getProperty(propKey)?.takeIf(String::isNotEmpty)
+        ?: providers.environmentVariable(envKey).orNull?.takeIf(String::isNotEmpty)
+
 android {
     namespace = "net.kikin.nubecita"
 
+    signingConfigs {
+        create("release") {
+            keystoreValue("storeFile", "KEYSTORE_FILE")?.let { raw ->
+                // Allow `~/...` in keystore.properties so the file stays
+                // portable across machines without hard-coding $HOME.
+                val expanded =
+                    if (raw.startsWith("~")) {
+                        raw.replaceFirst("~", System.getProperty("user.home"))
+                    } else {
+                        raw
+                    }
+                storeFile = file(expanded)
+                storePassword = keystoreValue("storePassword", "KEYSTORE_PASSWORD")
+                keyAlias = keystoreValue("keyAlias", "KEY_ALIAS")
+                keyPassword = keystoreValue("keyPassword", "KEY_PASSWORD")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "net.kikin.nubecita"
-        versionCode = 1
+        versionCode = 2
         versionName = project.property("version").toString()
 
         // Override the convention-plugin default (AndroidJUnitRunner) with the
@@ -40,6 +79,15 @@ android {
                 // when it changes between runs, unlike System.getenv() which bakes
                 // the value into the cache silently.
                 releaseNotes = providers.environmentVariable("APP_DISTRIBUTION_RELEASE_NOTES").orElse("").get()
+            }
+        }
+        release {
+            // Only attach the signing config when a real keystore was resolved.
+            // Leaving it null otherwise means `bundleRelease` fails fast on a
+            // missing config rather than silently shipping an unsigned (or
+            // debug-signed via -PdebugSignedRelease) artifact.
+            if (signingConfigs.getByName("release").storeFile != null) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }
