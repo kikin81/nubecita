@@ -1,6 +1,7 @@
 package net.kikin.nubecita
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,6 +48,18 @@ class MainActivity : ComponentActivity() {
         splashScreen.setKeepOnScreenCondition { sessionStateProvider.state.value is SessionState.Loading }
 
         enableEdgeToEdge()
+        // `enableEdgeToEdge` flips `isNavigationBarContrastEnforced` to `true`
+        // by default, which has the system paint a translucent scrim under the
+        // gesture-bar handle. With our `NavigationSuiteScaffold` already drawing
+        // a `surfaceContainer` background to that region, the scrim layers on
+        // top and creates a visible gap between the nav-suite labels and the
+        // bottom edge of the screen. Disable it on API 29+ so the bottom-bar
+        // surface extends fully to the gesture handle (per the edge-to-edge
+        // skill checklist for any Activity hosting a `NavigationBar` /
+        // `NavigationSuiteScaffold` bottom bar).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
         setContent {
             NubecitaTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
         }
