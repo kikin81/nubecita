@@ -473,6 +473,13 @@ private fun LoadedFeedContent(
                             hasEllipsis = item.hasEllipsis,
                             leafVideoEmbedSlot = videoSlot,
                             leafQuotedVideoEmbedSlot = quotedVideoSlot,
+                            // Tapping "View full thread" routes to the cluster's
+                            // leaf URI — same MVI dispatch a body tap on the
+                            // leaf would use. Per CLAUDE.md / m28.5.1 acceptance
+                            // criteria: "ThreadFold tap on a m28.3 cluster routes
+                            // to PostDetail." The wiring was missed at m28.3
+                            // ship time; restoring it here.
+                            onFoldTap = { callbacks.onTap(item.leaf) },
                         )
                     is FeedItemUi.SelfThreadChain -> {
                         // Same-author chain: render N PostCards stacked
