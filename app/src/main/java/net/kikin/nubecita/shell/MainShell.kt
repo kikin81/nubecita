@@ -32,8 +32,12 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import net.kikin.nubecita.R
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.feed.api.Feed
@@ -96,6 +100,33 @@ fun MainShell(modifier: Modifier = Modifier) {
             topLevelRoutes = TopLevelDestinations.map { it.key },
         )
 
+    // Hot SharedFlow that fires `Unit` on bottom-nav tab RE-TAP. Feature
+    // screens that opt in (today: FeedScreen) collect this in a
+    // LaunchedEffect and call animateScrollToItem(0).
+    //
+    // `extraBufferCapacity = 1` + `BufferOverflow.DROP_OLDEST` means
+    // `tryEmit` always succeeds (no rendezvous semantics): if a tap fires
+    // while the collector's lambda is mid-suspend (e.g. running an
+    // animateScrollToItem from a previous emission), the new emission
+    // buffers; rapid double-taps collapse into a single scroll-to-top
+    // (DROP_OLDEST keeps the most recent). With pure replay=0+buffer=0
+    // (rendezvous), `tryEmit` returns false during the brief
+    // LaunchedEffect-restart window and the user's tap is silently
+    // dropped.
+    //
+    // The asSharedFlow() wrapper is `remember`-d so the CompositionLocal
+    // value is stable across recompositions and feature LaunchedEffects
+    // keyed on the SharedFlow don't restart unnecessarily.
+    val scrollToTopSignal =
+        remember {
+            MutableSharedFlow<Unit>(
+                replay = 0,
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
+        }
+    val readOnlyScrollToTopSignal = remember(scrollToTopSignal) { scrollToTopSignal.asSharedFlow() }
+
     // Shared between the scene strategy below and the bar/rail selector
     // further down — both need the same window-class signal.
     val adaptiveInfo = currentWindowAdaptiveInfo()
@@ -121,10 +152,28 @@ fun MainShell(modifier: Modifier = Modifier) {
             defaultLayoutType
         }
 
-    CompositionLocalProvider(LocalMainShellNavState provides mainShellNavState) {
+    CompositionLocalProvider(
+        LocalMainShellNavState provides mainShellNavState,
+        LocalScrollToTopSignal provides readOnlyScrollToTopSignal,
+    ) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
-            onTabClick = { mainShellNavState.addTopLevel(it) },
+            onTabClick = { tapped ->
+                // Re-tap on the active tab fires the scroll-to-top signal
+                // (any feature screen collecting LocalScrollToTopSignal
+                // scrolls its list back to position 0). Switching tabs
+                // navigates as before — the destination tab restores its
+                // last scroll position via Nav3's per-tab back-stack.
+                // `mainShellNavState.topLevelKey` resolves the post-mutation
+                // active tab so a rapid double-tap during a tab switch
+                // animation behaves correctly (per the change's design
+                // Decision 3).
+                if (tapped == mainShellNavState.topLevelKey) {
+                    scrollToTopSignal.tryEmit(Unit)
+                } else {
+                    mainShellNavState.addTopLevel(tapped)
+                }
+            },
             layoutType = layoutType,
             modifier = modifier,
         ) {

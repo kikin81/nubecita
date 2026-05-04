@@ -7,6 +7,11 @@ import android.content.Context
 import android.content.res.Configuration
 import android.media.AudioManager
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,8 +19,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -23,8 +32,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -40,6 +51,8 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -68,6 +81,14 @@ import android.net.Uri as AndroidUri
 
 private const val PREFETCH_DISTANCE = 5
 private const val SHIMMER_PREVIEW_COUNT = 6
+
+/**
+ * The FAB starts revealing once the user has scrolled five items past
+ * the top — roughly one screen of feed posts on a phone. Lower thresholds
+ * fire too eagerly (FAB appears after a tiny scroll); higher thresholds
+ * make the user scroll a long way before the affordance shows up.
+ */
+private const val SCROLL_TO_TOP_FAB_THRESHOLD = 5
 
 /**
  * Hilt-aware Following timeline screen.
@@ -215,9 +236,57 @@ internal fun FeedScreenContent(
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Tap-to-top: collect MainShell's tab-retap signal and scroll the
+    // feed list to the top. The default empty SharedFlow (no provider in
+    // previews / screenshot tests) never emits, so collecting in those
+    // contexts is a runtime no-op. Keyed on (signal, listState) so the
+    // collector restarts cleanly across recompositions that re-create
+    // either reference.
+    val scrollToTopSignal = LocalScrollToTopSignal.current
+    val scrollScope = rememberCoroutineScope()
+    LaunchedEffect(scrollToTopSignal, listState) {
+        scrollToTopSignal.collect { listState.animateScrollToItem(0) }
+    }
+    // FAB visibility: gated on BOTH the loaded viewState AND the scroll
+    // threshold. The listState is hoisted at the FeedScreen level and
+    // retains `firstVisibleItemIndex` across viewState transitions, so
+    // checking only the index would let the FAB linger over Empty /
+    // InitialLoading / InitialError surfaces (e.g. sign-out → feed
+    // becomes Empty while the prior scroll position is still cached).
+    // The viewState gate keeps the affordance scoped to the only state
+    // that actually has a list to scroll.
+    //
+    // `derivedStateOf` debounces against per-frame scroll updates: the
+    // surrounding composition only invalidates when the boolean flips
+    // (a few times per scroll session, not 60–120 fps). Same Compose-
+    // perf pattern used by m28.5.2's PostDetail FAB.
+    val showScrollToTopFab by remember(listState, viewState) {
+        derivedStateOf {
+            viewState is FeedScreenViewState.Loaded &&
+                listState.firstVisibleItemIndex >= SCROLL_TO_TOP_FAB_THRESHOLD
+        }
+    }
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            // AnimatedVisibility wraps the FAB so the appearance / dismissal
+            // fades + scales rather than popping in.
+            AnimatedVisibility(
+                visible = showScrollToTopFab,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+            ) {
+                SmallFloatingActionButton(
+                    onClick = { scrollScope.launch { listState.animateScrollToItem(0) } },
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowUp,
+                        contentDescription = stringResource(R.string.feed_scroll_to_top),
+                    )
+                }
+            }
+        },
     ) { padding ->
         // EVERY branch must consume `padding` — without this, the status bar
         // and gesture bar overlap content under edge-to-edge. Scrollable

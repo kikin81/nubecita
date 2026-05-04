@@ -203,9 +203,37 @@ private fun FeedScreenLoadedAppendingScreenshot() {
     }
 }
 
+@PreviewTest
+@Preview(name = "loaded-with-scroll-to-top-fab-light", showBackground = true)
 @Composable
-private fun FeedScreenScreenshotHost(viewState: FeedScreenViewState) {
-    val listState = rememberLazyListState()
+private fun FeedScreenLoadedWithScrollToTopFabScreenshot() {
+    // Pre-scroll the LazyListState past the FAB visibility threshold (5)
+    // so the SmallFloatingActionButton appears in its resting visible
+    // state. Renders 12 fixture posts to ensure the layout pass has
+    // enough items to land at the requested scroll index. Locks the
+    // visual contract for `add-feed-scroll-to-top` — the FAB renders in
+    // the bottom-right Scaffold slot when the user has scrolled into the
+    // feed. The pre-existing `loaded-light` baseline (rendered at
+    // position 0 with the FAB hidden) stays byte-for-byte unchanged.
+    NubecitaTheme(dynamicColor = false) {
+        FeedScreenScreenshotHost(
+            viewState =
+                FeedScreenViewState.Loaded(
+                    feedItems = fixtureFeedItems(count = 12),
+                    isAppending = false,
+                    isRefreshing = false,
+                ),
+            initialFirstVisibleItemIndex = 6,
+        )
+    }
+}
+
+@Composable
+private fun FeedScreenScreenshotHost(
+    viewState: FeedScreenViewState,
+    initialFirstVisibleItemIndex: Int = 0,
+) {
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialFirstVisibleItemIndex)
     val snackbarHostState = remember { SnackbarHostState() }
     // Provide a fixed clock so PostCard's relative-time label is
     // deterministic — pairs with FIXTURE_CREATED_AT below to render "2h"
