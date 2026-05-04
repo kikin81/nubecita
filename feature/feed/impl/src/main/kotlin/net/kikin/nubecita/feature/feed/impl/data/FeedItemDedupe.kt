@@ -28,9 +28,21 @@ internal fun List<FeedItemUi>.dedupeClusterContext(): List<FeedItemUi> {
     val contextUris =
         buildSet {
             for (item in this@dedupeClusterContext) {
-                if (item is FeedItemUi.ReplyCluster) {
-                    add(item.root.id)
-                    add(item.parent.id)
+                when (item) {
+                    is FeedItemUi.ReplyCluster -> {
+                        add(item.root.id)
+                        add(item.parent.id)
+                    }
+                    is FeedItemUi.SelfThreadChain -> {
+                        // Non-leaf chain posts are context (the leaf is the
+                        // canonical entry, same shape as ReplyCluster.leaf).
+                        // A standalone Single whose URI matches a non-leaf
+                        // chain post is a duplicate that should be dropped.
+                        for (i in 0 until item.posts.lastIndex) {
+                            add(item.posts[i].id)
+                        }
+                    }
+                    is FeedItemUi.Single -> Unit
                 }
             }
         }

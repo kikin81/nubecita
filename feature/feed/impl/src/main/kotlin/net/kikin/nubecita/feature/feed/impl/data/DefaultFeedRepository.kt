@@ -31,8 +31,9 @@ internal class DefaultFeedRepository
                             ),
                         )
                     TimelinePage(
-                        feedItems = response.feed.mapNotNull { it.toFeedItemUiOrNull() }.toImmutableList(),
+                        feedItems = response.feed.toFeedItemsUi(),
                         nextCursor = response.cursor,
+                        wirePosts = response.feed.toImmutableList(),
                     )
                 }.onFailure { throwable ->
                     // Surfaces the throwable identity that FeedViewModel's

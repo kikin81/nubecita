@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.feed.impl.data
 
+import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.FeedItemUi
 
 /**
@@ -20,14 +22,31 @@ internal interface FeedRepository {
 
 /**
  * One paginated page of timeline items. Each entry is a [FeedItemUi] —
- * either a [FeedItemUi.Single] standalone post or a
- * [FeedItemUi.ReplyCluster] carrying root + parent + leaf for cross-author
- * reply rendering. [nextCursor] is the cursor to pass on the next request
- * to fetch the page after this one; `null` signals end-of-feed.
+ * a [FeedItemUi.Single] standalone post, a [FeedItemUi.ReplyCluster]
+ * carrying root + parent + leaf for cross-author reply rendering, or a
+ * [FeedItemUi.SelfThreadChain] grouping consecutive same-author self-
+ * replies. [nextCursor] is the cursor to pass on the next request to
+ * fetch the page after this one; `null` signals end-of-feed.
+ *
+ * [wirePosts] is the page's raw [FeedViewPost] entries in their wire
+ * order (before any chain projection / dedupe). The feed VM's page-
+ * boundary chain merge reads `reply.parent.uri` off the head entry to
+ * decide whether the current `feedItems` tail can extend across the
+ * pagination cut. Internal to `:feature:feed:impl`; not exposed to any
+ * other module. Per `add-feed-same-author-thread-chain` design Decision
+ * 3, widening `TimelinePage` is the cleanest seam — UI models stay
+ * pure, and the merge step gets the exact wire data it needs.
  */
 internal data class TimelinePage(
     val feedItems: ImmutableList<FeedItemUi>,
     val nextCursor: String?,
+    /**
+     * Defaults to empty so test fixtures that don't exercise the chain
+     * merge path (most existing VM tests) compile unchanged. Production
+     * call sites in `DefaultFeedRepository` always populate this from
+     * the wire response.
+     */
+    val wirePosts: ImmutableList<FeedViewPost> = persistentListOf(),
 )
 
 /**

@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.feed.impl
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
@@ -16,6 +17,7 @@ import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.LikeRepostRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
+import net.kikin.nubecita.feature.feed.impl.data.linksToWire
 import net.kikin.nubecita.feature.feed.impl.share.toShareIntent
 import java.io.IOException
 import javax.inject.Inject
@@ -112,13 +114,27 @@ internal class FeedViewModel
                     .getTimeline(cursor = current.nextCursor)
                     .onSuccess { page ->
                         setState {
+                            // Page-boundary chain merge: if the existing tail's
+                            // last chainable PostUi links (via the strict rule)
+                            // to the new page's first wire entry, absorb the
+                            // tail into the new page's first item before
+                            // appending. Per
+                            // `add-feed-same-author-thread-chain` design
+                            // Decision 3, arbitrary cursor cuts shouldn't
+                            // visually break a self-thread chain.
+                            val merge =
+                                mergeChainBoundary(
+                                    existing = feedItems,
+                                    newPageItems = page.feedItems,
+                                    newPageWirePosts = page.wirePosts,
+                                )
                             // De-dupe by FeedItemUi.key so a server returning a page
                             // that overlaps the current tail (rare but possible during
                             // cursor resyncs) doesn't show the same item twice. The
-                            // key is the leaf URI for ReplyCluster and the post URI
-                            // for Single — stable across paging.
-                            val seen = feedItems.mapTo(HashSet()) { it.key }
-                            val merged = (feedItems + page.feedItems.filter { seen.add(it.key) })
+                            // key is the leaf URI for ReplyCluster / SelfThreadChain
+                            // and the post URI for Single — stable across paging.
+                            val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
+                            val merged = (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
                             copy(
                                 feedItems = merged.dedupeClusterContext().toImmutableList(),
                                 nextCursor = page.nextCursor,
@@ -321,11 +337,193 @@ internal class FeedViewModel
     }
 
 /**
- * Locate a [PostUi] by id across all visible feed entries — both the
- * lone post inside a [FeedItemUi.Single] and any of root / parent / leaf
- * inside a [FeedItemUi.ReplyCluster]. Returns the first match (each post
- * id is globally unique within the feed by construction; the de-dupe
- * pass in the repository enforces this).
+ * Result of [mergeChainBoundary]. Two `ImmutableList<FeedItemUi>` fields
+ * with named slots — the previous `Pair<ImmutableList, ImmutableList>`
+ * shape was a destructuring footgun: a future caller writing
+ * `val (page, existing) = mergeChainBoundary(...)` (wrong order) would
+ * compile cleanly and silently render the feed out of order. Named
+ * fields make the intent unambiguous at every call site.
+ */
+private data class ChainBoundaryMerge(
+    /**
+     * Existing `feedItems` with the tail popped if it was absorbed into
+     * a chain at the new page's head; otherwise unchanged.
+     */
+    val trimmedExisting: ImmutableList<FeedItemUi>,
+    /**
+     * The new page's `feedItems` with its first entry replaced by an
+     * absorbing [FeedItemUi.SelfThreadChain] when the merge fired;
+     * otherwise unchanged.
+     */
+    val pageWithAbsorbedHead: ImmutableList<FeedItemUi>,
+)
+
+/**
+ * Page-boundary chain merge. Given the existing `feedItems` and a
+ * freshly-loaded `TimelinePage`, attempt to absorb the existing tail
+ * into the new page's first feed item if the strict link rule holds.
+ *
+ * Caller appends [ChainBoundaryMerge.trimmedExisting] to
+ * [ChainBoundaryMerge.pageWithAbsorbedHead]; subsequent dedupe-by-key
+ * handles any server-side overlap independently.
+ *
+ * Merge is rejected (no-op) when:
+ * - `existing` is empty or `newPageItems` / `newPageWirePosts` is empty.
+ * - The existing tail is a [FeedItemUi.ReplyCluster] (cross-author
+ *   clusters don't extend into same-author chains).
+ * - The existing tail's last post has `repostedBy != null` (the wire
+ *   entry that produced it was a `ReasonRepost` — chain-incompatible).
+ * - The new page's first wire entry doesn't link to the tail's last
+ *   post via the strict rule (`reply.parent.uri == tail.id`, same
+ *   author, no `ReasonRepost` on either side).
+ *
+ * Chain extension only ever consumes the existing tail + the new page's
+ * FIRST item. If the new page already grouped consecutive same-author
+ * replies into a chain at its head (the page-internal projection ran in
+ * the mapper), the merge prepends the existing tail's posts to that
+ * chain. Subsequent new-page entries are unaffected — the strict link
+ * rule's adjacency requirement is preserved by chain construction.
+ */
+private fun mergeChainBoundary(
+    existing: ImmutableList<FeedItemUi>,
+    newPageItems: ImmutableList<FeedItemUi>,
+    newPageWirePosts: ImmutableList<FeedViewPost>,
+): ChainBoundaryMerge {
+    if (existing.isEmpty() || newPageItems.isEmpty() || newPageWirePosts.isEmpty()) {
+        return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = newPageItems)
+    }
+
+    val existingTail = existing.last()
+    val tailPosts: List<PostUi> =
+        when (existingTail) {
+            is FeedItemUi.Single -> listOf(existingTail.post)
+            is FeedItemUi.SelfThreadChain -> existingTail.posts
+            is FeedItemUi.ReplyCluster ->
+                return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = newPageItems)
+        }
+    val tailLeafPost = tailPosts.last()
+
+    // Strip a leading cursor-resync overlap before running the link
+    // check: if the server replays the existing tail's leaf as the new
+    // page's first wire entry, dropping it lets the link rule fire
+    // against the actual successor (wirePosts[1]) rather than rejecting
+    // and leaving the chain visually split. Both the wire list and the
+    // projected feed items list are trimmed in lockstep so they stay
+    // index-aligned for the absorption step below.
+    val (effectiveWirePosts, effectivePageItems) =
+        stripLeadingTailOverlap(
+            tailLeafId = tailLeafPost.id,
+            wirePosts = newPageWirePosts,
+            pageItems = newPageItems,
+        )
+    if (effectiveWirePosts.isEmpty() || effectivePageItems.isEmpty()) {
+        return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = effectivePageItems)
+    }
+
+    val firstWire = effectiveWirePosts.first()
+    if (!tailLeafPost.linksToWire(firstWire)) {
+        return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = effectivePageItems)
+    }
+
+    // Extract the new page's first-item posts to prepend the existing
+    // tail to. The page-internal projection might have produced any of:
+    // - a Single (the wire entry didn't link to anything within the page)
+    // - a SelfThreadChain (the wire entry was the head of a within-page chain)
+    // - a ReplyCluster (the wire entry has a `reply.parent` that's a real
+    //   PostView; the per-entry mapper eagerly produces a ReplyCluster
+    //   regardless of author DID). For chain purposes, only the leaf
+    //   matters — the cluster's root/parent context is exactly the post
+    //   at the end of the existing tail (alice/N) which we're already
+    //   prepending. Adding root/parent again would duplicate it.
+    val newFirstItem = effectivePageItems.first()
+    val newFirstPosts: List<PostUi> =
+        when (newFirstItem) {
+            is FeedItemUi.Single -> listOf(newFirstItem.post)
+            is FeedItemUi.ReplyCluster -> listOf(newFirstItem.leaf)
+            is FeedItemUi.SelfThreadChain -> newFirstItem.posts
+        }
+    // Defense in depth: even after the leading-overlap strip above, drop
+    // any prefix of newFirstPosts whose URIs match the existing tail's
+    // posts. A future server overlap shape we haven't seen yet won't
+    // produce a duplicated post inside the merged chain.
+    val tailIds = tailPosts.mapTo(HashSet()) { it.id }
+    val deduplicatedNewFirstPosts = newFirstPosts.dropWhile { it.id in tailIds }
+    if (deduplicatedNewFirstPosts.isEmpty()) {
+        return ChainBoundaryMerge(
+            trimmedExisting = existing,
+            pageWithAbsorbedHead = effectivePageItems.drop(1).toImmutableList(),
+        )
+    }
+    val absorbedFirst =
+        FeedItemUi.SelfThreadChain(
+            posts = (tailPosts + deduplicatedNewFirstPosts).toImmutableList(),
+        )
+
+    return ChainBoundaryMerge(
+        trimmedExisting = existing.dropLast(1).toImmutableList(),
+        pageWithAbsorbedHead = (listOf<FeedItemUi>(absorbedFirst) + effectivePageItems.drop(1)).toImmutableList(),
+    )
+}
+
+/**
+ * Drops a leading new-page entry whose post URI matches the existing
+ * tail's leaf URI — the cursor-resync overlap pattern. Trims both the
+ * wire-level and projected-feed-items lists in lockstep so the
+ * boundary-merge link check runs against the next NEW wire entry.
+ *
+ * Three projection shapes the leading wire entry might take:
+ * - [FeedItemUi.Single] / [FeedItemUi.ReplyCluster]: drop both lists' first
+ *   element together (the projection consumed exactly one wire entry).
+ * - [FeedItemUi.SelfThreadChain]: the chain's leading post is the
+ *   overlap; drop the chain's first post (collapse to a Single if the
+ *   remaining size is 1, or a smaller chain if ≥ 2). Drop the matching
+ *   wire entry. The chain's body is preserved so post-overlap entries
+ *   still flow into the boundary merge.
+ *
+ * Repeats while the leading wire entry's URI keeps matching the tail
+ * leaf — handles the rare multi-entry overlap pattern transparently.
+ */
+private fun stripLeadingTailOverlap(
+    tailLeafId: String,
+    wirePosts: ImmutableList<FeedViewPost>,
+    pageItems: ImmutableList<FeedItemUi>,
+): Pair<ImmutableList<FeedViewPost>, ImmutableList<FeedItemUi>> {
+    var w: List<FeedViewPost> = wirePosts
+    var p: List<FeedItemUi> = pageItems
+    while (true) {
+        if (w.isEmpty() || p.isEmpty()) break
+        if (w
+                .first()
+                .post.uri.raw != tailLeafId
+        ) {
+            break
+        }
+        w = w.drop(1)
+        val firstItem = p.first()
+        val replacementHead: List<FeedItemUi> =
+            when (firstItem) {
+                is FeedItemUi.Single, is FeedItemUi.ReplyCluster -> emptyList()
+                is FeedItemUi.SelfThreadChain -> {
+                    val chainTail = firstItem.posts.drop(1)
+                    when (chainTail.size) {
+                        0 -> emptyList() // unreachable: SelfThreadChain invariant size >= 2
+                        1 -> listOf(FeedItemUi.Single(chainTail.first()))
+                        else -> listOf(FeedItemUi.SelfThreadChain(chainTail.toImmutableList()))
+                    }
+                }
+            }
+        p = replacementHead + p.drop(1)
+    }
+    return w.toImmutableList() to p.toImmutableList()
+}
+
+/**
+ * Locate a [PostUi] by id across all visible feed entries — the lone
+ * post inside a [FeedItemUi.Single], any of root / parent / leaf inside
+ * a [FeedItemUi.ReplyCluster], or any post inside a
+ * [FeedItemUi.SelfThreadChain]. Returns the first match (each post id is
+ * globally unique within the feed by construction; the de-dupe pass in
+ * the repository enforces this).
  */
 private fun ImmutableList<FeedItemUi>.findPost(id: String): PostUi? =
     firstNotNullOfOrNull { item ->
@@ -338,16 +536,17 @@ private fun ImmutableList<FeedItemUi>.findPost(id: String): PostUi? =
                     item.leaf.id -> item.leaf
                     else -> null
                 }
+            is FeedItemUi.SelfThreadChain -> item.posts.firstOrNull { it.id == id }
         }
     }
 
 /**
  * Replace the post with id == [updated.id] inside the list, preserving
- * the surrounding [FeedItemUi.Single] / [FeedItemUi.ReplyCluster] shape.
- * No-ops the entries that don't match. The cluster branch swaps only
- * the matching slot (root / parent / leaf) and reuses untouched
- * references via referential equality so unrelated cluster posts don't
- * trigger Compose recomposition.
+ * the surrounding [FeedItemUi.Single] / [FeedItemUi.ReplyCluster] /
+ * [FeedItemUi.SelfThreadChain] shape. No-ops the entries that don't
+ * match. The cluster + chain branches swap only the matching slot(s)
+ * and reuse untouched references via referential equality so unrelated
+ * posts don't trigger Compose recomposition.
  */
 private fun ImmutableList<FeedItemUi>.replacePost(updated: PostUi): ImmutableList<FeedItemUi> {
     val targetId = updated.id
@@ -363,6 +562,17 @@ private fun ImmutableList<FeedItemUi>.replacePost(updated: PostUi): ImmutableLis
                     item
                 } else {
                     item.copy(root = root, parent = parent, leaf = leaf)
+                }
+            }
+            is FeedItemUi.SelfThreadChain -> {
+                if (item.posts.none { it.id == targetId }) {
+                    item
+                } else {
+                    val newPosts =
+                        item.posts.map { post ->
+                            if (post.id == targetId) updated else post
+                        }
+                    item.copy(posts = newPosts.toImmutableList())
                 }
             }
         }
