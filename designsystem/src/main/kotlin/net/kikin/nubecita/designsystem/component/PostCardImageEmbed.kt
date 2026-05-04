@@ -2,10 +2,10 @@ package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
@@ -24,12 +24,17 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 /**
  * Renders a Bluesky `app.bsky.embed.images` embed.
  *
- * - **Single image (`items.size == 1`):** full-width, height-capped at
- *   [EMBED_HEIGHT], `ContentScale.Crop`, 16dp rounded corners. This path
- *   is the highest-traffic surface in the feed and is the regression
- *   contract for the m28.5.2 carousel introduction — its visual output
- *   MUST stay byte-for-byte unchanged when the multi-image branch is
- *   added.
+ * - **Single image (`items.size == 1`):** full-width with the layout
+ *   height derived from the post's `aspectRatio` (width/height), clamped
+ *   to `[MIN_ASPECT_RATIO, MAX_ASPECT_RATIO]` = `[2/3, 3/1]`. Source
+ *   aspects inside the range render natively with no crop. Source aspects
+ *   outside the range are displayed at the clamp boundary and
+ *   center-cropped via `ContentScale.Crop` (extreme verticals like
+ *   webcomics get capped at 2:3; ultra-wide panoramas get capped at 3:1).
+ *   When `aspectRatio` is null (older posts pre-2024), falls back to a
+ *   square 1:1 canvas. This range tracks Bluesky's own client and X's
+ *   feed treatment — pre-fullscreen mode is a digestible card; the
+ *   fullscreen image viewer (separate epic) shows native aspect.
  * - **Multi-image (`items.size > 1`):** delegates to M3's
  *   [HorizontalMultiBrowseCarousel]. Each slide masks to the same 16dp
  *   base shape via [CarouselItemScope.maskClip], which lets the carousel
@@ -79,12 +84,22 @@ private fun SingleImage(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(max = EMBED_HEIGHT)
+                .aspectRatio(image.displayedAspectRatio())
                 .clip(IMAGE_SHAPE)
                 .then(clickModifier),
         contentScale = ContentScale.Crop,
     )
 }
+
+/**
+ * Layout aspect (width/height) used by [SingleImage] for the post's
+ * canvas, derived by clamping the source `aspectRatio` to `[MIN_ASPECT_RATIO,
+ * MAX_ASPECT_RATIO]`. Null source aspects fall back to [FALLBACK_ASPECT_RATIO].
+ *
+ * Public-internal so the clamp math is unit-testable as a pure function
+ * without spinning up a Compose harness.
+ */
+internal fun ImageUi.displayedAspectRatio(): Float = (aspectRatio ?: FALLBACK_ASPECT_RATIO).coerceIn(MIN_ASPECT_RATIO, MAX_ASPECT_RATIO)
 
 /**
  * M3 [HorizontalMultiBrowseCarousel] over the multi-image embed.
@@ -149,11 +164,65 @@ private val EMBED_GAP: Dp = 4.dp
 private val CAROUSEL_PREFERRED_ITEM_WIDTH: Dp = 220.dp
 private val IMAGE_SHAPE = RoundedCornerShape(16.dp)
 
-@Preview(name = "Image embed — single", showBackground = true)
+/**
+ * Tallest portrait we'll display for a single image (2:3 = ~0.667 width/height).
+ * Source aspects below this clamp here and center-crop top/bottom via
+ * [ContentScale.Crop]. Tracks Bluesky / X feed treatment so a phone-screenshot
+ * post doesn't take three screen heights.
+ */
+internal const val MIN_ASPECT_RATIO: Float = 2f / 3f
+
+/**
+ * Widest landscape we'll display for a single image (3:1 = 3.0 width/height).
+ * Ultra-wide panoramas above this clamp here and center-crop left/right.
+ */
+internal const val MAX_ASPECT_RATIO: Float = 3f / 1f
+
+/**
+ * Default canvas aspect when the post's `aspectRatio` is null (older
+ * Bluesky posts pre-2024 didn't carry the field). Square 1:1 is inside
+ * the clamp range, so the fallback never triggers a crop.
+ */
+internal const val FALLBACK_ASPECT_RATIO: Float = 1f
+
+@Preview(name = "Image embed — single landscape (3:2)", showBackground = true)
 @Composable
-private fun PostCardImageEmbedSinglePreview() {
+private fun PostCardImageEmbedSingleLandscapePreview() {
     NubecitaTheme {
-        PostCardImageEmbed(items = persistentListOf(previewImage(0)))
+        // 3:2 landscape — well inside [2/3, 3/1], renders natively.
+        PostCardImageEmbed(items = persistentListOf(previewImage(0, aspectRatio = 1.5f)))
+    }
+}
+
+@Preview(name = "Image embed — single portrait (4:5)", showBackground = true)
+@Composable
+private fun PostCardImageEmbedSinglePortraitPreview() {
+    NubecitaTheme {
+        // 4:5 portrait — inside the range, renders natively (the IGN /
+        // head-and-shoulders case from nubecita-k9k that no longer
+        // letterbox-slits to 180dp).
+        PostCardImageEmbed(items = persistentListOf(previewImage(0, aspectRatio = 0.8f)))
+    }
+}
+
+@Preview(name = "Image embed — single ultra-tall (9:16, clamps)", showBackground = true)
+@Composable
+private fun PostCardImageEmbedSingleUltraTallPreview() {
+    NubecitaTheme {
+        // 9:16 phone screenshot — below MIN_ASPECT_RATIO, clamps to 2:3
+        // and center-crops top/bottom via ContentScale.Crop.
+        PostCardImageEmbed(items = persistentListOf(previewImage(0, aspectRatio = 9f / 16f)))
+    }
+}
+
+@Preview(name = "Image embed — single null aspect (fallback square)", showBackground = true)
+@Composable
+private fun PostCardImageEmbedSingleNullAspectPreview() {
+    NubecitaTheme {
+        // Pre-2024 post with no aspectRatio in the lexicon — falls back
+        // to FALLBACK_ASPECT_RATIO = 1.0 (square), which is inside the
+        // clamp range so no crop triggers.
+        PostCardImageEmbed(items = persistentListOf(previewImage(0, aspectRatio = null)))
     }
 }
 
@@ -191,9 +260,12 @@ private fun PostCardImageEmbedFourPreview() {
     }
 }
 
-private fun previewImage(index: Int): ImageUi =
+private fun previewImage(
+    index: Int,
+    aspectRatio: Float? = 1.5f,
+): ImageUi =
     ImageUi(
         url = "https://example.com/placeholder/$index.jpg",
         altText = "Placeholder image $index",
-        aspectRatio = 1.5f,
+        aspectRatio = aspectRatio,
     )

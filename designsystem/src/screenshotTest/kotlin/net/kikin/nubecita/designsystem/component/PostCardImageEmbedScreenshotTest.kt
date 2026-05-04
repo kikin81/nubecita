@@ -65,9 +65,43 @@ private fun PostCardImageEmbedFourScreenshot() {
     }
 }
 
-private fun previewImage(index: Int): ImageUi =
+/**
+ * 4:5 portrait — inside the `[2/3, 3/1]` clamp range, so the image
+ * renders at its native aspect with no crop. Pins the IGN /
+ * head-and-shoulders behavior fixed in nubecita-k9k: the photo no
+ * longer letterbox-slits to a 180dp horizontal band.
+ */
+@PreviewTest
+@Preview(name = "single-portrait-light", showBackground = true)
+@Preview(name = "single-portrait-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardImageEmbedSinglePortraitScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardImageEmbed(items = persistentListOf(previewImage(0, aspectRatio = 4f / 5f)))
+    }
+}
+
+/**
+ * 9:16 phone screenshot — below `MIN_ASPECT_RATIO`, so the displayed
+ * canvas is clamped to 2:3 and `ContentScale.Crop` center-crops top
+ * and bottom. Pins the upper-bound behavior of the clamp range.
+ */
+@PreviewTest
+@Preview(name = "single-ultra-tall-light", showBackground = true)
+@Preview(name = "single-ultra-tall-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardImageEmbedSingleUltraTallScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardImageEmbed(items = persistentListOf(previewImage(0, aspectRatio = 9f / 16f)))
+    }
+}
+
+private fun previewImage(
+    index: Int,
+    aspectRatio: Float? = 1.5f,
+): ImageUi =
     ImageUi(
         url = "https://example.com/placeholder/$index.jpg",
         altText = "Placeholder image $index",
-        aspectRatio = 1.5f,
+        aspectRatio = aspectRatio,
     )
