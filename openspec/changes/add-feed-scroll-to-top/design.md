@@ -37,7 +37,9 @@ The clean seam that satisfies all four constraints: a `CompositionLocal<SharedFl
 
 ### Decision 1: `CompositionLocal<SharedFlow<Unit>>` over alternatives
 
-**Choice:** Add `LocalScrollToTopSignal: ProvidableCompositionLocal<SharedFlow<Unit>>` to `:core:common:navigation`. MainShell creates a `MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 0)` and exposes its read-only view via `CompositionLocalProvider` alongside the existing `LocalMainShellNavState`. Any feature screen that wants the gesture collects the flow inside a `LaunchedEffect`.
+**Choice:** Add `LocalScrollToTopSignal: ProvidableCompositionLocal<SharedFlow<Unit>>` to `:core:common:navigation`. MainShell creates a `MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)` and exposes a `remember`-d read-only view via `CompositionLocalProvider` alongside the existing `LocalMainShellNavState`. Any feature screen that wants the gesture collects the flow inside a `LaunchedEffect`.
+
+The single-slot DROP_OLDEST buffer (instead of pure rendezvous `buffer = 0`) is load-bearing: rendezvous mode requires a collector currently *awaiting* in `collect` for `tryEmit` to succeed. During the brief LaunchedEffect-restart window between recompositions, the subscriber count blips to 0 and the emission is dropped silently — which manifests in production as a tap-retap that was registered but did nothing. The single-slot buffer guarantees `tryEmit` always succeeds; rapid double-taps collapse into one delivered emission via DROP_OLDEST, which matches the desired UX (a user who double-taps wants to scroll to top once, not twice).
 
 **Why this over alternatives:**
 

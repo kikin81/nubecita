@@ -1,10 +1,10 @@
 ## 1. Contract: `LocalScrollToTopSignal` in `:core:common:navigation`
 
-- [x] 1.1 Add `LocalScrollToTopSignal: ProvidableCompositionLocal<SharedFlow<Unit>>` in a new file `core/common/src/main/kotlin/net/kikin/nubecita/core/common/navigation/ScrollToTopSignal.kt`. Default value is an empty `MutableSharedFlow<Unit>(replay = 0).asSharedFlow()` so previews / screenshot tests / detached compositions don't need a custom provider. KDoc covers the producer / consumer contract from design Decision 1 + 2.
+- [x] 1.1 Add `LocalScrollToTopSignal: ProvidableCompositionLocal<SharedFlow<Unit>>` in a new file `core/common/src/main/kotlin/net/kikin/nubecita/core/common/navigation/ScrollToTopSignal.kt`. Default value is an empty `MutableSharedFlow<Unit>(replay = 0).asSharedFlow()` so previews / screenshot tests / detached compositions don't need a custom provider. KDoc covers the producer / consumer contract from design Decision 1 + 2 (including the single-slot DROP_OLDEST buffer the producer is expected to use, per the manual-smoke fix).
 
 ## 2. Producer: MainShell tab-tap wiring
 
-- [x] 2.1 In `:app/MainShell` (or wherever the bottom-nav tab-tap handler lives), create a `remember { MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 0) }` and expose its read-only view via `LocalScrollToTopSignal provides scrollToTopSignal.asSharedFlow()` in the existing `CompositionLocalProvider` block.
+- [x] 2.1 In `:app/MainShell` (or wherever the bottom-nav tab-tap handler lives), create a `remember { MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST) }` and expose a `remember`-d `asSharedFlow()` view via `LocalScrollToTopSignal` in the existing `CompositionLocalProvider` block. The single-slot DROP_OLDEST buffer guarantees `tryEmit` always succeeds (rendezvous semantics drop emissions during the LaunchedEffect-restart window between recompositions).
 - [x] 2.2 Update the tab-tap handler so that `if (tappedTab == activeTab) scrollToTopSignal.tryEmit(Unit)` (no navigation), else navigate as before. The `activeTab` reference MUST resolve from the post-mutation MainShell state to keep rapid double-tap behavior correct (per design Decision 3 / spec).
 - [ ] 2.3 MainShell-level test or instrumentation: verify that re-tapping the active tab calls `tryEmit` while a tab switch does not. (If MainShell already has a test surface for tab-tap, fold this in; otherwise, defer to the consumer-side test in task 5.x.) (Deferred — see task 5.2 note.)
 

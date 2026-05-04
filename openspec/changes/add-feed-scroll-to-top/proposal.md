@@ -10,11 +10,11 @@ The architectural challenge is keeping `:feature:feed:impl` from leaking navigat
 
 ### Contract layer (`:core:common:navigation`)
 
-- Add `LocalScrollToTopSignal: ProvidableCompositionLocal<SharedFlow<Unit>>` — a hot SharedFlow (replay=0, buffer=0) that fires `Unit` when the current top-level tab is re-tapped. Default value is an empty `SharedFlow<Unit>` so previews / screenshot tests / detached previews don't need to wrap composition in a custom provider.
+- Add `LocalScrollToTopSignal: ProvidableCompositionLocal<SharedFlow<Unit>>` — a hot SharedFlow (replay=0, single-slot buffer with `BufferOverflow.DROP_OLDEST`) that fires `Unit` when the current top-level tab is re-tapped. Default value is an empty `SharedFlow<Unit>` so previews / screenshot tests / detached previews don't need to wrap composition in a custom provider.
 
 ### Producer (`:app/MainShell`)
 
-- MainShell creates a `MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 0)`, exposes the read-only view via `LocalScrollToTopSignal` in the existing `CompositionLocalProvider` block, and updates the tab-tap handler so that re-tapping the already-active tab calls `tryEmit(Unit)`. Switching tabs (`tappedTab != activeTab`) navigates as before — no signal fires on a fresh tab landing.
+- MainShell creates a `MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)`, exposes a `remember`-d `asSharedFlow()` view via `LocalScrollToTopSignal` in the existing `CompositionLocalProvider` block, and updates the tab-tap handler so that re-tapping the already-active tab calls `tryEmit(Unit)`. Switching tabs (`tappedTab != activeTab`) navigates as before — no signal fires on a fresh tab landing. The single-slot buffer is required so `tryEmit` always succeeds (rendezvous semantics drop emissions during the LaunchedEffect-restart window between recompositions, which manifests as silently-ignored taps).
 
 ### Consumer (`:feature:feed:impl/FeedScreen`)
 

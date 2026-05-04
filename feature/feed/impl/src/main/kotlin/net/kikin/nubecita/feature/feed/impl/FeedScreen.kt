@@ -247,23 +247,31 @@ internal fun FeedScreenContent(
     LaunchedEffect(scrollToTopSignal, listState) {
         scrollToTopSignal.collect { listState.animateScrollToItem(0) }
     }
-    // FAB visibility derived via derivedStateOf so the surrounding
-    // composition only invalidates when the threshold boundary is
-    // crossed (not 60–120 times per scroll frame). Same Compose-perf
-    // pattern used by m28.5.2's PostDetail FAB.
-    val showScrollToTopFab by remember(listState) {
-        derivedStateOf { listState.firstVisibleItemIndex >= SCROLL_TO_TOP_FAB_THRESHOLD }
+    // FAB visibility: gated on BOTH the loaded viewState AND the scroll
+    // threshold. The listState is hoisted at the FeedScreen level and
+    // retains `firstVisibleItemIndex` across viewState transitions, so
+    // checking only the index would let the FAB linger over Empty /
+    // InitialLoading / InitialError surfaces (e.g. sign-out → feed
+    // becomes Empty while the prior scroll position is still cached).
+    // The viewState gate keeps the affordance scoped to the only state
+    // that actually has a list to scroll.
+    //
+    // `derivedStateOf` debounces against per-frame scroll updates: the
+    // surrounding composition only invalidates when the boolean flips
+    // (a few times per scroll session, not 60–120 fps). Same Compose-
+    // perf pattern used by m28.5.2's PostDetail FAB.
+    val showScrollToTopFab by remember(listState, viewState) {
+        derivedStateOf {
+            viewState is FeedScreenViewState.Loaded &&
+                listState.firstVisibleItemIndex >= SCROLL_TO_TOP_FAB_THRESHOLD
+        }
     }
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             // AnimatedVisibility wraps the FAB so the appearance / dismissal
-            // fades + scales rather than popping in. The FAB only shows in
-            // the Loaded state — in InitialLoading / Empty / InitialError
-            // there's no list to scroll, and `firstVisibleItemIndex` stays
-            // at 0 anyway because each branch creates its own LazyColumn or
-            // doesn't use one.
+            // fades + scales rather than popping in.
             AnimatedVisibility(
                 visible = showScrollToTopFab,
                 enter = fadeIn() + scaleIn(),

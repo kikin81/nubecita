@@ -75,12 +75,20 @@ import kotlinx.coroutines.flow.asSharedFlow
  *
  * ```kotlin
  * val scrollToTopSignal = remember {
- *     MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 0)
+ *     MutableSharedFlow<Unit>(
+ *         replay = 0,
+ *         extraBufferCapacity = 1,
+ *         onBufferOverflow = BufferOverflow.DROP_OLDEST,
+ *     )
+ * }
+ * // Stable read-only view so the CompositionLocal value doesn't churn:
+ * val readOnlyScrollToTopSignal = remember(scrollToTopSignal) {
+ *     scrollToTopSignal.asSharedFlow()
  * }
  * // tab tap handler:
  * if (tapped == activeTab) scrollToTopSignal.tryEmit(Unit) else navigateToTab(tapped)
  *
- * CompositionLocalProvider(LocalScrollToTopSignal provides scrollToTopSignal.asSharedFlow()) {
+ * CompositionLocalProvider(LocalScrollToTopSignal provides readOnlyScrollToTopSignal) {
  *     // ... NavDisplay etc.
  * }
  * ```
