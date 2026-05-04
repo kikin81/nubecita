@@ -78,7 +78,11 @@ fun ThreadFold(
                 .fillMaxWidth()
                 .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
                 .drawWithContent {
-                    drawContent()
+                    // Draw the connector line BEFORE the children so the
+                    // three dot indicators render on top of (and visually
+                    // pass through) the line. Earlier shape called
+                    // `drawContent()` first which painted the line over the
+                    // dots, hiding them.
                     val xPx = gutterX.toPx()
                     drawLine(
                         color = connectorColor,
@@ -86,6 +90,7 @@ fun ThreadFold(
                         end = Offset(xPx, size.height),
                         strokeWidth = 2.dp.toPx(),
                     )
+                    drawContent()
                 }.padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
