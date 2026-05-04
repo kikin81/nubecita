@@ -2,7 +2,6 @@ package net.kikin.nubecita
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -64,7 +63,22 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                     }
                 }
                 entry<Main> {
-                    MainShell(modifier = Modifier.safeDrawingPadding())
+                    // No `safeDrawingPadding` here — `NavigationSuiteScaffold`
+                    // inside `MainShell` consumes the bottom system inset
+                    // itself and draws its `surfaceContainer` background
+                    // under the gesture-bar / nav-bar region. Wrapping it
+                    // in `safeDrawingPadding` carves the inset OUT of the
+                    // scaffold's drawable area, leaving the outer
+                    // MainActivity Surface (`background` color) bleeding
+                    // through behind the gesture pill — exactly the gap
+                    // `add-feed-scroll-to-top`'s manual smoke surfaced.
+                    // Per the edge-to-edge skill: "DO NOT apply
+                    // `safeDrawingPadding` or similar modifiers to the
+                    // `NavigationSuiteScaffold` parent. This clips and
+                    // prevents an edge-to-edge screen." Per-screen content
+                    // inside the inner `NavDisplay` (FeedScreen, etc.)
+                    // owns its own inset handling via Scaffold padding.
+                    MainShell()
                 }
                 outerInstallers.forEach { installer -> installer() }
             },
