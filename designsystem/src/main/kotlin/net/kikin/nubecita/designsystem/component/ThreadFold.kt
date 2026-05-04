@@ -30,6 +30,14 @@ import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.R
 
 /**
+ * The horizontal padding applied to the outer Row that hosts the dots
+ * column + label. Lifted to a top-level constant so the dot-centering
+ * math (column width derived from `gutterX - ROW_HORIZONTAL_PADDING`)
+ * stays in sync if either value ever changes.
+ */
+private val ROW_HORIZONTAL_PADDING = 20.dp
+
+/**
  * The "View full thread" fold — sits between non-adjacent posts in a
  * thread cluster, indicating that intermediate posts have been elided.
  *
@@ -72,6 +80,20 @@ fun ThreadFold(
     val dotColor = MaterialTheme.colorScheme.outline
     val label = stringResource(R.string.thread_fold_view_full_thread)
 
+    // Dots Column width is computed so the column's horizontal center
+    // ALWAYS lands at `gutterX`, regardless of the caller's choice.
+    // The Row's start padding shifts the Column's left edge by
+    // `ROW_HORIZONTAL_PADDING`, so for a column of width `w` centered at
+    // `gutterX`, we need `ROW_HORIZONTAL_PADDING + w/2 == gutterX`, i.e.
+    // `w = 2 * (gutterX - ROW_HORIZONTAL_PADDING)`. With the default
+    // gutterX = 42dp this resolves to 44dp (matches the prior hardcoded
+    // value); with `ThreadCluster`'s gutterX = 40dp it resolves to 40dp,
+    // which puts the dots dead-center on the connector line. The earlier
+    // hardcoded 44dp left the dots 2dp to the right of the line in the
+    // cluster context — visually the line continued unbroken past the
+    // dots-on-the-side, which is what `nubecita-yke` was reporting.
+    val dotsColumnWidth = (gutterX - ROW_HORIZONTAL_PADDING) * 2
+
     Row(
         modifier =
             modifier
@@ -91,12 +113,12 @@ fun ThreadFold(
                         strokeWidth = 2.dp.toPx(),
                     )
                     drawContent()
-                }.padding(horizontal = 20.dp, vertical = 8.dp),
+                }.padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(
-            modifier = Modifier.width(44.dp),
+            modifier = Modifier.width(dotsColumnWidth),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
