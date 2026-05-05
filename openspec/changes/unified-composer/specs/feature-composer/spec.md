@@ -16,17 +16,17 @@ The system SHALL expose `net.kikin.nubecita.feature.composer.api.ComposerRoute` 
 
 ### Requirement: `ComposerViewModel` is the canonical presenter
 
-The system SHALL expose `net.kikin.nubecita.feature.composer.impl.ComposerViewModel` as the only `ViewModel` for the composer screen. It MUST extend `MviViewModel<ComposerState, ComposerEvent, ComposerEffect>`, MUST be `@HiltViewModel`-annotated, and MUST receive its `replyToUri` through `SavedStateHandle` keyed by the `ComposerRoute` argument. The screen Composable MUST consume it via `hiltViewModel()`; no other class in the project SHALL instantiate or extend `ComposerViewModel`.
+The system SHALL expose `net.kikin.nubecita.feature.composer.impl.ComposerViewModel` as the only `ViewModel` for the composer screen. It MUST extend `MviViewModel<ComposerState, ComposerEvent, ComposerEffect>`, MUST be `@HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)`-annotated, and MUST receive its `route: ComposerRoute` through Hilt **assisted injection** — the canonical Nav3 pattern in this codebase, mirroring `:feature:postdetail:impl`'s `PostDetailViewModel.Factory`. An earlier draft of this requirement specified `SavedStateHandle`-based delivery; that's been refactored to assisted injection because Nav3 does not auto-populate `SavedStateHandle` with route args, and the rest of the codebase uses assisted injection for this exact case. The screen Composable MUST consume the VM via `hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(creationCallback = { it.create(route) })`; no other class in the project SHALL instantiate or extend `ComposerViewModel`. Process death survival is **explicitly out of V1** — no `SavedStateHandle` plumbing for state persistence (the `:core:drafts` follow-up addresses non-empty drafts surviving via disk persistence).
 
-#### Scenario: Screen consumes ComposerViewModel via Hilt
+#### Scenario: Screen consumes ComposerViewModel via assisted injection
 
 - **WHEN** `ComposerScreen` composes
-- **THEN** it obtains `ComposerViewModel` via `hiltViewModel()` and forwards `ComposerEvent`s through `viewModel::handleEvent`
+- **THEN** it obtains `ComposerViewModel` via `hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(creationCallback = { factory -> factory.create(route) })` and forwards `ComposerEvent`s through `viewModel::handleEvent`
 
-#### Scenario: replyToUri reaches the VM through SavedStateHandle
+#### Scenario: replyToUri reaches the VM via the assisted route
 
-- **WHEN** navigation pushes `ComposerRoute(replyToUri = AtUri("at://did:plc:abc/app.bsky.feed.post/xyz"))`
-- **THEN** `ComposerViewModel`'s constructor reads the URI from the injected `SavedStateHandle` and `state.replyToUri == AtUri("at://did:plc:abc/app.bsky.feed.post/xyz")` on first emission
+- **WHEN** navigation pushes `ComposerRoute(replyToUri = "at://did:plc:abc/app.bsky.feed.post/xyz")`
+- **THEN** `ComposerViewModel.Factory.create(route)` constructs the VM with the assisted `route` parameter, and `state.replyToUri == "at://did:plc:abc/app.bsky.feed.post/xyz"` on first emission
 
 ### Requirement: `ComposerState` carries text, count, attachments, and submit status as flat UI-ready fields
 
@@ -175,7 +175,7 @@ The system SHALL upload all attached image blobs in parallel (via `coroutineScop
 
 ### Requirement: Tab-internal navigation flows through `ComposerEffect`, not a Hilt-injected navigator
 
-The system SHALL declare `sealed interface ComposerEffect : UiEffect` with at minimum `NavigateBack : ComposerEffect`, `ShowError(val message: UiText) : ComposerEffect`, and `OnSubmitSuccess(val newPostUri: AtUri) : ComposerEffect`. The screen Composable MUST collect these effects in a single `LaunchedEffect` block and route navigation calls through `LocalMainShellNavState.current` (e.g. `removeLast()` for back, `add(...)` for forward). `ComposerViewModel` MUST NOT inject `MainShellNavState` or any object backed by it. The outer `Navigator` MUST NOT be injected either.
+The system SHALL declare `sealed interface ComposerEffect : UiEffect` with at minimum `NavigateBack : ComposerEffect`, `ShowError(val error: ComposerError) : ComposerEffect`, and `OnSubmitSuccess(val newPostUri: AtUri) : ComposerEffect`. `ShowError` carries the typed `ComposerError` (from `:core:posting`) — matching `FeedEffect.ShowError(error: FeedError)` and `PostDetailEffect.ShowError(error: PostDetailError)` — so the screen Composable can pre-resolve every error string via `stringResource(...)` at composition time and switch on the sealed-error type inside the collector. The VM MUST NOT carry Android resource ids or pre-localized strings on the effect. The screen Composable MUST collect these effects in a single `LaunchedEffect` block and route navigation calls through `LocalMainShellNavState.current` (e.g. `removeLast()` for back, `add(...)` for forward). `ComposerViewModel` MUST NOT inject `MainShellNavState` or any object backed by it. The outer `Navigator` MUST NOT be injected either.
 
 #### Scenario: VM constructor has no navigation state holder
 
@@ -279,7 +279,7 @@ The character counter MUST render as a circular progress arc whose tonal band sh
 
 ### Requirement: Composer registers as an `@MainShell` Nav3 entry for Compact-width hosting
 
-The system SHALL contribute the `ComposerRoute` entry via a Hilt `@Provides @IntoSet @MainShell EntryProviderInstaller` declared in `:feature:composer:impl`. The provider MUST NOT also be qualified `@OuterShell`. The contributed entry MUST resolve `ComposerScreen` against the `ComposerRoute` argument (passing `replyToUri` through to the VM via `SavedStateHandle`). This entry is the hosting path for **Compact** widths only — at Medium/Expanded widths the composer is overlaid as a Dialog (see *Adaptive container* requirement) and is not pushed onto `NavDisplay`.
+The system SHALL contribute the `ComposerRoute` entry via a Hilt `@Provides @IntoSet @MainShell EntryProviderInstaller` declared in `:feature:composer:impl`. The provider MUST NOT also be qualified `@OuterShell`. The contributed entry MUST resolve `ComposerScreen` against the `ComposerRoute` argument by handing it to `ComposerViewModel.Factory.create(route)` via the assisted-inject `creationCallback` of `hiltViewModel(...)`. This entry is the hosting path for **Compact** widths only — at Medium/Expanded widths the composer is overlaid as a Dialog (see *Adaptive container* requirement) and is not pushed onto `NavDisplay`.
 
 #### Scenario: MainShell qualifier on the entry installer
 
@@ -298,7 +298,7 @@ The system SHALL host `ComposerScreen` in a width-class-adaptive container:
 - **Compact width** (`WindowWidthSizeClass.COMPACT`): the launching surface (Feed FAB, in-feed reply affordance) MUST push `ComposerRoute` onto `LocalMainShellNavState.current`. `ComposerScreen` renders inside its own `Scaffold` filling the inner `NavDisplay` pane.
 - **Medium / Expanded widths** (`WindowWidthSizeClass.MEDIUM` and `EXPANDED`): the launching surface MUST NOT push onto `NavDisplay`. Instead it MUST toggle a `MainShell`-scoped composer-launcher state holder (e.g. `ComposerOverlayState`). `MainShell` MUST observe this state and overlay a `Dialog(properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false))` whose content wraps `ComposerScreen` in `Modifier.widthIn(max = 640.dp)`. The Dialog's default scrim is the only background dimming; `ComposerScreen` itself is the same Composable used at Compact, with no Compose-level mode flag.
 
-`ComposerViewModel` MUST be obtained via `hiltViewModel()` in both code paths and MUST receive `replyToUri` through `SavedStateHandle` (Compact: from the `ComposerRoute` argument; Medium/Expanded: from the launcher state holder seeded into a screen-scoped `SavedStateHandle` provider). Its constructor MUST NOT branch on width class.
+`ComposerViewModel` MUST be obtained via `hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(creationCallback = { factory -> factory.create(route) })` in both code paths. The `route: ComposerRoute` argument is constructed at the launching surface (Compact: the `entry<ComposerRoute>` block receives it from Nav3; Medium/Expanded: the `MainShell`-scoped composer-launcher state holder constructs `ComposerRoute(replyToUri = state.replyToUri)` at overlay time). The VM's constructor MUST NOT branch on width class.
 
 #### Scenario: Compact launches via NavDisplay push
 
@@ -365,12 +365,12 @@ The "Discard draft?" confirmation dialog SHALL be implemented such that its acti
 
 ### Requirement: `ComposerViewModel` constructor leaves room for a future `DraftRepository`
 
-`ComposerViewModel`'s constructor SHALL be declared such that adding a `draftRepository: DraftRepository` parameter in a follow-up change is a pure addition — no existing parameter is repositioned, renamed, or removed. V1 ships with three Hilt-resolved constructor parameters: `SavedStateHandle`, `PostingRepository`, and `ParentFetchSource` (the swap point used to inject the `app.bsky.feed.getPostThread`-backed reply-mode resolver in `:feature:composer:impl`). An earlier draft of this requirement said "exactly two" — that claim was made before the `ParentFetchSource` separation was designed. The contract that matters is *append-only*: future additions go to the end of the parameter list. The type MUST remain `@HiltViewModel`-annotated so Hilt resolves new dependencies without binding-graph rewiring.
+`ComposerViewModel`'s constructor SHALL be declared such that adding a `draftRepository: DraftRepository` parameter in a follow-up change is a pure addition — no existing parameter is repositioned, renamed, or removed. V1 ships with one `@Assisted` parameter (`route: ComposerRoute`) plus two Hilt-resolved parameters (`PostingRepository` and `ParentFetchSource`). The contract that matters is *append-only*: future Hilt-resolved additions go to the end of the parameter list, after `parentFetchSource`. The type MUST remain `@HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)`-annotated so Hilt resolves new dependencies without binding-graph rewiring.
 
 #### Scenario: V1 constructor signature
 
 - **WHEN** the source of `ComposerViewModel` is inspected
-- **THEN** its primary constructor declares exactly three `@Inject`-resolved parameters: `SavedStateHandle`, `PostingRepository`, and `ParentFetchSource`, in that order
+- **THEN** its primary constructor declares one `@Assisted` parameter (`route: ComposerRoute`) followed by two `@Inject`-resolved parameters (`postingRepository: PostingRepository` and `parentFetchSource: ParentFetchSource`), in that order, via `@AssistedInject`
 
 ### Requirement: FAB component on launching surfaces is badge-wrappable
 

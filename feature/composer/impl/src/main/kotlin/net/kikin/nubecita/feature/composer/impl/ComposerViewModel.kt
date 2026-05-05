@@ -1,7 +1,9 @@
 package net.kikin.nubecita.feature.composer.impl
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.toImmutableList
@@ -10,6 +12,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.internal.GraphemeCounter
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
@@ -17,7 +20,6 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
-import javax.inject.Inject
 
 /**
  * Presenter for the unified composer screen. Drives both new-post
@@ -25,34 +27,46 @@ import javax.inject.Inject
  * route's `replyToUri` argument to disambiguate.
  *
  * Lifecycle:
- * - Constructor reads `replyToUri` from [SavedStateHandle] keyed on
- *   `KEY_REPLY_TO_URI` (the same key `:app`'s nav graph writes when
- *   pushing `ComposerRoute(replyToUri = ...)`). Null means new-post
- *   mode; non-null means reply mode.
+ * - Constructor receives the [ComposerRoute] via Hilt assisted
+ *   injection (Nav3 canonical pattern — see `:feature:postdetail:impl`'s
+ *   `PostDetailViewModel.Factory` for the precedent). The route
+ *   carries `replyToUri: String?`; null means new-post mode, non-null
+ *   means reply mode.
  * - In reply mode, `init` kicks off a parent fetch via
  *   [ParentFetchSource]. State transitions Loading → Loaded or
  *   Loading → Failed; submit is blocked until Loaded.
  *
- * Forward-compatibility: the constructor takes exactly two
- * Hilt-injected parameters today ([SavedStateHandle],
- * [PostingRepository]) plus the [ParentFetchSource]. The
- * `:core:drafts` follow-up adds a third (`DraftRepository`) — pure
- * additive change, no parameter reordering.
+ * Forward-compatibility: append-only constructor contract. V1 ships
+ * with three injected dependencies (the assisted [ComposerRoute] +
+ * [PostingRepository] + [ParentFetchSource]). The future `:core:drafts`
+ * adds `DraftRepository` as the next param — no reorder, no rename.
+ *
+ * Process death: V1 does NOT survive process death (no
+ * [androidx.lifecycle.SavedStateHandle] plumbing — explicit non-goal
+ * per the unified-composer spec). If the process is killed mid-
+ * compose, the user's draft is lost. The `:core:drafts` follow-up
+ * adds disk-backed draft persistence which addresses this case for
+ * non-empty drafts.
  *
  * The character counter, the `isOverLimit` flag, the
  * AddAttachments cap, and every reducer's logic are unit-testable
  * as pure state transitions — see `ComposerViewModelTest`.
  */
-@HiltViewModel
+@HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)
 class ComposerViewModel
-    @Inject
+    @AssistedInject
     constructor(
-        savedStateHandle: SavedStateHandle,
+        @Assisted private val route: ComposerRoute,
         private val postingRepository: PostingRepository,
         private val parentFetchSource: ParentFetchSource,
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
-            initialState = initialStateFor(savedStateHandle),
+            initialState = ComposerState(replyToUri = route.replyToUri),
         ) {
+        @AssistedFactory
+        interface Factory {
+            fun create(route: ComposerRoute): ComposerViewModel
+        }
+
         init {
             uiState.value.replyToUri?.let { uri ->
                 launchParentFetch(uri)
@@ -143,6 +157,14 @@ class ComposerViewModel
                     onFailure = { throwable ->
                         val cause = (throwable as? ComposerError) ?: ComposerError.RecordCreationFailed(throwable)
                         setState { copy(submitStatus = ComposerSubmitStatus.Error(cause)) }
+                        // Sticky state already records the typed cause for an
+                        // inline retry affordance; the snackbar is the
+                        // user-facing surface for "your post didn't go" and
+                        // the screen maps the variant to a localized string.
+                        // Parent-fetch failure deliberately does NOT emit
+                        // ShowError — that error is shown as inline reply-
+                        // header UI keyed off `replyParentLoad = Failed`.
+                        sendEffect(ComposerEffect.ShowError(cause))
                     },
                 )
             }
@@ -198,13 +220,5 @@ class ComposerViewModel
 
             /** Lexicon cap for `app.bsky.embed.images`. */
             const val MAX_ATTACHMENTS = 4
-
-            /** SavedStateHandle key for the route's `replyToUri` argument. */
-            const val KEY_REPLY_TO_URI = "replyToUri"
-
-            private fun initialStateFor(handle: SavedStateHandle): ComposerState {
-                val replyToUri: String? = handle[KEY_REPLY_TO_URI]
-                return ComposerState(replyToUri = replyToUri)
-            }
         }
     }
