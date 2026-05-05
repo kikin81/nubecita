@@ -88,6 +88,21 @@ fun ComposerScreen(
     val currentOnNavigateBack by rememberUpdatedState(onNavigateBack)
     val currentOnSubmitSuccess by rememberUpdatedState(onSubmitSuccess)
 
+    // Stabilize the VM-event lambdas that wire ComposerScreenContent.
+    // Without `remember`, every keystroke mutates `state`, recomposes
+    // ComposerScreen, and reallocates these lambdas — which invalidates
+    // ComposerScreenContent's skip and cascades into ComposerPostButton
+    // on the hot path. `viewModel` is the only closed-over dependency
+    // and is stable for the screen's lifetime.
+    val onTextChange =
+        remember(viewModel) {
+            { text: String -> viewModel.handleEvent(ComposerEvent.TextChanged(text)) }
+        }
+    val onSubmit =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.Submit) }
+        }
+
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
@@ -104,8 +119,8 @@ fun ComposerScreen(
     ComposerScreenContent(
         state = state,
         snackbarHostState = snackbarHostState,
-        onTextChange = { text -> viewModel.handleEvent(ComposerEvent.TextChanged(text)) },
-        onSubmit = { viewModel.handleEvent(ComposerEvent.Submit) },
+        onTextChange = onTextChange,
+        onSubmit = onSubmit,
         onCloseClick = onNavigateBack,
         modifier = modifier,
     )
