@@ -47,6 +47,8 @@ private fun ComposerScreenEmptyScreenshot() {
             onTextChange = {},
             onSubmit = {},
             onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
         )
     }
 }
@@ -69,6 +71,8 @@ private fun ComposerScreenNearLimitScreenshot() {
             onTextChange = {},
             onSubmit = {},
             onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
         )
     }
 }
@@ -91,6 +95,8 @@ private fun ComposerScreenSubmittingScreenshot() {
             onTextChange = {},
             onSubmit = {},
             onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
         )
     }
 }

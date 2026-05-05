@@ -1,12 +1,15 @@
 package net.kikin.nubecita.feature.composer.impl
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,9 +39,11 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.kikin81.atproto.runtime.AtUri
+import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounter
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
+import net.kikin.nubecita.feature.composer.impl.internal.rememberComposerImagePicker
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
@@ -111,6 +116,27 @@ fun ComposerScreen(
         remember(viewModel) {
             { viewModel.handleEvent(ComposerEvent.Submit) }
         }
+    val onAddAttachments =
+        remember(viewModel) {
+            { picked: List<ComposerAttachment> ->
+                viewModel.handleEvent(ComposerEvent.AddAttachments(picked))
+            }
+        }
+    val onRemoveAttachment =
+        remember(viewModel) {
+            { index: Int -> viewModel.handleEvent(ComposerEvent.RemoveAttachment(index)) }
+        }
+
+    // Picker plumbing. The contract is captured at registration time
+    // by `rememberLauncherForActivityResult`, so we re-key the helper
+    // on `remainingCapacity` to keep the picker UI honest as the user
+    // adds / removes attachments. See `ComposerImagePicker.kt`.
+    val remainingCapacity = ComposerViewModel.MAX_ATTACHMENTS - state.attachments.size
+    val onAddImageClick =
+        rememberComposerImagePicker(
+            remainingCapacity = remainingCapacity,
+            onPick = onAddAttachments,
+        )
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -146,6 +172,8 @@ fun ComposerScreen(
         onTextChange = onTextChange,
         onSubmit = onSubmit,
         onCloseClick = onNavigateBack,
+        onAddImageClick = onAddImageClick,
+        onRemoveAttachment = onRemoveAttachment,
         modifier = modifier,
     )
 }
@@ -163,6 +191,8 @@ fun ComposerScreenContent(
     onTextChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onCloseClick: () -> Unit,
+    onAddImageClick: () -> Unit,
+    onRemoveAttachment: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -238,7 +268,7 @@ fun ComposerScreenContent(
                     Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Top,
+                verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.Start,
             ) {
                 OutlinedTextField(
@@ -258,7 +288,55 @@ fun ComposerScreenContent(
                             imeAction = ImeAction.Default,
                         ),
                 )
+                // Composer attachment action row. wtq.5 step 5.1 lands the
+                // photo-picker affordance only; step 5.2 will populate
+                // this same row with the chip strip + per-chip remove
+                // affordance using `onRemoveAttachment`. Keeping the row
+                // anchored here now means the screenshot baselines stay
+                // valid when chips ship.
+                ComposerAttachmentRow(
+                    attachmentCount = state.attachments.size,
+                    isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting,
+                    onAddImageClick = onAddImageClick,
+                )
             }
+        }
+    }
+}
+
+/**
+ * Horizontal action row beneath the composer's text field. wtq.5 step
+ * 5.1 ships only the "Add image" affordance — gated off when the
+ * composer is at the 4-image cap or while a submit is in flight.
+ * Step 5.2 expands this row with the Coil-loaded attachment chips
+ * (and wires [onRemoveAttachment]) without moving the row anchor, so
+ * the screenshot baselines remain valid as chips light up.
+ */
+@Composable
+private fun ComposerAttachmentRow(
+    attachmentCount: Int,
+    isSubmitting: Boolean,
+    onAddImageClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val canAddImage =
+        !isSubmitting && attachmentCount < ComposerViewModel.MAX_ATTACHMENTS
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(
+            onClick = onAddImageClick,
+            enabled = canAddImage,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.AddPhotoAlternate,
+                contentDescription = stringResource(R.string.composer_add_image_action),
+            )
         }
     }
 }

@@ -132,7 +132,7 @@ The system SHALL count characters as Unicode extended grapheme clusters — what
 
 ### Requirement: Image attachments cap at 4 and use the system photo picker
 
-The system SHALL allow up to 4 image attachments per composition. Attachments MUST be added via `androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia` with `maxItems = 4`. The "Add image" affordance MUST be hidden or disabled when `state.attachments.size == 4`. The reducer MUST defensively cap at 4 even if the picker returns more URIs. Removing an attachment MUST be possible from the attachment chip strip.
+The system SHALL allow up to 4 image attachments per composition. Attachments MUST be added via `androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia` configured with `maxItems = 4 - state.attachments.size` so the picker reflects the *remaining* capacity rather than the absolute cap. When the remaining capacity is `1`, the screen SHALL fall back to single-pick (`ActivityResultContracts.PickVisualMedia`) because `PickMultipleVisualMedia` rejects `maxItems < 2`. Because `rememberLauncherForActivityResult` captures the contract at registration time, the launcher Composable MUST be wrapped in a `key(remainingCapacity) { … }` block so the registration is refreshed when capacity changes. The "Add image" affordance MUST be hidden or disabled when `state.attachments.size == 4`. The reducer MUST defensively cap at 4 even if the picker returns more URIs. Removing an attachment MUST be possible from the attachment chip strip.
 
 #### Scenario: Picker invocation respects the cap
 

@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:posting"))
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
