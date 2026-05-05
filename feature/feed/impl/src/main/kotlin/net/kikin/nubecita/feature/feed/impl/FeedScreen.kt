@@ -32,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -254,11 +253,14 @@ internal fun FeedScreenContent(
     // hide the FAB so the user isn't tempted to compose into a feed
     // they can't yet see. (Empty timeline still hides for V1 — we'll
     // revisit if telemetry shows users want to post into a fresh
-    // following list.) `derivedStateOf` keeps the recomposition scope
-    // narrow: only flips when viewState transitions in/out of Loaded.
-    val showComposeFab by remember(viewState) {
-        derivedStateOf { viewState is FeedScreenViewState.Loaded }
-    }
+    // following list.)
+    //
+    // No `remember` / `derivedStateOf`: keying on the full `viewState`
+    // would cost an O(n) structural-equality compare every recomposition
+    // (Loaded carries `feedItems: ImmutableList<FeedItemUi>`), and the
+    // body itself is a constant-time `is`-check that doesn't need
+    // memoization. Compose is happy to re-evaluate this each frame.
+    val showComposeFab = viewState is FeedScreenViewState.Loaded
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
