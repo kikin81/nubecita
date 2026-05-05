@@ -56,6 +56,14 @@ dolt-server.activity
 # Backup data (auto-exported JSONL, local-only)
 backup/
 
+# Auto-exported issue snapshot. The Dolt remote (`bd dolt push/pull`) is
+# the canonical source of truth; this file is just bd's periodic JSONL
+# backup for local `bd backup restore`. Committing it caused merge
+# conflicts on every parallel/stacked PR (bd auto-rewrites the snapshot
+# every 15 min), so it's now untracked. See `.beads/config.yaml`'s
+# `backup.git-push: false` override for the matching bd-side setting.
+issues.jsonl
+
 # Per-project environment file (Dolt connection config, GH#2520)
 .env
 

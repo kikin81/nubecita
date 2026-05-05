@@ -44,6 +44,22 @@
 #   git-push: false    # Disable git push (export locally only)
 #   git-repo: ""       # Separate git repo for backups (default: project repo)
 
+# nubecita override:
+#
+# bd's auto-backup writes `.beads/issues.jsonl` on a 15-minute interval and
+# (by default, when a git remote exists) commits + pushes it. That meant
+# every feature branch carried a different snapshot of the JSONL, and every
+# parallel/stacked PR conflicted on the same lines on merge — pure friction
+# with no benefit, since the Dolt remote (`bd dolt push/pull`) is already
+# our canonical source of truth.
+#
+# `git-push: false` keeps the local file (still useful for `bd backup
+# restore` if this machine's Dolt DB ever corrupts) but stops bd from
+# touching git on its own. The JSONL is also gitignored at
+# `.beads/.gitignore` so a stale committed copy can't drift back in.
+backup:
+  git-push: false
+
 # Integration settings (access with 'bd config get/set')
 # These are stored in the database, not in this file:
 # - jira.url
