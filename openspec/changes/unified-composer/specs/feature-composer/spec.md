@@ -132,7 +132,7 @@ The system SHALL count characters as Unicode extended grapheme clusters — what
 
 ### Requirement: Image attachments cap at 4 and use the system photo picker
 
-The system SHALL allow up to 4 image attachments per composition. Attachments MUST be added via `androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia` with `maxItems = 4`. The "Add image" affordance MUST be hidden or disabled when `state.attachments.size == 4`. The reducer MUST defensively cap at 4 even if the picker returns more URIs. Removing an attachment MUST be possible from the attachment chip strip.
+The system SHALL allow up to 4 image attachments per composition. Attachments MUST be added via `androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia` configured with `maxItems = 4 - state.attachments.size` so the picker reflects the *remaining* capacity rather than the absolute cap. When the remaining capacity is `1`, the screen SHALL fall back to single-pick (`ActivityResultContracts.PickVisualMedia`) because `PickMultipleVisualMedia` rejects `maxItems < 2`. Because `rememberLauncherForActivityResult` captures the contract at registration time, the launcher Composable MUST be wrapped in a `key(remainingCapacity) { … }` block so the registration is refreshed when capacity changes. The "Add image" affordance MUST be hidden or disabled when `state.attachments.size == 4`. The reducer MUST defensively cap at 4 even if the picker returns more URIs. Removing an attachment MUST be possible from the attachment chip strip.
 
 #### Scenario: Picker invocation respects the cap
 
@@ -395,13 +395,14 @@ The `:feature:composer:impl` module SHALL apply the `nubecita.android.feature` c
 - **WHEN** `:feature:composer:api/build.gradle.kts` is inspected
 - **THEN** the `plugins { }` block applies `nubecita.android.library` and does NOT apply `nubecita.android.library.compose` or `nubecita.android.hilt`
 
-### Requirement: Screenshot test contract covers four content states plus an adaptive-Dialog baseline
+### Requirement: Screenshot test contract covers five content states plus an adaptive-Dialog baseline
 
-The system SHALL ship Compose screenshot tests covering these five fixtures, each rendered in Light and Dark themes (10 images total):
+The system SHALL ship Compose screenshot tests covering these six fixtures, each rendered in Light and Dark themes (12 images total):
 
 - **Empty composer** (new-post mode, no text, no attachments, idle, Compact width).
 - **Near-limit composer** (new-post mode, `graphemeCount` in the warn band — fixture pins to 295 — no attachments, idle, Compact width).
-- **Composer with attached images** (new-post mode, 3 attached image fixtures, short text, idle, Compact width).
+- **Submitting composer** (new-post mode, mid-submission — Post button morphs to inline circular progress, close button is gated off, the text field is disabled, no attachments, Compact width). Locks the in-flight visual state introduced when the Post button's submit-status morph shipped.
+- **Composer with attached images** (new-post mode, 3 attached image fixtures, short text, idle, Compact width). Uses fake `content://` URIs that don't resolve so each chip renders the design system's `NubecitaAsyncImage` placeholder painter — keeps the baseline byte-for-byte deterministic without depending on a real `ImageLoader`.
 - **Reply mode** (reply mode, `replyParentLoad == ParentLoadStatus.Loaded(...)`, parent post card rendered above the input, short text, idle, Compact width).
 - **Empty composer at Expanded width as Dialog overlay** (new-post mode, no text, no attachments, idle, rendered inside the adaptive Dialog with `widthIn(max = 640.dp)` over a stub backing surface to validate the centered/scrim treatment).
 
@@ -432,10 +433,15 @@ All fixtures MUST use deterministic `ComposerState` values (no live data, no rea
 - **WHEN** the Expanded-width Dialog screenshot test is loaded
 - **THEN** the rendered Dialog content is constrained by `Modifier.widthIn(max = 640.dp)`, is centered horizontally, and is overlaid on a scrim against a stub backing surface
 
+#### Scenario: Submitting fixture pins mid-submission state
+
+- **WHEN** the Submitting screenshot test is loaded
+- **THEN** the `ComposerState` fixture has `submitStatus == ComposerSubmitStatus.Submitting`
+
 #### Scenario: All fixtures present in both themes
 
 - **WHEN** the screenshot test directory is enumerated
-- **THEN** there are exactly 10 fixture images: {empty, near-limit, with-images, reply, empty-expanded-dialog} × {light, dark}
+- **THEN** there are exactly 12 fixture images: {empty, near-limit, submitting, with-images, reply, empty-expanded-dialog} × {light, dark}
 
 ### Requirement: Unit-test coverage for the composer state machine
 

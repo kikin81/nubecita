@@ -176,6 +176,8 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
+    implementation(project(":feature:composer:api"))
+    implementation(project(":feature:composer:impl"))
     implementation(project(":feature:feed:api"))
     implementation(project(":feature:feed:impl"))
     implementation(project(":feature:login:api"))

@@ -4,6 +4,10 @@
     <string name="composer_close_action">Close composer</string>
     <string name="composer_post_action">Post</string>
 
+    <!-- Attachment-row actions -->
+    <string name="composer_add_image_action">Add image</string>
+    <string name="composer_remove_attachment_action">Remove attachment</string>
+
     <!-- Text input affordances -->
     <string name="composer_text_field_placeholder">What\'s on your mind?</string>
     <string name="composer_text_field_label">Compose post</string>
