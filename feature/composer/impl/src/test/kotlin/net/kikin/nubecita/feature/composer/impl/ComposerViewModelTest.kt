@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.composer.impl
 
-import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
@@ -19,6 +18,7 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
@@ -365,15 +365,12 @@ class ComposerViewModelTest {
 
     // ---------- harness ----------
 
-    private fun newVm(replyToUri: String?): ComposerViewModel {
-        val handle = SavedStateHandle()
-        if (replyToUri != null) handle[ComposerViewModel.KEY_REPLY_TO_URI] = replyToUri
-        return ComposerViewModel(
-            savedStateHandle = handle,
+    private fun newVm(replyToUri: String?): ComposerViewModel =
+        ComposerViewModel(
+            route = ComposerRoute(replyToUri = replyToUri),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
         )
-    }
 
     private fun att(): ComposerAttachment = ComposerAttachment(uri = mockk(relaxed = true), mimeType = "image/jpeg")
 
