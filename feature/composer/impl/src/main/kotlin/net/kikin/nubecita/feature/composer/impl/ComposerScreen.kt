@@ -28,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.kikin81.atproto.runtime.AtUri
+import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounter
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
@@ -74,12 +74,21 @@ fun ComposerScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    // Use LocalResources (not LocalContext.current.getString) to satisfy
-    // the `LocalContextGetResourceValueCall` lint check — Compose's
-    // canonical accessor for non-config-bound resource lookups. Captured
-    // once outside the LaunchedEffect so the effect's coroutine doesn't
-    // chase a fresh resolution every emission.
-    val resources = LocalResources.current
+
+    // Pre-resolve snackbar copy at composition time so locale + dark-mode
+    // changes participate in recomposition (lint:
+    // LocalContextGetResourceValueCall). Matches the established pattern
+    // in feature/feed/impl/.../FeedScreen.kt and
+    // feature/postdetail/impl/.../PostDetailScreen.kt — every error is a
+    // typed ComposerError variant resolved through a `when` against a
+    // pre-resolved string. The `composer_error_upload_failed` template
+    // is kept un-formatted so the collector can interpolate the
+    // attachment ordinal at emission time without re-tripping the lint.
+    val networkErrorMessage = stringResource(R.string.composer_error_network)
+    val unauthorizedErrorMessage = stringResource(R.string.composer_error_unauthorized)
+    val parentNotFoundErrorMessage = stringResource(R.string.composer_error_parent_not_found)
+    val genericErrorMessage = stringResource(R.string.composer_error_generic)
+    val uploadFailedTemplate = stringResource(R.string.composer_error_upload_failed)
 
     // Stabilize the unstable lambda params via rememberUpdatedState so
     // the LaunchedEffect's restart key (Unit) doesn't capture a stale
@@ -108,10 +117,25 @@ fun ComposerScreen(
             when (effect) {
                 ComposerEffect.NavigateBack -> currentOnNavigateBack()
                 is ComposerEffect.OnSubmitSuccess -> currentOnSubmitSuccess(effect.newPostUri)
-                is ComposerEffect.ShowError ->
-                    snackbarHostState.showSnackbar(
-                        resources.getString(effect.stringResId, *effect.args.toTypedArray()),
-                    )
+                is ComposerEffect.ShowError -> {
+                    val message =
+                        when (val cause = effect.error) {
+                            is ComposerError.Network -> networkErrorMessage
+                            ComposerError.Unauthorized -> unauthorizedErrorMessage
+                            ComposerError.ParentNotFound -> parentNotFoundErrorMessage
+                            is ComposerError.RecordCreationFailed -> genericErrorMessage
+                            // attachmentIndex is 0-based internally; users
+                            // expect 1-based ordinals ("Image 1 failed",
+                            // not "Image 0 failed").
+                            is ComposerError.UploadFailed ->
+                                uploadFailedTemplate.format(cause.attachmentIndex + 1)
+                        }
+                    // Replace, don't stack — successive failures during a
+                    // flapping connection would otherwise queue snackbars
+                    // indefinitely. Same pattern as PostDetailScreen.
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = message)
+                }
             }
         }
     }
@@ -160,7 +184,18 @@ fun ComposerScreenContent(
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    IconButton(onClick = onCloseClick) {
+                    // Gate close while a submit is in flight. The screen
+                    // is hosted in a Nav3 entry with a per-entry
+                    // ViewModelStore: tapping close pops the entry, which
+                    // clears the VM and cancels the in-flight
+                    // viewModelScope coroutine — silently dropping the
+                    // post. Disabling matches how the Post button gates
+                    // re-tap during Submitting. Discard-while-submitting
+                    // confirmation is wtq.8's scope.
+                    IconButton(
+                        onClick = onCloseClick,
+                        enabled = state.submitStatus !is ComposerSubmitStatus.Submitting,
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.composer_close_action),

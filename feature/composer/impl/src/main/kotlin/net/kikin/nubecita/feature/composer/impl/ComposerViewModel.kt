@@ -157,6 +157,14 @@ class ComposerViewModel
                     onFailure = { throwable ->
                         val cause = (throwable as? ComposerError) ?: ComposerError.RecordCreationFailed(throwable)
                         setState { copy(submitStatus = ComposerSubmitStatus.Error(cause)) }
+                        // Sticky state already records the typed cause for an
+                        // inline retry affordance; the snackbar is the
+                        // user-facing surface for "your post didn't go" and
+                        // the screen maps the variant to a localized string.
+                        // Parent-fetch failure deliberately does NOT emit
+                        // ShowError — that error is shown as inline reply-
+                        // header UI keyed off `replyParentLoad = Failed`.
+                        sendEffect(ComposerEffect.ShowError(cause))
                     },
                 )
             }

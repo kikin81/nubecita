@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.composer.impl.state
 
 import io.github.kikin81.atproto.runtime.AtUri
 import net.kikin.nubecita.core.common.mvi.UiEffect
+import net.kikin.nubecita.core.posting.ComposerError
 
 /**
  * One-shot effects emitted by the composer VM. Collected once in the
@@ -22,18 +23,22 @@ sealed interface ComposerEffect : UiEffect {
     data object NavigateBack : ComposerEffect
 
     /**
-     * Show a transient error message (typically a Snackbar). The
-     * screen Composable resolves [stringResId] against its
-     * `Resources` for localization. Positional [args] are passed to
-     * `Resources.getString(id, args)` for parameterized strings.
+     * Show a transient error message (typically a Snackbar). Carries
+     * the typed [ComposerError] from `:core:posting`; the screen
+     * Composable maps each variant to a string resource pre-resolved
+     * at composition time, matching `FeedEffect.ShowError(error: FeedError)`
+     * and `PostDetailEffect.ShowError(error: PostDetailError)`. That
+     * pattern keeps locale + dark-mode changes participating in
+     * recomposition (the `LocalContextGetResourceValueCall` lint
+     * gate) without forcing the VM to know anything about Android
+     * resources.
      *
-     * Sticky error state, if needed for a future screen, would go
-     * into the flat state explicitly (e.g. `errorBanner: String? = null`)
+     * Sticky error state, if a future screen needs it, would go into
+     * the flat state explicitly (e.g. `errorBanner: String? = null`)
      * — the default is non-sticky snackbar via this effect.
      */
     data class ShowError(
-        val stringResId: Int,
-        val args: List<Any> = emptyList(),
+        val error: ComposerError,
     ) : ComposerEffect
 
     /**

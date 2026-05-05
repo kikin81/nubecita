@@ -22,8 +22,13 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
  *   hard limit, so the counter renders in the error tone while the
  *   input border stays at the standard tone — the screen has not yet
  *   tipped into the over-limit state)
+ * - **Submitting composer** (new-post mode, mid-submission — Post
+ *   button morphs to inline circular progress, close button gates
+ *   off while in flight, the text field is disabled). Catches
+ *   regressions in spinner sizing/color, Post-button morph, and the
+ *   close-disabled tonal swap that ship as part of this task.
  *
- * Each fixture renders in Light + Dark = 4 baselines total.
+ * Each fixture renders in Light + Dark = 6 baselines total.
  *
  * Reply-mode fixtures, with-images fixtures, and Expanded-Dialog
  * fixtures land in `nubecita-wtq.5` / `.6` / `.7` respectively as
@@ -59,6 +64,28 @@ private fun ComposerScreenNearLimitScreenshot() {
                     graphemeCount = 295,
                     isOverLimit = false,
                     submitStatus = ComposerSubmitStatus.Idle,
+                ),
+            snackbarHostState = remember { SnackbarHostState() },
+            onTextChange = {},
+            onSubmit = {},
+            onCloseClick = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "submitting-light", showBackground = true)
+@Preview(name = "submitting-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ComposerScreenSubmittingScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    text = "Hello, Bluesky.",
+                    graphemeCount = 15,
+                    isOverLimit = false,
+                    submitStatus = ComposerSubmitStatus.Submitting,
                 ),
             snackbarHostState = remember { SnackbarHostState() },
             onTextChange = {},
