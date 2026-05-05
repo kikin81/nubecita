@@ -70,6 +70,7 @@ internal class DefaultPostingRepository
         private val sessionStateProvider: SessionStateProvider,
         private val byteSource: AttachmentByteSource,
         private val encoder: AttachmentEncoder,
+        private val facetExtractor: FacetExtractor,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PostingRepository {
         override suspend fun createPost(
@@ -110,7 +111,17 @@ internal class DefaultPostingRepository
                             }
                         }
 
-                    // Phase 2 — record creation. Only runs after every
+                    // Phase 2 — facet extraction. Parses the composer
+                    // text for `@handle` mentions and `https://…` URLs
+                    // and resolves each handle to its canonical DID
+                    // via `com.atproto.identity.resolveHandle`.
+                    // Unresolvable handles are silently dropped per
+                    // the AT Protocol docs — they render as plain text
+                    // on Bluesky's appview rather than failing the
+                    // whole submit.
+                    val facets = facetExtractor.extract(text)
+
+                    // Phase 3 — record creation. Only runs after every
                     // blob upload completed successfully.
                     val record =
                         Post(
@@ -121,6 +132,12 @@ internal class DefaultPostingRepository
                                     ?.let { AtField.Defined(PostReplyRef(parent = it.parent, root = it.root)) }
                                     ?: AtField.Missing,
                             embed = embedFor(blobs),
+                            facets =
+                                if (facets.isEmpty()) {
+                                    AtField.Missing
+                                } else {
+                                    AtField.Defined(facets)
+                                },
                         )
 
                     val response =
