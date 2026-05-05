@@ -140,11 +140,19 @@ class ComposerViewModel
 
         private fun handleSubmit() {
             val current = uiState.value
+            // `replyToUri` is a full parent AT-URI carrying a third-
+            // party DID. Per the repo's redaction policy (see
+            // :core:auth DefaultXrpcClientProvider.redactDid + the
+            // rkey-only postdetail logging), log just the rkey so a
+            // future crash-reporter tree can't surface the full DID.
+            // For diagnostics, "submitting in reply mode to <rkey>" is
+            // sufficient — the parent identity is recoverable from
+            // the navigation route argument if needed.
             Timber.tag(TAG).d(
-                "handleSubmit() — text.len=%d, attachments=%d, replyTo=%s, submitStatus=%s",
+                "handleSubmit() — text.len=%d, attachments=%d, replyToRkey=%s, submitStatus=%s",
                 current.text.length,
                 current.attachments.size,
-                current.replyToUri,
+                current.replyToUri?.substringAfterLast('/') ?: "null",
                 current.submitStatus::class.simpleName,
             )
             if (!canSubmit(current)) {
@@ -171,7 +179,19 @@ class ComposerViewModel
                     )
                 result.fold(
                     onSuccess = { uri ->
-                        Timber.tag(TAG).d("createPost() success uri=%s", uri)
+                        // The full AtUri carries the signed-in user's
+                        // DID (`at://did:plc:.../app.bsky.feed.post/<rkey>`).
+                        // Log just the rkey to match the redaction
+                        // pattern used in :feature:postdetail:impl and
+                        // the repository's parallel breadcrumb at
+                        // DefaultPostingRepository's createRecord-ok
+                        // log site. See :core:auth's
+                        // DefaultXrpcClientProvider.redactDid for the
+                        // canonical reasoning.
+                        Timber.tag(TAG).d(
+                            "createPost() success rkey=%s",
+                            uri.raw.substringAfterLast('/'),
+                        )
                         setState { copy(submitStatus = ComposerSubmitStatus.Success) }
                         sendEffect(ComposerEffect.OnSubmitSuccess(uri))
                     },

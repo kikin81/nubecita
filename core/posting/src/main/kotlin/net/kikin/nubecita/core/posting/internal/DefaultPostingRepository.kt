@@ -80,11 +80,21 @@ internal class DefaultPostingRepository
             replyTo: ReplyRefs?,
         ): Result<AtUri> =
             withContext(dispatcher) {
+                // `replyTo` is a typed ReplyRefs(parent, root); both
+                // refs carry full AT-URIs containing third-party DIDs.
+                // Per the repo's redaction policy (see :core:auth
+                // DefaultXrpcClientProvider.redactDid + the rkey-only
+                // postdetail logging), don't put the raw refs on a
+                // Timber surface — log a presence boolean instead. If
+                // a reply submission fails, the parent identity is
+                // recoverable from the createRecord request payload
+                // when network logging is enabled, but we don't need
+                // it on every entry breadcrumb.
                 Timber.tag(TAG).d(
-                    "createPost() entry — text.len=%d, attachments=%d, replyTo=%s",
+                    "createPost() entry — text.len=%d, attachments=%d, hasReply=%b",
                     text.length,
                     attachments.size,
-                    replyTo,
+                    replyTo != null,
                 )
                 val did =
                     when (val state = sessionStateProvider.state.value) {
@@ -168,7 +178,17 @@ internal class DefaultPostingRepository
                                 record = encodeRecord(Post.serializer(), record, "app.bsky.feed.post"),
                             ),
                         )
-                    Timber.tag(TAG).d("createPost() — createRecord ok, uri=%s", response.uri)
+                    // The full AtUri carries the signed-in user's DID
+                    // (`at://did:plc:.../app.bsky.feed.post/<rkey>`).
+                    // Log just the rkey — same redaction shape used by
+                    // :feature:postdetail:impl's PostDetailScreen and
+                    // PostThreadRepository. The rkey alone identifies
+                    // the just-created post within the user's repo for
+                    // diagnostics; the DID isn't needed on this path.
+                    Timber.tag(TAG).d(
+                        "createPost() — createRecord ok, rkey=%s",
+                        response.uri.raw.substringAfterLast('/'),
+                    )
                     Result.success(response.uri)
                 } catch (cancellation: CancellationException) {
                     Timber.tag(TAG).d("createPost() — cancelled, re-throwing")
