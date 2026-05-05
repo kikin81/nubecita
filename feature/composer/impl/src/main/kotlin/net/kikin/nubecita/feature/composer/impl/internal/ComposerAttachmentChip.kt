@@ -61,12 +61,15 @@ internal fun ComposerAttachmentChip(
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
         )
-        // Remove button. The container color paints a translucent disc
-        // behind the icon so it stays legible against busy thumbnails
-        // (a pure black close icon on a sky-blue photo is otherwise
-        // invisible). 24.dp button at 4.dp from the chip's top-right
-        // edge keeps the touch target reachable without dominating
-        // the 72.dp thumbnail.
+        // Remove button. The container color paints an opaque
+        // `surfaceContainerHighest` disc behind the icon so it stays
+        // legible against busy thumbnails (a pure black close icon on
+        // a sky-blue photo is otherwise invisible). Opaque is a
+        // deliberate choice: a translucent treatment makes the icon
+        // bleed against bright underlying pixels at the worst-case
+        // photo content. 24.dp button at 4.dp from the chip's top-
+        // right edge keeps the touch target reachable without
+        // dominating the 72.dp thumbnail.
         IconButton(
             onClick = onRemoveClick,
             enabled = enabled,

@@ -29,7 +29,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
  *   button morphs to inline circular progress, close button gates
  *   off while in flight, the text field is disabled). Catches
  *   regressions in spinner sizing/color, Post-button morph, and the
- *   close-disabled tonal swap that ship as part of this task.
+ *   close-disabled tonal swap that ships as part of this task.
  * - **With-images composer** (3 attachments, short text, idle).
  *   Fake content URIs that don't resolve, so each chip renders the
  *   `NubecitaAsyncImage` placeholder ColorPainter — same deterministic

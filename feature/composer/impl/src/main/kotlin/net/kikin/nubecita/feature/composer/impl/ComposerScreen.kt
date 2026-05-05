@@ -292,12 +292,12 @@ fun ComposerScreenContent(
                             imeAction = ImeAction.Default,
                         ),
                 )
-                // Composer attachment action row. wtq.5 step 5.1 lands the
-                // photo-picker affordance only; step 5.2 will populate
-                // this same row with the chip strip + per-chip remove
-                // affordance using `onRemoveAttachment`. Keeping the row
-                // anchored here now means the screenshot baselines stay
-                // valid when chips ship.
+                // Composer attachment action row. Hosts the leading
+                // "Add image" affordance and a horizontally-scrolling
+                // chip strip of the picked attachments (each chip with
+                // a Coil-loaded thumbnail + remove button). Both
+                // wtq.5.1 (picker) and wtq.5.2 (chips + remove) are
+                // wired in this PR.
                 ComposerAttachmentRow(
                     attachments = state.attachments,
                     isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting,
