@@ -28,6 +28,9 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
+    // ComposerRoute NavKey — pushed onto the back stack when the
+    // compose-new-post FAB is tapped. Imports `:api` only; never `:impl`.
+    implementation(project(":feature:composer:api"))
     // PostDetailRoute NavKey — pushed onto the back stack when a feed
     // post body is tapped. Imports `:api` only; never `:impl`.
     implementation(project(":feature:postdetail:api"))

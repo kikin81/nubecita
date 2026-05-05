@@ -39,8 +39,10 @@
          widths when the back stack is `[Feed]` (no detail entry selected). -->
     <string name="feed_detail_placeholder_select">Select a post to read</string>
 
-    <!-- Floating "scroll to top" FAB content description. The FAB appears in
-         FeedScreen after the user scrolls past the threshold (5 items). Tapping
-         it animates the LazyColumn back to position 0. -->
-    <string name="feed_scroll_to_top">Scroll to top</string>
+    <!-- Compose-new-post FAB content description. wtq.9 swaps the prior
+         "scroll to top" FAB content for the composer entry point. The home-
+         tab retap path that the old FAB shared with this screen still works
+         via LocalScrollToTopSignal — the visible affordance is just the
+         compose icon now. -->
+    <string name="feed_compose_new_post">Compose new post</string>
 </resources>

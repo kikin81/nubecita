@@ -204,26 +204,28 @@ private fun FeedScreenLoadedAppendingScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "loaded-with-scroll-to-top-fab-light", showBackground = true)
+@Preview(name = "loaded-with-compose-fab-light", showBackground = true)
+@Preview(name = "loaded-with-compose-fab-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun FeedScreenLoadedWithScrollToTopFabScreenshot() {
-    // Pre-scroll the LazyListState past the FAB visibility threshold (5)
-    // so the SmallFloatingActionButton appears in its resting visible
-    // state. Renders 12 fixture posts to ensure the layout pass has
-    // enough items to land at the requested scroll index. Locks the
-    // visual contract for `add-feed-scroll-to-top` — the FAB renders in
-    // the bottom-right Scaffold slot when the user has scrolled into the
-    // feed. The pre-existing `loaded-light` baseline (rendered at
-    // position 0 with the FAB hidden) stays byte-for-byte unchanged.
+private fun FeedScreenLoadedWithComposeFabScreenshot() {
+    // wtq.9 swapped the prior scroll-to-top FAB content for a compose-
+    // new-post FAB. Visibility no longer depends on scroll position —
+    // the FAB renders whenever viewState is Loaded, so this fixture
+    // pins the resting state at scroll position 0 (same as
+    // `loaded-light` / `loaded-dark`, which now also show the FAB
+    // because of the gate change). Locks the visual contract for the
+    // compose FAB: bottom-right Scaffold slot, Edit icon, primary tone.
+    //
+    // Light + Dark variants because the FAB's surface tonality differs
+    // by theme and we want a regression catch for both.
     NubecitaTheme(dynamicColor = false) {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItems(count = 12),
+                    feedItems = fixtureFeedItems(count = 6),
                     isAppending = false,
                     isRefreshing = false,
                 ),
-            initialFirstVisibleItemIndex = 6,
         )
     }
 }

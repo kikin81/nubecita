@@ -20,11 +20,11 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -35,7 +35,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -51,7 +50,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
@@ -83,14 +81,6 @@ private const val PREFETCH_DISTANCE = 5
 private const val SHIMMER_PREVIEW_COUNT = 6
 
 /**
- * The FAB starts revealing once the user has scrolled five items past
- * the top — roughly one screen of feed posts on a phone. Lower thresholds
- * fire too eagerly (FAB appears after a tiny scroll); higher thresholds
- * make the user scroll a long way before the affordance shows up.
- */
-private const val SCROLL_TO_TOP_FAB_THRESHOLD = 5
-
-/**
  * Hilt-aware Following timeline screen.
  *
  * Owns the screen's lifecycle wiring: state collection, the single
@@ -107,6 +97,7 @@ internal fun FeedScreen(
     modifier: Modifier = Modifier,
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
+    onComposeClick: () -> Unit = {},
     viewModel: FeedViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -214,6 +205,7 @@ internal fun FeedScreen(
         onRefresh = onRefresh,
         onRetry = onRetry,
         onLoadMore = onLoadMore,
+        onComposeClick = onComposeClick,
         modifier = modifier,
     )
 }
@@ -235,6 +227,7 @@ internal fun FeedScreenContent(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
+    onComposeClick: () -> Unit = {},
 ) {
     // Tap-to-top: collect MainShell's tab-retap signal and scroll the
     // feed list to the top. The default empty SharedFlow (no provider in
@@ -243,28 +236,28 @@ internal fun FeedScreenContent(
     // collector restarts cleanly across recompositions that re-create
     // either reference.
     val scrollToTopSignal = LocalScrollToTopSignal.current
-    val scrollScope = rememberCoroutineScope()
     LaunchedEffect(scrollToTopSignal, listState) {
         scrollToTopSignal.collect { listState.animateScrollToItem(0) }
     }
-    // FAB visibility: gated on BOTH the loaded viewState AND the scroll
-    // threshold. The listState is hoisted at the FeedScreen level and
-    // retains `firstVisibleItemIndex` across viewState transitions, so
-    // checking only the index would let the FAB linger over Empty /
-    // InitialLoading / InitialError surfaces (e.g. sign-out → feed
-    // becomes Empty while the prior scroll position is still cached).
-    // The viewState gate keeps the affordance scoped to the only state
-    // that actually has a list to scroll.
+    // FAB is the composer entry point. wtq.9 swapped the prior scroll-
+    // to-top FAB content for `Icons.Default.Edit`. The action itself
+    // (`onComposeClick`) is hoisted as a callback rather than read from
+    // `LocalMainShellNavState` directly — `FeedScreenContent` is
+    // exercised by screenshot tests that don't provide the nav-state
+    // CompositionLocal, and the established repo pattern (see
+    // PostDetailNavigationModule) wires nav callbacks at the
+    // EntryProvider, not inside the screen Composable. The home-tab
+    // retap path that the old FAB shared with this screen still works
+    // via the `LocalScrollToTopSignal` collector above.
     //
-    // `derivedStateOf` debounces against per-frame scroll updates: the
-    // surrounding composition only invalidates when the boolean flips
-    // (a few times per scroll session, not 60–120 fps). Same Compose-
-    // perf pattern used by m28.5.2's PostDetail FAB.
-    val showScrollToTopFab by remember(listState, viewState) {
-        derivedStateOf {
-            viewState is FeedScreenViewState.Loaded &&
-                listState.firstVisibleItemIndex >= SCROLL_TO_TOP_FAB_THRESHOLD
-        }
+    // Visibility gate: only Loaded. InitialLoading / Empty / InitialError
+    // hide the FAB so the user isn't tempted to compose into a feed
+    // they can't yet see. (Empty timeline still hides for V1 — we'll
+    // revisit if telemetry shows users want to post into a fresh
+    // following list.) `derivedStateOf` keeps the recomposition scope
+    // narrow: only flips when viewState transitions in/out of Loaded.
+    val showComposeFab by remember(viewState) {
+        derivedStateOf { viewState is FeedScreenViewState.Loaded }
     }
     Scaffold(
         modifier = modifier,
@@ -273,16 +266,16 @@ internal fun FeedScreenContent(
             // AnimatedVisibility wraps the FAB so the appearance / dismissal
             // fades + scales rather than popping in.
             AnimatedVisibility(
-                visible = showScrollToTopFab,
+                visible = showComposeFab,
                 enter = fadeIn() + scaleIn(),
                 exit = fadeOut() + scaleOut(),
             ) {
-                SmallFloatingActionButton(
-                    onClick = { scrollScope.launch { listState.animateScrollToItem(0) } },
+                FloatingActionButton(
+                    onClick = onComposeClick,
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.KeyboardArrowUp,
-                        contentDescription = stringResource(R.string.feed_scroll_to_top),
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = stringResource(R.string.feed_compose_new_post),
                     )
                 }
             }
