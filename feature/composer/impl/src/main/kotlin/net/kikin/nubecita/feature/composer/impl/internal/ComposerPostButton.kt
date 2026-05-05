@@ -57,6 +57,10 @@ internal fun ComposerPostButton(
         enabled = enabled && !isSubmitting,
         modifier = modifier,
     ) {
+        // Resolve TalkBack copy for the in-flight indicator at
+        // composition time so AnimatedContent's lambda doesn't need
+        // to call any Composable-only accessors mid-animation.
+        val submittingDescription = stringResource(R.string.composer_submitting)
         AnimatedContent(
             targetState = isSubmitting,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -68,7 +72,7 @@ internal fun ComposerPostButton(
                         Modifier
                             .size(18.dp)
                             .semantics {
-                                contentDescription = "Submitting"
+                                contentDescription = submittingDescription
                             },
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimary,

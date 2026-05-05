@@ -18,9 +18,10 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
  *
  * - **Empty composer** (new-post mode, no text, no attachments, idle)
  * - **Near-limit composer** (new-post mode, `graphemeCount` pinned to
- *   295 — inside the warn band but below the limit, so the counter
- *   renders in the error tone and the input border is the standard
- *   tone)
+ *   295 — inside the error band (≥ 290) but still below the 300-char
+ *   hard limit, so the counter renders in the error tone while the
+ *   input border stays at the standard tone — the screen has not yet
+ *   tipped into the over-limit state)
  *
  * Each fixture renders in Light + Dark = 4 baselines total.
  *
