@@ -290,6 +290,7 @@ class DefaultPostingRepositoryTest {
                         object : AttachmentByteSource {
                             override suspend fun read(uri: Uri): ByteArray = byteArrayOf(1)
                         },
+                    encoder = passthroughEncoder(),
                     dispatcher = UnconfinedTestDispatcher(),
                 )
 
@@ -324,10 +325,113 @@ class DefaultPostingRepositoryTest {
             headersOf("Content-Type", ContentType.Application.Json.toString()),
         )
 
+    @Test
+    fun encoder_replacesBytesAndMime_atUploadBlob() =
+        runTest {
+            // The repository MUST forward the encoder's output bytes
+            // and MIME to uploadBlob, not the raw bytes from
+            // AttachmentByteSource. This is what closes the
+            // nubecita-uii gap: a 4 MB JPEG from the picker becomes a
+            // 700 KB WebP at the wire, under Bluesky's 1 MB cap.
+            val rawBytes = byteArrayOf(11, 22, 33, 44, 55, 66, 77, 88) // pretend "raw photo bytes"
+            val encodedBytes = byteArrayOf(99, 100, 101) // pretend "compressed WebP bytes"
+            val capturedEncoderInputs = mutableListOf<Pair<Int, String>>()
+            val rewriteEncoder =
+                object : AttachmentEncoder {
+                    override suspend fun encodeForUpload(
+                        bytes: ByteArray,
+                        sourceMimeType: String,
+                        maxBytes: Long,
+                    ): EncodedAttachment {
+                        capturedEncoderInputs += bytes.size to sourceMimeType
+                        return EncodedAttachment(bytes = encodedBytes, mimeType = "image/webp")
+                    }
+                }
+
+            val (engine, repo) =
+                newRepo(
+                    signedIn = true,
+                    encoder = rewriteEncoder,
+                    byteSource = canned(rawBytes),
+                ) { request ->
+                    when {
+                        request.url.encodedPath.endsWith("uploadBlob") ->
+                            okJson("""{"blob":{"ref":{"${'$'}link":"bafblob1"},"mimeType":"image/webp","size":3,"${'$'}type":"blob"}}""")
+                        request.url.encodedPath.endsWith("createRecord") ->
+                            okJson("""{"uri":"at://$testDid/app.bsky.feed.post/x","cid":"bafx"}""")
+                        else -> error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "compressed",
+                    attachments = listOf(attachment("image/jpeg")),
+                    replyTo = null,
+                )
+
+            assertTrue(result.isSuccess)
+            // Encoder saw the raw byte count + the picker-derived MIME.
+            assertEquals(listOf(rawBytes.size to "image/jpeg"), capturedEncoderInputs)
+            // uploadBlob received the ENCODED bytes, not the raw ones.
+            val uploadRequest = engine.requestHistory.first { it.url.encodedPath.endsWith("uploadBlob") }
+            assertEquals(encodedBytes.toList(), uploadRequest.body.toBodyBytes().toList())
+            // uploadBlob's Content-Type matches the encoder's output MIME, not the source.
+            assertEquals(ContentType.parse("image/webp"), uploadRequest.body.contentType)
+        }
+
+    @Test
+    fun encoder_isInvokedOncePerAttachment_evenAcrossParallelUploads() =
+        runTest {
+            val invocations = AtomicInteger(0)
+            val countingEncoder =
+                object : AttachmentEncoder {
+                    override suspend fun encodeForUpload(
+                        bytes: ByteArray,
+                        sourceMimeType: String,
+                        maxBytes: Long,
+                    ): EncodedAttachment {
+                        invocations.incrementAndGet()
+                        return EncodedAttachment(bytes = bytes, mimeType = sourceMimeType)
+                    }
+                }
+
+            val (_, repo) =
+                newRepo(signedIn = true, encoder = countingEncoder) { request ->
+                    when {
+                        request.url.encodedPath.endsWith("uploadBlob") ->
+                            okJson(
+                                """{"blob":{"ref":{"${'$'}link":"bafblob"},"mimeType":"image/jpeg","size":3,"${'$'}type":"blob"}}""",
+                            )
+                        request.url.encodedPath.endsWith("createRecord") ->
+                            okJson("""{"uri":"at://$testDid/app.bsky.feed.post/x","cid":"bafx"}""")
+                        else -> error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "four images",
+                    attachments =
+                        listOf(
+                            attachment("image/jpeg"),
+                            attachment("image/jpeg"),
+                            attachment("image/png"),
+                            attachment("image/heic"),
+                        ),
+                    replyTo = null,
+                )
+
+            assertTrue(result.isSuccess)
+            assertEquals(4, invocations.get())
+        }
+
     private fun attachment(mime: String): ComposerAttachment = ComposerAttachment(uri = mockk(relaxed = true), mimeType = mime)
 
     private fun newRepo(
         signedIn: Boolean,
+        encoder: AttachmentEncoder = passthroughEncoder(),
+        byteSource: AttachmentByteSource = canned(byteArrayOf(1, 2, 3)),
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ): Pair<MockEngine, DefaultPostingRepository> {
         val engine = MockEngine(handler)
@@ -356,14 +460,33 @@ class DefaultPostingRepositoryTest {
 
                         override suspend fun refresh() = Unit
                     },
-                byteSource =
-                    object : AttachmentByteSource {
-                        override suspend fun read(uri: Uri): ByteArray = byteArrayOf(1, 2, 3)
-                    },
+                byteSource = byteSource,
+                encoder = encoder,
                 dispatcher = UnconfinedTestDispatcher(),
             )
         return engine to repo
     }
+
+    private fun canned(bytes: ByteArray): AttachmentByteSource =
+        object : AttachmentByteSource {
+            override suspend fun read(uri: Uri): ByteArray = bytes
+        }
+
+    /**
+     * Pass-through [AttachmentEncoder]. The Bitmap-backed default impl
+     * requires an Android runtime; orchestration tests just assert the
+     * wiring (read -> encode -> uploadBlob) and forward whatever bytes
+     * the byteSource produced. Compression behavior itself is exercised
+     * by the instrumented suite that lands with nubecita-9tw.
+     */
+    private fun passthroughEncoder(): AttachmentEncoder =
+        object : AttachmentEncoder {
+            override suspend fun encodeForUpload(
+                bytes: ByteArray,
+                sourceMimeType: String,
+                maxBytes: Long,
+            ): EncodedAttachment = EncodedAttachment(bytes = bytes, mimeType = sourceMimeType)
+        }
 }
 
 private fun OutgoingContent.toBodyString(): String =
@@ -371,4 +494,10 @@ private fun OutgoingContent.toBodyString(): String =
         is OutgoingContent.ByteArrayContent -> bytes().decodeToString()
         is io.ktor.http.content.TextContent -> text
         else -> ""
+    }
+
+private fun OutgoingContent.toBodyBytes(): ByteArray =
+    when (this) {
+        is OutgoingContent.ByteArrayContent -> bytes()
+        else -> ByteArray(0)
     }

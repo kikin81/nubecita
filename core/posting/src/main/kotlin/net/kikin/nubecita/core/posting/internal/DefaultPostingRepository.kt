@@ -69,6 +69,7 @@ internal class DefaultPostingRepository
         private val xrpcClientProvider: XrpcClientProvider,
         private val sessionStateProvider: SessionStateProvider,
         private val byteSource: AttachmentByteSource,
+        private val encoder: AttachmentEncoder,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PostingRepository {
         override suspend fun createPost(
@@ -143,11 +144,18 @@ internal class DefaultPostingRepository
             index: Int,
             attachment: ComposerAttachment,
         ) = try {
-            val bytes = byteSource.read(attachment.uri)
+            val raw = byteSource.read(attachment.uri)
+            // Image compression sits between read and uploadBlob: any
+            // photo over Bluesky's per-blob byte cap is re-encoded
+            // (typically as WebP) by the encoder; bytes already under
+            // the cap pass through untouched. Without this step a
+            // typical phone photo (>1 MB) would silently fail at
+            // uploadBlob with no remedy in-app.
+            val encoded = encoder.encodeForUpload(bytes = raw, sourceMimeType = attachment.mimeType)
             val response =
                 repo.uploadBlob(
-                    input = bytes,
-                    inputContentType = ContentType.parse(attachment.mimeType),
+                    input = encoded.bytes,
+                    inputContentType = ContentType.parse(encoded.mimeType),
                 )
             response.blob
         } catch (cancellation: CancellationException) {
