@@ -28,4 +28,8 @@ abstract class PostingModule {
     @Binds
     @Singleton
     internal abstract fun bindAttachmentByteSource(impl: ContentResolverAttachmentByteSource): AttachmentByteSource
+
+    @Binds
+    @Singleton
+    internal abstract fun bindAttachmentEncoder(impl: BitmapAttachmentEncoder): AttachmentEncoder
 }
