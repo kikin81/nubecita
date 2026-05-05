@@ -29,6 +29,7 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
+import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
 import kotlin.time.Clock
@@ -79,10 +80,19 @@ internal class DefaultPostingRepository
             replyTo: ReplyRefs?,
         ): Result<AtUri> =
             withContext(dispatcher) {
+                Timber.tag(TAG).d(
+                    "createPost() entry — text.len=%d, attachments=%d, replyTo=%s",
+                    text.length,
+                    attachments.size,
+                    replyTo,
+                )
                 val did =
                     when (val state = sessionStateProvider.state.value) {
                         is SessionState.SignedIn -> state.did
-                        else -> return@withContext Result.failure(ComposerError.Unauthorized)
+                        else -> {
+                            Timber.tag(TAG).w("createPost() — no signed-in session, returning Unauthorized")
+                            return@withContext Result.failure(ComposerError.Unauthorized)
+                        }
                     }
 
                 // Explicit try/catch (not runCatching) so CancellationException
@@ -99,8 +109,10 @@ internal class DefaultPostingRepository
                     // out of the coroutineScope, cancelling siblings.
                     val blobs =
                         if (attachments.isEmpty()) {
+                            Timber.tag(TAG).d("createPost() — no attachments, skipping uploadBlob phase")
                             emptyList()
                         } else {
+                            Timber.tag(TAG).d("createPost() — starting %d parallel uploadBlob calls", attachments.size)
                             coroutineScope {
                                 attachments
                                     .mapIndexed { index, attachment ->
@@ -108,6 +120,8 @@ internal class DefaultPostingRepository
                                             uploadOne(repo, index, attachment)
                                         }
                                     }.awaitAll()
+                            }.also {
+                                Timber.tag(TAG).d("createPost() — all %d blob uploads complete", it.size)
                             }
                         }
 
@@ -123,6 +137,12 @@ internal class DefaultPostingRepository
 
                     // Phase 3 — record creation. Only runs after every
                     // blob upload completed successfully.
+                    val embed = embedFor(blobs)
+                    Timber.tag(TAG).d(
+                        "createPost() — building record with embed=%s (blobs.size=%d)",
+                        embed::class.simpleName,
+                        blobs.size,
+                    )
                     val record =
                         Post(
                             text = text,
@@ -131,7 +151,7 @@ internal class DefaultPostingRepository
                                 replyTo
                                     ?.let { AtField.Defined(PostReplyRef(parent = it.parent, root = it.root)) }
                                     ?: AtField.Missing,
-                            embed = embedFor(blobs),
+                            embed = embed,
                             facets =
                                 if (facets.isEmpty()) {
                                     AtField.Missing
@@ -148,10 +168,13 @@ internal class DefaultPostingRepository
                                 record = encodeRecord(Post.serializer(), record, "app.bsky.feed.post"),
                             ),
                         )
+                    Timber.tag(TAG).d("createPost() — createRecord ok, uri=%s", response.uri)
                     Result.success(response.uri)
                 } catch (cancellation: CancellationException) {
+                    Timber.tag(TAG).d("createPost() — cancelled, re-throwing")
                     throw cancellation
                 } catch (throwable: Throwable) {
+                    Timber.tag(TAG).e(throwable, "createPost() — failed in submit pipeline")
                     Result.failure(mapToComposerError(throwable))
                 }
             }
@@ -162,6 +185,12 @@ internal class DefaultPostingRepository
             attachment: ComposerAttachment,
         ) = try {
             val raw = byteSource.read(attachment.uri)
+            Timber.tag(TAG).d(
+                "uploadOne(#%d) — read %d raw bytes, mime=%s",
+                index,
+                raw.size,
+                attachment.mimeType,
+            )
             // Image compression sits between read and uploadBlob: any
             // photo over Bluesky's per-blob byte cap is re-encoded
             // (typically as WebP) by the encoder; bytes already under
@@ -169,11 +198,18 @@ internal class DefaultPostingRepository
             // typical phone photo (>1 MB) would silently fail at
             // uploadBlob with no remedy in-app.
             val encoded = encoder.encodeForUpload(bytes = raw, sourceMimeType = attachment.mimeType)
+            Timber.tag(TAG).d(
+                "uploadOne(#%d) — encoded to %d bytes, mime=%s, uploading…",
+                index,
+                encoded.bytes.size,
+                encoded.mimeType,
+            )
             val response =
                 repo.uploadBlob(
                     input = encoded.bytes,
                     inputContentType = ContentType.parse(encoded.mimeType),
                 )
+            Timber.tag(TAG).d("uploadOne(#%d) — ok, blob.size=%d", index, response.blob.size)
             response.blob
         } catch (cancellation: CancellationException) {
             // Cancellation propagates unchanged — required by structured
@@ -183,6 +219,7 @@ internal class DefaultPostingRepository
         } catch (t: Throwable) {
             // Wrap with the attachment index so the UI can highlight
             // which row failed.
+            Timber.tag(TAG).e(t, "uploadOne(#%d) — threw; wrapping as ComposerError.UploadFailed", index)
             throw ComposerError.UploadFailed(attachmentIndex = index, cause = t)
         }
 
@@ -227,4 +264,8 @@ internal class DefaultPostingRepository
                 is IOException -> ComposerError.Network(throwable)
                 else -> ComposerError.RecordCreationFailed(throwable)
             }
+
+        companion object {
+            private const val TAG = "PostingRepo"
+        }
     }
