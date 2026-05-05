@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Top-bar actions -->
     <string name="composer_close_action">Close composer</string>
     <string name="composer_post_action">Post</string>
@@ -8,8 +8,15 @@
     <string name="composer_text_field_placeholder">What\'s on your mind?</string>
     <string name="composer_text_field_label">Compose post</string>
 
-    <!-- Character counter (a11y) -->
-    <string name="composer_chars_remaining">%1$d characters remaining</string>
+    <!-- Character counter (a11y). The over-limit form uses a positive
+         integer for the offset; "by 1" vs "by 2" doesn't change English
+         grammar so a quantity-aware plural would be redundant for the
+         languages we currently support, but keeping it as a `plurals`
+         entry would be the right move when localization expands. -->
+    <plurals name="composer_chars_remaining">
+        <item quantity="one">%1$d character remaining</item>
+        <item quantity="other">%1$d characters remaining</item>
+    </plurals>
     <string name="composer_chars_over_limit">Over the 300 character limit by %1$d</string>
 
     <!-- Submission progress (a11y) -->
@@ -21,6 +28,12 @@
     <string name="composer_error_generic">Couldn\'t post. Try again.</string>
     <string name="composer_error_network">No connection. Check your network and try again.</string>
     <string name="composer_error_unauthorized">Your session expired. Sign in again to post.</string>
-    <string name="composer_error_upload_failed">Image %1$d failed to upload.</string>
+    <!--
+        `%1$d` here is an ORDINAL ("Image #1", "Image #2"), not a
+        QUANTITY — every value renders with the same English grammar.
+        Lint's PluralsCandidate heuristic flags it because of the
+        adjacent word; suppress for this string only.
+    -->
+    <string name="composer_error_upload_failed" tools:ignore="PluralsCandidate">Image %1$d failed to upload.</string>
     <string name="composer_error_parent_not_found">This post is no longer available.</string>
 </resources>

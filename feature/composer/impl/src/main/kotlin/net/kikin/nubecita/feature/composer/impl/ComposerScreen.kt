@@ -28,8 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -73,7 +74,12 @@ fun ComposerScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    // Use LocalResources (not LocalContext.current.getString) to satisfy
+    // the `LocalContextGetResourceValueCall` lint check — Compose's
+    // canonical accessor for non-config-bound resource lookups. Captured
+    // once outside the LaunchedEffect so the effect's coroutine doesn't
+    // chase a fresh resolution every emission.
+    val resources = LocalResources.current
 
     // Stabilize the unstable lambda params via rememberUpdatedState so
     // the LaunchedEffect's restart key (Unit) doesn't capture a stale
@@ -89,7 +95,7 @@ fun ComposerScreen(
                 is ComposerEffect.OnSubmitSuccess -> currentOnSubmitSuccess(effect.newPostUri)
                 is ComposerEffect.ShowError ->
                     snackbarHostState.showSnackbar(
-                        context.getString(effect.stringResId, *effect.args.toTypedArray()),
+                        resources.getString(effect.stringResId, *effect.args.toTypedArray()),
                     )
             }
         }
@@ -224,11 +230,18 @@ private fun canPost(state: ComposerState): Boolean {
     }
 }
 
+@Composable
 private fun counterContentDescription(state: ComposerState): String {
     val limit = ComposerViewModel.MAX_GRAPHEMES
     return if (state.isOverLimit) {
-        "Over the 300 character limit by ${state.graphemeCount - limit}"
+        val offset = state.graphemeCount - limit
+        stringResource(R.string.composer_chars_over_limit, offset)
     } else {
-        "${max(0, limit - state.graphemeCount)} characters remaining"
+        val remaining = max(0, limit - state.graphemeCount)
+        // `pluralStringResource` selects the right grammatical form per
+        // locale's CLDR rules ("1 character remaining" vs "N characters
+        // remaining"). The first int is the quantity used for selection;
+        // the second is the formatted argument substituted into `%1$d`.
+        pluralStringResource(R.plurals.composer_chars_remaining, remaining, remaining)
     }
 }
