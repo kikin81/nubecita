@@ -28,6 +28,64 @@ fun keystoreValue(
     keystoreProps.getProperty(propKey)?.takeIf(String::isNotEmpty)
         ?: providers.environmentVariable(envKey).orNull?.takeIf(String::isNotEmpty)
 
+/**
+ * Derives Android's `versionCode` (a strictly-increasing 32-bit integer
+ * required by Play Store) from the project's semantic `versionName`
+ * (`MAJOR.MINOR.PATCH`).
+ *
+ * Scheme: `versionCode = MAJOR * 1_000_000 + MINOR * 1_000 + PATCH`
+ *
+ * Examples:
+ *   1.37.1 → 1_037_001
+ *   1.99.999 → 1_099_999  (per-band ceiling)
+ *   2.0.0  → 2_000_000   (always > any 1.x.x — no collision on breaking releases)
+ *
+ * Why fixed-width bands and not the naive concatenation
+ * (`MAJOR*100 + MINOR*10 + PATCH`)? The naive scheme breaks on major
+ * bumps: 2.0.0 → 200, but 1.15.0 → 1150, so Play Store rejects 2.0.0
+ * as ≤ the prior published 1.15.0. The 1_000_000-band scheme leaves
+ * 999 minors and 999 patches per major and ~2100 majors before
+ * Android's 2.1B versionCode ceiling — plenty of headroom for the
+ * lifetime of the project.
+ *
+ * Pre-release suffixes (`1.38.0-rc.1`, `1.37.1-SNAPSHOT`) are stripped
+ * at the first `-`. SemVer 2.0 build-metadata suffixes (`1.2.3+build.4`)
+ * are stripped at the first `+`. RC vs final ordering at the same
+ * versionName is out of scope — handle via separate `applicationId`
+ * for beta tracks.
+ *
+ * Out-of-band components fail fast at configuration time so the build
+ * halts before producing a malformed AAB:
+ *   - major must be in `0..2146` (`2147 * 1_000_000` overflows `Int`;
+ *     2146 is the largest major that leaves room for any 0..999/0..999
+ *     minor+patch and still fits in a 32-bit signed `versionCode`)
+ *   - minor and patch must each be in `0..999`
+ *   - the arithmetic is done in `Long` and the result is bounds-checked
+ *     against `Int.MAX_VALUE` before narrowing, so any future scheme
+ *     change can't silently produce a negative `versionCode`
+ */
+fun parseVersionCode(versionName: String): Int {
+    val core = versionName.substringBefore('-').substringBefore('+')
+    val parts = core.split('.')
+    require(parts.size == 3) {
+        "Expected MAJOR.MINOR.PATCH, got: $versionName"
+    }
+    val major = parts[0].toInt()
+    val minor = parts[1].toInt()
+    val patch = parts[2].toInt()
+    require(major in 0..2146) {
+        "Major must be in 0..2146 to fit a 32-bit signed versionCode: $versionName"
+    }
+    require(minor in 0..999 && patch in 0..999) {
+        "Minor and patch must be in 0..999 to fit the 1_000_000-band scheme: $versionName"
+    }
+    val code = major.toLong() * 1_000_000 + minor.toLong() * 1_000 + patch
+    check(code in 0..Int.MAX_VALUE) {
+        "versionCode $code overflowed Int.MAX_VALUE; tighten the per-component bounds"
+    }
+    return code.toInt()
+}
+
 android {
     namespace = "net.kikin.nubecita"
 
@@ -51,9 +109,15 @@ android {
     }
 
     defaultConfig {
+        // Resolve the version once from the project property and use it
+        // for both versionName and the parser-derived versionCode. Avoids
+        // reading back AGP's nullable DSL property and forcing it
+        // non-null with `!!`, and removes any reliance on the order of
+        // the two DSL setters.
+        val resolvedVersion = project.property("version").toString()
         applicationId = "net.kikin.nubecita"
-        versionCode = 2
-        versionName = project.property("version").toString()
+        versionName = resolvedVersion
+        versionCode = parseVersionCode(resolvedVersion)
 
         // Override the convention-plugin default (AndroidJUnitRunner) with the
         // Hilt-aware runner from :core:testing-android so @HiltAndroidTest tests
