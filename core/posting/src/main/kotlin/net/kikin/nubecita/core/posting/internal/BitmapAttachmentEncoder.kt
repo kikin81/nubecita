@@ -190,10 +190,19 @@ internal class BitmapAttachmentEncoder
             // around the cap, so we avoid both wasted reservation and
             // repeated buffer growth.
             val out = ByteArrayOutputStream(INITIAL_BUFFER_BYTES)
-            // WEBP_LOSSY (API 30+) replaces the deprecated WEBP enum.
+            // `Bitmap.CompressFormat.WEBP_LOSSY` is API 30+; the broader
+            // `WEBP` enum (deprecated at API 30 but functionally identical
+            // to lossy when `quality < 100`) covers our minSdk 28 floor.
             // WEBP_LOSSY at quality N is roughly equivalent to JPEG at
             // quality N+10 for photos, with smaller output.
-            bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, quality, out)
+            val format =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Bitmap.CompressFormat.WEBP_LOSSY
+                } else {
+                    @Suppress("DEPRECATION")
+                    Bitmap.CompressFormat.WEBP
+                }
+            bitmap.compress(format, quality, out)
             return out.toByteArray()
         }
 
