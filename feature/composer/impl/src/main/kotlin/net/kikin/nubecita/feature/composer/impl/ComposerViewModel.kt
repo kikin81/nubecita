@@ -10,9 +10,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
@@ -103,7 +103,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * its own dedicated tests in `ComposerViewModelTypeaheadTest` (next
  * commit).
  */
-@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)
 class ComposerViewModel
     @AssistedInject
@@ -133,17 +133,25 @@ class ComposerViewModel
          * Per-VM hot stream driving the typeahead lookup. The
          * `snapshotFlow` collector below emits the active
          * `@`-mention token here on every text/selection change;
-         * the pipeline downstream debounces, dedupes, and `mapLatest`s
-         * the result through [actorTypeaheadRepository]. The empty
-         * string is a sentinel meaning "no active token" — it
-         * cancels any in-flight query via `mapLatest` and resolves
-         * to [TypeaheadStatus.Idle].
+         * the pipeline downstream dedupes, `mapLatest`s + delays
+         * for the debounce window, then resolves through
+         * [actorTypeaheadRepository]. The empty string is a sentinel
+         * meaning "no active token" — it cancels any in-flight
+         * query via `mapLatest` immediately (no upstream debounce
+         * to wait through) and resolves to [TypeaheadStatus.Idle].
          *
-         * `extraBufferCapacity = 1` so a synchronous `tryEmit` from
-         * the snapshot collector never drops events; replays
-         * nothing.
+         * `extraBufferCapacity = 1` paired with
+         * [BufferOverflow.DROP_OLDEST] makes `tryEmit` always
+         * succeed: when the buffer is full, the older token is
+         * dropped in favor of the newer one — which is exactly
+         * what we want for typeahead, where stale tokens carry no
+         * value.
          */
-        private val queryFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
+        private val queryFlow =
+            MutableSharedFlow<String>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
 
         init {
             uiState.value.replyToUri?.let { uri ->
@@ -175,18 +183,33 @@ class ComposerViewModel
                     }
                 }.launchIn(viewModelScope)
 
-            // Typeahead lookup pipeline — debounce + dedupe +
-            // mapLatest. Failures collapse to Idle (hidden dropdown)
-            // per the design's hide-on-error decision; surfacing a
-            // snackbar on every flap of a flaky connection during
-            // typing would be more annoying than helpful.
+            // Typeahead lookup pipeline — dedupe + mapLatest with
+            // the debounce delay INSIDE the suspending block.
+            // Putting `delay` inside `mapLatest` (rather than using
+            // a separate upstream `.debounce()` operator) means a
+            // newer emission cancels both the in-flight repo call
+            // AND any still-pending debounce delay — so when the
+            // cursor leaves the active token (snapshot emits the
+            // "" sentinel), an in-flight query that's about to
+            // return can't sneak in a stale `Suggestions` write
+            // after the synchronous `Idle` was already set by the
+            // snapshot collector.
+            //
+            // Failures collapse to Idle (hidden dropdown) per the
+            // design's hide-on-error decision; surfacing a snackbar
+            // on every flap of a flaky connection during typing
+            // would be more annoying than helpful.
             queryFlow
-                .debounce(TYPEAHEAD_DEBOUNCE)
                 .distinctUntilChanged()
                 .mapLatest { query ->
                     if (query.isEmpty()) {
+                        // Skip the debounce on the empty sentinel —
+                        // we want the dropdown to clear immediately,
+                        // and any in-flight prior-token query is
+                        // already being cancelled by mapLatest.
                         TypeaheadStatus.Idle
                     } else {
+                        delay(TYPEAHEAD_DEBOUNCE)
                         setState { copy(typeahead = TypeaheadStatus.Querying(query)) }
                         actorTypeaheadRepository.searchTypeahead(query).fold(
                             onSuccess = { actors ->

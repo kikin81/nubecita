@@ -235,6 +235,54 @@ class ComposerViewModelTypeaheadTest {
         }
 
     @Test
+    fun pipeline_lateArrivingResultDoesNotOverwriteIdleAfterCursorLeavesToken() =
+        runTest {
+            // Regression for the race Copilot caught on PR #124 review:
+            // with `debounce` upstream of `mapLatest`, a fast network
+            // call could complete BEFORE the "" sentinel's debounce
+            // expired, sneaking a stale Suggestions write past the
+            // synchronous `Idle` set by the snapshot collector.
+            //
+            // Fix: delay moved INSIDE mapLatest. The "" sentinel
+            // skips its delay branch entirely and the in-flight
+            // query is cancelled by mapLatest immediately.
+            val vm = newVm()
+            // Gate "ali" so we control completion order.
+            val aliDeferred = typeaheadRepo.gate("ali")
+
+            setComposerText(vm, "@ali")
+            advanceDebounce()
+            // The query is in flight (Querying state).
+            assertEquals(TypeaheadStatus.Querying("ali"), vm.uiState.value.typeahead)
+
+            // Cursor leaves the token (e.g. user appends a space) —
+            // snapshot collector synchronously sets Idle and emits ""
+            // to queryFlow. mapLatest cancels the in-flight "ali"
+            // call immediately (no upstream debounce to wait
+            // through).
+            setComposerText(vm, "@ali ")
+            // No advanceDebounce() — the cancellation is
+            // synchronous-on-emission, not debounced.
+            assertEquals(TypeaheadStatus.Idle, vm.uiState.value.typeahead)
+
+            // Now complete the cancelled "ali" deferred late. With
+            // the pre-fix pipeline this would race in and set
+            // Suggestions, overwriting Idle. With the fixed
+            // pipeline, the cancellation already threw inside the
+            // mapLatest block before .fold could run.
+            aliDeferred.complete(
+                Result.success(listOf(actor("did:plc:alice", "alice.bsky.social", "Alice"))),
+            )
+            testScheduler.runCurrent()
+
+            assertEquals(
+                TypeaheadStatus.Idle,
+                vm.uiState.value.typeahead,
+                "late-arriving result must not overwrite Idle after cursor leaves the token",
+            )
+        }
+
+    @Test
     fun typeaheadResultClicked_returnsTypeaheadStateToIdleAfterReplacement() =
         runTest {
             val vm = newVm()

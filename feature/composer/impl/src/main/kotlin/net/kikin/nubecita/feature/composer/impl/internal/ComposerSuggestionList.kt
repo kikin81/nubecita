@@ -167,8 +167,11 @@ private fun ComposerSuggestionEmptyRow(
 }
 
 /**
- * Caps the suggestion `LazyColumn` at ~3.5 visible 56dp rows before
- * scrolling. Matches Bluesky's mobile UX (8 results requested, ~3
- * visible above the keyboard, scroll for the rest).
+ * Caps the suggestion `LazyColumn` so 4 rows are visible cleanly
+ * before scrolling. Each row is ~64dp (12dp top pad + 40dp avatar
+ * + 12dp bottom pad); 4 rows + dividers ≈ 260dp, plus a few
+ * px of slack rounds to 280dp. Picked over a tighter cap because
+ * a partial 4th row reads as "broken UI" at tablet density rather
+ * than "scroll hint".
  */
-private val MAX_LIST_HEIGHT = 240.dp
+private val MAX_LIST_HEIGHT = 280.dp

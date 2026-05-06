@@ -303,10 +303,18 @@ fun ComposerScreenContent(
                 // Sits between the text field and the attachment row
                 // so the IME's inset push naturally keeps it visible
                 // above the keyboard without explicit anchoring.
-                ComposerSuggestionList(
-                    typeahead = state.typeahead,
-                    onSuggestionClick = onSuggestionClick,
-                )
+                //
+                // Hidden entirely while submitting: the VM gates
+                // TypeaheadResultClicked on submitInFlight, so a
+                // tap during submit is a no-op. Rendering the rows
+                // would be a visible control that does nothing —
+                // hide them to match the actual behavior.
+                if (state.submitStatus !is ComposerSubmitStatus.Submitting) {
+                    ComposerSuggestionList(
+                        typeahead = state.typeahead,
+                        onSuggestionClick = onSuggestionClick,
+                    )
+                }
                 // Composer attachment action row. Hosts the leading
                 // "Add image" affordance and a horizontally-scrolling
                 // chip strip of the picked attachments (each chip with

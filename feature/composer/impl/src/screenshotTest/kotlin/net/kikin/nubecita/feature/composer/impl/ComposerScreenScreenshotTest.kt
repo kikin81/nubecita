@@ -48,7 +48,7 @@ import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
  * paths come online.
  *
  * **Text fixtures construct `TextFieldState` locally** rather than
- * pulling text off `ComposerState`. The composer's text owner-ship
+ * pulling text off `ComposerState`. The composer's text ownership
  * lives in `ComposerViewModel.textFieldState` (see that class's
  * Kdoc); fixtures replicate the wiring by `remember { TextFieldState(initialText = …) }`.
  */
