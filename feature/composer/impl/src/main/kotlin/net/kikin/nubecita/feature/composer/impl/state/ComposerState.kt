@@ -9,26 +9,38 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
  * Flat, UI-ready state for the unified composer screen.
  *
  * Per the repo's MVI conventions:
- * - **Independent flags** ([text], [graphemeCount], [isOverLimit],
+ * - **Independent flags** ([graphemeCount], [isOverLimit],
  *   [attachments]) live as flat fields. Composables read them
  *   directly without a `when` on a sum-type wrapper.
  * - **Mutually-exclusive lifecycles** ([submitStatus],
- *   [replyParentLoad]) are sealed status sums — the type system
- *   forbids invalid combinations like "Submitting AND Error".
+ *   [replyParentLoad], [typeahead]) are sealed status sums — the
+ *   type system forbids invalid combinations like "Submitting AND
+ *   Error".
  *
  * No `Async<T>` / `Result<T>` wrappers. No remote-data sum at the UI
  * boundary. Concrete fields the composable can read with zero
  * branching.
  *
- * @property text The current composer text. Defaults to empty.
- * @property graphemeCount Grapheme-cluster count of [text] — what the
- *   counter renders. Recomputed on every `TextChanged` event using
+ * **Text ownership exception.** The composer's text and selection
+ * live in `ComposerViewModel.textFieldState` (a Compose
+ * `TextFieldState`), NOT on this state object. This is a deliberate,
+ * editor-only departure from the MVI baseline — see
+ * `ComposerViewModel`'s Kdoc and `openspec/changes/add-composer-mention-typeahead/design.md`
+ * for the rationale (round-trip elimination → no IME cursor lag).
+ * `graphemeCount` and `isOverLimit` ARE projected onto this state
+ * object so existing UI gates (`canPost`, character counter) keep
+ * reading them via the standard MVI shape; both are updated by the
+ * VM's `snapshotFlow` collector observing the field.
+ *
+ * @property graphemeCount Grapheme-cluster count of the field's
+ *   current text — what the counter renders. Recomputed on every
+ *   `TextFieldState` snapshot emission using
  *   `java.text.BreakIterator.getCharacterInstance()`. NOT
  *   `text.length` (UTF-16 code units) and NOT `text.codePointCount`
  *   (Unicode codepoints) — both miscount emoji ZWJ sequences.
  * @property isOverLimit `true` iff [graphemeCount] > 300 (the AT
- *   Protocol post-text limit). Derived from [graphemeCount]; reducer
- *   keeps both consistent on every update.
+ *   Protocol post-text limit). Derived from [graphemeCount]; the
+ *   collector keeps both consistent on every update.
  * @property attachments Up to 4 image attachments. Defaults to empty.
  *   Cap enforced by the reducer (the picker also caps via
  *   `maxItems`).
@@ -43,13 +55,19 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
  *   `Loaded` or `Failed`.
  * @property submitStatus Submit-flow lifecycle. Defaults to
  *   `ComposerSubmitStatus.Idle`.
+ * @property typeahead `@`-mention typeahead lifecycle. Defaults to
+ *   `TypeaheadStatus.Idle`. Independent of [submitStatus] and
+ *   [replyParentLoad] — the user can be typing into the field while
+ *   the parent post is still loading, etc. Driven by the VM's
+ *   `snapshotFlow` collector; transitions occur outside the
+ *   `handleEvent` reducer path.
  */
 data class ComposerState(
-    val text: String = "",
     val graphemeCount: Int = 0,
     val isOverLimit: Boolean = false,
     val attachments: ImmutableList<ComposerAttachment> = persistentListOf(),
     val replyToUri: String? = null,
     val replyParentLoad: ParentLoadStatus? = null,
     val submitStatus: ComposerSubmitStatus = ComposerSubmitStatus.Idle,
+    val typeahead: TypeaheadStatus = TypeaheadStatus.Idle,
 ) : UiState

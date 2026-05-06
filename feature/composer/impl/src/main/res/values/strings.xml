@@ -40,4 +40,10 @@
     -->
     <string name="composer_error_upload_failed" tools:ignore="PluralsCandidate">Image %1$d failed to upload.</string>
     <string name="composer_error_parent_not_found">This post is no longer available.</string>
+
+    <!-- Typeahead empty-state row (shown inside the @-mention suggestion
+         card when the lookup ran but matched zero actors). `%1$s` is the
+         active token without the leading @. Distinct from the failure
+         path, which collapses to a hidden card. -->
+    <string name="composer_typeahead_no_matches">No matches for @%1$s</string>
 </resources>

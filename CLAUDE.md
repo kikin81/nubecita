@@ -112,3 +112,15 @@ Non-goals of the base class (do not add these without a separate proposal):
 - No Mavericks / Orbit / MVIKotlin or any MVI framework — stay on Jetpack + coroutines primitives.
 - No `SavedStateHandle` plumbing in the base. Screens that need process-death persistence inject `SavedStateHandle` directly via Hilt.
 - No inbound event `SharedFlow` / debounce / throttle in the base. Per-screen concerns (search typeahead, autocomplete, draft autosave, firehose sampling) build their own `MutableSharedFlow<E>` inside the feature VM.
+
+#### Sanctioned MVI exception: editor surfaces own a Compose `TextFieldState`
+
+Editor screens (text input where the IME and cursor must stay in lock-step with the field) MAY hold a Compose `androidx.compose.foundation.text.input.TextFieldState` as a public `val` on the ViewModel and observe it via `snapshotFlow`, instead of routing every keystroke through `handleEvent` / `setState`. The screen Composable wires the `OutlinedTextField(state = vm.textFieldState)` overload directly. This is the **only** sanctioned departure from "the VM owns canonical state and the UI is a pure projection" — it exists because the value/onValueChange round-trip is the canonical source of cursor-jump bugs once the reducer does any non-trivial work (e.g. cursor-aware token detection, debounced typeahead queries).
+
+The exception is bounded:
+
+- It applies to editor surfaces only — non-editor screens continue to own their state in the VM and project it through `UiState`.
+- The text field's text and selection are the only state that lives outside `UiState`. Derived projections like `graphemeCount` / `isOverLimit` stay on `UiState`, updated by the VM's `snapshotFlow` collector so existing UI gates don't change shape.
+- Tests that mutate `textFieldState` programmatically MUST drive the snapshot system manually via `Snapshot.sendApplyNotifications()` + `testScheduler.runCurrent()` — there is no recomposer in unit tests.
+
+Reference implementation: `:feature:composer:impl/ComposerViewModel`. Rationale: `openspec/changes/add-composer-mention-typeahead/design.md` (decisions §1 and §2).

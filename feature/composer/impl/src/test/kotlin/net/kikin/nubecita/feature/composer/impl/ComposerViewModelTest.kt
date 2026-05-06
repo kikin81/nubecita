@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.composer.impl
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.snapshots.Snapshot
 import app.cash.turbine.test
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
@@ -10,10 +12,12 @@ import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.PostingRepository
@@ -35,23 +39,40 @@ import org.junit.jupiter.api.Test
 /**
  * Unit tests for [ComposerViewModel] covering every scenario from
  * the unified-composer spec's "Unit-test coverage for the composer
- * state machine" requirement.
+ * state machine" requirement, **plus** the new
+ * `add-composer-mention-typeahead` shape: text mutations now flow
+ * through `vm.textFieldState`, not through `ComposerEvent.TextChanged`.
  *
  * Strategy: real VM, fake [PostingRepository] + [ParentFetchSource]
- * via mockk, assert state transitions via Turbine on `uiState` and
- * effects via Turbine on `effects`. No Compose harness needed —
- * the VM is the unit under test.
+ * + [ActorTypeaheadRepository] via mockk, assert state transitions
+ * via Turbine on `uiState` and effects via Turbine on `effects`. No
+ * Compose harness needed — the VM is the unit under test, and
+ * `TextFieldState` is JVM-friendly so we can mutate it directly.
  *
  * Coroutine setup: Dispatchers.Main is set to
  * UnconfinedTestDispatcher so `viewModelScope.launch { ... }` runs
  * inline up to the first true suspend, making state transitions
  * observable in test-time without `advanceUntilIdle()` ceremony.
+ *
+ * The dedicated typeahead pipeline tests (mapLatest cancellation,
+ * debounce, distinctUntilChanged, NoResults vs Suggestions, error
+ * collapses to Idle) live in `ComposerViewModelTypeaheadTest` (next
+ * commit).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ComposerViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val postingRepository = mockk<PostingRepository>()
     private val parentFetchSource = mockk<ParentFetchSource>()
+
+    // The typeahead repo is exercised by ComposerViewModelTypeaheadTest;
+    // here we install a fake that returns empty so the snapshot
+    // collector's typeahead pipeline does not interfere with the
+    // assertions in this suite.
+    private val actorTypeaheadRepository =
+        object : ActorTypeaheadRepository {
+            override suspend fun searchTypeahead(query: String): Result<List<net.kikin.nubecita.core.posting.ActorTypeaheadUi>> = Result.success(emptyList())
+        }
 
     @BeforeEach
     fun setUp() {
@@ -69,7 +90,7 @@ class ComposerViewModelTest {
             val vm = newVm(replyToUri = null)
 
             val state = vm.uiState.value
-            assertEquals("", state.text)
+            assertEquals("", vm.textFieldState.text.toString())
             assertEquals(0, state.graphemeCount)
             assertEquals(false, state.isOverLimit)
             assertTrue(state.attachments.isEmpty())
@@ -93,8 +114,6 @@ class ComposerViewModelTest {
 
             val vm = newVm(replyToUri = PARENT_URI)
 
-            // Construction kicks off the fetch; observe the in-flight
-            // Loading state before completing the gate.
             assertEquals(PARENT_URI, vm.uiState.value.replyToUri)
             assertEquals(ParentLoadStatus.Loading, vm.uiState.value.replyParentLoad)
 
@@ -112,8 +131,6 @@ class ComposerViewModelTest {
 
             val vm = newVm(replyToUri = PARENT_URI)
 
-            // Same observability dance as the success path — proves
-            // we go Loading first, not straight to Failed.
             assertEquals(ParentLoadStatus.Loading, vm.uiState.value.replyParentLoad)
 
             gate.complete(Result.failure(cause))
@@ -122,16 +139,16 @@ class ComposerViewModelTest {
         }
 
     @Test
-    fun textChanged_updatesGraphemeCountAndOverLimitFlag() =
+    fun textChange_updatesGraphemeCountAndOverLimitFlag() =
         runTest {
             val vm = newVm(replyToUri = null)
 
-            vm.handleEvent(ComposerEvent.TextChanged("hello"))
-            assertEquals("hello", vm.uiState.value.text)
+            setComposerText(vm, "hello")
+            assertEquals("hello", vm.textFieldState.text.toString())
             assertEquals(5, vm.uiState.value.graphemeCount)
             assertEquals(false, vm.uiState.value.isOverLimit)
 
-            vm.handleEvent(ComposerEvent.TextChanged("a".repeat(301)))
+            setComposerText(vm, "a".repeat(301))
             assertEquals(301, vm.uiState.value.graphemeCount)
             assertEquals(true, vm.uiState.value.isOverLimit)
         }
@@ -144,10 +161,10 @@ class ComposerViewModelTest {
             // platform-Unicode-version-dependent and tested separately
             // in GraphemeCounterTest with a comment about the JVM/Android
             // skew. This test exercises the integration through the
-            // VM reducer using a platform-stable emoji.)
+            // VM's snapshotFlow collector using a platform-stable emoji.)
             val vm = newVm(replyToUri = null)
 
-            vm.handleEvent(ComposerEvent.TextChanged("🎉"))
+            setComposerText(vm, "🎉")
 
             assertEquals(1, vm.uiState.value.graphemeCount)
         }
@@ -160,7 +177,6 @@ class ComposerViewModelTest {
             vm.handleEvent(ComposerEvent.AddAttachments(listOf(att(), att(), att())))
             assertEquals(3, vm.uiState.value.attachments.size)
 
-            // Adding 3 more — only 1 fits within the 4-cap.
             vm.handleEvent(ComposerEvent.AddAttachments(listOf(att(), att(), att())))
             assertEquals(4, vm.uiState.value.attachments.size)
         }
@@ -183,8 +199,6 @@ class ComposerViewModelTest {
                     .toList(),
             )
 
-            // Out-of-range is a no-op (defensive — the UI should
-            // never dispatch one, but the reducer is robust).
             vm.handleEvent(ComposerEvent.RemoveAttachment(99))
             assertEquals(2, vm.uiState.value.attachments.size)
         }
@@ -198,7 +212,7 @@ class ComposerViewModelTest {
             } returns Result.success(newPostUri)
 
             val vm = newVm(replyToUri = null)
-            vm.handleEvent(ComposerEvent.TextChanged("hello"))
+            setComposerText(vm, "hello")
 
             vm.effects.test {
                 vm.handleEvent(ComposerEvent.Submit)
@@ -217,7 +231,7 @@ class ComposerViewModelTest {
             } returns Result.failure(cause)
 
             val vm = newVm(replyToUri = null)
-            vm.handleEvent(ComposerEvent.TextChanged("hi"))
+            setComposerText(vm, "hi")
             vm.handleEvent(ComposerEvent.Submit)
 
             assertEquals(ComposerSubmitStatus.Error(cause), vm.uiState.value.submitStatus)
@@ -227,12 +241,11 @@ class ComposerViewModelTest {
     fun submit_isNoOp_whenOverLimit() =
         runTest {
             val vm = newVm(replyToUri = null)
-            vm.handleEvent(ComposerEvent.TextChanged("a".repeat(301)))
+            setComposerText(vm, "a".repeat(301))
             assertEquals(true, vm.uiState.value.isOverLimit)
 
             vm.handleEvent(ComposerEvent.Submit)
 
-            // submitStatus should NOT have changed to Submitting.
             assertEquals(ComposerSubmitStatus.Idle, vm.uiState.value.submitStatus)
             coVerify(exactly = 0) { postingRepository.createPost(any(), any(), any()) }
         }
@@ -240,19 +253,17 @@ class ComposerViewModelTest {
     @Test
     fun submit_isNoOp_whenReplyParentNotLoaded() =
         runTest {
-            // Pin parent fetch in Loading forever via a never-completing deferred.
             val gate = CompletableDeferred<Result<ParentPostUi>>()
             coEvery { parentFetchSource.fetchParent(AtUri(PARENT_URI)) } coAnswers { gate.await() }
 
             val vm = newVm(replyToUri = PARENT_URI)
-            vm.handleEvent(ComposerEvent.TextChanged("ok"))
+            setComposerText(vm, "ok")
             assertEquals(ParentLoadStatus.Loading, vm.uiState.value.replyParentLoad)
 
             vm.handleEvent(ComposerEvent.Submit)
 
             assertEquals(ComposerSubmitStatus.Idle, vm.uiState.value.submitStatus)
             coVerify(exactly = 0) { postingRepository.createPost(any(), any(), any()) }
-            // Cleanup
             gate.complete(Result.failure(RuntimeException("test cleanup")))
         }
 
@@ -269,7 +280,7 @@ class ComposerViewModelTest {
                 )
 
             val vm = newVm(replyToUri = null)
-            vm.handleEvent(ComposerEvent.TextChanged("ok"))
+            setComposerText(vm, "ok")
             vm.handleEvent(ComposerEvent.Submit)
             assertTrue(vm.uiState.value.submitStatus is ComposerSubmitStatus.Error)
 
@@ -291,11 +302,7 @@ class ComposerViewModelTest {
 
             val vm = newVm(replyToUri = null)
             vm.handleEvent(ComposerEvent.AddAttachments(listOf(attachment)))
-            assertEquals(
-                true,
-                vm.uiState.value.text
-                    .isBlank(),
-            )
+            assertTrue(vm.textFieldState.text.isBlank())
             assertEquals(1, vm.uiState.value.attachments.size)
 
             vm.handleEvent(ComposerEvent.Submit)
@@ -306,12 +313,22 @@ class ComposerViewModelTest {
     @Test
     fun draftMutations_areIgnored_whileSubmitting() =
         runTest {
-            // Submit captures the snapshot at call time. If TextChanged /
-            // AddAttachments / RemoveAttachment kept mutating during the
-            // in-flight submit, the UI would diverge from what's actually
-            // being posted — and on Success the user would see content
-            // they think was posted but wasn't. Reducer must reject draft
-            // mutations while submitStatus is Submitting.
+            // Submit captures the snapshot at call time. If
+            // AddAttachments / RemoveAttachment kept mutating during
+            // the in-flight submit, the UI would diverge from what's
+            // actually being posted — and on Success the user would
+            // see content they think was posted but wasn't. Reducer
+            // must reject draft mutations while submitStatus is
+            // Submitting.
+            //
+            // Note on text: with the TextFieldState migration, text
+            // mutations are gated at the UI layer via
+            // OutlinedTextField's `enabled = false` (the IME can't
+            // write to a disabled field). The VM's snapshotFlow
+            // collector still fires if anyone programmatically
+            // mutates textFieldState, so this test exercises only
+            // the event-dispatched draft mutations (attachments) —
+            // which the reducer is responsible for gating.
             val newPostUri = AtUri("at://did:plc:me/app.bsky.feed.post/snap")
             val gate = CompletableDeferred<Result<AtUri>>()
             coEvery {
@@ -319,16 +336,14 @@ class ComposerViewModelTest {
             } coAnswers { gate.await() }
 
             val vm = newVm(replyToUri = null)
-            vm.handleEvent(ComposerEvent.TextChanged("snapshot"))
+            setComposerText(vm, "snapshot")
             vm.handleEvent(ComposerEvent.Submit)
             assertEquals(ComposerSubmitStatus.Submitting, vm.uiState.value.submitStatus)
 
-            // Try to mutate the draft mid-submit. All three should be no-ops.
-            vm.handleEvent(ComposerEvent.TextChanged("HIJACK"))
+            // Try to mutate attachments mid-submit — should be no-ops.
             vm.handleEvent(ComposerEvent.AddAttachments(listOf(att())))
             vm.handleEvent(ComposerEvent.RemoveAttachment(0))
 
-            assertEquals("snapshot", vm.uiState.value.text)
             assertEquals(0, vm.uiState.value.attachments.size)
 
             gate.complete(Result.success(newPostUri))
@@ -350,7 +365,7 @@ class ComposerViewModelTest {
             } returns Result.success(newPostUri)
 
             val vm = newVm(replyToUri = PARENT_URI)
-            vm.handleEvent(ComposerEvent.TextChanged("reply"))
+            setComposerText(vm, "reply")
             vm.handleEvent(ComposerEvent.Submit)
 
             assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
@@ -370,15 +385,33 @@ class ComposerViewModelTest {
             route = ComposerRoute(replyToUri = replyToUri),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
+            actorTypeaheadRepository = actorTypeaheadRepository,
         )
+
+    /**
+     * Mutates the VM's [textFieldState] and drives the Compose
+     * snapshot system to flush the change to the VM's snapshotFlow
+     * collector. In production the recomposer fires
+     * `Snapshot.sendApplyNotifications()` on every frame; in unit
+     * tests there is no frame loop, so we trigger it manually after
+     * each mutation. `runCurrent()` then drives the test scheduler
+     * past the suspending boundary inside the collector so the
+     * grapheme/typeahead state assertions land before the next test
+     * step.
+     */
+    private fun TestScope.setComposerText(
+        vm: ComposerViewModel,
+        text: String,
+    ) {
+        vm.textFieldState.setTextAndPlaceCursorAtEnd(text)
+        Snapshot.sendApplyNotifications()
+        testScheduler.runCurrent()
+    }
 
     private fun att(): ComposerAttachment = ComposerAttachment(uri = mockk(relaxed = true), mimeType = "image/jpeg")
 
     private fun aParentPostUi(): ParentPostUi =
         ParentPostUi(
-            // Distinct parent and root refs so tests catch any
-            // implementation that accidentally swaps them or reuses
-            // one for both fields.
             parentRef = StrongRef(uri = AtUri(PARENT_URI), cid = Cid("bafparent")),
             rootRef = StrongRef(uri = AtUri(ROOT_URI), cid = Cid("bafroot")),
             authorHandle = "alice.test",

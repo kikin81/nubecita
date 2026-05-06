@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.composer.impl
 
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -7,27 +9,66 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
+import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.internal.GraphemeCounter
+import net.kikin.nubecita.feature.composer.impl.internal.findActiveMentionStart
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 import timber.log.Timber
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Presenter for the unified composer screen. Drives both new-post
  * and reply modes from one VM / one state machine, using only the
  * route's `replyToUri` argument to disambiguate.
  *
- * Lifecycle:
+ * # Text-input ownership exception
+ *
+ * The composer's text and selection live in [textFieldState], a
+ * Compose `TextFieldState` exposed as a public `val`. The screen
+ * Composable wires the `OutlinedTextField(state = ...)` overload
+ * directly; the IME's writes are local to the field and never
+ * round-trip through `handleEvent` / `setState`. The VM observes
+ * the field via `snapshotFlow { textFieldState.text.toString() to
+ * textFieldState.selection }` collected from `init` and uses each
+ * snapshot to:
+ *
+ * 1. Update [ComposerState.graphemeCount] / [ComposerState.isOverLimit]
+ *    via the existing [GraphemeCounter].
+ * 2. Detect the active `@`-mention token (via
+ *    `currentMentionToken`) and feed the typeahead pipeline.
+ *
+ * This is a deliberate, **editor-only** departure from the repo's
+ * MVI baseline (which says the VM owns canonical state and the UI
+ * is a pure projection). The rationale is documented in
+ * `openspec/changes/add-composer-mention-typeahead/design.md`:
+ * the value/onValueChange round-trip is the canonical source of
+ * cursor-jump bugs once the reducer does any non-trivial work, and
+ * the typeahead feature requires non-trivial work on every
+ * keystroke. The exception does NOT generalize to other screens.
+ *
+ * # Lifecycle
+ *
  * - Constructor receives the [ComposerRoute] via Hilt assisted
  *   injection (Nav3 canonical pattern — see `:feature:postdetail:impl`'s
  *   `PostDetailViewModel.Factory` for the precedent). The route
@@ -36,23 +77,33 @@ import timber.log.Timber
  * - In reply mode, `init` kicks off a parent fetch via
  *   [ParentFetchSource]. State transitions Loading → Loaded or
  *   Loading → Failed; submit is blocked until Loaded.
+ * - `init` also constructs [textFieldState] and launches the
+ *   `snapshotFlow` collector + the typeahead `MutableSharedFlow`
+ *   pipeline (debounce 150ms → distinctUntilChanged → mapLatest).
  *
- * Forward-compatibility: append-only constructor contract. V1 ships
- * with three injected dependencies (the assisted [ComposerRoute] +
- * [PostingRepository] + [ParentFetchSource]). The future `:core:drafts`
- * adds `DraftRepository` as the next param — no reorder, no rename.
+ * # Constructor contract (append-only)
  *
- * Process death: V1 does NOT survive process death (no
- * [androidx.lifecycle.SavedStateHandle] plumbing — explicit non-goal
- * per the unified-composer spec). If the process is killed mid-
- * compose, the user's draft is lost. The `:core:drafts` follow-up
- * adds disk-backed draft persistence which addresses this case for
- * non-empty drafts.
+ * V1 ships with four injected dependencies (the assisted
+ * [ComposerRoute] + [PostingRepository] + [ParentFetchSource] +
+ * [ActorTypeaheadRepository]). The future `:core:drafts` adds
+ * `DraftRepository` as the next param — no reorder, no rename.
+ *
+ * # Process death
+ *
+ * V1 does NOT survive process death. Neither the [textFieldState]
+ * nor the rest of the composer's working state is persisted via
+ * [androidx.lifecycle.SavedStateHandle] (explicit non-goal per the
+ * unified-composer spec). If the process is killed mid-compose, the
+ * draft is lost. The `:core:drafts` follow-up adds disk-backed
+ * draft persistence which addresses this for non-empty drafts.
  *
  * The character counter, the `isOverLimit` flag, the
- * AddAttachments cap, and every reducer's logic are unit-testable
- * as pure state transitions — see `ComposerViewModelTest`.
+ * AddAttachments cap, and every reducer's logic remain unit-testable
+ * — see `ComposerViewModelTest`. The new typeahead pipeline lands
+ * its own dedicated tests in `ComposerViewModelTypeaheadTest` (next
+ * commit).
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)
 class ComposerViewModel
     @AssistedInject
@@ -60,6 +111,7 @@ class ComposerViewModel
         @Assisted private val route: ComposerRoute,
         private val postingRepository: PostingRepository,
         private val parentFetchSource: ParentFetchSource,
+        private val actorTypeaheadRepository: ActorTypeaheadRepository,
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
             initialState = ComposerState(replyToUri = route.replyToUri),
         ) {
@@ -68,10 +120,110 @@ class ComposerViewModel
             fun create(route: ComposerRoute): ComposerViewModel
         }
 
+        /**
+         * Canonical text and selection for the composer. Constructed
+         * once in init (default empty); never re-assigned. The
+         * screen's `OutlinedTextField(state = textFieldState)` reads
+         * and writes directly; the IME never round-trips through the
+         * VM reducer. See class Kdoc for the rationale.
+         */
+        val textFieldState: TextFieldState = TextFieldState()
+
+        /**
+         * Per-VM hot stream driving the typeahead lookup. The
+         * `snapshotFlow` collector below emits the active
+         * `@`-mention token here on every text/selection change;
+         * the pipeline downstream dedupes, `mapLatest`s + delays
+         * for the debounce window, then resolves through
+         * [actorTypeaheadRepository]. The empty string is a sentinel
+         * meaning "no active token" — it cancels any in-flight
+         * query via `mapLatest` immediately (no upstream debounce
+         * to wait through) and resolves to [TypeaheadStatus.Idle].
+         *
+         * `extraBufferCapacity = 1` paired with
+         * [BufferOverflow.DROP_OLDEST] makes `tryEmit` always
+         * succeed: when the buffer is full, the older token is
+         * dropped in favor of the newer one — which is exactly
+         * what we want for typeahead, where stale tokens carry no
+         * value.
+         */
+        private val queryFlow =
+            MutableSharedFlow<String>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
+
         init {
             uiState.value.replyToUri?.let { uri ->
                 launchParentFetch(uri)
             }
+
+            // Snapshot collector — drives the grapheme counter and
+            // feeds the typeahead query flow. Runs once per snapshot
+            // frame after a write to textFieldState.text or
+            // textFieldState.selection.
+            snapshotFlow { textFieldState.text.toString() to textFieldState.selection.end }
+                .onEach { (text, cursor) ->
+                    val count = GraphemeCounter.count(text)
+                    setState { copy(graphemeCount = count, isOverLimit = count > MAX_GRAPHEMES) }
+
+                    val tokenStart = findActiveMentionStart(text, cursor)
+                    if (tokenStart == null) {
+                        // Synchronous Idle dismissal so the dropdown
+                        // disappears immediately when the cursor leaves
+                        // the active token. The "" sentinel below
+                        // also cancels any in-flight query via
+                        // mapLatest so a stale Suggestions write
+                        // can't race in after the dismissal.
+                        setState { copy(typeahead = TypeaheadStatus.Idle) }
+                        queryFlow.tryEmit("")
+                    } else {
+                        val token = text.substring(tokenStart + 1, cursor)
+                        queryFlow.tryEmit(token)
+                    }
+                }.launchIn(viewModelScope)
+
+            // Typeahead lookup pipeline — dedupe + mapLatest with
+            // the debounce delay INSIDE the suspending block.
+            // Putting `delay` inside `mapLatest` (rather than using
+            // a separate upstream `.debounce()` operator) means a
+            // newer emission cancels both the in-flight repo call
+            // AND any still-pending debounce delay — so when the
+            // cursor leaves the active token (snapshot emits the
+            // "" sentinel), an in-flight query that's about to
+            // return can't sneak in a stale `Suggestions` write
+            // after the synchronous `Idle` was already set by the
+            // snapshot collector.
+            //
+            // Failures collapse to Idle (hidden dropdown) per the
+            // design's hide-on-error decision; surfacing a snackbar
+            // on every flap of a flaky connection during typing
+            // would be more annoying than helpful.
+            queryFlow
+                .distinctUntilChanged()
+                .mapLatest { query ->
+                    if (query.isEmpty()) {
+                        // Skip the debounce on the empty sentinel —
+                        // we want the dropdown to clear immediately,
+                        // and any in-flight prior-token query is
+                        // already being cancelled by mapLatest.
+                        TypeaheadStatus.Idle
+                    } else {
+                        delay(TYPEAHEAD_DEBOUNCE)
+                        setState { copy(typeahead = TypeaheadStatus.Querying(query)) }
+                        actorTypeaheadRepository.searchTypeahead(query).fold(
+                            onSuccess = { actors ->
+                                if (actors.isEmpty()) {
+                                    TypeaheadStatus.NoResults(query)
+                                } else {
+                                    TypeaheadStatus.Suggestions(query, actors.toImmutableList())
+                                }
+                            },
+                            onFailure = { TypeaheadStatus.Idle },
+                        )
+                    }
+                }.onEach { status -> setState { copy(typeahead = status) } }
+                .launchIn(viewModelScope)
         }
 
         override fun handleEvent(event: ComposerEvent) {
@@ -82,28 +234,21 @@ class ComposerViewModel
             // different from what's actually being posted — and on
             // Success the composer closes leaving the user thinking
             // they posted the new content. Block draft mutations
-            // (text/attachments) and parent-fetch retries while
-            // submitting; only Submit itself is allowed through (and
-            // is gated by canSubmit, which itself rejects when
-            // submitInFlight).
+            // (attachments, typeahead inserts) and parent-fetch
+            // retries while submitting; only Submit itself is allowed
+            // through (and is gated by canSubmit, which itself
+            // rejects when submitInFlight). Text input is gated at
+            // the UI layer via OutlinedTextField's `enabled = false`
+            // — the IME can't write to a disabled field, so no
+            // snapshot fires.
             val submitInFlight = uiState.value.submitStatus is ComposerSubmitStatus.Submitting
             when (event) {
-                is ComposerEvent.TextChanged -> if (!submitInFlight) handleTextChanged(event.text)
                 is ComposerEvent.AddAttachments -> if (!submitInFlight) handleAddAttachments(event.attachments)
                 is ComposerEvent.RemoveAttachment -> if (!submitInFlight) handleRemoveAttachment(event.index)
                 ComposerEvent.Submit -> handleSubmit()
                 ComposerEvent.RetryParentLoad -> if (!submitInFlight) handleRetryParentLoad()
-            }
-        }
-
-        private fun handleTextChanged(text: String) {
-            val count = GraphemeCounter.count(text)
-            setState {
-                copy(
-                    text = text,
-                    graphemeCount = count,
-                    isOverLimit = count > MAX_GRAPHEMES,
-                )
+                is ComposerEvent.TypeaheadResultClicked ->
+                    if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
             }
         }
 
@@ -138,8 +283,37 @@ class ComposerViewModel
             }
         }
 
+        /**
+         * Atomically replaces the active `@`-mention substring with
+         * the canonical handle followed by a trailing space, and
+         * places the cursor at the end of the insertion. The trailing
+         * space ensures the next-typed character starts a new word
+         * — without it, the next char would append to the canonical
+         * handle and immediately invalidate it.
+         *
+         * No-op when the `@`-position can't be re-located (the user
+         * moved the cursor between suggestion-arrival and click);
+         * dropping the click is safer than corrupting the text with
+         * a stale insertion.
+         *
+         * The next snapshot emission sees the trailing whitespace
+         * boundary and `findActiveMentionStart` returns null, so
+         * the pipeline transitions `state.typeahead` back to Idle.
+         */
+        private fun handleTypeaheadResultClicked(actor: ActorTypeaheadUi) {
+            val text = textFieldState.text
+            val cursor = textFieldState.selection.end
+            val atPos = findActiveMentionStart(text, cursor) ?: return
+            val insertion = "@${actor.handle} "
+            textFieldState.edit {
+                replace(atPos, cursor, insertion)
+                placeCursorBeforeCharAt(atPos + insertion.length)
+            }
+        }
+
         private fun handleSubmit() {
             val current = uiState.value
+            val text = textFieldState.text.toString()
             // `replyToUri` is a full parent AT-URI carrying a third-
             // party DID. Per the repo's redaction policy (see
             // :core:auth DefaultXrpcClientProvider.redactDid + the
@@ -150,12 +324,12 @@ class ComposerViewModel
             // the navigation route argument if needed.
             Timber.tag(TAG).d(
                 "handleSubmit() — text.len=%d, attachments=%d, replyToRkey=%s, submitStatus=%s",
-                current.text.length,
+                text.length,
                 current.attachments.size,
                 current.replyToUri?.substringAfterLast('/') ?: "null",
                 current.submitStatus::class.simpleName,
             )
-            if (!canSubmit(current)) {
+            if (!canSubmit(current, text)) {
                 Timber.tag(TAG).w("handleSubmit() blocked by canSubmit gate — no-op")
                 return
             }
@@ -173,7 +347,7 @@ class ComposerViewModel
             viewModelScope.launch {
                 val result =
                     postingRepository.createPost(
-                        text = current.text,
+                        text = text,
                         attachments = current.attachments.toList(),
                         replyTo = replyTo,
                     )
@@ -243,8 +417,11 @@ class ComposerViewModel
          *   not already succeeded).
          * - In reply mode, the parent has fully loaded.
          */
-        private fun canSubmit(state: ComposerState): Boolean {
-            val hasContent = state.text.isNotBlank() || state.attachments.isNotEmpty()
+        private fun canSubmit(
+            state: ComposerState,
+            text: String,
+        ): Boolean {
+            val hasContent = text.isNotBlank() || state.attachments.isNotEmpty()
             if (!hasContent) return false
             if (state.isOverLimit) return false
             val submitInFlight =
@@ -264,5 +441,13 @@ class ComposerViewModel
 
             /** Lexicon cap for `app.bsky.embed.images`. */
             const val MAX_ATTACHMENTS = 4
+
+            /**
+             * Debounce window for the typeahead query pipeline. 150ms
+             * matches Bluesky's mobile clients' feel; below ~200ms
+             * keeps the dropdown responsive, above ~100ms keeps the
+             * API quiet during burst typing.
+             */
+            private val TYPEAHEAD_DEBOUNCE = 150.milliseconds
         }
     }

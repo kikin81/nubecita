@@ -4,6 +4,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
 import net.kikin.nubecita.core.posting.PostingRepository
 import javax.inject.Singleton
 
@@ -40,4 +41,8 @@ abstract class PostingModule {
     @Binds
     @Singleton
     internal abstract fun bindFacetExtractor(impl: DefaultFacetExtractor): FacetExtractor
+
+    @Binds
+    @Singleton
+    internal abstract fun bindActorTypeaheadRepository(impl: DefaultActorTypeaheadRepository): ActorTypeaheadRepository
 }
