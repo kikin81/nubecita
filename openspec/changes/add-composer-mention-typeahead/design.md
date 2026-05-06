@@ -91,7 +91,7 @@ This keeps the deviation discoverable without inviting drift on screens where th
 
 1. Walk back from `cursor - 1` to find the nearest `@`. Stop walking on whitespace or another `@`.
 2. If no `@` found in the walk, return null.
-3. Reject if the `@` is preceded by `[A-Za-z0-9_.-]` (so `email@host` doesn't fire — the same character class the AT Protocol handle regex uses for the `[$|\W]` boundary).
+3. Reject if the `@` is preceded by a regex word char `[A-Za-z0-9_]` (so `email@host` doesn't fire — matches the `[$|\W]` boundary in the official AT Protocol handle regex).
 4. The token is `text.substring(@-position + 1, cursor)`. If empty (cursor right after a bare `@`), return null — don't fire on naked `@`.
 5. Otherwise, return the token (without the leading `@`).
 

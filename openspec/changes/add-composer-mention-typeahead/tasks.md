@@ -1,15 +1,15 @@
 ## 1. `:core:posting` — `ActorTypeaheadRepository`
 
-- [ ] 1.1 Add `ActorTypeaheadUi(did, handle, displayName, avatarUrl)` `data class` in `:core:posting`. (No `@Stable` annotation — `:core:posting` is non-Compose; a data class of `String`/`String?` is implicitly Compose-stable.)
-- [ ] 1.2 Add `ActorTypeaheadRepository` interface with `suspend fun searchTypeahead(query: String): Result<List<ActorTypeaheadUi>>` in `:core:posting`.
-- [ ] 1.3 Add `DefaultActorTypeaheadRepository` implementation in `:core:posting/internal/`, calling `ActorService.searchActorsTypeahead(SearchActorsTypeaheadRequest(q = query, limit = 8))` via the existing `XrpcClientProvider.authenticated()`.
-- [ ] 1.4 Bind `ActorTypeaheadRepository → DefaultActorTypeaheadRepository` `@Singleton` in the existing `:core:posting` Hilt module (`PostingModule` or sibling).
-- [ ] 1.5 Unit test `ActorTypeaheadRepositoryTest` (Ktor MockEngine): asserts `q=…` and `limit=8` query params, asserts `term=` is absent, exercises happy-path mapping (with displayName + avatar), exercises blank-displayName-becomes-null, exercises null-avatar-becomes-null, asserts `IOException` surfaces as `Result.failure`.
+- [x] 1.1 Add `ActorTypeaheadUi(did, handle, displayName, avatarUrl)` `data class` in `:core:posting`. (No `@Stable` annotation — `:core:posting` is non-Compose; a data class of `String`/`String?` is implicitly Compose-stable.)
+- [x] 1.2 Add `ActorTypeaheadRepository` interface with `suspend fun searchTypeahead(query: String): Result<List<ActorTypeaheadUi>>` in `:core:posting`.
+- [x] 1.3 Add `DefaultActorTypeaheadRepository` implementation in `:core:posting/internal/`, calling `ActorService.searchActorsTypeahead(SearchActorsTypeaheadRequest(q = query, limit = 8))` via the existing `XrpcClientProvider.authenticated()`.
+- [x] 1.4 Bind `ActorTypeaheadRepository → DefaultActorTypeaheadRepository` `@Singleton` in the existing `:core:posting` Hilt module (`PostingModule` or sibling).
+- [x] 1.5 Unit test `ActorTypeaheadRepositoryTest` (Ktor MockEngine): asserts `q=…` and `limit=8` query params, asserts `term=` is absent, exercises happy-path mapping (with displayName + avatar), exercises blank-displayName-becomes-null, exercises null-avatar-becomes-null, asserts `IOException` surfaces as `Result.failure`.
 
 ## 2. `:feature:composer:impl` — token detection helper
 
-- [ ] 2.1 Add pure helper `currentMentionToken(text: CharSequence, cursor: Int): String?` in `:feature:composer:impl/internal/MentionTokenDetector.kt`.
-- [ ] 2.2 Unit test `MentionTokenDetectorTest`: bare `@`, single-char token, mid-word `@`, email-context rejection, multi-byte chars in token, cursor inside an existing token, cursor after a complete `@handle.bsky.social` followed by space, cursor at position 0, cursor when text contains no `@`.
+- [x] 2.1 Add pure helper `currentMentionToken(text: CharSequence, cursor: Int): String?` in `:feature:composer:impl/internal/MentionTokenDetector.kt`.
+- [x] 2.2 Unit test `MentionTokenDetectorTest`: bare `@`, single-char token, mid-word `@`, email-context rejection, multi-byte chars in token, cursor inside an existing token, cursor after a complete `@handle.bsky.social` followed by space, cursor at position 0, cursor when text contains no `@`.
 
 ## 3. `:feature:composer:impl` — typeahead state
 
