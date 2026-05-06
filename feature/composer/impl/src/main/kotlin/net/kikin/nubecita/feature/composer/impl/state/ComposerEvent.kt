@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.composer.impl.state
 
 import net.kikin.nubecita.core.common.mvi.UiEvent
+import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerAttachment
 
 /**
@@ -49,4 +50,21 @@ sealed interface ComposerEvent : UiEvent {
      * tapped the inline retry tile. Re-launches the parent fetch.
      */
     data object RetryParentLoad : ComposerEvent
+
+    /**
+     * The user tapped a row in the `@`-mention typeahead dropdown.
+     * Reducer atomically replaces the active `@`-token substring in
+     * the field's text with `@<actor.handle> ` (trailing space) and
+     * places the cursor at the end of the insertion. The next
+     * `snapshotFlow` emission sees no active token (whitespace
+     * boundary) and drives `state.typeahead` back to
+     * `TypeaheadStatus.Idle`.
+     *
+     * No-op if the active `@`-position can't be re-located at
+     * dispatch time (concurrent edit raced the click) — defends
+     * against corrupting the text with a stale insertion.
+     */
+    data class TypeaheadResultClicked(
+        val actor: ActorTypeaheadUi,
+    ) : ComposerEvent
 }

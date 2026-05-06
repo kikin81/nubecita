@@ -11,12 +11,13 @@
 - [x] 2.1 Add pure helper `currentMentionToken(text: CharSequence, cursor: Int): String?` in `:feature:composer:impl/internal/MentionTokenDetector.kt`.
 - [x] 2.2 Unit test `MentionTokenDetectorTest`: bare `@`, single-char token, mid-word `@`, email-context rejection, multi-byte chars in token, cursor inside an existing token, cursor after a complete `@handle.bsky.social` followed by space, cursor at position 0, cursor when text contains no `@`.
 
-## 3. `:feature:composer:impl` — typeahead state
+## 3. `:feature:composer:impl` — typeahead state (additive only)
 
-- [ ] 3.1 Add `TypeaheadStatus` sealed interface in `:feature:composer:impl/state/TypeaheadStatus.kt` with `Idle`, `Querying(query)`, `Suggestions(query, results)`, `NoResults(query)` variants. `Suggestions.results` typed as `ImmutableList<ActorTypeaheadUi>`.
-- [ ] 3.2 Add `typeahead: TypeaheadStatus = TypeaheadStatus.Idle` field to `ComposerState`.
-- [ ] 3.3 Add `TypeaheadResultClicked(actor: ActorTypeaheadUi)` variant to `ComposerEvent`.
-- [ ] 3.4 Remove `text: String` field from `ComposerState`. Remove `TextChanged(text: String)` variant from `ComposerEvent`. (Both will be re-sourced from `TextFieldState` in step 4.)
+Each commit must compile. Removal of `text: String` and `TextChanged` happens atomically with the VM migration in task group 4 — removing them here would leave `ComposerViewModel` un-compilable between commits.
+
+- [x] 3.1 Add `TypeaheadStatus` sealed interface in `:feature:composer:impl/state/TypeaheadStatus.kt` with `Idle`, `Querying(query)`, `Suggestions(query, results)`, `NoResults(query)` variants. `Suggestions.results` typed as `ImmutableList<ActorTypeaheadUi>`.
+- [x] 3.2 Add `typeahead: TypeaheadStatus = TypeaheadStatus.Idle` field to `ComposerState` (additive — `text: String` stays for now and is removed in step 4).
+- [x] 3.3 Add `TypeaheadResultClicked(actor: ActorTypeaheadUi)` variant to `ComposerEvent`. Add a no-op placeholder branch to `ComposerViewModel.handleEvent` so the sealed-when stays exhaustive; real handler lands in step 4.
 
 ## 4. `:feature:composer:impl` — `TextFieldState` migration in `ComposerViewModel`
 
@@ -26,8 +27,9 @@
 - [ ] 4.4 Wire the typeahead pipeline: `queryFlow.debounce(150.milliseconds).distinctUntilChanged().mapLatest { repo.searchTypeahead(it) }.onEach { setState { copy(typeahead = …) } }.launchIn(viewModelScope)`. Map results → `Suggestions` / `NoResults`; map failures → `Idle`. Emit `Querying(query)` synchronously before invoking the repo.
 - [ ] 4.5 Implement `handleTypeaheadResultClicked(actor)`: snapshot text + selection, re-locate the active `@`-position via the same logic as `currentMentionToken`, no-op if not found, otherwise `textFieldState.edit { replace(@-pos, cursor, "@${actor.handle} "); placeCursorBeforeCharAt(end-of-insertion) }`.
 - [ ] 4.6 Refactor `handleSubmit` to read text from `textFieldState.text.toString()` instead of `current.text`. Update `canSubmit(state)` → `canSubmit(state, text: String)`.
-- [ ] 4.7 Update `handleEvent` to dispatch `TypeaheadResultClicked` and remove the `TextChanged` branch.
-- [ ] 4.8 Update `ComposerViewModel` Kdoc with the documented MVI exception note + the append-only constructor contract update.
+- [ ] 4.7 Update `handleEvent` to dispatch `TypeaheadResultClicked` (replacing the no-op placeholder) and remove the `TextChanged` branch.
+- [ ] 4.8 Remove the `text: String` field from `ComposerState` and remove the `TextChanged(text: String)` variant from `ComposerEvent` (deferred from task 3 so each commit compiles). The field/variant only survives until the screen is migrated in step 5 and tests are migrated in step 6 — sequence the removal between 4.6 (canSubmit refactor) and 5.1 (screen migration) however cleanest.
+- [ ] 4.9 Update `ComposerViewModel` Kdoc with the documented MVI exception note + the append-only constructor contract update.
 
 ## 5. `:feature:composer:impl` — `ComposerScreen` migration + suggestion rendering
 

@@ -93,6 +93,12 @@ class ComposerViewModel
                 is ComposerEvent.RemoveAttachment -> if (!submitInFlight) handleRemoveAttachment(event.index)
                 ComposerEvent.Submit -> handleSubmit()
                 ComposerEvent.RetryParentLoad -> if (!submitInFlight) handleRetryParentLoad()
+                // Wired in the next commit (task group 4) when the
+                // VM migrates to TextFieldState ownership and the
+                // typeahead pipeline lands. Until then, the screen
+                // doesn't dispatch this event — the dropdown UI
+                // doesn't exist yet — so the no-op is unreachable.
+                is ComposerEvent.TypeaheadResultClicked -> Unit
             }
         }
 

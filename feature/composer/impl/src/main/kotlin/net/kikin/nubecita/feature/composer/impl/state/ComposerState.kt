@@ -43,6 +43,13 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
  *   `Loaded` or `Failed`.
  * @property submitStatus Submit-flow lifecycle. Defaults to
  *   `ComposerSubmitStatus.Idle`.
+ * @property typeahead `@`-mention typeahead lifecycle. Defaults to
+ *   `TypeaheadStatus.Idle`. Independent of [submitStatus] and
+ *   [replyParentLoad] — the user can be typing into the field while
+ *   the parent post is still loading, etc. Driven by the VM's
+ *   `snapshotFlow` collector observing `textFieldState.text` /
+ *   `selection`; transitions occur outside the `handleEvent`
+ *   reducer path.
  */
 data class ComposerState(
     val text: String = "",
@@ -52,4 +59,5 @@ data class ComposerState(
     val replyToUri: String? = null,
     val replyParentLoad: ParentLoadStatus? = null,
     val submitStatus: ComposerSubmitStatus = ComposerSubmitStatus.Idle,
+    val typeahead: TypeaheadStatus = TypeaheadStatus.Idle,
 ) : UiState
