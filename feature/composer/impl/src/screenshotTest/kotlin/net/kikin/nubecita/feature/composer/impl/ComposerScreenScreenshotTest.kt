@@ -8,12 +8,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
+import io.github.kikin81.atproto.com.atproto.repo.StrongRef
+import io.github.kikin81.atproto.runtime.AtUri
+import io.github.kikin81.atproto.runtime.Cid
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
+import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.ParentPostUi
 import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 
 /**
@@ -68,6 +73,7 @@ private fun ComposerScreenEmptyScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            onRetryParentLoad = {},
         )
     }
 }
@@ -92,6 +98,7 @@ private fun ComposerScreenNearLimitScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            onRetryParentLoad = {},
         )
     }
 }
@@ -116,6 +123,7 @@ private fun ComposerScreenSubmittingScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            onRetryParentLoad = {},
         )
     }
 }
@@ -167,6 +175,46 @@ private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            onRetryParentLoad = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "reply-mode-loaded-light", showBackground = true)
+@Preview(name = "reply-mode-loaded-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ComposerScreenReplyModeLoadedScreenshot() {
+    // Reply-mode: parent post fetched + Loaded, the parent-card
+    // renders above the text field. Single-author thread (target IS
+    // the root) so parentRef and rootRef would be the same — fixture
+    // doesn't surface that distinction visually but matches what
+    // production renders for a top-level reply target.
+    val parentRef = StrongRef(uri = AtUri("at://did:plc:alice/app.bsky.feed.post/abc"), cid = Cid("bafabc"))
+    NubecitaTheme(dynamicColor = false) {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    replyToUri = parentRef.uri.raw,
+                    replyParentLoad =
+                        ParentLoadStatus.Loaded(
+                            ParentPostUi(
+                                parentRef = parentRef,
+                                rootRef = parentRef,
+                                authorHandle = "alice.bsky.social",
+                                authorDisplayName = "Alice",
+                                text = "Just shipped a new feature today — would love feedback from anyone using the composer.",
+                            ),
+                        ),
+                ),
+            textFieldState = remember { TextFieldState() },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+            onRetryParentLoad = {},
         )
     }
 }
@@ -195,6 +243,7 @@ private fun ComposerScreenWithImagesScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            onRetryParentLoad = {},
         )
     }
 }
