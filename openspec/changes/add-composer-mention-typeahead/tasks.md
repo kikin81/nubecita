@@ -55,4 +55,4 @@ Each commit must compile. Removal of `text: String` and `TextChanged` happens at
 
 - [x] 8.1 Add a "Sanctioned MVI exception: editor surfaces own a Compose `TextFieldState`" subsection to `CLAUDE.md` (under the MVI conventions block) calling out the editor's `TextFieldState` ownership, the bounded scope of the exception, the test-side gotcha (`Snapshot.sendApplyNotifications()` + `runCurrent()`), and the reference implementation.
 - [x] 8.2 Pre-PR: ran `./gradlew :feature:composer:impl:testDebugUnitTest :core:posting:testDebugUnitTest :feature:composer:impl:validateDebugScreenshotTest spotlessCheck lint`. All green; the 5 lint warnings are pre-existing (NewerVersionAvailable, ObsoleteSdkInt on mipmap-anydpi-v26).
-- [ ] 8.3 Open PR with body containing `Closes: nubecita-k19` and a short note linking to `openspec/changes/add-composer-mention-typeahead/proposal.md`.
+- [x] 8.3 PR #124 opened: <https://github.com/kikin81/nubecita/pull/124> — title `feat(feature/composer): add @-mention typeahead + TextFieldState`, body has `Closes: nubecita-k19`, links to the openspec proposal, includes a manual test plan.
