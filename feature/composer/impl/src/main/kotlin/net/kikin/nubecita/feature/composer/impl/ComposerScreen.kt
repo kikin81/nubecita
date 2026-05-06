@@ -49,12 +49,14 @@ import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounter
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
 import net.kikin.nubecita.feature.composer.impl.internal.rememberComposerImagePicker
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
+import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import kotlin.math.max
 
 /**
@@ -135,6 +137,10 @@ fun ComposerScreen(
                 viewModel.handleEvent(ComposerEvent.TypeaheadResultClicked(actor))
             }
         }
+    val onRetryParentLoad =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.RetryParentLoad) }
+        }
 
     // Picker plumbing. The contract is captured at registration time
     // by `rememberLauncherForActivityResult`, so we re-key the helper
@@ -184,6 +190,7 @@ fun ComposerScreen(
         onAddImageClick = onAddImageClick,
         onRemoveAttachment = onRemoveAttachment,
         onSuggestionClick = onSuggestionClick,
+        onRetryParentLoad = onRetryParentLoad,
         modifier = modifier,
     )
 }
@@ -204,6 +211,7 @@ fun ComposerScreenContent(
     onAddImageClick: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
     onSuggestionClick: (ActorTypeaheadUi) -> Unit,
+    onRetryParentLoad: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -282,6 +290,15 @@ fun ComposerScreenContent(
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.Start,
             ) {
+                // Reply-mode parent context — renders nothing in
+                // new-post mode (replyParentLoad == null), a
+                // skeleton while Loading, the parent-post card
+                // when Loaded, and an inline retry tile when
+                // Failed.
+                ComposerReplyParentSection(
+                    status = state.replyParentLoad,
+                    onRetryClick = onRetryParentLoad,
+                )
                 OutlinedTextField(
                     state = textFieldState,
                     modifier =
@@ -424,6 +441,12 @@ private fun canPost(
 ): Boolean {
     if (textFieldState.text.isBlank() && state.attachments.isEmpty()) return false
     if (state.isOverLimit) return false
+    // Reply-mode requires the parent to be Loaded — without the
+    // parent's CID we can't construct the reply ref. The VM's
+    // `canSubmit` enforces the same gate; mirroring it here keeps
+    // the button disabled instead of just silently rejecting the
+    // tap.
+    if (state.replyToUri != null && state.replyParentLoad !is ParentLoadStatus.Loaded) return false
     return when (state.submitStatus) {
         ComposerSubmitStatus.Idle -> true
         is ComposerSubmitStatus.Error -> true

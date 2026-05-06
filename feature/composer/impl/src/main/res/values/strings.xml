@@ -46,4 +46,18 @@
          active token without the leading @. Distinct from the failure
          path, which collapses to a hidden card. -->
     <string name="composer_typeahead_no_matches">No matches for @%1$s</string>
+
+    <!-- Reply-mode parent-post card header. `%1$s` is the parent
+         post's author display name (or handle when no display name
+         is set). -->
+    <string name="composer_reply_header">Replying to %1$s</string>
+
+    <!-- Reply-mode parent-fetch failure tile. Tap-to-retry text
+         shown when getPostThread for the reply target failed. -->
+    <string name="composer_reply_parent_load_failed_retry">Couldn\'t load reply target. Tap to retry.</string>
+
+    <!-- a11y onClickLabel for the parent-fetch retry tile.
+         TalkBack announces this verb as the action when the tile
+         is focused. -->
+    <string name="composer_reply_parent_retry_action_label">Retry</string>
 </resources>
