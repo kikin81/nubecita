@@ -48,8 +48,8 @@ Each commit must compile. Removal of `text: String` and `TextChanged` happens at
 
 ## 7. Screenshot fixtures
 
-- [ ] 7.1 Re-baseline existing `ComposerScreenScreenshotTest` fixtures impacted by the `OutlinedTextField` migration. Run `./gradlew :feature:composer:impl:updateDebugScreenshotTest` and review the diff in PR.
-- [ ] 7.2 Add `composer_typeahead_suggestions_visible` fixture (Light + Dark) — composer with 3 deterministic typeahead suggestions visible in the dropdown.
+- [x] 7.1 Re-baseline existing `ComposerScreenScreenshotTest` fixtures impacted by the `OutlinedTextField` migration. **No diffs** — the `OutlinedTextField` migration kept the rendering pixel-stable. All 8 existing baselines validated unchanged.
+- [x] 7.2 Add typeahead-suggestions fixture (Light + Dark) — composer with 3 deterministic typeahead suggestions (Alice / Alex / Alvin) visible in the inline `OutlinedCard`. Avatars render as placeholder ColorPainters (null `avatarUrl` → `NubecitaAsyncImage` falls back to its standard placeholder). 2 new baselines under `screenshotTestDebug/reference/.../ComposerScreenScreenshotTestKt/ComposerScreenTypeaheadSuggestionsScreenshot_*`.
 
 ## 8. Docs + workflow
 

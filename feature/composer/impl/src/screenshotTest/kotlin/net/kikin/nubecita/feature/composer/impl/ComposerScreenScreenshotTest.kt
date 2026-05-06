@@ -9,10 +9,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
+import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 
 /**
  * Screenshot baselines for [ComposerScreenContent]'s V1 visual
@@ -108,6 +110,57 @@ private fun ComposerScreenSubmittingScreenshot() {
                     submitStatus = ComposerSubmitStatus.Submitting,
                 ),
             textFieldState = remember { TextFieldState(initialText = "Hello, Bluesky.") },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "typeahead-suggestions-light", showBackground = true)
+@Preview(name = "typeahead-suggestions-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
+    // Renders the composer mid-mention-authoring with a Suggestions
+    // dropdown visible. Avatar URLs are null so each row falls back
+    // to NubecitaAsyncImage's placeholder ColorPainter — same
+    // deterministic render the design-system fixture uses.
+    NubecitaTheme(dynamicColor = false) {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    graphemeCount = 6,
+                    typeahead =
+                        TypeaheadStatus.Suggestions(
+                            query = "al",
+                            results =
+                                persistentListOf(
+                                    ActorTypeaheadUi(
+                                        did = "did:plc:alice",
+                                        handle = "alice.bsky.social",
+                                        displayName = "Alice",
+                                        avatarUrl = null,
+                                    ),
+                                    ActorTypeaheadUi(
+                                        did = "did:plc:alex",
+                                        handle = "alex.bsky.social",
+                                        displayName = "Alex",
+                                        avatarUrl = null,
+                                    ),
+                                    ActorTypeaheadUi(
+                                        did = "did:plc:alvin",
+                                        handle = "alvin.bsky.social",
+                                        displayName = "Alvin",
+                                        avatarUrl = null,
+                                    ),
+                                ),
+                        ),
+                ),
+            textFieldState = remember { TextFieldState(initialText = "hi @al") },
             snackbarHostState = remember { SnackbarHostState() },
             onSubmit = {},
             onCloseClick = {},
