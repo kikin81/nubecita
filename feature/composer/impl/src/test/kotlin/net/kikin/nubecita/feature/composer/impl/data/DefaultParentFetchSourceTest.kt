@@ -57,6 +57,15 @@ class DefaultParentFetchSourceTest {
     private val rootUri = AtUri("at://did:plc:alice/app.bsky.feed.post/root")
     private val rootCid = Cid("bafroot")
 
+    // For the reply-target fixture, the reply's parent must be a
+    // DIFFERENT post from the target itself — a real reply chain has
+    // target → ancestor → root. The production code reads only
+    // record.reply.root, but the fixture should still be structurally
+    // valid so future readers don't get confused and so the SDK
+    // wouldn't reject it under any forthcoming validation.
+    private val ancestorUri = AtUri("at://did:plc:bob/app.bsky.feed.post/middle")
+    private val ancestorCid = Cid("bafmiddle")
+
     @Test
     fun fetchParent_topLevelPost_rootRefEqualsParentRef() =
         runTest {
@@ -187,6 +196,52 @@ class DefaultParentFetchSourceTest {
         }
 
     @Test
+    fun fetchParent_recordDecodeFailure_returnsRecordCreationFailed() =
+        runTest {
+            // Regression for the PR #125 review: if the target's
+            // record can't decode as a Post, falling back to
+            // "target is the root" would silently corrupt the reply
+            // ref when the target was actually a reply. Decode
+            // failure now surfaces as RecordCreationFailed instead
+            // — fail loud rather than construct a misthreaded post.
+            val (_, source) =
+                newSource { _ ->
+                    okJson(
+                        """
+                        {
+                          "thread": {
+                            "${'$'}type": "app.bsky.feed.defs#threadViewPost",
+                            "post": {
+                              "${'$'}type": "app.bsky.feed.defs#postView",
+                              "uri": "${targetUri.raw}",
+                              "cid": "${targetCid.raw}",
+                              "author": {
+                                "${'$'}type": "app.bsky.actor.defs#profileViewBasic",
+                                "did": "did:plc:alice",
+                                "handle": "alice.bsky.social"
+                              },
+                              "record": {
+                                "${'$'}type": "app.bsky.feed.post"
+                              },
+                              "indexedAt": "2026-05-05T00:00:00Z"
+                            }
+                          }
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val result = source.fetchParent(targetUri)
+
+            assertTrue(result.isFailure)
+            val cause = result.exceptionOrNull()
+            assertTrue(
+                cause is ComposerError.RecordCreationFailed,
+                "expected RecordCreationFailed, was ${cause?.javaClass?.simpleName}",
+            )
+        }
+
+    @Test
     fun fetchParent_blankDisplayName_normalizesToNull() =
         runTest {
             // Wire returns displayName="" (blank). Boundary contract
@@ -290,7 +345,7 @@ class DefaultParentFetchSourceTest {
                 "text": "This is a reply.",
                 "createdAt": "2026-05-05T00:00:00Z",
                 "reply": {
-                  "parent": {"uri": "${targetUri.raw}", "cid": "${targetCid.raw}"},
+                  "parent": {"uri": "${ancestorUri.raw}", "cid": "${ancestorCid.raw}"},
                   "root": {"uri": "${rootUri.raw}", "cid": "${rootCid.raw}"}
                 }
               },

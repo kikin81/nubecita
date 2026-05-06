@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.feature.composer.impl.R
@@ -120,12 +121,20 @@ private fun ComposerReplyParentCard(post: ParentPostUi) {
 
 @Composable
 private fun ComposerReplyParentRetryTile(onRetryClick: () -> Unit) {
+    val retryLabel = stringResource(R.string.composer_reply_parent_retry_action_label)
     Row(
+        // role + onClickLabel make TalkBack announce the tile as
+        // "Retry, Button — double tap to activate" instead of the
+        // default "double tap to activate" with no semantic. Matches
+        // the :designsystem PostStat pattern.
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { onRetryClick() }
-                .padding(horizontal = 12.dp, vertical = 16.dp),
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = retryLabel,
+                    onClick = onRetryClick,
+                ).padding(horizontal = 12.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

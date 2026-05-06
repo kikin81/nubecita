@@ -88,7 +88,18 @@ internal class DefaultParentFetchSource
                         )
 
                     when (val thread = response.thread) {
-                        is ThreadViewPost -> Result.success(thread.post.toParentPostUi())
+                        is ThreadViewPost -> {
+                            // Decode the target's record exactly once.
+                            // Failure here propagates to the outer catch
+                            // → mapped to ComposerError.RecordCreationFailed.
+                            // Falling back to "target is root" on decode
+                            // failure would silently corrupt the reply ref
+                            // when the target was actually a reply (root
+                            // would be wrong) — better to fail loud than
+                            // construct a misthreaded post.
+                            val targetRecord = thread.post.record.decodeRecord(Post.serializer())
+                            Result.success(thread.post.toParentPostUi(targetRecord))
+                        }
                         is NotFoundPost, is BlockedPost -> {
                             Timber.tag(TAG).d(
                                 "fetchParent() — parent unavailable: %s",
@@ -116,40 +127,23 @@ internal class DefaultParentFetchSource
                 }
             }
 
-        private fun PostView.toParentPostUi(): ParentPostUi {
+        private fun PostView.toParentPostUi(record: Post): ParentPostUi {
             val parentRef = StrongRef(uri = uri, cid = cid)
-            // Decode the JsonObject `record` as a typed Post so we can
-            // read `reply.root` directly. Decode failure isn't fatal
-            // — fall back to "target is the root" semantics so the
-            // composer at least has *some* root ref to attach.
             val rootRef: StrongRef =
-                runCatching { record.decodeRecord(Post.serializer()) }
-                    .getOrNull()
-                    ?.let { post ->
-                        when (val reply = post.reply) {
-                            is AtField.Defined -> reply.value.root
-                            // Both Missing (field absent) and Null
-                            // (field present but explicitly null on
-                            // the wire) mean "this is a top-level
-                            // post" — target IS the root, parentRef
-                            // doubles as rootRef.
-                            AtField.Missing, AtField.Null -> parentRef
-                        }
-                    } ?: parentRef
-
-            // Pull the displayable text out of the same decoded record.
-            // Fallback to empty string keeps the parent-card render
-            // stable even when decoding fails — the composer still
-            // gets the author info from the typed PostView.author.
-            val displayText: String =
-                runCatching { record.decodeRecord(Post.serializer()).text }.getOrDefault("")
-
+                when (val reply = record.reply) {
+                    is AtField.Defined -> reply.value.root
+                    // Both Missing (field absent) and Null (field
+                    // present but explicitly null on the wire) mean
+                    // "this is a top-level post" — target IS the
+                    // root, parentRef doubles as rootRef.
+                    AtField.Missing, AtField.Null -> parentRef
+                }
             return ParentPostUi(
                 parentRef = parentRef,
                 rootRef = rootRef,
                 authorHandle = author.handle.raw,
                 authorDisplayName = author.displayName?.takeIf { it.isNotBlank() },
-                text = displayText,
+                text = record.text,
             )
         }
 
