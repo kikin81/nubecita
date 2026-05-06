@@ -20,6 +20,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
+import timber.log.Timber
 
 /**
  * Presenter for the unified composer screen. Drives both new-post
@@ -107,6 +108,11 @@ class ComposerViewModel
         }
 
         private fun handleAddAttachments(incoming: List<net.kikin.nubecita.core.posting.ComposerAttachment>) {
+            Timber.tag(TAG).d(
+                "handleAddAttachments() — incoming=%d, currentAttachments=%d",
+                incoming.size,
+                uiState.value.attachments.size,
+            )
             setState {
                 val remaining = (MAX_ATTACHMENTS - attachments.size).coerceAtLeast(0)
                 if (remaining == 0 || incoming.isEmpty()) {
@@ -116,6 +122,10 @@ class ComposerViewModel
                     copy(attachments = (attachments + accepted).toImmutableList())
                 }
             }
+            Timber.tag(TAG).d(
+                "handleAddAttachments() done — attachments now=%d",
+                uiState.value.attachments.size,
+            )
         }
 
         private fun handleRemoveAttachment(index: Int) {
@@ -130,7 +140,25 @@ class ComposerViewModel
 
         private fun handleSubmit() {
             val current = uiState.value
-            if (!canSubmit(current)) return
+            // `replyToUri` is a full parent AT-URI carrying a third-
+            // party DID. Per the repo's redaction policy (see
+            // :core:auth DefaultXrpcClientProvider.redactDid + the
+            // rkey-only postdetail logging), log just the rkey so a
+            // future crash-reporter tree can't surface the full DID.
+            // For diagnostics, "submitting in reply mode to <rkey>" is
+            // sufficient — the parent identity is recoverable from
+            // the navigation route argument if needed.
+            Timber.tag(TAG).d(
+                "handleSubmit() — text.len=%d, attachments=%d, replyToRkey=%s, submitStatus=%s",
+                current.text.length,
+                current.attachments.size,
+                current.replyToUri?.substringAfterLast('/') ?: "null",
+                current.submitStatus::class.simpleName,
+            )
+            if (!canSubmit(current)) {
+                Timber.tag(TAG).w("handleSubmit() blocked by canSubmit gate — no-op")
+                return
+            }
 
             // Resolve reply refs upfront — `Loaded` is required by canSubmit
             // when replyToUri is set, so the cast is safe.
@@ -151,10 +179,24 @@ class ComposerViewModel
                     )
                 result.fold(
                     onSuccess = { uri ->
+                        // The full AtUri carries the signed-in user's
+                        // DID (`at://did:plc:.../app.bsky.feed.post/<rkey>`).
+                        // Log just the rkey to match the redaction
+                        // pattern used in :feature:postdetail:impl and
+                        // the repository's parallel breadcrumb at
+                        // DefaultPostingRepository's createRecord-ok
+                        // log site. See :core:auth's
+                        // DefaultXrpcClientProvider.redactDid for the
+                        // canonical reasoning.
+                        Timber.tag(TAG).d(
+                            "createPost() success rkey=%s",
+                            uri.raw.substringAfterLast('/'),
+                        )
                         setState { copy(submitStatus = ComposerSubmitStatus.Success) }
                         sendEffect(ComposerEffect.OnSubmitSuccess(uri))
                     },
                     onFailure = { throwable ->
+                        Timber.tag(TAG).e(throwable, "createPost() failed")
                         val cause = (throwable as? ComposerError) ?: ComposerError.RecordCreationFailed(throwable)
                         setState { copy(submitStatus = ComposerSubmitStatus.Error(cause)) }
                         // Sticky state already records the typed cause for an
@@ -215,6 +257,8 @@ class ComposerViewModel
         }
 
         companion object {
+            private const val TAG = "ComposerVM"
+
             /** AT Protocol post-text limit per `app.bsky.richtext.facet.MAX_GRAPHEMES`. */
             const val MAX_GRAPHEMES = 300
 
