@@ -32,4 +32,12 @@ abstract class PostingModule {
     @Binds
     @Singleton
     internal abstract fun bindAttachmentEncoder(impl: BitmapAttachmentEncoder): AttachmentEncoder
+
+    @Binds
+    @Singleton
+    internal abstract fun bindHandleResolver(impl: DefaultHandleResolver): HandleResolver
+
+    @Binds
+    @Singleton
+    internal abstract fun bindFacetExtractor(impl: DefaultFacetExtractor): FacetExtractor
 }

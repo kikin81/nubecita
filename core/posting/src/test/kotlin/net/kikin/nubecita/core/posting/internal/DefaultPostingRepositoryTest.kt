@@ -1,9 +1,14 @@
 package net.kikin.nubecita.core.posting.internal
 
 import android.net.Uri
+import io.github.kikin81.atproto.app.bsky.richtext.Facet
+import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
+import io.github.kikin81.atproto.app.bsky.richtext.FacetFeaturesUnion
+import io.github.kikin81.atproto.app.bsky.richtext.FacetMention
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
+import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.NoAuth
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
@@ -18,6 +23,7 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
 import io.mockk.mockk
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -242,6 +248,78 @@ class DefaultPostingRepositoryTest {
         }
 
     @Test
+    fun facetExtractor_nonEmptyResult_reachesCreateRecordBody() =
+        runTest {
+            // Wire-through assertion: a non-empty FacetExtractor output
+            // must land in the serialized Post.facets field that goes
+            // out on createRecord. The FacetExtractor's own parsing /
+            // resolution is exercised by DefaultFacetExtractorTest;
+            // here we just prove the orchestration plumbs the result.
+            val capturingExtractor =
+                object : FacetExtractor {
+                    override suspend fun extract(text: String) =
+                        persistentListOf(
+                            Facet(
+                                index = FacetByteSlice(byteStart = 0, byteEnd = 6),
+                                features =
+                                    listOf<FacetFeaturesUnion>(
+                                        FacetMention(did = Did("did:plc:fixturealice")),
+                                    ),
+                            ),
+                        )
+                }
+            val capturedBody = CompletableDeferred<String>()
+
+            val (_, repo) =
+                newRepo(signedIn = true, facetExtractor = capturingExtractor) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/x","cid":"bafx"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result = repo.createPost(text = "@alice", attachments = emptyList(), replyTo = null)
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            // The facets field is on the wire with the resolved DID +
+            // the byte slice. Substring checks (rather than JSON parse)
+            // mirror the existing reply-mode test's strategy.
+            assertTrue(body.contains("\"facets\""), "facets field missing on wire: $body")
+            assertTrue(body.contains("did:plc:fixturealice"), "facet mention DID missing: $body")
+            assertTrue(body.contains("\"byteStart\""), "facet byteSlice missing: $body")
+        }
+
+    @Test
+    fun facetExtractor_emptyResult_omitsFacetsFieldFromRecord() =
+        runTest {
+            // AtField.Missing convention: an empty facets list MUST NOT
+            // emit a `"facets":[]` shape on the wire. The default
+            // passthrough extractor returns `persistentListOf()`, and
+            // the kotlinx-serialization @EncodeDefault(NEVER) on
+            // Post.facets should keep it out of the JSON entirely.
+            val capturedBody = CompletableDeferred<String>()
+
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/x","cid":"bafx"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result = repo.createPost(text = "no mentions or links", attachments = emptyList(), replyTo = null)
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(!body.contains("\"facets\""), "empty facets must not appear on wire: $body")
+        }
+
+    @Test
     fun ioErrorOnCreateRecord_mapsToNetworkVariant() =
         runTest {
             val (_, repo) =
@@ -291,6 +369,7 @@ class DefaultPostingRepositoryTest {
                             override suspend fun read(uri: Uri): ByteArray = byteArrayOf(1)
                         },
                     encoder = passthroughEncoder(),
+                    facetExtractor = passthroughFacetExtractor(),
                     dispatcher = UnconfinedTestDispatcher(),
                 )
 
@@ -432,6 +511,7 @@ class DefaultPostingRepositoryTest {
         signedIn: Boolean,
         encoder: AttachmentEncoder = passthroughEncoder(),
         byteSource: AttachmentByteSource = canned(byteArrayOf(1, 2, 3)),
+        facetExtractor: FacetExtractor = passthroughFacetExtractor(),
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ): Pair<MockEngine, DefaultPostingRepository> {
         val engine = MockEngine(handler)
@@ -462,6 +542,7 @@ class DefaultPostingRepositoryTest {
                     },
                 byteSource = byteSource,
                 encoder = encoder,
+                facetExtractor = facetExtractor,
                 dispatcher = UnconfinedTestDispatcher(),
             )
         return engine to repo
@@ -486,6 +567,17 @@ class DefaultPostingRepositoryTest {
                 sourceMimeType: String,
                 maxBytes: Long,
             ): EncodedAttachment = EncodedAttachment(bytes = bytes, mimeType = sourceMimeType)
+        }
+
+    /**
+     * Pass-through [FacetExtractor]. Repository orchestration tests
+     * assert the wiring (extract -> Post.facets) without exercising the
+     * regex / handle-resolver pipeline. Facet extraction itself is
+     * covered by [DefaultFacetExtractorTest].
+     */
+    private fun passthroughFacetExtractor(): FacetExtractor =
+        object : FacetExtractor {
+            override suspend fun extract(text: String) = persistentListOf<Facet>()
         }
 }
 
