@@ -1,6 +1,6 @@
 ## 1. `:core:posting` — `ActorTypeaheadRepository`
 
-- [ ] 1.1 Add `ActorTypeaheadUi(did, handle, displayName, avatarUrl)` `@Stable data class` in `:core:posting`.
+- [ ] 1.1 Add `ActorTypeaheadUi(did, handle, displayName, avatarUrl)` `data class` in `:core:posting`. (No `@Stable` annotation — `:core:posting` is non-Compose; a data class of `String`/`String?` is implicitly Compose-stable.)
 - [ ] 1.2 Add `ActorTypeaheadRepository` interface with `suspend fun searchTypeahead(query: String): Result<List<ActorTypeaheadUi>>` in `:core:posting`.
 - [ ] 1.3 Add `DefaultActorTypeaheadRepository` implementation in `:core:posting/internal/`, calling `ActorService.searchActorsTypeahead(SearchActorsTypeaheadRequest(q = query, limit = 8))` via the existing `XrpcClientProvider.authenticated()`.
 - [ ] 1.4 Bind `ActorTypeaheadRepository → DefaultActorTypeaheadRepository` `@Singleton` in the existing `:core:posting` Hilt module (`PostingModule` or sibling).

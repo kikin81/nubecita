@@ -11,7 +11,7 @@ The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadRepositor
 
 ### Requirement: `ActorTypeaheadUi` is the boundary type returned to consumers
 
-The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadUi` as a `@Stable data class` with exactly the fields `did: String`, `handle: String`, `displayName: String?`, `avatarUrl: String?`. The class MUST NOT expose `io.github.kikin81.atproto.*` types in its constructor or properties. `displayName` SHALL be `null` when the upstream `ProfileViewBasic.displayName` is missing or blank. `avatarUrl` SHALL be `null` when the upstream `ProfileViewBasic.avatar` is missing.
+The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadUi` as a Kotlin `data class` with exactly the fields `did: String`, `handle: String`, `displayName: String?`, `avatarUrl: String?`. The class MUST NOT expose `io.github.kikin81.atproto.*` types in its constructor or properties. The class MUST NOT carry the Compose `@Stable` annotation: `:core:posting` is a non-Compose library module, and a data class of `String` / `String?` properties is already implicitly stable to Compose at the consumer end. `displayName` SHALL be `null` when the upstream `ProfileViewBasic.displayName` is missing or blank. `avatarUrl` SHALL be `null` when the upstream `ProfileViewBasic.avatar` is missing.
 
 #### Scenario: Consumers do not see SDK types
 
