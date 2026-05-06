@@ -36,6 +36,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import net.kikin.nubecita.R
+import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
@@ -44,6 +45,9 @@ import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
 import net.kikin.nubecita.navigation.NavigationEntryPoint
+import net.kikin.nubecita.shell.composer.ComposerLauncherState
+import net.kikin.nubecita.shell.composer.ComposerOverlay
+import net.kikin.nubecita.shell.composer.rememberComposerLauncher
 
 /**
  * Top-level adaptive navigation shell hosted by the `Main` `NavEntry`.
@@ -127,6 +131,17 @@ fun MainShell(modifier: Modifier = Modifier) {
         }
     val readOnlyScrollToTopSignal = remember(scrollToTopSignal) { scrollToTopSignal.asSharedFlow() }
 
+    // MainShell-scoped overlay launcher state for the composer at
+    // Medium / Expanded widths. At Compact width this state stays
+    // Closed forever — the launcher lambda below pushes a route onto
+    // the inner NavDisplay instead.
+    val composerLauncherState = remember { ComposerLauncherState() }
+    val composerLauncher =
+        rememberComposerLauncher(
+            navState = mainShellNavState,
+            launcherState = composerLauncherState,
+        )
+
     // Shared between the scene strategy below and the bar/rail selector
     // further down — both need the same window-class signal.
     val adaptiveInfo = currentWindowAdaptiveInfo()
@@ -155,6 +170,7 @@ fun MainShell(modifier: Modifier = Modifier) {
     CompositionLocalProvider(
         LocalMainShellNavState provides mainShellNavState,
         LocalScrollToTopSignal provides readOnlyScrollToTopSignal,
+        LocalComposerLauncher provides composerLauncher,
     ) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
@@ -193,6 +209,16 @@ fun MainShell(modifier: Modifier = Modifier) {
                     entryProvider {
                         installers.forEach { installer -> installer() }
                     },
+            )
+            // Centered-Dialog composer overlay for Medium / Expanded
+            // widths. Renders nothing while launcher state is Closed.
+            // Sibling-of-NavDisplay placement so the overlay's scrim
+            // covers the full shell — including the navigation
+            // suite's bar/rail — matching the modal-creation surface
+            // intent.
+            ComposerOverlay(
+                state = composerLauncherState.state,
+                onClose = { composerLauncherState.close() },
             )
         }
     }
