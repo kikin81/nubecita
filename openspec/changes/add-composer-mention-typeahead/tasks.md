@@ -35,11 +35,11 @@ Each commit must compile. Removal of `text: String` and `TextChanged` happens at
 
 - [x] 5.1 Migrate the primary `OutlinedTextField` in `ComposerScreenContent` from `(value, onValueChange)` to `(state = vm.textFieldState)`. Pass `vm.textFieldState` from `ComposerScreen` into `ComposerScreenContent` as a parameter (so previews can pass an in-memory `TextFieldState`). `canPost` also takes `textFieldState` since it reads `text.isBlank()`.
 - [x] 5.2 Remove the `onTextChange` lambda hoisting + the `TextChanged` event dispatch in `ComposerScreen`.
-- [ ] 5.3 Add `ComposerSuggestionList(state.typeahead, onSuggestionClick)` Composable in `:feature:composer:impl/internal/`: `OutlinedCard` containing a `LazyColumn(Modifier.heightIn(max = 240.dp))` with rows + `HorizontalDivider`. Renders only when `state.typeahead is Suggestions || state.typeahead is NoResults`.
-- [ ] 5.4 Add `ComposerSuggestionRow(actor, onClick)` Composable: 40.dp circular `NubecitaAsyncImage` avatar + display name (titleSmall) + `@handle` (bodySmall, onSurfaceVariant). Tap → `onClick(actor)`.
-- [ ] 5.5 Add `ComposerSuggestionEmptyRow(query)` Composable for the `NoResults` state — single row with localized "No matches for @{query}" copy.
-- [ ] 5.6 Wire `ComposerSuggestionList` into `ComposerScreenContent`'s `Column`, between the `OutlinedTextField` and `ComposerAttachmentRow`. Hoist `onSuggestionClick` lambda via `remember(viewModel)` in `ComposerScreen`.
-- [ ] 5.7 Add string resources `composer_typeahead_no_matches` (with `%1$s` for the query) to `:feature:composer:impl/src/main/res/values/strings.xml`.
+- [x] 5.3 Add `ComposerSuggestionList(typeahead, onSuggestionClick)` Composable in `:feature:composer:impl/internal/`: `OutlinedCard` containing a `LazyColumn(Modifier.heightIn(max = 240.dp))` with rows + `HorizontalDivider`. Renders only when `typeahead is Suggestions || typeahead is NoResults`.
+- [x] 5.4 Add `ComposerSuggestionRow(actor, onClick)` Composable (private inside `ComposerSuggestionList.kt`): 40.dp circular `NubecitaAsyncImage` avatar + display name (titleSmall, falls back to bare handle when null) + `@handle` (bodySmall, onSurfaceVariant). Tap on the Row → `onClick(actor)`. Avatar `contentDescription = null` so the merged Row text doesn't double-announce.
+- [x] 5.5 Add `ComposerSuggestionEmptyRow(query)` Composable (private) for the `NoResults` state — single row with localized "No matches for @{query}" copy.
+- [x] 5.6 Wire `ComposerSuggestionList` into `ComposerScreenContent`'s `Column`, between the `OutlinedTextField` and `ComposerAttachmentRow`. Hoist `onSuggestionClick` lambda via `remember(viewModel)` in `ComposerScreen`. Pass through to `ComposerScreenContent` as a parameter; screenshot fixtures pass `{}`.
+- [x] 5.7 Add string resource `composer_typeahead_no_matches` (with `%1$s` for the query) to `:feature:composer:impl/src/main/res/values/strings.xml`.
 
 ## 6. Tests — VM contract
 

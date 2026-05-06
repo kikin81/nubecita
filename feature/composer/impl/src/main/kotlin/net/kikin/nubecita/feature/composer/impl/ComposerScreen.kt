@@ -43,11 +43,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
+import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounter
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
 import net.kikin.nubecita.feature.composer.impl.internal.rememberComposerImagePicker
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
@@ -127,6 +129,12 @@ fun ComposerScreen(
         remember(viewModel) {
             { index: Int -> viewModel.handleEvent(ComposerEvent.RemoveAttachment(index)) }
         }
+    val onSuggestionClick =
+        remember(viewModel) {
+            { actor: ActorTypeaheadUi ->
+                viewModel.handleEvent(ComposerEvent.TypeaheadResultClicked(actor))
+            }
+        }
 
     // Picker plumbing. The contract is captured at registration time
     // by `rememberLauncherForActivityResult`, so we re-key the helper
@@ -175,6 +183,7 @@ fun ComposerScreen(
         onCloseClick = onNavigateBack,
         onAddImageClick = onAddImageClick,
         onRemoveAttachment = onRemoveAttachment,
+        onSuggestionClick = onSuggestionClick,
         modifier = modifier,
     )
 }
@@ -194,6 +203,7 @@ fun ComposerScreenContent(
     onCloseClick: () -> Unit,
     onAddImageClick: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
+    onSuggestionClick: (ActorTypeaheadUi) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -287,6 +297,15 @@ fun ComposerScreenContent(
                             capitalization = KeyboardCapitalization.Sentences,
                             imeAction = ImeAction.Default,
                         ),
+                )
+                // `@`-mention typeahead surface — renders only on
+                // Suggestions / NoResults, hidden in Idle / Querying.
+                // Sits between the text field and the attachment row
+                // so the IME's inset push naturally keeps it visible
+                // above the keyboard without explicit anchoring.
+                ComposerSuggestionList(
+                    typeahead = state.typeahead,
+                    onSuggestionClick = onSuggestionClick,
                 )
                 // Composer attachment action row. Hosts the leading
                 // "Add image" affordance and a horizontally-scrolling
