@@ -21,20 +21,20 @@ Each commit must compile. Removal of `text: String` and `TextChanged` happens at
 
 ## 4. `:feature:composer:impl` — `TextFieldState` migration in `ComposerViewModel`
 
-- [ ] 4.1 Add `val textFieldState: TextFieldState` to `ComposerViewModel` (constructed in init with `initialText = ""`).
-- [ ] 4.2 Inject `ActorTypeaheadRepository` into `ComposerViewModel`'s constructor (after `PostingRepository`, before `ParentFetchSource` to keep the append-only contract; if order conflicts with the documented contract, append at the end and update the contract note in the VM Kdoc to reflect the new fixed order).
-- [ ] 4.3 In `init`, launch a `snapshotFlow { textFieldState.text.toString() to textFieldState.selection }` collector that updates `state.graphemeCount` / `state.isOverLimit` and emits the active token (or sentinel) into a per-VM `MutableSharedFlow<String>`.
-- [ ] 4.4 Wire the typeahead pipeline: `queryFlow.debounce(150.milliseconds).distinctUntilChanged().mapLatest { repo.searchTypeahead(it) }.onEach { setState { copy(typeahead = …) } }.launchIn(viewModelScope)`. Map results → `Suggestions` / `NoResults`; map failures → `Idle`. Emit `Querying(query)` synchronously before invoking the repo.
-- [ ] 4.5 Implement `handleTypeaheadResultClicked(actor)`: snapshot text + selection, re-locate the active `@`-position via the same logic as `currentMentionToken`, no-op if not found, otherwise `textFieldState.edit { replace(@-pos, cursor, "@${actor.handle} "); placeCursorBeforeCharAt(end-of-insertion) }`.
-- [ ] 4.6 Refactor `handleSubmit` to read text from `textFieldState.text.toString()` instead of `current.text`. Update `canSubmit(state)` → `canSubmit(state, text: String)`.
-- [ ] 4.7 Update `handleEvent` to dispatch `TypeaheadResultClicked` (replacing the no-op placeholder) and remove the `TextChanged` branch.
-- [ ] 4.8 Remove the `text: String` field from `ComposerState` and remove the `TextChanged(text: String)` variant from `ComposerEvent` (deferred from task 3 so each commit compiles). The field/variant only survives until the screen is migrated in step 5 and tests are migrated in step 6 — sequence the removal between 4.6 (canSubmit refactor) and 5.1 (screen migration) however cleanest.
-- [ ] 4.9 Update `ComposerViewModel` Kdoc with the documented MVI exception note + the append-only constructor contract update.
+- [x] 4.1 Add `val textFieldState: TextFieldState` to `ComposerViewModel` (constructed in init with `initialText = ""`).
+- [x] 4.2 Inject `ActorTypeaheadRepository` into `ComposerViewModel`'s constructor at the END of the parameter list (preserves the append-only contract documented on the existing class). VM Kdoc updated to list four-deps.
+- [x] 4.3 In `init`, launch a `snapshotFlow { textFieldState.text.toString() to textFieldState.selection.end }` collector that updates `state.graphemeCount` / `state.isOverLimit` and emits the active token (or "" sentinel) into a per-VM `MutableSharedFlow<String>`.
+- [x] 4.4 Wire the typeahead pipeline: `queryFlow.debounce(150.milliseconds).distinctUntilChanged().mapLatest { repo.searchTypeahead(it) }.onEach { setState { copy(typeahead = …) } }.launchIn(viewModelScope)`. Map results → `Suggestions` / `NoResults`; map failures → `Idle`. Emit `Querying(query)` synchronously before invoking the repo. The empty-string sentinel resolves directly to `Idle` without invoking the repo.
+- [x] 4.5 Implement `handleTypeaheadResultClicked(actor)`: snapshot text + selection, re-locate the active `@`-position via `findActiveMentionStart` (extracted from `currentMentionToken` so both share the walk), no-op if not found, otherwise `textFieldState.edit { replace(@-pos, cursor, "@${actor.handle} "); placeCursorBeforeCharAt(end-of-insertion) }`.
+- [x] 4.6 Refactor `handleSubmit` to read text from `textFieldState.text.toString()` instead of `current.text`. `canSubmit(state)` → `canSubmit(state, text: String)`.
+- [x] 4.7 Update `handleEvent` to dispatch `TypeaheadResultClicked` (replacing the no-op placeholder) and remove the `TextChanged` branch.
+- [x] 4.8 Remove the `text: String` field from `ComposerState` and remove the `TextChanged(text: String)` variant from `ComposerEvent`.
+- [x] 4.9 Update `ComposerViewModel` Kdoc with the documented MVI exception note + the append-only constructor contract update.
 
 ## 5. `:feature:composer:impl` — `ComposerScreen` migration + suggestion rendering
 
-- [ ] 5.1 Migrate the primary `OutlinedTextField` in `ComposerScreenContent` from `(value, onValueChange)` to `(state = vm.textFieldState)`. Pass `vm.textFieldState` from `ComposerScreen` into `ComposerScreenContent` as a parameter (so previews can pass an in-memory `TextFieldState`).
-- [ ] 5.2 Remove the `onTextChange` lambda hoisting + the `TextChanged` event dispatch in `ComposerScreen`.
+- [x] 5.1 Migrate the primary `OutlinedTextField` in `ComposerScreenContent` from `(value, onValueChange)` to `(state = vm.textFieldState)`. Pass `vm.textFieldState` from `ComposerScreen` into `ComposerScreenContent` as a parameter (so previews can pass an in-memory `TextFieldState`). `canPost` also takes `textFieldState` since it reads `text.isBlank()`.
+- [x] 5.2 Remove the `onTextChange` lambda hoisting + the `TextChanged` event dispatch in `ComposerScreen`.
 - [ ] 5.3 Add `ComposerSuggestionList(state.typeahead, onSuggestionClick)` Composable in `:feature:composer:impl/internal/`: `OutlinedCard` containing a `LazyColumn(Modifier.heightIn(max = 240.dp))` with rows + `HorizontalDivider`. Renders only when `state.typeahead is Suggestions || state.typeahead is NoResults`.
 - [ ] 5.4 Add `ComposerSuggestionRow(actor, onClick)` Composable: 40.dp circular `NubecitaAsyncImage` avatar + display name (titleSmall) + `@handle` (bodySmall, onSurfaceVariant). Tap → `onClick(actor)`.
 - [ ] 5.5 Add `ComposerSuggestionEmptyRow(query)` Composable for the `NoResults` state — single row with localized "No matches for @{query}" copy.
@@ -43,7 +43,7 @@ Each commit must compile. Removal of `text: String` and `TextChanged` happens at
 
 ## 6. Tests — VM contract
 
-- [ ] 6.1 Migrate existing `ComposerViewModelTest` to the new `TextFieldState`-backed VM contract: tests now exercise the VM by mutating its `textFieldState` (via `textFieldState.edit { ... }`) instead of dispatching `TextChanged`. Use `runTest` + `UnconfinedTestDispatcher` per the repo's testing convention. Verify grapheme counter / `isOverLimit` updates fire after `runCurrent()`.
+- [x] 6.1 Migrate existing `ComposerViewModelTest` to the new `TextFieldState`-backed VM contract: tests mutate the VM's `textFieldState` via a `setComposerText(vm, text)` helper that calls `setTextAndPlaceCursorAtEnd(...)` then `Snapshot.sendApplyNotifications()` + `testScheduler.runCurrent()` to flush the snapshot to the VM's collector (no Compose recomposer in tests). Drop assertions on `state.text` (gone); for the submit-snapshot test, drop the text-during-submit case (gated at the UI layer via `enabled = false`, not by the VM reducer) and keep the attachment-during-submit case.
 - [ ] 6.2 New `ComposerViewModelTypeaheadTest`: state transitions `Idle → Querying → Suggestions` after debounce; `Idle → Querying → NoResults` for empty actor list; `Idle` after repo failure (and no `ShowError` effect emitted); `mapLatest` cancellation when a new token arrives mid-query (use a `Channel`-backed fake to control completion order); `distinctUntilChanged` drops duplicate consecutive tokens; `TypeaheadResultClicked` inserts canonical handle + trailing space + cursor after insertion; `TypeaheadResultClicked` no-op when `@`-position can't be re-located.
 
 ## 7. Screenshot fixtures

@@ -8,16 +8,15 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
  * Inbound UI intents the composer screen dispatches into the VM.
  * Each event maps to a single reducer or async-launched flow inside
  * `ComposerViewModel.handleEvent`.
+ *
+ * **Note** — text input does NOT flow through this surface. The
+ * composer's text and selection live in `ComposerViewModel.textFieldState`
+ * (a Compose `TextFieldState`) and the VM observes them via
+ * `snapshotFlow`. There is no `TextChanged(text)` event because the
+ * IME never round-trips through the reducer — see `ComposerViewModel`'s
+ * Kdoc for the rationale.
  */
 sealed interface ComposerEvent : UiEvent {
-    /**
-     * The text field's value changed. Reducer recomputes
-     * [ComposerState.graphemeCount] and [ComposerState.isOverLimit].
-     */
-    data class TextChanged(
-        val text: String,
-    ) : ComposerEvent
-
     /**
      * The picker returned URIs. Reducer appends up to the 4-image
      * cap; URIs beyond the cap are silently dropped (the picker also

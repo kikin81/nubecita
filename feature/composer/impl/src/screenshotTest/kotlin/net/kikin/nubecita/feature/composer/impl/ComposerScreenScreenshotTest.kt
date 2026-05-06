@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.composer.impl
 
 import android.content.res.Configuration
 import android.net.Uri
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -43,6 +44,11 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
  * Reply-mode fixtures and Expanded-Dialog fixtures land in
  * `nubecita-wtq.6` and `nubecita-wtq.7` respectively as those code
  * paths come online.
+ *
+ * **Text fixtures construct `TextFieldState` locally** rather than
+ * pulling text off `ComposerState`. The composer's text owner-ship
+ * lives in `ComposerViewModel.textFieldState` (see that class's
+ * Kdoc); fixtures replicate the wiring by `remember { TextFieldState(initialText = …) }`.
  */
 
 @PreviewTest
@@ -53,8 +59,8 @@ private fun ComposerScreenEmptyScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         ComposerScreenContent(
             state = ComposerState(),
+            textFieldState = remember { TextFieldState() },
             snackbarHostState = remember { SnackbarHostState() },
-            onTextChange = {},
             onSubmit = {},
             onCloseClick = {},
             onAddImageClick = {},
@@ -72,13 +78,12 @@ private fun ComposerScreenNearLimitScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
-                    text = "x".repeat(295),
                     graphemeCount = 295,
                     isOverLimit = false,
                     submitStatus = ComposerSubmitStatus.Idle,
                 ),
+            textFieldState = remember { TextFieldState(initialText = "x".repeat(295)) },
             snackbarHostState = remember { SnackbarHostState() },
-            onTextChange = {},
             onSubmit = {},
             onCloseClick = {},
             onAddImageClick = {},
@@ -96,13 +101,12 @@ private fun ComposerScreenSubmittingScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
-                    text = "Hello, Bluesky.",
                     graphemeCount = 15,
                     isOverLimit = false,
                     submitStatus = ComposerSubmitStatus.Submitting,
                 ),
+            textFieldState = remember { TextFieldState(initialText = "Hello, Bluesky.") },
             snackbarHostState = remember { SnackbarHostState() },
-            onTextChange = {},
             onSubmit = {},
             onCloseClick = {},
             onAddImageClick = {},
@@ -120,7 +124,6 @@ private fun ComposerScreenWithImagesScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
-                    text = "Three placeholder attachments",
                     graphemeCount = 29,
                     attachments =
                         persistentListOf(
@@ -129,8 +132,8 @@ private fun ComposerScreenWithImagesScreenshot() {
                             ComposerAttachment(uri = Uri.parse("content://fixture/2"), mimeType = "image/jpeg"),
                         ),
                 ),
+            textFieldState = remember { TextFieldState(initialText = "Three placeholder attachments") },
             snackbarHostState = remember { SnackbarHostState() },
-            onTextChange = {},
             onSubmit = {},
             onCloseClick = {},
             onAddImageClick = {},

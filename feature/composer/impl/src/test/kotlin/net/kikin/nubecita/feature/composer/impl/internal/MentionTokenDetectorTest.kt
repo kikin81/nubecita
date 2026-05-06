@@ -170,4 +170,30 @@ class MentionTokenDetectorTest {
         // like context for our purposes. Reject.
         assertNull(currentMentionToken("_@alice", 7))
     }
+
+    // ---------- findActiveMentionStart ----------
+
+    @Test
+    fun findActiveMentionStart_returnsAtPosition_whenTokenActive() {
+        // Used by the VM's handleTypeaheadResultClicked to know which
+        // index to begin the replacement at. For "hi @ali" cursor at
+        // end, the @ is at position 3.
+        assertEquals(3, findActiveMentionStart("hi @ali", 7))
+    }
+
+    @Test
+    fun findActiveMentionStart_returnsZero_whenAtIsFirstChar() {
+        // The replacement region starts at the @ itself; for a token
+        // that begins the text, that's index 0.
+        assertEquals(0, findActiveMentionStart("@alice", 6))
+    }
+
+    @Test
+    fun findActiveMentionStart_returnsNull_whenTokenWouldBeRejected() {
+        // Same rejection rules as currentMentionToken — both share
+        // the underlying walk.
+        assertNull(findActiveMentionStart("email@host.com", 14))
+        assertNull(findActiveMentionStart("@", 1))
+        assertNull(findActiveMentionStart("@alice ", 7))
+    }
 }

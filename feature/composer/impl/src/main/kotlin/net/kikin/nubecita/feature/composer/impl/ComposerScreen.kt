@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
@@ -107,15 +108,11 @@ fun ComposerScreen(
     val currentOnSubmitSuccess by rememberUpdatedState(onSubmitSuccess)
 
     // Stabilize the VM-event lambdas that wire ComposerScreenContent.
-    // Without `remember`, every keystroke mutates `state`, recomposes
-    // ComposerScreen, and reallocates these lambdas — which invalidates
-    // ComposerScreenContent's skip and cascades into ComposerPostButton
-    // on the hot path. `viewModel` is the only closed-over dependency
-    // and is stable for the screen's lifetime.
-    val onTextChange =
-        remember(viewModel) {
-            { text: String -> viewModel.handleEvent(ComposerEvent.TextChanged(text)) }
-        }
+    // Text input no longer dispatches an event — the IME writes
+    // directly to viewModel.textFieldState, observed by the VM via
+    // snapshotFlow. Eliminating the value/onValueChange round-trip
+    // is the entire reason for the TextFieldState migration; see
+    // ComposerViewModel's Kdoc for the rationale.
     val onSubmit =
         remember(viewModel) {
             { viewModel.handleEvent(ComposerEvent.Submit) }
@@ -172,8 +169,8 @@ fun ComposerScreen(
 
     ComposerScreenContent(
         state = state,
+        textFieldState = viewModel.textFieldState,
         snackbarHostState = snackbarHostState,
-        onTextChange = onTextChange,
         onSubmit = onSubmit,
         onCloseClick = onNavigateBack,
         onAddImageClick = onAddImageClick,
@@ -191,8 +188,8 @@ fun ComposerScreen(
 @Composable
 fun ComposerScreenContent(
     state: ComposerState,
+    textFieldState: TextFieldState,
     snackbarHostState: SnackbarHostState,
-    onTextChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onCloseClick: () -> Unit,
     onAddImageClick: () -> Unit,
@@ -249,7 +246,7 @@ fun ComposerScreenContent(
                     // populated; leaving the gap so wtq.4 → :core:drafts
                     // doesn't reflow the action row when drafts ship.
                     ComposerPostButton(
-                        enabled = canPost(state),
+                        enabled = canPost(state, textFieldState),
                         submitStatus = state.submitStatus,
                         onClick = onSubmit,
                         modifier = Modifier.padding(start = 8.dp, end = 8.dp),
@@ -276,8 +273,7 @@ fun ComposerScreenContent(
                 horizontalAlignment = Alignment.Start,
             ) {
                 OutlinedTextField(
-                    value = state.text,
-                    onValueChange = onTextChange,
+                    state = textFieldState,
                     modifier =
                         Modifier
                             .fillMaxWidth()
@@ -390,9 +386,16 @@ private fun ComposerAttachmentRow(
  * not already succeeded. Reply-mode parent-loaded gate is enforced
  * by the VM's `canSubmit`; this UI gate is a strict subset so the
  * button stays disabled in those cases too.
+ *
+ * Reads the live text from [textFieldState] rather than mirroring
+ * it onto state — see ComposerViewModel's text-ownership exception
+ * Kdoc.
  */
-private fun canPost(state: ComposerState): Boolean {
-    if (state.text.isBlank() && state.attachments.isEmpty()) return false
+private fun canPost(
+    state: ComposerState,
+    textFieldState: TextFieldState,
+): Boolean {
+    if (textFieldState.text.isBlank() && state.attachments.isEmpty()) return false
     if (state.isOverLimit) return false
     return when (state.submitStatus) {
         ComposerSubmitStatus.Idle -> true
