@@ -1,12 +1,19 @@
 package net.kikin.nubecita.shell.composer
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -72,10 +79,48 @@ internal fun ComposerOverlay(
                 decorFitsSystemWindows = false,
             ),
     ) {
-        ComposerOverlayContent(
-            replyToUri = openState.replyToUri,
-            onClose = onClose,
-        )
+        // `BoxWithConstraints` reads the actual incoming constraints
+        // from the Dialog's content slot. We can't rely on
+        // `Modifier.widthIn(max = X).fillMaxWidth()` to clamp the
+        // surface ourselves: Compose's `Dialog` (with
+        // `usePlatformDefaultWidth = false`) hands unbounded width
+        // constraints down through its content wrapper, so the cap
+        // never engages and the surface stretches to whatever the
+        // content's intrinsic width is — usually full-screen.
+        // Reading `maxWidth` here and clamping at this level fixes
+        // the cap and lets centering work via `contentAlignment`.
+        BoxWithConstraints(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    // Manual scrim. With `usePlatformDefaultWidth = false`
+                    // the window goes `MATCH_PARENT`, suppressing the
+                    // platform dim layer (there's nothing visible
+                    // behind a full-screen window to dim), so we paint
+                    // our own and wire tap-outside-to-dismiss manually.
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .pointerInput(onClose) {
+                        detectTapGestures { onClose() }
+                    },
+            contentAlignment = Alignment.Center,
+        ) {
+            // Cap at 640dp matching `BottomSheetDefaults.SheetMaxWidth`
+            // and the M3 dialog spec's content-heavy upper bound. On
+            // narrower windows (e.g. Medium portrait at 600dp) the
+            // surface tracks the available width.
+            val cardWidth = if (maxWidth < 640.dp) maxWidth else 640.dp
+            Box(
+                modifier =
+                    Modifier
+                        .width(cardWidth)
+                        .fillMaxHeight(),
+            ) {
+                ComposerOverlayContent(
+                    replyToUri = openState.replyToUri,
+                    onClose = onClose,
+                )
+            }
+        }
     }
 }
 
@@ -142,8 +187,13 @@ internal fun ComposerOverlayCard(content: @Composable () -> Unit) {
         color = MaterialTheme.colorScheme.surface,
         modifier =
             Modifier
-                .fillMaxWidth()
-                .widthIn(max = 640.dp),
+                .fillMaxSize()
+                // Consume taps inside the card so they don't bubble up
+                // to the scrim's tap-to-dismiss handler. Inner
+                // interactive elements (text field, buttons) consume
+                // their own gestures before reaching here, so this only
+                // catches taps on inert chrome (padding, blank surface).
+                .pointerInput(Unit) { detectTapGestures { } },
     ) {
         Box { content() }
     }

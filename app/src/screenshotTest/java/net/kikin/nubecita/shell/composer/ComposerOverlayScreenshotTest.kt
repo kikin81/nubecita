@@ -62,21 +62,21 @@ private fun ComposerOverlayEmptyExpandedScreenshot() {
             modifier =
                 Modifier
                     .fillMaxSize()
-                    // Darkened scrim simulating the platform Dialog
-                    // scrim. Compose's Dialog provides this via the
-                    // platform window manager; we draw it manually
-                    // since this fixture renders the Dialog content
-                    // without a real Dialog.
+                    // Darkened scrim matching production [ComposerOverlay]'s
+                    // manual scrim. Compose's Dialog with
+                    // `usePlatformDefaultWidth = false` sets the window
+                    // to `MATCH_PARENT` and the platform dim layer is
+                    // suppressed, so the production Dialog content
+                    // paints its own scrim and so does this fixture.
                     .background(Color.Black.copy(alpha = 0.5f)),
             contentAlignment = Alignment.Center,
         ) {
-            // Explicit Box with `width(640.dp)` to constrain the
-            // card to the documented max width. In production the
-            // [Dialog] window provides this constraint implicitly
-            // via its sizing, so the card's `widthIn(max = 640.dp)`
-            // works there. In Layoutlib the parent Box has the full
-            // canvas width and the cap doesn't kick in without an
-            // explicit constraint upstream.
+            // Production [ComposerOverlay] sizes the card via
+            // [BoxWithConstraints] inside the Dialog (cap at 640dp,
+            // shrinks to maxWidth on narrower windows). The fixture
+            // mirrors that with an explicit `width(640.dp)` Box,
+            // since renders here at 840dp Expanded canvas where the
+            // cap engages.
             Box(
                 modifier =
                     Modifier
