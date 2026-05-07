@@ -138,11 +138,11 @@ class MainShellPersistenceTest {
      *
      * Width is injected by passing a synthetic [WindowAdaptiveInfo] into
      * [ListDetailHarness] rather than overriding `LocalConfiguration.screenWidthDp`.
-     * The newer `currentWindowAdaptiveInfo` API (and its V2 successor) reads from
-     * `WindowMetrics`, not `LocalConfiguration`, so the override approach was a
-     * silent no-op on phone-class emulators (whose actual width is ~400dp =
-     * compact, regardless of the override). Injecting `WindowAdaptiveInfo`
-     * directly keeps the directive computation exactly matched with production
+     * `currentWindowAdaptiveInfoV2()` reads from `WindowMetrics`, not
+     * `LocalConfiguration`, so the override approach was a silent no-op on
+     * phone-class emulators (whose actual width is ~400dp = compact,
+     * regardless of the override). Injecting `WindowAdaptiveInfo` directly
+     * keeps the directive computation exactly matched with production
      * (`calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth`) while making
      * the width deterministic across emulator profiles.
      *

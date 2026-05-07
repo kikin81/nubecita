@@ -13,7 +13,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -144,7 +144,7 @@ fun MainShell(modifier: Modifier = Modifier) {
 
     // Shared between the scene strategy below and the bar/rail selector
     // further down — both need the same window-class signal.
-    val adaptiveInfo = currentWindowAdaptiveInfo()
+    val adaptiveInfo = currentWindowAdaptiveInfoV2()
 
     // The default `calculatePaneScaffoldDirective` only enables two-pane
     // layout at Expanded widths (≥840dp). Bluesky/X/Threads convention —
@@ -233,7 +233,7 @@ fun MainShell(modifier: Modifier = Modifier) {
  *   Drives which item renders in selected (filled icon) state.
  * @param onTabClick Invoked when the user taps a navigation item.
  * @param layoutType Forces a specific [NavigationSuiteType]. Production
- *   callers compute this from `currentWindowAdaptiveInfo()`; previews and
+ *   callers compute this from `currentWindowAdaptiveInfoV2()`; previews and
  *   tests pass a fixed value to assert each layout independently.
  * @param content The inner content rendered alongside the bar/rail —
  *   typically the inner `NavDisplay`.
