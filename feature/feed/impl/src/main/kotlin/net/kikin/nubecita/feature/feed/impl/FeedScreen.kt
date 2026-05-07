@@ -49,6 +49,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
@@ -152,6 +153,8 @@ internal fun FeedScreen(
     val unknownErrorMessage = stringResource(R.string.feed_snackbar_error_unknown)
     val linkCopiedMessage = stringResource(R.string.feed_snackbar_link_copied)
     val clipLabel = stringResource(R.string.feed_clipboard_label_post_link)
+    val postPublishedMessage = stringResource(R.string.feed_snackbar_post_published)
+    val replyPublishedMessage = stringResource(R.string.feed_snackbar_reply_published)
     val clipboardManager =
         remember(context) {
             context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -173,6 +176,33 @@ internal fun FeedScreen(
     val onLoadMore = remember(viewModel) { { viewModel.handleEvent(FeedEvent.LoadMore) } }
 
     LaunchedEffect(Unit) { viewModel.handleEvent(FeedEvent.Load) }
+
+    // Composer submit-success bus. Fires when either composer host
+    // (Compact NavDisplay route or Medium / Expanded Dialog overlay)
+    // emits `OnSubmitSuccess`. Two side effects:
+    //  - dispatch the optimistic `replyCount + 1` event when the
+    //    submit was a reply, so the parent post in the feed reflects
+    //    the new count without waiting for the next refresh.
+    //  - show a confirmation snackbar with reply- vs new-post copy.
+    // Keyed on `composerSubmitEvents.events + viewModel + snackbarHostState`
+    // so the collector restarts cleanly across recompositions that
+    // re-create any of those references; the SharedFlow is `replay = 0`
+    // + DROP_OLDEST so a brief restart doesn't double-deliver and
+    // also doesn't replay history on first subscribe.
+    val composerSubmitEvents = LocalComposerSubmitEvents.current
+    LaunchedEffect(composerSubmitEvents, viewModel, snackbarHostState) {
+        composerSubmitEvents.events.collect { event ->
+            event.replyToUri?.let { parentUri ->
+                viewModel.handleEvent(FeedEvent.OnReplySubmittedToParent(parentUri))
+            }
+            val message =
+                if (event.replyToUri != null) replyPublishedMessage else postPublishedMessage
+            // Replace any pending snackbar — fresh confirmation outranks
+            // any stale error message lingering from a prior load.
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message = message)
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->

@@ -43,11 +43,20 @@ sealed interface ComposerEffect : UiEffect {
 
     /**
      * The submit completed successfully. Carries the new post's AT
-     * URI so the screen can optimistically slot it into the feed
-     * (currently V1 doesn't optimistic-insert — submit closes the
-     * composer and the feed refresh on next pull picks up the post).
+     * URI for the feed's optimistic update path, plus the [replyToUri]
+     * the composer was opened with (null for top-level posts, the
+     * parent's URI when replying). Hosts use [replyToUri] to choose
+     * the success snackbar copy ("Post sent" vs "Reply sent") and to
+     * fire an optimistic `replyCount + 1` on the parent in the feed
+     * so the user doesn't see a stale "0 comments" after replying.
+     *
+     * V1 still does NOT optimistically insert the new post itself
+     * into the feed timeline — the post belongs in the parent's
+     * thread, not necessarily the user's home feed; the feed picks it
+     * up on next refresh if it would have appeared anyway.
      */
     data class OnSubmitSuccess(
         val newPostUri: AtUri,
+        val replyToUri: String?,
     ) : ComposerEffect
 }

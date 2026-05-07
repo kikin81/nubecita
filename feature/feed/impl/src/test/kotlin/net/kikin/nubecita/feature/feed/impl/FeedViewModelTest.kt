@@ -654,6 +654,71 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `OnReplySubmittedToParent increments parent replyCount by 1`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Pin: when the composer reports a successful reply submit
+            // via LocalComposerSubmitEvents, the feed runs an
+            // optimistic replyCount + 1 on the parent so the user
+            // doesn't see a stale "0 comments" on the post they just
+            // replied to. No network call needed — the submit success
+            // is the trigger.
+            val parentUri = "at://did:plc:author/app.bsky.feed.post/p1"
+            val parent = samplePost(parentUri, stats = PostStatsUi(replyCount = 3))
+            val repo =
+                FakeFeedRepository(
+                    pages =
+                        listOf(
+                            Result.success(
+                                TimelinePage(persistentListOf(FeedItemUi.Single(parent)), null),
+                            ),
+                        ),
+                )
+            val vm = FeedViewModel(repo, FakeLikeRepostRepository())
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.OnReplySubmittedToParent(parentUri))
+            advanceUntilIdle()
+
+            val updated =
+                vm.uiState.value.feedItems
+                    .first()
+                    .leafPost()
+            assertEquals(4, updated.stats.replyCount)
+        }
+
+    @Test
+    fun `OnReplySubmittedToParent is a no-op when the parent isn't in the loaded slice`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Common case when the user replies from a non-feed surface
+            // (e.g. post-detail thread → composer → submit), or when
+            // the parent was paginated off the loaded slice between
+            // composer-open and submit-success. No crash, no spurious
+            // state change.
+            val parent = samplePost("at://did:plc:author/app.bsky.feed.post/p1")
+            val repo =
+                FakeFeedRepository(
+                    pages =
+                        listOf(
+                            Result.success(
+                                TimelinePage(persistentListOf(FeedItemUi.Single(parent)), null),
+                            ),
+                        ),
+                )
+            val vm = FeedViewModel(repo, FakeLikeRepostRepository())
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            val before = vm.uiState.value
+
+            vm.handleEvent(
+                FeedEvent.OnReplySubmittedToParent("at://did:plc:other/app.bsky.feed.post/missing"),
+            )
+            advanceUntilIdle()
+
+            assertSame(before, vm.uiState.value)
+        }
+
+    @Test
     fun `OnShareLongPressed emits CopyPermalink (no surrounding share text)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()

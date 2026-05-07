@@ -43,7 +43,34 @@ internal class FeedViewModel
                 is FeedEvent.OnShareClicked -> sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
                 is FeedEvent.OnShareLongPressed ->
                     sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))
+                is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
             }
+        }
+
+        /**
+         * Optimistic `replyCount + 1` on the parent post after the user
+         * submits a reply via `LocalComposerSubmitEvents`. No-op when the
+         * parent isn't currently in [FeedState.feedItems] — common case
+         * when replying from a non-feed surface (post-detail thread,
+         * future profile timeline) or when pagination evicted the parent
+         * before the submit landed.
+         *
+         * No rollback on submit failure: the composer's submit pipeline
+         * surfaces failures via `ComposerEffect.ShowError` and never
+         * fires `OnSubmitSuccess` in the failure case, so this handler
+         * only runs when the server confirmed the reply landed. The
+         * `replyCount` we're incrementing is therefore always +1
+         * relative to a server-confirmed write — the same invariant
+         * that the like / repost optimistic toggles preserve via their
+         * own onSuccess paths.
+         */
+        private fun incrementParentReplyCount(parentUri: String) {
+            val parent = uiState.value.feedItems.findPost(parentUri) ?: return
+            val updated =
+                parent.copy(
+                    stats = parent.stats.copy(replyCount = parent.stats.replyCount + 1),
+                )
+            setState { copy(feedItems = feedItems.replacePost(updated)) }
         }
 
         private fun load() {

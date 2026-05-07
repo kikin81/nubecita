@@ -367,7 +367,12 @@ class ComposerViewModel
                             uri.raw.substringAfterLast('/'),
                         )
                         setState { copy(submitStatus = ComposerSubmitStatus.Success) }
-                        sendEffect(ComposerEffect.OnSubmitSuccess(uri))
+                        sendEffect(
+                            ComposerEffect.OnSubmitSuccess(
+                                newPostUri = uri,
+                                replyToUri = route.replyToUri,
+                            ),
+                        )
                     },
                     onFailure = { throwable ->
                         Timber.tag(TAG).e(throwable, "createPost() failed")

@@ -6,7 +6,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
+import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -50,18 +52,28 @@ internal object ComposerNavigationModule {
         {
             entry<ComposerRoute> { route ->
                 val navState = LocalMainShellNavState.current
+                val composerSubmitEvents = LocalComposerSubmitEvents.current
                 val viewModel =
                     hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
                 ComposerScreen(
                     onNavigateBack = { navState.removeLast() },
-                    // Submit-success closes the composer; future polish
-                    // could navigate to the new post or optimistically
-                    // insert into the feed (see `nubecita-wtq.x`'s
-                    // optimistic-posting follow-up). For V1 the feed
-                    // refreshes on next pull and picks up the post.
-                    onSubmitSuccess = { _ -> navState.removeLast() },
+                    // Submit-success emits a `ComposerSubmitEvent` on the
+                    // shell-scoped bus (used by the feed for the success
+                    // snackbar + optimistic `replyCount + 1` on the parent
+                    // post — see `LocalComposerSubmitEvents`) and pops the
+                    // composer route. The feed picks the new post up on
+                    // its next refresh.
+                    onSubmitSuccess = { newPostUri, replyToUri ->
+                        composerSubmitEvents.emit(
+                            ComposerSubmitEvent(
+                                newPostUri = newPostUri.raw,
+                                replyToUri = replyToUri,
+                            ),
+                        )
+                        navState.removeLast()
+                    },
                     viewModel = viewModel,
                 )
             }

@@ -216,7 +216,10 @@ class ComposerViewModelTest {
 
             vm.effects.test {
                 vm.handleEvent(ComposerEvent.Submit)
-                assertEquals(ComposerEffect.OnSubmitSuccess(newPostUri), awaitItem())
+                assertEquals(
+                    ComposerEffect.OnSubmitSuccess(newPostUri = newPostUri, replyToUri = null),
+                    awaitItem(),
+                )
                 cancelAndConsumeRemainingEvents()
             }
             assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
@@ -375,6 +378,39 @@ class ComposerViewModelTest {
                     attachments = emptyList(),
                     replyTo = ReplyRefs(parent = parentPost.parentRef, root = parentPost.rootRef),
                 )
+            }
+        }
+
+    @Test
+    fun replyMode_submitSuccess_emitEffectCarriesReplyToUri() =
+        // Pin: the effect must carry the route's replyToUri so the
+        // host (FeedScreen via LocalComposerSubmitEvents) can choose
+        // "Reply sent" snackbar copy + dispatch the optimistic
+        // replyCount + 1 on the parent. Reply-mode test counterpart
+        // to submit_idleToSubmittingToSuccess_emitsOnSubmitSuccess
+        // (which covers the new-post replyToUri = null case).
+        runTest {
+            val parentPost = aParentPostUi()
+            coEvery { parentFetchSource.fetchParent(AtUri(PARENT_URI)) } returns Result.success(parentPost)
+            val newPostUri = AtUri("at://did:plc:me/app.bsky.feed.post/reply")
+            coEvery {
+                postingRepository.createPost(
+                    text = "reply",
+                    attachments = emptyList(),
+                    replyTo = ReplyRefs(parent = parentPost.parentRef, root = parentPost.rootRef),
+                )
+            } returns Result.success(newPostUri)
+
+            val vm = newVm(replyToUri = PARENT_URI)
+            setComposerText(vm, "reply")
+
+            vm.effects.test {
+                vm.handleEvent(ComposerEvent.Submit)
+                assertEquals(
+                    ComposerEffect.OnSubmitSuccess(newPostUri = newPostUri, replyToUri = PARENT_URI),
+                    awaitItem(),
+                )
+                cancelAndConsumeRemainingEvents()
             }
         }
 

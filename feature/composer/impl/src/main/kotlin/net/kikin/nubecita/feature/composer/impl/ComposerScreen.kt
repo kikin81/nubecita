@@ -82,7 +82,7 @@ import kotlin.math.max
 @Composable
 fun ComposerScreen(
     onNavigateBack: () -> Unit,
-    onSubmitSuccess: (AtUri) -> Unit,
+    onSubmitSuccess: (newPostUri: AtUri, replyToUri: String?) -> Unit,
     viewModel: ComposerViewModel,
     modifier: Modifier = Modifier,
 ) {
@@ -157,7 +157,8 @@ fun ComposerScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 ComposerEffect.NavigateBack -> currentOnNavigateBack()
-                is ComposerEffect.OnSubmitSuccess -> currentOnSubmitSuccess(effect.newPostUri)
+                is ComposerEffect.OnSubmitSuccess ->
+                    currentOnSubmitSuccess(effect.newPostUri, effect.replyToUri)
                 is ComposerEffect.ShowError -> {
                     val message =
                         when (val cause = effect.error) {
