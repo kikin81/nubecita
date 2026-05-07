@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
@@ -35,7 +35,7 @@ import net.kikin.nubecita.feature.feed.api.Feed
  * Screenshot baselines for the inner-pane behavior of `MainShell`'s
  * `NavDisplay` + [`ListDetailSceneStrategy`] across window-size classes.
  *
- * Three baselines, one per `WindowWidthSizeClass` threshold matching
+ * Three baselines, one per `WindowSizeClass` width breakpoint matching
  * `MainShellChromeScreenshotTest`'s constants:
  *
  * - **Compact (360dp):** strategy collapses to single-pane → only the
@@ -125,7 +125,7 @@ private fun FakeListDetailNavDisplay() {
         remember { mutableStateListOf<NavKey>(Feed) }
     val sceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(
-            directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(currentWindowAdaptiveInfo()),
+            directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(currentWindowAdaptiveInfoV2()),
         )
 
     val fakeFeedInstaller: EntryProviderInstaller = {

@@ -13,7 +13,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -36,6 +36,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import net.kikin.nubecita.R
+import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
@@ -44,6 +45,9 @@ import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
 import net.kikin.nubecita.navigation.NavigationEntryPoint
+import net.kikin.nubecita.shell.composer.ComposerLauncherState
+import net.kikin.nubecita.shell.composer.ComposerOverlay
+import net.kikin.nubecita.shell.composer.rememberComposerLauncher
 
 /**
  * Top-level adaptive navigation shell hosted by the `Main` `NavEntry`.
@@ -127,9 +131,20 @@ fun MainShell(modifier: Modifier = Modifier) {
         }
     val readOnlyScrollToTopSignal = remember(scrollToTopSignal) { scrollToTopSignal.asSharedFlow() }
 
+    // MainShell-scoped overlay launcher state for the composer at
+    // Medium / Expanded widths. At Compact width this state stays
+    // Closed forever — the launcher lambda below pushes a route onto
+    // the inner NavDisplay instead.
+    val composerLauncherState = remember { ComposerLauncherState() }
+    val composerLauncher =
+        rememberComposerLauncher(
+            navState = mainShellNavState,
+            launcherState = composerLauncherState,
+        )
+
     // Shared between the scene strategy below and the bar/rail selector
     // further down — both need the same window-class signal.
-    val adaptiveInfo = currentWindowAdaptiveInfo()
+    val adaptiveInfo = currentWindowAdaptiveInfoV2()
 
     // The default `calculatePaneScaffoldDirective` only enables two-pane
     // layout at Expanded widths (≥840dp). Bluesky/X/Threads convention —
@@ -155,6 +170,7 @@ fun MainShell(modifier: Modifier = Modifier) {
     CompositionLocalProvider(
         LocalMainShellNavState provides mainShellNavState,
         LocalScrollToTopSignal provides readOnlyScrollToTopSignal,
+        LocalComposerLauncher provides composerLauncher,
     ) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
@@ -194,6 +210,16 @@ fun MainShell(modifier: Modifier = Modifier) {
                         installers.forEach { installer -> installer() }
                     },
             )
+            // Centered-Dialog composer overlay for Medium / Expanded
+            // widths. Renders nothing while launcher state is Closed.
+            // Sibling-of-NavDisplay placement so the overlay's scrim
+            // covers the full shell — including the navigation
+            // suite's bar/rail — matching the modal-creation surface
+            // intent.
+            ComposerOverlay(
+                state = composerLauncherState.state,
+                onClose = { composerLauncherState.close() },
+            )
         }
     }
 }
@@ -207,7 +233,7 @@ fun MainShell(modifier: Modifier = Modifier) {
  *   Drives which item renders in selected (filled icon) state.
  * @param onTabClick Invoked when the user taps a navigation item.
  * @param layoutType Forces a specific [NavigationSuiteType]. Production
- *   callers compute this from `currentWindowAdaptiveInfo()`; previews and
+ *   callers compute this from `currentWindowAdaptiveInfoV2()`; previews and
  *   tests pass a fixed value to assert each layout independently.
  * @param content The inner content rendered alongside the bar/rail —
  *   typically the inner `NavDisplay`.

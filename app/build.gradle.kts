@@ -174,6 +174,11 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    // :core:posting types (ActorTypeaheadUi, ComposerError, ComposerAttachment)
+    // surface in :feature:composer:impl's public ComposerScreenContent
+    // signature — :app needs them on its compile classpath to construct
+    // overlay screenshots that call ComposerScreenContent directly.
+    implementation(project(":core:posting"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
     implementation(project(":feature:composer:api"))

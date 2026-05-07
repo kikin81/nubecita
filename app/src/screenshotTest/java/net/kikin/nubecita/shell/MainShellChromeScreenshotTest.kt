@@ -14,7 +14,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 /**
  * Screenshot baselines for [MainShellChrome] covering:
  *
- * - The chrome swap across `WindowWidthSizeClass` breakpoints
+ * - The chrome swap across `WindowSizeClass` width breakpoints
  *   (`NavigationBar` at compact, `NavigationRail` at medium and expanded).
  * - The selected-state indicator on each of the four top-level
  *   destinations at compact width (the most common form factor).

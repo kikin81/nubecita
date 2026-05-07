@@ -8,9 +8,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
-import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.FeedScreen
 import net.kikin.nubecita.feature.feed.impl.ui.FeedDetailPlaceholder
@@ -37,18 +37,20 @@ internal object FeedNavigationModule {
                     ),
             ) {
                 val navState = LocalMainShellNavState.current
+                val launchComposer = LocalComposerLauncher.current
                 FeedScreen(
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
                     // Profile screen does not exist yet — wired as a no-op until
                     // the profile epic lands. Replace with `navState.add(Profile(handle = …))`
                     // once the profile :impl module surfaces a handle-from-DID resolver.
                     onNavigateToAuthor = {},
-                    // Compact-only composer launch. wtq.7 will lift this to a
-                    // width-class-conditional `launchComposer(null)` helper that
-                    // renders Medium/Expanded as a centered Dialog overlay
-                    // instead of pushing onto the tab stack; the FAB callsite
-                    // here doesn't change.
-                    onComposeClick = { navState.add(ComposerRoute(replyToUri = null)) },
+                    // Width-class-conditional composer launch. At Compact width
+                    // the launcher pushes ComposerRoute onto the tab stack; at
+                    // Medium / Expanded widths it toggles MainShell's overlay
+                    // state to Open, rendering the composer in a centered
+                    // Dialog. This callsite doesn't need to know which path
+                    // fires — that's MainShell's call.
+                    onComposeClick = { launchComposer(null) },
                 )
             }
         }
