@@ -627,20 +627,6 @@ internal class FeedViewModelTest {
         }
 
     @Test
-    fun `OnReplyClicked is a no-op`() =
-        runTest(mainDispatcher.dispatcher) {
-            val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakeLikeRepostRepository())
-            val before = vm.uiState.value
-            val post = samplePost("p1")
-
-            vm.handleEvent(FeedEvent.OnReplyClicked(post))
-            advanceUntilIdle()
-
-            assertSame(before, vm.uiState.value)
-        }
-
-    @Test
     fun `OnShareClicked emits SharePost with bsky_app permalink as the share text`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()

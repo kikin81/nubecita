@@ -40,7 +40,6 @@ internal class FeedViewModel
                 is FeedEvent.OnAuthorTapped -> sendEffect(FeedEffect.NavigateToAuthor(event.authorDid))
                 is FeedEvent.OnLikeClicked -> toggleLike(event.post)
                 is FeedEvent.OnRepostClicked -> toggleRepost(event.post)
-                is FeedEvent.OnReplyClicked -> Unit
                 is FeedEvent.OnShareClicked -> sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
                 is FeedEvent.OnShareLongPressed ->
                     sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))

@@ -97,6 +97,7 @@ internal fun FeedScreen(
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
     onComposeClick: () -> Unit = {},
+    onReplyClick: (String) -> Unit = {},
     viewModel: FeedViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -104,6 +105,15 @@ internal fun FeedScreen(
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    // Reply tap is screen-level — does NOT pass through FeedViewModel
+    // (per the unified-composer spec, step 10). The host wires
+    // `onReplyClick` to the width-conditional composer launcher; keep
+    // the lambda identity stable across recompositions via
+    // rememberUpdatedState so the remembered PostCallbacks below
+    // captures the live reference instead of a stale snapshot. Declared
+    // before `callbacks` because the lambda inside `PostCallbacks.onReply`
+    // closes over it.
+    val currentOnReplyClick by rememberUpdatedState(onReplyClick)
     val callbacks =
         remember(viewModel, context) {
             PostCallbacks(
@@ -111,7 +121,7 @@ internal fun FeedScreen(
                 onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
                 onLike = { viewModel.handleEvent(FeedEvent.OnLikeClicked(it)) },
                 onRepost = { viewModel.handleEvent(FeedEvent.OnRepostClicked(it)) },
-                onReply = { viewModel.handleEvent(FeedEvent.OnReplyClicked(it)) },
+                onReply = { post -> currentOnReplyClick(post.id) },
                 onShare = { viewModel.handleEvent(FeedEvent.OnShareClicked(it)) },
                 onShareLongPress = { viewModel.handleEvent(FeedEvent.OnShareLongPressed(it)) },
                 onExternalEmbedTap = { uri ->

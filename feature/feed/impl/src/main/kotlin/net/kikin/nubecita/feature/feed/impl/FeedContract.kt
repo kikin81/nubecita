@@ -128,10 +128,6 @@ sealed interface FeedEvent : UiEvent {
         val post: PostUi,
     ) : FeedEvent
 
-    data class OnReplyClicked(
-        val post: PostUi,
-    ) : FeedEvent
-
     data class OnShareClicked(
         val post: PostUi,
     ) : FeedEvent
