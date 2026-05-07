@@ -1,7 +1,5 @@
 package net.kikin.nubecita.shell.composer
 
-import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.window.core.layout.WindowWidthSizeClass
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -9,20 +7,20 @@ import org.junit.jupiter.api.Test
 /**
  * Pin-down tests for the pure [launchComposer] branching helper.
  *
- * The Composable wrapper [rememberComposerLauncher] plumbs the live
- * width-class and live state holders into this function; the
- * branching itself is unit-testable in pure JVM with no Compose
- * harness.
+ * The Composable wrapper [rememberComposerLauncher] derives `isCompact`
+ * from `currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
+ * WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)` and plumbs it into this
+ * function; the branching itself is unit-testable in pure JVM with no
+ * Compose harness.
  */
-@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 class LaunchComposerTest {
     @Test
-    fun compactWidth_pushesRoute_onlyOnPushRouteFires() {
+    fun compact_pushesRoute_onlyOnPushRouteFires() {
         val pushedUris = mutableListOf<String?>()
         val overlayUris = mutableListOf<String?>()
 
         launchComposer(
-            widthSizeClass = WindowWidthSizeClass.COMPACT,
+            isCompact = true,
             replyToUri = "at://did:plc:alice/app.bsky.feed.post/abc",
             onPushRoute = { pushedUris += it },
             onShowOverlay = { overlayUris += it },
@@ -33,12 +31,12 @@ class LaunchComposerTest {
     }
 
     @Test
-    fun mediumWidth_showsOverlay_onlyOnShowOverlayFires() {
+    fun nonCompact_showsOverlay_onlyOnShowOverlayFires() {
         val pushedUris = mutableListOf<String?>()
         val overlayUris = mutableListOf<String?>()
 
         launchComposer(
-            widthSizeClass = WindowWidthSizeClass.MEDIUM,
+            isCompact = false,
             replyToUri = null,
             onPushRoute = { pushedUris += it },
             onShowOverlay = { overlayUris += it },
@@ -49,12 +47,12 @@ class LaunchComposerTest {
     }
 
     @Test
-    fun expandedWidth_showsOverlay_onlyOnShowOverlayFires() {
+    fun nonCompact_showsOverlay_propagatesReplyUri() {
         val pushedUris = mutableListOf<String?>()
         val overlayUris = mutableListOf<String?>()
 
         launchComposer(
-            widthSizeClass = WindowWidthSizeClass.EXPANDED,
+            isCompact = false,
             replyToUri = "at://did:plc:bob/app.bsky.feed.post/xyz",
             onPushRoute = { pushedUris += it },
             onShowOverlay = { overlayUris += it },
@@ -70,20 +68,20 @@ class LaunchComposerTest {
         // through the helper unchanged.
         var pushedAtCompact: String? = "sentinel"
         launchComposer(
-            widthSizeClass = WindowWidthSizeClass.COMPACT,
+            isCompact = true,
             replyToUri = null,
             onPushRoute = { pushedAtCompact = it },
-            onShowOverlay = { error("overlay should not fire at Compact") },
+            onShowOverlay = { error("overlay should not fire when isCompact=true") },
         )
         assertNull(pushedAtCompact)
 
-        var overlayAtMedium: String? = "sentinel"
+        var overlayAtNonCompact: String? = "sentinel"
         launchComposer(
-            widthSizeClass = WindowWidthSizeClass.MEDIUM,
+            isCompact = false,
             replyToUri = null,
-            onPushRoute = { error("push should not fire at Medium") },
-            onShowOverlay = { overlayAtMedium = it },
+            onPushRoute = { error("push should not fire when isCompact=false") },
+            onShowOverlay = { overlayAtNonCompact = it },
         )
-        assertNull(overlayAtMedium)
+        assertNull(overlayAtNonCompact)
     }
 }
