@@ -19,6 +19,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import net.kikin.nubecita.core.common.navigation.ComposerOverlayState
+import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
+import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.ComposerScreen
 import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
@@ -159,10 +161,24 @@ private fun ComposerOverlayContent(
             },
         ),
 ) {
+    val composerSubmitEvents = LocalComposerSubmitEvents.current
     ComposerOverlayCard {
         ComposerScreen(
             onNavigateBack = onClose,
-            onSubmitSuccess = { _ -> onClose() },
+            // Submit-success emits a `ComposerSubmitEvent` on the
+            // shell-scoped bus (used by the feed for the success
+            // snackbar + optimistic `replyCount + 1` on the parent
+            // post — see `LocalComposerSubmitEvents`) and closes
+            // the overlay.
+            onSubmitSuccess = { newPostUri, replyParent ->
+                composerSubmitEvents.emit(
+                    ComposerSubmitEvent(
+                        newPostUri = newPostUri.raw,
+                        replyToUri = replyParent,
+                    ),
+                )
+                onClose()
+            },
             viewModel = viewModel,
         )
     }

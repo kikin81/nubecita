@@ -136,6 +136,20 @@ sealed interface FeedEvent : UiEvent {
     data class OnShareLongPressed(
         val post: PostUi,
     ) : FeedEvent
+
+    /**
+     * The user just submitted a reply with parent post URI [parentUri]
+     * — emitted from `LocalComposerSubmitEvents` after the composer
+     * overlay closes successfully. The handler runs an optimistic
+     * `replyCount + 1` on the parent post in [FeedState.feedItems] so
+     * the user doesn't see a stale "0 comments" on the post they just
+     * replied to. No-op when the parent isn't in the loaded slice
+     * (replied from a non-feed surface, or pagination evicted the
+     * parent before the submit landed).
+     */
+    data class OnReplySubmittedToParent(
+        val parentUri: String,
+    ) : FeedEvent
 }
 
 sealed interface FeedEffect : UiEffect {

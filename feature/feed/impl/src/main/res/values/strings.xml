@@ -30,6 +30,12 @@
     <string name="feed_snackbar_link_copied">Link copied to clipboard</string>
     <string name="feed_clipboard_label_post_link">Bluesky post link</string>
 
+    <!-- Composer submit-success snackbars, shown in the feed after the
+         composer overlay closes. Two variants because top-level posts
+         and replies are different mental models for the user. -->
+    <string name="feed_snackbar_post_published">Post sent</string>
+    <string name="feed_snackbar_reply_published">Reply sent</string>
+
     <!-- PostCardVideoEmbed phase-C overlays (autoplay-muted + tap-to-resume). -->
     <string name="postcard_video_mute">Mute video</string>
     <string name="postcard_video_unmute">Unmute video</string>

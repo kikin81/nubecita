@@ -36,7 +36,9 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import net.kikin.nubecita.R
+import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
+import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
@@ -131,6 +133,15 @@ fun MainShell(modifier: Modifier = Modifier) {
         }
     val readOnlyScrollToTopSignal = remember(scrollToTopSignal) { scrollToTopSignal.asSharedFlow() }
 
+    // MainShell-scoped composer submit-events bus. Emitted by both
+    // composer hosts (the Compact NavDisplay route registered by
+    // `ComposerNavigationModule` and the Medium / Expanded
+    // `ComposerOverlay` Dialog) on `ComposerEffect.OnSubmitSuccess`.
+    // Collected by feature screens (today: the feed) to surface a
+    // confirmation snackbar and, when the submit was a reply, run an
+    // optimistic `replyCount + 1` on the parent post.
+    val composerSubmitEvents = remember { ComposerSubmitEvents() }
+
     // MainShell-scoped overlay launcher state for the composer at
     // Medium / Expanded widths. At Compact width this state stays
     // Closed forever — the launcher lambda below pushes a route onto
@@ -171,6 +182,7 @@ fun MainShell(modifier: Modifier = Modifier) {
         LocalMainShellNavState provides mainShellNavState,
         LocalScrollToTopSignal provides readOnlyScrollToTopSignal,
         LocalComposerLauncher provides composerLauncher,
+        LocalComposerSubmitEvents provides composerSubmitEvents,
     ) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
