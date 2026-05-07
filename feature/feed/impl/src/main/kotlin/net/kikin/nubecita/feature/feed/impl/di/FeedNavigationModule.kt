@@ -51,6 +51,13 @@ internal object FeedNavigationModule {
                     // Dialog. This callsite doesn't need to know which path
                     // fires — that's MainShell's call.
                     onComposeClick = { launchComposer(null) },
+                    // Per-post reply tap target on every PostCard. The path
+                    // does NOT pass through FeedViewModel — the screen-
+                    // level handler invokes `launchComposer(replyToUri)`
+                    // directly. Same width-conditional dispatch as
+                    // `onComposeClick`: full-screen route at Compact,
+                    // centered Dialog overlay at Medium/Expanded.
+                    onReplyClick = { uri -> launchComposer(uri) },
                 )
             }
         }
