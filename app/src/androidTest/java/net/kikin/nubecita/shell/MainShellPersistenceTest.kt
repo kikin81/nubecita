@@ -12,11 +12,8 @@ import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
@@ -27,6 +24,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -240,7 +238,7 @@ class MainShellPersistenceTest {
         tester.setContent {
             ListDetailHarness(
                 windowAdaptiveInfo = adaptiveInfo,
-                backStack = listOf(Feed, detailRoute),
+                initialBackStack = listOf(Feed, detailRoute),
                 extraInstallers = listOf(fakeDetailInstaller),
             )
         }
@@ -303,16 +301,23 @@ private fun adaptiveInfoForWidth(widthDp: Int): WindowAdaptiveInfo =
  * `ViewModelStoreNavEntryDecorator`) are included so the saved-state
  * machinery exercised by `StateRestorationTester` matches the real
  * `MainShell`.
+ *
+ * The back stack is held by `rememberNavBackStack` (the same
+ * `rememberSerializable`-backed helper production uses inside
+ * `MainShellNavState`), so `StateRestorationTester.emulateSavedInstanceStateRestore()`
+ * actually round-trips the stack through the saver instead of rebuilding
+ * it from the [initialBackStack] parameter on every restore — without
+ * that, rotation tests would pass whether or not state restoration
+ * preserved anything.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @androidx.compose.runtime.Composable
 private fun ListDetailHarness(
     windowAdaptiveInfo: WindowAdaptiveInfo,
-    backStack: List<NavKey> = listOf(Feed),
+    initialBackStack: List<NavKey> = listOf(Feed),
     extraInstallers: List<EntryProviderInstaller> = emptyList(),
 ) {
-    val backStackState: SnapshotStateList<NavKey> =
-        remember { mutableStateListOf<NavKey>().apply { addAll(backStack) } }
+    val backStackState = rememberNavBackStack(*initialBackStack.toTypedArray())
     val sceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(
             directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(windowAdaptiveInfo),
