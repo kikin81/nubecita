@@ -7,6 +7,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
@@ -43,6 +44,13 @@ internal object PostDetailNavigationModule {
         {
             entry<PostDetailRoute> { route ->
                 val navState = LocalMainShellNavState.current
+                // The media viewer is registered on the OUTER NavDisplay
+                // (`@OuterShell` in MediaViewerNavigationModule) so it
+                // escapes MainShell's NavigationSuiteScaffold chrome —
+                // pushing it onto MainShell's inner back stack would leave
+                // the bottom nav visible behind the fullscreen canvas.
+                // Push via the outer Navigator instead.
+                val appNavigator = LocalAppNavigator.current
                 val viewModel =
                     hiltViewModel<PostDetailViewModel, PostDetailViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
@@ -56,7 +64,7 @@ internal object PostDetailNavigationModule {
                     // :impl module surfaces a handle-from-DID resolver.
                     onNavigateToAuthor = {},
                     onNavigateToMediaViewer = { uri, index ->
-                        navState.add(MediaViewerRoute(postUri = uri, imageIndex = index))
+                        appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = index))
                     },
                     viewModel = viewModel,
                 )

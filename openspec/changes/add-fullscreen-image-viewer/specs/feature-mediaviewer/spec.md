@@ -164,16 +164,28 @@ The chrome MUST be implemented with `androidx.compose.animation.AnimatedVisibili
 - **WHEN** the import set of `MediaViewerViewModel.kt` is inspected
 - **THEN** it MUST NOT contain `LocalMainShellNavState` or any `CompositionLocal`-originated nav holder; the screen module is the only place that imports the nav state holder
 
-### Requirement: `:feature:mediaviewer:impl` registers a `@MainShell`-qualified `EntryProviderInstaller`
+### Requirement: `:feature:mediaviewer:impl` registers an `@OuterShell`-qualified `EntryProviderInstaller`
 
-The viewer's `:impl` module MUST contribute a `@Provides @IntoSet @MainShell EntryProviderInstaller` registering `MediaViewerRoute` in `MainShell`'s inner `NavDisplay`. The entry block MUST resolve the per-route `MediaViewerViewModel` via the assisted-inject Hilt bridge (`hiltViewModel<MediaViewerViewModel, MediaViewerViewModel.Factory>(creationCallback = { it.create(route) })`) — same pattern as `PostDetailNavigationModule`.
+The viewer's `:impl` module MUST contribute a `@Provides @IntoSet @OuterShell EntryProviderInstaller` registering `MediaViewerRoute` in the OUTER `NavDisplay` (`MainNavigation` in `:app`), not inside `MainShell`'s inner `NavDisplay`. Hosting on the outer shell escapes `MainShell`'s `NavigationSuiteScaffold` — the bottom nav bar / rail does NOT render while the viewer is open, giving a true fullscreen canvas. This deviates from the project's general convention (per `CLAUDE.md`, `@OuterShell` collects `Splash → Login → Main`; tab-internal sub-routes live on `@MainShell`) deliberately, because the viewer is a fullscreen modal that should escape the tab structure entirely.
 
-The provider MUST carry exactly the `@MainShell` qualifier — never `@OuterShell`, never unqualified. Per the `CLAUDE.md` two-shell convention, `@OuterShell` collects `Splash → Login → Main` only; tab-internal sub-routes (including the viewer) live on `@MainShell`.
+Pop semantics: `goBack()` on the outer Navigator pops the viewer and lands on `Main`, which preserves `MainShell`'s inner back stack. The user returns to the same `PostDetailScreen` they tapped from with screen state intact.
 
-#### Scenario: MainShell qualifier on the entry provider
+The entry block MUST resolve the per-route `MediaViewerViewModel` via the assisted-inject Hilt bridge (`hiltViewModel<MediaViewerViewModel, MediaViewerViewModel.Factory>(creationCallback = { it.create(route) })`) — same pattern as `PostDetailNavigationModule`. The block MUST read the outer Navigator via `LocalAppNavigator.current` (a `CompositionLocal` provided by `MainNavigation` at the root of the outer `NavDisplay`'s composition) and wire `onDismiss = { navigator.goBack() }`.
 
-- **WHEN** Hilt's `Set<EntryProviderInstaller>` qualified by `@MainShell` is resolved
-- **THEN** the set includes the viewer's installer; the corresponding `@OuterShell` set does NOT include it
+#### Scenario: OuterShell qualifier on the entry provider
+
+- **WHEN** Hilt's `Set<EntryProviderInstaller>` qualified by `@OuterShell` is resolved
+- **THEN** the set includes the viewer's installer; the corresponding `@MainShell` set does NOT include it
+
+#### Scenario: Bottom nav bar hidden while viewer is open
+
+- **WHEN** the user taps a focus-post image and the viewer is pushed
+- **THEN** `MainShell`'s `NavigationSuiteScaffold` chrome (bottom nav bar on mobile, rail on tablet) is no longer rendered — the viewer fills the entire screen including the area previously occupied by the nav suite
+
+#### Scenario: Dismiss returns to the same PostDetail screen
+
+- **WHEN** the user dismisses the viewer (close button, swipe-down, back press)
+- **THEN** the outer Navigator pops the viewer; `MainShell` re-renders with its inner back stack intact, and the `PostDetailScreen` the user tapped from is visible at the same scroll position
 
 ### Requirement: Screenshot test harness covers the viewer's view modes
 

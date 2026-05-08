@@ -117,16 +117,28 @@ If the URL doesn't carry the `@feed_thumbnail` segment (unexpected; logging a wa
 
 The transform is a CDN-implementation detail of Bluesky's blob serving (`…/<did>/<cid>@<size>`). If Bluesky ever changes the URL shape, this one helper updates; nothing else cares.
 
-### Decision 7: Black background, no immersive-mode system-bar hiding
+### Decision 7: Black background, register on the OUTER `NavDisplay` to escape MainShell chrome
 
-**Choice:** The viewer renders inside `MainShell`'s inner `NavDisplay` slot — same as `PostDetailScreen` — on a black `Surface(color = Color.Black)`. We do not flip the system bars to immersive (hidden) mode.
+**Choice:** The viewer is registered as an `@OuterShell`-qualified `EntryProviderInstaller` and pushed onto the outer `Navigator`'s back stack via `LocalAppNavigator.current.goTo(MediaViewerRoute(...))` from `PostDetailScreen`'s effect collector. `LocalAppNavigator` is a `CompositionLocal` provided by `MainNavigation` at the root of the outer `NavDisplay`'s composition; the per-route entry block reads it for both the push-from-postdetail call site and the dismiss-from-viewer call site.
 
-**Why this over alternatives:**
+OS system bars stay visible (no immersive-mode flip). Background is `Surface(color = Color.Black)` filling the slot.
 
-- *Hide system bars in immersive mode while viewer is open; restore on dismiss* — works but introduces a system-UI flicker on every dismiss (status bar slides back in over the post-detail screen) that the standard `NavDisplay` transition can't mask. The flicker is more disruptive than the bar's presence. Rejected for v1.
-- *Edge-to-edge with the bars over a translucent black scrim* — the project already runs edge-to-edge at the activity level; the inner `NavDisplay` is naturally edge-to-edge inside `MainShell`'s scaffolding. The system bars sit over the black background and read as black-on-black, which is approximately the same effect as immersive without the flicker. This is what we ship.
+**Why outer-shell rather than inner-MainShell:**
 
-If user feedback flags the bars as distracting, immersive can be revisited as a follow-up — the screen's scaffolding doesn't preclude it.
+- *Original v0 choice — register as `@MainShell`* — would keep the viewer inside `MainShell`'s `NavigationSuiteScaffold`, which means the bottom navigation bar (mobile) or rail (tablet) stays visible behind the black canvas during the viewer's lifetime. That's not fullscreen — Bluesky's behavior is to hide all chrome, including the app's own nav suite. Rejected on review.
+- *Conditionally hide `NavigationSuiteScaffold`'s bar when the topmost MainShell back-stack entry is `MediaViewerRoute`* — fights the scaffold (Material 3 doesn't expose a "hide bar" mode; the only options are `NavigationBar` / `NavigationRail` / `NavigationDrawer`). Would require either a custom scaffold replacement or a `Modifier.zIndex` overlay. Both are uglier than just hosting the route on the outer NavDisplay where there's no scaffolding to fight.
+- *Custom `Modifier.zIndex(...)` overlay over MainShell's content* — bypasses the back-stack entirely; the system back press wouldn't pop it without extra wiring. Also breaks the per-NavEntry ViewModel scoping (the assisted-inject Hilt bridge wants a real `NavKey` in the back stack). Rejected.
+
+The outer back stack normally contains `[Splash] → [Main]` (or `[Login]` pre-auth). Pushing `MediaViewerRoute` adds a fourth entry: `[Splash] → [Main] → [MediaViewerRoute]`. `goBack()` pops the viewer and lands on `Main`, which preserves `MainShell`'s inner back stack — the user returns to the same `PostDetailScreen` they tapped from, with scroll position and screen state intact. The outer-shell push is invisible to MainShell's per-tab back-stack machinery.
+
+**System-bar handling:** OS system bars stay visible. We do not flip to immersive mode because:
+
+- *Hide system bars while viewer is open; restore on dismiss* — works but introduces a system-UI flicker on every dismiss (status bar slides back in over post-detail) that the standard `NavDisplay` transition can't mask. Rejected for v1.
+- *Edge-to-edge with the bars over a translucent black scrim* — the project already runs edge-to-edge at the activity level; the bars sit over the black background and read as black-on-black, which is approximately the same effect as immersive without the flicker. This is what we ship.
+
+If user feedback flags the OS bars as distracting, immersive can be revisited as a follow-up — the screen's scaffolding doesn't preclude it.
+
+**`LocalAppNavigator` introduction:** `:core:common:navigation` gains a new `val LocalAppNavigator = compositionLocalOf<Navigator>` that `MainNavigation` provides at the root. Feature modules' `@OuterShell` entry blocks read it instead of using `EntryPointAccessors.fromApplication(...)` to look up the singleton. Same instance Hilt also injects into ViewModels — just exposed through Compose's CompositionLocal mechanism so entry-block composables (which can't easily call into Hilt's `@EntryPoint` machinery from a feature module) have a clean read.
 
 ### Decision 8: Effect collector pattern for dismiss; no direct `LocalMainShellNavState` access from the ViewModel
 
