@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.composer.impl
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,9 +28,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -43,14 +48,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounter
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerCloseAction
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerDialogAction
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerDiscardDialog
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
+import net.kikin.nubecita.feature.composer.impl.internal.composerCloseAttempt
 import net.kikin.nubecita.feature.composer.impl.internal.rememberComposerImagePicker
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
@@ -142,6 +152,44 @@ fun ComposerScreen(
             { viewModel.handleEvent(ComposerEvent.RetryParentLoad) }
         }
 
+    // Discard-confirmation gate. The composer is a transient, in-progress
+    // surface — leaving it (back-press or toolbar X) while the draft has
+    // content would otherwise drop unsent text. `attemptClose` is the
+    // single entry point both surfaces route through:
+    //
+    //  - Submitting   → swallow the close attempt entirely. Back-press
+    //    propagating to NavDisplay would tear down the composer mid-
+    //    submit on Compact, which the spec explicitly forbids (the X
+    //    button is also disabled while submitting).
+    //  - hasContent   → show the discard confirmation dialog. The user
+    //    has to acknowledge that work is being thrown away.
+    //  - empty        → close immediately. No prompt for an empty draft.
+    //
+    // Dialog visibility is local Compose state, not VM state — the VM is
+    // the source of truth for `attachments` / `textFieldState` /
+    // `submitStatus`, but the dialog is pure UI mode (per the
+    // unified-composer design.md "transient — not stored in state" note).
+    // `rememberSaveable` so process death + recreate restores the dialog
+    // mid-confirmation.
+    var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
+    val hasContent by remember(viewModel.textFieldState, state.attachments) {
+        derivedStateOf {
+            viewModel.textFieldState.text.isNotBlank() || state.attachments.isNotEmpty()
+        }
+    }
+    val isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting
+    val attemptClose: () -> Unit = {
+        when (composerCloseAttempt(hasContent = hasContent, isSubmitting = isSubmitting)) {
+            ComposerCloseAction.Swallow -> Unit
+            ComposerCloseAction.ShowDiscardDialog -> showDiscardDialog = true
+            ComposerCloseAction.NavigateBack -> currentOnNavigateBack()
+        }
+    }
+    // BackHandler stays enabled at all times so mid-submit back-presses
+    // are swallowed here rather than propagating to NavDisplay's pop
+    // handler (which would close the Compact composer route mid-submit).
+    BackHandler(enabled = true) { attemptClose() }
+
     // Picker plumbing. The contract is captured at registration time
     // by `rememberLauncherForActivityResult`, so we re-key the helper
     // on `remainingCapacity` to keep the picker UI honest as the user
@@ -187,13 +235,34 @@ fun ComposerScreen(
         textFieldState = viewModel.textFieldState,
         snackbarHostState = snackbarHostState,
         onSubmit = onSubmit,
-        onCloseClick = onNavigateBack,
+        onCloseClick = attemptClose,
         onAddImageClick = onAddImageClick,
         onRemoveAttachment = onRemoveAttachment,
         onSuggestionClick = onSuggestionClick,
         onRetryParentLoad = onRetryParentLoad,
         modifier = modifier,
     )
+
+    if (showDiscardDialog) {
+        ComposerDiscardDialog(
+            actions =
+                persistentListOf(
+                    ComposerDialogAction(
+                        label = R.string.composer_discard_cancel,
+                        onClick = { showDiscardDialog = false },
+                    ),
+                    ComposerDialogAction(
+                        label = R.string.composer_discard_confirm,
+                        destructive = true,
+                        onClick = {
+                            showDiscardDialog = false
+                            currentOnNavigateBack()
+                        },
+                    ),
+                ),
+            onDismiss = { showDiscardDialog = false },
+        )
+    }
 }
 
 /**
