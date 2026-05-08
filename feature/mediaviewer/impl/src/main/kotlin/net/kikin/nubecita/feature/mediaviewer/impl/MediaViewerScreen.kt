@@ -103,6 +103,36 @@ internal fun MediaViewerScreen(
         }
     }
 
+    MediaViewerScreenContent(
+        state = state,
+        onRetry = { viewModel.handleEvent(MediaViewerEvent.Retry) },
+        onDismissRequest = { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) },
+        onPageChange = { viewModel.handleEvent(MediaViewerEvent.OnPageChanged(it)) },
+        onTapImage = { viewModel.handleEvent(MediaViewerEvent.OnTapImage) },
+        onAltBadgeClick = { viewModel.handleEvent(MediaViewerEvent.OnAltBadgeClick) },
+        onAltSheetDismiss = { viewModel.handleEvent(MediaViewerEvent.OnAltSheetDismiss) },
+        onChromeAutoFadeTimeout = { viewModel.handleEvent(MediaViewerEvent.OnChromeAutoFadeTimeout) },
+        modifier = modifier,
+    )
+}
+
+/**
+ * Stateless content composable. Previews and screenshot tests call this
+ * directly with fixture state — no ViewModel, no Hilt graph, no live
+ * `BackHandler`. Mirrors the `PostDetailScreenContent` split.
+ */
+@Composable
+internal fun MediaViewerScreenContent(
+    state: MediaViewerState,
+    onRetry: () -> Unit,
+    onDismissRequest: () -> Unit,
+    onPageChange: (Int) -> Unit,
+    onTapImage: () -> Unit,
+    onAltBadgeClick: () -> Unit,
+    onAltSheetDismiss: () -> Unit,
+    onChromeAutoFadeTimeout: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         modifier = modifier.fillMaxSize(),
         color = Color.Black,
@@ -112,20 +142,18 @@ internal fun MediaViewerScreen(
             is MediaViewerLoadStatus.Error ->
                 ErrorState(
                     error = status.error,
-                    onRetry = { viewModel.handleEvent(MediaViewerEvent.Retry) },
-                    onDismiss = { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) },
+                    onRetry = onRetry,
+                    onDismiss = onDismissRequest,
                 )
             is MediaViewerLoadStatus.Loaded ->
                 LoadedState(
                     status = status,
-                    onPageChange = { viewModel.handleEvent(MediaViewerEvent.OnPageChanged(it)) },
-                    onTapImage = { viewModel.handleEvent(MediaViewerEvent.OnTapImage) },
-                    onAltBadgeClick = { viewModel.handleEvent(MediaViewerEvent.OnAltBadgeClick) },
-                    onAltSheetDismiss = { viewModel.handleEvent(MediaViewerEvent.OnAltSheetDismiss) },
-                    onChromeAutoFadeTimeout = {
-                        viewModel.handleEvent(MediaViewerEvent.OnChromeAutoFadeTimeout)
-                    },
-                    onDismissRequest = { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) },
+                    onPageChange = onPageChange,
+                    onTapImage = onTapImage,
+                    onAltBadgeClick = onAltBadgeClick,
+                    onAltSheetDismiss = onAltSheetDismiss,
+                    onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
+                    onDismissRequest = onDismissRequest,
                 )
         }
     }

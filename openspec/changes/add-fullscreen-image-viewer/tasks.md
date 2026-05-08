@@ -78,7 +78,7 @@
   - `feed_thumbnail URL → fullsize URL` (canonical Bluesky CDN shape)
   - `URL without @feed_thumbnail token → unchanged` (defensive fall-through)
   - `Empty URL → empty` (defensive)
-- [ ] 5.3 Add `feature/mediaviewer/impl/src/screenshotTest/kotlin/.../MediaViewerScreenScreenshotTest.kt` with fixtures:
+- [x] 5.3 Add `feature/mediaviewer/impl/src/screenshotTest/kotlin/.../MediaViewerScreenScreenshotTest.kt` with fixtures:
   - `Loading` (light + dark)
   - `Loaded(single)` (light + dark) — chrome visible, single-image, no page indicator
   - `Loaded(multi)` (light + dark) — chrome visible, three-image, "1 / 3" indicator, ALT badge present (one image with alt text)
@@ -89,14 +89,14 @@
   - Close button click → `onDismiss` invoked
   - Page swipe → `currentIndex` updates (asserted via the chrome's "N / M" semantics text)
   - Tap on image → chrome toggles (asserted via `AnimatedVisibility`-tracked semantics)
-- [ ] 5.5 Run `./gradlew :feature:mediaviewer:impl:testDebugUnitTest :feature:mediaviewer:impl:validateDebugScreenshotTest` clean. Commit baselines.
+- [x] 5.5 Run `./gradlew :feature:mediaviewer:impl:testDebugUnitTest :feature:mediaviewer:impl:validateDebugScreenshotTest` clean. Commit baselines.
 - [ ] 5.6 Add the `run-instrumented` PR label per the project's androidTest convention (memory: `feedback_run_instrumented_label_on_androidtest_prs`).
 
 ## 6. Verification + ship
 
 - [x] 6.0 `./gradlew :core:posts:testDebugUnitTest :core:posts:assembleDebug` clean.
 - [x] 6.1 `./gradlew :feature:mediaviewer:api:testDebugUnitTest :feature:mediaviewer:api:assembleDebug` clean.
-- [ ] 6.2 `./gradlew :feature:mediaviewer:impl:testDebugUnitTest :feature:mediaviewer:impl:validateDebugScreenshotTest :feature:mediaviewer:impl:assembleDebug` clean.
+- [x] 6.2 `./gradlew :feature:mediaviewer:impl:testDebugUnitTest :feature:mediaviewer:impl:validateDebugScreenshotTest :feature:mediaviewer:impl:assembleDebug` clean.
 - [x] 6.3 `./gradlew :feature:postdetail:impl:testDebugUnitTest :feature:postdetail:impl:validateDebugScreenshotTest` clean — regression contract for the Snackbar removal.
 - [x] 6.4 `./gradlew :app:assembleDebug spotlessCheck lint` clean.
 - [ ] 6.5 `./gradlew jacocoTestReportAggregated` clean — coverage on the new module is part of the project's 70%-on-changed-files gate.
