@@ -30,6 +30,7 @@ import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.feed.api.Feed
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
 /**
  * Screenshot baselines for the inner-pane behavior of `MainShell`'s
@@ -110,6 +111,36 @@ private fun MainShellListDetailExpanded() {
     }
 }
 
+@PreviewTest
+@Preview(name = "list-detail-medium-with-detail", widthDp = MEDIUM_WIDTH_DP, heightDp = 800)
+@Composable
+private fun MainShellListDetailMediumWithDetail() {
+    NubecitaTheme(dynamicColor = false) {
+        MainShellChrome(
+            activeKey = TopLevelDestinations[0].key,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.NavigationRail,
+        ) {
+            FakeListDetailNavDisplayWithDetail()
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "list-detail-expanded-with-detail", widthDp = EXPANDED_WIDTH_DP, heightDp = 800)
+@Composable
+private fun MainShellListDetailExpandedWithDetail() {
+    NubecitaTheme(dynamicColor = false) {
+        MainShellChrome(
+            activeKey = TopLevelDestinations[0].key,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.NavigationRail,
+        ) {
+            FakeListDetailNavDisplayWithDetail()
+        }
+    }
+}
+
 /**
  * Renders the inner content with the same wiring as production
  * `MainShell.NavDisplay`: the real [`ListDetailSceneStrategy`] driving a
@@ -155,6 +186,67 @@ private fun FakeListDetailNavDisplay() {
     )
 }
 
+/**
+ * Renders the inner content with a back stack of `[Feed, PostDetailRoute]`
+ * and a real [`ListDetailSceneStrategy`] driving both entries. The Feed
+ * entry carries the same `listPane{}` metadata the production wiring
+ * uses; the PostDetail entry carries `detailPane()` metadata — the
+ * literal under test by this fixture.
+ *
+ * Substitutes `FakePostDetailContent` for the real `PostDetailScreen`
+ * for the same reason `FakeFeedListContent` substitutes for the real
+ * `FeedScreen`: composing the production screen would require a Hilt
+ * graph and ATProto wiring. Strategy + metadata pairing is the
+ * contract under visual test here.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun FakeListDetailNavDisplayWithDetail() {
+    val detailRoute =
+        PostDetailRoute(postUri = "at://did:plc:fake/app.bsky.feed.post/abc123")
+    val backStack: SnapshotStateList<NavKey> =
+        remember { mutableStateListOf<NavKey>(Feed, detailRoute) }
+    val sceneStrategy =
+        rememberListDetailSceneStrategy<NavKey>(
+            directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(currentWindowAdaptiveInfoV2()),
+        )
+
+    val fakeFeedInstaller: EntryProviderInstaller = {
+        entry<Feed>(
+            metadata =
+                ListDetailSceneStrategy.listPane(
+                    detailPlaceholder = { FakeDetailPlaceholder() },
+                ),
+        ) {
+            FakeFeedListContent()
+        }
+    }
+
+    val fakePostDetailInstaller: EntryProviderInstaller = {
+        entry<PostDetailRoute>(
+            metadata = ListDetailSceneStrategy.detailPane(),
+        ) {
+            FakePostDetailContent()
+        }
+    }
+
+    NavDisplay(
+        backStack = backStack,
+        onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
+        sceneStrategies = listOf(sceneStrategy),
+        entryDecorators =
+            listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator(),
+            ),
+        entryProvider =
+            entryProvider {
+                fakeFeedInstaller()
+                fakePostDetailInstaller()
+            },
+    )
+}
+
 @Composable
 private fun FakeFeedListContent() {
     Column(
@@ -184,5 +276,27 @@ private fun FakeDetailPlaceholder() {
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun FakePostDetailContent() {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "Post detail (fake)",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        repeat(3) { index ->
+            Text(
+                text = "Reply #${index + 1}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
