@@ -6,25 +6,44 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
- * Single-producer / single-consumer event bus for composer submit
- * success notifications. Hosted by `MainShell` and exposed to
- * descendants via two separate CompositionLocals so any screen
- * reachable inside the shell (today: the feed) can observe submits
- * without the composer having a direct compile-time dependency on its
- * consumers:
+ * Multi-producer / single-consumer event bus for composer submit
+ * success notifications. The producer side has two host sites that
+ * publish independently — `ComposerOverlay` (Medium / Expanded Dialog)
+ * and `ComposerNavigationModule`'s `ComposerRoute` entry (Compact
+ * NavDisplay route). The consumer side is single (today: only
+ * `FeedScreen` collects).
  *
- * - [LocalComposerSubmitEvents] — read-only [Flow] for consumers.
- * - [LocalComposerSubmitEventsEmitter] — write-only [ComposerSubmitEventsEmitter]
- *   for the composer hosts. Held separately so arbitrary descendants
- *   of `MainShell` can't reach the emit side.
+ * Hosted by `MainShell` and exposed to descendants via two separate
+ * CompositionLocals so any screen reachable inside the shell can
+ * observe submits without the composer having a direct compile-time
+ * dependency on its consumers:
  *
- * The split mirrors the producer/consumer encapsulation of
- * [LocalScrollToTopSignal]; in that case `MainShell` is the sole
- * producer and holds the [kotlinx.coroutines.flow.MutableSharedFlow]
- * locally, but here the producers (`ComposerOverlay` and
- * `ComposerNavigationModule`) live in different modules from
- * `MainShell`, so the emit side has to travel through a
- * CompositionLocal too — just a different one from the read side.
+ * - [LocalComposerSubmitEvents] — consumer-facing read-only [Flow].
+ *   Reading this local can't accidentally emit because [Flow] has no
+ *   write surface.
+ * - [LocalComposerSubmitEventsEmitter] — producer-facing
+ *   [ComposerSubmitEventsEmitter] (a one-method `fun interface`).
+ *
+ * # API separation, not access control
+ *
+ * Both CompositionLocals are provided at the `MainShell` root, so any
+ * descendant of `MainShell` could in principle read
+ * [LocalComposerSubmitEventsEmitter] and call
+ * [ComposerSubmitEventsEmitter.emit]. The split is *intent-revealing
+ * typing*: the consumer-facing local exposes a [Flow] (no `.emit` on
+ * it), so the common-case "I want to react to submits" call site can't
+ * accidentally publish; and the producer/consumer boundary is visible
+ * at the call site by which local you reach for. The convention is
+ * that only the two composer hosts emit.
+ *
+ * Mirrors the producer/consumer split of [LocalScrollToTopSignal] —
+ * in that case `MainShell` is the sole producer and holds the
+ * [kotlinx.coroutines.flow.MutableSharedFlow] locally, but here the
+ * producers live in different modules from `MainShell`, so the emit
+ * side has to travel through a CompositionLocal too. If we ever need
+ * true access control, the path forward is a Hilt-singleton bus
+ * injected at the host sites instead of a CompositionLocal — scoped
+ * out of this change.
  *
  * # Why a Channel and not a SharedFlow?
  *

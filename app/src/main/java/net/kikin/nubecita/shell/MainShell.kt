@@ -141,6 +141,12 @@ fun MainShell(modifier: Modifier = Modifier) {
     // Collected by feature screens (today: the feed) to surface a
     // confirmation snackbar and, when the submit was a reply, run an
     // optimistic `replyCount + 1` on the parent post.
+    //
+    // Both the read side (`bus.events`) and the write side
+    // (`bus.emitter`) are provided shell-wide via separate
+    // CompositionLocals below — see `ComposerSubmitEventsBus` kdoc for
+    // why the producer/consumer separation is by naming/type rather
+    // than visibility scoping.
     val composerSubmitEvents = remember { ComposerSubmitEventsBus() }
 
     // MainShell-scoped overlay launcher state for the composer at
