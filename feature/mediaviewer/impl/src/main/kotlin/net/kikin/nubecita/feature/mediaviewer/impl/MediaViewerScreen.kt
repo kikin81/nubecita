@@ -78,6 +78,8 @@ internal fun MediaViewerScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentOnDismiss by rememberUpdatedState(onDismiss)
 
+    LaunchedEffect(Unit) { viewModel.handleEvent(MediaViewerEvent.Load) }
+
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {

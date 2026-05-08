@@ -46,10 +46,6 @@ internal class MediaViewerViewModel
             fun create(route: MediaViewerRoute): MediaViewerViewModel
         }
 
-        init {
-            handleEvent(MediaViewerEvent.Load)
-        }
-
         override fun handleEvent(event: MediaViewerEvent) {
             when (event) {
                 MediaViewerEvent.Load -> load()
@@ -64,10 +60,12 @@ internal class MediaViewerViewModel
         }
 
         private fun load() {
-            // Idempotent: if already loading, drop the event. From Loaded,
-            // also drop (no reason to re-fetch a working surface).
+            // Idempotent: from Loaded, drop (no reason to re-fetch a working
+            // surface). Initial Loading state and Error are both allowed to
+            // dispatch a fetch — the default state is Loading on construction
+            // and Retry from Error has to actually re-run.
             val status = uiState.value.loadStatus
-            if (status is MediaViewerLoadStatus.Loading || status is MediaViewerLoadStatus.Loaded) return
+            if (status is MediaViewerLoadStatus.Loaded) return
             setState { copy(loadStatus = MediaViewerLoadStatus.Loading) }
             viewModelScope.launch {
                 postRepository
