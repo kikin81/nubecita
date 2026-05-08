@@ -187,6 +187,8 @@ dependencies {
     implementation(project(":feature:feed:impl"))
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
+    implementation(project(":feature:mediaviewer:api"))
+    implementation(project(":feature:mediaviewer:impl"))
     implementation(project(":feature:postdetail:api"))
     implementation(project(":feature:postdetail:impl"))
     implementation(project(":feature:profile:api"))

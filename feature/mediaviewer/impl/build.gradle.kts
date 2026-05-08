@@ -15,8 +15,10 @@ android {
 dependencies {
     api(project(":feature:mediaviewer:api"))
 
+    implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:posts"))
+    implementation(libs.atproto.runtime)
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     implementation(libs.androidx.compose.material.icons.extended)

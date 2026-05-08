@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mediaviewer_close_content_description">Close image viewer</string>
+    <string name="mediaviewer_alt_badge_label">ALT</string>
+    <string name="mediaviewer_alt_badge_content_description">View alt text for this image</string>
+    <string name="mediaviewer_page_indicator">%1$d / %2$d</string>
+
+    <string name="mediaviewer_error_network">Network error. Check your connection and try again.</string>
+    <string name="mediaviewer_error_unauthenticated">Sign-in required to view this image.</string>
+    <string name="mediaviewer_error_not_found">This post is no longer available.</string>
+    <string name="mediaviewer_error_no_images">This post has no images.</string>
+    <string name="mediaviewer_error_unknown">Couldn\'t load image. Try again.</string>
+    <string name="mediaviewer_retry">Retry</string>
+</resources>

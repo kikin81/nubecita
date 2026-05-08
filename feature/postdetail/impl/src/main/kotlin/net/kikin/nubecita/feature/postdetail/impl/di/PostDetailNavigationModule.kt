@@ -9,6 +9,7 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.PostDetailScreen
 import net.kikin.nubecita.feature.postdetail.impl.PostDetailViewModel
@@ -54,6 +55,9 @@ internal object PostDetailNavigationModule {
                     // `navState.add(Profile(handle = …))` once the profile
                     // :impl module surfaces a handle-from-DID resolver.
                     onNavigateToAuthor = {},
+                    onNavigateToMediaViewer = { uri, index ->
+                        navState.add(MediaViewerRoute(postUri = uri, imageIndex = index))
+                    },
                     viewModel = viewModel,
                 )
             }
