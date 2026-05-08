@@ -8,6 +8,8 @@ import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
+import net.kikin.nubecita.core.posts.PostNotFoundException
+import net.kikin.nubecita.core.posts.PostProjectionException
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.data.models.PostUi
 import timber.log.Timber
@@ -48,11 +50,3 @@ internal class DefaultPostRepository
             const val TAG = "PostRepository"
         }
     }
-
-internal class PostNotFoundException(
-    uri: String,
-) : RuntimeException("getPosts returned empty list for uri rkey=${uri.substringAfterLast('/')}")
-
-internal class PostProjectionException(
-    uri: String,
-) : RuntimeException("toPostUiCore returned null for uri rkey=${uri.substringAfterLast('/')}")

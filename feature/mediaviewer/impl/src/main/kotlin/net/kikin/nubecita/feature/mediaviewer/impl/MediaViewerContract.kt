@@ -117,13 +117,14 @@ internal sealed interface MediaViewerEvent : UiEvent {
 }
 
 internal sealed interface MediaViewerEffect : UiEffect {
-    /** Pop the viewer; the screen's collector calls `LocalMainShellNavState.current.removeLast()`. */
+    /**
+     * Pop the viewer. The screen's effect collector translates this to
+     * `LocalAppNavigator.current.goBack()` on the outer `Navigator` —
+     * the viewer is hosted on the outer `NavDisplay` (`@OuterShell`-qualified
+     * entry in `MediaViewerNavigationModule`) so popping returns to `Main`,
+     * which preserves `MainShell`'s inner back stack including the
+     * post-detail screen the user opened the viewer from.
+     */
     @Immutable
     data object Dismiss : MediaViewerEffect
-
-    /** Non-sticky error (snackbar). Sticky errors flow through state. */
-    @Immutable
-    data class ShowError(
-        val error: MediaViewerError,
-    ) : MediaViewerEffect
 }

@@ -10,6 +10,8 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.posts.PostNotFoundException
+import net.kikin.nubecita.core.posts.PostProjectionException
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
@@ -27,12 +29,13 @@ import java.io.IOException
  * flows back into state via [MediaViewerEvent.OnPageChanged] for chrome
  * rendering (page indicator, ALT badge visibility).
  *
- * The VM does NOT inject `LocalMainShellNavState` (per the
- * `CLAUDE.md` rule that ViewModels never reach into Compose
- * `CompositionLocal`s). All dismiss paths — close button, swipe-down,
- * back press — converge on [MediaViewerEffect.Dismiss], which the
- * screen's `LaunchedEffect` collector translates to
- * `LocalMainShellNavState.current.removeLast()`.
+ * The VM does NOT inject any nav state holder (per the `CLAUDE.md` rule
+ * that ViewModels never reach into Compose `CompositionLocal`s). All
+ * dismiss paths — close button, swipe-down, back press — converge on
+ * [MediaViewerEffect.Dismiss], which the screen's `LaunchedEffect`
+ * collector translates to `LocalAppNavigator.current.goBack()` on the
+ * outer `Navigator` (the viewer is hosted on the outer `NavDisplay`
+ * to escape `MainShell`'s chrome — see `MediaViewerNavigationModule`).
  */
 @HiltViewModel(assistedFactory = MediaViewerViewModel.Factory::class)
 internal class MediaViewerViewModel
@@ -60,47 +63,55 @@ internal class MediaViewerViewModel
         }
 
         private fun load() {
-            // Idempotent: from Loaded, drop (no reason to re-fetch a working
-            // surface). Initial Loading state and Error are both allowed to
-            // dispatch a fetch — the default state is Loading on construction
-            // and Retry from Error has to actually re-run.
-            val status = uiState.value.loadStatus
-            if (status is MediaViewerLoadStatus.Loaded) return
+            // Idempotent. Drop when:
+            //  - a fetch is already in flight (prevents duplicate network
+            //    calls + setState races when LaunchedEffect(Unit) refires
+            //    on recomposition or the user double-taps Retry); OR
+            //  - the surface is already Loaded (no reason to refetch a
+            //    working surface).
+            // Mirrors the in-flight guard pattern in PostDetail / Feed VMs.
+            if (hasActiveFetch) return
+            if (uiState.value.loadStatus is MediaViewerLoadStatus.Loaded) return
             setState { copy(loadStatus = MediaViewerLoadStatus.Loading) }
+            hasActiveFetch = true
             viewModelScope.launch {
                 postRepository
                     .getPost(route.postUri)
                     .onSuccess { post ->
-                        when (val embed = post.embed) {
-                            is EmbedUi.Images ->
-                                setState {
-                                    copy(
-                                        loadStatus =
-                                            MediaViewerLoadStatus.Loaded(
-                                                images = embed.items.toImmutableList(),
-                                                currentIndex = route.imageIndex.coerceIn(0, embed.items.size - 1),
-                                                isChromeVisible = true,
-                                                isAltSheetOpen = false,
-                                            ),
-                                    )
-                                }
-                            else ->
-                                // Post was opened on something that isn't an image
-                                // embed — defensive (the contract is that only
-                                // image-bearing focus posts route here, but a future
-                                // deep-link landing could bring us here on, e.g.,
-                                // a video post).
-                                setState {
-                                    copy(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.NoImages))
-                                }
+                        val embed = post.embed
+                        if (embed !is EmbedUi.Images || embed.items.isEmpty()) {
+                            // Either the focus post has no image embed (defensive
+                            // — viewer was opened on a non-image post via some
+                            // out-of-band path) or the embed projected to an
+                            // empty list. Coerce-into-empty would throw; render
+                            // the user-facing "no images" state instead.
+                            setState {
+                                copy(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.NoImages))
+                            }
+                        } else {
+                            setState {
+                                copy(
+                                    loadStatus =
+                                        MediaViewerLoadStatus.Loaded(
+                                            images = embed.items.toImmutableList(),
+                                            currentIndex = route.imageIndex.coerceIn(0, embed.items.size - 1),
+                                            isChromeVisible = true,
+                                            isAltSheetOpen = false,
+                                        ),
+                                )
+                            }
                         }
                     }.onFailure { throwable ->
                         setState {
                             copy(loadStatus = MediaViewerLoadStatus.Error(throwable.toMediaViewerError()))
                         }
                     }
+                hasActiveFetch = false
             }
         }
+
+        /** Tracks an in-flight `getPost(...)` so concurrent `Load` / `Retry` events drop. */
+        private var hasActiveFetch: Boolean = false
 
         private fun onPageChanged(index: Int) {
             val status = uiState.value.loadStatus
@@ -159,16 +170,11 @@ internal class MediaViewerViewModel
                         MediaViewerError.Unknown(cause = errorName)
                     }
                 }
-                // PostNotFoundException + PostProjectionException are :core:posts
-                // sentinels; they collapse to NotFound at the user surface.
-                else -> {
-                    val name = this::class.simpleName.orEmpty()
-                    if (name == "PostNotFoundException" || name == "PostProjectionException") {
-                        MediaViewerError.NotFound
-                    } else {
-                        MediaViewerError.Unknown(cause = message)
-                    }
-                }
+                // :core:posts public sentinels — type-safe `is` checks survive
+                // R8 minification (the previous stringly-typed simpleName
+                // matching would silently misclassify on release builds).
+                is PostNotFoundException, is PostProjectionException -> MediaViewerError.NotFound
+                else -> MediaViewerError.Unknown(cause = message)
             }
 
         private companion object {

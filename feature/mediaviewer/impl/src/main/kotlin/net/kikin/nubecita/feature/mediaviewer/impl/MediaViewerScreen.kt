@@ -6,6 +6,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,22 +38,28 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
+import me.saket.telephoto.zoomable.rememberZoomableImageState
+import me.saket.telephoto.zoomable.rememberZoomableState
 import kotlin.time.Duration.Companion.seconds
-
-private const val TAG = "MediaViewerScreen"
 
 /**
  * Auto-fade delay for the chrome overlay. Resets on every page change
@@ -59,15 +68,35 @@ private const val TAG = "MediaViewerScreen"
 private val CHROME_AUTO_FADE_DELAY = 3.seconds
 
 /**
+ * Vertical drag distance (px) past which a swipe-down at min-zoom
+ * dispatches [MediaViewerEvent.OnDismissRequest]. Resolved from a dp
+ * value at the call site so it scales with display density.
+ */
+private const val SWIPE_DOWN_DISMISS_THRESHOLD_DP: Int = 120
+
+/**
+ * Tolerance for "is the active page at min-zoom?". `zoomFraction` is a
+ * `Float` reported by telephoto that can hover near zero from anti-jitter
+ * smoothing during a fling — anything below this counts as min-zoom for
+ * the paging-enabled / swipe-down-dismiss-enabled gates.
+ */
+private const val MIN_ZOOM_TOLERANCE: Float = 0.02f
+
+/**
  * Screen-level entry composable for the fullscreen image viewer.
  *
  * - [onDismiss] is the only nav side-effect — invoked when the
  *   ViewModel emits [MediaViewerEffect.Dismiss]. The screen does NOT
- *   import `LocalMainShellNavState`; the entry-provider call site in
+ *   import any nav-state holder; the entry-provider call site in
  *   `MediaViewerNavigationModule` wires `onDismiss` to
- *   `LocalMainShellNavState.current.removeLast()`.
+ *   `LocalAppNavigator.current.goBack()` on the outer `Navigator`.
  * - The `BackHandler` collects the system back press and dispatches
  *   `OnDismissRequest` (or `OnAltSheetDismiss` if the sheet is open).
+ *
+ * Event-dispatch lambdas are hoisted via `remember(viewModel) { … }`
+ * so children (and especially the active page's `ZoomableAsyncImage`)
+ * see stable references and don't recompose during pinch/zoom from
+ * lambda-identity churn alone.
  */
 @Composable
 internal fun MediaViewerScreen(
@@ -78,18 +107,20 @@ internal fun MediaViewerScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentOnDismiss by rememberUpdatedState(onDismiss)
 
+    val onRetry = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.Retry) } }
+    val onDismissRequest = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) } }
+    val onPageChange = remember(viewModel) { { i: Int -> viewModel.handleEvent(MediaViewerEvent.OnPageChanged(i)) } }
+    val onTapImage = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnTapImage) } }
+    val onAltBadgeClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnAltBadgeClick) } }
+    val onAltSheetDismiss = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnAltSheetDismiss) } }
+    val onChromeAutoFadeTimeout = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnChromeAutoFadeTimeout) } }
+
     LaunchedEffect(Unit) { viewModel.handleEvent(MediaViewerEvent.Load) }
 
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 MediaViewerEffect.Dismiss -> currentOnDismiss()
-                is MediaViewerEffect.ShowError -> {
-                    // No persistent surface for snackbars on the black viewer
-                    // canvas (and v1 has no non-sticky errors that aren't
-                    // already routed through state.Error). Reserved for future
-                    // share/save action failures.
-                }
             }
         }
     }
@@ -105,13 +136,13 @@ internal fun MediaViewerScreen(
 
     MediaViewerScreenContent(
         state = state,
-        onRetry = { viewModel.handleEvent(MediaViewerEvent.Retry) },
-        onDismissRequest = { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) },
-        onPageChange = { viewModel.handleEvent(MediaViewerEvent.OnPageChanged(it)) },
-        onTapImage = { viewModel.handleEvent(MediaViewerEvent.OnTapImage) },
-        onAltBadgeClick = { viewModel.handleEvent(MediaViewerEvent.OnAltBadgeClick) },
-        onAltSheetDismiss = { viewModel.handleEvent(MediaViewerEvent.OnAltSheetDismiss) },
-        onChromeAutoFadeTimeout = { viewModel.handleEvent(MediaViewerEvent.OnChromeAutoFadeTimeout) },
+        onRetry = onRetry,
+        onDismissRequest = onDismissRequest,
+        onPageChange = onPageChange,
+        onTapImage = onTapImage,
+        onAltBadgeClick = onAltBadgeClick,
+        onAltSheetDismiss = onAltSheetDismiss,
+        onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
         modifier = modifier,
     )
 }
@@ -195,7 +226,7 @@ private fun ErrorState(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                text = error.toMessage(LocalContext.current),
+                text = error.localizedMessage(),
                 color = Color.White,
                 style = MaterialTheme.typography.bodyLarge,
             )
@@ -230,13 +261,36 @@ private fun LoadedState(
         )
     val currentOnPageChange by rememberUpdatedState(onPageChange)
     val currentOnChromeAutoFadeTimeout by rememberUpdatedState(onChromeAutoFadeTimeout)
+    val currentOnDismissRequest by rememberUpdatedState(onDismissRequest)
 
-    // Sync pager → state. distinctUntilChanged avoids the loop with
-    // OnPageChanged → setState → recomposition → snapshotFlow re-emit.
+    // Active page's zoom factor, written by the active slot's
+    // snapshotFlow collector below. The pager's `userScrollEnabled` and
+    // the swipe-down-dismiss draggable both read this to gate gestures —
+    // paging only at min-zoom, dismiss only at min-zoom. Above min-zoom,
+    // telephoto's pan/zoom absorbs all gestures on the active page.
+    var activePageZoomFraction by remember { mutableFloatStateOf(0f) }
+    val isAtMinZoom = activePageZoomFraction <= MIN_ZOOM_TOLERANCE
+
+    val swipeDownThresholdPx = with(LocalDensity.current) { SWIPE_DOWN_DISMISS_THRESHOLD_DP.dp.toPx() }
+    var dismissDragOffset by remember { mutableFloatStateOf(0f) }
+    val dismissDraggableState =
+        rememberDraggableState { delta ->
+            // Only accumulate downward motion; an upward drag at min-zoom
+            // does nothing (no gesture is bound to it). Negative delta
+            // (finger moved up) resets the accumulator so half-down /
+            // half-up wobbles don't latch into a dismiss.
+            dismissDragOffset = (dismissDragOffset + delta).coerceAtLeast(0f)
+        }
+
+    // Sync pager → state. distinctUntilChanged absorbs the round-trip
+    // (OnPageChanged → setState → recomposition → snapshotFlow re-emit).
+    // No `.filter { it != status.currentIndex }` guard — the captured
+    // status would go stale after the first emission, blocking subsequent
+    // page changes; the VM's own `if (status.currentIndex == index) return`
+    // guard in onPageChanged() makes the filter redundant anyway.
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
-            .filter { it != status.currentIndex }
             .collect { currentOnPageChange(it) }
     }
 
@@ -251,15 +305,59 @@ private fun LoadedState(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxSize()
+                // Vertical-only draggable for swipe-down dismiss. Enabled
+                // only at min-zoom so an above-min-zoom vertical motion is
+                // absorbed by telephoto's pan instead. `Orientation.Vertical`
+                // tells Compose's gesture system to leave horizontal drags
+                // alone — they pass through to HorizontalPager.
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = dismissDraggableState,
+                    enabled = isAtMinZoom,
+                    onDragStarted = { dismissDragOffset = 0f },
+                    onDragStopped = {
+                        if (dismissDragOffset >= swipeDownThresholdPx) {
+                            currentOnDismissRequest()
+                        }
+                        dismissDragOffset = 0f
+                    },
+                ),
+    ) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
+            // Disable paging when the active page is zoomed — telephoto's
+            // pan absorbs the horizontal gesture instead of advancing the
+            // page. At min-zoom the user can swipe horizontally to page.
+            userScrollEnabled = isAtMinZoom,
         ) { page ->
             val image = status.images[page]
+            val zoomableState = rememberZoomableImageState(rememberZoomableState())
+            // Only the active page reports its zoom factor up to LoadedState.
+            // Off-screen pages also have their own state but their zoom is
+            // unobserved (and resets on next composition anyway).
+            val isActivePage = page == pagerState.currentPage
+            LaunchedEffect(isActivePage, zoomableState) {
+                if (isActivePage) {
+                    // zoomFraction is nullable while the image content is
+                    // still being measured (no intrinsic size yet). Treat
+                    // null as min-zoom — the image isn't laid out so there's
+                    // nothing to gate gestures on anyway.
+                    snapshotFlow { zoomableState.zoomableState.zoomFraction ?: 0f }
+                        .collect { activePageZoomFraction = it }
+                }
+            }
             ZoomableAsyncImage(
-                model = image.fullsizeUrl(),
+                // ImageUi.url is already the fullsize CDN variant — the
+                // `:core:feed-mapping` projection uses image.fullsize.raw.
+                // (See Copilot review on PR #139 / nubecita-w70 follow-up.)
+                model = image.url,
                 contentDescription = image.altText,
+                state = zoomableState,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit,
                 onClick = { onTapImage() },
@@ -341,9 +439,17 @@ private fun ChromeBar(
                 )
             }
             if (hasAltText) {
+                val altBadgeContentDescription =
+                    stringResource(R.string.mediaviewer_alt_badge_content_description)
                 Surface(
                     onClick = onAltBadgeClick,
-                    modifier = Modifier.align(Alignment.CenterEnd),
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterEnd)
+                            .semantics {
+                                contentDescription = altBadgeContentDescription
+                                role = Role.Button
+                            },
                     color = Color.White.copy(alpha = 0.18f),
                     contentColor = Color.White,
                     shape = MaterialTheme.shapes.small,
@@ -364,11 +470,11 @@ private fun ChromeBar(
 }
 
 @Composable
-private fun MediaViewerError.toMessage(context: android.content.Context): String =
+private fun MediaViewerError.localizedMessage(): String =
     when (this) {
-        MediaViewerError.Network -> context.getString(R.string.mediaviewer_error_network)
-        MediaViewerError.Unauthenticated -> context.getString(R.string.mediaviewer_error_unauthenticated)
-        MediaViewerError.NotFound -> context.getString(R.string.mediaviewer_error_not_found)
-        MediaViewerError.NoImages -> context.getString(R.string.mediaviewer_error_no_images)
-        is MediaViewerError.Unknown -> context.getString(R.string.mediaviewer_error_unknown)
+        MediaViewerError.Network -> stringResource(R.string.mediaviewer_error_network)
+        MediaViewerError.Unauthenticated -> stringResource(R.string.mediaviewer_error_unauthenticated)
+        MediaViewerError.NotFound -> stringResource(R.string.mediaviewer_error_not_found)
+        MediaViewerError.NoImages -> stringResource(R.string.mediaviewer_error_no_images)
+        is MediaViewerError.Unknown -> stringResource(R.string.mediaviewer_error_unknown)
     }

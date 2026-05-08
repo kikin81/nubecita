@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.posts.PostNotFoundException
 import net.kikin.nubecita.data.models.EmbedUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull

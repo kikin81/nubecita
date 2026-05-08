@@ -65,21 +65,18 @@ If the post has been deleted server-side between the time the user opened post-d
 - **WHEN** `MediaViewerRoute`'s declared fields are inspected
 - **THEN** the only fields are `postUri: String` and `imageIndex: Int`; no `images: List<…>` field is present
 
-### Requirement: Fullsize URL transform via internal helper
+### Requirement: Viewer renders fullsize CDN images via `ImageUi.url`
 
-The viewer SHALL render each page using the image's `@fullsize` CDN variant, derived from the existing `ImageUi.url` via an internal helper `ImageUi.fullsizeUrl(): String` defined in `:feature:mediaviewer:impl`. The helper transforms the `@feed_thumbnail` size token to `@fullsize`; URLs that don't match the expected token shape MUST fall through to `url` unchanged so the viewer remains functional at thumbnail quality if the CDN URL convention changes.
+The viewer SHALL render each page directly from `ImageUi.url`. The `:core:feed-mapping` projection (`toImageUiList`) maps `image.fullsize.raw` into `ImageUi.url`, so the URL is already the fullsize CDN variant — no per-page URL transform is required at this layer.
 
-The `ImageUi` model MUST NOT gain a `fullsizeUrl` field — the transform is deterministic from the existing `url` and storing it twice is redundant. If a second consumer needs fullsize URLs, the helper is promoted to `:data:models` then.
+A previous draft of this spec called for an `ImageUi.fullsizeUrl()` helper that would swap a `@feed_thumbnail` token for `@fullsize`; that helper was a no-op in production because the input URL never carries the `@feed_thumbnail` token (the mapper resolves to `image.fullsize.raw`, which uses the `feed_fullsize` path segment, not a `@<size>` suffix). The helper was removed under PR #139 / Copilot review feedback.
 
-#### Scenario: Feed thumbnail URL transforms to fullsize
+A separate follow-up (`nubecita-w70`) tracks switching the feed-side mapper to `image.thumb.raw` so feed PostCards stop downloading fullsize bytes for thumbnail-sized cells. Once that change ships, the viewer will need its own thumb→fullsize URL transform — either re-introducing a helper or deriving fullsize at the viewer layer. Until then, the viewer reads `ImageUi.url` as-is.
 
-- **WHEN** an `ImageUi` carries a URL of the form `https://cdn.bsky.app/img/.../<cid>@feed_thumbnail` and `fullsizeUrl()` is invoked
-- **THEN** the result is the same URL with `@feed_thumbnail` replaced by `@fullsize`
+#### Scenario: ZoomableAsyncImage receives ImageUi.url unchanged
 
-#### Scenario: URL without the expected token falls through unchanged
-
-- **WHEN** an `ImageUi` carries a URL that does not contain `@feed_thumbnail` (e.g., a future Bluesky CDN shape, an empty string, a non-Bluesky URL)
-- **THEN** `fullsizeUrl()` returns `url` unchanged — no exception, no crash; the viewer renders whatever quality `url` resolves to
+- **WHEN** the viewer's `LoadedState` renders a page for `image: ImageUi`
+- **THEN** the `model` parameter passed to `ZoomableAsyncImage` is exactly `image.url` — no transform, no swap, no helper interposed
 
 ### Requirement: Pinch-to-zoom + paging + swipe-down dismiss compose without conflicts
 
