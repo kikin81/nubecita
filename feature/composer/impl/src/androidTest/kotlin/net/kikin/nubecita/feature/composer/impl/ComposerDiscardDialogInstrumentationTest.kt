@@ -113,7 +113,7 @@ class ComposerDiscardDialogInstrumentationTest {
     }
 
     @Test
-    fun rendersTitle_andBothActions_inOrder() {
+    fun rendersTitle_andBothActionLabels() {
         composeTestRule.setContent {
             NubecitaTheme {
                 ComposerDiscardDialogContent(

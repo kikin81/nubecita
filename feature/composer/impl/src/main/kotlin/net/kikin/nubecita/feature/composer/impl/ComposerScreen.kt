@@ -188,7 +188,23 @@ fun ComposerScreen(
     // BackHandler stays enabled at all times so mid-submit back-presses
     // are swallowed here rather than propagating to NavDisplay's pop
     // handler (which would close the Compact composer route mid-submit).
-    BackHandler(enabled = true) { attemptClose() }
+    //
+    // While the discard dialog is showing, the back-press dismisses
+    // the dialog instead of re-running `attemptClose()`. Without this
+    // guard the user gets trapped in the confirmation: re-running the
+    // gate sees `hasContent = true` and re-sets `showDiscardDialog =
+    // true`, a no-op that never gives the dialog's own back-press
+    // dismissal (the Popup's `dismissOnBackPress` at Medium/Expanded,
+    // BasicAlertDialog's `onDismissRequest` at Compact) a chance to
+    // run, since this BackHandler fires first. Treating in-dialog
+    // back-press as Cancel matches the M3 dismissal convention.
+    BackHandler(enabled = true) {
+        if (showDiscardDialog) {
+            showDiscardDialog = false
+        } else {
+            attemptClose()
+        }
+    }
 
     // Picker plumbing. The contract is captured at registration time
     // by `rememberLauncherForActivityResult`, so we re-key the helper

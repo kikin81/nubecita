@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -51,7 +52,7 @@ import net.kikin.nubecita.feature.composer.impl.R
  * exactly `Cancel` + `Discard` but the eventual third "Save draft"
  * action drops in without a layout rewrite.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 internal fun ComposerDiscardDialog(
     actions: ImmutableList<ComposerDialogAction>,
@@ -62,9 +63,17 @@ internal fun ComposerDiscardDialog(
         !currentWindowAdaptiveInfoV2()
             .windowSizeClass
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    // `modifier` is routed to [ComposerDiscardDialogContent] (the
+    // visible card) in BOTH branches so caller-supplied sizing
+    // constraints (e.g. `widthIn(max = ...)`) target the same surface
+    // regardless of width class. Routing it to BasicAlertDialog at
+    // Compact and to the inner content at Expanded would let the same
+    // `modifier` argument size two different surfaces — a footgun for
+    // anyone wiring `widthIn` / `padding` etc. through the public
+    // signature.
     if (isCompact) {
-        BasicAlertDialog(onDismissRequest = onDismiss, modifier = modifier) {
-            ComposerDiscardDialogContent(actions = actions)
+        BasicAlertDialog(onDismissRequest = onDismiss) {
+            ComposerDiscardDialogContent(actions = actions, modifier = modifier)
         }
     } else {
         Popup(
