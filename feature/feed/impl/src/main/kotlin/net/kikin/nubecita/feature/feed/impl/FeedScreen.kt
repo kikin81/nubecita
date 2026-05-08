@@ -46,6 +46,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -184,14 +185,19 @@ internal fun FeedScreen(
     //    submit was a reply, so the parent post in the feed reflects
     //    the new count without waiting for the next refresh.
     //  - show a confirmation snackbar with reply- vs new-post copy.
-    // Keyed on `composerSubmitEvents.events + viewModel + snackbarHostState`
-    // so the collector restarts cleanly across recompositions that
-    // re-create any of those references; the SharedFlow is `replay = 0`
-    // + DROP_OLDEST so a brief restart doesn't double-deliver and
-    // also doesn't replay history on first subscribe.
+    //
+    // `collectLatest` (not `collect`) — `showSnackbar` suspends until
+    // dismissal, so back-to-back submits with plain `collect` would
+    // queue behind the still-visible snackbar (they only resolve into
+    // a fresh `dismiss + showSnackbar` once the previous one finally
+    // closes, ~4s later). `collectLatest` cancels the in-flight body
+    // when a new submit arrives, dismissing the prior snackbar and
+    // showing the new confirmation immediately. Keyed on the flow +
+    // viewModel + snackbarHostState so the collector restarts cleanly
+    // across recompositions that re-create any of those references.
     val composerSubmitEvents = LocalComposerSubmitEvents.current
     LaunchedEffect(composerSubmitEvents, viewModel, snackbarHostState) {
-        composerSubmitEvents.events.collect { event ->
+        composerSubmitEvents.collectLatest { event ->
             event.replyToUri?.let { parentUri ->
                 viewModel.handleEvent(FeedEvent.OnReplySubmittedToParent(parentUri))
             }

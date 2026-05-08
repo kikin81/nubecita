@@ -56,6 +56,36 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `Load is a no-op once feedItems is populated (re-entry into composition)`() =
+        // Pin: FeedScreen's `LaunchedEffect(Unit) { Load }` re-fires each
+        // time the screen re-enters composition (composer route pops,
+        // tab switch back, etc.). Without this guard the second Load
+        // wholesale-replaces `feedItems` from a fresh fetch — losing
+        // scroll position, any optimistic mutations (like / repost /
+        // replyCount), and the cursor cluster-context dedupe state.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1"))),
+                )
+            val vm = FeedViewModel(repo, FakeLikeRepostRepository())
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            assertEquals(1, repo.invocations.size)
+            val afterFirstLoad = vm.uiState.value
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            // No additional repo call, and the prior state slice is preserved
+            // verbatim (referential equality on feedItems means LazyColumn
+            // skips recomposition for unchanged items).
+            assertEquals(1, repo.invocations.size)
+            assertSame(afterFirstLoad, vm.uiState.value)
+        }
+
+    @Test
     fun `initial Load with empty page sets endReached`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =

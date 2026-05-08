@@ -36,9 +36,10 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import net.kikin.nubecita.R
-import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvents
+import net.kikin.nubecita.core.common.navigation.ComposerSubmitEventsBus
 import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
+import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
@@ -140,7 +141,13 @@ fun MainShell(modifier: Modifier = Modifier) {
     // Collected by feature screens (today: the feed) to surface a
     // confirmation snackbar and, when the submit was a reply, run an
     // optimistic `replyCount + 1` on the parent post.
-    val composerSubmitEvents = remember { ComposerSubmitEvents() }
+    //
+    // Both the read side (`bus.events`) and the write side
+    // (`bus.emitter`) are provided shell-wide via separate
+    // CompositionLocals below — see `ComposerSubmitEventsBus` kdoc for
+    // why the producer/consumer separation is by naming/type rather
+    // than visibility scoping.
+    val composerSubmitEvents = remember { ComposerSubmitEventsBus() }
 
     // MainShell-scoped overlay launcher state for the composer at
     // Medium / Expanded widths. At Compact width this state stays
@@ -182,7 +189,8 @@ fun MainShell(modifier: Modifier = Modifier) {
         LocalMainShellNavState provides mainShellNavState,
         LocalScrollToTopSignal provides readOnlyScrollToTopSignal,
         LocalComposerLauncher provides composerLauncher,
-        LocalComposerSubmitEvents provides composerSubmitEvents,
+        LocalComposerSubmitEvents provides composerSubmitEvents.events,
+        LocalComposerSubmitEventsEmitter provides composerSubmitEvents.emitter,
     ) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
