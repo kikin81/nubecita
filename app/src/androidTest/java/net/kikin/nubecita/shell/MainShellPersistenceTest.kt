@@ -166,24 +166,29 @@ class MainShellPersistenceTest {
             ListDetailHarness(windowAdaptiveInfo = adaptiveInfo)
         }
 
-        // At medium width: placeholder is composed in the right pane.
+        // At medium width: placeholder is composed in the right pane,
+        // feed list in the left pane.
         composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(LIST_TAG).assertIsDisplayed()
 
-        // Rotate to compact: strategy collapses to single-pane, placeholder
-        // is no longer composed. Configuration changes in real Android trigger
+        // Rotate to compact: strategy collapses to single-pane,
+        // placeholder is no longer composed but Feed list IS (it's
+        // top-of-stack). Configuration changes in real Android trigger
         // an activity recreate, which `emulateSavedInstanceStateRestore` mirrors.
         adaptiveInfo = adaptiveInfoForWidth(COMPACT_WIDTH_DP)
         tester.emulateSavedInstanceStateRestore()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertDoesNotExist()
+        composeTestRule.onNodeWithTag(LIST_TAG).assertIsDisplayed()
 
         // Rotate back to medium: strategy expands to two-pane again, and
         // because the back stack persisted (`[Feed]`) the placeholder
-        // reappears in the right pane.
+        // reappears in the right pane and the feed list in the left pane.
         adaptiveInfo = adaptiveInfoForWidth(MEDIUM_WIDTH_DP)
         tester.emulateSavedInstanceStateRestore()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(LIST_TAG).assertIsDisplayed()
     }
 
     /**
@@ -194,8 +199,8 @@ class MainShellPersistenceTest {
      *   the `listPane{}` Feed entry.
      * - After rotating to Compact + restore: the strategy collapses to
      *   single-pane and renders the top of the stack (the detail entry)
-     *   full-screen — the detail content is still visible, proving the
-     *   back stack persisted across the saveInstanceState round-trip.
+     *   full-screen — the detail content is still visible (the back stack
+     *   survived the recreate); the feed list is no longer composed.
      * - After rotating back to Medium + restore: the strategy expands
      *   to two-pane and the detail entry is back in the right pane.
      *
@@ -240,23 +245,28 @@ class MainShellPersistenceTest {
             )
         }
 
-        // Medium: detail content visible in the right pane.
+        // Medium: detail content visible in the right pane, feed list
+        // in the left pane.
         composeTestRule.onNodeWithTag(DETAIL_TAG).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(LIST_TAG).assertIsDisplayed()
 
         // Rotate to Compact + restore: strategy collapses to single-pane,
         // top-of-stack (the detail entry) renders full-screen — content
-        // survived the recreate.
+        // survived the recreate. Feed list is no longer composed.
         adaptiveInfo = adaptiveInfoForWidth(COMPACT_WIDTH_DP)
         tester.emulateSavedInstanceStateRestore()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag(DETAIL_TAG).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(LIST_TAG).assertDoesNotExist()
 
         // Rotate back to Medium + restore: strategy expands back to
-        // two-pane, detail content slots into the right pane again.
+        // two-pane, detail content slots into the right pane again
+        // and the feed list reappears in the left pane.
         adaptiveInfo = adaptiveInfoForWidth(MEDIUM_WIDTH_DP)
         tester.emulateSavedInstanceStateRestore()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag(DETAIL_TAG).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(LIST_TAG).assertIsDisplayed()
     }
 }
 
@@ -324,7 +334,7 @@ private fun ListDetailHarness(
                     },
                 ),
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().testTag(LIST_TAG)) {
                 Text(text = "fake-feed-list")
             }
         }
@@ -348,7 +358,8 @@ private fun ListDetailHarness(
 }
 
 private const val PLACEHOLDER_TAG = "list-detail-placeholder"
-private const val DETAIL_TAG = "list-detail-detail"
+private const val DETAIL_TAG = "list-detail-content"
+private const val LIST_TAG = "list-detail-list"
 private const val COMPACT_WIDTH_DP = 360
 private const val MEDIUM_WIDTH_DP = 600
 private const val HEIGHT_DP = 800
