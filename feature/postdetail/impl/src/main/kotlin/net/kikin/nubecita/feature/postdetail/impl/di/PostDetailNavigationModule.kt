@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.postdetail.impl.di
 
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
@@ -37,12 +39,15 @@ import net.kikin.nubecita.feature.postdetail.impl.PostDetailViewModel
 @Module
 @InstallIn(SingletonComponent::class)
 internal object PostDetailNavigationModule {
+    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
     @Provides
     @IntoSet
     @MainShell
     fun providePostDetailEntries(): EntryProviderInstaller =
         {
-            entry<PostDetailRoute> { route ->
+            entry<PostDetailRoute>(
+                metadata = ListDetailSceneStrategy.detailPane(),
+            ) { route ->
                 val navState = LocalMainShellNavState.current
                 // The media viewer is registered on the OUTER NavDisplay
                 // (`@OuterShell` in MediaViewerNavigationModule) so it
