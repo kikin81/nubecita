@@ -82,16 +82,23 @@ import kotlinx.coroutines.flow.receiveAsFlow
  *
  * # Buffer semantics
  *
- * `Channel(capacity = Channel.BUFFERED)` — defaults to a 64-slot
- * buffer; rapid back-to-back submits queue rather than dropping. In
- * practice we'd never expect more than 1 unconsumed submit event,
- * so the upper bound is irrelevant; what matters is that nothing is
- * lost while the consumer is detached. Emit is non-suspending via
- * [Channel.trySend].
+ * `Channel(capacity = Channel.UNLIMITED)` — the buffer never overflows,
+ * so [Channel.trySend] always succeeds and rapid back-to-back submits
+ * are never dropped. Chosen over `Channel.BUFFERED` (default 64 slots)
+ * specifically so the kdoc's "nothing is lost while the consumer is
+ * detached" guarantee holds without a `ChannelResult` fallback path:
+ * with `BUFFERED`, a hypothetical pile-up beyond 64 unconsumed events
+ * would silently fail at `trySend`, undoing the very property the
+ * Channel switch was meant to guarantee. In practice we'd never expect
+ * more than 1 unconsumed submit event (one composer host on screen at
+ * a time, single-consumer downstream), so the unbounded growth is a
+ * non-concern; the events are tiny structs (two URI strings).
+ *
+ * Emit is non-suspending via [Channel.trySend].
  */
 @Stable
 class ComposerSubmitEventsBus {
-    private val channel = Channel<ComposerSubmitEvent>(capacity = Channel.BUFFERED)
+    private val channel = Channel<ComposerSubmitEvent>(capacity = Channel.UNLIMITED)
 
     /**
      * Read-only stream surfaced to consumers via [LocalComposerSubmitEvents].

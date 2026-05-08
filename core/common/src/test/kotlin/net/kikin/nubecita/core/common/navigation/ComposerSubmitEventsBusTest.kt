@@ -7,10 +7,12 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNotSame
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 
@@ -84,13 +86,18 @@ internal class ComposerSubmitEventsBusTest {
 
             a.emitter.emit(onlyOnA)
 
-            // a's collector sees the event; b's must NOT — withTimeout(50ms)
-            // returning null is the negative assertion. (The Channel is a
-            // member of the bus instance, so two buses share no state.)
+            // a's collector sees the event.
             val received = withTimeout(timeMillis = 1_000) { a.events.first() }
             assertEquals(onlyOnA, received)
 
-            // Sanity check that b's channel is genuinely separate.
+            // b's collector must NOT see it — `withTimeoutOrNull` returning
+            // null is the negative assertion. The Channel is a member of
+            // the bus instance, so two buses share no state.
+            val leaked =
+                withTimeoutOrNull(timeMillis = 100) { b.events.first() }
+            assertNull(leaked)
+
+            // Sanity check that the handles are genuinely separate refs.
             assertNotSame(a.emitter, b.emitter)
             assertNotSame(a.events, b.events)
         }
