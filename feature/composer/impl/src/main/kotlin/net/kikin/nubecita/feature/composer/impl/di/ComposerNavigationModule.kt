@@ -8,7 +8,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
-import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
+import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -52,7 +52,7 @@ internal object ComposerNavigationModule {
         {
             entry<ComposerRoute> { route ->
                 val navState = LocalMainShellNavState.current
-                val composerSubmitEvents = LocalComposerSubmitEvents.current
+                val composerSubmitEventsEmitter = LocalComposerSubmitEventsEmitter.current
                 val viewModel =
                     hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
@@ -66,7 +66,7 @@ internal object ComposerNavigationModule {
                     // composer route. The feed picks the new post up on
                     // its next refresh.
                     onSubmitSuccess = { newPostUri, replyToUri ->
-                        composerSubmitEvents.emit(
+                        composerSubmitEventsEmitter.emit(
                             ComposerSubmitEvent(
                                 newPostUri = newPostUri.raw,
                                 replyToUri = replyToUri,

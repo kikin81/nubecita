@@ -81,6 +81,17 @@ internal class FeedViewModel
             // without N concurrent fetches racing on setState.
             val status = uiState.value.loadStatus
             if (status != FeedLoadStatus.Idle && status !is FeedLoadStatus.InitialError) return
+            // Don't re-fetch when a loaded slice is already present.
+            // `LaunchedEffect(Unit) { Load }` in FeedScreen re-fires every
+            // time the screen re-enters composition (composer route pops,
+            // tab switch back, etc.); without this guard each re-entry
+            // wholesale-replaces `feedItems` and erases scroll position,
+            // any optimistic mutations (like / repost / replyCount), and
+            // the cursor cluster-context dedupe state. Pull-to-refresh
+            // continues to flow through `Refresh`; retry from
+            // `InitialError` still proceeds because `feedItems` is empty
+            // in that state.
+            if (uiState.value.feedItems.isNotEmpty()) return
             setState { copy(loadStatus = FeedLoadStatus.InitialLoading) }
             viewModelScope.launch {
                 feedRepository
