@@ -1,27 +1,18 @@
 ## 0. Version catalog: telephoto
 
-- [ ] 0.1 Add `telephoto = "<latest stable>"` to `[versions]` in `gradle/libs.versions.toml`. Pin to the latest stable release of `me.saket.telephoto` at task-start time; record the resolved version in this task's checkbox commit.
-- [ ] 0.2 Add `telephoto-zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "telephoto" }` to `[libraries]`.
-- [ ] 0.3 Verify the dependency check via Sonatype Guide before pinning (per the project's `sonatype-guide` skill convention).
+- [x] 0.1 Add `telephoto = "0.19.0"` to `[versions]` in `gradle/libs.versions.toml` (latest stable at task-start).
+- [x] 0.2 Add `telephoto-zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "telephoto" }` to `[libraries]`.
+- [x] 0.3 Verified via Sonatype Guide: 0.19.0 has 0 CVEs, Apache-2.0, policy-compliant, not malicious, not EOL.
 
 ## 1. New module: `:core:posts`
 
-- [ ] 1.0.1 Create `core/posts/build.gradle.kts` applying the `nubecita.android.library` convention plugin (no Compose). Namespace `net.kikin.nubecita.core.posts`. Adds `implementation(project(":data:models"))`, `implementation(project(":core:feed-mapping"))`, `implementation(project(":core:auth"))` (or whichever module exposes the authenticated atproto-kotlin client surface — discover by grep against `:feature:postdetail:impl/data/DefaultPostThreadRepository.kt`'s import list), and the standard atproto-kotlin client deps. Apply `nubecita.android.hilt` for the binding.
-- [ ] 1.0.2 Register the module in `settings.gradle.kts`.
-- [ ] 1.0.3 Add `core/posts/src/main/kotlin/net/kikin/nubecita/core/posts/PostRepository.kt`:
-  ```kotlin
-  interface PostRepository {
-      suspend fun getPost(uri: String): Result<PostUi>
-  }
-  ```
-  KDoc explains: single-post read surface backed by `app.bsky.feed.getPosts`; intentionally separate from `:core:posting` (write surface) and `:feature:postdetail:impl/data/PostThreadRepository` (thread fetch).
-- [ ] 1.0.4 Add `core/posts/src/main/kotlin/net/kikin/nubecita/core/posts/internal/DefaultPostRepository.kt` implementing the interface against atproto-kotlin's `app.bsky.feed.getPosts` lexicon. Pass `uris = listOf(uri)`. Project the resulting `PostView` to `PostUi` via `:core:feed-mapping`'s `toPostUiCore`. Map errors to `Result.failure` mirroring `DefaultPostThreadRepository`'s shape.
-- [ ] 1.0.5 Add `core/posts/src/main/kotlin/net/kikin/nubecita/core/posts/di/PostRepositoryModule.kt` binding `DefaultPostRepository` to `PostRepository` (`@InstallIn(SingletonComponent::class)`). The module is `internal` if Hilt allows it; otherwise public with internal binding.
-- [ ] 1.0.6 Add `core/posts/src/test/kotlin/net/kikin/nubecita/core/posts/internal/DefaultPostRepositoryTest.kt`:
-  - Fixture: `getPosts` response with one post carrying a 3-image embed → `PostUi` with `EmbedUi.Images(items.size == 3)`
-  - Fixture: empty response (post not found / deleted) → `Result.failure(...)` with the expected error type
-  - Fixture: network failure → `Result.failure(...)`
-- [ ] 1.0.7 Run `./gradlew :core:posts:testDebugUnitTest :core:posts:assembleDebug` clean.
+- [x] 1.0.1 Create `core/posts/build.gradle.kts` (library + hilt convention plugins).
+- [x] 1.0.2 Register `:core:posts` in `settings.gradle.kts`.
+- [x] 1.0.3 Add `PostRepository` interface in `core/posts/.../PostRepository.kt`.
+- [x] 1.0.4 Add `DefaultPostRepository` calling `FeedService.getPosts(...)`; projects via `:core:feed-mapping`'s `toPostUiCore`. Empty response → `PostNotFoundException`; null projection → `PostProjectionException`.
+- [x] 1.0.5 Add `PostRepositoryModule` Hilt binding.
+- [x] 1.0.6 Add `DefaultPostRepositoryTest` with fixtures `getposts_with_three_images.json` + `getposts_empty.json`. Covers success (3-image projection), empty response, network failure, NoSessionException.
+- [x] 1.0.7 `./gradlew :core:posts:testDebugUnitTest :core:posts:assembleDebug` — 4/4 tests pass, build green.
 
 ## 1. New module: `:feature:mediaviewer:api`
 

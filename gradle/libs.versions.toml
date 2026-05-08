@@ -42,6 +42,7 @@ sortDependencies = "0.18.0"
 spotless = "8.4.0"
 ktlint = "1.4.1"
 composeKtlintRules = "0.5.8"
+telephoto = "0.19.0"
 timber = "5.0.1"
 
 [libraries]
@@ -125,6 +126,7 @@ hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", vers
 screenshot-gradlePlugin = { group = "com.android.compose.screenshot", name = "com.android.compose.screenshot.gradle.plugin", version.ref = "screenshot" }
 screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot" }
 slack-compose-lints = { module = "com.slack.lint.compose:compose-lint-checks", version.ref = "slackComposeLints" }
+telephoto-zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "telephoto" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
