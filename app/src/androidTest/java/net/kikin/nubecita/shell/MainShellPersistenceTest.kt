@@ -36,6 +36,7 @@ import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.feed.api.Feed
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
 import org.junit.Rule
@@ -184,6 +185,79 @@ class MainShellPersistenceTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag(PLACEHOLDER_TAG).assertIsDisplayed()
     }
+
+    /**
+     * Verifies that a `detailPane()`-tagged entry on the back stack
+     * survives a `medium → compact → medium` rotation round-trip:
+     *
+     * - At Medium: the detail entry renders in the right pane next to
+     *   the `listPane{}` Feed entry.
+     * - After rotating to Compact + restore: the strategy collapses to
+     *   single-pane and renders the top of the stack (the detail entry)
+     *   full-screen — the detail content is still visible, proving the
+     *   back stack persisted across the saveInstanceState round-trip.
+     * - After rotating back to Medium + restore: the strategy expands
+     *   to two-pane and the detail entry is back in the right pane.
+     *
+     * Uses the real [PostDetailRoute] NavKey from `:feature:postdetail:api`
+     * (already a transitive dep of `:app`'s androidTest source set) with a
+     * fake content body — same pattern as the existing test using the real
+     * `Feed` NavKey with a fake list body. The contract under test is
+     * "an entry tagged `detailPane()` slots into the right pane on
+     * Medium/Expanded and survives state restoration"; the real
+     * `PostDetailScreen` would require a Hilt graph to compose and isn't
+     * what the assertion is about.
+     */
+    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
+    @Test
+    fun listDetailDetailPane_survivesMediumToCompactToMediumRotation() {
+        val tester = StateRestorationTester(composeTestRule)
+        var adaptiveInfo by mutableStateOf(adaptiveInfoForWidth(MEDIUM_WIDTH_DP))
+
+        val detailRoute =
+            PostDetailRoute(postUri = "at://did:plc:fake/app.bsky.feed.post/abc123")
+
+        val fakeDetailInstaller: EntryProviderInstaller = {
+            entry<PostDetailRoute>(
+                metadata = ListDetailSceneStrategy.detailPane(),
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .testTag(DETAIL_TAG),
+                ) {
+                    Text(text = "fake-detail-content")
+                }
+            }
+        }
+
+        tester.setContent {
+            ListDetailHarness(
+                windowAdaptiveInfo = adaptiveInfo,
+                backStack = listOf(Feed, detailRoute),
+                extraInstallers = listOf(fakeDetailInstaller),
+            )
+        }
+
+        // Medium: detail content visible in the right pane.
+        composeTestRule.onNodeWithTag(DETAIL_TAG).assertIsDisplayed()
+
+        // Rotate to Compact + restore: strategy collapses to single-pane,
+        // top-of-stack (the detail entry) renders full-screen — content
+        // survived the recreate.
+        adaptiveInfo = adaptiveInfoForWidth(COMPACT_WIDTH_DP)
+        tester.emulateSavedInstanceStateRestore()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag(DETAIL_TAG).assertIsDisplayed()
+
+        // Rotate back to Medium + restore: strategy expands back to
+        // two-pane, detail content slots into the right pane again.
+        adaptiveInfo = adaptiveInfoForWidth(MEDIUM_WIDTH_DP)
+        tester.emulateSavedInstanceStateRestore()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag(DETAIL_TAG).assertIsDisplayed()
+    }
 }
 
 /**
@@ -274,6 +348,7 @@ private fun ListDetailHarness(
 }
 
 private const val PLACEHOLDER_TAG = "list-detail-placeholder"
+private const val DETAIL_TAG = "list-detail-detail"
 private const val COMPACT_WIDTH_DP = 360
 private const val MEDIUM_WIDTH_DP = 600
 private const val HEIGHT_DP = 800
