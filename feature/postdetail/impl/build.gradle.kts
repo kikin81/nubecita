@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
+    implementation(project(":feature:mediaviewer:api"))
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)

@@ -91,6 +91,7 @@ internal fun PostDetailScreen(
     onBack: () -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
+    onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -118,6 +119,7 @@ internal fun PostDetailScreen(
     val currentOnBack by rememberUpdatedState(onBack)
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
+    val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
 
     // Pre-resolve snackbar copy at composition time so locale changes
     // participate in recomposition (lint: LocalContextGetResourceValueCall).
@@ -130,7 +132,6 @@ internal fun PostDetailScreen(
     val notFoundErrorMessage = stringResource(R.string.postdetail_snackbar_error_notfound)
     val unknownErrorMessage = stringResource(R.string.postdetail_snackbar_error_unknown)
     val composerComingSoonMessage = stringResource(R.string.postdetail_snackbar_composer_coming_soon)
-    val mediaViewerComingSoonMessage = stringResource(R.string.postdetail_snackbar_media_viewer_coming_soon)
 
     LaunchedEffect(Unit) { viewModel.handleEvent(PostDetailEvent.Load) }
 
@@ -172,21 +173,8 @@ internal fun PostDetailScreen(
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = composerComingSoonMessage)
                 }
-                is PostDetailEffect.NavigateToMediaViewer -> {
-                    // The fullscreen media viewer route does not yet exist
-                    // in :core:common:navigation — tracked under nubecita-e02.
-                    // Same acknowledgement-not-broken pattern as
-                    // NavigateToComposer above. Removal site is grep-able via
-                    // this Timber tag + the Snackbar string id. Same rkey-
-                    // only redaction policy applies.
-                    Timber.tag("PostDetailScreen").d(
-                        "NavigateToMediaViewer for post rkey=%s index=%d — media viewer route not yet wired (nubecita-e02); falling back to Snackbar",
-                        effect.postUri.substringAfterLast('/'),
-                        effect.imageIndex,
-                    )
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = mediaViewerComingSoonMessage)
-                }
+                is PostDetailEffect.NavigateToMediaViewer ->
+                    currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
             }
         }
     }
