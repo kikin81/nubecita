@@ -291,7 +291,7 @@ width unaffected" non-regression requirement.
 
 **New file-local declarations:**
 
-- `private const val DETAIL_TAG = "list-detail-detail"`
+- `private const val DETAIL_TAG = "list-detail-content"`
 
 Goes alongside `PLACEHOLDER_TAG` and the other private constants at
 the bottom of the file. The detail route uses the real
@@ -307,12 +307,13 @@ skipped and the new test's coverage isn't actually exercised.
 
 | File | Change |
 |---|---|
-| `feature/postdetail/impl/.../di/PostDetailNavigationModule.kt` | + 1 import, + 1 metadata parameter |
+| `feature/postdetail/impl/build.gradle.kts` | + 1 dependency line (`androidx.compose.material3.adaptive.navigation3`) — required for `ListDetailSceneStrategy.detailPane()`, which lives in the adaptive-navigation3 artifact (the base `material3.adaptive` artifact already wired through `:designsystem` doesn't transitively expose it). |
+| `feature/postdetail/impl/.../di/PostDetailNavigationModule.kt` | + 2 imports, + 1 `@OptIn`, + 1 metadata parameter |
 | `app/src/screenshotTest/java/.../MainShellListDetailScreenshotTest.kt` | + 2 `@PreviewTest` composables, + 1 helper (`FakeListDetailNavDisplayWithDetail`), + 1 stand-in (`FakePostDetailContent`) |
 | `app/src/screenshotTestDebug/reference/.../MainShellListDetailScreenshotTestKt/` | + 2 baseline PNGs (generated) |
-| `app/src/androidTest/java/.../MainShellPersistenceTest.kt` | refactor `ListDetailHarness` (default-compatible parameters), + 1 `@Test`, + 1 testTag constant |
+| `app/src/androidTest/java/.../MainShellPersistenceTest.kt` | refactor `ListDetailHarness` (default-compatible parameters, `rememberNavBackStack`-backed stack so rotation tests round-trip the saver), + 1 `@Test`, + 1 testTag constant |
 
-No build.gradle.kts changes anywhere. No new modules.
+No new modules.
 
 ## Acceptance criteria
 

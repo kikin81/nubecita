@@ -18,13 +18,14 @@
 
 | File | Action | Responsibility |
 |---|---|---|
+| `feature/postdetail/impl/build.gradle.kts` | Modify | Add `implementation(libs.androidx.compose.material3.adaptive.navigation3)`. `ListDetailSceneStrategy.detailPane()` lives in the adaptive-navigation3 artifact; the base `material3.adaptive` artifact wired transitively through `:designsystem` doesn't expose it. |
 | `feature/postdetail/impl/src/main/kotlin/net/kikin/nubecita/feature/postdetail/impl/di/PostDetailNavigationModule.kt` | Modify | Add `metadata = ListDetailSceneStrategy.detailPane()` to the `entry<PostDetailRoute>` registration. |
 | `app/src/screenshotTest/java/net/kikin/nubecita/shell/MainShellListDetailScreenshotTest.kt` | Modify | Add `FakePostDetailContent`, `FakeListDetailNavDisplayWithDetail`, two new `@PreviewTest` composables. Existing previews + helpers unchanged. |
 | `app/src/screenshotTestDebug/reference/net/kikin/nubecita/shell/MainShellListDetailScreenshotTestKt/` | Add (generated) | Two new baseline PNGs for the `*WithDetail` previews. |
-| `app/src/androidTest/java/net/kikin/nubecita/shell/MainShellPersistenceTest.kt` | Modify | Generalize `ListDetailHarness` parameters (default-compatible), add new `listDetailDetailPane_survivesMediumToCompactToMediumRotation` test, add `DETAIL_TAG` constant. |
+| `app/src/androidTest/java/net/kikin/nubecita/shell/MainShellPersistenceTest.kt` | Modify | Generalize `ListDetailHarness` parameters (default-compatible) and back its stack with `rememberNavBackStack` so rotation tests actually round-trip through the saver, add new `listDetailDetailPane_survivesMediumToCompactToMediumRotation` test, add `DETAIL_TAG` constant. |
 | `docs/superpowers/specs/2026-05-07-postdetail-detail-pane-metadata-design.md` | (Already created) | Spec doc, lands in the first commit. |
 
-No `build.gradle.kts` changes anywhere. No new modules.
+No new modules.
 
 ---
 
@@ -223,7 +224,7 @@ import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 - [ ] **Step 2:** Add the new `DETAIL_TAG` constant alongside the existing `PLACEHOLDER_TAG`/`COMPACT_WIDTH_DP`/`MEDIUM_WIDTH_DP`/`HEIGHT_DP` constants at the bottom of the file:
 
 ```kotlin
-private const val DETAIL_TAG = "list-detail-detail"
+private const val DETAIL_TAG = "list-detail-content"
 ```
 
 - [ ] **Step 3:** Add the new `@Test` method inside the `MainShellPersistenceTest` class, after the existing `listDetailPlaceholder_survivesMediumToCompactToMediumRotation`:
@@ -741,15 +742,15 @@ Expected: status `IN_PROGRESS`. (`bd close nubecita-t30` runs after the PR squas
 - Harness refactor (default-compatible) → Task 1 ✓
 - `run-instrumented` PR label → Task 5 Step 8 ✓
 - Acceptance criteria bullets → Task 5 Steps 5–6 ✓
-- "No build.gradle.kts changes" → confirmed in file map ✓
-- "No new module dependencies" → confirmed (real `PostDetailRoute` reached transitively) ✓
+- `feature/postdetail/impl/build.gradle.kts` adds `androidx.compose.material3.adaptive.navigation3` (the `detailPane()` symbol's home artifact) → captured in file map ✓
+- "No new module dependencies" → confirmed (real `PostDetailRoute` reached transitively for the test) ✓
 
 **Placeholder scan.** No "TBD"/"TODO"/"fill in" markers. Every code-modifying step has a complete code block. Every command has expected output. The PR title/body and commit messages are written out, not summarized.
 
 **Type consistency.**
 - `ListDetailSceneStrategy` import path matches across Tasks 3, 4, and the spec.
 - `PostDetailRoute(postUri = "...")` constructor shape matches the source-of-truth at `feature/postdetail/api/src/main/kotlin/net/kikin/nubecita/feature/postdetail/api/PostDetailRoute.kt` — verified that `postUri: String` is the only constructor arg by reading existing call sites in `PostDetailNavigationModule.kt` (line 51).
-- `DETAIL_TAG = "list-detail-detail"` used consistently in both Tasks 2 and 3 (each test/source set declares its own copy — they are unrelated source sets, so no DRY violation).
+- `DETAIL_TAG = "list-detail-content"` used consistently in both Tasks 2 and 3 (each test/source set declares its own copy — they are unrelated source sets, so no DRY violation).
 - `EntryProviderInstaller` is the existing typealias (already imported in both files).
 - `ListDetailHarness` parameter names (`windowAdaptiveInfo`, `backStack`, `extraInstallers`) match between the refactor (Task 1) and the call site (Task 2).
 
