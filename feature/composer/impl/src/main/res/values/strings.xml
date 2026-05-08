@@ -60,4 +60,11 @@
          TalkBack announces this verb as the action when the tile
          is focused. -->
     <string name="composer_reply_parent_retry_action_label">Retry</string>
+
+    <!-- Discard-confirmation dialog. Shown when the user attempts to
+         leave the composer (back-press or toolbar X) while the draft
+         has content. -->
+    <string name="composer_discard_title">Discard draft?</string>
+    <string name="composer_discard_cancel">Cancel</string>
+    <string name="composer_discard_confirm">Discard</string>
 </resources>
