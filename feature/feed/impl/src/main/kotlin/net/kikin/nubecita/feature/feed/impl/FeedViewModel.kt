@@ -16,6 +16,7 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.LikeRepostRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
+import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import net.kikin.nubecita.feature.feed.impl.data.linksToWire
 import net.kikin.nubecita.feature.feed.impl.share.toShareIntent
@@ -121,7 +122,11 @@ internal class FeedViewModel
                         // when the entire feed fits in one page).
                         setState {
                             copy(
-                                feedItems = page.feedItems.dedupeClusterContext().toImmutableList(),
+                                feedItems =
+                                    page.feedItems
+                                        .dedupeClusterContext()
+                                        .dedupeByKey()
+                                        .toImmutableList(),
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                                 loadStatus = FeedLoadStatus.Idle,
@@ -173,7 +178,7 @@ internal class FeedViewModel
                             val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
                             val merged = (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
                             copy(
-                                feedItems = merged.dedupeClusterContext().toImmutableList(),
+                                feedItems = merged.dedupeClusterContext().dedupeByKey().toImmutableList(),
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                                 loadStatus = FeedLoadStatus.Idle,
@@ -189,7 +194,11 @@ internal class FeedViewModel
         }
 
         private fun applyInitialPage(page: TimelinePage) {
-            val deduped = page.feedItems.dedupeClusterContext().toImmutableList()
+            val deduped =
+                page.feedItems
+                    .dedupeClusterContext()
+                    .dedupeByKey()
+                    .toImmutableList()
             setState {
                 copy(
                     feedItems = deduped,

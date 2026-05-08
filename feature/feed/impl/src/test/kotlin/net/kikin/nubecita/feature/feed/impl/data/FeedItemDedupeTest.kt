@@ -105,6 +105,54 @@ internal class FeedItemDedupeTest {
         assertTrue(deduped.single() is FeedItemUi.ReplyCluster)
     }
 
+    @Test
+    fun `dedupeByKey drops duplicate Singles by post id`() {
+        // Reproduces nubecita-7p3: same post URI shows up twice in a page
+        // because (a) viewer reposted it and (b) someone they follow also
+        // reposted it. The LazyColumn's slot key would collide.
+        val items = listOf(single("a"), single("b"), single("a"), single("c"))
+        val deduped = items.dedupeByKey()
+        assertEquals(3, deduped.size)
+        assertEquals(listOf("a", "b", "c"), deduped.map { it.key })
+    }
+
+    @Test
+    fun `dedupeByKey drops a Single whose URI matches a clusters leaf`() {
+        // ReplyCluster.key == leaf.id; a later Single(post=leaf) collides
+        // on the LazyColumn key and crashes the feed mid-scroll.
+        val items =
+            listOf(
+                cluster(rootId = "rootA", parentId = "parentA", leafId = "leafA"),
+                single("leafA"),
+            )
+        val deduped = items.dedupeByKey()
+        assertEquals(1, deduped.size)
+        assertTrue(deduped.single() is FeedItemUi.ReplyCluster)
+    }
+
+    @Test
+    fun `dedupeByKey is a no-op on lists with all-unique keys`() {
+        val items = listOf(single("a"), single("b"), single("c"))
+        val deduped = items.dedupeByKey()
+        assertEquals(items, deduped)
+    }
+
+    @Test
+    fun `dedupeByKey is a no-op on empty and single-element lists`() {
+        assertEquals(emptyList<FeedItemUi>(), emptyList<FeedItemUi>().dedupeByKey())
+        val one = listOf(single("only"))
+        assertSame(one, one.dedupeByKey())
+    }
+
+    @Test
+    fun `dedupeByKey keeps the first occurrence`() {
+        val first = single("dup")
+        val second = single("dup")
+        val deduped = listOf(first, single("other"), second).dedupeByKey()
+        assertEquals(2, deduped.size)
+        assertSame(first, deduped[0])
+    }
+
     private fun single(id: String): FeedItemUi.Single = FeedItemUi.Single(samplePost(id))
 
     private fun cluster(

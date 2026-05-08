@@ -51,3 +51,34 @@ internal fun List<FeedItemUi>.dedupeClusterContext(): List<FeedItemUi> {
         item !is FeedItemUi.Single || item.post.id !in contextUris
     }
 }
+
+/**
+ * Drops `FeedItemUi` entries whose `key` has already appeared earlier in
+ * the list, keeping the first occurrence. The renderer's `LazyColumn`
+ * uses [FeedItemUi.key] as the slot key, and Compose throws
+ * `IllegalArgumentException: Key … was already used` on duplicates —
+ * which crashes the feed mid-scroll if a duplicate slot scrolls into view.
+ *
+ * Two scenarios surface duplicates that [dedupeClusterContext] does not catch:
+ *
+ * - Two `Single` entries for the same post URI. Happens when (a) the user
+ *   reposts a post AND (b) someone the user follows also reposts the same
+ *   post — the timeline returns both as separate `FeedViewPost` entries
+ *   with the same `post.uri`. Both project to `Single(post=samePost)`.
+ *
+ * - A `ReplyCluster.leaf.id` matching a later `Single.post.id` (the
+ *   leaf got reposted further down the timeline). The cluster is canonical
+ *   for the same reason as in [dedupeClusterContext]; the Single is the
+ *   duplicate.
+ *
+ * Run AFTER [dedupeClusterContext] so cluster-context drops happen first,
+ * then key-collisions are resolved on the surviving items. Pure O(n) —
+ * one pass with a `HashSet` of seen keys.
+ *
+ * Tracked as `nubecita-7p3`.
+ */
+internal fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
+    if (size < 2) return this
+    val seen = HashSet<String>(size)
+    return filter { item -> seen.add(item.key) }
+}
