@@ -222,9 +222,13 @@ private fun adaptiveInfoForWidth(widthDp: Int): WindowAdaptiveInfo =
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @androidx.compose.runtime.Composable
-private fun ListDetailHarness(windowAdaptiveInfo: WindowAdaptiveInfo) {
-    val backStack: SnapshotStateList<NavKey> =
-        remember { mutableStateListOf<NavKey>(Feed) }
+private fun ListDetailHarness(
+    windowAdaptiveInfo: WindowAdaptiveInfo,
+    backStack: List<NavKey> = listOf(Feed),
+    extraInstallers: List<EntryProviderInstaller> = emptyList(),
+) {
+    val backStackState: SnapshotStateList<NavKey> =
+        remember { mutableStateListOf<NavKey>().apply { addAll(backStack) } }
     val sceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(
             directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(windowAdaptiveInfo),
@@ -253,8 +257,8 @@ private fun ListDetailHarness(windowAdaptiveInfo: WindowAdaptiveInfo) {
     }
 
     NavDisplay(
-        backStack = backStack,
-        onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
+        backStack = backStackState,
+        onBack = { if (backStackState.isNotEmpty()) backStackState.removeAt(backStackState.lastIndex) },
         sceneStrategies = listOf(sceneStrategy),
         entryDecorators =
             listOf(
@@ -264,6 +268,7 @@ private fun ListDetailHarness(windowAdaptiveInfo: WindowAdaptiveInfo) {
         entryProvider =
             entryProvider {
                 fakeFeedInstaller()
+                extraInstallers.forEach { it() }
             },
     )
 }
