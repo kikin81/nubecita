@@ -225,20 +225,20 @@ A future contributor MUST NOT swap the Medium/Expanded `Popup` for a `Dialog` / 
 - **WHEN** the discard confirmation is shown and the user taps `Discard`
 - **THEN** the composer is dismissed: at Compact, the screen Composable invokes `LocalMainShellNavState.current.removeLast()`; at Medium/Expanded, the `MainShell`-scoped composer-launcher state holder transitions to `Closed`
 
-#### Scenario: Compose primitive at Compact is `AlertDialog`
+#### Scenario: Compose primitive at Compact is `BasicAlertDialog`
 
 - **WHEN** the source of `ComposerDiscardDialog` is inspected and the active `WindowWidthSizeClass` is `COMPACT`
-- **THEN** the rendered confirmation uses `androidx.compose.material3.AlertDialog` (or a thin wrapper directly delegating to it)
+- **THEN** the rendered confirmation uses `androidx.compose.material3.BasicAlertDialog` wrapping a custom-content card styled with `AlertDialogDefaults` (`shape`, `containerColor`, `tonalElevation`)
 
 #### Scenario: Compose primitive at Medium/Expanded is `Popup`, not `Dialog`
 
 - **WHEN** the source of `ComposerDiscardDialog` is inspected and the active `WindowWidthSizeClass` is `MEDIUM` or `EXPANDED`
-- **THEN** the rendered confirmation uses `androidx.compose.ui.window.Popup` wrapping an M3 `Surface`-based dialog card, and does NOT use `androidx.compose.material3.AlertDialog` or `androidx.compose.ui.window.Dialog`
+- **THEN** the rendered confirmation uses `androidx.compose.ui.window.Popup` wrapping an M3 `Surface`-based dialog card, and does NOT use `androidx.compose.material3.BasicAlertDialog`, `androidx.compose.material3.AlertDialog`, or `androidx.compose.ui.window.Dialog`
 
 #### Scenario: Visible scrim density matches the M3 single-dim spec
 
 - **WHEN** the discard confirmation is shown overlaid on the composer at any width class
-- **THEN** the visible scrim covering the area outside the confirmation card is exactly one M3 scrim layer in luminance — equivalent to the composer's solo scrim at Medium/Expanded, or the `AlertDialog`'s solo scrim at Compact — and does NOT visibly darken further when the confirmation appears at Medium/Expanded (which would indicate two stacked Dialog scrims)
+- **THEN** the visible scrim covering the area outside the confirmation card is exactly one M3 scrim layer in luminance — equivalent to the composer's solo scrim at Medium/Expanded, or the `BasicAlertDialog`'s solo scrim at Compact — and does NOT visibly darken further when the confirmation appears at Medium/Expanded (which would indicate two stacked Dialog scrims)
 
 #### Scenario: Back-press ignored while submitting
 
@@ -344,7 +344,7 @@ The system SHALL host `ComposerScreen` in a width-class-adaptive container:
 
 ### Requirement: Discard confirmation dialog uses an extensible action set
 
-The "Discard draft?" confirmation dialog SHALL be implemented such that its action set is supplied as a list/lambda-collection rather than hard-coded button slots. V1 ships exactly two actions (`Cancel`, `Discard`) per the M3 full-screen-dialog discard pattern; the dialog implementation MUST NOT statically encode a two-button layout that would resist the addition of a third action (e.g. `Save as draft`) in the follow-up `:core:drafts` epic. The dialog MUST be implementable such that adding a third action is a pure addition to a list, not a layout rewrite. The same data-driven action list MUST drive both the Compact `AlertDialog` rendering and the Medium/Expanded `Popup`-based rendering.
+The "Discard draft?" confirmation dialog SHALL be implemented such that its action set is supplied as a list/lambda-collection rather than hard-coded button slots. V1 ships exactly two actions (`Cancel`, `Discard`) per the M3 full-screen-dialog discard pattern; the dialog implementation MUST NOT statically encode a two-button layout that would resist the addition of a third action (e.g. `Save as draft`) in the follow-up `:core:drafts` epic. The dialog MUST be implementable such that adding a third action is a pure addition to a list, not a layout rewrite. The same data-driven action list MUST drive both the Compact `BasicAlertDialog` rendering and the Medium/Expanded `Popup`-based rendering.
 
 #### Scenario: Action set is data-driven
 
@@ -359,7 +359,7 @@ The "Discard draft?" confirmation dialog SHALL be implemented such that its acti
 #### Scenario: Same action list drives both renderings
 
 - **WHEN** the same `ImmutableList<ComposerDialogAction>` is passed into the discard confirmation at Compact and at Medium/Expanded
-- **THEN** the rendered actions, their labels, their order, and their `onClick` lambdas are identical across both width classes — only the wrapping Compose primitive differs (`AlertDialog` vs. `Popup`)
+- **THEN** the rendered actions, their labels, their order, and their `onClick` lambdas are identical across both width classes — only the wrapping Compose primitive differs (`BasicAlertDialog` vs. `Popup`)
 
 ### Requirement: Top-bar action row reserves space for a future drafts entry point
 
@@ -578,7 +578,7 @@ Additional internal states (e.g., transient errors) MUST collapse to `Idle` befo
 - **WHEN** the typeahead repository returns `Result.failure(...)` for any query
 - **THEN** `state.typeahead` SHALL equal `TypeaheadStatus.Idle` AND no `ComposerEffect.ShowError` SHALL be emitted
 
-### Requirement: Typeahead pipeline uses debounce + distinctUntilChanged + mapLatest
+### Requirement: Typeahead pipeline guarantees debounce semantics + distinctUntilChanged + mapLatest
 
 `ComposerViewModel` MUST drive the typeahead lookup from a per-VM `MutableSharedFlow<String>` collected via `launchIn(viewModelScope)`. The pipeline SHALL guarantee three semantics: (1) **debounce** — non-empty tokens MUST wait at least 150ms after the last keystroke before resolving, suppressing in-flight fan-out during fast typing. (2) **distinctUntilChanged** — consecutive identical tokens MUST NOT trigger a second repository call. (3) **mapLatest** — when a newer token arrives, any in-flight slow query for an older token MUST be cancelled, and any pending debounce delay for the older token MUST also be cancelled. The operator chain is `.distinctUntilChanged().mapLatest { token -> if (token.isNotEmpty()) delay(150.milliseconds); repo.searchTypeahead(token) }` — placing the `delay(...)` *inside* `mapLatest` (rather than upstream `.debounce(...)`) is the canonical shape because the empty-token sentinel ("no active token") MUST cancel both an in-flight repository call and any pending delay immediately, which an upstream `.debounce(...)` cannot do.
 
