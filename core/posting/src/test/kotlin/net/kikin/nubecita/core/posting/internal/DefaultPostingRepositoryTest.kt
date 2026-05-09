@@ -370,6 +370,7 @@ class DefaultPostingRepositoryTest {
                         },
                     encoder = passthroughEncoder(),
                     facetExtractor = passthroughFacetExtractor(),
+                    localeProvider = fixedLocaleProvider("en-US"),
                     dispatcher = UnconfinedTestDispatcher(),
                 )
 
@@ -505,6 +506,192 @@ class DefaultPostingRepositoryTest {
             assertEquals(4, invocations.get())
         }
 
+    @Test
+    fun langs_default_setsProviderLocaleOnRecord() =
+        runTest {
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(
+                    signedIn = true,
+                    localeProvider = fixedLocaleProvider("ja-JP"),
+                ) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/lang","cid":"baflang"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            // Caller omits the langs parameter — the repo derives it
+            // from the LocaleProvider.
+            val result = repo.createPost(text = "hola", attachments = emptyList(), replyTo = null)
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(body.contains("\"langs\":[\"ja-JP\"]"), "expected langs from provider, got: $body")
+        }
+
+    @Test
+    fun langs_explicitNonNull_overridesDefault() =
+        runTest {
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(
+                    signedIn = true,
+                    localeProvider = fixedLocaleProvider("en-US"),
+                ) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/lang","cid":"baflang"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "konnichiwa",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    langs = listOf("ja-JP"),
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(body.contains("\"langs\":[\"ja-JP\"]"), "explicit caller langs missing: $body")
+            assertTrue(!body.contains("en-US"), "provider's default leaked through despite explicit override: $body")
+        }
+
+    @Test
+    fun langs_invalidTagsDroppedSilently() =
+        runTest {
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/lang","cid":"baflang"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "mixed validity",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    // The empty string and the bare "!" don't round-trip
+                    // through Locale.forLanguageTag — they should be
+                    // dropped, leaving only the two valid tags.
+                    langs = listOf("en-US", "", "!", "es-MX"),
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(body.contains("\"langs\":[\"en-US\",\"es-MX\"]"), "expected only valid tags, got: $body")
+        }
+
+    @Test
+    fun langs_allInvalid_omitsLangsFieldEntirely() =
+        runTest {
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/lang","cid":"baflang"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "all invalid",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    langs = listOf("", "!"),
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            // After dropping the two invalid tags, the resolved list is
+            // empty — the lexicon doesn't accept `langs: []`, so the
+            // field MUST be omitted entirely (AtField.Missing) rather
+            // than serialized as an empty array.
+            assertTrue(!body.contains("\"langs\""), "expected no langs field, got: $body")
+        }
+
+    @Test
+    fun langs_explicitEmpty_omitsLangsField() =
+        runTest {
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(
+                    signedIn = true,
+                    localeProvider = fixedLocaleProvider("en-US"),
+                ) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/lang","cid":"baflang"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            // Explicit empty list ≠ null. Caller is saying "I want zero
+            // langs on this post" — the repo MUST honor that and not
+            // fall back to the device locale.
+            val result =
+                repo.createPost(
+                    text = "no langs please",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    langs = emptyList(),
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(!body.contains("\"langs\""), "expected no langs field with explicit empty list, got: $body")
+        }
+
+    @Test
+    fun langs_replyMode_carriesProviderDefaultAlongsideRefs() =
+        runTest {
+            val parentRef =
+                StrongRef(
+                    uri = AtUri("at://did:plc:alice/app.bsky.feed.post/parent"),
+                    cid = Cid("bafparent"),
+                )
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(
+                    signedIn = true,
+                    localeProvider = fixedLocaleProvider("es-MX"),
+                ) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/r","cid":"bafr"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "reply with langs",
+                    attachments = emptyList(),
+                    replyTo = ReplyRefs(parent = parentRef, root = parentRef),
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(body.contains("\"langs\":[\"es-MX\"]"), "langs missing in reply mode: $body")
+            assertTrue(body.contains("at://did:plc:alice/app.bsky.feed.post/parent"), "reply ref missing: $body")
+        }
+
     private fun attachment(mime: String): ComposerAttachment = ComposerAttachment(uri = mockk(relaxed = true), mimeType = mime)
 
     private fun newRepo(
@@ -512,6 +699,7 @@ class DefaultPostingRepositoryTest {
         encoder: AttachmentEncoder = passthroughEncoder(),
         byteSource: AttachmentByteSource = canned(byteArrayOf(1, 2, 3)),
         facetExtractor: FacetExtractor = passthroughFacetExtractor(),
+        localeProvider: LocaleProvider = fixedLocaleProvider("en-US"),
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ): Pair<MockEngine, DefaultPostingRepository> {
         val engine = MockEngine(handler)
@@ -543,10 +731,20 @@ class DefaultPostingRepositoryTest {
                 byteSource = byteSource,
                 encoder = encoder,
                 facetExtractor = facetExtractor,
+                localeProvider = localeProvider,
                 dispatcher = UnconfinedTestDispatcher(),
             )
         return engine to repo
     }
+
+    /**
+     * Pinning a fixed locale rather than reading `Locale.getDefault()`
+     * keeps these tests stable across machines and CI runners.
+     */
+    private fun fixedLocaleProvider(tag: String): LocaleProvider =
+        object : LocaleProvider {
+            override fun primaryLanguageTag(): String = tag
+        }
 
     private fun canned(bytes: ByteArray): AttachmentByteSource =
         object : AttachmentByteSource {

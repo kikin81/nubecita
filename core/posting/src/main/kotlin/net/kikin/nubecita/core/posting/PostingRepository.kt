@@ -41,6 +41,16 @@ interface PostingRepository {
      * @param replyTo Non-null in reply mode, carries both the parent
      *   and root [io.github.kikin81.atproto.com.atproto.repo.StrongRef]s.
      *   Null for a top-level new post.
+     * @param langs BCP-47 language tags to set on the post's `langs`
+     *   field. `null` means "let the repository derive a default from
+     *   the device's primary locale" — the typical V1 case. An explicit
+     *   non-null list overrides that default and lets a future per-post
+     *   override UI plumb caller-chosen tags through. Invalid tags
+     *   (those that don't round-trip through `Locale.forLanguageTag`)
+     *   are dropped silently. Empty lists — explicit or after dropping
+     *   invalid entries — produce a record with no `langs` field at all
+     *   (`AtField.Missing`), letting custom feeds fall back to whatever
+     *   server-side detection they prefer.
      * @return `Result.success(uri)` on a successful submission carrying
      *   the new record's AT URI; `Result.failure(ComposerError)` on any
      *   typed failure mode.
@@ -49,5 +59,6 @@ interface PostingRepository {
         text: String,
         attachments: List<ComposerAttachment>,
         replyTo: ReplyRefs?,
+        langs: List<String>? = null,
     ): Result<AtUri>
 }
