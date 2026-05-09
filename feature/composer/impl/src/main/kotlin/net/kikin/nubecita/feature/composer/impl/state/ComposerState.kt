@@ -73,10 +73,16 @@ data class ComposerState(
      * language chip + picker. `null` means "user has not touched the
      * picker; let `PostingRepository.createPost` derive the device-
      * locale default per `nubecita-wtq.12`'s contract." A non-null
-     * list (including `emptyList()`) is an explicit caller override
+     * list (including the empty list) is an explicit caller override
      * passed through verbatim.
+     *
+     * Typed as [ImmutableList] for the same reason [attachments] is —
+     * Compose stability + defense against post-set mutation by a
+     * caller still holding a reference to the original list. The VM's
+     * reducer for `LanguageSelectionConfirmed` normalizes incoming
+     * `List<String>` events to `ImmutableList` at the state boundary.
      */
-    val selectedLangs: List<String>? = null,
+    val selectedLangs: ImmutableList<String>? = null,
     val submitStatus: ComposerSubmitStatus = ComposerSubmitStatus.Idle,
     val typeahead: TypeaheadStatus = TypeaheadStatus.Idle,
 ) : UiState

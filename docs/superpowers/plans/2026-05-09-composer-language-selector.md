@@ -103,7 +103,7 @@ Expected: FAIL with `Unresolved reference: BLUESKY_LANGUAGE_TAGS` (file doesn't 
 
 - [ ] **Step 3: Port the list from bsky-app**
 
-Open the bsky-app source: <https://github.com/bluesky-social/social-app/blob/main/src/locale/languages.ts>. Copy each entry's `code2` (or `code3` if `code2` is empty) field — these are the BCP-47 tags. As of this writing the list is ~75 entries.
+Open the bsky-app source: <https://github.com/bluesky-social/social-app/blob/main/src/locale/languages.ts>. The picker UI at `src/components/dialogs/LanguageSelectDialog.tsx` filters with `LANGUAGES.filter(lang => !!lang.code2)` — port that filtered subset's `code2` values verbatim. As of this writing the filtered list is 184 entries. Refresh procedure: `gh api repos/bluesky-social/social-app/contents/src/locale/languages.ts | jq -r .content | base64 -d | grep -oE "code2: '[a-z]{2}(-[A-Za-z]+)*'" | sed -E "s/code2: '(.*)'/\1/" | sort -u`
 
 Create `core/posting/src/main/kotlin/net/kikin/nubecita/core/posting/BlueskyLanguageTags.kt`:
 

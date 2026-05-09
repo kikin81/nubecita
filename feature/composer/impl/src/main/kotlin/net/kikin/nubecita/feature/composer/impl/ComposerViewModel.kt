@@ -340,7 +340,12 @@ class ComposerViewModel
                 )
                 return
             }
-            setState { copy(selectedLangs = tags) }
+            // Normalize to ImmutableList at the state boundary so
+            // `selectedLangs` cannot be mutated by a caller still
+            // holding a reference to the event's `tags` argument.
+            // ComposerState declares the field as `ImmutableList<String>?`
+            // for Compose stability + this defense.
+            setState { copy(selectedLangs = tags.toImmutableList()) }
         }
 
         private fun handleSubmit() {
