@@ -73,7 +73,9 @@ private fun ComposerScreenEmptyScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onLanguageChipClick = {},
         )
     }
 }
@@ -98,7 +100,9 @@ private fun ComposerScreenNearLimitScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onLanguageChipClick = {},
         )
     }
 }
@@ -123,7 +127,9 @@ private fun ComposerScreenSubmittingScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onLanguageChipClick = {},
         )
     }
 }
@@ -175,7 +181,9 @@ private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onLanguageChipClick = {},
         )
     }
 }
@@ -214,7 +222,9 @@ private fun ComposerScreenReplyModeLoadedScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onLanguageChipClick = {},
         )
     }
 }
@@ -243,7 +253,9 @@ private fun ComposerScreenWithImagesScreenshot() {
             onAddImageClick = {},
             onRemoveAttachment = {},
             onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onLanguageChipClick = {},
         )
     }
 }

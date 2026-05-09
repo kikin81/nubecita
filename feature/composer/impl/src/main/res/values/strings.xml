@@ -67,4 +67,17 @@
     <string name="composer_discard_title">Discard draft?</string>
     <string name="composer_discard_cancel">Cancel</string>
     <string name="composer_discard_confirm">Discard</string>
+
+    <!-- Language picker — search field label, a11y description, and
+         confirm/dismiss footer affordances. -->
+    <string name="composer_language_search_label">Search</string>
+    <string name="composer_language_search_content_description">Search languages</string>
+    <string name="composer_language_picker_done">Done</string>
+    <string name="composer_language_picker_cancel">Cancel</string>
+
+    <!-- Language chip — shown on the empty-selection ("explicit no
+         language") state. Distinct from the null-selection state,
+         which renders the device-locale display name to mirror what
+         the repo's wtq.12 device-locale fallback would send. -->
+    <string name="composer_language_chip_none">No language</string>
 </resources>

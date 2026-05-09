@@ -211,6 +211,56 @@ The default is sourced from `java.util.Locale.getDefault().toLanguageTag()` on t
 - **WHEN** a caller passes `langs = emptyList()` explicitly
 - **THEN** the record is created with `langs` omitted entirely; the repository MUST NOT substitute the device-locale default
 
+### Requirement: Composer language chip exposes a per-post BCP-47 override
+
+The system SHALL render an M3 `AssistChip` (leading globe icon, dynamic label) inside a `ComposerOptionsChipRow` between `ComposerScreen`'s text-field surface and `ComposerAttachmentRow`. The chip's label SHALL reflect what the next `PostingRepository.createPost` call will send: when `state.selectedLangs == null` the label is the localized display name of `ComposerViewModel.deviceLocaleTag` (resolved from the injected `LocaleProvider`); when `state.selectedLangs.size == 1` the label is the localized display name of the selected tag; when `state.selectedLangs.size >= 2` the label is the first tag's display name plus `"+N"` overflow (`"+1"` or `"+2"`).
+
+Tapping the chip SHALL open a multi-select picker preselected with `state.selectedLangs ?: listOf(deviceLocaleTag)`. The picker SHALL be a `ModalBottomSheet` at Compact width and a `Popup` overlaying an M3 `Surface(widthIn(max = 480.dp))` at Medium / Expanded width — the same width-class branching `ComposerDiscardDialog` uses to avoid the double-scrim problem when the composer is itself a Compose `Dialog`. The picker SHALL enforce a cap of 3 selections by rendering unchecked checkboxes as `enabled = false` once `draftSelection.size == 3`. The reducer for `ComposerEvent.LanguageSelectionConfirmed(tags)` SHALL also defensively no-op when `tags.size > 3`.
+
+Selection-while-the-picker-is-open SHALL be local to the picker's draft state. Tapping `Done` dispatches `LanguageSelectionConfirmed(tags)`; tapping `Cancel`, dragging the bottom sheet down, scrim-tapping the popup, or pressing back SHALL dismiss without dispatching. The list of selectable tags SHALL be the static `BLUESKY_LANGUAGE_TAGS` constant in `:core:posting`, sorted with currently-selected tags pinned at the top, then the device-locale tag (if not selected), then everything else alphabetical by `Locale.forLanguageTag(tag).getDisplayLanguage(Locale.getDefault())`.
+
+#### Scenario: Chip label reflects device-locale fallback when no override is set
+
+- **GIVEN** `ComposerState.selectedLangs == null` and `ComposerViewModel.deviceLocaleTag == "en-US"`
+- **WHEN** `ComposerScreen` renders
+- **THEN** the chip's label is `"English"`
+
+#### Scenario: Chip label reflects single explicit override
+
+- **GIVEN** `ComposerState.selectedLangs == listOf("ja-JP")`
+- **WHEN** `ComposerScreen` renders
+- **THEN** the chip's label is `"Japanese"`
+
+#### Scenario: Chip label shows overflow count for multi-language selection
+
+- **GIVEN** `ComposerState.selectedLangs == listOf("en-US", "ja-JP", "es-MX")`
+- **WHEN** `ComposerScreen` renders
+- **THEN** the chip's label is `"English +2"`
+
+#### Scenario: Cap-of-3 enforced as disabled checkboxes
+
+- **GIVEN** the language picker is open and the user has checked 3 languages
+- **WHEN** the user inspects an unchecked language row
+- **THEN** that row's checkbox is rendered with `enabled = false`
+
+#### Scenario: Picker dismiss without confirm leaves state unchanged
+
+- **GIVEN** the language picker is open with `state.selectedLangs == null`, the user toggles two checkboxes inside the picker, and then taps `Cancel` (or drags the sheet down)
+- **WHEN** the dismiss completes
+- **THEN** `ComposerState.selectedLangs` is still `null`
+
+#### Scenario: Submit with non-null selection passes it verbatim to createPost
+
+- **GIVEN** `ComposerState.selectedLangs == listOf("ja-JP", "en-US")` and `Submit` succeeds
+- **WHEN** `PostingRepository.createPost` is invoked
+- **THEN** the call's `langs` parameter is `listOf("ja-JP", "en-US")`
+
+#### Scenario: Submit with null selection falls back to repo's device-locale default
+
+- **GIVEN** `ComposerState.selectedLangs == null` and `Submit` succeeds
+- **WHEN** `PostingRepository.createPost` is invoked
+- **THEN** the call's `langs` parameter is `null` (the repository's `LocaleProvider` then derives the device-locale default per `nubecita-wtq.12`'s contract)
+
 ### Requirement: Tab-internal navigation flows through `ComposerEffect`, not a Hilt-injected navigator
 
 The system SHALL declare `sealed interface ComposerEffect : UiEffect` with at minimum `NavigateBack : ComposerEffect`, `ShowError(val error: ComposerError) : ComposerEffect`, and `OnSubmitSuccess(val newPostUri: AtUri) : ComposerEffect`. `ShowError` carries the typed `ComposerError` (from `:core:posting`) — matching `FeedEffect.ShowError(error: FeedError)` and `PostDetailEffect.ShowError(error: PostDetailError)` — so the screen Composable can pre-resolve every error string via `stringResource(...)` at composition time and switch on the sealed-error type inside the collector. The VM MUST NOT carry Android resource ids or pre-localized strings on the effect. The screen Composable MUST collect these effects in a single `LaunchedEffect` block and route navigation calls through `LocalMainShellNavState.current` (e.g. `removeLast()` for back, `add(...)` for forward). `ComposerViewModel` MUST NOT inject `MainShellNavState` or any object backed by it. The outer `Navigator` MUST NOT be injected either.

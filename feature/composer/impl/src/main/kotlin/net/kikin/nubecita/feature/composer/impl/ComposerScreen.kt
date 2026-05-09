@@ -49,7 +49,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.posting.ActorTypeaheadUi
+import net.kikin.nubecita.core.posting.BLUESKY_LANGUAGE_TAGS
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
@@ -57,9 +59,12 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounte
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCloseAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDialogAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDiscardDialog
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerLanguageChip
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerOptionsChipRow
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
+import net.kikin.nubecita.feature.composer.impl.internal.LanguagePicker
 import net.kikin.nubecita.feature.composer.impl.internal.composerCloseAttempt
 import net.kikin.nubecita.feature.composer.impl.internal.rememberComposerImagePicker
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
@@ -67,6 +72,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
+import java.util.Locale
 import kotlin.math.max
 
 /**
@@ -172,6 +178,11 @@ fun ComposerScreen(
     // `rememberSaveable` so process death + recreate restores the dialog
     // mid-confirmation.
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
+    // Language-picker visibility. rememberSaveable so process death +
+    // recreate restores the open picker mid-selection — same shape as
+    // showDiscardDialog above. The picker's *draft* selection lives
+    // inside LanguagePicker via its own rememberSaveable.
+    var showPicker by rememberSaveable { mutableStateOf(false) }
     val hasContent by remember(viewModel.textFieldState, state.attachments) {
         derivedStateOf {
             viewModel.textFieldState.text.isNotBlank() || state.attachments.isNotEmpty()
@@ -250,14 +261,50 @@ fun ComposerScreen(
         state = state,
         textFieldState = viewModel.textFieldState,
         snackbarHostState = snackbarHostState,
+        deviceLocaleTag = viewModel.deviceLocaleTag,
         onSubmit = onSubmit,
         onCloseClick = attemptClose,
         onAddImageClick = onAddImageClick,
         onRemoveAttachment = onRemoveAttachment,
         onSuggestionClick = onSuggestionClick,
         onRetryParentLoad = onRetryParentLoad,
+        onLanguageChipClick = { showPicker = true },
         modifier = modifier,
     )
+
+    if (showPicker) {
+        // Caller resolves the initial selection — `selectedLangs` if
+        // the user has previously committed one, otherwise the device
+        // locale so the device's language is preselected on first open
+        // (and the picker's chip label stays consistent with what the
+        // repo's wtq.12 default would send on a null-state submit).
+        //
+        // Tags are normalized to their language portion via
+        // `Locale.forLanguageTag(it).language` so they match the bare
+        // language tags in BLUESKY_LANGUAGE_TAGS. Without this, a
+        // device locale like "en-US" or a previously-committed tag
+        // like "ja-JP" would never compare equal to the picker's
+        // "en" / "ja" rows, leaving them visually unchecked on
+        // first open even though they're conceptually selected.
+        // `distinct()` collapses any pair like ["ja-JP", "ja-Hira"]
+        // that maps to the same bare language.
+        val initial =
+            (state.selectedLangs ?: persistentListOf(viewModel.deviceLocaleTag))
+                .map { Locale.forLanguageTag(it).language }
+                .filter { it.isNotEmpty() }
+                .distinct()
+                .toImmutableList()
+        LanguagePicker(
+            allTags = BLUESKY_LANGUAGE_TAGS,
+            initialSelection = initial,
+            deviceLocaleTag = viewModel.deviceLocaleTag,
+            onConfirm = { tags ->
+                viewModel.handleEvent(ComposerEvent.LanguageSelectionConfirmed(tags))
+                showPicker = false
+            },
+            onDismiss = { showPicker = false },
+        )
+    }
 
     if (showDiscardDialog) {
         ComposerDiscardDialog(
@@ -292,12 +339,14 @@ fun ComposerScreenContent(
     state: ComposerState,
     textFieldState: TextFieldState,
     snackbarHostState: SnackbarHostState,
+    deviceLocaleTag: String,
     onSubmit: () -> Unit,
     onCloseClick: () -> Unit,
     onAddImageClick: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
     onSuggestionClick: (ActorTypeaheadUi) -> Unit,
     onRetryParentLoad: () -> Unit,
+    onLanguageChipClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -416,6 +465,19 @@ fun ComposerScreenContent(
                     ComposerSuggestionList(
                         typeahead = state.typeahead,
                         onSuggestionClick = onSuggestionClick,
+                    )
+                }
+                // Composer-options chip row. Hosts the language chip
+                // in V1; visibility / threadgate / drafts chips land
+                // in the same row in follow-up PRs without further
+                // chrome changes. When `nubecita-86m`'s
+                // HorizontalFloatingToolbar lands, this row migrates
+                // wholesale into the toolbar's content slot.
+                ComposerOptionsChipRow {
+                    ComposerLanguageChip(
+                        selectedLangs = state.selectedLangs,
+                        deviceLocaleTag = deviceLocaleTag,
+                        onClick = onLanguageChipClick,
                     )
                 }
                 // Composer attachment action row. Hosts the leading

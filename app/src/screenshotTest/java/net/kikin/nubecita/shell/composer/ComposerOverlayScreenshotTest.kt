@@ -88,12 +88,14 @@ private fun ComposerOverlayEmptyExpandedScreenshot() {
                         state = ComposerState(),
                         textFieldState = remember { TextFieldState() },
                         snackbarHostState = remember { SnackbarHostState() },
+                        deviceLocaleTag = "en-US",
                         onSubmit = {},
                         onCloseClick = {},
                         onAddImageClick = {},
                         onRemoveAttachment = {},
                         onSuggestionClick = {},
                         onRetryParentLoad = {},
+                        onLanguageChipClick = {},
                     )
                 }
             }
