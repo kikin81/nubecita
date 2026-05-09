@@ -3,7 +3,7 @@
 **Date:** 2026-05-09
 **bd:** `nubecita-oae` — *feat(feature/composer): per-post language selector via toolbar globe icon*
 **Driver:** V1 follow-up to `nubecita-wtq.12` (PR #146 — device-locale `langs` default). Adds a per-post override picker so users can attach up to 3 BCP-47 language tags, matching how the official Bluesky client tags multilingual content.
-**Scope:** Globe icon in the composer chrome → bottom-sheet / popup picker → updates `ComposerState.selectedLangs` → flows through to `PostingRepository.createPost(langs = ...)`.
+**Scope:** M3 `AssistChip` (globe leading icon + dynamic label) in a dedicated chip row in the composer → tap opens a bottom-sheet / popup picker → updates `ComposerState.selectedLangs` → flows through to `PostingRepository.createPost(langs = ...)`.
 
 ## Why
 
@@ -64,21 +64,27 @@ Selection-while-the-picker-is-open is **local to the picker** — `var draft by 
 
 ### 4. Initial selection on open
 
+The chip and the picker both need the device-locale fallback to render labels and preselected checkboxes. To keep `LocaleProvider` access centralized, `ComposerViewModel` reads it once at init and exposes the resolved tag as a stable property (`val deviceLocaleTag: String`). The chip and the picker take it as a constructor parameter:
+
 ```kotlin
-val initial = state.selectedLangs ?: listOf(localeProvider.primaryLanguageTag())
+val initial = state.selectedLangs ?: listOf(viewModel.deviceLocaleTag)
 ```
 
-The picker reads the `LocaleProvider` we added in `wtq.12` via Hilt (its second consumer). On first open the picker shows the device locale checked; on subsequent opens it shows whichever set the user last committed. The picker never sees the JVM's raw `Locale.getDefault()` — `LocaleProvider`'s test-friendliness keeps screen-level UI tests deterministic across machines.
+On first open the picker shows the device locale checked; on subsequent opens it shows whichever set the user last committed. Neither the chip nor the picker accesses `LocaleProvider` directly — `wtq.12`'s abstraction keeps a single VM-level read site, and screen-level UI tests stay deterministic by configuring the VM's resolved `deviceLocaleTag` rather than fighting the JVM's `Locale.getDefault()`.
 
 ### 5. UI details
 
 | Decision | Resolution |
 |---|---|
+| **Entry-point composable** | M3 `AssistChip` with leading globe icon + dynamic label, NOT a bare `IconButton`. Rationale: the chip surfaces the active language at a glance (no need to open the picker just to check what's currently set), and the chip-row layout is forward-compatible with the next composer chips (visibility/threadgate, drafts) without further chrome changes. `AssistChip(leadingIcon = { Icon(Globe, ...) }, label = { Text(displayText, maxLines = 1, overflow = TextOverflow.Ellipsis) }, modifier = Modifier.widthIn(max = 200.dp))`. The 200dp width cap defends against pathological display names like `"Norwegian Bokmål, Esperanto, Cantonese"`. |
+| **Chip placement** | Dedicated chip row between the text field (or typeahead surface, when active) and the attachment chips: `TextField → (TypeaheadList) → ComposerOptionsChipRow → AttachmentRow → IME`. The row hosts only the language chip in V1 — when `nubecita-86m`'s toolbar lands, the row migrates into the toolbar's content slot wholesale. The top-app-bar action area stays for true navigation chrome (close button + future drafts entry icon). |
+| **Chip label when `selectedLangs == null`** | Shows the resolved device-locale display name — e.g., `🌐 English` if the device locale is `en-US`. Rationale: the chip should always tell the truth about what's about to be sent. `wtq.12`'s repo-side default means a `null` selection still ships the device locale on the record; a `🌐 Add language` placeholder would imply an empty state that doesn't actually exist. |
+| **Chip label when `selectedLangs.size == 1`** | First (only) tag's localized display name — `🌐 Japanese` for `["ja-JP"]` on an English device. |
+| **Chip label when `selectedLangs.size >= 2`** | First tag's display name + `"+N"` overflow — `🌐 English +1` (2 selected), `🌐 English +2` (3 selected at cap). Predictable chip width regardless of selection count; matches the official Bluesky client. The full list is revealed when the user re-opens the picker. |
 | **Search** | Top-of-picker `TextField`. Filter applies to BOTH the localized display name AND the BCP-47 tag, so `"en"` finds English and `"anglais"` finds English when the device is French. ~75 entries scrolls fine without search, but typing 2-3 chars is faster than thumb-scrolling — standard picker UX. |
 | **Sort order** | Currently-selected tags pinned at top; then the device-locale tag (if not already selected); then everything else alphabetical by `getDisplayName(Locale.getDefault())`. Selection-pinning matches what users expect when re-opening. |
 | **Cap-of-3 enforcement** | When `selectedLangs.size == 3` the unchecked checkboxes render `enabled = false` (greyed out via M3 disabled tonal treatment). No snackbar — silent disabled state matches the standard Compose idiom and Bluesky does the same. The reducer also defends defensively for any event that would push past 3. |
 | **Done / Cancel** | Bottom-aligned action row in the picker — `Done` (filled, dispatches `LanguageSelectionConfirmed`); `Cancel` (text, no event). Drag-down on the bottom sheet, scrim tap on the popup, and back-press all map to Cancel. |
-| **Globe icon visual state** | `selectedLangs == null` → bare globe icon. `selectedLangs.size == 1` → globe + small label below it showing the tag's `Locale.getLanguage()` uppercase (e.g., `"EN"`, `"JA"`). `selectedLangs.size >= 2` → globe + first tag's code + `"+N"` (`"EN +1"`, `"EN +2"`). Mirrors how the official Bluesky client surfaces the active selection. |
 
 ### 6. Module + file layout
 
@@ -87,28 +93,30 @@ The picker reads the `LocaleProvider` we added in `wtq.12` via Hilt (its second 
 | `core/posting/src/main/kotlin/.../BlueskyLanguageTags.kt` | New — `val BLUESKY_LANGUAGE_TAGS: ImmutableList<String>` ported verbatim from bsky-app's `LANGUAGES` constant. |
 | `feature/composer/impl/src/main/kotlin/.../internal/LanguagePickerContent.kt` | New — pure stateless `@Composable`. `LazyColumn` of `LanguagePickerRow`s + search field + Done/Cancel footer. Takes `(allTags, draft, onToggle, onConfirm, onDismiss)`. |
 | `feature/composer/impl/src/main/kotlin/.../internal/LanguagePicker.kt` | New — adaptive wrapper choosing `ModalBottomSheet` vs `Popup` by `currentWindowAdaptiveInfoV2()`. |
-| `feature/composer/impl/src/main/kotlin/.../internal/ComposerLanguageIconButton.kt` | New — globe `IconButton` with the dynamic label state described in 5. |
+| `feature/composer/impl/src/main/kotlin/.../internal/ComposerLanguageChip.kt` | New — `AssistChip` (globe leading icon + dynamic label per decision 5), takes `(selectedLangs, deviceLocaleTag, onClick)`. Pure stateless composable. |
+| `feature/composer/impl/src/main/kotlin/.../internal/ComposerOptionsChipRow.kt` | New — horizontal row container hosting the language chip (and, in the future, visibility/threadgate / drafts chips). V1 ships with one occupant; the row exists as the layout slot so future chips don't introduce more chrome. |
 | `feature/composer/impl/src/main/kotlin/.../state/ComposerState.kt` | Modified — add `selectedLangs: List<String>? = null` field. |
 | `feature/composer/impl/src/main/kotlin/.../state/ComposerEvent.kt` | Modified — add `LanguageSelectionConfirmed(tags: List<String>)`. |
-| `feature/composer/impl/src/main/kotlin/.../ComposerViewModel.kt` | Modified — handle the new event; pass `state.selectedLangs` to `createPost`. |
-| `feature/composer/impl/src/main/kotlin/.../ComposerScreen.kt` | Modified — wire the icon into the existing top-app-bar action row (the slot reserved by the unified-composer spec for "future drafts entry icon"); host the picker with a `var showPicker by rememberSaveable { mutableStateOf(false) }` flag. |
+| `feature/composer/impl/src/main/kotlin/.../ComposerViewModel.kt` | Modified — handle the new event; pass `state.selectedLangs` to `createPost`. The VM also exposes `deviceLocaleTag: String` (computed once at init from the injected `LocaleProvider`) so the chip and the picker can render consistent fallback labels without each pulling `LocaleProvider` separately. |
+| `feature/composer/impl/src/main/kotlin/.../ComposerScreen.kt` | Modified — render `ComposerOptionsChipRow` between the text field and `ComposerAttachmentRow`. Tap on the language chip flips a `var showPicker by rememberSaveable { mutableStateOf(false) }` flag that hosts the picker. |
 | `openspec/specs/feature-composer/spec.md` | Modified — new requirement describing the picker UI contract. Direct edit (matches PR #144 / #146 pattern). |
 
 ### 7. Toolbar coupling — deliberately deferred
 
-`nubecita-86m` (the M3 `HorizontalFloatingToolbar`) is the natural eventual home for the globe icon, but bundling this PR with the toolbar refactor would balloon the blast radius. For V1 the icon lives in the top-app-bar action slot. When `nubecita-86m` ships, the icon's `IconButton` moves from top-bar to toolbar in a 5-line refactor — no spec change, no state-shape change.
+`nubecita-86m` (the M3 `HorizontalFloatingToolbar`) is the natural eventual home for these composer options, but bundling this PR with the toolbar refactor would balloon the blast radius. For V1 the language chip lives in `ComposerOptionsChipRow` between the text field and the attachment row. When `nubecita-86m` ships, the chip-row migrates wholesale into the toolbar's content slot — no spec change, no state-shape change. The chip itself can either remain an `AssistChip` (toolbars are friendly to chips) or be replaced by an `IconButton` with the chip's label as a tooltip; that's a `nubecita-86m`-time UX choice, not a V1 commitment.
 
 ### 8. Test plan
 
 - **Unit (`ComposerViewModelTest`)**: `LanguageSelectionConfirmed(tags)` reducer maps to `state.selectedLangs == tags`. Cap-of-3 defensive path: a 4-tag event no-ops. Submit with `selectedLangs == null` → fake repo receives `langs = null`. Submit with `selectedLangs == listOf("ja-JP")` → fake repo receives `langs = listOf("ja-JP")`.
 - **Compose UI (`LanguagePickerContentTest`)**: search filter narrows by tag and by display name. Disabled checkboxes when 3 are selected. Done dispatches the right tags. Cancel doesn't dispatch.
-- **Screenshot fixtures (`@PreviewNubecitaScreenPreviews` from PR #145)**: picker-open at Compact (bottom sheet), picker-open at Foldable + Tablet (popup overlay over composer dialog). Picker-with-3-selected showing the disabled-checkbox treatment. Picker with search active.
-- **Composer screen integration**: globe-icon visual state at null / 1-selected / 3-selected.
+- **Screenshot fixtures (`@PreviewNubecitaScreenPreviews` from PR #145)**: picker-open at Compact (bottom sheet), picker-open at Foldable + Tablet (popup overlay over composer dialog). Picker-with-3-selected showing the disabled-checkbox treatment. Picker with search active. Composer-with-chip-row at Compact + Foldable + Tablet showing the chip in `null` / 1-selected / 3-selected states (drives the chip's label-truncation budget).
+- **Composer screen integration**: chip label state at `null` (device-locale display name), `selectedLangs.size == 1` (single display name), `selectedLangs.size == 3` (`"<first> +2"` overflow).
 
 ### 9. Acceptance
 
-- Tapping the globe icon opens the picker preselected with whichever set is currently effective (override or device-locale fallback).
-- Selecting up to 3 languages and tapping Done updates `ComposerState.selectedLangs` and the globe icon's label.
+- Tapping the language chip opens the picker preselected with whichever set is currently effective (override or device-locale fallback).
+- Selecting up to 3 languages and tapping Done updates `ComposerState.selectedLangs` and the chip's label.
+- The chip's label always reflects what `createPost` is about to send: when `selectedLangs == null` it shows the device-locale display name; when non-null it shows the first selected language's display name (with `+N` overflow when more than one is selected).
 - Submission with non-null `selectedLangs` carries those exact tags on the post record (verified via Compose UI test against a fake `PostingRepository`).
 - Submission with `null selectedLangs` continues to derive from the device locale per `wtq.12`.
 - `openspec validate --all --strict` passes.
@@ -119,4 +127,4 @@ The picker reads the `LocaleProvider` we added in `wtq.12` via Hilt (its second 
 - **Auto-detection** of post language from text content (cld3 / character-set heuristics). The official Bluesky client does this; we ship V1 with manual selection and add detection if feeds report tagging-accuracy issues.
 - **Display-language fine-tuning** — region-qualified tags via `getDisplayCountry`, e.g., `"English (United States)"` vs `"English"`. Defer until users complain.
 - **Search input localization beyond `Locale.getDefault()`**. Standard display-name approach is enough.
-- **Migrating the icon into the M3 `HorizontalFloatingToolbar`** — `nubecita-86m`. Tracked separately; the V1 picker ships in the top-app-bar action slot.
+- **Migrating `ComposerOptionsChipRow` into the M3 `HorizontalFloatingToolbar`** — `nubecita-86m`. Tracked separately; the V1 chip-row ships between the text field and the attachment row.
