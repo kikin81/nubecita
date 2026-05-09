@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: `FeedScreen` consumes `LocalScrollToTopSignal` and hosts the compose FAB
 
@@ -58,16 +58,6 @@ The `FeedViewModel` is unchanged. No new state field, no new event, no new effec
 
 - **WHEN** the source tree of `FeedViewModel` / `FeedState` / `FeedEvent` / `FeedEffect` is diffed before / after this change
 - **THEN** there are NO additions or modifications. The compose FAB tap path does not pass through the VM.
-
-## REMOVED Requirements
-
-### Requirement: Existing FeedScreen test surface is unchanged
-
-**Reason:** The unified-composer change deliberately rewrites the FAB slot — the prior "scroll-to-top FAB visible after threshold" screenshot fixture is removed and replaced by a "compose FAB visible over loaded feed" fixture pair. The non-disruption guarantee made by the scroll-to-top change is no longer applicable.
-
-**Migration:** Replace the `loaded-with-fab-visible-light` / `loaded-with-fab-visible-dark` screenshot fixtures with `loaded-with-compose-fab-light` / `loaded-with-compose-fab-dark`, capturing the compose FAB at rest over a populated feed. Existing `loaded-light` / `loaded-dark` baselines may need to be re-baselined as well, since the FAB is now visible at scroll position 0 (the prior baselines captured no FAB at position 0). All other `FeedViewModel` unit tests remain untouched.
-
-## ADDED Requirements
 
 ### Requirement: Each post in the feed exposes a reply tap target that opens the composer in reply mode via the width-class-conditional launcher
 
