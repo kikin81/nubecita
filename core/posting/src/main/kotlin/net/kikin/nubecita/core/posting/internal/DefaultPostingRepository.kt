@@ -11,6 +11,7 @@ import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Datetime
+import io.github.kikin81.atproto.runtime.Language
 import io.github.kikin81.atproto.runtime.Nsid
 import io.github.kikin81.atproto.runtime.encodeRecord
 import io.ktor.http.ContentType
@@ -31,6 +32,7 @@ import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
 import timber.log.Timber
 import java.io.IOException
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -72,12 +74,14 @@ internal class DefaultPostingRepository
         private val byteSource: AttachmentByteSource,
         private val encoder: AttachmentEncoder,
         private val facetExtractor: FacetExtractor,
+        private val localeProvider: LocaleProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PostingRepository {
         override suspend fun createPost(
             text: String,
             attachments: List<ComposerAttachment>,
             replyTo: ReplyRefs?,
+            langs: List<String>?,
         ): Result<AtUri> =
             withContext(dispatcher) {
                 // `replyTo` is a typed ReplyRefs(parent, root); both
@@ -153,6 +157,12 @@ internal class DefaultPostingRepository
                         embed::class.simpleName,
                         blobs.size,
                     )
+                    val resolvedLangs = resolveLangs(langs)
+                    Timber.tag(TAG).d(
+                        "createPost() — resolvedLangs=%s (caller=%s)",
+                        resolvedLangs.joinToString(),
+                        if (langs == null) "null/default" else "explicit(${langs.size})",
+                    )
                     val record =
                         Post(
                             text = text,
@@ -167,6 +177,12 @@ internal class DefaultPostingRepository
                                     AtField.Missing
                                 } else {
                                     AtField.Defined(facets)
+                                },
+                            langs =
+                                if (resolvedLangs.isEmpty()) {
+                                    AtField.Missing
+                                } else {
+                                    AtField.Defined(resolvedLangs.map(::Language))
                                 },
                         )
 
@@ -285,7 +301,37 @@ internal class DefaultPostingRepository
                 else -> ComposerError.RecordCreationFailed(throwable)
             }
 
+        /**
+         * Decide which BCP-47 tags actually go on the record. `null`
+         * means the caller wants the device-locale default; any other
+         * input is taken verbatim modulo BCP-47 validity. Validation
+         * round-trips each tag through `Locale.forLanguageTag` and drops
+         * anything that resolves to `und` (the JVM's "undetermined"
+         * sentinel for unparseable input). The result may be empty —
+         * the caller of this helper is responsible for translating that
+         * into `AtField.Missing` rather than `AtField.Defined(emptyList())`,
+         * since the lexicon's `langs` field only carries non-empty arrays.
+         */
+        private fun resolveLangs(callerLangs: List<String>?): List<String> {
+            val raw = callerLangs ?: listOf(localeProvider.primaryLanguageTag())
+            return raw.filter(::isValidBcp47Tag)
+        }
+
+        private fun isValidBcp47Tag(tag: String): Boolean {
+            if (tag.isBlank()) return false
+            val roundTripped = Locale.forLanguageTag(tag).toLanguageTag()
+            return roundTripped != UNDETERMINED_LANGUAGE_TAG
+        }
+
         companion object {
             private const val TAG = "PostingRepo"
+
+            // The JVM returns this sentinel from `Locale.forLanguageTag`
+            // for any input that doesn't parse as a BCP-47 language tag
+            // (`""`, `"!!"`, etc.). Round-tripping a valid input always
+            // returns the normalized form of the tag, never `und`, so
+            // this is a reliable validity check without dragging in a
+            // full BCP-47 parser.
+            private const val UNDETERMINED_LANGUAGE_TAG = "und"
         }
     }

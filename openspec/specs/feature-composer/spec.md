@@ -180,6 +180,37 @@ The system SHALL upload all attached image blobs in parallel (via `coroutineScop
 - **WHEN** `state.replyParentLoad == ParentLoadStatus.Loaded(post)` where `post.parentRef` and `post.rootRef` are populated and `Submit` succeeds
 - **THEN** the `createPost` call's record has its `reply.parent` set to `post.parentRef` and `reply.root` set to `post.rootRef`
 
+### Requirement: Submitted records carry a `langs` field derived from the device's primary locale
+
+The system SHALL ensure every successfully created `app.bsky.feed.post` record carries a non-empty `langs` BCP-47 array, defaulting to the device's primary locale when the composer does not specify otherwise. This is required so language-filtered Bluesky feeds (the default home feed for many users) surface posts authored in Nubecita; without `langs`, posts are dropped by every locale-curated feed.
+
+The default is sourced from `java.util.Locale.getDefault().toLanguageTag()` on the JVM via an injected `LocaleProvider` abstraction inside `:core:posting`. `PostingRepository.createPost` accepts a `langs: List<String>? = null` parameter — V1's `ComposerViewModel` always passes `null` (no per-post override UI yet), and the repository fills in the device-locale default. A future per-post override UI plumbs caller-chosen tags through this same parameter; the repository validates each tag by round-tripping through `Locale.forLanguageTag` and silently drops anything that resolves to the JVM's `und` ("undetermined") sentinel. An explicit empty list (`emptyList()`) means "this caller deliberately wants no langs" and MUST NOT fall back to the device locale; the resulting record omits the field entirely.
+
+#### Scenario: V1 composer's submission carries the device-locale tag
+
+- **WHEN** `ComposerViewModel.handleEvent(Submit)` succeeds with the device's primary locale set to `"ja-JP"` and the composer's `textFieldState.text` is `"こんにちは"`
+- **THEN** the record sent to `RepoService.createRecord` has `langs == ["ja-JP"]`
+
+#### Scenario: Caller-supplied langs override the device-locale default
+
+- **WHEN** a caller invokes `PostingRepository.createPost(text, attachments, replyTo, langs = listOf("es-MX"))` while the device's primary locale is `"en-US"`
+- **THEN** the record's `langs` array is `["es-MX"]` and the device locale is NOT mixed in
+
+#### Scenario: Invalid BCP-47 tags are dropped silently
+
+- **WHEN** a caller passes `langs = listOf("en-US", "", "!", "es-MX")`
+- **THEN** the record's `langs` array is `["en-US", "es-MX"]` (the empty string and bare `"!"` don't round-trip through `Locale.forLanguageTag` and are dropped)
+
+#### Scenario: All-invalid input omits the field rather than emitting an empty array
+
+- **WHEN** every tag in the caller's `langs` list fails BCP-47 validation
+- **THEN** the record is created with `langs` omitted entirely (the lexicon does not accept empty `langs` arrays)
+
+#### Scenario: Explicit empty list is honored without device-locale fallback
+
+- **WHEN** a caller passes `langs = emptyList()` explicitly
+- **THEN** the record is created with `langs` omitted entirely; the repository MUST NOT substitute the device-locale default
+
 ### Requirement: Tab-internal navigation flows through `ComposerEffect`, not a Hilt-injected navigator
 
 The system SHALL declare `sealed interface ComposerEffect : UiEffect` with at minimum `NavigateBack : ComposerEffect`, `ShowError(val error: ComposerError) : ComposerEffect`, and `OnSubmitSuccess(val newPostUri: AtUri) : ComposerEffect`. `ShowError` carries the typed `ComposerError` (from `:core:posting`) — matching `FeedEffect.ShowError(error: FeedError)` and `PostDetailEffect.ShowError(error: PostDetailError)` — so the screen Composable can pre-resolve every error string via `stringResource(...)` at composition time and switch on the sealed-error type inside the collector. The VM MUST NOT carry Android resource ids or pre-localized strings on the effect. The screen Composable MUST collect these effects in a single `LaunchedEffect` block and route navigation calls through `LocalMainShellNavState.current` (e.g. `removeLast()` for back, `add(...)` for forward). `ComposerViewModel` MUST NOT inject `MainShellNavState` or any object backed by it. The outer `Navigator` MUST NOT be injected either.

@@ -45,4 +45,8 @@ abstract class PostingModule {
     @Binds
     @Singleton
     internal abstract fun bindActorTypeaheadRepository(impl: DefaultActorTypeaheadRepository): ActorTypeaheadRepository
+
+    @Binds
+    @Singleton
+    internal abstract fun bindLocaleProvider(impl: JvmLocaleProvider): LocaleProvider
 }
