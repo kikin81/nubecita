@@ -21,6 +21,7 @@ import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -204,8 +205,7 @@ private fun FeedScreenLoadedAppendingScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "loaded-with-compose-fab-light", showBackground = true)
-@Preview(name = "loaded-with-compose-fab-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewNubecitaScreenPreviews
 @Composable
 private fun FeedScreenLoadedWithComposeFabScreenshot() {
     // wtq.9 swapped the prior scroll-to-top FAB content for a compose-
@@ -213,11 +213,15 @@ private fun FeedScreenLoadedWithComposeFabScreenshot() {
     // the FAB renders whenever viewState is Loaded, so this fixture
     // pins the resting state at scroll position 0 (same as
     // `loaded-light` / `loaded-dark`, which now also show the FAB
-    // because of the gate change). Locks the visual contract for the
-    // compose FAB: bottom-right Scaffold slot, Edit icon, primary tone.
+    // because of the gate change).
     //
-    // Light + Dark variants because the FAB's surface tonality differs
-    // by theme and we want a regression catch for both.
+    // Locks the visual contract for the compose FAB across width
+    // classes: at Compact (Phone) the FAB is the 56dp
+    // `FloatingActionButton`; at Medium (Foldable) and Expanded
+    // (Tablet) it's the 96dp `LargeFloatingActionButton` per the M3
+    // expressive guidance (da8). Driven by `@PreviewNubecitaScreenPreviews`
+    // sweeping Phone (411dp) / Foldable (673dp) / Tablet (1280dp) ×
+    // Light / Dark — six fixtures, one annotation.
     NubecitaTheme(dynamicColor = false) {
         FeedScreenScreenshotHost(
             viewState =

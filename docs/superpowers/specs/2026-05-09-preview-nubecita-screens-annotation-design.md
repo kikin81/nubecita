@@ -1,4 +1,4 @@
-# `@PreviewNubecitaScreens` — design
+# `@PreviewNubecitaScreenPreviews` — design
 
 **Date:** 2026-05-09
 **Driver:** `nubecita-da8` (Feed compose FAB at Medium/Expanded). Surfaced when adding an Expanded-width screenshot fixture for the new `LargeFloatingActionButton` branch — manual `widthDp` / `heightDp` constants felt wrong, and stacking AndroidX's `@PreviewScreenSizes` + `@PreviewLightDark` doesn't produce the cross-product we need (concatenation, not multiplication).
@@ -37,9 +37,20 @@ To get the cross-product, the 6 `@Preview`s have to be declared explicitly insid
 
 A new `:core:design-preview` module was considered and rejected for V1: a single ~15-line annotation file doesn't justify the new-module overhead (registration, namespace, README entry). If preview tooling later grows beyond a single annotation (fixture helpers, golden-image utilities, etc.), spinning out a dedicated module is a small refactor.
 
-### 4. Name: `@PreviewNubecitaScreens`
+### 4. Name: `@PreviewNubecitaScreenPreviews`
 
-Mirrors `@PreviewScreenSizes` exactly — readers familiar with Compose tooling immediately recognise the pattern. Self-documenting (the `Screens` suffix says "this is the screen-level sweep", differentiating from a hypothetical future `@PreviewNubecitaComponents` or `@PreviewNubecitaFontScales`). Keeps the bare `@PreviewNubecita` name available for a broader sweep.
+The name stutters intentionally because two lint rules active in this project disagree:
+
+- **ktlint** `compose:preview-annotation-naming` requires multi-preview annotations to start with the `Preview` prefix (matching AndroidX's `@PreviewScreenSizes` / `@PreviewLightDark` style).
+- **Slack `compose-lints`** `ComposePreviewNaming` (`https://slackhq.github.io/compose-lints/rules/#naming-multipreview-annotations-properly`) requires multi-preview annotations to end with the literal `Previews` plural suffix. The `Screens` plural noun (mirroring `@PreviewScreenSizes`) is rejected — the rule wants the literal string `Previews`.
+
+The only name that satisfies both rules is `Preview…Previews`. Alternatives considered and rejected:
+
+- Suppress one of the rules: bumps the cost of every future multi-preview annotation; introduces a per-call-site decision about which lint to disable.
+- Rely on lint baselines: hides the conflict but accumulates baseline drift.
+- Pick one rule's convention and disable the other globally: a defensible choice, but doing it as part of an unrelated FAB-PR feels out of scope.
+
+A short note inside the annotation's KDoc calls out the stutter so a future reader doesn't try to "clean up" the name.
 
 ### 5. `showSystemUi = true`
 
@@ -47,7 +58,7 @@ Matches `@PreviewScreenSizes`'s upstream default. For full-screen tests this inf
 
 ## Annotation source
 
-`designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/PreviewNubecitaScreens.kt`:
+`designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/PreviewNubecitaScreenPreviews.kt`:
 
 ```kotlin
 package net.kikin.nubecita.designsystem.preview
@@ -92,16 +103,16 @@ import androidx.compose.ui.tooling.preview.Preview
     showSystemUi = true,
     uiMode = Configuration.UI_MODE_NIGHT_YES,
 )
-annotation class PreviewNubecitaScreens
+annotation class PreviewNubecitaScreenPreviews
 ```
 
 ## Migration scope (this PR)
 
 | File | Change |
 |---|---|
-| `designsystem/src/main/kotlin/.../preview/PreviewNubecitaScreens.kt` | **New file** — the annotation. |
+| `designsystem/src/main/kotlin/.../preview/PreviewNubecitaScreenPreviews.kt` | **New file** — the annotation. |
 | `feature/feed/impl/src/main/kotlin/.../FeedScreen.kt` | Keep the already-applied `LargeFloatingActionButton` import + `currentWindowAdaptiveInfoV2()` branch. |
-| `feature/feed/impl/src/screenshotTest/kotlin/.../FeedScreenScreenshotTest.kt` | Replace the two `@Preview(name = "loaded-with-compose-fab-…")` annotations on `FeedScreenLoadedWithComposeFabScreenshot` with `@PreviewNubecitaScreens`. Delete the temporary `FeedScreenLoadedWithComposeFabExpandedScreenshot` function. Delete the temporary `EXPANDED_WIDTH_DP` / `EXPANDED_HEIGHT_DP` constants. |
+| `feature/feed/impl/src/screenshotTest/kotlin/.../FeedScreenScreenshotTest.kt` | Replace the two `@Preview(name = "loaded-with-compose-fab-…")` annotations on `FeedScreenLoadedWithComposeFabScreenshot` with `@PreviewNubecitaScreenPreviews`. Delete the temporary `FeedScreenLoadedWithComposeFabExpandedScreenshot` function. Delete the temporary `EXPANDED_WIDTH_DP` / `EXPANDED_HEIGHT_DP` constants. |
 | Existing `loaded-light` / `loaded-refreshing-…` / etc. fixtures | **Not migrating.** Each is a stable baseline; touching them = baseline rebase. Future PR can opt them in one-by-one. |
 | Composer / PostDetail / other modules' screenshot tests | **Not migrating.** Out of scope. |
 | Module `build.gradle.kts` files | **No changes.** Every Compose module already depends on `:designsystem`. |
@@ -122,9 +133,9 @@ annotation class PreviewNubecitaScreens
 
 ## Out of scope (future bd issues if demanded)
 
-- Migrating the rest of `FeedScreenScreenshotTest.kt`'s fixtures to `@PreviewNubecitaScreens`.
+- Migrating the rest of `FeedScreenScreenshotTest.kt`'s fixtures to `@PreviewNubecitaScreenPreviews`.
 - Migrating `ComposerScreenScreenshotTest.kt` / `ComposerDiscardDialogScreenshotTest.kt` (the latter has its own width-bucket-specific fixtures that don't cleanly map to a 3-bucket sweep).
-- Adding a separate `@PreviewNubecitaScreensNoTheme` for screens that need only width-class sweeps without theme variation.
+- Adding a separate `@PreviewNubecitaScreenPreviewsNoTheme` for screens that need only width-class sweeps without theme variation.
 - Adding a `@PreviewNubecitaFontScales` for accessibility regression coverage.
 - Promoting `androidx-compose-ui-tooling-preview` to `api` in the `:designsystem` module — not needed today since every Compose module already pulls it via convention plugins.
 
