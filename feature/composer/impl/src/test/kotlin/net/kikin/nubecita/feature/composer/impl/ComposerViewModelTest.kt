@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -414,15 +415,131 @@ class ComposerViewModelTest {
             }
         }
 
+    // ---------- langs ----------
+
+    @Test
+    fun initialState_hasNullSelectedLangs() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+            assertEquals(null, vm.uiState.value.selectedLangs)
+        }
+
+    @Test
+    fun deviceLocaleTag_reflectsInjectedLocaleProvider() {
+        val vm = newVm(replyToUri = null, deviceLocaleTag = "ja-JP")
+        assertEquals("ja-JP", vm.deviceLocaleTag)
+    }
+
+    @Test
+    fun languageSelectionConfirmed_singleTag_updatesState() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+            vm.handleEvent(ComposerEvent.LanguageSelectionConfirmed(tags = listOf("ja-JP")))
+            assertEquals(listOf("ja-JP"), vm.uiState.value.selectedLangs)
+        }
+
+    @Test
+    fun languageSelectionConfirmed_multipleTags_updatesState() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+            vm.handleEvent(ComposerEvent.LanguageSelectionConfirmed(tags = listOf("ja-JP", "en-US", "es-MX")))
+            assertEquals(listOf("ja-JP", "en-US", "es-MX"), vm.uiState.value.selectedLangs)
+        }
+
+    @Test
+    fun languageSelectionConfirmed_emptyList_isHonoredAsExplicitOverride() =
+        runTest {
+            // Explicit empty != null. Caller is saying "I want no langs
+            // on this post"; reducer must honor that distinct from the
+            // no-touch null state.
+            val vm = newVm(replyToUri = null)
+            vm.handleEvent(ComposerEvent.LanguageSelectionConfirmed(tags = emptyList()))
+            assertEquals(emptyList<String>(), vm.uiState.value.selectedLangs)
+        }
+
+    @Test
+    fun languageSelectionConfirmed_overCap_isNoOp() =
+        runTest {
+            // The picker UI defends with disabled checkboxes; the
+            // reducer defends defensively for any caller that bypasses
+            // the UI or sends a malformed event.
+            val vm = newVm(replyToUri = null)
+            val before = vm.uiState.value.selectedLangs
+            vm.handleEvent(
+                ComposerEvent.LanguageSelectionConfirmed(tags = listOf("a", "b", "c", "d")),
+            )
+            assertEquals(before, vm.uiState.value.selectedLangs)
+        }
+
+    @Test
+    fun submit_withNullSelectedLangs_callsCreatePostWithNullLangs() =
+        runTest {
+            coEvery {
+                postingRepository.createPost(
+                    text = any(),
+                    attachments = any(),
+                    replyTo = any(),
+                    langs = any(),
+                )
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/lang"))
+            val vm = newVm(replyToUri = null)
+            setComposerText(vm, "hello")
+            vm.handleEvent(ComposerEvent.Submit)
+            assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
+            coVerify {
+                postingRepository.createPost(
+                    text = "hello",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    langs = null,
+                )
+            }
+        }
+
+    @Test
+    fun submit_withExplicitSelectedLangs_callsCreatePostWithThoseLangs() =
+        runTest {
+            coEvery {
+                postingRepository.createPost(
+                    text = any(),
+                    attachments = any(),
+                    replyTo = any(),
+                    langs = any(),
+                )
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/lang"))
+            val vm = newVm(replyToUri = null)
+            setComposerText(vm, "konnichiwa")
+            vm.handleEvent(ComposerEvent.LanguageSelectionConfirmed(tags = listOf("ja-JP", "en-US")))
+            vm.handleEvent(ComposerEvent.Submit)
+            assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
+            coVerify {
+                postingRepository.createPost(
+                    text = "konnichiwa",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    langs = listOf("ja-JP", "en-US"),
+                )
+            }
+        }
+
     // ---------- harness ----------
 
-    private fun newVm(replyToUri: String?): ComposerViewModel =
+    private fun newVm(
+        replyToUri: String?,
+        deviceLocaleTag: String = "en-US",
+    ): ComposerViewModel =
         ComposerViewModel(
             route = ComposerRoute(replyToUri = replyToUri),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
             actorTypeaheadRepository = actorTypeaheadRepository,
+            localeProvider = fixedLocaleProvider(deviceLocaleTag),
         )
+
+    private fun fixedLocaleProvider(tag: String): LocaleProvider =
+        object : LocaleProvider {
+            override fun primaryLanguageTag(): String = tag
+        }
 
     /**
      * Mutates the VM's [textFieldState] and drives the Compose

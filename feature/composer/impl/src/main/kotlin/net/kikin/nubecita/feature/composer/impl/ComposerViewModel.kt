@@ -22,6 +22,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
 import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -112,6 +113,7 @@ class ComposerViewModel
         private val postingRepository: PostingRepository,
         private val parentFetchSource: ParentFetchSource,
         private val actorTypeaheadRepository: ActorTypeaheadRepository,
+        private val localeProvider: LocaleProvider,
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
             initialState = ComposerState(replyToUri = route.replyToUri),
         ) {
@@ -128,6 +130,17 @@ class ComposerViewModel
          * VM reducer. See class Kdoc for the rationale.
          */
         val textFieldState: TextFieldState = TextFieldState()
+
+        /**
+         * BCP-47 tag for the device's primary locale, captured once at
+         * VM construction. The language chip and the language picker
+         * both read this for fallback display when
+         * [ComposerState.selectedLangs] is `null` — keeping a single
+         * VM-level read of [LocaleProvider] means screen-level UI
+         * tests can configure the value through a fake `LocaleProvider`
+         * instead of fighting the JVM's `Locale.getDefault()`.
+         */
+        val deviceLocaleTag: String = localeProvider.primaryLanguageTag()
 
         /**
          * Per-VM hot stream driving the typeahead lookup. The
@@ -249,6 +262,8 @@ class ComposerViewModel
                 ComposerEvent.RetryParentLoad -> if (!submitInFlight) handleRetryParentLoad()
                 is ComposerEvent.TypeaheadResultClicked ->
                     if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
+                is ComposerEvent.LanguageSelectionConfirmed ->
+                    if (!submitInFlight) handleLanguageSelectionConfirmed(event.tags)
             }
         }
 
@@ -311,6 +326,28 @@ class ComposerViewModel
             }
         }
 
+        private fun handleLanguageSelectionConfirmed(tags: List<String>) {
+            if (tags.size > MAX_LANGS) {
+                // Defensive guard. The picker UI also enforces the cap
+                // by rendering unchecked checkboxes as `enabled = false`
+                // once 3 are selected. This catches programmatic
+                // dispatch (tests, future automation) that bypasses
+                // the UI.
+                Timber.tag(TAG).w(
+                    "LanguageSelectionConfirmed over cap (%d > %d) — ignoring",
+                    tags.size,
+                    MAX_LANGS,
+                )
+                return
+            }
+            // Normalize to ImmutableList at the state boundary so
+            // `selectedLangs` cannot be mutated by a caller still
+            // holding a reference to the event's `tags` argument.
+            // ComposerState declares the field as `ImmutableList<String>?`
+            // for Compose stability + this defense.
+            setState { copy(selectedLangs = tags.toImmutableList()) }
+        }
+
         private fun handleSubmit() {
             val current = uiState.value
             val text = textFieldState.text.toString()
@@ -350,6 +387,7 @@ class ComposerViewModel
                         text = text,
                         attachments = current.attachments.toList(),
                         replyTo = replyTo,
+                        langs = current.selectedLangs,
                     )
                 result.fold(
                     onSuccess = { uri ->
@@ -446,6 +484,14 @@ class ComposerViewModel
 
             /** Lexicon cap for `app.bsky.embed.images`. */
             const val MAX_ATTACHMENTS = 4
+
+            /**
+             * Per-post `langs` cap. Bluesky's official client lets
+             * users attach up to 3 BCP-47 tags per post; we mirror
+             * that in the picker (disabled checkboxes once 3 are
+             * selected) and defensively in the reducer.
+             */
+            const val MAX_LANGS = 3
 
             /**
              * Debounce window for the typeahead query pipeline. 150ms

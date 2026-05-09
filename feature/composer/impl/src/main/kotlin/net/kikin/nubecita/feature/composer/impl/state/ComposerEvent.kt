@@ -66,4 +66,20 @@ sealed interface ComposerEvent : UiEvent {
     data class TypeaheadResultClicked(
         val actor: ActorTypeaheadUi,
     ) : ComposerEvent
+
+    /**
+     * Dispatched by the language picker when the user taps `Done` after
+     * choosing 0..3 BCP-47 tags. The reducer assigns `tags` to
+     * `ComposerState.selectedLangs`, defensively no-op'ing when
+     * `tags.size > 3` (the picker UI also enforces the cap by
+     * disabling unchecked checkboxes once 3 are selected).
+     *
+     * `tags = emptyList()` is honored — it means "user explicitly
+     * cleared all languages", surfaced to `PostingRepository.createPost`
+     * as `langs = emptyList()`, which the repository serializes as the
+     * `langs` field omitted entirely (per `nubecita-wtq.12`'s contract).
+     */
+    data class LanguageSelectionConfirmed(
+        val tags: List<String>,
+    ) : ComposerEvent
 }
