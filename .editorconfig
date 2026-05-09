@@ -10,6 +10,13 @@ indent_size = 4
 
 [*.{kt,kts}]
 ktlint_standard_no-wildcard-imports = enabled
+# `no-unused-imports` was removed from ktlint's standard ruleset in 0.45.0
+# (false positives on KDoc references and generic type bounds). Opting
+# in explicitly because the false-positive risk is low in this codebase
+# (KDoc-only references are rare) and the catch-rate for forgotten
+# imports during refactors is high. Auto-fix-capable: `./gradlew
+# spotlessApply` removes flagged imports.
+ktlint_standard_no-unused-imports = enabled
 ktlint_standard_max-line-length = disabled
 ktlint_function_naming_ignore_when_annotated_with = Composable
 compose_allowed_composition_locals = LocalNubecitaTokens,LocalClock,LocalAppNavigator,LocalMainShellNavState,LocalScrollToTopSignal,LocalComposerLauncher,LocalComposerSubmitEvents,LocalComposerSubmitEventsEmitter
