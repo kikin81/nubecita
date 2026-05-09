@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
 import net.kikin.nubecita.core.posting.ActorTypeaheadUi
+import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
@@ -315,6 +316,10 @@ class ComposerViewModelTypeaheadTest {
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
             actorTypeaheadRepository = typeaheadRepo,
+            localeProvider =
+                object : LocaleProvider {
+                    override fun primaryLanguageTag(): String = "en-US"
+                },
         )
 
     private fun TestScope.setComposerText(

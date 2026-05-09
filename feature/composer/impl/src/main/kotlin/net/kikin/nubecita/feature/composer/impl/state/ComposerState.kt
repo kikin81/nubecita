@@ -68,6 +68,15 @@ data class ComposerState(
     val attachments: ImmutableList<ComposerAttachment> = persistentListOf(),
     val replyToUri: String? = null,
     val replyParentLoad: ParentLoadStatus? = null,
+    /**
+     * Per-post BCP-47 language tags chosen by the user via the
+     * language chip + picker. `null` means "user has not touched the
+     * picker; let `PostingRepository.createPost` derive the device-
+     * locale default per `nubecita-wtq.12`'s contract." A non-null
+     * list (including `emptyList()`) is an explicit caller override
+     * passed through verbatim.
+     */
+    val selectedLangs: List<String>? = null,
     val submitStatus: ComposerSubmitStatus = ComposerSubmitStatus.Idle,
     val typeahead: TypeaheadStatus = TypeaheadStatus.Idle,
 ) : UiState
