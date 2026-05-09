@@ -24,9 +24,12 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -44,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.collectLatest
@@ -261,7 +265,7 @@ internal fun FeedScreen(
  * Compose UI tests invoke this directly with fixture inputs — no
  * ViewModel, no Hilt graph, no live network.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 internal fun FeedScreenContent(
     viewState: FeedScreenViewState,
@@ -307,6 +311,10 @@ internal fun FeedScreenContent(
     // body itself is a constant-time `is`-check that doesn't need
     // memoization. Compose is happy to re-evaluate this each frame.
     val showComposeFab = viewState is FeedScreenViewState.Loaded
+    val isCompact =
+        !currentWindowAdaptiveInfoV2()
+            .windowSizeClass
+            .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -318,13 +326,20 @@ internal fun FeedScreenContent(
                 enter = fadeIn() + scaleIn(),
                 exit = fadeOut() + scaleOut(),
             ) {
-                FloatingActionButton(
-                    onClick = onComposeClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = stringResource(R.string.feed_compose_new_post),
-                    )
+                if (isCompact) {
+                    FloatingActionButton(onClick = onComposeClick) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.feed_compose_new_post),
+                        )
+                    }
+                } else {
+                    LargeFloatingActionButton(onClick = onComposeClick) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.feed_compose_new_post),
+                        )
+                    }
                 }
             }
         },
