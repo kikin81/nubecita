@@ -22,6 +22,11 @@
 
 set -euo pipefail
 
+if ! command -v curl >/dev/null 2>&1; then
+    echo "curl is required to fetch the upstream font. Install via your package manager." >&2
+    exit 1
+fi
+
 if ! command -v pyftsubset >/dev/null 2>&1; then
     cat >&2 <<EOF
 pyftsubset (from fonttools) not found. Install with:
@@ -45,7 +50,7 @@ if [ ! -f "$ENUM_FILE" ]; then
 fi
 
 # Extract \uXXXX codepoints from NubecitaIconName.kt
-codepoints=$(grep -oE '\\u[A-F0-9]{4}' "$ENUM_FILE" | sort -u)
+codepoints=$(grep -oEi '\\u[A-F0-9]{4}' "$ENUM_FILE" | tr 'a-f' 'A-F' | sort -u)
 if [ -z "$codepoints" ]; then
     echo "No \\uXXXX codepoints found in $ENUM_FILE" >&2
     exit 1
@@ -58,7 +63,13 @@ echo "Found $codepoint_count codepoints in NubecitaIconName.kt"
 mkdir -p "$CACHE_DIR"
 if [ ! -f "$UPSTREAM_FONT" ]; then
     echo "Downloading upstream font (~14.9 MB) into $CACHE_DIR ..."
-    curl -L --fail -o "$UPSTREAM_FONT" "$UPSTREAM_URL"
+    tmp_font="$UPSTREAM_FONT.download"
+    if ! curl -L --fail -o "$tmp_font" "$UPSTREAM_URL"; then
+        rm -f "$tmp_font"
+        echo "Download failed. Check your network and retry." >&2
+        exit 1
+    fi
+    mv "$tmp_font" "$UPSTREAM_FONT"
 fi
 
 upstream_size=$(stat -f%z "$UPSTREAM_FONT" 2>/dev/null || stat -c%s "$UPSTREAM_FONT")
