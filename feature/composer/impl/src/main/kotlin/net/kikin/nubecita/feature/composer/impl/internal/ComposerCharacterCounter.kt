@@ -11,8 +11,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
@@ -42,11 +42,14 @@ import kotlin.math.max
  *   composable already only recomposes when [graphemeCount] changes
  *   (the parent reads it from `state.graphemeCount` which is a
  *   primitive Int field).
- * - Accessibility: the `semantics { contentDescription = … }` block
- *   merges the count + state into a single TalkBack announcement
- *   ("12 characters remaining" / "Over the limit by 5") rather than
- *   reading the bare integer label, which would be ambiguous out of
- *   context.
+ * - Accessibility: the `clearAndSetSemantics { contentDescription = … }`
+ *   block exposes the counter as a single TalkBack announcement
+ *   ("12 characters remaining" / "Over the limit by 5") and DROPS the
+ *   inner numeric Text from the semantic tree entirely. With a plain
+ *   `semantics { … }` block the descendant Text would still
+ *   contribute its own node and TalkBack would read the localized
+ *   phrase plus the bare number ("12 characters remaining, 12") —
+ *   reported in PR #115 review and tracked as `nubecita-5fs`.
  */
 @Composable
 internal fun ComposerCharacterCounter(
@@ -75,7 +78,7 @@ internal fun ComposerCharacterCounter(
         modifier =
             modifier
                 .size(40.dp)
-                .semantics { this.contentDescription = contentDescription },
+                .clearAndSetSemantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
         CircularProgressIndicator(
