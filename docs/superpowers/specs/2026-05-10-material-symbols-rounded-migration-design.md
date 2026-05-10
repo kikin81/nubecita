@@ -103,7 +103,50 @@ Match Google Material Symbols defaults. `weight` is Compose's `FontVariation.wei
 
 Capture `:app:assembleDebug` APK size before (current main) and after (post-migration). The variable font is ~340 KB; the icons-extended artifact contributes vector drawables that are individually small but bundled per-module. Empirical delta documented in PR body — even a flat outcome is informative.
 
-### 11. Acceptance
+### 11. Gotchas the implementer should anticipate
+
+This migration's tradeoffs and footguns, called out so they don't have to be re-discovered during review or after merge.
+
+#### RTL friction (loss of `Icons.AutoMirrored`)
+
+Standard Compose icons offer `Icons.AutoMirrored.*` — a directional-icon namespace (back arrow, reply, article, etc.) that the framework automatically flips for RTL locales. **By rendering glyphs through a font, we lose this free behavior.** Material Symbols Rounded does NOT auto-mirror in RTL.
+
+Mitigation: every former `Icons.AutoMirrored.*` call site gets a `Modifier.mirror()` that flips horizontally when `LocalLayoutDirection.current == LayoutDirection.Rtl`. The mirror modifier is shipped in `:designsystem` (decision §5). The cost is developer discipline: when adding a new directional icon (anything that visually points left/right), the author MUST remember to add `.mirror()`. There is no compile-time enforcement — code review + RTL screenshot fixtures are the safety net.
+
+If this becomes a recurring miss in review, a follow-up could:
+- Mark certain `NubecitaIconName` entries as `directional` in the enum and have `NubecitaIcon` apply `.mirror()` automatically when `directional = true`. Loses per-site control but removes the discipline cost.
+- Or wrap the modifier as a separate `NubecitaDirectionalIcon` composable that carries the mirror by default. Slight API duplication but explicit.
+
+V1 ships with the manual approach; revisit if RTL bugs surface.
+
+#### Baseline-alignment quirks (`Text` is not `Icon`)
+
+`androidx.compose.material3.Icon` renders via a `Painter` over a fixed bounding box. `NubecitaIcon` renders via `Text(text = codepoint, fontFamily = …)` — which is subject to **font metrics**: ascent, descent, leading, and Compose's default `includeFontPadding = true`. The result can be a glyph that's slightly off-center vertically, or a click target with extra invisible padding above/below the glyph.
+
+Mitigations to apply during implementation:
+1. Set `includeFontPadding = false` on the `Text` (via `style.copy(platformStyle = PlatformTextStyle(includeFontPadding = false))`) so the glyph fills the box without the platform's default 24sp-line-height padding.
+2. Use `style = LocalTextStyle.current.copy(lineHeight = opticalSize.value.sp, fontSize = opticalSize.value.sp)` — locks line height to the icon's display size so descenders don't push the box taller than expected.
+3. Wrap in a `Box(modifier = Modifier.size(opticalSize), contentAlignment = Alignment.Center)` so the glyph centers inside the size constraint regardless of font metrics.
+
+The `NubecitaIconShowcaseScreenshotTest` fixture (test plan §9) is specifically the safety net for catching alignment regressions — if a glyph drifts vertically inside the 24dp box, the baseline diff surfaces it before merge. Eyeball the showcase output during initial generation; subtle off-by-one centering is the most likely failure mode.
+
+#### Manual codepoint upkeep (no Android Studio autocomplete)
+
+`Icons.Filled.*` autocompletes inside Android Studio because each icon is a Kotlin property. After this migration, **adding a new icon requires a manual lookup**: visit <https://fonts.google.com/icons?icon.style=Rounded>, find the glyph, copy its hex codepoint (e.g. `e5cd`) into a new `NubecitaIconName` enum entry, and the call site referencing `NubecitaIconName.Foo` then autocompletes from there.
+
+Workflow for adding a glyph:
+1. Find the icon at <https://fonts.google.com/icons?icon.style=Rounded>.
+2. Click the icon → side panel shows the codepoint (e.g. "Codepoint: e5cd").
+3. Add `Foo(""),` to `NubecitaIconName` (preserving alphabetical order).
+4. The unit test `NubecitaIconNameTest.every_codepoint_isASingleScalar()` enforces validity at build time.
+
+Alternative if the manual workflow becomes painful: a small Gradle task that consumes Google's `MaterialSymbolsRounded.codepoints` file and validates the enum's hex values match upstream. Not shipped in V1; we'd add it if codepoint typos surface.
+
+#### Why we accept these costs
+
+The pros — eliminating the deprecation, collapsing Filled/Outlined pairs into a single FILL-axis decision per call site, opening the door to animated state transitions, and matching the React side's `Primitives.jsx` API — outweigh the manual-lookup overhead and the RTL discipline cost. The screenshot test plan (per-feature regression baselines + the showcase fixture) catches the silent visual failures the new approach is exposed to. Lock and ship.
+
+### 12. Acceptance
 
 - Zero `import androidx.compose.material.icons` in the codebase.
 - `material-icons-extended` removed from all 6 module `build.gradle.kts` declarations and from `gradle/libs.versions.toml`.
