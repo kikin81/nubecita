@@ -31,7 +31,18 @@ class NubecitaIconNameTest {
         // certainly a copy-paste typo. Every glyph in the picker has
         // a distinct identity in Material Symbols.
         val byCodepoint = NubecitaIconName.entries.groupBy { it.codepoint }
-        val collisions = byCodepoint.filter { it.value.size > 1 }
+        val collisions =
+            byCodepoint
+                .filter { it.value.size > 1 }
+                .map { (cp, entries) ->
+                    val hex =
+                        cp
+                            .codePointAt(0)
+                            .toString(16)
+                            .uppercase()
+                            .padStart(4, '0')
+                    "\\u$hex -> ${entries.map { it.name }}"
+                }
         assertTrue(
             collisions.isEmpty(),
             "Codepoint collisions detected: $collisions",
