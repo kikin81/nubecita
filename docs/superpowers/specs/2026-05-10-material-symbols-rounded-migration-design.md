@@ -12,15 +12,30 @@ Two converging pressures:
 1. Google deprecated the icons library. From their announcement: "We have stopped publishing updates to this library and it has been removed from the latest Material 3 library release… the library can increase the build time of your apps significantly as it includes all the various icons that may not be needed." Continuing on it is a planned dead-end.
 2. Our design language calls for **Material Symbols Rounded**, not Material Icons. The two are different artifacts: Icons are static `ImageVector` drawables in five styles; Symbols is a single variable font with **FILL** (0..1, outlined↔filled), **Weight** (100..700), **Grade** (-25..200, low/high emphasis), and **Optical Size** (20..48dp) axes. The FILL axis specifically replaces the Filled/Outlined pair pattern with one continuous variable — and that's how the React side already does active/inactive state on the bottom tab bar.
 
-A migration also lets us delete `material-icons-extended` from every module (~hundreds of KB of mostly-unused vector drawables) and replace it with a single ~340 KB variable font.
+A migration also lets us delete `material-icons-extended` from every module (~hundreds of KB of mostly-unused vector drawables) and replace it with a single subsetted variable font (~50 KB after subsetting).
 
 ## Decisions
 
-### 1. Vendor the variable font, not the static rounded TTFs
+### 1. Pre-subset the variable font via a developer-facing script — ship only the ~30 glyphs we use
 
-Ship `MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf` (Apache 2.0) at `designsystem/src/main/res/font/material_symbols_rounded.ttf` from <https://github.com/google/material-design-icons/tree/master/variablefont>. One file covers every weight, fill, grade, optical size — versus ~7 separate static TTFs we'd otherwise ship and switch between.
+The upstream variable font `MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf` from <https://github.com/google/material-design-icons/tree/master/variablefont> is **~14.9 MB** — it bundles all ~3,800 Material Symbols glyphs in a single variable file. Shipping the full font would dominate Nubecita's APK size and is a non-starter for an Android client where install metrics matter.
 
-Variable-font font variations require API 26+; Nubecita's `minSdk = 28` covers that comfortably. Compose's `androidx.compose.ui.text.font.FontVariation.Settings(...)` is the runtime API.
+The path forward: pre-subset the font down to just the codepoints declared in `NubecitaIconName`, using `pyftsubset` (from the `fonttools` Python package), via a developer-facing script (`scripts/update_material_symbols.sh`). The script:
+
+1. Curls the upstream 14.9 MB font into a gitignored cache (`build/icon-cache/`).
+2. Extracts the `\uXXXX` codepoints from `designsystem/src/main/kotlin/.../icon/NubecitaIconName.kt` (single source of truth).
+3. Runs `pyftsubset` to keep only those codepoints + every variation axis (`fvar`, `STAT`, `gvar`).
+4. Writes the resulting ~50 KB subset to `designsystem/src/main/res/font/material_symbols_rounded.ttf`.
+
+The script is **not** wired into the Gradle build. Adding `python3` + `fonttools` as a build-time dep would force every CI runner and contributor machine to install Python + pip-install fonttools just to compile the Android project — a portability nightmare. Instead, the workflow on icon changes is:
+
+1. Add a new entry to `NubecitaIconName` (with the upstream codepoint).
+2. Run `./scripts/update_material_symbols.sh`.
+3. Commit the regenerated `material_symbols_rounded.ttf` alongside the enum change.
+
+The Android build only ever sees the small subset font. No Python on CI. No 14.9 MB blob in the repo.
+
+Variable-font font variations require API 26+; Nubecita's `minSdk = 28` covers that comfortably. Compose's `androidx.compose.ui.text.font.FontVariation.Settings(...)` is the runtime API and works on the subsetted font (axes are preserved by `pyftsubset` by default).
 
 ### 2. API shape — `NubecitaIcon(name = ...)`
 
@@ -74,8 +89,10 @@ Match Google Material Symbols defaults. `weight` is Compose's `FontVariation.wei
 
 | Where | What |
 |---|---|
-| `designsystem/src/main/res/font/material_symbols_rounded.ttf` | New — vendored Apache 2.0 variable font (~340 KB). |
-| `designsystem/src/main/res/font/LICENSE-material-symbols.txt` | New — Apache 2.0 license text + upstream source URL + git SHA at vendoring time. |
+| `designsystem/src/main/res/font/material_symbols_rounded.ttf` | New — Apache 2.0 variable font subsetted to `NubecitaIconName`'s codepoints by `scripts/update_material_symbols.sh` (~50 KB). |
+| `LICENSES/LICENSE-material-symbols.txt` | New — Apache 2.0 license text + upstream URL + git SHA. NOT inside `res/font/` because Android's resource compiler rejects non-`.ttf`/`.xml` files there. |
+| `scripts/update_material_symbols.sh` | New — developer-facing subset script. Curls upstream font, extracts codepoints from `NubecitaIconName.kt`, runs `pyftsubset` → writes the slim font. Run manually whenever an icon is added/removed. |
+| `.gitignore` | Modify — add `build/icon-cache/` so the 14.9 MB upstream font cache stays out of git. |
 | `designsystem/src/main/kotlin/.../icon/NubecitaIconName.kt` | New — `enum class NubecitaIconName(val codepoint: String)` with one entry per glyph in use. |
 | `designsystem/src/main/kotlin/.../icon/NubecitaIcon.kt` | New — `@Composable fun NubecitaIcon(...)` per the API shape above. |
 | `designsystem/src/main/kotlin/.../icon/Mirror.kt` | New — `Modifier.mirror()` extension for RTL-flip on AutoMirrored sites. |
@@ -132,15 +149,18 @@ The `NubecitaIconShowcaseScreenshotTest` fixture (test plan §9) is specifically
 
 #### Manual codepoint upkeep (no Android Studio autocomplete)
 
-`Icons.Filled.*` autocompletes inside Android Studio because each icon is a Kotlin property. After this migration, **adding a new icon requires a manual lookup**: visit <https://fonts.google.com/icons?icon.style=Rounded>, find the glyph, copy its hex codepoint (e.g. `e5cd`) into a new `NubecitaIconName` enum entry, and the call site referencing `NubecitaIconName.Foo` then autocompletes from there.
+`Icons.Filled.*` autocompletes inside Android Studio because each icon is a Kotlin property. After this migration, **adding a new icon requires a manual lookup AND a script run**: visit <https://fonts.google.com/icons?icon.style=Rounded>, find the glyph, copy its hex codepoint (e.g. `e5cd`) into a new `NubecitaIconName` enum entry, then re-run the subset script so the shipped font picks up the new glyph.
 
 Workflow for adding a glyph:
 1. Find the icon at <https://fonts.google.com/icons?icon.style=Rounded>.
 2. Click the icon → side panel shows the codepoint (e.g. "Codepoint: e5cd").
-3. Add `Foo(""),` to `NubecitaIconName` (preserving alphabetical order).
-4. The unit test `NubecitaIconNameTest.every_codepoint_isASingleScalar()` enforces validity at build time.
+3. Add `Foo("\uXXXX"),` to `NubecitaIconName` (preserving alphabetical order). The unit test `NubecitaIconNameTest.every_codepoint_isASingleScalar()` validates the format at build time.
+4. Run `./scripts/update_material_symbols.sh` to regenerate `designsystem/src/main/res/font/material_symbols_rounded.ttf` with the new glyph included. The script extracts codepoints directly from the enum file — there's no second list to keep in sync.
+5. Commit the enum change AND the regenerated font as one commit.
 
-Alternative if the manual workflow becomes painful: a small Gradle task that consumes Google's `MaterialSymbolsRounded.codepoints` file and validates the enum's hex values match upstream. Not shipped in V1; we'd add it if codepoint typos surface.
+If the script is forgotten on a new-icon PR, the new enum entry will pass the unit test (the codepoint format is valid) but the showcase screenshot fixture will render that row as a missing-glyph `?` tofu — caught in screenshot review before merge.
+
+Future automation if this becomes painful: a CI check that re-runs the script on the PR and compares the output against the committed font, failing if they differ. Not shipped in V1; we'd add it if "forgot to run the script" PRs become recurring.
 
 #### Why we accept these costs
 
@@ -157,7 +177,6 @@ The pros — eliminating the deprecation, collapsing Filled/Outlined pairs into 
 ## Out of scope (file as separate bd issues if pursued)
 
 - **Animating the FILL axis** — V1 ships `Boolean filled`. A `fillFraction: Float` overload + spring animation lands when a designer asks.
-- **Subsetting the font** to just our ~39 glyphs via `pyftsubset` to shave APK bytes — defer; ~340 KB full font is tolerable.
 - **Outlined / Sharp Material Symbols variants** — design specifies Rounded only.
 - **Auto-generated codepoint table** from Google's `codepoints` file — defer; the manual subset is a feature, not a workaround.
 - **Cross-platform glyph parity audit** with the React side's `Primitives.jsx Icon` — assume both pull from the same Material Symbols glyph set; mismatches surface during normal cross-platform feature work.

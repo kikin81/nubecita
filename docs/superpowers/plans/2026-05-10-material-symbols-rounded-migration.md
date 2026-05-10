@@ -18,8 +18,10 @@
 
 | Path | Action | Responsibility |
 |---|---|---|
-| `designsystem/src/main/res/font/material_symbols_rounded.ttf` | Create | Vendored Apache-2.0 variable font (~340 KB). |
-| `designsystem/src/main/res/font/LICENSE-material-symbols.txt` | Create | Apache 2.0 license text + upstream URL + git SHA at vendoring time. |
+| `scripts/update_material_symbols.sh` | Create | Developer-facing script: curls the upstream 14.9 MB variable font, runs `pyftsubset` to slim it to the codepoints in `NubecitaIconName`, writes the ~50 KB result to `designsystem/src/main/res/font/`. Run manually after icon-list changes. |
+| `LICENSES/LICENSE-material-symbols.txt` | Create | Apache 2.0 license text + upstream URL + subset workflow docs. NOT in `res/font/` — Android's resource compiler rejects non-`.ttf`/`.xml` files there. |
+| `.gitignore` | Modify | Add `build/icon-cache/` to keep the cached upstream 14.9 MB font out of git. |
+| `designsystem/src/main/res/font/material_symbols_rounded.ttf` | Create | Subsetted Apache-2.0 variable font (~50 KB after Task 3 runs the script). |
 | `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/icon/NubecitaIconName.kt` | Create | `enum class NubecitaIconName(val codepoint: String)` with one entry per glyph in use (~37 entries). |
 | `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/icon/NubecitaIcon.kt` | Create | `@Composable fun NubecitaIcon(...)` that renders the glyph via `Text` + variable-font axes. |
 | `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/icon/Mirror.kt` | Create | `Modifier.mirror()` extension for RTL-flip on AutoMirrored sites. |
@@ -53,42 +55,138 @@
 
 ---
 
-## Task 1: Vendor the Material Symbols Rounded variable font
+## Task 1: Add the font-subset developer script + license + cache gitignore
 
 **Files:**
-- Create: `designsystem/src/main/res/font/material_symbols_rounded.ttf`
-- Create: `designsystem/src/main/res/font/LICENSE-material-symbols.txt`
+- Create: `scripts/update_material_symbols.sh`
+- Create: `LICENSES/LICENSE-material-symbols.txt`
+- Modify: `.gitignore` (add `build/icon-cache/`)
 
-This task ships the font asset. There's no failing-test cycle — the font is a binary blob; subsequent tasks consume it.
+The full upstream variable font is **~14.9 MB** — way too big to ship in the APK. Instead this task vendors a **developer-facing subset script** that runs `pyftsubset` (from `fonttools`) to slim the font down to ~50 KB containing only the codepoints declared in `NubecitaIconName`. The script is invoked manually whenever an icon is added; it is **not** wired into the Gradle build (would force every CI runner + contributor machine to install Python + fonttools).
 
-- [ ] **Step 1: Download the variable font from Google's repo**
+This task only adds the script + license + gitignore. The script is **not run** here because `NubecitaIconName.kt` doesn't exist yet — Task 2 creates it. Task 3 is where the script actually runs.
 
-```bash
-mkdir -p designsystem/src/main/res/font
-curl -L -o designsystem/src/main/res/font/material_symbols_rounded.ttf \
-  'https://github.com/google/material-design-icons/raw/master/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf'
-```
+- [ ] **Step 1: Confirm `pyftsubset` availability (local check, not committed)**
 
-Verify the file size is in the expected range (~300–400 KB):
+Verify the contributor's machine has fonttools available:
 
 ```bash
-ls -la designsystem/src/main/res/font/material_symbols_rounded.ttf
-# Expected: ~340 KB (size will drift slightly across Google's releases)
+command -v pyftsubset && pyftsubset --help | head -3
 ```
 
-- [ ] **Step 2: Capture the upstream commit SHA**
+Expected: prints help. If not installed:
 
 ```bash
-UPSTREAM_SHA=$(curl -s 'https://api.github.com/repos/google/material-design-icons/commits/master' \
-  | jq -r '.sha' | head -c 12)
-echo "Vendored from google/material-design-icons@$UPSTREAM_SHA"
+python3 -m pip install --user fonttools brotli
 ```
 
-Note the SHA for Step 3.
+(Brotli is a fonttools optional dep that lets it handle compressed font tables. The Material Symbols font uses standard tables, but `pyftsubset` warns without brotli — install once to silence it.)
+
+- [ ] **Step 2: Write the subset script**
+
+Create `scripts/update_material_symbols.sh`:
+
+```bash
+#!/usr/bin/env bash
+#
+# Subsets the upstream Material Symbols Rounded variable font down to
+# only the codepoints declared in NubecitaIconName.kt, and writes the
+# result to designsystem/src/main/res/font/material_symbols_rounded.ttf.
+#
+# Re-run whenever NubecitaIconName gains or loses an entry. The
+# generated font is checked in alongside the enum change as one
+# commit so reviewers see the subset font diff.
+#
+# Why a script and not a Gradle task: requiring `python3` + fonttools
+# on every CI runner and contributor machine is fragile. Subsetting
+# is a one-shot operation per icon-list change; pre-computing keeps
+# the Android build pure-Kotlin.
+#
+# Requirements:
+#   - python3 with fonttools installed (pip install fonttools brotli)
+#   - curl (to fetch the upstream font on first run / cache miss)
+#
+# Usage:
+#   ./scripts/update_material_symbols.sh
+
+set -euo pipefail
+
+if ! command -v pyftsubset >/dev/null 2>&1; then
+    cat >&2 <<EOF
+pyftsubset (from fonttools) not found. Install with:
+    python3 -m pip install --user fonttools brotli
+Then re-run this script.
+EOF
+    exit 1
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+ENUM_FILE="$REPO_ROOT/designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/icon/NubecitaIconName.kt"
+OUTPUT_FONT="$REPO_ROOT/designsystem/src/main/res/font/material_symbols_rounded.ttf"
+CACHE_DIR="$REPO_ROOT/build/icon-cache"
+UPSTREAM_FONT="$CACHE_DIR/material_symbols_rounded_full.ttf"
+UPSTREAM_URL='https://github.com/google/material-design-icons/raw/master/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf'
+
+if [ ! -f "$ENUM_FILE" ]; then
+    echo "Enum file not found at $ENUM_FILE" >&2
+    echo "(Task 2 of bd-68g must land before this script can run.)" >&2
+    exit 1
+fi
+
+# Extract \uXXXX codepoints from NubecitaIconName.kt
+codepoints=$(grep -oE '\\u[A-F0-9]{4}' "$ENUM_FILE" | sort -u)
+if [ -z "$codepoints" ]; then
+    echo "No \\uXXXX codepoints found in $ENUM_FILE" >&2
+    exit 1
+fi
+codepoint_count=$(echo "$codepoints" | wc -l | tr -d '[:space:]')
+unicode_args=$(echo "$codepoints" | sed 's/\\u/U+/' | tr '\n' ',' | sed 's/,$//')
+echo "Found $codepoint_count codepoints in NubecitaIconName.kt"
+
+# Fetch upstream font into the cache (skip if already cached)
+mkdir -p "$CACHE_DIR"
+if [ ! -f "$UPSTREAM_FONT" ]; then
+    echo "Downloading upstream font (~14.9 MB) into $CACHE_DIR ..."
+    curl -L --fail -o "$UPSTREAM_FONT" "$UPSTREAM_URL"
+fi
+
+upstream_size=$(stat -f%z "$UPSTREAM_FONT" 2>/dev/null || stat -c%s "$UPSTREAM_FONT")
+if [ "$upstream_size" -lt 1000000 ]; then
+    echo "Upstream font is suspiciously small ($upstream_size bytes); refusing to subset." >&2
+    echo "Delete $UPSTREAM_FONT and re-run." >&2
+    exit 1
+fi
+
+# Run pyftsubset. Preserve all variable axes (FILL/GRAD/opsz/wght);
+# drop hinting (icons render at fixed sizes); desubroutinize for
+# reliable rendering across Compose's Skia backend.
+echo "Subsetting to $codepoint_count codepoints ..."
+pyftsubset "$UPSTREAM_FONT" \
+    --output-file="$OUTPUT_FONT" \
+    --unicodes="$unicode_args" \
+    --layout-features='*' \
+    --no-hinting \
+    --desubroutinize \
+    --recommended-glyphs
+
+output_size=$(stat -f%z "$OUTPUT_FONT" 2>/dev/null || stat -c%s "$OUTPUT_FONT")
+output_kb=$((output_size / 1024))
+echo "Wrote $OUTPUT_FONT ($output_kb KB)"
+
+if [ "$output_kb" -gt 200 ]; then
+    echo "WARNING: subset font is unusually large (>200 KB). Inspect for unexpected glyphs." >&2
+fi
+```
+
+Make it executable:
+
+```bash
+chmod +x scripts/update_material_symbols.sh
+```
 
 - [ ] **Step 3: Write the license file**
 
-Create `designsystem/src/main/res/font/LICENSE-material-symbols.txt`:
+Create `LICENSES/LICENSE-material-symbols.txt`. Note the path is `LICENSES/`, not `designsystem/src/main/res/font/` — Android's resource compiler rejects non-`.ttf` / non-`.xml` files inside `res/font/` and will fail the build.
 
 ```
 Material Symbols Rounded
@@ -105,37 +203,56 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 implied. See the License for the specific language governing
 permissions and limitations under the License.
 
-Vendored from:
-https://github.com/google/material-design-icons/raw/master/variablefont/
-MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf
+Source:
+  https://github.com/google/material-design-icons
+  variablefont/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf
 
-Upstream commit: <REPLACE_WITH_SHA_FROM_STEP_2>
-Vendored on: 2026-05-10
+The shipped font at designsystem/src/main/res/font/material_symbols_rounded.ttf
+is a subset (~50 KB) of the upstream ~14.9 MB variable font, generated
+by ./scripts/update_material_symbols.sh from the codepoints declared
+in NubecitaIconName.kt.
 
-To refresh: re-run the curl command in the bd-68g implementation plan
-and update the upstream commit SHA above.
+Re-run the script after changing NubecitaIconName entries; commit the
+regenerated font alongside the enum change.
 ```
 
-Replace `<REPLACE_WITH_SHA_FROM_STEP_2>` with the SHA captured in Step 2.
+- [ ] **Step 4: Add the cache directory to `.gitignore`**
 
-- [ ] **Step 4: Verify the font compiles into the resources**
+Append to `.gitignore`:
 
-```bash
-./gradlew :designsystem:processDebugResources
+```
+# Cached upstream variable font for scripts/update_material_symbols.sh.
+# The 14.9 MB font lives here; only the ~50 KB subset under
+# designsystem/src/main/res/font/ is checked in.
+build/icon-cache/
 ```
 
-Expected: BUILD SUCCESSFUL. Android Gradle Plugin treats the `.ttf` as a `R.font.material_symbols_rounded` resource automatically.
+(If `.gitignore` already has a `build/` rule that covers nested dirs, this entry is redundant but explicit and safe.)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Verify the script's shellcheck passes**
 
 ```bash
-git add designsystem/src/main/res/font/material_symbols_rounded.ttf \
-        designsystem/src/main/res/font/LICENSE-material-symbols.txt
-git commit -m "chore(designsystem): vendor Material Symbols Rounded variable font
+command -v shellcheck && shellcheck scripts/update_material_symbols.sh
+```
 
-Apache 2.0 font from google/material-design-icons. Single TTF covers
-every weight, fill, grade, and optical size — replaces the deprecated
-material-icons-extended library's per-style vector drawables.
+Expected: clean (or absent — `shellcheck` isn't required to be installed). The script doesn't run yet because the enum file doesn't exist; Task 3 is where it runs.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/update_material_symbols.sh \
+        LICENSES/LICENSE-material-symbols.txt \
+        .gitignore
+git commit -m "chore(designsystem): add Material Symbols Rounded subset script
+
+Developer-facing script that subsets the upstream 14.9 MB Material
+Symbols Rounded variable font down to ~50 KB, containing only the
+codepoints declared in NubecitaIconName.kt. Run manually after any
+icon-list change; the regenerated font is checked in alongside the
+enum.
+
+Not wired into Gradle — keeps the Android build pure (no python3 or
+fonttools required on CI runners).
 
 Refs: nubecita-68g"
 ```
@@ -304,7 +421,77 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 3: Add `NubecitaIcon` composable
+## Task 3: Run the subset script + commit the slim font
+
+**Files:**
+- Create: `designsystem/src/main/res/font/material_symbols_rounded.ttf` (the subset, ~50 KB)
+
+Now that `NubecitaIconName.kt` exists (Task 2), the subset script (Task 1) has its codepoint source. This task runs the script, verifies the output, and commits the resulting subset font.
+
+- [ ] **Step 1: Run the subset script**
+
+```bash
+./scripts/update_material_symbols.sh
+```
+
+Expected output:
+
+```
+Found 30 codepoints in NubecitaIconName.kt
+Downloading upstream font (~14.9 MB) into build/icon-cache/ ...
+Subsetting to 30 codepoints ...
+Wrote /…/designsystem/src/main/res/font/material_symbols_rounded.ttf (NN KB)
+```
+
+The script's first run downloads the upstream font into `build/icon-cache/material_symbols_rounded_full.ttf`. Subsequent runs reuse the cache. Verify the subset output:
+
+```bash
+ls -la designsystem/src/main/res/font/material_symbols_rounded.ttf
+```
+
+Expected: 30–80 KB. If much larger (>200 KB) or much smaller (<10 KB), inspect — pyftsubset may have failed to drop unused glyphs (size mismatch) or matched zero codepoints (empty output).
+
+- [ ] **Step 2: Verify the font compiles into the resources**
+
+```bash
+./gradlew :designsystem:processDebugResources
+```
+
+Expected: BUILD SUCCESSFUL. `R.font.material_symbols_rounded` is now a valid resource.
+
+- [ ] **Step 3: Verify the font's variable axes survive subsetting**
+
+The Compose API in Task 4 reads four axes from the font: `FILL`, `wght`, `GRAD`, `opsz`. `pyftsubset` preserves them by default (`fvar` / `STAT` tables). Sanity-check via the `fonttools` `ttx` tool:
+
+```bash
+python3 -m fontTools.ttx -t fvar -o /tmp/material_symbols_rounded.fvar.xml \
+    designsystem/src/main/res/font/material_symbols_rounded.ttf
+grep -E '<Axis|axisTag' /tmp/material_symbols_rounded.fvar.xml | head
+```
+
+Expected: four `<Axis>` entries with `axisTag` values `FILL`, `wght`, `GRAD`, `opsz`. If any are missing, the subset stripped them — re-run the script with `--no-prune-unicode-ranges` (or check pyftsubset version).
+
+- [ ] **Step 4: Commit**
+
+The font is part of the same atomic change as the enum; Task 2 committed the enum on its own, so this task commits just the font (clear single-purpose commit for "regenerate font" semantics that future icon additions will reuse).
+
+```bash
+git add designsystem/src/main/res/font/material_symbols_rounded.ttf
+git commit -m "chore(designsystem): generate subset Material Symbols Rounded font
+
+First run of scripts/update_material_symbols.sh against the 30
+codepoints declared in NubecitaIconName.kt. The shipped font is
+~NN KB (down from the upstream 14.9 MB) and preserves the FILL,
+wght, GRAD, opsz variable axes consumed by NubecitaIcon.
+
+Refs: nubecita-68g"
+```
+
+Replace `NN` with the size from Step 1.
+
+---
+
+## Task 4: Add `NubecitaIcon` composable
 
 **Files:**
 - Create: `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/icon/NubecitaIcon.kt`
@@ -582,7 +769,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 4: Add `Modifier.mirror()` extension
+## Task 5: Add `Modifier.mirror()` extension
 
 **Files:**
 - Create: `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/icon/Mirror.kt`
@@ -752,7 +939,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 5: Add `NubecitaIconShowcaseScreenshotTest`
+## Task 6: Add `NubecitaIconShowcaseScreenshotTest`
 
 **Files:**
 - Create: `designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/icon/NubecitaIconShowcaseScreenshotTest.kt`
@@ -878,7 +1065,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 6: Migrate `:designsystem` call sites
+## Task 7: Migrate `:designsystem` call sites
 
 **Files:**
 - Modify: `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/component/PostCard.kt`
@@ -980,7 +1167,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 7: Migrate `:feature:composer:impl` call sites
+## Task 8: Migrate `:feature:composer:impl` call sites
 
 **Files:**
 - Modify: `feature/composer/impl/src/main/kotlin/net/kikin/nubecita/feature/composer/impl/ComposerScreen.kt`
@@ -1049,7 +1236,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 8: Migrate `:feature:feed:impl` call sites
+## Task 9: Migrate `:feature:feed:impl` call sites
 
 **Files:**
 - Modify: `feature/feed/impl/src/main/kotlin/.../FeedScreen.kt`
@@ -1116,7 +1303,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 9: Migrate `:feature:postdetail:impl` call sites
+## Task 10: Migrate `:feature:postdetail:impl` call sites
 
 **Files:**
 - Modify: `feature/postdetail/impl/src/main/kotlin/.../PostDetailScreen.kt`
@@ -1174,7 +1361,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 10: Migrate `:feature:mediaviewer:impl` call sites
+## Task 11: Migrate `:feature:mediaviewer:impl` call sites
 
 **Files:**
 - Modify: `feature/mediaviewer/impl/src/main/kotlin/.../MediaViewerScreen.kt`
@@ -1225,7 +1412,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 11: Migrate `:app` call sites
+## Task 12: Migrate `:app` call sites
 
 **Files:**
 - Modify: `app/src/main/java/net/kikin/nubecita/shell/MainShell.kt`
@@ -1301,7 +1488,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 12: Drop `material-icons-extended` from every module
+## Task 13: Drop `material-icons-extended` from every module
 
 **Files:**
 - Modify: `designsystem/build.gradle.kts`
@@ -1312,7 +1499,7 @@ Refs: nubecita-68g"
 - Modify: `feature/mediaviewer/impl/build.gradle.kts`
 - Modify: `gradle/libs.versions.toml`
 
-After Tasks 6–11 every call site no longer imports from `androidx.compose.material.icons` — verifiable with a grep. We can now remove the dependency from all 6 modules and from the version catalog.
+After Tasks 7–12 every call site no longer imports from `androidx.compose.material.icons` — verifiable with a grep. We can now remove the dependency from all 6 modules and from the version catalog.
 
 - [ ] **Step 1: Verify zero remaining icons-extended imports**
 
@@ -1359,7 +1546,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 ./gradlew assembleDebug
 ```
 
-Expected: BUILD SUCCESSFUL across every module. Any unresolved reference would mean a call site was missed in Tasks 6–11.
+Expected: BUILD SUCCESSFUL across every module. Any unresolved reference would mean a call site was missed in Tasks 7–12.
 
 - [ ] **Step 5: Capture APK size delta (for the PR description)**
 
@@ -1390,7 +1577,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 13: Codify the contract in `design-system/spec.md`
+## Task 14: Codify the contract in `design-system/spec.md`
 
 **Files:**
 - Modify: `openspec/specs/design-system/spec.md`
@@ -1451,7 +1638,7 @@ Refs: nubecita-68g"
 
 ---
 
-## Task 14: Final integration check + push + open PR
+## Task 15: Final integration check + push + open PR
 
 **Files:** none new — verification only.
 
@@ -1581,8 +1768,8 @@ Update the PR body's APK-size table with the captured numbers via `gh pr edit <P
 
 | Check | Notes |
 |---|---|
-| **Spec coverage** | Decisions §1 (vendor font) → Task 1; §2 (API) → Tasks 2+3; §3 (codepoint subset) → Task 2; §4 (Filled/Outlined collapse) → Task 6's rubric, applied throughout 6–11; §5 (Mirror) → Task 4; §6 (`Boolean filled` in V1) → Task 3; §7 (weight/grade defaults) → Task 3; §8 (file layout) → all tasks; §9 (test plan) → Tasks 2/3/4/5 + per-module screenshot regen; §10 (APK delta) → Task 14 step 6; §11 (gotchas) → Task 3's KDoc + Task 5's screenshot eyeball; §12 (acceptance) → Task 14 step 1's grep + lint/test sweep. |
-| **Placeholder scan** | One `<REPLACE_WITH_…>` placeholder in the PR body's APK-size table — explicitly flagged for the implementer to fill in at Task 14 step 6. The `<REPLACE_WITH_SHA_FROM_STEP_2>` in Task 1's license file is similarly explicit. No silent placeholders. |
-| **Type consistency** | `NubecitaIcon(name, contentDescription, modifier, filled, weight, grade, opticalSize, tint)` signature matches Tasks 3, 6–11, 13. `NubecitaIconName(internal val codepoint: String)` matches Tasks 2 + 3. `Modifier.mirror()` matches Tasks 4, 7, 9. The migration rubric in Task 6 step 1 is the source of truth all later migration tasks point at. |
+| **Spec coverage** | Decisions §1 (subset script + ship slim font) → Tasks 1 + 3; §2 (API) → Tasks 2+4; §3 (codepoint subset) → Task 2; §4 (Filled/Outlined collapse) → Task 7's rubric, applied throughout 6–11; §5 (Mirror) → Task 5; §6 (`Boolean filled` in V1) → Task 4; §7 (weight/grade defaults) → Task 4; §8 (file layout) → all tasks; §9 (test plan) → Tasks 2/4/5/6 + per-module screenshot regen; §10 (APK delta) → Task 15 step 6; §11 (gotchas) → Task 4's KDoc + Task 6's screenshot eyeball; §12 (acceptance) → Task 15 step 1's grep + lint/test sweep. |
+| **Placeholder scan** | One `<REPLACE_WITH_…>` placeholder in the PR body's APK-size table — explicitly flagged for the implementer to fill in at Task 15 step 6. The `<REPLACE_WITH_SHA_FROM_STEP_2>` in Task 1's license file is similarly explicit. No silent placeholders. |
+| **Type consistency** | `NubecitaIcon(name, contentDescription, modifier, filled, weight, grade, opticalSize, tint)` signature matches Tasks 4, 7–11, 13. `NubecitaIconName(internal val codepoint: String)` matches Tasks 2 + 4. `Modifier.mirror()` matches Tasks 5, 8, 10. The migration rubric in Task 7 step 1 is the source of truth all later migration tasks point at. |
 | **Determinism** | Codepoints in Task 2's enum are pinned to the upstream Material Symbols values as of 2026-05-10; the `every_codepoint_isASingleScalar` test catches drift. Showcase fixture (Task 5) pins visual contract across `@PreviewNubecitaScreenPreviews`'s 6 buckets. |
-| **TDD discipline** | Tasks 2, 3, 4 follow the failing-test → run-fails → impl → run-passes → commit cycle. Tasks 1, 5, 6–11, 12, 13 are non-TDD (asset vendoring, screenshot fixtures, mechanical migrations, build-config edits, spec edits) — each with explicit verification steps in lieu of a test cycle. |
+| **TDD discipline** | Tasks 2, 4, 5 follow the failing-test → run-fails → impl → run-passes → commit cycle. Tasks 1, 3, 6, 7–12, 13, 14 are non-TDD (asset vendoring, screenshot fixtures, mechanical migrations, build-config edits, spec edits) — each with explicit verification steps in lieu of a test cycle. |
