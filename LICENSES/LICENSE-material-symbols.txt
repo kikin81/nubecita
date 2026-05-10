@@ -1,0 +1,25 @@
+Material Symbols Rounded
+
+Copyright Google LLC. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the "License").
+You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied. See the License for the specific language governing
+permissions and limitations under the License.
+
+Source:
+  https://github.com/google/material-design-icons
+  variablefont/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf
+
+The shipped font at designsystem/src/main/res/font/material_symbols_rounded.ttf
+is a subset (~50 KB) of the upstream ~14.9 MB variable font, generated
+by ./scripts/update_material_symbols.sh from the codepoints declared
+in NubecitaIconName.kt.
+
+Re-run the script after changing NubecitaIconName entries; commit the
+regenerated font alongside the enum change.

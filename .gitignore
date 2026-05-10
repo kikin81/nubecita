@@ -54,3 +54,8 @@ __pycache__/
 !.claude/skills/**
 !.claude/commands/
 !.claude/commands/**
+
+# Cached upstream variable font for scripts/update_material_symbols.sh.
+# The 14.9 MB font lives here; only the ~50 KB subset under
+# designsystem/src/main/res/font/ is checked in.
+build/icon-cache/
