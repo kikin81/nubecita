@@ -2,7 +2,6 @@ package net.kikin.nubecita.designsystem.icon
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -17,13 +16,16 @@ import androidx.compose.ui.unit.LayoutDirection
  * opt-in. Forgetting to apply this on a directional icon means the
  * arrow points the wrong way in RTL locales — caught by RTL
  * screenshot fixtures.
+ *
+ * `Modifier.clickable { }` chained AFTER `.mirror()` operates in the
+ * transformed coordinate space; Compose's hit-testing uses transformed
+ * coordinates so tap targets remain visually aligned with the flipped
+ * glyph. No special handling required.
  */
 @Composable
 fun Modifier.mirror(): Modifier =
-    composed {
-        if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
-            this.then(Modifier.scale(scaleX = -1f, scaleY = 1f))
-        } else {
-            this
-        }
+    if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
+        this.then(Modifier.scale(scaleX = -1f, scaleY = 1f))
+    } else {
+        this
     }
