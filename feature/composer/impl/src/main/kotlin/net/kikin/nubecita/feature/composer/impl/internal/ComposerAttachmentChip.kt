@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +18,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.composer.impl.R
 
 /**
@@ -87,10 +86,11 @@ internal fun ComposerAttachmentChip(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
         ) {
-            Icon(
-                imageVector = Icons.Filled.Close,
+            NubecitaIcon(
+                name = NubecitaIconName.Close,
                 contentDescription = stringResource(R.string.composer_remove_attachment_action),
-                modifier = Modifier.size(16.dp),
+                filled = true,
+                opticalSize = 16.dp,
             )
         }
     }
