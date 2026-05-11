@@ -23,12 +23,9 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -59,6 +56,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -211,9 +210,10 @@ private fun ErrorState(
             onClick = onDismiss,
             modifier = Modifier.padding(8.dp).align(Alignment.TopStart),
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Close,
+            NubecitaIcon(
+                name = NubecitaIconName.Close,
                 contentDescription = stringResource(R.string.mediaviewer_close_content_description),
+                filled = false,
                 tint = Color.White,
             )
         }
@@ -419,9 +419,10 @@ private fun ChromeBar(
                 onClick = onClose,
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Close,
+                NubecitaIcon(
+                    name = NubecitaIconName.Close,
                     contentDescription = stringResource(R.string.mediaviewer_close_content_description),
+                    filled = false,
                     tint = Color.White,
                 )
             }
