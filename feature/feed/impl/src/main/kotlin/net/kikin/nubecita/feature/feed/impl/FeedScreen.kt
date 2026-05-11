@@ -19,11 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -70,6 +67,8 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
 import net.kikin.nubecita.designsystem.component.ThreadCluster
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.feed.impl.share.launchPostShare
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
@@ -289,7 +288,7 @@ internal fun FeedScreenContent(
         scrollToTopSignal.collect { listState.animateScrollToItem(0) }
     }
     // FAB is the composer entry point. wtq.9 swapped the prior scroll-
-    // to-top FAB content for `Icons.Default.Edit`. The action itself
+    // to-top FAB content for `NubecitaIcon(NubecitaIconName.Edit)`. The action itself
     // (`onComposeClick`) is hoisted as a callback rather than read from
     // `LocalMainShellNavState` directly — `FeedScreenContent` is
     // exercised by screenshot tests that don't provide the nav-state
@@ -328,16 +327,18 @@ internal fun FeedScreenContent(
             ) {
                 if (isCompact) {
                     FloatingActionButton(onClick = onComposeClick) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
+                        NubecitaIcon(
+                            name = NubecitaIconName.Edit,
                             contentDescription = stringResource(R.string.feed_compose_new_post),
+                            filled = true,
                         )
                     }
                 } else {
                     LargeFloatingActionButton(onClick = onComposeClick) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
+                        NubecitaIcon(
+                            name = NubecitaIconName.Edit,
                             contentDescription = stringResource(R.string.feed_compose_new_post),
+                            filled = true,
                         )
                     }
                 }

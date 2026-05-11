@@ -1,12 +1,8 @@
 package net.kikin.nubecita.feature.composer.impl.internal
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -14,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.composer.impl.R
 
 /**
@@ -53,10 +51,11 @@ internal fun ComposerLanguageChip(
         onClick = onClick,
         modifier = modifier.widthIn(max = 200.dp),
         leadingIcon = {
-            Icon(
-                imageVector = Icons.Filled.Language,
+            NubecitaIcon(
+                name = NubecitaIconName.Language,
                 contentDescription = null,
-                modifier = Modifier.size(AssistChipDefaults.IconSize),
+                filled = true,
+                opticalSize = AssistChipDefaults.IconSize,
             )
         },
         label = {

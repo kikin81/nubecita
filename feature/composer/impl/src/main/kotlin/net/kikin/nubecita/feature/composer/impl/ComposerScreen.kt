@@ -11,11 +11,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -54,6 +50,8 @@ import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.BLUESKY_LANGUAGE_TAGS
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounter
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCloseAction
@@ -380,8 +378,9 @@ fun ComposerScreenContent(
                         onClick = onCloseClick,
                         enabled = state.submitStatus !is ComposerSubmitStatus.Submitting,
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
+                        NubecitaIcon(
+                            name = NubecitaIconName.Close,
+                            filled = true,
                             contentDescription = stringResource(R.string.composer_close_action),
                         )
                     }
@@ -539,8 +538,8 @@ private fun ComposerAttachmentRow(
                 onClick = onAddImageClick,
                 enabled = canAddImage,
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.AddPhotoAlternate,
+                NubecitaIcon(
+                    name = NubecitaIconName.AddPhotoAlternate,
                     contentDescription = stringResource(R.string.composer_add_image_action),
                 )
             }

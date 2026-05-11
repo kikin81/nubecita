@@ -21,7 +21,6 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
-    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.telephoto.zoomable.image.coil3)

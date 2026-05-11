@@ -5,16 +5,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.IosShare
-import androidx.compose.material.icons.outlined.Repeat
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,11 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
 /**
  * One interactive icon + count cell in a [PostCard]'s action row.
@@ -61,10 +54,11 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  */
 @Composable
 internal fun PostStat(
-    icon: ImageVector,
+    name: NubecitaIconName,
     count: String,
     accessibilityLabel: String,
     modifier: Modifier = Modifier,
+    filled: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
     onLongClickLabel: String? = null,
@@ -110,11 +104,12 @@ internal fun PostStat(
         // For non-toggleable cells, the action verb comes via clickable's
         // onClickLabel above and the Icon stays decorative — avoids double-
         // announcement.
-        Icon(
-            imageVector = icon,
+        NubecitaIcon(
+            name = name,
             contentDescription = if (toggleable) accessibilityLabel else null,
+            filled = filled,
             tint = tint,
-            modifier = Modifier.size(STAT_ICON_SIZE),
+            opticalSize = STAT_ICON_SIZE,
         )
         if (count.isNotEmpty()) {
             Text(
@@ -133,10 +128,10 @@ private val STAT_ICON_SIZE = 18.dp
 private fun PostStatInactivePreview() {
     NubecitaTheme {
         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            PostStat(icon = Icons.Outlined.ChatBubbleOutline, count = "12", accessibilityLabel = "Reply")
-            PostStat(icon = Icons.Outlined.Repeat, count = "4", accessibilityLabel = "Repost")
-            PostStat(icon = Icons.Outlined.FavoriteBorder, count = "86", accessibilityLabel = "Like")
-            PostStat(icon = Icons.Outlined.IosShare, count = "", accessibilityLabel = "Share post")
+            PostStat(name = NubecitaIconName.ChatBubble, count = "12", accessibilityLabel = "Reply")
+            PostStat(name = NubecitaIconName.Repeat, count = "4", accessibilityLabel = "Repost")
+            PostStat(name = NubecitaIconName.Favorite, count = "86", accessibilityLabel = "Like")
+            PostStat(name = NubecitaIconName.IosShare, count = "", accessibilityLabel = "Share post")
         }
     }
 }
@@ -146,22 +141,23 @@ private fun PostStatInactivePreview() {
 private fun PostStatActivePreview() {
     NubecitaTheme {
         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            PostStat(icon = Icons.Outlined.ChatBubbleOutline, count = "12", accessibilityLabel = "Reply")
+            PostStat(name = NubecitaIconName.ChatBubble, count = "12", accessibilityLabel = "Reply")
             PostStat(
-                icon = Icons.Outlined.Repeat,
+                name = NubecitaIconName.Repeat,
                 count = "5",
                 accessibilityLabel = "Undo repost",
                 active = true,
                 activeColor = MaterialTheme.colorScheme.tertiary,
             )
             PostStat(
-                icon = Icons.Filled.Favorite,
+                name = NubecitaIconName.Favorite,
+                filled = true,
                 count = "87",
                 accessibilityLabel = "Unlike",
                 active = true,
                 activeColor = MaterialTheme.colorScheme.secondary,
             )
-            PostStat(icon = Icons.Outlined.IosShare, count = "", accessibilityLabel = "Share post")
+            PostStat(name = NubecitaIconName.IosShare, count = "", accessibilityLabel = "Share post")
         }
     }
 }

@@ -554,3 +554,29 @@ The internal media-side `when` MUST be exhaustive over `EmbedUi.MediaEmbed` (no 
 
 - **WHEN** the rendered `PostCardRecordWithMediaEmbed` composable's root modifier chain is inspected
 - **THEN** there SHALL be no `Modifier.clickable` on the root; tap-to-open is deferred to a follow-up bd issue
+
+### Requirement: Iconography uses Material Symbols Rounded via `NubecitaIcon`
+
+The system SHALL render every in-app icon through the `NubecitaIcon` composable in `:designsystem` (`net.kikin.nubecita.designsystem.icon.NubecitaIcon`). Glyph identity is supplied by the typed `NubecitaIconName` enum; visual variants are controlled by the `filled: Boolean` (FILL axis), `weight: Int = 400` (wght), `grade: Int = 0` (GRAD), and `opticalSize: Dp = 24.dp` (opsz) parameters. The font asset MUST be the subsetted `MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf` at `R.font.material_symbols_rounded`, produced by `scripts/update_material_symbols.sh` from the codepoints declared in `NubecitaIconName`. Direct use of `androidx.compose.material.icons.*` (the deprecated `material-icons-extended` library) is forbidden in production source.
+
+#### Scenario: Active/inactive state collapses to the FILL axis
+
+- **GIVEN** a navigation tab with active and inactive states
+- **WHEN** the tab renders its icon
+- **THEN** a single `NubecitaIcon(name = NubecitaIconName.X, filled = isActive, …)` site SHALL render both states (no `if (active) Filled else Outlined` ternary against two different glyph identities)
+
+#### Scenario: Directional icons opt into RTL mirroring
+
+- **GIVEN** a directional icon (back arrow, reply chevron, etc.)
+- **WHEN** the icon renders in an RTL locale
+- **THEN** the call site SHALL apply `Modifier.mirror()` from `:designsystem`'s icon package; the modifier is a no-op in LTR
+
+#### Scenario: Adding a new glyph requires an enum entry
+
+- **WHEN** a feature requires a Material Symbols glyph not currently in `NubecitaIconName`
+- **THEN** the contributor SHALL add a new enum entry (one line: `NewName("\uXXXX"),` with the upstream codepoint), then re-run `./scripts/update_material_symbols.sh` so the shipped font picks up the glyph; no inline-codepoint usage of `NubecitaIcon` is supported
+
+#### Scenario: Material Icons library is not a runtime dependency
+
+- **WHEN** the project's module `build.gradle.kts` files are inspected
+- **THEN** none SHALL declare `androidx.compose.material:material-icons-extended` (or any artifact under `androidx.compose.material.icons.*`); the version-catalog entry MUST also be absent

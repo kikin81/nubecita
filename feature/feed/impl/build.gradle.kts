@@ -35,7 +35,6 @@ dependencies {
     // post body is tapped. Imports `:api` only; never `:impl`.
     implementation(project(":feature:postdetail:api"))
     implementation(libs.androidx.browser)
-    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)

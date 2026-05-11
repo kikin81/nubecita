@@ -1,16 +1,6 @@
 package net.kikin.nubecita.shell
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -23,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -43,6 +32,8 @@ import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitte
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -276,17 +267,13 @@ internal fun MainShellChrome(
                     selected = isSelected,
                     onClick = { onTabClick(destination.key) },
                     icon = {
-                        Icon(
-                            imageVector =
-                                if (isSelected) {
-                                    destination.iconSelected
-                                } else {
-                                    destination.iconUnselected
-                                },
+                        NubecitaIcon(
+                            name = destination.iconName,
                             // The accessible name comes from `label` below; setting
                             // `contentDescription` to the same string would make
                             // TalkBack announce the destination twice.
                             contentDescription = null,
+                            filled = isSelected,
                         )
                     },
                     label = { Text(stringResource(destination.labelRes)) },
@@ -299,8 +286,7 @@ internal fun MainShellChrome(
 
 internal data class TopLevelDestination(
     val key: NavKey,
-    val iconSelected: ImageVector,
-    val iconUnselected: ImageVector,
+    val iconName: NubecitaIconName,
     val labelRes: Int,
 )
 
@@ -315,26 +301,22 @@ internal val TopLevelDestinations: List<TopLevelDestination> =
     listOf(
         TopLevelDestination(
             key = Feed,
-            iconSelected = Icons.Filled.Home,
-            iconUnselected = Icons.Outlined.Home,
+            iconName = NubecitaIconName.Home,
             labelRes = R.string.main_shell_tab_feed,
         ),
         TopLevelDestination(
             key = Search,
-            iconSelected = Icons.Filled.Search,
-            iconUnselected = Icons.Outlined.Search,
+            iconName = NubecitaIconName.Search,
             labelRes = R.string.main_shell_tab_search,
         ),
         TopLevelDestination(
             key = Chats,
-            iconSelected = Icons.Filled.ChatBubble,
-            iconUnselected = Icons.Outlined.ChatBubbleOutline,
+            iconName = NubecitaIconName.ChatBubble,
             labelRes = R.string.main_shell_tab_chats,
         ),
         TopLevelDestination(
             key = Profile(handle = null),
-            iconSelected = Icons.Filled.Person,
-            iconUnselected = Icons.Outlined.Person,
+            iconName = NubecitaIconName.Person,
             labelRes = R.string.main_shell_tab_you,
         ),
     )

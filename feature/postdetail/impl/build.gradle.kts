@@ -13,7 +13,6 @@ dependencies {
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
     implementation(project(":feature:mediaviewer:api"))
-    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)

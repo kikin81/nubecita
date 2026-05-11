@@ -8,15 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.IosShare
-import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +38,8 @@ import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -180,11 +174,11 @@ private fun RepostedByLine(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(
-            imageVector = Icons.Outlined.Repeat,
+        NubecitaIcon(
+            name = NubecitaIconName.Repeat,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(14.dp),
+            opticalSize = 14.dp,
         )
         Text(
             text = stringResource(R.string.postcard_reposted_by, name),
@@ -317,13 +311,13 @@ private fun ActionRow(
         modifier = Modifier.padding(top = 4.dp),
     ) {
         PostStat(
-            icon = Icons.Outlined.ChatBubbleOutline,
+            name = NubecitaIconName.ChatBubble,
             count = post.stats.replyCount.toString(),
             accessibilityLabel = stringResource(R.string.postcard_action_reply),
             onClick = { callbacks.onReply(post) },
         )
         PostStat(
-            icon = Icons.Outlined.Repeat,
+            name = NubecitaIconName.Repeat,
             count = post.stats.repostCount.toString(),
             accessibilityLabel = stringResource(R.string.postcard_action_repost),
             active = post.viewer.isRepostedByViewer,
@@ -332,7 +326,8 @@ private fun ActionRow(
             onClick = { callbacks.onRepost(post) },
         )
         PostStat(
-            icon = if (post.viewer.isLikedByViewer) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            name = NubecitaIconName.Favorite,
+            filled = post.viewer.isLikedByViewer,
             count = post.stats.likeCount.toString(),
             accessibilityLabel = stringResource(R.string.postcard_action_like),
             active = post.viewer.isLikedByViewer,
@@ -341,7 +336,7 @@ private fun ActionRow(
             onClick = { callbacks.onLike(post) },
         )
         PostStat(
-            icon = Icons.Outlined.IosShare,
+            name = NubecitaIconName.IosShare,
             count = "",
             accessibilityLabel = stringResource(R.string.postcard_action_share),
             onClick = { callbacks.onShare(post) },

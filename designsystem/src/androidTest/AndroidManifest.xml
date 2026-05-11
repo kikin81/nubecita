@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Declares ComponentActivity so createAndroidComposeRule<ComponentActivity>()
+    can resolve it during instrumentation tests. Library modules using the
+    standard AndroidJUnitRunner (not HiltTestRunner) do not get ComponentActivity
+    in the merged manifest automatically — an explicit declaration is required.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+    </application>
+</manifest>

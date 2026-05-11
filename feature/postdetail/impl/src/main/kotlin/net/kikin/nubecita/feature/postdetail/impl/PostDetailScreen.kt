@@ -12,14 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -56,6 +52,9 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 import timber.log.Timber
 import kotlin.time.Clock
@@ -213,9 +212,11 @@ internal fun PostDetailScreenContent(
                 title = { Text(stringResource(R.string.postdetail_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        NubecitaIcon(
+                            name = NubecitaIconName.ArrowBack,
                             contentDescription = stringResource(R.string.postdetail_back_content_description),
+                            filled = true,
+                            modifier = Modifier.mirror(),
                         )
                     }
                 },
@@ -242,9 +243,11 @@ internal fun PostDetailScreenContent(
             val showFab = state.items.isNotEmpty()
             if (showFab) {
                 FloatingActionButton(onClick = onReply) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.Reply,
+                    NubecitaIcon(
+                        name = NubecitaIconName.Reply,
                         contentDescription = stringResource(R.string.postdetail_reply_fab_content_description),
+                        filled = false,
+                        modifier = Modifier.mirror(),
                     )
                 }
             }
