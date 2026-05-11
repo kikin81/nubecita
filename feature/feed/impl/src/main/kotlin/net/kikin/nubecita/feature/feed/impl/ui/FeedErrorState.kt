@@ -6,24 +6,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.LockPerson
-import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.spacing
 import net.kikin.nubecita.feature.feed.impl.FeedError
 import net.kikin.nubecita.feature.feed.impl.R
@@ -59,11 +54,11 @@ internal fun FeedErrorState(
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s3, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            imageVector = copy.icon,
+        NubecitaIcon(
+            name = copy.icon,
             contentDescription = stringResource(copy.iconDescriptionResId),
             tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(ICON_SIZE),
+            opticalSize = ICON_SIZE,
         )
         Text(
             text = stringResource(copy.titleResId),
@@ -83,7 +78,7 @@ internal fun FeedErrorState(
 }
 
 private data class ErrorCopy(
-    val icon: ImageVector,
+    val icon: NubecitaIconName,
     val iconDescriptionResId: Int,
     val titleResId: Int,
     val bodyResId: Int,
@@ -93,21 +88,21 @@ private fun FeedError.toCopy(): ErrorCopy =
     when (this) {
         FeedError.Network ->
             ErrorCopy(
-                icon = Icons.Outlined.WifiOff,
+                icon = NubecitaIconName.WifiOff,
                 iconDescriptionResId = R.string.feed_error_network_icon_description,
                 titleResId = R.string.feed_error_network_title,
                 bodyResId = R.string.feed_error_network_body,
             )
         FeedError.Unauthenticated ->
             ErrorCopy(
-                icon = Icons.Outlined.LockPerson,
+                icon = NubecitaIconName.LockPerson,
                 iconDescriptionResId = R.string.feed_error_unauthenticated_icon_description,
                 titleResId = R.string.feed_error_unauthenticated_title,
                 bodyResId = R.string.feed_error_unauthenticated_body,
             )
         is FeedError.Unknown ->
             ErrorCopy(
-                icon = Icons.Outlined.ErrorOutline,
+                icon = NubecitaIconName.Error,
                 iconDescriptionResId = R.string.feed_error_unknown_icon_description,
                 titleResId = R.string.feed_error_unknown_title,
                 bodyResId = R.string.feed_error_unknown_body,

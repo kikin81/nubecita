@@ -6,10 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Article
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +16,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.designsystem.spacing
 import net.kikin.nubecita.feature.feed.impl.R
 
@@ -51,12 +50,13 @@ internal fun FeedDetailPlaceholder(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s3, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Outlined.Article,
+        NubecitaIcon(
+            name = NubecitaIconName.Article,
             // Decorative — the bodyLarge prompt below is the accessible label.
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(ICON_SIZE),
+            opticalSize = ICON_SIZE,
+            modifier = Modifier.mirror(),
         )
         Text(
             text = stringResource(R.string.feed_detail_placeholder_select),

@@ -13,11 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.VolumeOff
-import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +37,9 @@ import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.extendedShape
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.designsystem.semanticColors
 import net.kikin.nubecita.designsystem.spacing
 import net.kikin.nubecita.feature.feed.impl.R
@@ -296,11 +294,11 @@ private fun MuteIconOverlay(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val (icon, label) =
+    val (iconName, label) =
         if (isUnmuted) {
-            Icons.AutoMirrored.Outlined.VolumeUp to stringResource(R.string.postcard_video_mute)
+            NubecitaIconName.VolumeUp to stringResource(R.string.postcard_video_mute)
         } else {
-            Icons.AutoMirrored.Outlined.VolumeOff to stringResource(R.string.postcard_video_unmute)
+            NubecitaIconName.VolumeOff to stringResource(R.string.postcard_video_unmute)
         }
     Box(
         modifier =
@@ -311,14 +309,12 @@ private fun MuteIconOverlay(
                 .clickable(onClick = onClick)
                 .semantics { contentDescription = label },
     ) {
-        Icon(
-            imageVector = icon,
+        NubecitaIcon(
+            name = iconName,
             contentDescription = null,
             tint = MaterialTheme.semanticColors.onVideoOverlay,
-            modifier =
-                Modifier
-                    .align(Alignment.Center)
-                    .size(MaterialTheme.spacing.s5),
+            opticalSize = MaterialTheme.spacing.s5,
+            modifier = Modifier.align(Alignment.Center).mirror(),
         )
     }
 }
@@ -351,11 +347,11 @@ private fun ResumeOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s2),
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.PlayArrow,
+                NubecitaIcon(
+                    name = NubecitaIconName.PlayArrow,
                     contentDescription = null,
                     tint = MaterialTheme.semanticColors.onVideoOverlay,
-                    modifier = Modifier.size(MaterialTheme.spacing.s5),
+                    opticalSize = MaterialTheme.spacing.s5,
                 )
                 Text(
                     text = resumeLabel,
