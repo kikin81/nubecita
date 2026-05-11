@@ -9,7 +9,7 @@
     <application>
         <activity
             android:name="androidx.activity.ComponentActivity"
-            android:exported="true"
+            android:exported="false"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
 </manifest>

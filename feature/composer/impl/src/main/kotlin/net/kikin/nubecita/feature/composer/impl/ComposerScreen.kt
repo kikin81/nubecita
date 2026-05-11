@@ -380,6 +380,7 @@ fun ComposerScreenContent(
                     ) {
                         NubecitaIcon(
                             name = NubecitaIconName.Close,
+                            filled = true,
                             contentDescription = stringResource(R.string.composer_close_action),
                         )
                     }

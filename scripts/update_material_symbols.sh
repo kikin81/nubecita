@@ -45,7 +45,7 @@ UPSTREAM_URL='https://github.com/google/material-design-icons/raw/master/variabl
 
 if [ ! -f "$ENUM_FILE" ]; then
     echo "Enum file not found at $ENUM_FILE" >&2
-    echo "(Task 2 of bd-68g must land before this script can run.)" >&2
+    echo "Ensure NubecitaIconName.kt exists on the current branch before running this script." >&2
     exit 1
 fi
 
