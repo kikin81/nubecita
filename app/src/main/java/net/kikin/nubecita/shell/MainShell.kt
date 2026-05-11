@@ -6,6 +6,7 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
@@ -165,15 +166,22 @@ fun MainShell(modifier: Modifier = Modifier) {
             directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo),
         )
 
-    // Default `calculateFromAdaptiveInfo` returns `NavigationDrawer` at
-    // expanded widths on some form factors. With only four destinations,
-    // a permanent drawer is overkill — collapse to rail in that case.
+    // Default `calculateFromAdaptiveInfo` returns:
+    //  - `NavigationBar` at compact widths — the legacy 80dp Material 3
+    //    navigation bar. We swap to the M3 Expressive `ShortNavigationBarCompact`
+    //    (~64dp, what Play Store and most modern M3 apps use). The
+    //    expressive theme is already wired in `:designsystem/Theme.kt`,
+    //    so this is the consistent default for our phone-first social
+    //    client.
+    //  - `NavigationDrawer` at expanded widths on some form factors.
+    //    With only four destinations, a permanent drawer is overkill —
+    //    collapse to rail in that case.
     val defaultLayoutType = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
     val layoutType =
-        if (defaultLayoutType == NavigationSuiteType.NavigationDrawer) {
-            NavigationSuiteType.NavigationRail
-        } else {
-            defaultLayoutType
+        when (defaultLayoutType) {
+            NavigationSuiteType.NavigationBar -> NavigationSuiteType.ShortNavigationBarCompact
+            NavigationSuiteType.NavigationDrawer -> NavigationSuiteType.NavigationRail
+            else -> defaultLayoutType
         }
 
     CompositionLocalProvider(
@@ -257,13 +265,26 @@ internal fun MainShellChrome(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    // Use the `navigationItems` / `navigationSuiteType` overload (not the
+    // older `navigationSuiteItems` / `layoutType` one). The M3 1.5.0-alpha19
+    // library itself recommends this — see NavigationSuiteScaffold.kt:274
+    // ("It is recommended to use the NavigationSuiteScaffold function with
+    // the navigationItems param that accepts NavigationSuiteItems instead
+    // of this one"). The recommended overload internally applies
+    // `navigationSuiteScaffoldConsumeWindowInsets` (NavigationSuiteScaffold.kt:1521)
+    // which correctly consumes the bottom system inset for
+    // `ShortNavigationBarCompact` / `ShortNavigationBarMedium`; the older
+    // overload's inline switch misses those variants and leaves child
+    // Scaffolds anchoring FABs above the system inset rather than above
+    // the visually-rendered bar (creating a ~32dp gap).
     NavigationSuiteScaffold(
         modifier = modifier.fillMaxSize(),
-        layoutType = layoutType,
-        navigationSuiteItems = {
+        navigationSuiteType = layoutType,
+        navigationItems = {
             TopLevelDestinations.forEach { destination ->
                 val isSelected = activeKey == destination.key
-                item(
+                NavigationSuiteItem(
+                    navigationSuiteType = layoutType,
                     selected = isSelected,
                     onClick = { onTabClick(destination.key) },
                     icon = {

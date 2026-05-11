@@ -74,7 +74,7 @@ private fun MainShellListDetailCompact() {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
-            layoutType = NavigationSuiteType.NavigationBar,
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             FakeListDetailNavDisplay()
         }

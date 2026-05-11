@@ -43,7 +43,7 @@ private fun MainShellChromeCompactBarFeedSelected() {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
-            layoutType = NavigationSuiteType.NavigationBar,
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             ChromeContentPlaceholder(label = "Feed")
         }
@@ -58,7 +58,7 @@ private fun MainShellChromeCompactBarSearchSelected() {
         MainShellChrome(
             activeKey = TopLevelDestinations[1].key,
             onTabClick = {},
-            layoutType = NavigationSuiteType.NavigationBar,
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             ChromeContentPlaceholder(label = "Search")
         }
@@ -73,7 +73,7 @@ private fun MainShellChromeCompactBarChatsSelected() {
         MainShellChrome(
             activeKey = TopLevelDestinations[2].key,
             onTabClick = {},
-            layoutType = NavigationSuiteType.NavigationBar,
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             ChromeContentPlaceholder(label = "Chats")
         }
@@ -88,7 +88,7 @@ private fun MainShellChromeCompactBarYouSelected() {
         MainShellChrome(
             activeKey = TopLevelDestinations[3].key,
             onTabClick = {},
-            layoutType = NavigationSuiteType.NavigationBar,
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             ChromeContentPlaceholder(label = "You")
         }
@@ -133,7 +133,7 @@ private fun MainShellChromeCompactBarFeedSelectedDark() {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
-            layoutType = NavigationSuiteType.NavigationBar,
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             ChromeContentPlaceholder(label = "Feed (dark)")
         }
