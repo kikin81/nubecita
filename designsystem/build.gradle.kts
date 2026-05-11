@@ -14,7 +14,6 @@ dependencies {
     implementation(platform(libs.coil.bom))
     implementation(project(":core:common"))
     implementation(project(":data:models"))
-    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.androidx.core.ktx)
     implementation(libs.atproto.compose.material3)

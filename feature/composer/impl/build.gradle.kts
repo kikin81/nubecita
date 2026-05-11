@@ -29,7 +29,6 @@ dependencies {
     // brings both APIs in transitively without pulling in any
     // navigation3 surface that the composer module doesn't need.
     implementation(libs.androidx.compose.material3.adaptive)
-    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.timber)
