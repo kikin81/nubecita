@@ -4,6 +4,7 @@ package net.kikin.nubecita.designsystem.icon
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,7 +57,7 @@ import net.kikin.nubecita.designsystem.R
  *
  * Rendering through `Text` (vs `androidx.compose.material3.Icon`'s
  * Painter) subjects the glyph to font metrics: ascent, descent,
- * leading, and Compose's default `includeFontPadding = true`. Three
+ * leading, and Compose's default `includeFontPadding = true`. Four
  * mitigations applied here, per the design doc's gotcha section:
  *
  * 1. `includeFontPadding = false` strips the platform's default
@@ -63,10 +65,17 @@ import net.kikin.nubecita.designsystem.R
  *    without baked-in margins.
  * 2. `lineHeight = fontSize` locks line height to the icon's display
  *    size so descenders don't push the box taller than expected.
- * 3. The `Box(modifier = Modifier.size(opticalSize), contentAlignment
- *    = Alignment.Center)` wrapper centers the glyph regardless of
- *    residual font metrics. Vertical drift is caught by the
- *    `NubecitaIconShowcaseScreenshotTest` baselines.
+ * 3. `LineHeightStyle(alignment = Center, trim = Both)` redistributes
+ *    the line-box's residual space symmetrically around the glyph
+ *    and trims any leftover top/bottom padding. Without this, the
+ *    glyph anchors to the baseline and the extra line-height space
+ *    accumulates below it — visible as a vertically-low glyph inside
+ *    the `Box`. This is the canonical fix for "render a font glyph
+ *    as an icon" centering.
+ * 4. The `Box(modifier = Modifier.size(opticalSize), contentAlignment
+ *    = Alignment.Center)` wrapper centers the `Text` composable
+ *    inside the icon's allocated area. Vertical drift is caught by
+ *    the `NubecitaIconShowcaseScreenshotTest` baselines.
  *
  * # Accessibility
  *
@@ -116,17 +125,36 @@ fun NubecitaIcon(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            modifier = Modifier.clearAndSetSemantics { },
+            // wrapContentSize(unbounded = true) lets the Text grow past
+            // its measured line-box height; the Box's contentAlignment
+            // = Center then positions the rendered glyph visually
+            // rather than via the line-box geometry. Layoutlib does not
+            // honor LineHeightStyle.Trim.Both reliably in screenshot
+            // tests — the unbounded-center approach is robust on both
+            // Layoutlib and real devices.
+            modifier =
+                Modifier
+                    .clearAndSetSemantics { }
+                    .wrapContentSize(align = Alignment.Center, unbounded = true),
             text = name.codepoint,
             color = tint,
             fontFamily = fontFamily,
             fontSize = opticalSize.value.sp,
-            // Locked line height + zero font padding — see the
-            // composable's KDoc for the full reasoning.
+            // Locked line height, zero font padding, and centered
+            // line-height distribution — see the composable's KDoc
+            // for the full reasoning. The LineHeightStyle is a
+            // belt-and-suspenders companion to the wrapContentSize
+            // unbounded-center on the inner Text; together they pin
+            // the glyph's visual center to the Box's center.
             style =
                 TextStyle(
                     lineHeight = opticalSize.value.sp,
                     platformStyle = PlatformTextStyle(includeFontPadding = false),
+                    lineHeightStyle =
+                        LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both,
+                        ),
                 ),
         )
     }
