@@ -7,10 +7,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.PlatformTextStyle
@@ -85,29 +89,34 @@ fun NubecitaIcon(
 ) {
     val a11yModifier =
         if (contentDescription != null) {
-            Modifier.semantics { this.contentDescription = contentDescription }
+            Modifier.semantics {
+                this.contentDescription = contentDescription
+                this.role = Role.Image
+            }
         } else {
             Modifier
         }
-    val variationSettings =
-        FontVariation.Settings(
-            FontVariation.Setting("FILL", if (filled) 1f else 0f),
-            FontVariation.weight(weight),
-            FontVariation.Setting("GRAD", grade.toFloat()),
-            FontVariation.Setting("opsz", opticalSize.value),
-        )
     val fontFamily =
-        FontFamily(
-            Font(
-                resId = R.font.material_symbols_rounded,
-                variationSettings = variationSettings,
-            ),
-        )
+        remember(filled, weight, grade, opticalSize) {
+            FontFamily(
+                Font(
+                    resId = R.font.material_symbols_rounded,
+                    variationSettings =
+                        FontVariation.Settings(
+                            FontVariation.Setting("FILL", if (filled) 1f else 0f),
+                            FontVariation.weight(weight),
+                            FontVariation.Setting("GRAD", grade.toFloat()),
+                            FontVariation.Setting("opsz", opticalSize.value),
+                        ),
+                ),
+            )
+        }
     Box(
         modifier = modifier.then(a11yModifier).size(opticalSize),
         contentAlignment = Alignment.Center,
     ) {
         Text(
+            modifier = Modifier.clearAndSetSemantics { },
             text = name.codepoint,
             color = tint,
             fontFamily = fontFamily,

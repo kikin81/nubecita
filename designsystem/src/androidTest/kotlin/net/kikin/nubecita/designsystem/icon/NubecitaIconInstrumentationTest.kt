@@ -4,23 +4,26 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
-import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 
 /**
  * Compose UI coverage for [NubecitaIcon].
  *
- * Two contracts pinned:
+ * Three contracts pinned:
  * 1. The composable exposes its `contentDescription` on the merged
  *    a11y tree exactly once — TalkBack reads the icon as a single
- *    semantic node.
- * 2. `filled = true` and `filled = false` produce visually distinct
+ *    semantic node, and the inner Text's PUA codepoint is invisible.
+ * 2. Decorative icons (contentDescription = null) must not expose the
+ *    PUA codepoint to the a11y tree at all.
+ * 3. `filled = true` and `filled = false` produce visually distinct
  *    rasters — proving the FILL axis is wired into the variable font.
  */
 class NubecitaIconInstrumentationTest {
@@ -35,9 +38,30 @@ class NubecitaIconInstrumentationTest {
                 contentDescription = "search",
             )
         }
+        // The icon is exposed as exactly one a11y node — TalkBack reads
+        // the localized phrase, not the inner Text composable's PUA
+        // codepoint.
         composeTestRule
-            .onNodeWithContentDescription("search")
-            .assertIsDisplayed()
+            .onAllNodesWithContentDescription("search")
+            .assertCountEquals(1)
+        composeTestRule
+            .onAllNodesWithText(NubecitaIconName.Search.codepoint, useUnmergedTree = true)
+            .assertCountEquals(0)
+    }
+
+    @Test
+    fun decorativeIcon_doesNotExposeCodepointToA11yTree() {
+        composeTestRule.setContent {
+            NubecitaIcon(
+                name = NubecitaIconName.Search,
+                contentDescription = null,
+            )
+        }
+        // Decorative icon: NO a11y node should appear. The inner Text's
+        // PUA codepoint must be cleared from the semantic tree.
+        composeTestRule
+            .onAllNodesWithText(NubecitaIconName.Search.codepoint, useUnmergedTree = true)
+            .assertCountEquals(0)
     }
 
     @Test
@@ -72,10 +96,9 @@ class NubecitaIconInstrumentationTest {
         val filledPixels = IntArray(filled.width * filled.height)
         outlined.readPixels(outlinedPixels)
         filled.readPixels(filledPixels)
-        assertNotEquals(
+        assertFalse(
             "FILL axis is not affecting the rendered glyph — outlined and filled produced identical pixels",
-            outlinedPixels.toList(),
-            filledPixels.toList(),
+            outlinedPixels.contentEquals(filledPixels),
         )
     }
 }
