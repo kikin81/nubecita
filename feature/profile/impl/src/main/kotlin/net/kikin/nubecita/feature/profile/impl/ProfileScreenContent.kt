@@ -20,7 +20,7 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileTabPlaceholder
-import net.kikin.nubecita.feature.profile.impl.ui.profilePostsTabBody
+import net.kikin.nubecita.feature.profile.impl.ui.profileFeedTabBody
 
 private const val PREFETCH_DISTANCE = 5
 
@@ -81,7 +81,8 @@ internal fun ProfileScreenContent(
                 }
                 when (state.selectedTab) {
                     ProfileTab.Posts ->
-                        profilePostsTabBody(
+                        profileFeedTabBody(
+                            tab = ProfileTab.Posts,
                             status = state.postsStatus,
                             callbacks = postCallbacks,
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Posts)) },
