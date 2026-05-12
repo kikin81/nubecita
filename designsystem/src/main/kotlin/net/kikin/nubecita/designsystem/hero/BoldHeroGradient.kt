@@ -4,7 +4,9 @@ import androidx.collection.LruCache
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,7 @@ import kotlinx.coroutines.withContext
  * overlays, so its luminance is bounded for WCAG AA against white
  * (see [enforceContrastAgainstWhite]).
  */
+@Immutable
 public data class BoldHeroGradientStops(
     val top: Color,
     val bottom: Color,
@@ -48,6 +51,7 @@ public data class BoldHeroGradientStops(
  * isn't free, so caching the post-guard result is what callers
  * actually want.
  */
+@Stable
 public interface BoldHeroGradientCache {
     public fun get(key: String): BoldHeroGradientStops?
 
@@ -146,14 +150,15 @@ public fun BoldHeroGradient(
     content: @Composable () -> Unit,
 ) {
     val stops = rememberBoldHeroGradient(banner = banner, avatarHue = avatarHue)
-    Box(
-        modifier =
-            modifier.background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(0f to stops.top, 1f to stops.bottom),
-                ),
-            ),
-    ) {
+    // Memoize the Brush keyed on stops — the gradient typically resolves once
+    // per profile (avatar-hue fallback → palette-derived) and stays put. Without
+    // the remember, every recomposition of any ancestor allocates a fresh
+    // Pair × 2, Array, and Brush.
+    val brush =
+        remember(stops) {
+            Brush.verticalGradient(0f to stops.top, 1f to stops.bottom)
+        }
+    Box(modifier = modifier.background(brush)) {
         content()
     }
 }

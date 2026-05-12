@@ -12,11 +12,13 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
@@ -27,7 +29,14 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
  * `ProfileTab` enum) and the `onSelect` callback fires with the same
  * type — no string-keyed indirection, no opaque identifiers. The
  * design system declares only the shape; consumers own the enum.
+ *
+ * Annotated [Immutable] so Compose can skip recomposition of the tab
+ * row when the list of pills hasn't changed by value. This is a
+ * promise from the consumer: callers MUST pass a stable [T] (enum,
+ * primitive, `@Immutable` data class). All current call sites pass
+ * a screen-local enum, which satisfies the contract.
  */
+@Immutable
 public data class PillTab<T>(
     val value: T,
     val label: String,
@@ -63,7 +72,7 @@ public data class PillTab<T>(
  */
 @Composable
 public fun <T> ProfilePillTabs(
-    tabs: List<PillTab<T>>,
+    tabs: ImmutableList<PillTab<T>>,
     selectedValue: T,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,

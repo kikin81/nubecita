@@ -14,6 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.tabs.PillTab
@@ -68,8 +70,8 @@ private enum class SamplePillValue { Posts, Replies, Media }
 // because `Image` isn't in NubecitaIconName yet; adding it requires
 // re-subsetting the icon font (see NubecitaIconName.kt KDoc) and is
 // out of scope for Bead B (BoldHeroGradient + ProfilePillTabs).
-private val tabs: List<PillTab<SamplePillValue>> =
-    listOf(
+private val tabs: ImmutableList<PillTab<SamplePillValue>> =
+    persistentListOf(
         PillTab(SamplePillValue.Posts, "Posts", NubecitaIconName.Home),
         PillTab(SamplePillValue.Replies, "Replies", NubecitaIconName.ChatBubble),
         PillTab(SamplePillValue.Media, "Media", NubecitaIconName.Article),
