@@ -61,6 +61,9 @@ internal fun ProfileScreen(
     val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
     val comingSoonFollow = stringResource(R.string.profile_snackbar_follow_coming_soon)
     val comingSoonMessage = stringResource(R.string.profile_snackbar_message_coming_soon)
+    val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
+    val comingSoonMute = stringResource(R.string.profile_snackbar_mute_coming_soon)
+    val comingSoonReport = stringResource(R.string.profile_snackbar_report_coming_soon)
 
     // Wrap nav callbacks so the long-lived effect collector keys on Unit
     // (one collector for the screen's lifetime) but always calls the most
@@ -86,6 +89,9 @@ internal fun ProfileScreen(
                             StubbedAction.Edit -> comingSoonEdit
                             StubbedAction.Follow -> comingSoonFollow
                             StubbedAction.Message -> comingSoonMessage
+                            StubbedAction.Block -> comingSoonBlock
+                            StubbedAction.Mute -> comingSoonMute
+                            StubbedAction.Report -> comingSoonReport
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = msg)
