@@ -22,6 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import net.kikin.nubecita.designsystem.hero.DefaultGradientCache
+import net.kikin.nubecita.designsystem.hero.LocalBoldHeroGradientCache
 
 // SuppressLint: the Build.VERSION.SDK_INT >= S guard directly wraps the dynamic*
 // calls, but AGP 9.2.0 lint's NewApi detector doesn't trace the guard through the
@@ -61,7 +63,10 @@ fun NubecitaTheme(
             motion = if (reduceMotion) NubecitaMotion.Reduced else NubecitaMotion.Standard,
         )
 
-    CompositionLocalProvider(LocalNubecitaTokens provides tokens) {
+    CompositionLocalProvider(
+        LocalNubecitaTokens provides tokens,
+        LocalBoldHeroGradientCache provides DefaultGradientCache,
+    ) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
             typography = nubecitaTypography,
