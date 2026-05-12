@@ -242,6 +242,75 @@ internal class ProfileViewModelTest {
             )
         }
 
+    @Test
+    fun `LoadMore on Replies does not touch Posts or Media cursors`() =
+        runTest(mainDispatcher.dispatcher) {
+            // All three tabs Loaded with a non-null cursor so LoadMore is legal on each.
+            val pagedPage = ProfileTabPage(items = persistentListOf(), nextCursor = "next-cursor")
+            val repo =
+                FakeProfileRepository(
+                    headerResult = Result.success(SAMPLE_HEADER),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(pagedPage) },
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+            val priorPostsCalls = repo.tabCalls[ProfileTab.Posts]!!.get()
+            val priorMediaCalls = repo.tabCalls[ProfileTab.Media]!!.get()
+
+            vm.handleEvent(ProfileEvent.LoadMore(ProfileTab.Replies))
+            advanceUntilIdle()
+
+            assertEquals(
+                priorPostsCalls,
+                repo.tabCalls[ProfileTab.Posts]!!.get(),
+                "Replies LoadMore MUST NOT issue a Posts fetch",
+            )
+            assertEquals(
+                priorMediaCalls,
+                repo.tabCalls[ProfileTab.Media]!!.get(),
+                "Replies LoadMore MUST NOT issue a Media fetch",
+            )
+            assertEquals(
+                "next-cursor",
+                repo.lastTabCursor[ProfileTab.Replies],
+                "Replies LoadMore MUST pass the Replies cursor",
+            )
+            assertNull(
+                repo.lastTabCursor[ProfileTab.Posts],
+                "Replies LoadMore MUST NOT touch Posts cursor",
+            )
+            assertNull(
+                repo.lastTabCursor[ProfileTab.Media],
+                "Replies LoadMore MUST NOT touch Media cursor",
+            )
+        }
+
+    @Test
+    fun `Media tab PostTapped emits NavigateToPost effect with the tapped postUri`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerResult = Result.success(SAMPLE_HEADER),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.TabSelected(ProfileTab.Media))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.PostTapped("at://did:plc:alice/post/abc"))
+                val effect = awaitItem()
+                assertEquals(
+                    ProfileEffect.NavigateToPost("at://did:plc:alice/post/abc"),
+                    effect,
+                    "Media-tab PostTapped MUST emit the same NavigateToPost effect shape as Posts-tab PostTapped",
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     // -- Test helpers ----------------------------------------------------------
 
     private fun newVm(
