@@ -35,7 +35,7 @@ The hero treatment anchors on the "Bold Expressive" variant from the wireframes 
 
 - **NEW** Fraunces variable font + `SOFT` axis exposure on the `Typography` tokens (the prompt requires `SOFT = 70` on the display name).
 - **NEW** JetBrains Mono variable font + typography tokens for the handle.
-- **NEW** `BoldHeroGradient` composable + `rememberBoldHeroGradient(banner: Url?, avatarHue: Int)` — single owner of the Palette extraction (off-main, cached per banner blob) + avatarHue fallback. The feature module never imports `androidx.palette.*` directly.
+- **NEW** `BoldHeroGradient` composable + `rememberBoldHeroGradient(banner: String?, avatarHue: Int)` — single owner of the Palette extraction (off-main, cached per banner blob) + avatarHue fallback. `banner` is a nullable URL string — matches what `app.bsky.actor.defs#profileViewDetailed.banner` returns from the atproto SDK and what the existing `NubecitaAsyncImage(model: Any?)` Coil wrapper accepts. The feature module never imports `androidx.palette.*` directly.
 - **NEW** `ProfilePillTabs` composable (M3 `PrimaryTabRow` + 36dp pill indicator + FILL-axis icon toggle).
 
 ### MVI contract (per `CLAUDE.md`)

@@ -1,5 +1,20 @@
 # Implementation Prompt — Nubecita Profile (Bold variant)
 
+> ⚠️ **This is reference input, not the locked design.**
+>
+> This file is the original prompt that came out of `claude.ai/design` — preserved verbatim for provenance. The actual implementation contract for the Profile screen is in [`openspec/changes/add-profile-feature/`](../changes/add-profile-feature/) and the requirements specs under [`specs/feature-profile/`](../changes/add-profile-feature/specs/feature-profile/spec.md) and [`specs/design-system/`](../changes/add-profile-feature/specs/design-system/spec.md).
+>
+> Known divergences (locked decisions in `design.md`):
+>
+> - **Hero treatment** — the prompt below describes a "Classic banner" hero (banner image as backdrop with a 0.55 black scrim and Palette-driven adjustment against the *avatar*). The locked design (`design.md` Decision 1) is the **Bold-derived** variant: the banner image is NOT rendered; only its palette is extracted (off-main, cached) and used to derive a gradient. Avatar-hue fallback when no banner. The black scrim against the banner is irrelevant to the locked design.
+> - **State shape** — the prompt names the state `ProfileUiState`. The locked design uses `ProfileScreenViewState` with three independent `TabLoadStatus` fields (one per tab). See `feature-profile/spec.md` for the canonical contract.
+> - **Adaptive Expanded layout** — the prompt describes a 3-pane layout with a 280 dp side panel (suggested follows + pinned feeds). The locked scope (`design.md` non-goals) defers the side panel to a follow-up epic; Expanded falls back to the Medium 2-pane.
+> - **Writes** — Follow / Unfollow / Edit / Message in this prompt are write actions. The locked scope ships them as **stubs** that emit `ProfileEffect.ShowMessage("Coming soon")`; the real network is its own follow-up epic.
+>
+> When in doubt, the spec wins. This prompt is here so the diff between "what was asked for" and "what was scoped" stays auditable.
+
+---
+
 Paste this into Claude Code at the root of the `android-app` repo. The HTML bundle in `design_handoff_profile_page/` is the source of truth for layout, tokens, and behavior.
 
 ---
