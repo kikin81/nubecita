@@ -62,6 +62,18 @@ internal class ProfileViewModel
          */
         private val activeLoadMoreJobs = mutableMapOf<ProfileTab, Job>()
 
+        /**
+         * Per-tab initial-load guard. Tracks the in-flight initial
+         * `fetchTab` (from `init`, `RetryTab`, or a refresh routed
+         * to the initial-load path). Rapid Retry taps would
+         * otherwise fan out into concurrent fetches and the
+         * later-completed-but-stale request could overwrite a
+         * successful one — flipping the tab back into
+         * `InitialError`. Cancelling the prior job on a new
+         * initial-load call enforces single-flight semantics.
+         */
+        private val activeInitialLoadJobs = mutableMapOf<ProfileTab, Job>()
+
         init {
             val actor = resolveActor()
             if (actor == null) {
@@ -131,15 +143,24 @@ internal class ProfileViewModel
             actor: String,
             tab: ProfileTab,
         ) {
+            // Single-flight per tab: cancel any prior initial-load
+            // job before starting a new one. Without this, rapid
+            // Retry taps fan out into concurrent fetches and the
+            // last-completed-but-stale request can flip the tab
+            // back into InitialError after a more recent success.
+            activeInitialLoadJobs.remove(tab)?.cancel()
             setTabStatus(tab) { TabLoadStatus.InitialLoading }
-            viewModelScope.launch {
-                repository
-                    .fetchTab(actor, tab)
-                    .onSuccess { page -> setTabStatus(tab) { page.toLoaded() } }
-                    .onFailure { throwable ->
-                        setTabStatus(tab) { TabLoadStatus.InitialError(throwable.toProfileError()) }
-                    }
-            }
+            val job =
+                viewModelScope.launch {
+                    repository
+                        .fetchTab(actor, tab)
+                        .onSuccess { page -> setTabStatus(tab) { page.toLoaded() } }
+                        .onFailure { throwable ->
+                            setTabStatus(tab) { TabLoadStatus.InitialError(throwable.toProfileError()) }
+                        }
+                    activeInitialLoadJobs.remove(tab)
+                }
+            activeInitialLoadJobs[tab] = job
         }
 
         private fun onTabSelected(tab: ProfileTab) {
