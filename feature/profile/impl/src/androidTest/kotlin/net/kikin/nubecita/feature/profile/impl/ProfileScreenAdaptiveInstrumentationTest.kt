@@ -74,6 +74,15 @@ class ProfileScreenAdaptiveInstrumentationTest {
     @OptIn(ExperimentalMaterial3AdaptiveApi::class)
     @Test
     fun mediumWidth_listPane_andDetailPaneEmptyState_renderSimultaneously() {
+        // Detail-pane placeholder text resolved from :designsystem resources
+        // so the assertion stays resilient to copy tweaks / non-English
+        // locales. The exact string comes from
+        // `R.string.nubecita_detail_pane_select_post` in :designsystem.
+        val selectPostText =
+            composeTestRule.activity.getString(
+                net.kikin.nubecita.designsystem.R.string.nubecita_detail_pane_select_post,
+            )
+
         // Inject a Medium-bucket WindowAdaptiveInfo so the directive fires
         // two-pane mode regardless of the real physical device width.
         val mediumAdaptiveInfo =
@@ -129,17 +138,13 @@ class ProfileScreenAdaptiveInstrumentationTest {
         // Medium-width canvas — this is the core invariant under test.
         composeTestRule.onNodeWithTag(LIST_PANE_TAG).assertIsDisplayed()
         composeTestRule
-            .onNodeWithText(SELECT_POST_TEXT, substring = true)
+            .onNodeWithText(selectPostText)
             .assertIsDisplayed()
     }
 
     companion object {
         private const val LIST_PANE_TAG = "profile-list-pane"
         private const val PROFILE_LIST_PANE_TEXT = "PROFILE_LIST_PANE"
-
-        /** Matches `R.string.nubecita_detail_pane_select_post` — "Select a post to read". */
-        private const val SELECT_POST_TEXT = "Select a post to read"
-
         private const val MEDIUM_WIDTH_DP = 600
         private const val HEIGHT_DP = 800
     }

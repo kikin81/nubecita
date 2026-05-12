@@ -26,6 +26,10 @@ import java.io.IOException
  * Uses [TestAuthRepositoryModule] (Hilt test module) to replace the
  * production `AuthBindingsModule` with a fake that counts calls and
  * lets the test class control the return value.
+ *
+ * UI strings (button label, snackbar copy) are resolved from string
+ * resources rather than hardcoded so the test survives copy tweaks
+ * and non-English locales.
  */
 @HiltAndroidTest
 class SettingsStubInstrumentationTest {
@@ -44,6 +48,7 @@ class SettingsStubInstrumentationTest {
     @Test
     fun signOut_success_callsAuthRepositoryExactlyOnce() {
         FakeAuthRepository.shared.nextSignOutResult = Result.success(Unit)
+        val signOutLabel = composeTestRule.activity.getString(R.string.profile_settings_signout)
 
         composeTestRule.setContent {
             NubecitaTheme(dynamicColor = false) {
@@ -52,19 +57,19 @@ class SettingsStubInstrumentationTest {
         }
 
         // Tap the Sign Out button (resolves first via merged tree).
-        composeTestRule.onNodeWithText("Sign out").performClick()
-        // Dialog now open. The dialog's Confirm button is ALSO labeled "Sign out".
-        // Use useUnmergedTree to surface the dialog's content separately,
-        // and pick the second matching node (the dialog button, on top of the screen button).
+        composeTestRule.onNodeWithText(signOutLabel).performClick()
+        // Dialog now open. The dialog's Confirm button is ALSO labeled
+        // with the same string. Use useUnmergedTree to surface the
+        // dialog content separately, and pick the second matching node
+        // (the dialog button, on top of the screen button).
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule
-                .onAllNodesWithText("Sign out", useUnmergedTree = true)
+                .onAllNodesWithText(signOutLabel, useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .size >= 2
         }
-        // Tap the dialog confirm button.
         composeTestRule
-            .onAllNodesWithText("Sign out", useUnmergedTree = true)[1]
+            .onAllNodesWithText(signOutLabel, useUnmergedTree = true)[1]
             .performClick()
 
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
@@ -76,6 +81,8 @@ class SettingsStubInstrumentationTest {
     @Test
     fun signOut_failure_surfacesErrorSnackbar() {
         FakeAuthRepository.shared.nextSignOutResult = Result.failure(IOException("net down"))
+        val signOutLabel = composeTestRule.activity.getString(R.string.profile_settings_signout)
+        val signOutErrorText = composeTestRule.activity.getString(R.string.profile_settings_signout_error)
 
         composeTestRule.setContent {
             NubecitaTheme(dynamicColor = false) {
@@ -83,26 +90,26 @@ class SettingsStubInstrumentationTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Sign out").performClick()
+        composeTestRule.onNodeWithText(signOutLabel).performClick()
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule
-                .onAllNodesWithText("Sign out", useUnmergedTree = true)
+                .onAllNodesWithText(signOutLabel, useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .size >= 2
         }
         composeTestRule
-            .onAllNodesWithText("Sign out", useUnmergedTree = true)[1]
+            .onAllNodesWithText(signOutLabel, useUnmergedTree = true)[1]
             .performClick()
 
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule
-                .onAllNodesWithText("Couldn't sign out", substring = true)
+                .onAllNodesWithText(signOutErrorText)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
 
         composeTestRule
-            .onNodeWithText("Couldn't sign out", substring = true)
+            .onNodeWithText(signOutErrorText)
             .assertIsDisplayed()
     }
 }

@@ -103,6 +103,13 @@ class ProfileScreenInstrumentationTest {
         val context = composeTestRule.activity
         val overflowDescription = context.getString(R.string.profile_action_overflow)
         val settingsLabel = context.getString(R.string.profile_action_settings)
+        // SettingsTapped is real nav, NOT a stub — assert the only "coming soon"
+        // snackbar that could plausibly fire from this surface (Edit, the other
+        // own-profile actions-row affordance) is NOT shown. Resolving the
+        // exact production copy from resources keeps the assertion precise
+        // (no locale brittleness, no over-broad substring match like "soon"
+        // that could trip on unrelated UI).
+        val editComingSoon = context.getString(R.string.profile_snackbar_edit_coming_soon)
         val capturedEvents = mutableListOf<ProfileEvent>()
 
         composeTestRule.setContent {
@@ -126,8 +133,7 @@ class ProfileScreenInstrumentationTest {
             "Settings tap MUST dispatch ProfileEvent.SettingsTapped; captured: $capturedEvents",
             capturedEvents.contains(ProfileEvent.SettingsTapped),
         )
-        // SettingsTapped is real navigation — no "Coming soon" snackbar expected.
-        composeTestRule.onNodeWithText("soon", substring = true).assertDoesNotExist()
+        composeTestRule.onNodeWithText(editComingSoon).assertDoesNotExist()
     }
 
     private fun sampleOwnProfileState(): ProfileScreenViewState =
