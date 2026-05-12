@@ -79,7 +79,8 @@ class ImageEmbedAspectRatioTest {
 
     private fun imageWithAspect(aspect: Float?): ImageUi =
         ImageUi(
-            url = "https://example.com/x.jpg",
+            fullsizeUrl = "https://example.com/x.jpg",
+            thumbUrl = "https://example.com/x.jpg",
             altText = null,
             aspectRatio = aspect,
         )

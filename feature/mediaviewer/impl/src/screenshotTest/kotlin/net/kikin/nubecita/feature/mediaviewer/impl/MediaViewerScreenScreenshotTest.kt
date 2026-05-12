@@ -202,7 +202,8 @@ private fun previewImage(
     altText: String?,
 ): ImageUi =
     ImageUi(
-        url = "https://example.com/placeholder/$index.jpg",
+        fullsizeUrl = "https://example.com/placeholder/$index.jpg",
+        thumbUrl = "https://example.com/placeholder/$index.jpg",
         altText = altText,
         aspectRatio = 1.5f,
     )

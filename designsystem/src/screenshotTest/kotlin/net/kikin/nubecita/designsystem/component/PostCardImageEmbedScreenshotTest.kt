@@ -101,7 +101,8 @@ private fun previewImage(
     aspectRatio: Float? = 1.5f,
 ): ImageUi =
     ImageUi(
-        url = "https://example.com/placeholder/$index.jpg",
+        fullsizeUrl = "https://example.com/placeholder/$index.jpg",
+        thumbUrl = "https://example.com/placeholder/$index.jpg",
         altText = "Placeholder image $index",
         aspectRatio = aspectRatio,
     )

@@ -214,17 +214,20 @@ private fun PostDetailScreenMultiImageCarouselAtFocusScreenshot() {
                                                     items =
                                                         persistentListOf(
                                                             net.kikin.nubecita.data.models.ImageUi(
-                                                                url = "https://example.com/preview-0.jpg",
+                                                                fullsizeUrl = "https://example.com/preview-0.jpg",
+                                                                thumbUrl = "https://example.com/preview-0.jpg",
                                                                 altText = "Image 0",
                                                                 aspectRatio = 1.5f,
                                                             ),
                                                             net.kikin.nubecita.data.models.ImageUi(
-                                                                url = "https://example.com/preview-1.jpg",
+                                                                fullsizeUrl = "https://example.com/preview-1.jpg",
+                                                                thumbUrl = "https://example.com/preview-1.jpg",
                                                                 altText = "Image 1",
                                                                 aspectRatio = 1.5f,
                                                             ),
                                                             net.kikin.nubecita.data.models.ImageUi(
-                                                                url = "https://example.com/preview-2.jpg",
+                                                                fullsizeUrl = "https://example.com/preview-2.jpg",
+                                                                thumbUrl = "https://example.com/preview-2.jpg",
                                                                 altText = "Image 2",
                                                                 aspectRatio = 1.5f,
                                                             ),

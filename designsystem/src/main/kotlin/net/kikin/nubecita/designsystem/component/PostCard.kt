@@ -420,7 +420,8 @@ private fun PostCardWithImagePreview() {
                             items =
                                 persistentListOf(
                                     ImageUi(
-                                        url = "https://example.com/preview.jpg",
+                                        fullsizeUrl = "https://example.com/preview.jpg",
+                                        thumbUrl = "https://example.com/preview.jpg",
                                         altText = "Preview image",
                                         aspectRatio = 1.5f,
                                     ),
@@ -533,7 +534,8 @@ private fun PostCardWithRecordWithMediaImagesPreview() {
                                     items =
                                         persistentListOf(
                                             ImageUi(
-                                                url = "https://example.com/preview.jpg",
+                                                fullsizeUrl = "https://example.com/preview.jpg",
+                                                thumbUrl = "https://example.com/preview.jpg",
                                                 altText = null,
                                                 aspectRatio = 16f / 9f,
                                             ),

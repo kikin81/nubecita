@@ -45,7 +45,17 @@ internal class FeedMappingTest {
         assertNotNull(mapped)
         val images = assertInstanceOf(EmbedUi.Images::class.java, mapped!!.embed)
         assertEquals(2, images.items.size)
-        assertEquals("https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/cid1@jpeg", images.items[0].url)
+        assertEquals(
+            "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/cid1@jpeg",
+            images.items[0].fullsizeUrl,
+        )
+        // Source JSON populates `thumb` as well — the dual-URL plumbing
+        // from nubecita-nwn means consumers can now choose the variant
+        // per surface (grid uses thumb, in-feed uses fullsize).
+        assertEquals(
+            "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/cid1@jpeg",
+            images.items[0].thumbUrl,
+        )
     }
 
     @Test

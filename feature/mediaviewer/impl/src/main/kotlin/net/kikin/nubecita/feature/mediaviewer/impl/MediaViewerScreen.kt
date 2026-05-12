@@ -352,10 +352,10 @@ private fun LoadedState(
                 }
             }
             ZoomableAsyncImage(
-                // ImageUi.url is already the fullsize CDN variant — the
-                // `:core:feed-mapping` projection uses image.fullsize.raw.
-                // (See Copilot review on PR #139 / nubecita-w70 follow-up.)
-                model = image.url,
+                // The viewer is full-screen — always pick the fullsize
+                // variant. The thumb variant exists for n×n grids (Profile
+                // Media tab) but would be visibly soft at this scale.
+                model = image.fullsizeUrl,
                 contentDescription = image.altText,
                 state = zoomableState,
                 modifier = Modifier.fillMaxSize(),

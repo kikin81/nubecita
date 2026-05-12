@@ -274,7 +274,8 @@ internal class MediaViewerViewModelTest {
                     (0 until count)
                         .map {
                             ImageUi(
-                                url = "https://cdn.bsky.app/img/feed_thumbnail/plain/cid$it@feed_thumbnail",
+                                fullsizeUrl = "https://cdn.bsky.app/img/feed_thumbnail/plain/cid$it@feed_thumbnail",
+                                thumbUrl = "https://cdn.bsky.app/img/feed_thumbnail/plain/cid$it@feed_thumbnail",
                                 altText = altText,
                                 aspectRatio = 1.0f,
                             )

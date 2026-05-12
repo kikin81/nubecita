@@ -275,7 +275,8 @@ private fun PostCardQuotedPostWithImagePreview() {
                         items =
                             persistentListOf(
                                 ImageUi(
-                                    url = "https://example.com/preview.jpg",
+                                    fullsizeUrl = "https://example.com/preview.jpg",
+                                    thumbUrl = "https://example.com/preview.jpg",
                                     altText = null,
                                     aspectRatio = 16f / 9f,
                                 ),

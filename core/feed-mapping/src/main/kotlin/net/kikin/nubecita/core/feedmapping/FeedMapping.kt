@@ -307,8 +307,14 @@ private fun RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi =
 private fun ImagesView.toImageUiList(): ImmutableList<ImageUi> =
     images
         .map { image ->
+            // Both `fullsize` and `thumb` are required by the lexicon
+            // (`app.bsky.embed.images#viewImage`), so both are non-null
+            // here. ImageUi.thumbUrl is still typed nullable so non-lexicon
+            // sources (test fixtures, future paths) can pass null without
+            // fabricating a thumb URL.
             ImageUi(
-                url = image.fullsize.raw,
+                fullsizeUrl = image.fullsize.raw,
+                thumbUrl = image.thumb.raw,
                 altText = image.alt.takeIf { it.isNotBlank() },
                 aspectRatio = image.aspectRatio?.let { it.width.toFloat() / it.height.toFloat() },
             )
