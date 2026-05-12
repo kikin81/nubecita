@@ -102,6 +102,67 @@ class MainShellNavStateTest {
     }
 
     @Test
+    fun `add pushes a key that differs from current top`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+
+        state.add(SubPost("at://x"))
+
+        assertEquals(listOf<NavKey>(TabFeed, SubPost("at://x")), state.backStack.toList())
+    }
+
+    @Test
+    fun `add is a silent no-op when key structurally equals the current top`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        state.add(SubPost("at://x")) // Feed: [Feed, Post(at://x)]
+        assertEquals(listOf<NavKey>(TabFeed, SubPost("at://x")), state.backStack.toList())
+
+        // Re-add the same payload via a fresh instance — structural equality
+        // MUST cause the second push to be dropped (the "tap-post-on-PostDetail
+        // -stacks-N-copies" bug).
+        state.add(SubPost("at://x"))
+
+        assertEquals(
+            listOf<NavKey>(TabFeed, SubPost("at://x")),
+            state.backStack.toList(),
+            "add(top) MUST be a no-op when key equals the active tab's top",
+        )
+    }
+
+    @Test
+    fun `add is a no-op when key equals the active tab's home key`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        // Active tab is Feed with stack [Feed]; pushing Feed again would
+        // create [Feed, Feed] which is meaningless. Guard must catch it.
+
+        state.add(TabFeed)
+
+        assertEquals(
+            listOf<NavKey>(TabFeed),
+            state.backStack.toList(),
+            "add(home) MUST be a no-op when home is already the top of the active tab's stack",
+        )
+    }
+
+    @Test
+    fun `add pushes a key that appears earlier in the stack but is not on top`() {
+        // Models: PostDetail(A) → tap reply → PostDetail(B) → tap A's root
+        // link → user genuinely wants to re-focus on A even though A is in
+        // the stack below B. The guard only looks at the top, so this push
+        // is allowed and produces [A, B, A].
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        state.add(SubPost("at://a")) // [Feed, A]
+        state.add(SubPost("at://b")) // [Feed, A, B]
+
+        state.add(SubPost("at://a")) // A is in the stack but NOT on top — push.
+
+        assertEquals(
+            listOf<NavKey>(TabFeed, SubPost("at://a"), SubPost("at://b"), SubPost("at://a")),
+            state.backStack.toList(),
+            "add(X) MUST push when X is in the stack but not at the top",
+        )
+    }
+
+    @Test
     fun `persistence round-trip via saved primitives restores topLevelKey and per-tab stacks`() {
         val before = newState(start = TabFeed, top = setOf(TabFeed, TabSearch, TabChats))
         before.add(SubProfile) // Feed: [Feed, Profile]
@@ -174,3 +235,13 @@ private data object TabChats : NavKey
 private data object SubProfile : NavKey
 
 private data object SubSettings : NavKey
+
+/**
+ * `data class` test fixture for single-top semantics: two `SubPost(uri)`
+ * instances with the same `uri` are structurally equal, which is exactly
+ * the property the production guard depends on (every real `NavKey` in
+ * the project is `@Serializable data class` / `data object`).
+ */
+private data class SubPost(
+    val uri: String,
+) : NavKey

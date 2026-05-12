@@ -122,9 +122,33 @@ class MainShellNavState(
      * Push [key] onto the active tab's stack. Used for sub-route
      * navigation (e.g., a Profile pushed onto the Feed tab from a tap on
      * an author handle).
+     *
+     * **Single-top semantics.** Calling `add(key)` when [key] structurally
+     * equals the current top of the active tab's stack is a silent no-op:
+     * the stack is unchanged and [backStack] is not rebuilt. This prevents
+     * the "tap-post-on-PostDetail-stacks-N-copies" bug — the user can
+     * keep tapping the focused post on PostDetail without accumulating
+     * duplicate `PostDetailRoute` entries. The guard only looks at the
+     * top of the active tab's stack; pushing a key that appears earlier
+     * in the stack but isn't on top is still a real push (e.g., from
+     * `PostDetail(B)` whose parent thread shows `PostDetail(A)`'s root
+     * link, tapping that link genuinely re-enters `A` so the user can see
+     * it as a focused post, even if `A` is below `B` in the stack).
+     *
+     * Relies on every [NavKey] in this project being a `@Serializable
+     * data class` / `data object`, so `==` is structural across instances.
+     *
+     * Worked examples (active tab stack top → bottom):
+     * | Before | `add(X)` | After |
+     * |---|---|---|
+     * | `[Y]` | push | `[Y, X]` |
+     * | `[Y, X]` | push | `[Y, X]` (no-op) |
+     * | `[X]` | push | `[X]` (no-op; tab home == target) |
+     * | `[X, Y]` | push | `[X, Y, X]` (X is in stack but not on top) |
      */
     fun add(key: NavKey) {
         val stack = backStacks.getValue(topLevelKey)
+        if (stack.lastOrNull() == key) return
         stack.add(key)
         _backStack.rebuild()
     }
