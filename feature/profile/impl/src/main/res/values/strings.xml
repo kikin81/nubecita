@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tab labels (consumed by ProfileTabsConfig.kt) -->
+    <string name="profile_tab_posts">Posts</string>
+    <string name="profile_tab_replies">Replies</string>
+    <string name="profile_tab_media">Media</string>
+
+    <!-- Actions row -->
+    <string name="profile_action_edit">Edit profile</string>
+    <string name="profile_action_overflow">More options</string>
+    <string name="profile_action_follow">Follow</string>
+    <string name="profile_action_message">Message</string>
+
+    <!-- Snackbar copy for stubbed actions (ShowComingSoon) -->
+    <string name="profile_snackbar_edit_coming_soon">Edit profile — coming soon</string>
+    <string name="profile_snackbar_follow_coming_soon">Follow — coming soon</string>
+    <string name="profile_snackbar_message_coming_soon">Direct messages — coming soon</string>
+
+    <!-- Snackbar copy for ShowError -->
+    <string name="profile_snackbar_error_network">Network error. Pull to refresh.</string>
+    <string name="profile_snackbar_error_unknown">Unable to load profile.</string>
+
+    <!-- Stats row labels -->
+    <string name="profile_stats_posts_label">Posts</string>
+    <string name="profile_stats_followers_label">Followers</string>
+    <string name="profile_stats_follows_label">Following</string>
+
+    <!-- Meta row content descriptions -->
+    <string name="profile_meta_link_content_description">Website</string>
+    <string name="profile_meta_location_content_description">Location</string>
+    <string name="profile_meta_joined_content_description">Joined date</string>
+
+    <!-- Hero accessibility -->
+    <string name="profile_avatar_content_description">Profile photo of %1$s</string>
+
+    <!-- Tab body — empty states (per-tab copy) -->
+    <string name="profile_posts_empty_title">No posts yet</string>
+    <string name="profile_posts_empty_body">When this user posts, you\'ll see it here.</string>
+    <string name="profile_replies_empty_title">No replies yet</string>
+    <string name="profile_replies_empty_body">When this user replies, you\'ll see it here.</string>
+    <string name="profile_media_empty_title">No media yet</string>
+    <string name="profile_media_empty_body">When this user posts media, you\'ll see it here.</string>
+
+    <!-- Tab body — error states -->
+    <string name="profile_error_network_title">Can\'t reach Bluesky</string>
+    <string name="profile_error_network_body">Check your network and try again.</string>
+    <string name="profile_error_unknown_title">Something went wrong</string>
+    <string name="profile_error_unknown_body">An unexpected error occurred while loading.</string>
+    <string name="profile_error_retry">Try again</string>
+
+    <!-- Tab body — Bead D placeholders for Replies/Media -->
+    <string name="profile_tab_placeholder_replies_title">Replies tab arrives soon</string>
+    <string name="profile_tab_placeholder_media_title">Media tab arrives soon</string>
+    <string name="profile_tab_placeholder_body">Coming in the next release.</string>
+
+    <!-- Header inline-error -->
+    <string name="profile_header_error_title">Couldn\'t load profile</string>
+    <string name="profile_header_error_retry">Try again</string>
+</resources>
