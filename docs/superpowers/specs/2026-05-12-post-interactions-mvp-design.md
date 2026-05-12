@@ -23,10 +23,11 @@ This document specifies the MVP of that architecture: in-memory cache, all three
 :core/post-interactions/                 # NEW module
 ├── src/main/kotlin/.../
 │   ├── PostInteractionsCache.kt              # public interface
-│   ├── PostInteractionState.kt               # data class + PendingState enum
+│   ├── PostInteractionState.kt               # public data class + PendingState enum
+│   ├── MergeInteractionState.kt              # public PostUi.mergeInteractionState extension
 │   ├── LikeRepostRepository.kt               # MOVE from :feature:feed:impl
 │   ├── internal/
-│   │   ├── DefaultPostInteractionsCache.kt   # @Singleton impl
+│   │   ├── DefaultPostInteractionsCache.kt   # @Singleton impl; PENDING sentinels live here
 │   │   └── DefaultLikeRepostRepository.kt    # MOVE (impl unchanged)
 │   └── di/
 │       └── PostInteractionsModule.kt         # Hilt bindings
@@ -117,11 +118,23 @@ The cache mutates state internally on failure (rollback) so cross-screen state s
 - `:core/feed` (per the existing KDoc note in `LikeRepostRepository`) misnames the scope — like/repost apply to any PostCard, not feed-specifically.
 - `:core/post-interactions` cleanly scopes "things the user does TO posts" — like, repost, and future moderation actions (block, mute, report) fit naturally.
 
-### Decision 6: PENDING sentinel string for in-flight `viewerLikeUri`
+### Decision 6: `at://`-prefixed PENDING sentinel for in-flight `viewerLikeUri`
 
-While a like is in flight, the cache writes `viewerLikeUri = "pending:optimistic"` (a constant). The `mergeInteractionState` extension that projects cache state onto `PostUi` strips this to `null` on the way out (the boolean `isLikedByViewer = viewerLikeUri != null` still computes `true`, so the heart shows liked). No downstream consumer ever sees the sentinel — the constant is `internal` to `:core/post-interactions/internal/`.
+While a like is in flight, the cache writes `viewerLikeUri = "at://pending:optimistic"` (a constant). The `at://` prefix is defensive: atproto URIs strictly start with `at://`, so the sentinel is syntactically URI-shaped. If a downstream consumer ever bypasses the `mergeInteractionState` projection and passes the value to an `AtUri.parse()` call, the parse succeeds (the parser doesn't validate the path portion) rather than throwing. Belt-and-suspenders against future regressions.
 
-**Why not a separate `inFlightUris: Set<String>` field on the cache:** putting the in-flight bit on `State` means VMs that subscribe to `cache.state` see in-flight info via the same emission. A separate Set would require a second subscription. Same shape, less wiring.
+The `mergeInteractionState` extension that projects cache state onto `PostUi` strips the sentinel to `null` on the way out (the boolean `isLikedByViewer = viewerLikeUri != null` still computes `true`, so the heart shows liked). No downstream consumer ever sees the sentinel via the normal path — the constants live internal to `:core/post-interactions/internal/`.
+
+Same shape for repost: `"at://pending:optimistic-repost"` so the two sentinels are distinguishable in any diagnostic / logging path.
+
+**Why not a separate `inFlightUris: Set<String>` field on the cache:** putting the in-flight bit on `State` means VMs that subscribe to `cache.state` see in-flight info via the same emission (if they ever need to — see Decision 7). A separate Set would require a second subscription. Same shape, less wiring.
+
+### Decision 7: `pendingLikeWrite` / `pendingRepostWrite` stay internal to the cache
+
+These fields exist on `PostInteractionState` because the cache's `seed()` merger rule and single-flight `toggleLike` need them. But they MUST NOT be projected onto `PostUi` via `mergeInteractionState`, and VMs SHOULD NOT subscribe to them directly.
+
+The reasoning: the entire point of optimistic UI is that the user sees their tap take effect with zero perceptible latency. Exposing an `isLikePending` boolean to consumers invites a designer or future engineer to render a loading spinner over the heart icon during the network round-trip — which defeats the optimistic-UI promise. The cache's single-flight guard already absorbs double-taps silently (returns synthetic `Result.success(Unit)` without re-firing the network call), so there is no need to disable the button during in-flight either.
+
+If a future product requirement genuinely needs to surface in-flight state (e.g., for accessibility, or for explicit "saving..." feedback on a slow connection), file a separate bd issue and add a deliberate projection at that point. Until then, the fields are an implementation detail of the cache's correctness logic and not part of its consumer-facing contract.
 
 ## Components
 
@@ -267,7 +280,7 @@ setState { copy(items = page.posts.toImmutableList()) }
 ### `PostUi.mergeInteractionState` extension
 
 ```kotlin
-// In :data:models alongside PostUi
+// In :core/post-interactions/ alongside PostInteractionsCache
 fun PostUi.mergeInteractionState(s: PostInteractionState): PostUi =
     copy(
         viewer = viewer.copy(
@@ -283,7 +296,9 @@ fun PostUi.mergeInteractionState(s: PostInteractionState): PostUi =
     )
 ```
 
-The `PENDING_*_SENTINEL` constants live in `:core/post-interactions/internal/` and are exposed via a package-private `const` (or as part of the `PostInteractionState` companion). The `mergeInteractionState` extension lives in `:data:models` so all consumers can use it; `:data:models` gains a thin dep on `:core/post-interactions` for this constant + the `PostInteractionState` type.
+The extension lives in `:core/post-interactions` (NOT `:data:models`) so the data-models module stays a pure leaf — `:data:models` should be ignorant of cache logic, sentinels, and projection rules. The dependency direction is `:core/post-interactions` → `:data:models` (the cache module imports `PostUi`), which matches the natural architectural arrow. Every consuming VM module already has a dep on `:core/post-interactions` for `PostInteractionsCache`, so the extension is reachable without additional plumbing.
+
+The `PENDING_LIKE_SENTINEL = "at://pending:optimistic"` and `PENDING_REPOST_SENTINEL = "at://pending:optimistic-repost"` constants live in `:core/post-interactions/internal/`. They are not part of the public API; consumers MUST go through `mergeInteractionState`.
 
 ## Data flow
 
