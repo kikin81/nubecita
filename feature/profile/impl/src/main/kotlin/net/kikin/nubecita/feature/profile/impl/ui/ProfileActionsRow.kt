@@ -31,10 +31,9 @@ import net.kikin.nubecita.feature.profile.impl.R
  * layer doesn't need to change shape when Bead F lights up the
  * other-user branch; the param is intentionally unread for Bead D.
  */
-@Suppress("UNUSED_PARAMETER")
 @Composable
 internal fun ProfileActionsRow(
-    ownProfile: Boolean,
+    @Suppress("UNUSED_PARAMETER") ownProfile: Boolean,
     onEdit: () -> Unit,
     onOverflow: () -> Unit,
     modifier: Modifier = Modifier,
