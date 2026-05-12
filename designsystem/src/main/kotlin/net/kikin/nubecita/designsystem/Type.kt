@@ -137,4 +137,28 @@ data class NubecitaExtendedTypography(
             fontFamily = JetBrainsMonoFontFamily,
             fontSize = 14.sp,
         ),
+    // Profile hero display name. Uses Fraunces's `SOFT = 70` variant
+    // (see Fonts.kt#FrauncesDisplayFontFamily) per the openspec design-
+    // system requirement. Size is sub-`displayLarge` (57sp) because the
+    // hero is composed against an avatar + handle + bio at a phone
+    // scale; the wireframes show the name occupying ~1.5× the bio
+    // height. Letter-spacing matches the prompt's −0.02 em.
+    val displayName: TextStyle =
+        TextStyle(
+            fontFamily = FrauncesDisplayFontFamily,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 28.sp,
+            lineHeight = 32.sp,
+            letterSpacing = (-0.02).em,
+        ),
+    // Profile handle (`@alice.bsky.social`). Monospace by design intent.
+    // 13sp is intentionally one step below `mono` (14sp) so the handle
+    // reads as secondary text against the display-name above it.
+    val handle: TextStyle =
+        TextStyle(
+            fontFamily = JetBrainsMonoFontFamily,
+            fontWeight = FontWeight.Normal,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+        ),
 )

@@ -41,6 +41,15 @@ fun TypographyScale(modifier: Modifier = Modifier) {
         Text(text = "Label Medium", style = typography.labelMedium)
         Text(text = "Label Small", style = typography.labelSmall)
         Text(text = "Mono (JetBrains Mono)", style = MaterialTheme.extendedTypography.mono, modifier = Modifier.padding(top = 16.dp))
+        Text(
+            text = "Display Name (Fraunces, SOFT 70)",
+            style = MaterialTheme.extendedTypography.displayName,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        Text(
+            text = "@handle.bsky.social",
+            style = MaterialTheme.extendedTypography.handle,
+        )
     }
 }
 
