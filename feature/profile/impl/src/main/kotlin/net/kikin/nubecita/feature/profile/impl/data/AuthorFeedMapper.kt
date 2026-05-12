@@ -17,18 +17,26 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
  * the ViewModel exposes via `TabLoadStatus.Loaded.items`.
  *
  * Behavior:
- * - Posts / Replies tabs ([ProfileTab.Posts], [ProfileTab.Replies])
- *   produce a [TabItemUi.Post] for every well-formed entry. Reposting
- *   metadata is carried via `PostUi.repostedBy` (so the PostCard's
- *   repost-author overlay renders the same way it does in the feed).
- * - Media tab ([ProfileTab.Media]) produces a [TabItemUi.MediaCell]
- *   for every entry whose embed yields a renderable thumbnail (image
- *   posts: first image; video posts: poster). Entries without
- *   media — text-only, link-only, record-only quotes — are dropped.
- *   Server-side `filter = posts_with_media` already excludes most
- *   non-media posts; the local drop is defensive against edge cases
- *   (e.g. external links with no thumbnail when `posts_with_media`
- *   is interpreted permissively by the appview).
+ * - Posts tab ([ProfileTab.Posts]) produces a [TabItemUi.Post] for every
+ *   well-formed entry. Server-side `filter = posts_no_replies` already
+ *   excludes replies.
+ * - Replies tab ([ProfileTab.Replies]) produces a [TabItemUi.Post] only
+ *   for entries that are themselves replies (`FeedViewPost.reply != null`).
+ *   The atproto `posts_with_replies` filter is misleadingly named — it
+ *   returns *posts and replies* (a superset of `posts_no_replies`), not
+ *   replies only. Bluesky's lexicon offers no server-side "replies only"
+ *   filter, so the projection happens here.
+ * - Media tab ([ProfileTab.Media]) produces a [TabItemUi.MediaCell] for
+ *   every entry whose embed yields a renderable thumbnail (image posts:
+ *   first image; video posts: poster). Entries without media — text-only,
+ *   link-only, record-only quotes — are dropped. Server-side
+ *   `filter = posts_with_media` already excludes most non-media posts;
+ *   the local drop is defensive against edge cases (e.g. external links
+ *   with no thumbnail when `posts_with_media` is interpreted permissively
+ *   by the appview).
+ *
+ * Reposting metadata is carried via `PostUi.repostedBy` (so the PostCard's
+ * repost-author overlay renders the same way it does in the feed).
  *
  * Same delegation pattern as `:feature:postdetail:impl/data/PostThreadMapper`:
  * the embed + post-core conversion lives in `:core:feed-mapping`; only
@@ -36,8 +44,12 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
  */
 internal fun List<FeedViewPost>.toTabItems(tab: ProfileTab): ImmutableList<TabItemUi> =
     when (tab) {
-        ProfileTab.Posts, ProfileTab.Replies ->
+        ProfileTab.Posts ->
             mapNotNull { it.toPostTabItemOrNull() }.toImmutableList()
+        ProfileTab.Replies ->
+            filter { it.reply != null }
+                .mapNotNull { it.toPostTabItemOrNull() }
+                .toImmutableList()
         ProfileTab.Media ->
             mapNotNull { it.toMediaCellOrNull() }.toImmutableList()
     }
