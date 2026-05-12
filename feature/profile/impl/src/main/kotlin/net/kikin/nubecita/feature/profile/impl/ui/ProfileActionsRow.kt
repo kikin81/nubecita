@@ -1,55 +1,43 @@
 package net.kikin.nubecita.feature.profile.impl.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import net.kikin.nubecita.designsystem.icon.NubecitaIcon
-import net.kikin.nubecita.designsystem.icon.NubecitaIconName
-import net.kikin.nubecita.feature.profile.impl.R
+import net.kikin.nubecita.feature.profile.impl.StubbedAction
+import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 
 /**
- * Hero actions row.
+ * Hero actions row dispatcher. Delegates to [OwnProfileActionsRow] or
+ * [OtherUserActionsRow] based on [ownProfile].
  *
- * In Bead D only the `ownProfile = true` branch is fully wired (Edit +
- * overflow). The `ownProfile = false` branch renders the same affordances
- * defensively — Bead F replaces this with the Follow + Message + overflow
- * row. Until then, other-user navigation reaches a screen that still
- * renders the Edit row; not a primary user journey in Bead D.
+ * The unified callback surface here lets `ProfileHero` stay
+ * variant-ignorant: it forwards the full set, and only the picked
+ * variant uses the relevant subset. [onEdit] / [onSettings] are
+ * own-profile only; [onFollow] / [onMessage] / [onOverflowAction]
+ * are other-user only.
  *
- * The overflow icon's onClick is a deliberate no-op in Bead D — Bead F
- * wires a real DropdownMenu containing the Settings entry. The icon's
- * contentDescription communicates the affordance for accessibility.
- *
- * `ownProfile` is accepted today so the call site at the ProfileHero
- * layer doesn't need to change shape when Bead F lights up the
- * other-user branch; the param is intentionally unread for Bead D.
+ * Real Follow / Edit / Message / Block / Mute / Report writes ship
+ * under separate follow-up bd issues (7.3 / 7.4 / 7.5 / 7.7).
  */
 @Composable
 internal fun ProfileActionsRow(
-    @Suppress("UNUSED_PARAMETER") ownProfile: Boolean,
+    ownProfile: Boolean,
+    viewerRelationship: ViewerRelationship,
     onEdit: () -> Unit,
-    onOverflow: () -> Unit,
+    onFollow: () -> Unit,
+    onMessage: () -> Unit,
+    onOverflowAction: (StubbedAction) -> Unit,
+    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        OutlinedButton(onClick = onEdit) {
-            Text(text = stringResource(R.string.profile_action_edit))
-        }
-        IconButton(onClick = onOverflow) {
-            NubecitaIcon(
-                name = NubecitaIconName.MoreVert,
-                contentDescription = stringResource(R.string.profile_action_overflow),
-            )
-        }
+    if (ownProfile) {
+        OwnProfileActionsRow(onEdit = onEdit, onSettings = onSettings, modifier = modifier)
+    } else {
+        OtherUserActionsRow(
+            viewerRelationship = viewerRelationship,
+            onFollow = onFollow,
+            onMessage = onMessage,
+            onOverflowAction = onOverflowAction,
+            modifier = modifier,
+        )
     }
 }
