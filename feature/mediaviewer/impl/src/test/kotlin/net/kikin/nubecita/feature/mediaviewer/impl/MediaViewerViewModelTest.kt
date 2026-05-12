@@ -274,8 +274,14 @@ internal class MediaViewerViewModelTest {
                     (0 until count)
                         .map {
                             ImageUi(
-                                fullsizeUrl = "https://cdn.bsky.app/img/feed_thumbnail/plain/cid$it@feed_thumbnail",
-                                thumbUrl = "https://cdn.bsky.app/img/feed_thumbnail/plain/cid$it@feed_thumbnail",
+                                // MediaViewer reads `fullsizeUrl` — keep the
+                                // fixture's fullsize URL on a `feed_fullsize`
+                                // path so a future bug that only reproduces
+                                // against the real fullsize variant isn't
+                                // masked by a misleading thumb-on-fullsize
+                                // placeholder.
+                                fullsizeUrl = "https://cdn.bsky.app/img/feed_fullsize/plain/cid$it@jpeg",
+                                thumbUrl = "https://cdn.bsky.app/img/feed_thumbnail/plain/cid$it@jpeg",
                                 altText = altText,
                                 aspectRatio = 1.0f,
                             )

@@ -5,14 +5,17 @@ import androidx.compose.runtime.Stable
 /**
  * One image inside a post's `app.bsky.embed.images` embed.
  *
- * Bluesky's appview serves two pre-rendered CDN variants per image:
- * - [fullsizeUrl] — the large variant (`@jpeg`). Use for full-screen media
- *   viewers, in-feed PostCard image embeds, and anywhere the rendered
- *   surface can occupy a significant chunk of the screen.
- * - [thumbUrl] — the small variant (`@thumbnail.jpeg`). Use for n×n grids
- *   (the Profile Media tab is a 3-col grid) and any surface that draws the
- *   image at avatar-or-smaller scale. Falls back to [fullsizeUrl] when null
- *   — see [thumbOrFullsize] for the canonical pick.
+ * Bluesky's appview serves two pre-rendered CDN variants per image, both
+ * ending in the `@jpeg` suffix — the variant is encoded in the path
+ * segment, not the suffix:
+ * - [fullsizeUrl] — large variant served from `.../img/feed_fullsize/...`.
+ *   Use for full-screen media viewers, in-feed PostCard image embeds, and
+ *   anywhere the rendered surface can occupy a significant chunk of the
+ *   screen.
+ * - [thumbUrl] — small variant served from `.../img/feed_thumbnail/...`.
+ *   Use for n×n grids (the Profile Media tab is a 3-col grid) and any
+ *   surface that draws the image at avatar-or-smaller scale. Falls back to
+ *   [fullsizeUrl] when null — see [thumbOrFullsize] for the canonical pick.
  *
  * The atproto lexicon (`app.bsky.embed.images#viewImage`) lists BOTH as
  * required, so [thumbUrl] is non-null when [ImageUi] is constructed from

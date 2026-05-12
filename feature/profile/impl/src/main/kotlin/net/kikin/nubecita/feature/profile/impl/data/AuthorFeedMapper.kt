@@ -61,8 +61,10 @@ private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
  * are dropped from the Media tab.
  *
  * Prefers `ImageUi.thumbUrl` over `ImageUi.fullsizeUrl` — the
- * appview ships pre-resized `@thumbnail.jpeg` variants that are
- * roughly an order of magnitude smaller than the fullsize variant.
+ * appview ships pre-resized variants from `.../img/feed_thumbnail/...`
+ * that are roughly an order of magnitude smaller than the fullsize
+ * variant from `.../img/feed_fullsize/...`. Both URLs share the
+ * `@jpeg` suffix; the variant differentiator is the path segment.
  * On a 3-col grid this is a real bandwidth win on cellular. Falls
  * back to fullsize when thumbUrl is null (defensive — the lexicon
  * requires both fields, but non-lexicon ImageUi sources may pass
