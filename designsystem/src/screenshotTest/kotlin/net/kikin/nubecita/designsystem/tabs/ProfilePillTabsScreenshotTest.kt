@@ -10,8 +10,9 @@ import net.kikin.nubecita.designsystem.preview.ProfilePillTabsCatalog
 /**
  * Visual baseline for [ProfilePillTabs] across each of the three
  * active states (one snapshot per active pill). The fixture is the
- * regression net for the pill-shape `tabIndicatorOffset` wiring +
- * the [NubecitaIcon] `filled = isSelected` FILL-axis toggle.
+ * regression net for the pill-shape rendering (background gated on
+ * `isSelected`, indicator slot suppressed) + the [NubecitaIcon]
+ * `filled = isSelected` FILL-axis toggle.
  */
 @PreviewTest
 @PreviewNubecitaScreenPreviews

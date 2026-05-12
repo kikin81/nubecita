@@ -145,36 +145,7 @@ public fun BoldHeroGradient(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val context = LocalContext.current
-    val cache = LocalBoldHeroGradientCache.current
-
-    // Initial state = avatarHue-derived gradient. Synchronous, deterministic,
-    // never flickers. When Palette extraction completes (banner != null path),
-    // we update once.
-    val fallbackStops = remember(avatarHue) { fromAvatarHue(avatarHue) }
-    var stops by remember(banner, avatarHue) {
-        mutableStateOf(banner?.let(cache::get) ?: fallbackStops)
-    }
-
-    // Kick off async Palette extraction when banner is non-null and not cached.
-    // Keyed on the banner URL — recomposing with the same banner doesn't
-    // re-trigger; switching banners cancels the in-flight load.
-    LaunchedEffect(banner) {
-        if (banner.isNullOrEmpty()) return@LaunchedEffect
-        cache.get(banner)?.let {
-            stops = it
-            return@LaunchedEffect
-        }
-        val resolved = extractGradientStops(context, banner)
-        if (resolved != null) {
-            cache.put(banner, resolved)
-            stops = resolved
-        }
-        // On extraction failure, the avatarHue fallback persists — better
-        // than blanking the hero. No effect emitted; the failure is logged
-        // by Coil internally.
-    }
-
+    val stops = rememberBoldHeroGradient(banner = banner, avatarHue = avatarHue)
     Box(
         modifier =
             modifier.background(
@@ -203,21 +174,38 @@ public fun rememberBoldHeroGradient(
 ): BoldHeroGradientStops {
     val context = LocalContext.current
     val cache = LocalBoldHeroGradientCache.current
+
+    // Normalize blank to null up front so the initial cache lookup and the
+    // async extraction guard use the same notion of "no banner". Without
+    // this, an empty string would issue a cache lookup keyed on "" before
+    // the LaunchedEffect's isNullOrEmpty() short-circuit.
+    val normalizedBanner = banner?.takeUnless { it.isEmpty() }
+
+    // Initial state = avatarHue-derived gradient. Synchronous, deterministic,
+    // never flickers. When Palette extraction completes (banner != null path),
+    // we update once.
     val fallbackStops = remember(avatarHue) { fromAvatarHue(avatarHue) }
-    var stops by remember(banner, avatarHue) {
-        mutableStateOf(banner?.let(cache::get) ?: fallbackStops)
+    var stops by remember(normalizedBanner, avatarHue) {
+        mutableStateOf(normalizedBanner?.let(cache::get) ?: fallbackStops)
     }
-    LaunchedEffect(banner) {
-        if (banner.isNullOrEmpty()) return@LaunchedEffect
-        cache.get(banner)?.let {
+
+    // Kick off async Palette extraction when banner is non-null and not cached.
+    // Keyed on the banner URL — recomposing with the same banner doesn't
+    // re-trigger; switching banners cancels the in-flight load.
+    LaunchedEffect(normalizedBanner) {
+        if (normalizedBanner == null) return@LaunchedEffect
+        cache.get(normalizedBanner)?.let {
             stops = it
             return@LaunchedEffect
         }
-        val resolved = extractGradientStops(context, banner)
+        val resolved = extractGradientStops(context, normalizedBanner)
         if (resolved != null) {
-            cache.put(banner, resolved)
+            cache.put(normalizedBanner, resolved)
             stops = resolved
         }
+        // On extraction failure, the avatarHue fallback persists — better
+        // than blanking the hero. No effect emitted; the failure is logged
+        // by Coil internally.
     }
     return stops
 }

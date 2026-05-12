@@ -126,18 +126,14 @@ class BoldHeroGradientTest {
     }
 
     /**
-     * Instantiate the production cache class via its package-private
-     * constructor. The class itself is private to the file; this
-     * helper goes through the [BoldHeroGradientCache] interface and
-     * pretends not to know the concrete impl, matching how callers
-     * receive the cache via [LocalBoldHeroGradientCache].
+     * Minimal [BoldHeroGradientCache] backed by a fresh [LruCache]. The
+     * production `DefaultBoldHeroGradientCache` class is file-private and
+     * its singleton uses the default capacity (16); LRU-eviction tests
+     * need a small-capacity instance, so this helper wraps a fresh
+     * [LruCache] in an anonymous [BoldHeroGradientCache] that mirrors
+     * the production behavior without reaching into file-private symbols.
      */
     private fun newDefaultCache(maxEntries: Int = 16): BoldHeroGradientCache {
-        // The internal `DefaultGradientCache` singleton uses the default
-        // maxEntries; for the LRU-eviction test we need a small-capacity
-        // instance, so wrap a fresh LruCache here. This mirrors what the
-        // production class does under the hood — keeping it explicit so
-        // the test doesn't depend on file-private symbols.
         val lru = androidx.collection.LruCache<String, BoldHeroGradientStops>(maxEntries)
         return object : BoldHeroGradientCache {
             override fun get(key: String): BoldHeroGradientStops? = lru.get(key)

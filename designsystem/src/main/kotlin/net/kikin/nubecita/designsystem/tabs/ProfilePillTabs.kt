@@ -37,21 +37,25 @@ public data class PillTab<T>(
 /**
  * Pill-shaped tab row used on the profile screen (Posts / Replies /
  * Media). Each pill is 36 dp tall. The active tab fills with the
- * theme's `primary` container color and its icon renders with the
- * `FILL` variable axis at 1; inactive tabs render transparent with
+ * theme's `primary` color and its icon renders with the `FILL`
+ * variable axis at 1; inactive tabs render transparent with
  * `onSurface` content color and `FILL = 0`.
  *
  * Implemented as a thin wrapper over [PrimaryTabRow] — the indicator
- * slot is replaced with a pill-shaped Box that occupies the selected
- * tab's full content area (via [tabIndicatorOffset] with
- * `matchContentSize = true`), and the bottom divider is suppressed so
- * the row reads as freestanding pill chrome rather than M3's default
- * underline-tab pattern.
+ * slot is suppressed (`indicator = {}`) and the pill background is
+ * painted directly via the selected tab's [Modifier.background] gated
+ * on `isSelected`. The bottom divider is suppressed so the row reads
+ * as freestanding pill chrome rather than M3's default underline-tab
+ * pattern. See the inline comment in the implementation for the
+ * z-order rationale (M3 1.5 draws the indicator slot on top of tabs).
  *
  * @param tabs Ordered list of pill configurations. Display order is
  *   the iteration order (left-to-right in LTR).
  * @param selectedValue The currently-active pill's [PillTab.value].
- *   Must equal one of the `tabs[i].value`s.
+ *   When [selectedValue] does not match any `tabs[i].value` (e.g.
+ *   during a transient mismatch while caller state catches up), the
+ *   first tab is rendered as selected as a graceful fallback — the
+ *   component never crashes on stale input.
  * @param onSelect Invoked when the user taps a pill. Receives the
  *   tapped pill's [PillTab.value]. State hoisting is preserved —
  *   the composable does not internally re-render with a new
