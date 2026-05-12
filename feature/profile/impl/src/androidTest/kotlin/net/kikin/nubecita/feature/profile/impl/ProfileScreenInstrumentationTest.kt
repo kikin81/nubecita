@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import kotlinx.collections.immutable.persistentListOf
@@ -87,6 +88,46 @@ class ProfileScreenInstrumentationTest {
             "Edit tap MUST dispatch ProfileEvent.EditTapped; captured: $capturedEvents",
             capturedEvents.contains(ProfileEvent.EditTapped),
         )
+    }
+
+    /**
+     * Tapping the overflow icon on own-profile opens the DropdownMenu;
+     * tapping the Settings entry emits [ProfileEvent.SettingsTapped]
+     * (real nav — NOT a stub snackbar). The test asserts on the captured
+     * event and explicitly verifies that no "Coming soon" snackbar
+     * appeared, distinguishing this path from the Edit stub path tested
+     * in [editTap_surfacesComingSoonSnackbar].
+     */
+    @Test
+    fun ownProfile_overflowMenu_settingsEntry_emitsSettingsTapped() {
+        val context = composeTestRule.activity
+        val overflowDescription = context.getString(R.string.profile_action_overflow)
+        val settingsLabel = context.getString(R.string.profile_action_settings)
+        val capturedEvents = mutableListOf<ProfileEvent>()
+
+        composeTestRule.setContent {
+            NubecitaTheme(dynamicColor = false) {
+                ProfileScreenContent(
+                    state = sampleOwnProfileState(),
+                    listState = rememberLazyListState(),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    postCallbacks = PostCallbacks.None,
+                    onEvent = { capturedEvents += it },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(overflowDescription).performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText(settingsLabel).performClick()
+        composeTestRule.waitForIdle()
+
+        assertTrue(
+            "Settings tap MUST dispatch ProfileEvent.SettingsTapped; captured: $capturedEvents",
+            capturedEvents.contains(ProfileEvent.SettingsTapped),
+        )
+        // SettingsTapped is real navigation — no "Coming soon" snackbar expected.
+        composeTestRule.onNodeWithText("soon", substring = true).assertDoesNotExist()
     }
 
     private fun sampleOwnProfileState(): ProfileScreenViewState =
