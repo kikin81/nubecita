@@ -21,11 +21,12 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
- * 8 fixtures × 2 themes = 16 screenshot baselines covering the full
+ * 11 fixtures × 2 themes = 22 screenshot baselines covering the full
  * ProfileScreenContent surface — hero variants (with/without banner,
- * loading, error) and Posts-tab variants (loaded, loading, empty,
- * error). Compact width only; Medium-width fixtures land in Bead F
- * once the ListDetailSceneStrategy metadata is wired.
+ * loading, error), Posts-tab variants (loaded, loading, empty, error),
+ * and Replies-tab variants (loaded, empty, error). Compact width only;
+ * Medium-width fixtures land in Bead F once the ListDetailSceneStrategy
+ * metadata is wired.
  */
 private val SAMPLE_HEADER =
     ProfileHeaderUi(
@@ -217,5 +218,65 @@ private fun ProfileScreenPostsEmptyScreenshot() {
 private fun ProfileScreenPostsErrorScreenshot() {
     ProfileScreenContentHost(
         sampleLoadedState().copy(postsStatus = TabLoadStatus.InitialError(ProfileError.Network)),
+    )
+}
+
+@PreviewTest
+@Preview(name = "screen-replies-loaded-light", showBackground = true, heightDp = 1600)
+@Preview(name = "screen-replies-loaded-dark", showBackground = true, heightDp = 1600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileScreenRepliesLoadedScreenshot() {
+    // Replies tab selected; repliesStatus holds 3 reply PostCards.
+    // postsStatus / mediaStatus stay Idle — irrelevant when selectedTab = Replies.
+    ProfileScreenContentHost(
+        sampleLoadedState().copy(
+            selectedTab = ProfileTab.Replies,
+            repliesStatus =
+                TabLoadStatus.Loaded(
+                    items =
+                        persistentListOf(
+                            TabItemUi.Post(samplePostUi("reply-a")),
+                            TabItemUi.Post(samplePostUi("reply-b")),
+                            TabItemUi.Post(samplePostUi("reply-c")),
+                        ),
+                    isAppending = false,
+                    isRefreshing = false,
+                    hasMore = false,
+                    cursor = null,
+                ),
+        ),
+    )
+}
+
+@PreviewTest
+@Preview(name = "screen-replies-empty-light", showBackground = true, heightDp = 1200)
+@Preview(name = "screen-replies-empty-dark", showBackground = true, heightDp = 1200, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileScreenRepliesEmptyScreenshot() {
+    ProfileScreenContentHost(
+        sampleLoadedState().copy(
+            selectedTab = ProfileTab.Replies,
+            repliesStatus =
+                TabLoadStatus.Loaded(
+                    items = EMPTY_LIST,
+                    isAppending = false,
+                    isRefreshing = false,
+                    hasMore = false,
+                    cursor = null,
+                ),
+        ),
+    )
+}
+
+@PreviewTest
+@Preview(name = "screen-replies-error-light", showBackground = true, heightDp = 1200)
+@Preview(name = "screen-replies-error-dark", showBackground = true, heightDp = 1200, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileScreenRepliesErrorScreenshot() {
+    ProfileScreenContentHost(
+        sampleLoadedState().copy(
+            selectedTab = ProfileTab.Replies,
+            repliesStatus = TabLoadStatus.InitialError(ProfileError.Network),
+        ),
     )
 }

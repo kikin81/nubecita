@@ -48,6 +48,10 @@
     <string name="profile_error_unknown_body">An unexpected error occurred while loading.</string>
     <string name="profile_error_retry">Try again</string>
 
+    <!-- Media tab a11y — onClickLabel for each grid cell so TalkBack
+         announces what activation does, not just "double tap to activate". -->
+    <string name="profile_media_cell_click_label">View post</string>
+
     <!-- Tab body — Bead D placeholders for Replies/Media -->
     <string name="profile_tab_placeholder_replies_title">Replies tab arrives soon</string>
     <string name="profile_tab_placeholder_media_title">Media tab arrives soon</string>

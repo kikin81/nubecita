@@ -19,8 +19,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
-import net.kikin.nubecita.feature.profile.impl.ui.ProfileTabPlaceholder
-import net.kikin.nubecita.feature.profile.impl.ui.profilePostsTabBody
+import net.kikin.nubecita.feature.profile.impl.ui.profileFeedTabBody
+import net.kikin.nubecita.feature.profile.impl.ui.profileMediaTabBody
 
 private const val PREFETCH_DISTANCE = 5
 
@@ -33,8 +33,9 @@ private const val PREFETCH_DISTANCE = 5
  *
  * Renders one LazyColumn for the whole screen: hero as the first
  * item, sticky pill tabs as a stickyHeader, and the active tab body
- * contributed via LazyListScope extensions (Posts) or single items
- * (Replies / Media placeholders).
+ * contributed via LazyListScope extensions — [profileFeedTabBody]
+ * for Posts and Replies, [profileMediaTabBody] for the row-packed
+ * 3-column media grid.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -81,34 +82,39 @@ internal fun ProfileScreenContent(
                 }
                 when (state.selectedTab) {
                     ProfileTab.Posts ->
-                        profilePostsTabBody(
+                        profileFeedTabBody(
+                            tab = ProfileTab.Posts,
                             status = state.postsStatus,
                             callbacks = postCallbacks,
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Posts)) },
                         )
                     ProfileTab.Replies ->
-                        item(key = "replies-placeholder", contentType = "placeholder") {
-                            ProfileTabPlaceholder(tab = ProfileTab.Replies)
-                        }
+                        profileFeedTabBody(
+                            tab = ProfileTab.Replies,
+                            status = state.repliesStatus,
+                            callbacks = postCallbacks,
+                            onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Replies)) },
+                        )
                     ProfileTab.Media ->
-                        item(key = "media-placeholder", contentType = "placeholder") {
-                            ProfileTabPlaceholder(tab = ProfileTab.Media)
-                        }
+                        profileMediaTabBody(
+                            status = state.mediaStatus,
+                            onMediaTap = { uri -> onEvent(ProfileEvent.PostTapped(uri)) },
+                            onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Media)) },
+                        )
                 }
             }
         }
     }
 
-    // Pagination: gate the LoadMore dispatch on the active tab being Posts.
-    // Without the gate, landing on the Replies / Media placeholder (which
-    // contributes one item to the LazyColumn) immediately satisfies
-    // `lastVisible > totalItemCount - PREFETCH_DISTANCE` and would fire
-    // a stray LoadMore event for the Posts tab. All values captured by
-    // the LaunchedEffect (keyed only on [listState]) are funneled through
-    // [rememberUpdatedState] so a re-bound onEvent / selectedTab / status
-    // is observed by the still-running effect without restarting it.
+    // Pagination: fire LoadMore for whichever tab is currently active when
+    // the LazyColumn's last-visible item passes the prefetch threshold and
+    // the active tab's status is `Loaded` with `hasMore && !isAppending`.
+    // All values captured by the LaunchedEffect (keyed only on [listState])
+    // are funneled through [rememberUpdatedState] so a re-bound
+    // onEvent / selectedTab / activeTabStatus is observed by the
+    // still-running effect without restarting it.
     val currentSelectedTab by rememberUpdatedState(state.selectedTab)
-    val currentPostsStatus by rememberUpdatedState(state.postsStatus)
+    val currentActiveTabStatus by rememberUpdatedState(state.activeTabStatus())
     val currentOnEvent by rememberUpdatedState(onEvent)
     LaunchedEffect(listState) {
         snapshotFlow {
@@ -120,19 +126,31 @@ internal fun ProfileScreenContent(
             lastVisible > total - PREFETCH_DISTANCE
         }.distinctUntilChanged()
             .collect { pastThreshold ->
-                val status = currentPostsStatus
+                val status = currentActiveTabStatus
                 if (
                     pastThreshold &&
-                    currentSelectedTab == ProfileTab.Posts &&
                     status is TabLoadStatus.Loaded &&
                     status.hasMore &&
                     !status.isAppending
                 ) {
-                    currentOnEvent(ProfileEvent.LoadMore(ProfileTab.Posts))
+                    currentOnEvent(ProfileEvent.LoadMore(currentSelectedTab))
                 }
             }
     }
 }
+
+/**
+ * Returns the [TabLoadStatus] of the currently-selected tab. Used by
+ * the pagination gate to evaluate `Loaded && hasMore && !isAppending`
+ * for whichever tab is active — Bead E generalized this from Bead D's
+ * Posts-only hardcoded gate.
+ */
+private fun ProfileScreenViewState.activeTabStatus(): TabLoadStatus =
+    when (selectedTab) {
+        ProfileTab.Posts -> postsStatus
+        ProfileTab.Replies -> repliesStatus
+        ProfileTab.Media -> mediaStatus
+    }
 
 /**
  * Returns true when the currently-selected tab is in a `Loaded`
@@ -140,11 +158,6 @@ internal fun ProfileScreenContent(
  * drive its spinner.
  */
 private fun ProfileScreenViewState.activeTabIsRefreshing(): Boolean {
-    val status =
-        when (selectedTab) {
-            ProfileTab.Posts -> postsStatus
-            ProfileTab.Replies -> repliesStatus
-            ProfileTab.Media -> mediaStatus
-        }
+    val status = activeTabStatus()
     return status is TabLoadStatus.Loaded && status.isRefreshing
 }
