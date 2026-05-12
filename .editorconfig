@@ -19,7 +19,7 @@ ktlint_standard_no-wildcard-imports = enabled
 ktlint_standard_no-unused-imports = enabled
 ktlint_standard_max-line-length = disabled
 ktlint_function_naming_ignore_when_annotated_with = Composable
-compose_allowed_composition_locals = LocalNubecitaTokens,LocalClock,LocalAppNavigator,LocalMainShellNavState,LocalScrollToTopSignal,LocalComposerLauncher,LocalComposerSubmitEvents,LocalComposerSubmitEventsEmitter
+compose_allowed_composition_locals = LocalNubecitaTokens,LocalClock,LocalAppNavigator,LocalMainShellNavState,LocalScrollToTopSignal,LocalComposerLauncher,LocalComposerSubmitEvents,LocalComposerSubmitEventsEmitter,LocalBoldHeroGradientCache
 
 [*.{yml,yaml,json}]
 indent_size = 2

@@ -16,8 +16,12 @@ dependencies {
     implementation(project(":data:models"))
     implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.palette)
     implementation(libs.atproto.compose.material3)
     implementation(libs.coil.compose)
+
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
