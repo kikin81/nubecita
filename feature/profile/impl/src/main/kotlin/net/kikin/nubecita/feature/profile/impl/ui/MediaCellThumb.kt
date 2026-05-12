@@ -9,8 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.feature.profile.impl.R
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 
 private val MEDIA_CELL_GUTTER = 2.dp
@@ -31,13 +34,14 @@ private val MEDIA_CELL_CORNER_RADIUS = 2.dp
  * renders a flat `surfaceContainerHighest` ColorPainter placeholder
  * while Coil fetches and on error/fallback.
  *
- * Accessibility: `contentDescription = null` per cell. A 3-col grid of
- * nearly-identical media is decorative as a cluster — per-cell
- * descriptions would create excessive TalkBack noise. The tap target
- * itself gets correct Compose semantics from `Modifier.clickable`
- * (focusable, has tap action, focusable via D-pad). Future a11y
- * polish (e.g., "Photo $i of $total" via `Modifier.semantics`) can
- * land in a separate bd if reviewers flag it.
+ * Accessibility:
+ * - `contentDescription = null` on the image because a 3-col grid of
+ *   nearly-identical media is decorative as a cluster — per-cell image
+ *   descriptions would create excessive TalkBack noise.
+ * - `Modifier.clickable(role = Role.Button, onClickLabel = ...)` so
+ *   TalkBack announces "View post, button. Double tap to activate."
+ *   per cell. Matches the codebase pattern in `:designsystem.PostStat`
+ *   and `:designsystem.ThreadFold`.
  */
 @Composable
 internal fun MediaCellThumb(
@@ -45,12 +49,17 @@ internal fun MediaCellThumb(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val clickLabel = stringResource(R.string.profile_media_cell_click_label)
     Box(
         modifier =
             modifier
                 .padding(MEDIA_CELL_GUTTER)
                 .clip(RoundedCornerShape(MEDIA_CELL_CORNER_RADIUS))
-                .clickable(onClick = onClick),
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = clickLabel,
+                    onClick = onClick,
+                ),
     ) {
         NubecitaAsyncImage(
             model = cell.thumbUrl,

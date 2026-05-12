@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import net.kikin.nubecita.feature.profile.impl.TabLoadStatus
@@ -65,10 +67,16 @@ internal fun LazyListScope.profileMediaTabBody(
                 // variant would surface as a compile warning at the
                 // exhaustiveness check in profileFeedTabBody.
                 val cells = status.items.filterIsInstance<TabItemUi.MediaCell>()
-                val rows = cells.chunked(MEDIA_GRID_COLUMNS)
+                // chunked() yields List<List<MediaCell>>; map each row
+                // to ImmutableList so MediaGridRow's `row` parameter is
+                // Compose-stable (a raw `List` is flagged @Unstable and
+                // would defeat skipping when the parent recomposes).
+                val rows = cells.chunked(MEDIA_GRID_COLUMNS).map { it.toImmutableList() }
                 items(
                     items = rows,
-                    key = { row -> row.joinToString(":") { it.postUri } },
+                    // first cell's postUri uniquely identifies the row
+                    // inside this page — cheaper than joining 1-3 URIs.
+                    key = { row -> row.first().postUri },
                     contentType = { "media-row" },
                 ) { row ->
                     MediaGridRow(row = row, onMediaTap = onMediaTap)
@@ -87,10 +95,13 @@ internal fun LazyListScope.profileMediaTabBody(
  * One row of the Media grid — up to [MEDIA_GRID_COLUMNS] cells. Short
  * trailing rows are left-padded with [Spacer]s so cells align with the
  * left edge of the grid.
+ *
+ * [row] is typed [ImmutableList] so Compose can flag this Composable as
+ * skippable when the parent recomposes with an equal row.
  */
 @Composable
 private fun MediaGridRow(
-    row: List<TabItemUi.MediaCell>,
+    row: ImmutableList<TabItemUi.MediaCell>,
     onMediaTap: (postUri: String) -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth()) {
