@@ -311,6 +311,41 @@ internal class ProfileViewModelTest {
             }
         }
 
+    @Test
+    fun `StubActionTapped emits ShowComingSoon with the same action value, never touches the repo`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerResult = Result.success(SAMPLE_HEADER),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+            val priorHeaderCalls = repo.headerCalls.get()
+            val priorPostsCalls = repo.tabCalls[ProfileTab.Posts]!!.get()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Block))
+                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Block), awaitItem())
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Mute))
+                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Mute), awaitItem())
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Report))
+                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Report), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(
+                priorHeaderCalls,
+                repo.headerCalls.get(),
+                "StubActionTapped MUST NOT issue a repository call",
+            )
+            assertEquals(
+                priorPostsCalls,
+                repo.tabCalls[ProfileTab.Posts]!!.get(),
+                "StubActionTapped MUST NOT issue a tab fetch",
+            )
+        }
+
     // -- Test helpers ----------------------------------------------------------
 
     private fun newVm(
