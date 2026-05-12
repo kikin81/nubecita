@@ -1,35 +1,35 @@
 package net.kikin.nubecita.feature.profile.impl.di
 
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.impl.ProfileScreen
+import net.kikin.nubecita.feature.profile.impl.ProfileViewModel
 
 /**
- * Provides `@MainShell`-qualified `EntryProviderInstaller`s for the
- * Profile and Settings NavKeys.
+ * Real Profile entry. Bead D wires the screen for `Profile(handle = null)`
+ * (own profile) and `Profile(handle = "...")` (other-user navigation
+ * reaches the same screen; the actions-row branch for the latter is
+ * Bead F territory).
  *
- * **Bead C status: inert.** The providers exist to validate the Hilt
- * graph (the new `:feature:profile:impl` module is reachable from
- * `:app`'s DI component) and to validate the `@MainShell` qualifier
- * wiring. Each installer's lambda body is empty — no `entry<...>`
- * registrations — so the `EntryProviderBuilder` collected by
- * `MainShell` sees nothing from this module.
+ * `ListDetailSceneStrategy.listPane{}` metadata is NOT applied here —
+ * Bead F adds it so Medium-width post-taps land in the right pane.
+ * Without the metadata, post-taps push PostDetailRoute onto the
+ * back stack and replace the profile screen full-screen on all
+ * widths in Bead D — the same behavior the previous :app placeholder
+ * exhibited.
  *
- * Why empty rather than registering entries? `:app`'s
- * `MainShellPlaceholderModule` currently owns the
- * `@MainShell`-qualified `entry<Profile>` and `entry<Settings>`
- * providers. Adding non-empty providers here in Bead C would put TWO
- * entries on the inner `NavDisplay` for the same `NavKey`, which is
- * undefined behavior in Nav 3. Bead D activates the entry bodies
- * here AND strips the `:app` placeholders **in the same PR** — so the
- * cutover is atomic and there's no ambiguous window.
- *
- * Tracked in the `app-navigation-shell` spec delta of
- * `openspec/changes/add-profile-feature/specs/app-navigation-shell/spec.md`.
+ * The Settings entry stays inert in Bead D — Bead F wires the
+ * Settings stub Composable + its overflow-menu entry point on the
+ * profile screen.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -39,20 +39,18 @@ internal object ProfileNavigationModule {
     @MainShell
     fun provideProfileEntries(): EntryProviderInstaller =
         {
-            // Inert in Bead C. Bead D body:
-            //   entry<Profile> { route ->
-            //       val navState = LocalMainShellNavState.current
-            //       val vm = hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
-            //           creationCallback = { it.create(route) },
-            //       )
-            //       ProfileScreen(
-            //           viewModel = vm,
-            //           onNavigateToPost = { uri -> navState.add(PostDetailRoute(uri)) },
-            //           onNavigateToProfile = { handle -> navState.add(Profile(handle)) },
-            //           onNavigateToSettings = { navState.add(Settings) },
-            //           onBack = { navState.removeLast() },
-            //       )
-            //   }
+            entry<Profile> { route ->
+                val navState = LocalMainShellNavState.current
+                val viewModel =
+                    hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                ProfileScreen(
+                    viewModel = viewModel,
+                    onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
+                    onNavigateToProfile = { handle -> navState.add(Profile(handle = handle)) },
+                )
+            }
         }
 
     @Provides
@@ -60,7 +58,7 @@ internal object ProfileNavigationModule {
     @MainShell
     fun provideSettingsEntries(): EntryProviderInstaller =
         {
-            // Inert in Bead C. Bead F body wires SettingsStubScreen +
-            // Sign Out via :core:auth's logout pathway.
+            // Inert in Bead D. Bead F wires the Settings stub Composable
+            // here and removes the :app-side Settings placeholder.
         }
 }

@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
+    implementation(project(":feature:postdetail:api"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
