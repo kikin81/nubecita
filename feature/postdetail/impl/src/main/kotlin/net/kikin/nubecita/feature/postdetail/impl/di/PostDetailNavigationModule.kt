@@ -16,6 +16,7 @@ import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.PostDetailScreen
 import net.kikin.nubecita.feature.postdetail.impl.PostDetailViewModel
+import net.kikin.nubecita.feature.profile.api.Profile
 
 /**
  * Provides the `@MainShell`-qualified `EntryProviderInstaller` that
@@ -63,11 +64,7 @@ internal object PostDetailNavigationModule {
                 PostDetailScreen(
                     onBack = { navState.removeLast() },
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
-                    // Profile screen does not exist yet — wired as a no-op
-                    // until the profile epic lands. Replace with
-                    // `navState.add(Profile(handle = …))` once the profile
-                    // :impl module surfaces a handle-from-DID resolver.
-                    onNavigateToAuthor = {},
+                    onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
                     onNavigateToMediaViewer = { uri, index ->
                         appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = index))
                     },
