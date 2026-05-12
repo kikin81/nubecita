@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,9 +55,11 @@ internal fun ProfileScreenContent(
         PullToRefreshBox(
             isRefreshing = activeTabIsRefreshing,
             onRefresh = { onEvent(ProfileEvent.Refresh) },
+            modifier = Modifier.fillMaxSize(),
         ) {
             LazyColumn(
                 state = listState,
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = padding,
             ) {
                 item(key = "hero", contentType = "hero") {
