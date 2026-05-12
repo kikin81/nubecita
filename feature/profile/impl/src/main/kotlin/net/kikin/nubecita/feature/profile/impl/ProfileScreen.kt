@@ -29,6 +29,7 @@ internal fun ProfileScreen(
     viewModel: ProfileViewModel,
     onNavigateToPost: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -70,6 +71,7 @@ internal fun ProfileScreen(
     // recent lambda the host supplied.
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToProfile by rememberUpdatedState(onNavigateToProfile)
+    val currentOnNavigateToSettings by rememberUpdatedState(onNavigateToSettings)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -98,9 +100,7 @@ internal fun ProfileScreen(
                 }
                 is ProfileEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is ProfileEffect.NavigateToProfile -> currentOnNavigateToProfile(effect.handle)
-                ProfileEffect.NavigateToSettings -> {
-                    // Bead F wires the Settings push.
-                }
+                ProfileEffect.NavigateToSettings -> currentOnNavigateToSettings()
             }
         }
     }

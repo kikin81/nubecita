@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     implementation(project(":feature:postdetail:api"))
+    implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
