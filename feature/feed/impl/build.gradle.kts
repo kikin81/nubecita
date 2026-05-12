@@ -34,6 +34,9 @@ dependencies {
     // PostDetailRoute NavKey — pushed onto the back stack when a feed
     // post body is tapped. Imports `:api` only; never `:impl`.
     implementation(project(":feature:postdetail:api"))
+    // Profile NavKey — pushed onto the back stack when an author handle
+    // is tapped inside a PostCard. Imports `:api` only; never `:impl`.
+    implementation(project(":feature:profile:api"))
     implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)

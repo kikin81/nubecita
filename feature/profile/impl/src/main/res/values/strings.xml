@@ -10,11 +10,19 @@
     <string name="profile_action_overflow">More options</string>
     <string name="profile_action_follow">Follow</string>
     <string name="profile_action_message">Message</string>
+    <string name="profile_action_following">Following</string>
+    <string name="profile_action_settings">Settings</string>
+    <string name="profile_action_block">Block</string>
+    <string name="profile_action_mute">Mute</string>
+    <string name="profile_action_report">Report</string>
 
     <!-- Snackbar copy for stubbed actions (ShowComingSoon) -->
     <string name="profile_snackbar_edit_coming_soon">Edit profile — coming soon</string>
     <string name="profile_snackbar_follow_coming_soon">Follow — coming soon</string>
     <string name="profile_snackbar_message_coming_soon">Direct messages — coming soon</string>
+    <string name="profile_snackbar_block_coming_soon">Block — coming soon</string>
+    <string name="profile_snackbar_mute_coming_soon">Mute — coming soon</string>
+    <string name="profile_snackbar_report_coming_soon">Report — coming soon</string>
 
     <!-- Snackbar copy for ShowError -->
     <string name="profile_snackbar_error_network">Network error. Pull to refresh.</string>
@@ -60,4 +68,15 @@
     <!-- Header inline-error -->
     <string name="profile_header_error_title">Couldn\'t load profile</string>
     <string name="profile_header_error_retry">Try again</string>
+
+    <!-- Settings stub screen + sign-out flow (Bead F) -->
+    <string name="profile_settings_title">Settings</string>
+    <string name="profile_settings_back_content_description">Back</string>
+    <string name="profile_settings_coming_soon">Settings — coming soon. Sign out below.</string>
+    <string name="profile_settings_signout">Sign out</string>
+    <string name="profile_settings_signout_dialog_title">Sign out?</string>
+    <string name="profile_settings_signout_dialog_body">You\'ll need to sign in again to use Nubecita.</string>
+    <string name="profile_settings_signout_dialog_confirm">Sign out</string>
+    <string name="profile_settings_signout_dialog_cancel">Cancel</string>
+    <string name="profile_settings_signout_error">Couldn\'t sign out. Check your network and try again.</string>
 </resources>

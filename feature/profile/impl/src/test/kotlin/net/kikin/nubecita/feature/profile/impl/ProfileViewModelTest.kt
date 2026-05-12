@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -54,7 +55,8 @@ internal class ProfileViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER),
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
                     tabResults =
                         mapOf(
                             ProfileTab.Posts to Result.success(EMPTY_PAGE),
@@ -82,7 +84,13 @@ internal class ProfileViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER.copy(handle = "alice.bsky.social")),
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "alice.bsky.social"),
+                                ViewerRelationship.None,
+                            ),
+                        ),
                     tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
                 )
             val vm = newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
@@ -101,7 +109,13 @@ internal class ProfileViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER.copy(handle = "alice.bsky.social")),
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "alice.bsky.social"),
+                                ViewerRelationship.None,
+                            ),
+                        ),
                     tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
                 )
             val vm = newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
@@ -120,7 +134,8 @@ internal class ProfileViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER),
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
                     tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
                 )
             val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
@@ -146,7 +161,8 @@ internal class ProfileViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER),
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
                     tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
                 )
             val vm = newVm(repo = repo)
@@ -171,7 +187,8 @@ internal class ProfileViewModelTest {
             // First page returns a cursor; LoadMore re-issues with that cursor.
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER),
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
                     tabResults =
                         mapOf(
                             ProfileTab.Posts to Result.success(ProfileTabPage(items = persistentListOf(), nextCursor = "cursor-page-2")),
@@ -207,7 +224,8 @@ internal class ProfileViewModelTest {
             val secondResult = Result.success(EMPTY_PAGE)
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER),
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
                     tabResults =
                         mapOf(
                             ProfileTab.Posts to firstResult,
@@ -249,7 +267,8 @@ internal class ProfileViewModelTest {
             val pagedPage = ProfileTabPage(items = persistentListOf(), nextCursor = "next-cursor")
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER),
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
                     tabResults = ProfileTab.entries.associateWith { Result.success(pagedPage) },
                 )
             val vm = newVm(repo = repo)
@@ -290,7 +309,8 @@ internal class ProfileViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
-                    headerResult = Result.success(SAMPLE_HEADER),
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
                     tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
                 )
             val vm = newVm(repo = repo)
@@ -309,6 +329,91 @@ internal class ProfileViewModelTest {
                 )
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+
+    @Test
+    fun `StubActionTapped emits ShowComingSoon with the same action value, never touches the repo`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+            val priorHeaderCalls = repo.headerCalls.get()
+            val priorPostsCalls = repo.tabCalls[ProfileTab.Posts]!!.get()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Block))
+                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Block), awaitItem())
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Mute))
+                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Mute), awaitItem())
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Report))
+                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Report), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(
+                priorHeaderCalls,
+                repo.headerCalls.get(),
+                "StubActionTapped MUST NOT issue a repository call",
+            )
+            assertEquals(
+                priorPostsCalls,
+                repo.tabCalls[ProfileTab.Posts]!!.get(),
+                "StubActionTapped MUST NOT issue a tab fetch",
+            )
+        }
+
+    @Test
+    fun `own-profile header load overrides mapper-reported viewerRelationship to Self`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Mapper reports NotFollowing (own user has no follow record pointing
+            // at themselves). The VM MUST override this to Self for the own-profile
+            // route.
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                header = SAMPLE_HEADER,
+                                viewerRelationship = ViewerRelationship.NotFollowing,
+                            ),
+                        ),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = null))
+            advanceUntilIdle()
+
+            assertEquals(
+                ViewerRelationship.Self,
+                vm.uiState.value.viewerRelationship,
+                "Own-profile MUST override mapper-reported relationship to Self",
+            )
+        }
+
+    @Test
+    fun `other-user header load preserves mapper-reported viewerRelationship`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                header = SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                viewerRelationship = ViewerRelationship.Following,
+                            ),
+                        ),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            assertEquals(
+                ViewerRelationship.Following,
+                vm.uiState.value.viewerRelationship,
+                "Other-user route MUST preserve mapper-reported relationship",
+            )
         }
 
     // -- Test helpers ----------------------------------------------------------
@@ -356,7 +461,8 @@ internal class ProfileViewModelTest {
      * what the VM actually requested.
      */
     private class FakeProfileRepository(
-        private val headerResult: Result<ProfileHeaderUi> = Result.success(SAMPLE_HEADER),
+        private val headerWithViewerResult: Result<ProfileHeaderWithViewer> =
+            Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
         var tabResults: Map<ProfileTab, Result<ProfileTabPage>> =
             ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
     ) : ProfileRepository {
@@ -365,9 +471,9 @@ internal class ProfileViewModelTest {
             ProfileTab.entries.associateWith { AtomicInteger(0) }
         val lastTabCursor: MutableMap<ProfileTab, String?> = mutableMapOf()
 
-        override suspend fun fetchHeader(actor: String): Result<ProfileHeaderUi> {
+        override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> {
             headerCalls.incrementAndGet()
-            return headerResult
+            return headerWithViewerResult
         }
 
         override suspend fun fetchTab(

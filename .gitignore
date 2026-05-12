@@ -59,3 +59,7 @@ __pycache__/
 # The 14.9 MB font lives here; only the ~50 KB subset under
 # designsystem/src/main/res/font/ is checked in.
 build/icon-cache/
+
+# Superpowers brainstorm session artifacts (mockup HTML + server state).
+# Regenerated per session; never committed.
+.superpowers/

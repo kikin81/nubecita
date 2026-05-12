@@ -5,7 +5,6 @@ import io.github.kikin81.atproto.app.bsky.feed.GetAuthorFeedRequest
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 
@@ -27,7 +26,7 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
  * Bead-C brainstorming note on multi-account readiness.
  */
 internal interface ProfileRepository {
-    suspend fun fetchHeader(actor: String): Result<ProfileHeaderUi>
+    suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer>
 
     suspend fun fetchTab(
         actor: String,

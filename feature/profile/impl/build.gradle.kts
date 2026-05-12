@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     implementation(project(":feature:postdetail:api"))
+    implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
@@ -50,6 +51,9 @@ dependencies {
     // activity launch).
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    // mockk-android needed for TestAuthRepositoryModule (relaxed mocks of
+    // auth interfaces in the Hilt test graph — SettingsStubInstrumentationTest).
+    androidTestImplementation(libs.mockk.android)
 
     kspAndroidTest(libs.hilt.android.compiler)
 }

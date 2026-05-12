@@ -3,10 +3,20 @@ package net.kikin.nubecita.feature.profile.impl
 import android.content.res.Configuration
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
+import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.time.LocalClock
@@ -17,6 +27,8 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
+import net.kikin.nubecita.feature.profile.api.Profile
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -279,4 +291,106 @@ private fun ProfileScreenRepliesErrorScreenshot() {
             repliesStatus = TabLoadStatus.InitialError(ProfileError.Network),
         ),
     )
+}
+
+// ─── Other-user variants ─────────────────────────────────────────────────────
+
+@PreviewTest
+@Preview(name = "screen-other-user-follow-light", showBackground = true, heightDp = 1100)
+@Preview(
+    name = "screen-other-user-follow-dark",
+    showBackground = true,
+    heightDp = 1100,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun ProfileScreenOtherUserFollowScreenshot() {
+    ProfileScreenContentHost(
+        sampleLoadedState().copy(
+            handle = "bob.bsky.social",
+            header = SAMPLE_HEADER.copy(handle = "bob.bsky.social", displayName = "Bob"),
+            ownProfile = false,
+            viewerRelationship = ViewerRelationship.NotFollowing,
+        ),
+    )
+}
+
+@PreviewTest
+@Preview(name = "screen-other-user-following-light", showBackground = true, heightDp = 1100)
+@Preview(
+    name = "screen-other-user-following-dark",
+    showBackground = true,
+    heightDp = 1100,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun ProfileScreenOtherUserFollowingScreenshot() {
+    ProfileScreenContentHost(
+        sampleLoadedState().copy(
+            handle = "bob.bsky.social",
+            header = SAMPLE_HEADER.copy(handle = "bob.bsky.social", displayName = "Bob"),
+            ownProfile = false,
+            viewerRelationship = ViewerRelationship.Following,
+        ),
+    )
+}
+
+// ─── Medium-width two-pane fixture ────────────────────────────────────────────
+
+/**
+ * Renders [ProfileScreenContent] inside a Navigation 3 [NavDisplay] driven
+ * by [rememberListDetailSceneStrategy], mirroring the production wiring in
+ * [MainShell]. At widthDp = 800 the two-pane directive splits the canvas:
+ * Profile fills the list pane; [PostDetailPaneEmptyState] fills the detail
+ * pane. Compact-only fixtures remain in the variants above.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@PreviewTest
+@Preview(
+    name = "screen-medium-two-pane-empty-light",
+    showBackground = true,
+    widthDp = 800,
+    heightDp = 800,
+)
+@Preview(
+    name = "screen-medium-two-pane-empty-dark",
+    showBackground = true,
+    widthDp = 800,
+    heightDp = 800,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun ProfileScreenMediumTwoPaneEmptyScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        val backStack = remember { mutableStateListOf<NavKey>(Profile(handle = null)) }
+        val sceneStrategy =
+            rememberListDetailSceneStrategy<NavKey>(
+                directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(currentWindowAdaptiveInfoV2()),
+            )
+        NavDisplay(
+            backStack = backStack,
+            onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
+            sceneStrategies = listOf(sceneStrategy),
+            entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
+            entryProvider =
+                entryProvider {
+                    entry<Profile>(
+                        metadata =
+                            ListDetailSceneStrategy.listPane(
+                                detailPlaceholder = { PostDetailPaneEmptyState() },
+                            ),
+                    ) {
+                        CompositionLocalProvider(LocalClock provides FixtureClock) {
+                            ProfileScreenContent(
+                                state = sampleLoadedState(),
+                                listState = rememberLazyListState(),
+                                snackbarHostState = remember { SnackbarHostState() },
+                                postCallbacks = PostCallbacks.None,
+                                onEvent = {},
+                            )
+                        }
+                    }
+                },
+        )
+    }
 }

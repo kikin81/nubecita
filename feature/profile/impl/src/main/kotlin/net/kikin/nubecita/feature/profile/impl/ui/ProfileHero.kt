@@ -27,6 +27,8 @@ import net.kikin.nubecita.designsystem.hero.BoldHeroGradient
 import net.kikin.nubecita.feature.profile.impl.ProfileError
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.R
+import net.kikin.nubecita.feature.profile.impl.StubbedAction
+import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 
 private val AvatarSize = 88.dp
 private val AvatarRingWidth = 4.dp
@@ -52,9 +54,13 @@ internal fun ProfileHero(
     header: ProfileHeaderUi?,
     headerError: ProfileError?,
     ownProfile: Boolean,
+    viewerRelationship: ViewerRelationship,
     onRetryHeader: () -> Unit,
     onEditTap: () -> Unit,
-    onOverflowTap: () -> Unit,
+    onFollowTap: () -> Unit,
+    onMessageTap: () -> Unit,
+    onOverflowAction: (StubbedAction) -> Unit,
+    onSettingsTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -62,8 +68,12 @@ internal fun ProfileHero(
             ProfileHeroLoaded(
                 header = header,
                 ownProfile = ownProfile,
+                viewerRelationship = viewerRelationship,
                 onEditTap = onEditTap,
-                onOverflowTap = onOverflowTap,
+                onFollowTap = onFollowTap,
+                onMessageTap = onMessageTap,
+                onOverflowAction = onOverflowAction,
+                onSettingsTap = onSettingsTap,
                 modifier = modifier,
             )
         headerError != null ->
@@ -80,8 +90,12 @@ internal fun ProfileHero(
 private fun ProfileHeroLoaded(
     header: ProfileHeaderUi,
     ownProfile: Boolean,
+    viewerRelationship: ViewerRelationship,
     onEditTap: () -> Unit,
-    onOverflowTap: () -> Unit,
+    onFollowTap: () -> Unit,
+    onMessageTap: () -> Unit,
+    onOverflowAction: (StubbedAction) -> Unit,
+    onSettingsTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -161,8 +175,12 @@ private fun ProfileHeroLoaded(
         )
         ProfileActionsRow(
             ownProfile = ownProfile,
+            viewerRelationship = viewerRelationship,
             onEdit = onEditTap,
-            onOverflow = onOverflowTap,
+            onFollow = onFollowTap,
+            onMessage = onMessageTap,
+            onOverflowAction = onOverflowAction,
+            onSettings = onSettingsTap,
         )
     }
 }

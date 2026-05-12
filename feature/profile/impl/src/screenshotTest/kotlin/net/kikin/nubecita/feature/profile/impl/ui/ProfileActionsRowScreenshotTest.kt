@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 
 /**
  * Screenshot baselines for [ProfileActionsRow]. Bead D pins only the
@@ -20,6 +21,14 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Composable
 private fun ProfileActionsRowOwnScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        ProfileActionsRow(ownProfile = true, onEdit = {}, onOverflow = {})
+        ProfileActionsRow(
+            ownProfile = true,
+            viewerRelationship = ViewerRelationship.Self,
+            onEdit = {},
+            onFollow = {},
+            onMessage = {},
+            onOverflowAction = {},
+            onSettings = {},
+        )
     }
 }

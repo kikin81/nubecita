@@ -1,10 +1,13 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
+import io.github.kikin81.atproto.app.bsky.actor.ViewerState
+import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Handle
 import io.github.kikin81.atproto.runtime.Uri
+import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -111,6 +114,39 @@ internal class AuthorProfileMapperTest {
         }
     }
 
+    @Test
+    fun `toProfileHeaderWithViewer returns ViewerRelationship_None when viewer is null`() {
+        val wire = sampleView(viewer = null)
+
+        val result = wire.toProfileHeaderWithViewer()
+
+        assertEquals(ViewerRelationship.None, result.viewerRelationship)
+    }
+
+    @Test
+    fun `toProfileHeaderWithViewer returns ViewerRelationship_Following when viewer follows the subject`() {
+        val wire =
+            sampleView(
+                viewer = ViewerState(following = AtUri("at://did:plc:viewer/app.bsky.graph.follow/abc")),
+            )
+
+        val result = wire.toProfileHeaderWithViewer()
+
+        assertEquals(ViewerRelationship.Following, result.viewerRelationship)
+    }
+
+    @Test
+    fun `toProfileHeaderWithViewer returns ViewerRelationship_NotFollowing when viewer does not follow the subject`() {
+        val wire =
+            sampleView(
+                viewer = ViewerState(following = null),
+            )
+
+        val result = wire.toProfileHeaderWithViewer()
+
+        assertEquals(ViewerRelationship.NotFollowing, result.viewerRelationship)
+    }
+
     private fun sampleView(
         did: String = "did:plc:alice123",
         handle: String = "alice.bsky.social",
@@ -123,6 +159,7 @@ internal class AuthorProfileMapperTest {
         postsCount: Long? = null,
         followersCount: Long? = null,
         followsCount: Long? = null,
+        viewer: ViewerState? = null,
     ): ProfileViewDetailed =
         ProfileViewDetailed(
             did = Did(did),
@@ -136,5 +173,6 @@ internal class AuthorProfileMapperTest {
             postsCount = postsCount,
             followersCount = followersCount,
             followsCount = followsCount,
+            viewer = viewer,
         )
 }

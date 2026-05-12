@@ -13,6 +13,9 @@ dependencies {
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
     implementation(project(":feature:mediaviewer:api"))
+    // Profile NavKey — pushed onto the back stack when an author handle
+    // is tapped inside a thread post. Imports `:api` only; never `:impl`.
+    implementation(project(":feature:profile:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)

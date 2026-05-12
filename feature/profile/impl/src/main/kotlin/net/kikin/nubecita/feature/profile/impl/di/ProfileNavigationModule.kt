@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl.di
 
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
@@ -9,10 +11,13 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.api.Settings
 import net.kikin.nubecita.feature.profile.impl.ProfileScreen
 import net.kikin.nubecita.feature.profile.impl.ProfileViewModel
+import net.kikin.nubecita.feature.profile.impl.SettingsStubScreen
 
 /**
  * Real Profile entry. Bead D wires the screen for `Profile(handle = null)`
@@ -20,26 +25,26 @@ import net.kikin.nubecita.feature.profile.impl.ProfileViewModel
  * reaches the same screen; the actions-row branch for the latter is
  * Bead F territory).
  *
- * `ListDetailSceneStrategy.listPane{}` metadata is NOT applied here —
- * Bead F adds it so Medium-width post-taps land in the right pane.
- * Without the metadata, post-taps push PostDetailRoute onto the
- * back stack and replace the profile screen full-screen on all
- * widths in Bead D — the same behavior the previous :app placeholder
- * exhibited.
- *
- * The Settings entry stays inert in Bead D — Bead F wires the
- * Settings stub Composable + its overflow-menu entry point on the
- * profile screen.
+ * `ListDetailSceneStrategy.listPane{}` metadata is applied here so that
+ * Medium-width post-taps land in the right pane. The Settings entry now
+ * resolves to [SettingsStubScreen] with a back-arrow that pops the inner
+ * nav stack.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 internal object ProfileNavigationModule {
+    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
     @Provides
     @IntoSet
     @MainShell
     fun provideProfileEntries(): EntryProviderInstaller =
         {
-            entry<Profile> { route ->
+            entry<Profile>(
+                metadata =
+                    ListDetailSceneStrategy.listPane(
+                        detailPlaceholder = { PostDetailPaneEmptyState() },
+                    ),
+            ) { route ->
                 val navState = LocalMainShellNavState.current
                 val viewModel =
                     hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
@@ -49,6 +54,7 @@ internal object ProfileNavigationModule {
                     viewModel = viewModel,
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
                     onNavigateToProfile = { handle -> navState.add(Profile(handle = handle)) },
+                    onNavigateToSettings = { navState.add(Settings) },
                 )
             }
         }
@@ -58,7 +64,9 @@ internal object ProfileNavigationModule {
     @MainShell
     fun provideSettingsEntries(): EntryProviderInstaller =
         {
-            // Inert in Bead D. Bead F wires the Settings stub Composable
-            // here and removes the :app-side Settings placeholder.
+            entry<Settings> {
+                val navState = LocalMainShellNavState.current
+                SettingsStubScreen(onBack = { navState.removeLast() })
+            }
         }
 }

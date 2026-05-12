@@ -1,7 +1,9 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
+import io.github.kikin81.atproto.app.bsky.actor.ViewerState
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
+import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -74,3 +76,45 @@ private fun String.toJoinedDisplay(): String? =
 // `LLLL` = full month name (locale-aware); `yyyy` = 4-digit year.
 private val JOINED_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("'Joined' LLLL yyyy", Locale.getDefault())
+
+/**
+ * Pair of the UI-ready header and the viewer's relationship to the
+ * subject profile, both derived from a single [ProfileViewDetailed]
+ * wire response.
+ *
+ * Bead F separates `viewerRelationship` from [ProfileHeaderUi] so a
+ * future follow-up bd (epic 7.3 — real Follow / Unfollow writes) can
+ * mutate the relationship without invalidating the header — the two
+ * fields have independent lifetimes.
+ */
+internal data class ProfileHeaderWithViewer(
+    val header: ProfileHeaderUi,
+    val viewerRelationship: ViewerRelationship,
+)
+
+/**
+ * Composes [toProfileHeaderUi] with [viewer]-derived relationship.
+ *
+ * `viewer.following: AtUri?` is the AtUri of *the requesting user's*
+ * follow record pointing at this profile. Non-null → Following.
+ * Null but `viewer` itself non-null → NotFollowing. `viewer` null →
+ * None (unauthed-style fallback; shouldn't happen post-login since
+ * profile screens only mount past the splash routing gate).
+ *
+ * Own-profile (`route.handle == null`) overrides the result to
+ * [ViewerRelationship.Self] at the ViewModel layer — the mapper itself
+ * doesn't know about own/other-user. See
+ * [net.kikin.nubecita.feature.profile.impl.ProfileViewModel.launchHeaderLoad].
+ */
+internal fun ProfileViewDetailed.toProfileHeaderWithViewer(): ProfileHeaderWithViewer =
+    ProfileHeaderWithViewer(
+        header = toProfileHeaderUi(),
+        viewerRelationship = viewer.toViewerRelationship(),
+    )
+
+private fun ViewerState?.toViewerRelationship(): ViewerRelationship =
+    when {
+        this == null -> ViewerRelationship.None
+        following != null -> ViewerRelationship.Following
+        else -> ViewerRelationship.NotFollowing
+    }

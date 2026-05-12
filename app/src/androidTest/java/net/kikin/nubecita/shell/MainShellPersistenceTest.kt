@@ -146,13 +146,13 @@ class MainShellPersistenceTest {
      * the width deterministic across emulator profiles.
      *
      * Uses a fake harness rather than the production `MainShell`: the
-     * real `FeedDetailPlaceholder` is `internal` to `:feature:feed:impl`
-     * and `MainShell` requires a Hilt graph to compose. The fake's role
+     * real `PostDetailPaneEmptyState` is public in `:designsystem`
+     * but `MainShell` requires a Hilt graph to compose. The fake's role
      * is to drive the strategy with the same `listPane{}` metadata shape
      * the production wiring uses; the placeholder is identified by
      * [PLACEHOLDER_TAG] so the assertion is content-agnostic. Visual
      * correctness of the real placeholder is covered by
-     * `FeedDetailPlaceholderScreenshotTest` in `:feature:feed:impl`.
+     * `PostDetailPaneEmptyStateScreenshotTest` in `:designsystem`.
      */
     @OptIn(ExperimentalMaterial3AdaptiveApi::class)
     @Test

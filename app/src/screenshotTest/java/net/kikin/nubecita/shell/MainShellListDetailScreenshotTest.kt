@@ -48,11 +48,11 @@ import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
  * `sceneStrategies =` removal — if `MainShell` ever drops the strategy,
  * the medium/expanded baselines change visibly.
  *
- * The `FeedDetailPlaceholder` Composable in `:feature:feed:impl` is
- * `internal` and unreachable from `:app`'s screenshotTest source set, so
- * the test substitutes a `FakeDetailPlaceholder` of similar shape — its
- * own visual correctness is covered by
- * `FeedDetailPlaceholderScreenshotTest` in `:feature:feed:impl`. What
+ * The `PostDetailPaneEmptyState` Composable is public in `:designsystem`
+ * but unreachable from `:app`'s screenshotTest source set without a Hilt
+ * graph, so the test substitutes a `FakeDetailPlaceholder` of similar
+ * shape — its own visual correctness is covered by
+ * `PostDetailPaneEmptyStateScreenshotTest` in `:designsystem`. What
  * this test asserts is the strategy wiring (compact = no placeholder,
  * medium/expanded = placeholder visible adjacent to list), which is
  * placeholder-content-agnostic.
@@ -146,7 +146,7 @@ private fun MainShellListDetailExpandedWithDetail() {
  * `MainShell.NavDisplay`: the real [`ListDetailSceneStrategy`] driving a
  * back stack of `[Feed]` whose entry carries real `listPane{}` metadata.
  * Substitutes fakes only for the per-pane content, since the real
- * `FeedScreen` and `FeedDetailPlaceholder` belong to other modules and
+ * `FeedScreen` and `PostDetailPaneEmptyState` belong to other modules and
  * their visual correctness is covered by tests in those modules.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)

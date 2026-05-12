@@ -68,9 +68,13 @@ internal fun ProfileScreenContent(
                         header = state.header,
                         headerError = state.headerError,
                         ownProfile = state.ownProfile,
+                        viewerRelationship = state.viewerRelationship,
                         onRetryHeader = { onEvent(ProfileEvent.Refresh) },
                         onEditTap = { onEvent(ProfileEvent.EditTapped) },
-                        onOverflowTap = { /* Bead F wires Settings */ },
+                        onFollowTap = { onEvent(ProfileEvent.FollowTapped) },
+                        onMessageTap = { onEvent(ProfileEvent.MessageTapped) },
+                        onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
+                        onSettingsTap = { onEvent(ProfileEvent.SettingsTapped) },
                     )
                 }
                 stickyHeader(key = "tabs", contentType = "tabs") {

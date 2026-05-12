@@ -198,6 +198,16 @@ sealed interface ProfileEvent : UiEvent {
     /** User tapped the Message action — stubbed in this epic. */
     data object MessageTapped : ProfileEvent
 
+    /**
+     * User tapped one of the stubbed overflow entries (Block / Mute / Report)
+     * on the other-user actions row. Consolidates the three into a single
+     * parameterized event — mirrors the [ProfileEffect.ShowComingSoon] shape
+     * on the effect side, keeping the VM dispatch a one-liner.
+     */
+    data class StubActionTapped(
+        val action: StubbedAction,
+    ) : ProfileEvent
+
     /** User tapped an overflow-menu entry that pushes the Settings sub-route. */
     data object SettingsTapped : ProfileEvent
 }
@@ -249,5 +259,8 @@ sealed interface ProfileEffect : UiEffect {
  * Which stubbed write action triggered a "Coming soon" snackbar.
  * Lets the screen pick per-action copy (`Follow coming soon` vs
  * `Edit profile coming soon`) without coupling the VM to UI strings.
+ *
+ * Bead F adds Block / Mute / Report to cover the other-user overflow-menu
+ * stubs. The real moderation writes ship under follow-up bd 7.7.
  */
-enum class StubbedAction { Follow, Edit, Message }
+enum class StubbedAction { Follow, Edit, Message, Block, Mute, Report }
