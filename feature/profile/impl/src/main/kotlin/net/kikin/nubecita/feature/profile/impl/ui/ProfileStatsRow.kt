@@ -6,12 +6,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.feature.profile.impl.R
-import java.util.Locale
 
 /**
  * Inline stats row rendered inside the hero: one [Text] containing three
@@ -30,9 +30,17 @@ internal fun ProfileStatsRow(
     modifier: Modifier = Modifier,
 ) {
     val locale = LocalLocale.current.platformLocale
-    val posts = formatCompact(postsCount, locale)
-    val followers = formatCompact(followersCount, locale)
-    val follows = formatCompact(followsCount, locale)
+    // Allocate the formatter once per locale; reused across the three
+    // counts and across recompositions (e.g. the hero re-rendering as
+    // it scrolls). `CompactDecimalFormat.getInstance` does non-trivial
+    // ICU table lookups, so the saved work matters on hot paths.
+    val formatter =
+        remember(locale) {
+            CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT)
+        }
+    val posts = formatter.format(postsCount)
+    val followers = formatter.format(followersCount)
+    val follows = formatter.format(followsCount)
     val postsLabel = stringResource(R.string.profile_stats_posts_label)
     val followersLabel = stringResource(R.string.profile_stats_followers_label)
     val followsLabel = stringResource(R.string.profile_stats_follows_label)
@@ -44,17 +52,3 @@ internal fun ProfileStatsRow(
         )
     }
 }
-
-/**
- * Locale-aware short-scale abbreviation via [CompactDecimalFormat]. The
- * `android.icu` variant is available on API 24+ (project `minSdk` is 28),
- * so no fallback path is required. Compact formatting is described in the
- * spec as an aesthetic enhancement, not a correctness requirement.
- */
-private fun formatCompact(
-    value: Long,
-    locale: Locale,
-): String =
-    CompactDecimalFormat
-        .getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT)
-        .format(value)

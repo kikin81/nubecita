@@ -4,10 +4,12 @@ import android.content.res.Configuration
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -15,6 +17,7 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -88,6 +91,7 @@ private fun samplePostUi(suffix: String): PostUi =
                 displayName = "Preview $suffix",
                 avatarUrl = null,
             ),
+        // 2h before PREVIEW_NOW so the relative label renders as "2h".
         createdAt = Instant.parse("2026-04-26T10:00:00Z"),
         text = "Preview post $suffix — sample content for screenshot fixtures.",
         facets = persistentListOf(),
@@ -97,16 +101,29 @@ private fun samplePostUi(suffix: String): PostUi =
         repostedBy = null,
     )
 
+// Fixed instants for previews + screenshots. Paired with [FixtureClock],
+// the rendered PostCard relative-time label is "2h" forever — no
+// `Clock.System.now()` involved, so screenshots don't drift as wall-clock
+// advances. Mirrors the convention in :feature:feed:impl/FeedScreen.kt
+// and FeedScreenScreenshotTest.kt.
+private val PREVIEW_NOW = Instant.parse("2026-04-26T12:00:00Z")
+
+private object FixtureClock : Clock {
+    override fun now(): Instant = PREVIEW_NOW
+}
+
 @Composable
 private fun ProfileScreenContentHost(state: ProfileScreenViewState) {
     NubecitaTheme(dynamicColor = false) {
-        ProfileScreenContent(
-            state = state,
-            listState = rememberLazyListState(),
-            snackbarHostState = remember { SnackbarHostState() },
-            postCallbacks = PostCallbacks.None,
-            onEvent = {},
-        )
+        CompositionLocalProvider(LocalClock provides FixtureClock) {
+            ProfileScreenContent(
+                state = state,
+                listState = rememberLazyListState(),
+                snackbarHostState = remember { SnackbarHostState() },
+                postCallbacks = PostCallbacks.None,
+                onEvent = {},
+            )
+        }
     }
 }
 

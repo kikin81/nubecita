@@ -13,6 +13,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -46,8 +47,12 @@ class ProfileScreenInstrumentationTest {
 
     @Test
     fun editTap_surfacesComingSoonSnackbar() {
-        val editLabel = "Edit profile"
-        val expectedSnackbarText = "Edit profile — coming soon"
+        // Resolve copy from resources rather than hardcoding so the test
+        // survives localization changes — same string the production
+        // host uses for ShowComingSoon(StubbedAction.Edit).
+        val context = composeTestRule.activity
+        val editLabel = context.getString(R.string.profile_action_edit)
+        val expectedSnackbarText = context.getString(R.string.profile_snackbar_edit_coming_soon)
         val capturedEvents = mutableListOf<ProfileEvent>()
 
         composeTestRule.setContent {
@@ -75,9 +80,13 @@ class ProfileScreenInstrumentationTest {
         composeTestRule.onNodeWithText(editLabel).performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText(expectedSnackbarText).assertIsDisplayed()
-        assert(capturedEvents.contains(ProfileEvent.EditTapped)) {
-            "Edit tap MUST dispatch ProfileEvent.EditTapped; captured: $capturedEvents"
-        }
+        // JUnit assertTrue (not the JVM `assert` keyword) — `assert(...)`
+        // is gated on `-ea` which is typically OFF on Android instrumentation
+        // runners, so the captured-events check would silently skip.
+        assertTrue(
+            "Edit tap MUST dispatch ProfileEvent.EditTapped; captured: $capturedEvents",
+            capturedEvents.contains(ProfileEvent.EditTapped),
+        )
     }
 
     private fun sampleOwnProfileState(): ProfileScreenViewState =
