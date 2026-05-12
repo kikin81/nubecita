@@ -16,7 +16,6 @@ import net.kikin.nubecita.R
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.chats.api.Chats
-import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.api.Settings
 import net.kikin.nubecita.feature.search.api.Search
 
@@ -61,15 +60,11 @@ internal object MainShellPlaceholderModule {
     @Provides
     @IntoSet
     @MainShell
-    fun provideProfilePlaceholderEntries(): EntryProviderInstaller =
+    fun provideSettingsPlaceholderEntries(): EntryProviderInstaller =
         {
-            entry<Profile> { _ ->
-                // Both `Profile(null)` (You-tab home) and `Profile(handle = "alice")`
-                // (cross-tab navigation push) render the same placeholder. The real
-                // :feature:profile:impl will use the handle param to load the right
-                // profile.
-                PlaceholderScreen(label = stringResource(R.string.main_shell_tab_you))
-            }
+            // Settings stub lands in Bead F (:feature:profile:impl will
+            // own the real entry). Until then, the placeholder stays
+            // here.
             entry<Settings> {
                 PlaceholderScreen(label = stringResource(R.string.main_shell_settings))
             }

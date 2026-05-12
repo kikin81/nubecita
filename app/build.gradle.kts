@@ -191,6 +191,7 @@ dependencies {
     implementation(project(":feature:postdetail:api"))
     implementation(project(":feature:postdetail:impl"))
     implementation(project(":feature:profile:api"))
+    implementation(project(":feature:profile:impl"))
     implementation(project(":feature:search:api"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
