@@ -7,7 +7,6 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.MainShell
-import timber.log.Timber
 
 /**
  * Provides `@MainShell`-qualified `EntryProviderInstaller`s for the
@@ -54,7 +53,6 @@ internal object ProfileNavigationModule {
             //           onBack = { navState.removeLast() },
             //       )
             //   }
-            Timber.tag(TAG).d("Profile installer: inert (Bead C scaffolding)")
         }
 
     @Provides
@@ -64,8 +62,5 @@ internal object ProfileNavigationModule {
         {
             // Inert in Bead C. Bead F body wires SettingsStubScreen +
             // Sign Out via :core:auth's logout pathway.
-            Timber.tag(TAG).d("Settings installer: inert (Bead C scaffolding)")
         }
-
-    private const val TAG = "ProfileNav"
 }

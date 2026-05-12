@@ -59,9 +59,15 @@ private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
  * `null` for embed types that don't carry media — those entries
  * are dropped from the Media tab.
  *
- * The thumb URL is just the displayable image / video poster URL;
- * Coil downsizes at render time inside the grid cell, so no
- * dedicated thumb endpoint is required.
+ * Caveat: `ImageUi.url` currently resolves to the atproto
+ * `images[*].fullsize` URL (see `:core:feed-mapping/FeedMapping.kt`).
+ * The Media grid therefore downloads full-size bytes and lets Coil
+ * downsize the decoded bitmap — fine for correctness, but wastes
+ * bandwidth on a 3-column grid. A follow-up will plumb the
+ * `images[*].thumb` URL through `ImageUi` so the Media tab can
+ * request the appview's pre-resized thumbnail instead. Video posts
+ * already pass through `EmbedUi.Video.posterUrl` (a server-side
+ * thumbnail) so they're unaffected.
  */
 private fun EmbedUi.toMediaThumbUrlOrNull(): String? =
     when (this) {
