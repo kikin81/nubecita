@@ -11,9 +11,9 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.FeedScreen
-import net.kikin.nubecita.feature.feed.impl.ui.FeedDetailPlaceholder
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
 @Module
@@ -33,7 +33,7 @@ internal object FeedNavigationModule {
                 // detail pane until a `detailPane()`-tagged entry is pushed.
                 metadata =
                     ListDetailSceneStrategy.listPane(
-                        detailPlaceholder = { FeedDetailPlaceholder() },
+                        detailPlaceholder = { PostDetailPaneEmptyState() },
                     ),
             ) {
                 val navState = LocalMainShellNavState.current

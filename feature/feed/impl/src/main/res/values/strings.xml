@@ -41,10 +41,6 @@
     <string name="postcard_video_unmute">Unmute video</string>
     <string name="postcard_video_resume">Tap to resume</string>
 
-    <!-- ListDetailSceneStrategy detail-pane placeholder, shown on medium/expanded
-         widths when the back stack is `[Feed]` (no detail entry selected). -->
-    <string name="feed_detail_placeholder_select">Select a post to read</string>
-
     <!-- Compose-new-post FAB content description. wtq.9 swaps the prior
          "scroll to top" FAB content for the composer entry point. The home-
          tab retap path that the old FAB shared with this screen still works

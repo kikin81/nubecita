@@ -60,4 +60,10 @@
         <item quantity="one">· %1$d more</item>
         <item quantity="other">· %1$d more</item>
     </plurals>
+
+    <!-- ListDetailSceneStrategy detail-pane empty state. Used by any feature
+         whose entry carries `listPane(detailPlaceholder = { PostDetailPaneEmptyState() })`.
+         Bead F (nubecita-s6p.6) promoted this from :feature:feed:impl when
+         Profile became the second caller. -->
+    <string name="nubecita_detail_pane_select_post">Select a post to read</string>
 </resources>

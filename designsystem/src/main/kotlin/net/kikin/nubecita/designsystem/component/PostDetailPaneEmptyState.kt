@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.ui
+package net.kikin.nubecita.designsystem.component
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
@@ -16,28 +16,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.designsystem.spacing
-import net.kikin.nubecita.feature.feed.impl.R
 
 /**
- * Detail-pane placeholder rendered by [`ListDetailSceneStrategy`] when the
- * back stack is `[Feed]` (no detail entry selected) on medium/expanded
- * widths. On compact, the strategy collapses to single-pane and this
- * Composable is not composed at all.
+ * Detail-pane placeholder for [`ListDetailSceneStrategy`]-driven entries
+ * whose back stack hasn't pushed a detail entry yet (on Medium / Expanded
+ * widths). Compact widths collapse to single-pane and this Composable is
+ * not composed at all.
  *
- * Wired into `:feature:feed:impl`'s `@MainShell`-qualified
- * `EntryProviderInstaller` via
- * `metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = { FeedDetailPlaceholder() })`.
+ * Callers wire it via
+ * `metadata = ListDetailSceneStrategy.listPane(detailPlaceholder = { PostDetailPaneEmptyState() })`.
  *
- * Kept in `:feature:feed:impl` (not promoted to `:designsystem`) until a
- * second list-pane host needs the same shape — see the
- * `adopt-list-detail-scene-strategy` design doc.
+ * Promoted from `:feature:feed:impl`'s `FeedDetailPlaceholder` in Bead F
+ * when Profile became the second caller. Both Feed and Profile delegate
+ * to this; future post-list surfaces (Search results, hashtag, user
+ * search) can reuse the same composable.
  */
 @Composable
-internal fun FeedDetailPlaceholder(modifier: Modifier = Modifier) {
+fun PostDetailPaneEmptyState(modifier: Modifier = Modifier) {
     Column(
         modifier =
             modifier
@@ -59,7 +59,7 @@ internal fun FeedDetailPlaceholder(modifier: Modifier = Modifier) {
             modifier = Modifier.mirror(),
         )
         Text(
-            text = stringResource(R.string.feed_detail_placeholder_select),
+            text = stringResource(R.string.nubecita_detail_pane_select_post),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -69,15 +69,15 @@ internal fun FeedDetailPlaceholder(modifier: Modifier = Modifier) {
 
 private val ICON_SIZE = 56.dp
 
-@Preview(name = "FeedDetailPlaceholder — light", showBackground = true)
+@Preview(name = "PostDetailPaneEmptyState — light", showBackground = true)
 @Preview(
-    name = "FeedDetailPlaceholder — dark",
+    name = "PostDetailPaneEmptyState — dark",
     showBackground = true,
     uiMode = Configuration.UI_MODE_NIGHT_YES,
 )
 @Composable
-private fun FeedDetailPlaceholderPreview() {
+private fun PostDetailPaneEmptyStatePreview() {
     NubecitaTheme {
-        FeedDetailPlaceholder()
+        PostDetailPaneEmptyState()
     }
 }
