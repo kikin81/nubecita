@@ -51,6 +51,9 @@ dependencies {
     // activity launch).
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    // mockk-android needed for TestAuthRepositoryModule (relaxed mocks of
+    // auth interfaces in the Hilt test graph — SettingsStubInstrumentationTest).
+    androidTestImplementation(libs.mockk.android)
 
     kspAndroidTest(libs.hilt.android.compiler)
 }
