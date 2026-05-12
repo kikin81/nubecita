@@ -107,7 +107,8 @@ private fun PostCardWithImageScreenshot() {
                             items =
                                 persistentListOf(
                                     ImageUi(
-                                        url = "https://example.com/preview.jpg",
+                                        fullsizeUrl = "https://example.com/preview.jpg",
+                                        thumbUrl = "https://example.com/preview.jpg",
                                         altText = "Preview image",
                                         aspectRatio = 1.5f,
                                     ),
@@ -147,17 +148,20 @@ private fun PostCardWith3ImagesScreenshot() {
                             items =
                                 persistentListOf(
                                     ImageUi(
-                                        url = "https://example.com/preview-0.jpg",
+                                        fullsizeUrl = "https://example.com/preview-0.jpg",
+                                        thumbUrl = "https://example.com/preview-0.jpg",
                                         altText = "Preview image 0",
                                         aspectRatio = 1.5f,
                                     ),
                                     ImageUi(
-                                        url = "https://example.com/preview-1.jpg",
+                                        fullsizeUrl = "https://example.com/preview-1.jpg",
+                                        thumbUrl = "https://example.com/preview-1.jpg",
                                         altText = "Preview image 1",
                                         aspectRatio = 1.5f,
                                     ),
                                     ImageUi(
-                                        url = "https://example.com/preview-2.jpg",
+                                        fullsizeUrl = "https://example.com/preview-2.jpg",
+                                        thumbUrl = "https://example.com/preview-2.jpg",
                                         altText = "Preview image 2",
                                         aspectRatio = 1.5f,
                                     ),
@@ -182,17 +186,20 @@ private fun PostCardWith3ImagesMixedAspectScreenshot() {
                             items =
                                 persistentListOf(
                                     ImageUi(
-                                        url = "https://example.com/preview-portrait.jpg",
+                                        fullsizeUrl = "https://example.com/preview-portrait.jpg",
+                                        thumbUrl = "https://example.com/preview-portrait.jpg",
                                         altText = "Portrait image",
                                         aspectRatio = 0.5f,
                                     ),
                                     ImageUi(
-                                        url = "https://example.com/preview-landscape-0.jpg",
+                                        fullsizeUrl = "https://example.com/preview-landscape-0.jpg",
+                                        thumbUrl = "https://example.com/preview-landscape-0.jpg",
                                         altText = "Landscape image 0",
                                         aspectRatio = 16f / 9f,
                                     ),
                                     ImageUi(
-                                        url = "https://example.com/preview-landscape-1.jpg",
+                                        fullsizeUrl = "https://example.com/preview-landscape-1.jpg",
+                                        thumbUrl = "https://example.com/preview-landscape-1.jpg",
                                         altText = "Landscape image 1",
                                         aspectRatio = 16f / 9f,
                                     ),

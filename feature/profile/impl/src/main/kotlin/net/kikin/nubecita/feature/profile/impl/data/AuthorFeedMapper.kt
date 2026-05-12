@@ -7,6 +7,7 @@ import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.thumbOrFullsize
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 
@@ -59,19 +60,20 @@ private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
  * `null` for embed types that don't carry media — those entries
  * are dropped from the Media tab.
  *
- * Caveat: `ImageUi.url` currently resolves to the atproto
- * `images[*].fullsize` URL (see `:core:feed-mapping/FeedMapping.kt`).
- * The Media grid therefore downloads full-size bytes and lets Coil
- * downsize the decoded bitmap — fine for correctness, but wastes
- * bandwidth on a 3-column grid. A follow-up will plumb the
- * `images[*].thumb` URL through `ImageUi` so the Media tab can
- * request the appview's pre-resized thumbnail instead. Video posts
- * already pass through `EmbedUi.Video.posterUrl` (a server-side
- * thumbnail) so they're unaffected.
+ * Prefers `ImageUi.thumbUrl` over `ImageUi.fullsizeUrl` — the
+ * appview ships pre-resized variants from `.../img/feed_thumbnail/...`
+ * that are roughly an order of magnitude smaller than the fullsize
+ * variant from `.../img/feed_fullsize/...`. Both URLs share the
+ * `@jpeg` suffix; the variant differentiator is the path segment.
+ * On a 3-col grid this is a real bandwidth win on cellular. Falls
+ * back to fullsize when thumbUrl is null (defensive — the lexicon
+ * requires both fields, but non-lexicon ImageUi sources may pass
+ * null). Video posts already pass through `EmbedUi.Video.posterUrl`
+ * (a server-side thumbnail) so they're unaffected.
  */
 private fun EmbedUi.toMediaThumbUrlOrNull(): String? =
     when (this) {
-        is EmbedUi.Images -> items.firstOrNull()?.url
+        is EmbedUi.Images -> items.firstOrNull()?.thumbOrFullsize()
         is EmbedUi.Video -> posterUrl
         is EmbedUi.RecordWithMedia -> media.toMediaThumbUrlOrNull()
         EmbedUi.Empty, is EmbedUi.External, is EmbedUi.Record,

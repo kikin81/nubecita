@@ -522,7 +522,8 @@ internal class FeedViewPostMapperTest {
         val quoted = (mapped.embed as EmbedUi.Record).quotedPost
         val images = quoted.embed as QuotedEmbedUi.Images
         assertEquals(2, images.items.size)
-        assertEquals("https://cdn/f.jpg", images.items[0].url)
+        assertEquals("https://cdn/f.jpg", images.items[0].fullsizeUrl)
+        assertEquals("https://cdn/t.jpg", images.items[0].thumbUrl)
     }
 
     @Test

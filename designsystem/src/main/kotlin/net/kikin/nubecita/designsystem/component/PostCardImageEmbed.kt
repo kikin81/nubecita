@@ -79,7 +79,11 @@ private fun SingleImage(
     val clickModifier =
         if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
     NubecitaAsyncImage(
-        model = image.url,
+        // PostCard renders the high-res variant — in-feed image embeds
+        // occupy a significant fraction of the viewport. Grid surfaces
+        // (Profile Media tab) use the thumbnail variant instead via
+        // [ImageUi.thumbOrFullsize].
+        model = image.fullsizeUrl,
         contentDescription = image.altText,
         modifier =
             modifier
@@ -150,7 +154,7 @@ private fun MultiImageCarousel(
                     .then(clickModifier),
         ) {
             NubecitaAsyncImage(
-                model = image.url,
+                model = image.fullsizeUrl,
                 contentDescription = image.altText,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
@@ -265,7 +269,8 @@ private fun previewImage(
     aspectRatio: Float? = 1.5f,
 ): ImageUi =
     ImageUi(
-        url = "https://example.com/placeholder/$index.jpg",
+        fullsizeUrl = "https://example.com/placeholder/$index.jpg",
+        thumbUrl = "https://example.com/placeholder/$index.jpg",
         altText = "Placeholder image $index",
         aspectRatio = aspectRatio,
     )
