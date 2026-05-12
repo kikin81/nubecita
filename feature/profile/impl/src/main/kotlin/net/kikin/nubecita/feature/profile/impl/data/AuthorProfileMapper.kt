@@ -5,7 +5,6 @@ import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.abs
 
 /**
  * Maps the atproto wire model [ProfileViewDetailed] into the UI-ready
@@ -40,7 +39,7 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
     )
 
 /**
- * Deterministic hue in `0..360` derived from `did + first char of
+ * Deterministic hue in `0..359` derived from `did + first char of
  * handle`. Used as the fallback gradient input by
  * [net.kikin.nubecita.designsystem.hero.BoldHeroGradient] when no
  * banner is set (and as the synchronous initial gradient while
@@ -48,15 +47,16 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
  *
  * Hashing `did` alone would mean two users with similar DIDs map to
  * the same hue; mixing in `handle.first()` spreads the hash across
- * the alphabet too. `abs(hashCode) mod 360` is intentionally cheap —
- * the spec only asks for "deterministic", not "perceptually uniform".
+ * the alphabet too. `Math.floorMod` is used (not `abs % 360`) because
+ * `abs(Int.MIN_VALUE)` is still `Int.MIN_VALUE` — `floorMod` returns
+ * a non-negative result for every input.
  */
 internal fun avatarHueFor(
     did: String,
     handle: String,
 ): Int {
     val seed = did + (handle.firstOrNull()?.toString() ?: "")
-    return abs(seed.hashCode()) % 360
+    return Math.floorMod(seed.hashCode(), 360)
 }
 
 /**

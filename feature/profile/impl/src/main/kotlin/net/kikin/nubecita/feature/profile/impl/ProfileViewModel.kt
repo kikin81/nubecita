@@ -173,6 +173,14 @@ internal class ProfileViewModel
             actor: String,
             tab: ProfileTab,
         ) {
+            // Refresh wins over any in-flight append: cancelling here
+            // prevents a stale append result from clobbering the
+            // refreshed page. The cursor-identity guard in `onLoadMore`
+            // is the belt-and-suspenders backup for the case where the
+            // append already finished its repository call before the
+            // cancel arrives.
+            activeLoadMoreJobs.remove(tab)?.cancel()
+
             val currentStatus = tabStatus(tab)
             // Mark the existing Loaded as refreshing; non-Loaded
             // statuses (Idle / InitialLoading / InitialError) just
@@ -215,21 +223,43 @@ internal class ProfileViewModel
                     repository
                         .fetchTab(actor, tab, cursor = current.cursor)
                         .onSuccess { page ->
-                            setTabStatus(tab) {
-                                current.copy(
-                                    items = (current.items + page.items).toImmutableList(),
-                                    isAppending = false,
-                                    hasMore = page.nextCursor != null,
-                                    cursor = page.nextCursor,
-                                )
+                            setTabStatus(tab) { latest ->
+                                // Refresh-vs-append race guard: only apply
+                                // the append if the snapshot we captured at
+                                // append-start is still the current state
+                                // (same cursor). If a refresh ran while we
+                                // were in-flight, the refresh's items win and
+                                // this append is dropped.
+                                if (latest is TabLoadStatus.Loaded &&
+                                    latest.cursor == current.cursor
+                                ) {
+                                    latest.copy(
+                                        items = (latest.items + page.items).toImmutableList(),
+                                        isAppending = false,
+                                        hasMore = page.nextCursor != null,
+                                        cursor = page.nextCursor,
+                                    )
+                                } else {
+                                    latest
+                                }
                             }
                         }.onFailure {
                             // Append failure: drop the spinner but
                             // preserve the cursor so a later scroll
                             // retries with the same cursor (no
                             // surfaced effect; per-tab partial
-                            // failures are silent).
-                            setTabStatus(tab) { current.copy(isAppending = false) }
+                            // failures are silent). Apply against the
+                            // latest state so a concurrent refresh
+                            // success isn't overwritten.
+                            setTabStatus(tab) { latest ->
+                                if (latest is TabLoadStatus.Loaded &&
+                                    latest.cursor == current.cursor
+                                ) {
+                                    latest.copy(isAppending = false)
+                                } else {
+                                    latest
+                                }
+                            }
                         }
                     activeLoadMoreJobs.remove(tab)
                 }

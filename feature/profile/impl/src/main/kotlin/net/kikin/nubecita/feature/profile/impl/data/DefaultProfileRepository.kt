@@ -35,12 +35,10 @@ internal class DefaultProfileRepository
                     val response = ActorService(client).getProfile(buildGetProfileRequest(actor))
                     response.toProfileHeaderUi()
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(
-                        throwable,
-                        "fetchHeader(actor=%s) failed: %s",
-                        actor,
-                        throwable.javaClass.name,
-                    )
+                    // `actor` is a raw DID or handle (PII). Log only the
+                    // error identity — matches the redaction discipline
+                    // applied to DIDs in `:core:auth/DefaultXrpcClientProvider`.
+                    Timber.tag(TAG).e(throwable, "fetchHeader failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -62,12 +60,13 @@ internal class DefaultProfileRepository
                         nextCursor = response.cursor,
                     )
                 }.onFailure { throwable ->
+                    // `actor` is a raw DID or handle (PII); `cursor` is
+                    // opaque appview state, also withheld. `tab` is a
+                    // closed enum — safe to include for triage.
                     Timber.tag(TAG).e(
                         throwable,
-                        "fetchTab(actor=%s, tab=%s, cursor=%s) failed: %s",
-                        actor,
+                        "fetchTab(tab=%s) failed: %s",
                         tab,
-                        cursor,
                         throwable.javaClass.name,
                     )
                 }
