@@ -204,7 +204,7 @@ sealed interface ProfileEvent : UiEvent {
      * parameterized event — mirrors the [ProfileEffect.ShowComingSoon] shape
      * on the effect side, keeping the VM dispatch a one-liner.
      */
-    data class StubAction(
+    data class StubActionTapped(
         val action: StubbedAction,
     ) : ProfileEvent
 

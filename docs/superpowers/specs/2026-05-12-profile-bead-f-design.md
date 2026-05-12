@@ -48,7 +48,7 @@ This bead closes the Profile epic. After it lands:
 
 :feature:profile:impl/
 ├── src/main/kotlin/.../
-│   ├── ProfileContract.kt                       # MODIFY: + StubbedAction.{Block,Mute,Report}, + ProfileEvent.StubAction
+│   ├── ProfileContract.kt                       # MODIFY: + StubbedAction.{Block,Mute,Report}, + ProfileEvent.StubActionTapped
 │   ├── ProfileScreen.kt                         # MODIFY: + onNavigateToSettings callback; wires existing effect branch
 │   ├── ProfileScreenContent.kt                  # MODIFY: pass viewerRelationship + new callbacks to ProfileHero
 │   ├── SettingsStubContract.kt                  # NEW
@@ -349,7 +349,7 @@ sealed interface ProfileEvent : UiEvent {
 enum class StubbedAction { Follow, Edit, Message, Block, Mute, Report }
 ```
 
-`StubAction` consolidates the three other-user overflow taps into one parameterized event, mirroring the existing `ShowComingSoon(action)` effect shape. The VM's handler is a one-liner: `is ProfileEvent.StubAction -> sendEffect(ProfileEffect.ShowComingSoon(event.action))`.
+`StubActionTapped` consolidates the three other-user overflow taps into one parameterized event, mirroring the existing `ShowComingSoon(action)` effect shape. The VM's handler is a one-liner: `is ProfileEvent.StubActionTapped -> sendEffect(ProfileEffect.ShowComingSoon(event.action))`. (Renamed from `StubAction` → `StubActionTapped` to match the `FollowTapped`/`EditTapped`/`MessageTapped`/`SettingsTapped` naming convention on the rest of `ProfileEvent`.)
 
 The screen's effect collector adds three new `StubbedAction` cases when picking the snackbar copy:
 
@@ -435,7 +435,7 @@ This bead is done when:
 - [ ] `:app`'s `MainShellPlaceholderModule` no longer references `Settings`; orphan strings removed.
 - [ ] `:designsystem` owns `PostDetailPaneEmptyState`; `:feature:feed:impl` calls it.
 - [ ] `AuthorProfileMapper` populates `viewerRelationship` from `viewer.following`; `ProfileViewModel` overrides to `Self` for own-profile.
-- [ ] `ProfileContract`: + `StubbedAction.{Block,Mute,Report}`; + `ProfileEvent.StubAction(StubbedAction)`; + `SettingsStubContract.kt`.
+- [ ] `ProfileContract`: + `StubbedAction.{Block,Mute,Report}`; + `ProfileEvent.StubActionTapped(StubbedAction)`; + `SettingsStubContract.kt`.
 - [ ] ~24 new screenshot baselines committed; orphan Feed baselines deleted.
 - [ ] All new + modified unit tests pass; instrumentation tests pass (`run-instrumented` label on the PR).
 - [ ] `./gradlew :designsystem:assembleDebug :feature:feed:impl:assembleDebug :feature:profile:impl:assembleDebug :feature:profile:impl:testDebugUnitTest :feature:profile:impl:validateDebugScreenshotTest :designsystem:validateDebugScreenshotTest :app:assembleDebug spotlessCheck lint :app:checkSortDependencies` all green locally.

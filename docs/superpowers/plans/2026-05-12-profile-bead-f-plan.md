@@ -29,7 +29,7 @@
 
 :feature:profile:impl/
 ├── src/main/kotlin/.../
-│   ├── ProfileContract.kt                       # MODIFY: + StubbedAction.{Block,Mute,Report}; + ProfileEvent.StubAction
+│   ├── ProfileContract.kt                       # MODIFY: + StubbedAction.{Block,Mute,Report}; + ProfileEvent.StubActionTapped
 │   ├── ProfileScreen.kt                         # MODIFY: + onNavigateToSettings + new effect snackbar copy
 │   ├── ProfileScreenContent.kt                  # MODIFY: pass viewerRelationship + new callbacks through ProfileHero
 │   ├── ProfileViewModel.kt                      # MODIFY: handle StubAction event; consume ProfileHeaderWithViewer
@@ -79,7 +79,7 @@ Everything else is mechanical wiring or test fixtures.
 
 ---
 
-## Task 1: Contract extensions — `StubbedAction.{Block,Mute,Report}` + `ProfileEvent.StubAction(action)` + new strings
+## Task 1: Contract extensions — `StubbedAction.{Block,Mute,Report}` + `ProfileEvent.StubActionTapped(action)` + new strings
 
 Foundational: nothing else compiles until these symbols exist. No behavior change yet.
 
@@ -87,7 +87,7 @@ Foundational: nothing else compiles until these symbols exist. No behavior chang
 - Modify: `feature/profile/impl/src/main/kotlin/net/kikin/nubecita/feature/profile/impl/ProfileContract.kt`
 - Modify: `feature/profile/impl/src/main/res/values/strings.xml`
 
-- [ ] **Step 1: Extend `StubbedAction` enum + add `ProfileEvent.StubAction`**
+- [ ] **Step 1: Extend `StubbedAction` enum + add `ProfileEvent.StubActionTapped`**
 
 Open `ProfileContract.kt`. Replace the existing `enum class StubbedAction { Follow, Edit, Message }` declaration with:
 
@@ -112,7 +112,7 @@ In the `sealed interface ProfileEvent : UiEvent { ... }` block, append after the
      * parameterized event — mirrors the [ProfileEffect.ShowComingSoon] shape
      * on the effect side, keeping the VM dispatch a one-liner.
      */
-    data class StubAction(
+    data class StubActionTapped(
         val action: StubbedAction,
     ) : ProfileEvent
 ```
@@ -201,11 +201,11 @@ Append to `ProfileViewModelTest.kt` after the existing `Media tab PostTapped emi
             val priorPostsCalls = repo.tabCalls[ProfileTab.Posts]!!.get()
 
             vm.effects.test {
-                vm.handleEvent(ProfileEvent.StubAction(StubbedAction.Block))
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Block))
                 assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Block), awaitItem())
-                vm.handleEvent(ProfileEvent.StubAction(StubbedAction.Mute))
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Mute))
                 assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Mute), awaitItem())
-                vm.handleEvent(ProfileEvent.StubAction(StubbedAction.Report))
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Report))
                 assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Report), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
@@ -227,7 +227,7 @@ Expected: FAIL — `MatchError` or similar because `ProfileViewModel.handleEvent
 In `ProfileViewModel.kt`, locate the `override fun handleEvent(event: ProfileEvent) { when (event) { … } }` block. Add a new branch:
 
 ```kotlin
-                is ProfileEvent.StubAction ->
+                is ProfileEvent.StubActionTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))
 ```
 
@@ -1144,7 +1144,7 @@ import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
  * The overflow menu's three entries each dispatch [onOverflowAction]
  * with the corresponding [StubbedAction] variant (`Block / Mute /
  * Report`); the screen-level handler routes those to
- * `ProfileEvent.StubAction(action) → ShowComingSoon(action)`.
+ * `ProfileEvent.StubActionTapped(action) → ShowComingSoon(action)`.
  *
  * The Follow / Message buttons share equal width via `Modifier.weight(1f)`;
  * the overflow stays content-sized.
@@ -1440,7 +1440,7 @@ In `ProfileScreenContent.kt`, locate the `item(key = "hero", contentType = "hero
                         onEditTap = { onEvent(ProfileEvent.EditTapped) },
                         onFollowTap = { onEvent(ProfileEvent.FollowTapped) },
                         onMessageTap = { onEvent(ProfileEvent.MessageTapped) },
-                        onOverflowAction = { action -> onEvent(ProfileEvent.StubAction(action)) },
+                        onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
                         onSettingsTap = { onEvent(ProfileEvent.SettingsTapped) },
                     )
                 }

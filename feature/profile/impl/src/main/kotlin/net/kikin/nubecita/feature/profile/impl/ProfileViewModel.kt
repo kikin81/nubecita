@@ -97,7 +97,7 @@ internal class ProfileViewModel
                     sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Edit))
                 ProfileEvent.MessageTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Message))
-                is ProfileEvent.StubAction ->
+                is ProfileEvent.StubActionTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
             }
