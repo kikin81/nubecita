@@ -199,6 +199,49 @@ internal class ProfileViewModelTest {
             assertNull(repo.lastTabCursor[ProfileTab.Media], "Media cursor MUST be unchanged by Posts LoadMore")
         }
 
+    @Test
+    fun `RetryTab re-launches initial tab load for the named tab`() =
+        runTest(mainDispatcher.dispatcher) {
+            // First call fails (initial load), second call succeeds (the retry).
+            val firstResult = Result.failure<ProfileTabPage>(IOException("net down"))
+            val secondResult = Result.success(EMPTY_PAGE)
+            val repo =
+                FakeProfileRepository(
+                    headerResult = Result.success(SAMPLE_HEADER),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to firstResult,
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+            assertTrue(
+                vm.uiState.value.postsStatus is TabLoadStatus.InitialError,
+                "after init the Posts tab MUST be in InitialError",
+            )
+            // Flip the fake's result for the next call.
+            repo.tabResults =
+                repo.tabResults.toMutableMap().apply {
+                    put(ProfileTab.Posts, secondResult)
+                }
+            val priorPostsCalls = repo.tabCalls[ProfileTab.Posts]!!.get()
+
+            vm.handleEvent(ProfileEvent.RetryTab(ProfileTab.Posts))
+            advanceUntilIdle()
+
+            assertEquals(
+                priorPostsCalls + 1,
+                repo.tabCalls[ProfileTab.Posts]!!.get(),
+                "RetryTab MUST issue exactly one additional fetchTab call",
+            )
+            assertTrue(
+                vm.uiState.value.postsStatus is TabLoadStatus.Loaded,
+                "after RetryTab succeeds the Posts tab MUST be in Loaded",
+            )
+        }
+
     // -- Test helpers ----------------------------------------------------------
 
     private fun newVm(
@@ -245,7 +288,7 @@ internal class ProfileViewModelTest {
      */
     private class FakeProfileRepository(
         private val headerResult: Result<ProfileHeaderUi> = Result.success(SAMPLE_HEADER),
-        private val tabResults: Map<ProfileTab, Result<ProfileTabPage>> =
+        var tabResults: Map<ProfileTab, Result<ProfileTabPage>> =
             ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
     ) : ProfileRepository {
         val headerCalls = AtomicInteger(0)

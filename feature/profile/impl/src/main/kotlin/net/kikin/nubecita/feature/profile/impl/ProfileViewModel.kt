@@ -78,6 +78,7 @@ internal class ProfileViewModel
                 is ProfileEvent.HandleTapped -> onHandleTapped(event.handle)
                 ProfileEvent.Refresh -> onRefresh()
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)
+                is ProfileEvent.RetryTab -> onRetryTab(event.tab)
                 ProfileEvent.FollowTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Follow))
                 ProfileEvent.EditTapped ->
@@ -264,6 +265,17 @@ internal class ProfileViewModel
                     activeLoadMoreJobs.remove(tab)
                 }
             activeLoadMoreJobs[tab] = job
+        }
+
+        /**
+         * Tab-level retry from the inline error state. Re-launches the
+         * initial-load path for the named tab via the same code path
+         * `launchInitialLoads` uses on first composition. No header
+         * refresh — header has its own retry affordance.
+         */
+        private fun onRetryTab(tab: ProfileTab) {
+            val actor = resolveActor() ?: return
+            launchInitialTabLoad(actor, tab)
         }
 
         // -- State / status helpers --------------------------------------------

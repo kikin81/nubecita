@@ -184,6 +184,11 @@ sealed interface ProfileEvent : UiEvent {
         val tab: ProfileTab,
     ) : ProfileEvent
 
+    /** User tapped an inline Retry affordance in a tab's InitialError state. */
+    data class RetryTab(
+        val tab: ProfileTab,
+    ) : ProfileEvent
+
     /** User tapped the Follow / Unfollow action — stubbed in this epic. */
     data object FollowTapped : ProfileEvent
 
