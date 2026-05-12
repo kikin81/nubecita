@@ -16,13 +16,12 @@ import net.kikin.nubecita.R
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.chats.api.Chats
-import net.kikin.nubecita.feature.profile.api.Settings
 import net.kikin.nubecita.feature.search.api.Search
 
 /**
- * Provides `@MainShell`-qualified placeholder entries for the three
+ * Provides `@MainShell`-qualified placeholder entries for the
  * top-level destinations whose `:feature:*:impl` modules don't exist
- * yet (Search, Chats, You) plus the You tab's `Settings` sub-route.
+ * yet (Search, Chats).
  *
  * Each entry renders a [PlaceholderScreen] labelled "<Destination> —
  * coming soon". When a destination's real `:impl` module ships (under
@@ -30,9 +29,9 @@ import net.kikin.nubecita.feature.search.api.Search
  * and the new module's `@MainShell EntryProviderInstaller` takes over —
  * a clean module boundary, no bridging artifacts.
  *
- * `:feature:feed:impl` already provides the Feed entry under
- * `@MainShell` (after migration in this change), so Feed is not
- * placeholdered here.
+ * `:feature:feed:impl` provides the Feed entry, and
+ * `:feature:profile:impl` provides the Profile + Settings entries,
+ * both under `@MainShell` — neither is placeholdered here.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -54,19 +53,6 @@ internal object MainShellPlaceholderModule {
         {
             entry<Chats> {
                 PlaceholderScreen(label = stringResource(R.string.main_shell_tab_chats))
-            }
-        }
-
-    @Provides
-    @IntoSet
-    @MainShell
-    fun provideSettingsPlaceholderEntries(): EntryProviderInstaller =
-        {
-            // Settings stub lands in Bead F (:feature:profile:impl will
-            // own the real entry). Until then, the placeholder stays
-            // here.
-            entry<Settings> {
-                PlaceholderScreen(label = stringResource(R.string.main_shell_settings))
             }
         }
 }
