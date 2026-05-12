@@ -126,11 +126,12 @@ internal class ProfileViewModel
                 setState { copy(headerError = null) }
                 repository
                     .fetchHeader(actor)
-                    .onSuccess { header ->
+                    .onSuccess { result ->
                         setState {
                             copy(
-                                header = header,
-                                viewerRelationship = if (ownProfile) ViewerRelationship.Self else viewerRelationship,
+                                header = result.header,
+                                viewerRelationship =
+                                    if (ownProfile) ViewerRelationship.Self else result.viewerRelationship,
                             )
                         }
                     }.onFailure { throwable ->

@@ -6,7 +6,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
-import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import timber.log.Timber
 import javax.inject.Inject
@@ -28,12 +27,12 @@ internal class DefaultProfileRepository
         private val xrpcClientProvider: XrpcClientProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ProfileRepository {
-        override suspend fun fetchHeader(actor: String): Result<ProfileHeaderUi> =
+        override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> =
             withContext(dispatcher) {
                 runCatching {
                     val client = xrpcClientProvider.authenticated()
                     val response = ActorService(client).getProfile(buildGetProfileRequest(actor))
-                    response.toProfileHeaderUi()
+                    response.toProfileHeaderWithViewer()
                 }.onFailure { throwable ->
                     // `actor` is a raw DID or handle (PII). Log only the
                     // error identity — matches the redaction discipline
