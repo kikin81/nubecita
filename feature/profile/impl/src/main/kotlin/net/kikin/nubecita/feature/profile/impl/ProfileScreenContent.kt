@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
+import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
 import net.kikin.nubecita.feature.profile.impl.ui.profileFeedTabBody
 import net.kikin.nubecita.feature.profile.impl.ui.profileMediaTabBody
 
@@ -45,6 +47,7 @@ internal fun ProfileScreenContent(
     snackbarHostState: SnackbarHostState,
     postCallbacks: PostCallbacks,
     onEvent: (ProfileEvent) -> Unit,
+    onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val pillTabs = rememberProfilePillTabs()
@@ -52,6 +55,7 @@ internal fun ProfileScreenContent(
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = { ProfileTopBar(header = state.header, listState = listState, onBack = onBack) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = activeTabIsRefreshing,
@@ -60,7 +64,10 @@ internal fun ProfileScreenContent(
         ) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .consumeWindowInsets(padding),
                 contentPadding = padding,
             ) {
                 item(key = "hero", contentType = "hero") {

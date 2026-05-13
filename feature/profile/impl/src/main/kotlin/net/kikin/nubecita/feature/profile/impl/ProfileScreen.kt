@@ -107,6 +107,7 @@ internal fun ProfileScreen(
         snackbarHostState = snackbarHostState,
         postCallbacks = callbacks,
         onEvent = viewModel::handleEvent,
+        onBack = null,
         modifier = modifier,
     )
 }
