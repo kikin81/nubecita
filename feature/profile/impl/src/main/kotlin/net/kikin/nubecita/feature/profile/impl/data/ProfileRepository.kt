@@ -34,6 +34,22 @@ internal interface ProfileRepository {
         cursor: String? = null,
         limit: Int = PROFILE_TAB_PAGE_LIMIT,
     ): Result<ProfileTabPage>
+
+    /**
+     * Writes an `app.bsky.graph.follow` record from the authenticated
+     * viewer to [subjectDid]. Returns the AT-URI of the new follow
+     * record on success — the caller stores it on
+     * [net.kikin.nubecita.feature.profile.impl.ViewerRelationship.Following.followUri]
+     * so the matching [unfollow] call can target it directly.
+     */
+    suspend fun follow(subjectDid: String): Result<String>
+
+    /**
+     * Deletes the `app.bsky.graph.follow` record at [followUri]. The
+     * URI is the value previously returned by [follow] (or surfaced
+     * by the appview on `getProfile.viewer.following`).
+     */
+    suspend fun unfollow(followUri: String): Result<Unit>
 }
 
 /**

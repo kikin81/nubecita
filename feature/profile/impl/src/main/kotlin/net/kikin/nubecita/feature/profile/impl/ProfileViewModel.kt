@@ -105,8 +105,7 @@ internal class ProfileViewModel
                 ProfileEvent.Refresh -> onRefresh()
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)
                 is ProfileEvent.RetryTab -> onRetryTab(event.tab)
-                ProfileEvent.FollowTapped ->
-                    sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Follow))
+                ProfileEvent.FollowTapped -> onFollowTapped()
                 ProfileEvent.EditTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Edit))
                 ProfileEvent.MessageTapped ->
@@ -333,6 +332,82 @@ internal class ProfileViewModel
         private fun onRetryTab(tab: ProfileTab) {
             val actor = resolveActor() ?: return
             launchInitialTabLoad(actor, tab)
+        }
+
+        /**
+         * Handle a Follow / Unfollow tap. Branches on the current
+         * [ViewerRelationship]:
+         *
+         * - [ViewerRelationship.NotFollowing] → optimistically flip to
+         *   `Following(followUri = null, isPending = true)`, then issue
+         *   `app.bsky.graph.follow` create. Success commits the wire
+         *   AT-URI; failure rolls back to the prior state and surfaces
+         *   a [ProfileEffect.ShowError] snackbar.
+         * - [ViewerRelationship.Following] → optimistically flip to
+         *   `NotFollowing(isPending = true)`, then issue
+         *   `app.bsky.graph.follow` delete against the URI carried on
+         *   the prior `Following` (the [Following.followUri] invariant
+         *   guarantees it is non-null when `isPending == false`).
+         * - [ViewerRelationship.Self] / [ViewerRelationship.None] /
+         *   any `isPending` variant → silent no-op. `isPending` is
+         *   the single-flight guard; the disabled-while-pending button
+         *   is its visible counterpart, and the early-return here
+         *   covers the wing-of-recomposition gap before the disable
+         *   propagates to the next frame.
+         */
+        private fun onFollowTapped() {
+            val current = uiState.value.viewerRelationship
+            if (current.isPending) return
+            when (current) {
+                is ViewerRelationship.NotFollowing -> launchFollow(previous = current)
+                is ViewerRelationship.Following -> {
+                    // Following with isPending=false implies followUri != null,
+                    // enforced by Following.init { require(...) }. The require here
+                    // surfaces an invariant violation rather than silently no-op'ing.
+                    val followUri =
+                        requireNotNull(current.followUri) {
+                            "committed Following MUST have a non-null followUri"
+                        }
+                    launchUnfollow(previous = current, followUri = followUri)
+                }
+                ViewerRelationship.Self, ViewerRelationship.None -> Unit
+            }
+        }
+
+        private fun launchFollow(previous: ViewerRelationship.NotFollowing) {
+            val targetDid = uiState.value.header?.did ?: return
+            setState {
+                copy(viewerRelationship = ViewerRelationship.Following(followUri = null, isPending = true))
+            }
+            viewModelScope.launch {
+                repository
+                    .follow(targetDid)
+                    .onSuccess { uri ->
+                        setState {
+                            copy(viewerRelationship = ViewerRelationship.Following(followUri = uri, isPending = false))
+                        }
+                    }.onFailure { throwable ->
+                        setState { copy(viewerRelationship = previous) }
+                        sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
+                    }
+            }
+        }
+
+        private fun launchUnfollow(
+            previous: ViewerRelationship.Following,
+            followUri: String,
+        ) {
+            setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = true)) }
+            viewModelScope.launch {
+                repository
+                    .unfollow(followUri)
+                    .onSuccess {
+                        setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = false)) }
+                    }.onFailure { throwable ->
+                        setState { copy(viewerRelationship = previous) }
+                        sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
+                    }
+            }
         }
 
         // -- State / status helpers --------------------------------------------

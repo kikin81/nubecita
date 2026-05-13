@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
@@ -53,11 +54,61 @@ enum class ProfileTab { Posts, Replies, Media }
  * currently-rendered profile. `Self` ↔ `state.ownProfile == true`;
  * the others apply only to other-user profiles.
  *
- * `viewerRelationship == NotFollowing` AND `state.ownProfile == true`
+ * `viewerRelationship is NotFollowing` AND `state.ownProfile == true`
  * is invalid; that combination MUST NOT be representable in any
  * reducer-emitted state.
+ *
+ * [isPending] flips to `true` for [Following] / [NotFollowing] while
+ * an in-flight `app.bsky.graph.follow` create / delete is pending the
+ * server's confirmation. The host composable disables the action
+ * button while pending so a second tap can't double-fire — the same
+ * `isPending` flag is the ViewModel's single-flight guard.
+ *
+ * On [Following] the [Following.followUri] is null **only** while
+ * pending the optimistic NotFollowing → Following flip; the wire
+ * response's `uri` populates it on success. The `init { require(...) }`
+ * on [Following] enforces this invariant — a committed `Following`
+ * (`isPending == false`) MUST carry a non-null URI so the matching
+ * `unfollow` path always has a record to delete.
+ *
+ * Marked `@Immutable` so Compose treats every variant — the data
+ * objects and the data classes (whose only fields are stable
+ * primitives) — as fully stable inputs to composables that take a
+ * `ViewerRelationship` parameter.
  */
-enum class ViewerRelationship { None, Self, Following, NotFollowing }
+@Immutable
+sealed interface ViewerRelationship {
+    val isPending: Boolean
+
+    data object None : ViewerRelationship {
+        override val isPending: Boolean = false
+    }
+
+    data object Self : ViewerRelationship {
+        override val isPending: Boolean = false
+    }
+
+    data class Following(
+        val followUri: String?,
+        override val isPending: Boolean = false,
+    ) : ViewerRelationship {
+        init {
+            // Invalid by construction: a committed Following without a
+            // followUri is unrecoverable (the unfollow write path can't
+            // target a record it doesn't have a URI for). The pending
+            // optimistic flip is the only legitimate `followUri == null`
+            // case — wire success then commits the URI returned from
+            // createRecord.
+            require(followUri != null || isPending) {
+                "Following.followUri may only be null while isPending == true"
+            }
+        }
+    }
+
+    data class NotFollowing(
+        override val isPending: Boolean = false,
+    ) : ViewerRelationship
+}
 
 /**
  * Header-row UI model. Derived from `app.bsky.actor.defs#profileViewDetailed`
@@ -189,7 +240,11 @@ sealed interface ProfileEvent : UiEvent {
         val tab: ProfileTab,
     ) : ProfileEvent
 
-    /** User tapped the Follow / Unfollow action — stubbed in this epic. */
+    /**
+     * User tapped the Follow / Unfollow action. Drives an optimistic
+     * [ViewerRelationship.Following] / [ViewerRelationship.NotFollowing]
+     * flip, then issues `app.bsky.graph.follow` create or delete.
+     */
     data object FollowTapped : ProfileEvent
 
     /** User tapped the Edit action — stubbed in this epic. */
@@ -267,10 +322,12 @@ sealed interface ProfileEffect : UiEffect {
 
 /**
  * Which stubbed write action triggered a "Coming soon" snackbar.
- * Lets the screen pick per-action copy (`Follow coming soon` vs
- * `Edit profile coming soon`) without coupling the VM to UI strings.
+ * Lets the screen pick per-action copy (`Edit profile coming soon` vs
+ * `Block — coming soon`) without coupling the VM to UI strings.
  *
  * Bead F adds Block / Mute / Report to cover the other-user overflow-menu
- * stubs. The real moderation writes ship under follow-up bd 7.7.
+ * stubs. The real moderation writes ship under follow-up bd 7.7. The
+ * Follow stub was removed in nubecita-39l once `app.bsky.graph.follow`
+ * writes landed.
  */
-enum class StubbedAction { Follow, Edit, Message, Block, Mute, Report }
+enum class StubbedAction { Edit, Message, Block, Mute, Report }

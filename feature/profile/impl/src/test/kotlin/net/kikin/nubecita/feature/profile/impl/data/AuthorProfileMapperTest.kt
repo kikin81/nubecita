@@ -124,15 +124,19 @@ internal class AuthorProfileMapperTest {
     }
 
     @Test
-    fun `toProfileHeaderWithViewer returns ViewerRelationship_Following when viewer follows the subject`() {
+    fun `toProfileHeaderWithViewer returns ViewerRelationship_Following carrying the follow AT-URI when viewer follows`() {
+        val followUri = "at://did:plc:viewer/app.bsky.graph.follow/abc"
         val wire =
             sampleView(
-                viewer = ViewerState(following = AtUri("at://did:plc:viewer/app.bsky.graph.follow/abc")),
+                viewer = ViewerState(following = AtUri(followUri)),
             )
 
         val result = wire.toProfileHeaderWithViewer()
 
-        assertEquals(ViewerRelationship.Following, result.viewerRelationship)
+        assertEquals(
+            ViewerRelationship.Following(followUri = followUri, isPending = false),
+            result.viewerRelationship,
+        )
     }
 
     @Test
@@ -144,7 +148,7 @@ internal class AuthorProfileMapperTest {
 
         val result = wire.toProfileHeaderWithViewer()
 
-        assertEquals(ViewerRelationship.NotFollowing, result.viewerRelationship)
+        assertEquals(ViewerRelationship.NotFollowing(isPending = false), result.viewerRelationship)
     }
 
     private fun sampleView(
