@@ -291,6 +291,19 @@ internal class DefaultPostInteractionsCacheTest {
             assertEquals(PendingState.None, final?.pendingLikeWrite)
         }
 
+    @Test
+    fun `clear empties the cache state`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            cache.seedDirectly("at://post-a", PostInteractionState(viewerLikeUri = null, likeCount = 1))
+            cache.seedDirectly("at://post-b", PostInteractionState(viewerLikeUri = "at://like/x", likeCount = 9))
+            assertEquals(2, cache.state.value.size)
+
+            cache.clear()
+
+            assertTrue(cache.state.value.isEmpty(), "clear MUST empty the cache state")
+        }
+
     // -- Test helpers ---------------------------------------------------------
 
     private fun TestScope.newCache(fake: FakeLikeRepostRepository): DefaultPostInteractionsCache =

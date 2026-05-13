@@ -142,6 +142,6 @@ internal class DefaultPostInteractionsCache
         }
 
         override fun clear() {
-            TODO("Task 13: clear()")
+            _state.value = persistentMapOf()
         }
     }
