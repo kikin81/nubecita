@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import android.content.res.Configuration
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
@@ -126,15 +127,20 @@ private object FixtureClock : Clock {
 }
 
 @Composable
-private fun ProfileScreenContentHost(state: ProfileScreenViewState) {
+private fun ProfileScreenContentHost(
+    state: ProfileScreenViewState,
+    listStateSeed: LazyListState? = null,
+) {
     NubecitaTheme(dynamicColor = false) {
         CompositionLocalProvider(LocalClock provides FixtureClock) {
+            val listState = listStateSeed ?: rememberLazyListState()
             ProfileScreenContent(
                 state = state,
-                listState = rememberLazyListState(),
+                listState = listState,
                 snackbarHostState = remember { SnackbarHostState() },
                 postCallbacks = PostCallbacks.None,
                 onEvent = {},
+                onBack = null,
             )
         }
     }
@@ -335,6 +341,26 @@ private fun ProfileScreenOtherUserFollowingScreenshot() {
     )
 }
 
+// ─── Scrolled-away bar fixtures ──────────────────────────────────────────────
+
+@PreviewTest
+@Preview(name = "screen-scrolled-away-light", showBackground = true, heightDp = 1100)
+@Preview(
+    name = "screen-scrolled-away-dark",
+    showBackground = true,
+    heightDp = 1100,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun ProfileScreenScrolledAwayScreenshot() {
+    // Pre-seed the LazyListState so the LazyColumn renders past the hero.
+    // Index 1 means the hero (item index 0) is fully scrolled away → bar α = 1.
+    ProfileScreenContentHost(
+        state = sampleLoadedState(),
+        listStateSeed = LazyListState(firstVisibleItemIndex = 1, firstVisibleItemScrollOffset = 0),
+    )
+}
+
 // ─── Medium-width two-pane fixture ────────────────────────────────────────────
 
 /**
@@ -387,6 +413,7 @@ private fun ProfileScreenMediumTwoPaneEmptyScreenshot() {
                                 snackbarHostState = remember { SnackbarHostState() },
                                 postCallbacks = PostCallbacks.None,
                                 onEvent = {},
+                                onBack = null,
                             )
                         }
                     }
