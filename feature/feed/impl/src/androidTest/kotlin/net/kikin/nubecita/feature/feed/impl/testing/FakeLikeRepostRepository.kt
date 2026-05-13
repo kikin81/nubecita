@@ -2,7 +2,7 @@ package net.kikin.nubecita.feature.feed.impl.testing
 
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
-import net.kikin.nubecita.feature.feed.impl.data.LikeRepostRepository
+import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
