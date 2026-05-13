@@ -1,22 +1,11 @@
 package net.kikin.nubecita.designsystem.tabs
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.Text
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -44,32 +33,41 @@ public data class PillTab<T>(
 )
 
 /**
- * Pill-shaped tab row used on the profile screen (Posts / Replies /
- * Media). Each pill is 36 dp tall. The active tab fills with the
- * theme's `primary` color and its icon renders with the `FILL`
- * variable axis at 1; inactive tabs render transparent with
- * `onSurface` content color and `FILL = 0`.
+ * Single-selection segmented control used on the profile screen
+ * (Posts / Replies / Media). Built on M3 Expressive's [ButtonGroup]
+ * with [androidx.compose.material3.ButtonGroupScope.toggleableItem]
+ * children — replaces the deprecated `SegmentedButton` per the M3
+ * docs' migration guidance.
  *
- * Implemented as a thin wrapper over [PrimaryTabRow] — the indicator
- * slot is suppressed (`indicator = {}`) and the pill background is
- * painted directly via the selected tab's [Modifier.background] gated
- * on `isSelected`. The bottom divider is suppressed so the row reads
- * as freestanding pill chrome rather than M3's default underline-tab
- * pattern. See the inline comment in the implementation for the
- * z-order rationale (M3 1.5 draws the indicator slot on top of tabs).
+ * Single-selection semantics over [ButtonGroup]'s boolean-toggle
+ * primitive: each item only forwards `onCheckedChange(true)` to
+ * [onSelect]; tapping the already-selected pill is a no-op (we
+ * don't fire `onSelect` for `onCheckedChange(false)`, since
+ * "deselecting the active tab" is not a valid state). Selection
+ * state is hoisted via [selectedValue]; the composable does not
+ * internally re-render until the caller updates that value.
+ *
+ * Each item carries its [PillTab.iconName] as a leading icon. The
+ * `filled` axis of [NubecitaIcon] tracks selection so the selected
+ * pill's icon reads as the active state.
+ *
+ * Equal-width pills: every item gets `weight = 1f` so the row
+ * distributes available width evenly. The fixed three-item set never
+ * overflows; the required `overflowIndicator` slot is intentionally
+ * empty.
  *
  * @param tabs Ordered list of pill configurations. Display order is
  *   the iteration order (left-to-right in LTR).
  * @param selectedValue The currently-active pill's [PillTab.value].
  *   When [selectedValue] does not match any `tabs[i].value` (e.g.
- *   during a transient mismatch while caller state catches up), the
- *   first tab is rendered as selected as a graceful fallback — the
- *   component never crashes on stale input.
- * @param onSelect Invoked when the user taps a pill. Receives the
- *   tapped pill's [PillTab.value]. State hoisting is preserved —
- *   the composable does not internally re-render with a new
- *   selection until the caller updates [selectedValue].
+ *   during a transient mismatch while caller state catches up), no
+ *   pill renders as selected — the component never crashes on stale
+ *   input.
+ * @param onSelect Invoked when the user taps an unselected pill.
+ *   Receives the tapped pill's [PillTab.value]. NOT invoked when the
+ *   user taps the already-selected pill.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 public fun <T> ProfilePillTabs(
     tabs: ImmutableList<PillTab<T>>,
@@ -78,66 +76,35 @@ public fun <T> ProfilePillTabs(
     modifier: Modifier = Modifier,
 ) {
     if (tabs.isEmpty()) return
-    val selectedIndex = tabs.indexOfFirst { it.value == selectedValue }.coerceAtLeast(0)
-
-    // M3 1.5 draws the indicator slot ON TOP of the tabs (see
-    // TabRow.kt TabRowImpl: tabs placed first, indicator placed last —
-    // last-placed wins z-order). A pill background drawn through the
-    // indicator slot would obscure the selected tab's icon + label.
-    // Instead, suppress the indicator slot entirely and paint the pill
-    // as the Tab's own Modifier.background, gated on `isSelected`.
-    // Tradeoff: no slide animation between tabs (the pill snaps). The
-    // M3 expressive look is preserved; a sliding indicator can be a
-    // future polish bead if design wants it.
-    PrimaryTabRow(
-        selectedTabIndex = selectedIndex,
-        modifier = modifier,
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        indicator = {},
-        // Suppress the default HorizontalDivider — the pills are
-        // freestanding chrome, not an M3 underline-tab row.
-        divider = {},
+    ButtonGroup(
+        // The 3 profile tabs always fit; the overflow slot is required
+        // by the API surface but is unreachable in this configuration.
+        overflowIndicator = {},
+        modifier = modifier.padding(horizontal = ButtonGroupHorizontalPadding),
     ) {
-        tabs.forEachIndexed { index, tab ->
-            val isSelected = index == selectedIndex
-            val pillModifier =
-                if (isSelected) {
-                    Modifier
-                        .height(PillHeight)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                } else {
-                    Modifier.height(PillHeight)
-                }
-            Tab(
-                selected = isSelected,
-                onClick = { onSelect(tab.value) },
-                modifier = pillModifier,
-                selectedContentColor = MaterialTheme.colorScheme.onPrimary,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurface,
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = PillHorizontalPadding),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(PillIconLabelGap),
-                ) {
+        tabs.forEach { tab ->
+            val isSelected = tab.value == selectedValue
+            toggleableItem(
+                checked = isSelected,
+                label = tab.label,
+                onCheckedChange = { newChecked ->
+                    // Tapping the selected pill fires onCheckedChange(false)
+                    // which we ignore — there is no "no tab selected"
+                    // state. Tapping an unselected pill fires
+                    // onCheckedChange(true) which delegates to onSelect.
+                    if (newChecked) onSelect(tab.value)
+                },
+                icon = {
                     NubecitaIcon(
                         name = tab.iconName,
                         contentDescription = null,
                         filled = isSelected,
-                        tint = LocalContentColor.current,
                     )
-                    Text(
-                        text = tab.label,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            }
+                },
+                weight = 1f,
+            )
         }
     }
 }
 
-private val PillHeight = 36.dp
-private val PillHorizontalPadding = 12.dp
-private val PillIconLabelGap = 6.dp
+private val ButtonGroupHorizontalPadding = 16.dp

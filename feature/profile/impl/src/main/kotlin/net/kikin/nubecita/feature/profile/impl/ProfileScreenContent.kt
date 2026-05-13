@@ -1,10 +1,13 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -15,10 +18,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
+import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
 import net.kikin.nubecita.feature.profile.impl.ui.profileFeedTabBody
 import net.kikin.nubecita.feature.profile.impl.ui.profileMediaTabBody
 
@@ -45,6 +51,7 @@ internal fun ProfileScreenContent(
     snackbarHostState: SnackbarHostState,
     postCallbacks: PostCallbacks,
     onEvent: (ProfileEvent) -> Unit,
+    onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val pillTabs = rememberProfilePillTabs()
@@ -52,7 +59,19 @@ internal fun ProfileScreenContent(
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = { ProfileTopBar(header = state.header, listState = listState, onBack = onBack) },
     ) { padding ->
+        // Layout strategy: the LazyColumn fills the FULL Scaffold area
+        // (extending behind the topBar). The bar's top inset flows through
+        // `contentPadding.top` — so the sticky pill row docks just below
+        // the bar — and the hero item (item 0) uses `Modifier.layout` to
+        // shrink its slot by `topInsetPx` while pulling its drawn position
+        // up by the same amount. Net: the hero's gradient draws edge-to-
+        // edge from the very top of the screen (under the alpha-modulated
+        // bar), no empty band on landing; the pills still dock cleanly
+        // below the bar; and `PullToRefreshBox`'s indicator anchors at the
+        // bar's bottom edge (its bounds are also full-screen now, but the
+        // contentPadding flows through the LazyColumn's drag offset).
         PullToRefreshBox(
             isRefreshing = activeTabIsRefreshing,
             onRefresh = { onEvent(ProfileEvent.Refresh) },
@@ -64,6 +83,9 @@ internal fun ProfileScreenContent(
                 contentPadding = padding,
             ) {
                 item(key = "hero", contentType = "hero") {
+                    val density = LocalDensity.current
+                    val topInsetPx =
+                        with(density) { padding.calculateTopPadding().roundToPx() }
                     ProfileHero(
                         header = state.header,
                         headerError = state.headerError,
@@ -75,14 +97,41 @@ internal fun ProfileScreenContent(
                         onMessageTap = { onEvent(ProfileEvent.MessageTapped) },
                         onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
                         onSettingsTap = { onEvent(ProfileEvent.SettingsTapped) },
+                        modifier =
+                            Modifier.layout { measurable, constraints ->
+                                // Measure the hero at its natural size, then
+                                // shrink its layout slot by `topInsetPx` (so
+                                // the next item — the pills stickyHeader —
+                                // starts at the hero's visible bottom, not
+                                // `topInsetPx` below it) and pull its placed
+                                // position up by `topInsetPx` (so it draws
+                                // from the LazyColumn's bounds top, which is
+                                // the screen top behind the transparent bar).
+                                val placeable = measurable.measure(constraints)
+                                val slotHeight =
+                                    (placeable.height - topInsetPx).coerceAtLeast(0)
+                                layout(placeable.width, slotHeight) {
+                                    placeable.place(0, -topInsetPx)
+                                }
+                            },
                     )
                 }
                 stickyHeader(key = "tabs", contentType = "tabs") {
-                    ProfilePillTabs(
-                        tabs = pillTabs,
-                        selectedValue = state.selectedTab,
-                        onSelect = { tab -> onEvent(ProfileEvent.TabSelected(tab)) },
-                    )
+                    // Solid surface backdrop matches the bar above it once
+                    // the user has scrolled past the hero — bar + pills read
+                    // as one continuous header surface when stuck. While the
+                    // hero is in view, the pills sit on the same surface
+                    // tone the bar will fade to, which is intentionally NOT
+                    // the gradient color (an earlier iteration sampled the
+                    // hero gradient here, but contrast against the pill
+                    // chips' content was unworkable on saturated banners).
+                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                        ProfilePillTabs(
+                            tabs = pillTabs,
+                            selectedValue = state.selectedTab,
+                            onSelect = { tab -> onEvent(ProfileEvent.TabSelected(tab)) },
+                        )
+                    }
                 }
                 when (state.selectedTab) {
                     ProfileTab.Posts ->

@@ -40,6 +40,9 @@
     <!-- Hero accessibility -->
     <string name="profile_avatar_content_description">Profile photo of %1$s</string>
 
+    <!-- Top bar accessibility -->
+    <string name="profile_topbar_back_content_description">Go back</string>
+
     <!-- Tab body — empty states (per-tab copy) -->
     <string name="profile_posts_empty_title">No posts yet</string>
     <string name="profile_posts_empty_body">When this user posts, you\'ll see it here.</string>

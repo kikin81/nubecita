@@ -11,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 
 /**
@@ -101,12 +102,21 @@ internal fun ProfileScreen(
         }
     }
 
+    val mainShellNavState = LocalMainShellNavState.current
+    val onBack: (() -> Unit)? =
+        if (state.handle != null) {
+            { mainShellNavState.removeLast() }
+        } else {
+            null
+        }
+
     ProfileScreenContent(
         state = state,
         listState = listState,
         snackbarHostState = snackbarHostState,
         postCallbacks = callbacks,
         onEvent = viewModel::handleEvent,
+        onBack = onBack,
         modifier = modifier,
     )
 }
