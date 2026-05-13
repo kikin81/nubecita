@@ -111,7 +111,22 @@ internal fun ProfileTopBar(
             )
         }
     }
+    ProfileTopBar(header = header, alpha = alpha, onBack = onBack, modifier = modifier)
+}
 
+/**
+ * Alpha-driven overload — the screenshot baselines render this directly
+ * with hard-coded α values. The listState-driven public overload is a
+ * thin computeBarAlpha + derivedStateOf wrapper around this body.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ProfileTopBar(
+    header: ProfileHeaderUi?,
+    alpha: Float,
+    onBack: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     // Gradient sample shared with ProfileHero (cache hit when the hero has
     // already measured + extracted). Falls back to the avatarHue-derived
     // gradient when no banner; transparent when header itself is still null
