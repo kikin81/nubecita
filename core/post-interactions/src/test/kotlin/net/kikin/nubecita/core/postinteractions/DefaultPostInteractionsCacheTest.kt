@@ -377,18 +377,14 @@ internal class DefaultPostInteractionsCacheTest {
 
     /**
      * Direct injection helper for tests that need pre-existing state without
-     * going through `seed(posts: List<PostUi>)`. Reaches into the private
-     * `_state` MutableStateFlow via reflection.
+     * going through `seed(posts: List<PostUi>)`. Uses the [DefaultPostInteractionsCache.putForTest]
+     * `@TestOnly` seam for type-safety across refactors — no reflection.
      */
     private fun DefaultPostInteractionsCache.seedDirectly(
         postUri: String,
         state: PostInteractionState,
     ) {
-        val field = DefaultPostInteractionsCache::class.java.getDeclaredField("_state")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val flow = field.get(this) as kotlinx.coroutines.flow.MutableStateFlow<kotlinx.collections.immutable.PersistentMap<String, PostInteractionState>>
-        flow.value = flow.value.put(postUri, state)
+        putForTest(postUri, state)
     }
 
     private fun samplePost(

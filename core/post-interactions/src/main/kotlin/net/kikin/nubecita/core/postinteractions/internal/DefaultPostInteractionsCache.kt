@@ -200,4 +200,17 @@ internal class DefaultPostInteractionsCache
         // SessionClearable — delegates to clear() so sign-out and the
         // PostInteractionsCache.clear() contract stay in sync.
         override fun clearSession() = clear()
+
+        /**
+         * Test-only seam: directly inserts [state] for [postUri] without going through
+         * `seed(List<PostUi>)`. Type-safe alternative to reaching `_state` via reflection.
+         * Do NOT call from production code.
+         */
+        @org.jetbrains.annotations.TestOnly
+        internal fun putForTest(
+            postUri: String,
+            state: PostInteractionState,
+        ) {
+            _state.update { it.put(postUri, state) }
+        }
     }
