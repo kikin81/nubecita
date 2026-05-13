@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.postinteractions
 
 import io.github.kikin81.atproto.runtime.AtUri
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.TestScope
@@ -8,10 +9,16 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.internal.FakeLikeRepostRepository
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ViewerStateUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DefaultPostInteractionsCacheTest {
@@ -156,6 +163,81 @@ internal class DefaultPostInteractionsCacheTest {
             )
         }
 
+    @Test
+    fun `seed on empty cache writes wire data for every post`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            val post =
+                samplePost(
+                    id = "at://post-seed-1",
+                    viewerLikeUri = null,
+                    viewerRepostUri = null,
+                    likeCount = 5,
+                    repostCount = 2,
+                )
+
+            cache.seed(listOf(post))
+
+            val state = cache.state.value["at://post-seed-1"]
+            assertEquals(null, state?.viewerLikeUri)
+            assertEquals(null, state?.viewerRepostUri)
+            assertEquals(5L, state?.likeCount)
+            assertEquals(2L, state?.repostCount)
+            assertEquals(PendingState.None, state?.pendingLikeWrite)
+        }
+
+    @Test
+    fun `seed preserves in-flight optimistic state against stale wire data`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            val pendingState =
+                PostInteractionState(
+                    viewerLikeUri = "at://pending:optimistic",
+                    likeCount = 6,
+                    pendingLikeWrite = PendingState.Pending,
+                )
+            cache.seedDirectly("at://post-pending", pendingState)
+
+            // Wire data shows the like as not-yet-indexed (stale because the
+            // appview hasn't caught up to the user's recent createRecord).
+            val stalePost =
+                samplePost(
+                    id = "at://post-pending",
+                    viewerLikeUri = null,
+                    likeCount = 5,
+                )
+            cache.seed(listOf(stalePost))
+
+            val state = cache.state.value["at://post-pending"]
+            assertEquals(
+                pendingState,
+                state,
+                "seed MUST preserve in-flight optimistic state entirely while pending",
+            )
+        }
+
+    @Test
+    fun `seed reseeds from wire when no write is pending and wire is fresh`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            val existing = PostInteractionState(viewerLikeUri = null, likeCount = 5)
+            cache.seedDirectly("at://post-reseed", existing)
+
+            // Wire returns updated counts and a fresh-from-server like AtUri
+            // (someone else may have liked between fetches).
+            val freshPost =
+                samplePost(
+                    id = "at://post-reseed",
+                    viewerLikeUri = "at://did:plc:viewer/app.bsky.feed.like/fresh",
+                    likeCount = 8,
+                )
+            cache.seed(listOf(freshPost))
+
+            val state = cache.state.value["at://post-reseed"]
+            assertEquals("at://did:plc:viewer/app.bsky.feed.like/fresh", state?.viewerLikeUri)
+            assertEquals(8L, state?.likeCount)
+        }
+
     // -- Test helpers ---------------------------------------------------------
 
     private fun TestScope.newCache(fake: FakeLikeRepostRepository): DefaultPostInteractionsCache =
@@ -179,4 +261,34 @@ internal class DefaultPostInteractionsCacheTest {
         val flow = field.get(this) as kotlinx.coroutines.flow.MutableStateFlow<kotlinx.collections.immutable.PersistentMap<String, PostInteractionState>>
         flow.value = flow.value.put(postUri, state)
     }
+
+    private fun samplePost(
+        id: String = "at://did:plc:author/app.bsky.feed.post/p1",
+        viewerLikeUri: String? = null,
+        viewerRepostUri: String? = null,
+        likeCount: Int = 0,
+        repostCount: Int = 0,
+    ): PostUi =
+        PostUi(
+            id = id,
+            cid = "bafyreifake",
+            author =
+                AuthorUi(
+                    did = "did:plc:author",
+                    handle = "author.bsky.social",
+                    displayName = "Author",
+                    avatarUrl = null,
+                ),
+            createdAt = Instant.parse("2025-01-01T00:00:00Z"),
+            text = "",
+            facets = persistentListOf(),
+            embed = EmbedUi.Empty,
+            stats = PostStatsUi(likeCount = likeCount, repostCount = repostCount),
+            viewer =
+                ViewerStateUi(
+                    likeUri = viewerLikeUri,
+                    repostUri = viewerRepostUri,
+                ),
+            repostedBy = null,
+        )
 }

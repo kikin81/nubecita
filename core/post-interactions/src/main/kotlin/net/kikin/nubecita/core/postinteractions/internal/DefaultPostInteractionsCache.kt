@@ -47,7 +47,33 @@ internal class DefaultPostInteractionsCache
         override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
 
         override fun seed(posts: List<PostUi>) {
-            TODO("Task 11: seed merger rules")
+            _state.update { current ->
+                posts.fold(current) { acc, post ->
+                    val existing = acc[post.id]
+                    val merged =
+                        when {
+                            // In-flight optimistic state takes precedence over wire data.
+                            existing?.pendingLikeWrite == PendingState.Pending ||
+                                existing?.pendingRepostWrite == PendingState.Pending -> existing
+                            // Cached likeUri non-null but wire says null: assume appview lag,
+                            // preserve cache. Same for repost.
+                            existing != null &&
+                                existing.viewerLikeUri != null &&
+                                post.viewer.likeUri == null -> existing
+                            existing != null &&
+                                existing.viewerRepostUri != null &&
+                                post.viewer.repostUri == null -> existing
+                            else ->
+                                PostInteractionState(
+                                    viewerLikeUri = post.viewer.likeUri,
+                                    viewerRepostUri = post.viewer.repostUri,
+                                    likeCount = post.stats.likeCount.toLong(),
+                                    repostCount = post.stats.repostCount.toLong(),
+                                )
+                        }
+                    acc.put(post.id, merged)
+                }
+            }
         }
 
         override suspend fun toggleLike(
