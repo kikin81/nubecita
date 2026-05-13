@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.postinteractions.internal
 
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri

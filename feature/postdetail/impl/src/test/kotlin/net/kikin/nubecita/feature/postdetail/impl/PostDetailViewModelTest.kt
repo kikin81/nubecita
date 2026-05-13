@@ -4,11 +4,14 @@ import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -383,24 +386,98 @@ internal class PostDetailViewModelTest {
             }
         }
 
+    // ---------- cache interaction tests ----------
+
+    @Test
+    fun `OnLikeClicked dispatches cache toggleLike with focused post id and cid`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cache = FakePostInteractionsCache()
+            val vm = newVm(FakeRepo(), cache = cache)
+            val post = samplePost("at://x", cid = "bafyX")
+
+            vm.handleEvent(PostDetailEvent.OnLikeClicked(post))
+            advanceUntilIdle()
+
+            assertEquals(1, cache.toggleLikeCalls.get())
+            assertEquals("at://x" to "bafyX", cache.lastToggleLikeArgs.last())
+        }
+
+    @Test
+    fun `OnLikeClicked failure surfaces PostDetailEffect_ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cache = FakePostInteractionsCache()
+            cache.nextToggleLikeResult = Result.failure(IOException("like failed"))
+            val vm = newVm(FakeRepo(), cache = cache)
+            val post = samplePost("at://x")
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnLikeClicked(post))
+                advanceUntilIdle()
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.ShowError)
+                assertEquals(PostDetailError.Network, (effect as PostDetailEffect.ShowError).error)
+            }
+        }
+
+    @Test
+    fun `cache emission projects onto Focus and Reply thread items`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cache = FakePostInteractionsCache()
+            val focusPost = samplePost("at://focus")
+            val replyPost = samplePost("at://reply")
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(focusPost),
+                    ThreadItem.Reply(replyPost, depth = 1),
+                )
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, cache = cache)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            // Emit a cache state with updated interaction for both posts.
+            val focusState = PostInteractionState(viewerLikeUri = "at://likeuri-focus", likeCount = 5L)
+            val replyState = PostInteractionState(viewerLikeUri = "at://likeuri-reply", likeCount = 3L)
+            cache.emit(
+                persistentMapOf(
+                    "at://focus" to focusState,
+                    "at://reply" to replyState,
+                ),
+            )
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            val focusItem = state.items.filterIsInstance<ThreadItem.Focus>().first()
+            val replyItem = state.items.filterIsInstance<ThreadItem.Reply>().first()
+
+            assertTrue(focusItem.post.viewer.isLikedByViewer)
+            assertEquals(5, focusItem.post.stats.likeCount)
+            assertTrue(replyItem.post.viewer.isLikedByViewer)
+            assertEquals(3, replyItem.post.stats.likeCount)
+        }
+
     // ---------- helpers ----------
 
     private fun newVm(
         repo: PostThreadRepository,
         focusUri: String = "at://focus",
+        cache: PostInteractionsCache = FakePostInteractionsCache(),
     ): PostDetailViewModel =
         PostDetailViewModel(
             route = PostDetailRoute(postUri = focusUri),
             postThreadRepository = repo,
+            postInteractionsCache = cache,
         )
 
     private fun samplePost(
         id: String,
         text: String = "sample text",
+        cid: String = "bafyreifakefakefakefakefakefakefakefakefakefake",
     ): PostUi =
         PostUi(
             id = id,
-            cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
+            cid = cid,
             author =
                 AuthorUi(
                     did = "did:plc:test",

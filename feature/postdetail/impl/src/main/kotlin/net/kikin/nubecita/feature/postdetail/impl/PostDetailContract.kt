@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 
 /**
@@ -136,6 +137,16 @@ internal sealed interface PostDetailEvent : UiEvent {
      */
     data class OnFocusImageClicked(
         val imageIndex: Int,
+    ) : PostDetailEvent
+
+    /** User tapped like on the focused post or a thread reply. */
+    data class OnLikeClicked(
+        val post: PostUi,
+    ) : PostDetailEvent
+
+    /** User tapped repost on the focused post or a thread reply. */
+    data class OnRepostClicked(
+        val post: PostUi,
     ) : PostDetailEvent
 }
 

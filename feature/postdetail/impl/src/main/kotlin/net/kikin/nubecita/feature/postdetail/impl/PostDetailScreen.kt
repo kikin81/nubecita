@@ -97,14 +97,11 @@ internal fun PostDetailScreen(
 
     val callbacks =
         remember(viewModel) {
-            // m28.5.1 wires only the navigation callbacks. Like / repost /
-            // share / reply land with the visual treatment in m28.5.2; the
-            // `PostCallbacks.None`-shaped defaults make those gestures
-            // no-op silently here without TalkBack announcing them (see
-            // PostCallbacks KDoc on `onShareLongPress = null`).
             PostCallbacks(
                 onTap = { viewModel.handleEvent(PostDetailEvent.OnPostTapped(it.id)) },
                 onAuthorTap = { viewModel.handleEvent(PostDetailEvent.OnAuthorTapped(it.did)) },
+                onLike = { viewModel.handleEvent(PostDetailEvent.OnLikeClicked(it)) },
+                onRepost = { viewModel.handleEvent(PostDetailEvent.OnRepostClicked(it)) },
             )
         }
 

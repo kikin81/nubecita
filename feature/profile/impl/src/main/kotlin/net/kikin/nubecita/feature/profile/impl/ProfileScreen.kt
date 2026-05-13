@@ -43,10 +43,8 @@ internal fun ProfileScreen(
                 onAuthorTap = { author ->
                     viewModel.handleEvent(ProfileEvent.HandleTapped(author.handle))
                 },
-                // Bead D ships read-only — like/repost/reply/share are no-ops here.
-                // Wire to real handlers when the Profile epic adds writes.
-                onLike = {},
-                onRepost = {},
+                onLike = { post -> viewModel.handleEvent(ProfileEvent.OnLikeClicked(post)) },
+                onRepost = { post -> viewModel.handleEvent(ProfileEvent.OnRepostClicked(post)) },
                 onReply = {},
                 onShare = {},
                 onShareLongPress = {},

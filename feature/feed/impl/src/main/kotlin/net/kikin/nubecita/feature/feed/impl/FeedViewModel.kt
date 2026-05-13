@@ -3,18 +3,20 @@ package net.kikin.nubecita.feature.feed.impl
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
-import io.github.kikin81.atproto.com.atproto.repo.StrongRef
-import io.github.kikin81.atproto.runtime.AtUri
-import io.github.kikin81.atproto.runtime.Cid
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
-import net.kikin.nubecita.feature.feed.impl.data.LikeRepostRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
@@ -28,8 +30,17 @@ internal class FeedViewModel
     @Inject
     constructor(
         private val feedRepository: FeedRepository,
-        private val likeRepostRepository: LikeRepostRepository,
+        private val postInteractionsCache: PostInteractionsCache,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()) {
+        init {
+            viewModelScope.launch {
+                postInteractionsCache.state
+                    .map { snapshot -> uiState.value.feedItems.applyInteractions(snapshot) }
+                    .distinctUntilChanged()
+                    .collect { merged -> setState { copy(feedItems = merged) } }
+            }
+        }
+
         override fun handleEvent(event: FeedEvent) {
             when (event) {
                 FeedEvent.Load -> load()
@@ -39,8 +50,18 @@ internal class FeedViewModel
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
                 is FeedEvent.OnAuthorTapped -> sendEffect(FeedEffect.NavigateToAuthor(event.authorDid))
-                is FeedEvent.OnLikeClicked -> toggleLike(event.post)
-                is FeedEvent.OnRepostClicked -> toggleRepost(event.post)
+                is FeedEvent.OnLikeClicked ->
+                    viewModelScope.launch {
+                        postInteractionsCache
+                            .toggleLike(event.post.id, event.post.cid)
+                            .onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
+                    }
+                is FeedEvent.OnRepostClicked ->
+                    viewModelScope.launch {
+                        postInteractionsCache
+                            .toggleRepost(event.post.id, event.post.cid)
+                            .onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
+                    }
                 is FeedEvent.OnShareClicked -> sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
                 is FeedEvent.OnShareLongPressed ->
                     sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))
@@ -120,13 +141,15 @@ internal class FeedViewModel
                     .onSuccess { page ->
                         // Replace head; cursor becomes the response cursor (may be null
                         // when the entire feed fits in one page).
+                        val refreshed =
+                            page.feedItems
+                                .dedupeClusterContext()
+                                .dedupeByKey()
+                                .toImmutableList()
+                        postInteractionsCache.seed(refreshed.allPosts())
                         setState {
                             copy(
-                                feedItems =
-                                    page.feedItems
-                                        .dedupeClusterContext()
-                                        .dedupeByKey()
-                                        .toImmutableList(),
+                                feedItems = refreshed,
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                                 loadStatus = FeedLoadStatus.Idle,
@@ -155,30 +178,35 @@ internal class FeedViewModel
                 feedRepository
                     .getTimeline(cursor = current.nextCursor)
                     .onSuccess { page ->
+                        // Page-boundary chain merge: if the existing tail's
+                        // last chainable PostUi links (via the strict rule)
+                        // to the new page's first wire entry, absorb the
+                        // tail into the new page's first item before
+                        // appending. Per
+                        // `add-feed-same-author-thread-chain` design
+                        // Decision 3, arbitrary cursor cuts shouldn't
+                        // visually break a self-thread chain.
+                        val merge =
+                            mergeChainBoundary(
+                                existing = uiState.value.feedItems,
+                                newPageItems = page.feedItems,
+                                newPageWirePosts = page.wirePosts,
+                            )
+                        // De-dupe by FeedItemUi.key so a server returning a page
+                        // that overlaps the current tail (rare but possible during
+                        // cursor resyncs) doesn't show the same item twice. The
+                        // key is the leaf URI for ReplyCluster / SelfThreadChain
+                        // and the post URI for Single — stable across paging.
+                        val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
+                        val appended =
+                            (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
+                                .dedupeClusterContext()
+                                .dedupeByKey()
+                                .toImmutableList()
+                        postInteractionsCache.seed(page.feedItems.allPosts())
                         setState {
-                            // Page-boundary chain merge: if the existing tail's
-                            // last chainable PostUi links (via the strict rule)
-                            // to the new page's first wire entry, absorb the
-                            // tail into the new page's first item before
-                            // appending. Per
-                            // `add-feed-same-author-thread-chain` design
-                            // Decision 3, arbitrary cursor cuts shouldn't
-                            // visually break a self-thread chain.
-                            val merge =
-                                mergeChainBoundary(
-                                    existing = feedItems,
-                                    newPageItems = page.feedItems,
-                                    newPageWirePosts = page.wirePosts,
-                                )
-                            // De-dupe by FeedItemUi.key so a server returning a page
-                            // that overlaps the current tail (rare but possible during
-                            // cursor resyncs) doesn't show the same item twice. The
-                            // key is the leaf URI for ReplyCluster / SelfThreadChain
-                            // and the post URI for Single — stable across paging.
-                            val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
-                            val merged = (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
                             copy(
-                                feedItems = merged.dedupeClusterContext().dedupeByKey().toImmutableList(),
+                                feedItems = appended,
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                                 loadStatus = FeedLoadStatus.Idle,
@@ -199,6 +227,7 @@ internal class FeedViewModel
                     .dedupeClusterContext()
                     .dedupeByKey()
                     .toImmutableList()
+            postInteractionsCache.seed(deduped.allPosts())
             setState {
                 copy(
                     feedItems = deduped,
@@ -209,171 +238,6 @@ internal class FeedViewModel
             }
         }
 
-        /**
-         * Optimistic like / unlike. Flips `viewer.isLikedByViewer` and adjusts
-         * `stats.likeCount` immediately, then fires the repository call. On
-         * success, rewrites `viewer.likeUri` (a like creates a new record
-         * whose AT URI is unknown until the server responds). On failure,
-         * restores the pre-tap snapshot of the affected post and emits a
-         * non-sticky [FeedEffect.ShowError]. The post is located by id so a
-         * stale [PostUi] reference (from a recomposition that happened while
-         * the call was in flight) doesn't desync the rollback target.
-         */
-        private fun toggleLike(post: PostUi) {
-            val currentItems = uiState.value.feedItems
-            val snapshot = currentItems.findPost(post.id) ?: return
-            val wasLiked = snapshot.viewer.isLikedByViewer
-            val optimistic =
-                snapshot.copy(
-                    viewer = snapshot.viewer.copy(isLikedByViewer = !wasLiked),
-                    stats =
-                        snapshot.stats.copy(
-                            likeCount =
-                                (snapshot.stats.likeCount + if (wasLiked) -1 else 1)
-                                    .coerceAtLeast(0),
-                        ),
-                )
-            setState { copy(feedItems = feedItems.replacePost(optimistic)) }
-
-            viewModelScope.launch {
-                val result =
-                    if (wasLiked) {
-                        val likeUri = snapshot.viewer.likeUri
-                        if (likeUri == null) {
-                            // No prior likeUri means we never received the
-                            // server-assigned URI from a previous like (the
-                            // mapper omits it for never-liked posts, and a
-                            // tap-tap-fast race could land here). Treat as a
-                            // failure so the optimistic toggle rolls back —
-                            // we'd otherwise have no way to call unlike.
-                            Result.failure(IllegalStateException("no likeUri to unlike"))
-                        } else {
-                            likeRepostRepository.unlike(AtUri(likeUri))
-                        }
-                    } else {
-                        likeRepostRepository.like(StrongRef(uri = AtUri(snapshot.id), cid = Cid(snapshot.cid)))
-                    }
-                result
-                    .onSuccess { value ->
-                        // Like → store the new likeUri (an AtUri); unlike →
-                        // clear it. Re-fetch the post by id so a concurrent
-                        // refresh that landed mid-call doesn't lose its
-                        // updates.
-                        setState {
-                            val currentPost = feedItems.findPost(post.id) ?: return@setState this
-                            val newViewer =
-                                if (wasLiked) {
-                                    currentPost.viewer.copy(likeUri = null)
-                                } else {
-                                    currentPost.viewer.copy(likeUri = (value as AtUri).raw)
-                                }
-                            copy(feedItems = feedItems.replacePost(currentPost.copy(viewer = newViewer)))
-                        }
-                    }.onFailure { throwable ->
-                        // If the post is still our optimistic write (the
-                        // common case — no concurrent refresh / append),
-                        // restore the snapshot wholesale. If a concurrent
-                        // update landed mid-call, only revert the like-
-                        // related fields; the fresh text/author/embed/
-                        // stats and the server-canonical likeCount stay
-                        // put, since the user's optimistic +1/-1 never
-                        // persisted on the server.
-                        setState {
-                            val currentPost = feedItems.findPost(post.id) ?: return@setState this
-                            val rolledBack =
-                                if (currentPost === optimistic) {
-                                    snapshot
-                                } else {
-                                    currentPost.copy(
-                                        viewer =
-                                            currentPost.viewer.copy(
-                                                isLikedByViewer = snapshot.viewer.isLikedByViewer,
-                                                likeUri = snapshot.viewer.likeUri,
-                                            ),
-                                    )
-                                }
-                            copy(feedItems = feedItems.replacePost(rolledBack))
-                        }
-                        sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
-                    }
-            }
-        }
-
-        /**
-         * Optimistic repost / unrepost. Mirrors [toggleLike] in shape — the
-         * only differences are which fields move (`isRepostedByViewer`,
-         * `repostCount`, `repostUri`) and which repository entry points we
-         * call. Kept as a separate function rather than parameterized over
-         * the like/repost projection because the combined version is harder
-         * to read and the per-toggle handlers are short.
-         */
-        private fun toggleRepost(post: PostUi) {
-            val currentItems = uiState.value.feedItems
-            val snapshot = currentItems.findPost(post.id) ?: return
-            val wasReposted = snapshot.viewer.isRepostedByViewer
-            val optimistic =
-                snapshot.copy(
-                    viewer = snapshot.viewer.copy(isRepostedByViewer = !wasReposted),
-                    stats =
-                        snapshot.stats.copy(
-                            repostCount =
-                                (snapshot.stats.repostCount + if (wasReposted) -1 else 1)
-                                    .coerceAtLeast(0),
-                        ),
-                )
-            setState { copy(feedItems = feedItems.replacePost(optimistic)) }
-
-            viewModelScope.launch {
-                val result =
-                    if (wasReposted) {
-                        val repostUri = snapshot.viewer.repostUri
-                        if (repostUri == null) {
-                            Result.failure(IllegalStateException("no repostUri to unrepost"))
-                        } else {
-                            likeRepostRepository.unrepost(AtUri(repostUri))
-                        }
-                    } else {
-                        likeRepostRepository.repost(StrongRef(uri = AtUri(snapshot.id), cid = Cid(snapshot.cid)))
-                    }
-                result
-                    .onSuccess { value ->
-                        setState {
-                            val currentPost = feedItems.findPost(post.id) ?: return@setState this
-                            val newViewer =
-                                if (wasReposted) {
-                                    currentPost.viewer.copy(repostUri = null)
-                                } else {
-                                    currentPost.viewer.copy(repostUri = (value as AtUri).raw)
-                                }
-                            copy(feedItems = feedItems.replacePost(currentPost.copy(viewer = newViewer)))
-                        }
-                    }.onFailure { throwable ->
-                        // Mirror [toggleLike]'s rollback policy — restore
-                        // the snapshot wholesale only when the optimistic
-                        // write is still in place; otherwise revert just
-                        // the repost-related fields onto the concurrent
-                        // update so fresh non-repost data is preserved.
-                        setState {
-                            val currentPost = feedItems.findPost(post.id) ?: return@setState this
-                            val rolledBack =
-                                if (currentPost === optimistic) {
-                                    snapshot
-                                } else {
-                                    currentPost.copy(
-                                        viewer =
-                                            currentPost.viewer.copy(
-                                                isRepostedByViewer = snapshot.viewer.isRepostedByViewer,
-                                                repostUri = snapshot.viewer.repostUri,
-                                            ),
-                                    )
-                                }
-                            copy(feedItems = feedItems.replacePost(rolledBack))
-                        }
-                        sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
-                    }
-            }
-        }
-
         private fun Throwable.toFeedError(): FeedError =
             when (this) {
                 is NoSessionException -> FeedError.Unauthenticated
@@ -381,6 +245,73 @@ internal class FeedViewModel
                 else -> FeedError.Unknown(cause = message)
             }
     }
+
+/**
+ * Flatten every [PostUi] out of every [FeedItemUi] variant in the list.
+ * Used to seed the [PostInteractionsCache] with the full set of posts
+ * visible after a page load, including posts inside [FeedItemUi.ReplyCluster]
+ * and [FeedItemUi.SelfThreadChain].
+ */
+private fun List<FeedItemUi>.allPosts(): List<PostUi> =
+    flatMap { item ->
+        when (item) {
+            is FeedItemUi.Single -> listOf(item.post)
+            is FeedItemUi.ReplyCluster -> listOf(item.root, item.parent, item.leaf)
+            is FeedItemUi.SelfThreadChain -> item.posts
+        }
+    }
+
+/**
+ * Project a [PostInteractionsCache][net.kikin.nubecita.core.postinteractions.PostInteractionsCache]
+ * snapshot onto the feed item list. Replaces interaction fields (like /
+ * repost counts and viewer flags) on every [PostUi] whose id appears in
+ * [map], across all variants — [FeedItemUi.Single], [FeedItemUi.ReplyCluster],
+ * and [FeedItemUi.SelfThreadChain].
+ *
+ * Returns the same instance for any item whose contained posts are all
+ * absent from [map], preserving reference equality so LazyColumn can skip
+ * recomposition for unchanged items.
+ */
+private fun ImmutableList<FeedItemUi>.applyInteractions(
+    interactionMap: PersistentMap<String, PostInteractionState>,
+): ImmutableList<FeedItemUi> =
+    map { item ->
+        when (item) {
+            is FeedItemUi.Single -> {
+                val state = interactionMap[item.post.id] ?: return@map item
+                item.copy(post = item.post.mergeInteractionState(state))
+            }
+            is FeedItemUi.ReplyCluster -> {
+                val newRoot = interactionMap[item.root.id]?.let { item.root.mergeInteractionState(it) }
+                val newParent = interactionMap[item.parent.id]?.let { item.parent.mergeInteractionState(it) }
+                val newLeaf = interactionMap[item.leaf.id]?.let { item.leaf.mergeInteractionState(it) }
+                if (newRoot == null && newParent == null && newLeaf == null) {
+                    item
+                } else {
+                    item.copy(
+                        root = newRoot ?: item.root,
+                        parent = newParent ?: item.parent,
+                        leaf = newLeaf ?: item.leaf,
+                    )
+                }
+            }
+            is FeedItemUi.SelfThreadChain -> {
+                var changed = false
+                val mergedPosts =
+                    item.posts
+                        .map { p ->
+                            val state = interactionMap[p.id]
+                            if (state != null) {
+                                changed = true
+                                p.mergeInteractionState(state)
+                            } else {
+                                p
+                            }
+                        }.toImmutableList()
+                if (changed) item.copy(posts = mergedPosts) else item
+            }
+        }
+    }.toImmutableList()
 
 /**
  * Result of [mergeChainBoundary]. Two `ImmutableList<FeedItemUi>` fields

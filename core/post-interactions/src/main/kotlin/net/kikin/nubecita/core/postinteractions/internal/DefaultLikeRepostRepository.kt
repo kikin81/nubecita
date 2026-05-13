@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.postinteractions.internal
 
 import io.github.kikin81.atproto.app.bsky.feed.Like
 import io.github.kikin81.atproto.app.bsky.feed.Repost
@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
 import timber.log.Timber
 import javax.inject.Inject
 import kotlin.time.Clock
