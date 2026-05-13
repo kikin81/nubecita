@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.postinteractions
 
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -120,6 +121,38 @@ internal class DefaultPostInteractionsCacheTest {
                 PendingState.None,
                 state?.pendingLikeWrite,
                 "rollback MUST clear pendingLikeWrite",
+            )
+        }
+
+    @Test
+    fun `toggleLike is single-flight per postUri — double-tap is absorbed`() =
+        runTest {
+            val fake =
+                FakeLikeRepostRepository().apply {
+                    nextDelayMs = 1_000 // hold the in-flight call so a second arrives mid-flight
+                    nextLikeResult = Result.success(AtUri("at://did:plc:viewer/app.bsky.feed.like/x"))
+                }
+            val cache = newCache(fake)
+
+            // Fire two like calls back-to-back without awaiting the first.
+            val first = async { cache.toggleLike("at://post-sf", "bafySF") }
+            val second = async { cache.toggleLike("at://post-sf", "bafySF") }
+            advanceUntilIdle()
+
+            val firstResult = first.await()
+            val secondResult = second.await()
+
+            assertTrue(firstResult.isSuccess)
+            assertTrue(secondResult.isSuccess, "second toggle MUST return synthetic success (no error)")
+            assertEquals(
+                1,
+                fake.likeCalls.get(),
+                "single-flight: like() MUST be called exactly once for the same postUri",
+            )
+            assertEquals(
+                0,
+                fake.unlikeCalls.get(),
+                "single-flight: unlike() MUST NOT be called — second tap must be absorbed, not inverted",
             )
         }
 

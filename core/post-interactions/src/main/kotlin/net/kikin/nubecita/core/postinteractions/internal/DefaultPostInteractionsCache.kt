@@ -6,6 +6,7 @@ import io.github.kikin81.atproto.runtime.Cid
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +42,7 @@ internal class DefaultPostInteractionsCache
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : PostInteractionsCache {
         private val _state = MutableStateFlow<PersistentMap<String, PostInteractionState>>(persistentMapOf())
+        private val likeJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
 
         override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
 
@@ -52,6 +54,12 @@ internal class DefaultPostInteractionsCache
             postUri: String,
             postCid: String,
         ): Result<Unit> {
+            // Single-flight: if a like call is already in flight for this postUri,
+            // return synthetic success without firing anything.
+            if (likeJobs[postUri]?.isActive == true) {
+                return Result.success(Unit)
+            }
+
             val before = _state.value[postUri] ?: PostInteractionState()
             val optimistic =
                 before.copy(
@@ -61,34 +69,43 @@ internal class DefaultPostInteractionsCache
                 )
             _state.update { it.put(postUri, optimistic) }
 
-            val callResult =
-                runCatching {
-                    if (before.viewerLikeUri == null) {
-                        likeRepostRepository.like(StrongRef(uri = AtUri(postUri), cid = Cid(postCid))).getOrThrow()
-                    } else {
-                        likeRepostRepository.unlike(AtUri(before.viewerLikeUri)).getOrThrow()
-                        null
-                    }
-                }
+            val job =
+                applicationScope.async {
+                    val callResult =
+                        runCatching {
+                            if (before.viewerLikeUri == null) {
+                                likeRepostRepository.like(StrongRef(uri = AtUri(postUri), cid = Cid(postCid))).getOrThrow()
+                            } else {
+                                likeRepostRepository.unlike(AtUri(before.viewerLikeUri)).getOrThrow()
+                                null
+                            }
+                        }
 
-            return callResult.fold(
-                onSuccess = { newLikeUri: AtUri? ->
-                    _state.update {
-                        it.put(
-                            postUri,
-                            optimistic.copy(
-                                viewerLikeUri = newLikeUri?.raw,
-                                pendingLikeWrite = PendingState.None,
-                            ),
-                        )
-                    }
-                    Result.success(Unit)
-                },
-                onFailure = { throwable ->
-                    _state.update { it.put(postUri, before) }
-                    Result.failure(throwable)
-                },
-            )
+                    callResult.fold(
+                        onSuccess = { newLikeUri: AtUri? ->
+                            _state.update {
+                                it.put(
+                                    postUri,
+                                    optimistic.copy(
+                                        viewerLikeUri = newLikeUri?.raw,
+                                        pendingLikeWrite = PendingState.None,
+                                    ),
+                                )
+                            }
+                            Result.success(Unit)
+                        },
+                        onFailure = { throwable ->
+                            _state.update { it.put(postUri, before) }
+                            Result.failure(throwable)
+                        },
+                    )
+                }
+            likeJobs[postUri] = job
+            return try {
+                job.await()
+            } finally {
+                likeJobs.remove(postUri)
+            }
         }
 
         override suspend fun toggleRepost(
