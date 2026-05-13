@@ -181,6 +181,7 @@ dependencies {
     implementation(project(":core:posting"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
+    implementation(project(":feature:chats:impl"))
     implementation(project(":feature:composer:api"))
     implementation(project(":feature:composer:impl"))
     implementation(project(":feature:feed:api"))
