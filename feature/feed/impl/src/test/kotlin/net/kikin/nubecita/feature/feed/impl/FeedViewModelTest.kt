@@ -501,6 +501,98 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `cache state emission projects onto leaf post inside ReplyCluster`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cache = FakePostInteractionsCache()
+            val rootId = "at://did:plc:alice/app.bsky.feed.post/root"
+            val parentId = "at://did:plc:alice/app.bsky.feed.post/parent"
+            val leafId = "at://did:plc:alice/app.bsky.feed.post/leaf"
+            val cluster =
+                FeedItemUi.ReplyCluster(
+                    root = samplePost(id = rootId),
+                    parent = samplePost(id = parentId),
+                    leaf = samplePost(id = leafId),
+                    hasEllipsis = false,
+                )
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(persistentListOf(cluster), null))),
+                )
+            val vm = FeedViewModel(repo, cache)
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            cache.emit(
+                persistentMapOf(
+                    leafId to
+                        PostInteractionState(
+                            viewerLikeUri = "at://did:plc:viewer/app.bsky.feed.like/rc1",
+                            likeCount = 7L,
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            val mergedCluster =
+                vm.uiState.value.feedItems
+                    .filterIsInstance<FeedItemUi.ReplyCluster>()
+                    .first { it.leaf.id == leafId }
+            assertTrue(mergedCluster.leaf.viewer.isLikedByViewer)
+            assertEquals(7, mergedCluster.leaf.stats.likeCount)
+            // Root and parent are unchanged — reference equality preserved.
+            assertSame(cluster.root, mergedCluster.root)
+            assertSame(cluster.parent, mergedCluster.parent)
+        }
+
+    @Test
+    fun `cache state emission projects onto posts inside SelfThreadChain`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cache = FakePostInteractionsCache()
+            val firstId = "at://did:plc:alice/app.bsky.feed.post/chain1"
+            val lastId = "at://did:plc:alice/app.bsky.feed.post/chain2"
+            val chain =
+                FeedItemUi.SelfThreadChain(
+                    posts = persistentListOf(samplePost(id = firstId), samplePost(id = lastId)),
+                )
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(persistentListOf(chain), null))),
+                )
+            val vm = FeedViewModel(repo, cache)
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            cache.emit(
+                persistentMapOf(
+                    lastId to
+                        PostInteractionState(
+                            viewerRepostUri = "at://did:plc:viewer/app.bsky.feed.repost/sc1",
+                            repostCount = 5L,
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            val mergedChain =
+                vm.uiState.value.feedItems
+                    .filterIsInstance<FeedItemUi.SelfThreadChain>()
+                    .first { it.posts.last().id == lastId }
+            assertTrue(
+                mergedChain.posts
+                    .last()
+                    .viewer.isRepostedByViewer,
+            )
+            assertEquals(
+                5,
+                mergedChain.posts
+                    .last()
+                    .stats.repostCount,
+            )
+            // First post is unchanged — reference equality preserved.
+            assertSame(chain.posts.first(), mergedChain.posts.first())
+        }
+
+    @Test
     fun `OnRepostClicked dispatches cache toggleRepost with post id and cid`() =
         runTest(mainDispatcher.dispatcher) {
             val cache = FakePostInteractionsCache()

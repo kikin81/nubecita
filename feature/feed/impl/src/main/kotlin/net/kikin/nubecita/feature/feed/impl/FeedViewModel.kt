@@ -146,7 +146,7 @@ internal class FeedViewModel
                                 .dedupeClusterContext()
                                 .dedupeByKey()
                                 .toImmutableList()
-                        postInteractionsCache.seed(refreshed.filterIsInstance<FeedItemUi.Single>().map { it.post })
+                        postInteractionsCache.seed(refreshed.allPosts())
                         setState {
                             copy(
                                 feedItems = refreshed,
@@ -203,7 +203,7 @@ internal class FeedViewModel
                                 .dedupeClusterContext()
                                 .dedupeByKey()
                                 .toImmutableList()
-                        postInteractionsCache.seed(page.feedItems.filterIsInstance<FeedItemUi.Single>().map { it.post })
+                        postInteractionsCache.seed(page.feedItems.allPosts())
                         setState {
                             copy(
                                 feedItems = appended,
@@ -227,7 +227,7 @@ internal class FeedViewModel
                     .dedupeClusterContext()
                     .dedupeByKey()
                     .toImmutableList()
-            postInteractionsCache.seed(deduped.filterIsInstance<FeedItemUi.Single>().map { it.post })
+            postInteractionsCache.seed(deduped.allPosts())
             setState {
                 copy(
                     feedItems = deduped,
@@ -247,13 +247,30 @@ internal class FeedViewModel
     }
 
 /**
+ * Flatten every [PostUi] out of every [FeedItemUi] variant in the list.
+ * Used to seed the [PostInteractionsCache] with the full set of posts
+ * visible after a page load, including posts inside [FeedItemUi.ReplyCluster]
+ * and [FeedItemUi.SelfThreadChain].
+ */
+private fun List<FeedItemUi>.allPosts(): List<PostUi> =
+    flatMap { item ->
+        when (item) {
+            is FeedItemUi.Single -> listOf(item.post)
+            is FeedItemUi.ReplyCluster -> listOf(item.root, item.parent, item.leaf)
+            is FeedItemUi.SelfThreadChain -> item.posts
+        }
+    }
+
+/**
  * Project a [PostInteractionsCache][net.kikin.nubecita.core.postinteractions.PostInteractionsCache]
  * snapshot onto the feed item list. Replaces interaction fields (like /
- * repost counts and viewer flags) on every [FeedItemUi.Single] whose id
- * appears in [map]; passes [FeedItemUi.ReplyCluster] and
- * [FeedItemUi.SelfThreadChain] through unchanged (those variants carry
- * context-only posts whose interaction state is not surfaced in the feed
- * renderer).
+ * repost counts and viewer flags) on every [PostUi] whose id appears in
+ * [map], across all variants — [FeedItemUi.Single], [FeedItemUi.ReplyCluster],
+ * and [FeedItemUi.SelfThreadChain].
+ *
+ * Returns the same instance for any item whose contained posts are all
+ * absent from [map], preserving reference equality so LazyColumn can skip
+ * recomposition for unchanged items.
  */
 private fun ImmutableList<FeedItemUi>.applyInteractions(
     interactionMap: PersistentMap<String, PostInteractionState>,
@@ -264,7 +281,35 @@ private fun ImmutableList<FeedItemUi>.applyInteractions(
                 val state = interactionMap[item.post.id] ?: return@map item
                 item.copy(post = item.post.mergeInteractionState(state))
             }
-            is FeedItemUi.ReplyCluster, is FeedItemUi.SelfThreadChain -> item
+            is FeedItemUi.ReplyCluster -> {
+                val newRoot = interactionMap[item.root.id]?.let { item.root.mergeInteractionState(it) }
+                val newParent = interactionMap[item.parent.id]?.let { item.parent.mergeInteractionState(it) }
+                val newLeaf = interactionMap[item.leaf.id]?.let { item.leaf.mergeInteractionState(it) }
+                if (newRoot == null && newParent == null && newLeaf == null) {
+                    item
+                } else {
+                    item.copy(
+                        root = newRoot ?: item.root,
+                        parent = newParent ?: item.parent,
+                        leaf = newLeaf ?: item.leaf,
+                    )
+                }
+            }
+            is FeedItemUi.SelfThreadChain -> {
+                var changed = false
+                val mergedPosts =
+                    item.posts
+                        .map { p ->
+                            val state = interactionMap[p.id]
+                            if (state != null) {
+                                changed = true
+                                p.mergeInteractionState(state)
+                            } else {
+                                p
+                            }
+                        }.toImmutableList()
+                if (changed) item.copy(posts = mergedPosts) else item
+            }
         }
     }.toImmutableList()
 
