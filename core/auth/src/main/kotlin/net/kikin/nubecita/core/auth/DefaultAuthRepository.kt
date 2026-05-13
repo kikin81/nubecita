@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.auth
 
 import io.github.kikin81.atproto.oauth.AtOAuth
+import net.kikin.nubecita.core.common.session.SessionClearable
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -9,6 +10,7 @@ internal class DefaultAuthRepository
     constructor(
         private val atOAuth: AtOAuth,
         private val sessionStateProvider: SessionStateProvider,
+        private val sessionClearables: Set<@JvmSuppressWildcards SessionClearable>,
     ) : AuthRepository {
         override suspend fun beginLogin(handle: String): Result<String> =
             runCatching { atOAuth.beginLogin(handle) }
@@ -28,6 +30,11 @@ internal class DefaultAuthRepository
 
         override suspend fun signOut(): Result<Unit> =
             runCatching {
+                // Drop session-scoped in-memory state before revocation.
+                // Even if the network logout fails below, each clearable stays
+                // cleared — there's no value in retaining optimistic state
+                // across a sign-out attempt (the user has indicated they want out).
+                sessionClearables.forEach { it.clearSession() }
                 atOAuth.logout()
                 sessionStateProvider.refresh()
             }.onFailure { Timber.tag(TAG).e(it, "signOut() failed") }

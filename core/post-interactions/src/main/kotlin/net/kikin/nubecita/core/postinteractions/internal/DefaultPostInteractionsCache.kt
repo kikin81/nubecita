@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.common.session.SessionClearable
 import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
 import net.kikin.nubecita.core.postinteractions.PendingState
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
@@ -40,7 +41,8 @@ internal class DefaultPostInteractionsCache
     constructor(
         private val likeRepostRepository: LikeRepostRepository,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
-    ) : PostInteractionsCache {
+    ) : PostInteractionsCache,
+        SessionClearable {
         private val _state = MutableStateFlow<PersistentMap<String, PostInteractionState>>(persistentMapOf())
         private val likeJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
         private val repostJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
@@ -194,4 +196,8 @@ internal class DefaultPostInteractionsCache
         override fun clear() {
             _state.value = persistentMapOf()
         }
+
+        // SessionClearable — delegates to clear() so sign-out and the
+        // PostInteractionsCache.clear() contract stay in sync.
+        override fun clearSession() = clear()
     }

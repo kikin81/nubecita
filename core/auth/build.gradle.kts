@@ -18,6 +18,7 @@ dependencies {
     api(libs.atproto.oauth)
     api(libs.atproto.runtime)
 
+    implementation(project(":core:common"))
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.tink)
     implementation(libs.kotlinx.serialization.json)
