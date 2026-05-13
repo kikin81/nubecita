@@ -120,6 +120,41 @@ internal class ChatsViewModelTest {
             assertEquals(priorCalls + 1, repo.listCalls.get())
         }
 
+    @Test
+    fun `Refresh failure on Loaded keeps existing items + emits ShowRefreshError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            // Sanity: we're on Loaded with one item before the failing refresh.
+            val priorStatus = vm.uiState.value.status
+            assertTrue(priorStatus is ChatsLoadStatus.Loaded)
+            assertEquals("c1", (priorStatus as ChatsLoadStatus.Loaded).items[0].convoId)
+
+            // Flip the fake to fail and trigger refresh.
+            repo.nextResult = Result.failure(IOException("net down"))
+            vm.effects.test {
+                vm.handleEvent(ChatsEvent.Refresh)
+                advanceUntilIdle()
+                // ShowRefreshError emitted with the mapped Network variant.
+                val effect = awaitItem()
+                assertTrue(effect is ChatsEffect.ShowRefreshError)
+                assertEquals(ChatsError.Network, (effect as ChatsEffect.ShowRefreshError).error)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            // Existing items are preserved; isRefreshing drops to false; status stays Loaded.
+            val finalStatus = vm.uiState.value.status
+            assertTrue(finalStatus is ChatsLoadStatus.Loaded, "status should remain Loaded after a failed refresh")
+            val loaded = finalStatus as ChatsLoadStatus.Loaded
+            assertEquals(1, loaded.items.size)
+            assertEquals("c1", loaded.items[0].convoId)
+            assertEquals(false, loaded.isRefreshing)
+        }
+
     private fun sampleItem(convoId: String): ConvoListItemUi =
         ConvoListItemUi(
             convoId = convoId,
