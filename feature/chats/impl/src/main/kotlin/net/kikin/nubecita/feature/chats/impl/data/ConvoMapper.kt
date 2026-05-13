@@ -45,7 +45,8 @@ internal fun ConvoView.toConvoListItemUi(
 ): ConvoListItemUi {
     val other =
         members.firstOrNull { it.did.raw != viewerDid }
-            ?: members.first() // Solo-member edge case — degenerate but never crash.
+            ?: members.firstOrNull()
+            ?: error("ConvoView.members is empty — protocol violation; direct convos always have 2 members")
     return ConvoListItemUi(
         convoId = id,
         otherUserDid = other.did.raw,

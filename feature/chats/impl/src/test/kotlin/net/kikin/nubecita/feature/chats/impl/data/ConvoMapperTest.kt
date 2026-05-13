@@ -124,7 +124,7 @@ internal class ConvoMapperTest {
 
     private companion object {
         const val VIEWER_DID = "did:plc:viewer123"
-        val NOW: Instant = Instant.parse("2026-05-13T18:00:00Z")
+        val NOW: Instant = Instant.parse("2026-05-13T12:00:00Z")
     }
 
     private fun sampleConvoView(
@@ -190,7 +190,7 @@ internal class ConvoMapperTest {
     private fun sampleMessage(
         text: String = "hello",
         senderDid: String = "did:plc:alice",
-        sentAt: Instant = Instant.parse("2026-05-13T17:50:00Z"),
+        sentAt: Instant = Instant.parse("2026-05-13T11:50:00Z"),
     ): MessageView =
         MessageView(
             id = "msg-id-1",
