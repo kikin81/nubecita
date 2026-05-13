@@ -6,6 +6,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.internal.FakeLikeRepostRepository
@@ -22,6 +23,10 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DefaultPostInteractionsCacheTest {
+    private companion object {
+        private const val PENDING_LIKE_SENTINEL_FOR_TEST = "at://pending:optimistic"
+    }
+
     @Test
     fun `toggleLike from empty cache emits optimistic then success and calls like`() =
         runTest {
@@ -236,6 +241,54 @@ internal class DefaultPostInteractionsCacheTest {
             val state = cache.state.value["at://post-reseed"]
             assertEquals("at://did:plc:viewer/app.bsky.feed.like/fresh", state?.viewerLikeUri)
             assertEquals(8L, state?.likeCount)
+        }
+
+    @Test
+    fun `seed during in-flight toggleLike preserves optimistic state then promotes on success`() =
+        runTest {
+            val fake =
+                FakeLikeRepostRepository().apply {
+                    nextDelayMs = 500 // hold the like in flight
+                    nextLikeResult = Result.success(AtUri("at://did:plc:viewer/app.bsky.feed.like/promoted"))
+                }
+            val cache = newCache(fake)
+            cache.seedDirectly("at://post-refresh", PostInteractionState(viewerLikeUri = null, likeCount = 3))
+
+            // Fire toggleLike; it suspends inside the fake.
+            val toggle = async { cache.toggleLike("at://post-refresh", "bafyRF") }
+            // Run until the optimistic emission has landed but the fake is still suspended.
+            runCurrent()
+
+            // Now simulate a refresh: wire returns stale data (no like, count 3).
+            val stale =
+                samplePost(
+                    id = "at://post-refresh",
+                    viewerLikeUri = null,
+                    likeCount = 3,
+                )
+            cache.seed(listOf(stale))
+
+            val midFlight = cache.state.value["at://post-refresh"]
+            assertEquals(
+                PENDING_LIKE_SENTINEL_FOR_TEST,
+                midFlight?.viewerLikeUri,
+                "seed during in-flight MUST preserve the optimistic sentinel",
+            )
+            assertEquals(
+                4L,
+                midFlight?.likeCount,
+                "seed during in-flight MUST preserve the optimistic count delta",
+            )
+            assertEquals(PendingState.Pending, midFlight?.pendingLikeWrite)
+
+            // Now let the fake complete.
+            advanceUntilIdle()
+            val finalResult = toggle.await()
+            assertTrue(finalResult.isSuccess)
+            val final = cache.state.value["at://post-refresh"]
+            assertEquals("at://did:plc:viewer/app.bsky.feed.like/promoted", final?.viewerLikeUri)
+            assertEquals(4L, final?.likeCount)
+            assertEquals(PendingState.None, final?.pendingLikeWrite)
         }
 
     // -- Test helpers ---------------------------------------------------------
