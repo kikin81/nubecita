@@ -138,13 +138,15 @@ internal fun ProfileTopBar(
             Color.Transparent
         }
 
-    // Derive the bar colors directly — TopAppBarDefaults.topAppBarColors is
-    // @Composable and handles its own internal memoization, so we must call it
-    // in the composable body rather than inside a remember { } lambda.
+    // `topAppBarColors` is @Composable so it can't be wrapped in remember(...) —
+    // the calculation lambda is non-composable. M3 caches the *default* colors
+    // instance internally, but the caller's containerColor override flows
+    // through .copy(...) and allocates a fresh TopAppBarColors each call. The
+    // per-frame allocation is bounded by the derivedStateOf wrapper on `alpha`:
+    // the alpha value only changes discretely as the user scrolls, so this
+    // allocates once per visible alpha step, not once per render frame.
     val barColors =
-        TopAppBarDefaults.topAppBarColors(
-            containerColor = gradientTop.copy(alpha = alpha),
-        )
+        TopAppBarDefaults.topAppBarColors(containerColor = gradientTop.copy(alpha = alpha))
 
     TopAppBar(
         title = {
