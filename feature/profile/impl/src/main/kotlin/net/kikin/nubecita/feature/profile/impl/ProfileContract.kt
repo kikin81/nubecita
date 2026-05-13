@@ -210,6 +210,16 @@ sealed interface ProfileEvent : UiEvent {
 
     /** User tapped an overflow-menu entry that pushes the Settings sub-route. */
     data object SettingsTapped : ProfileEvent
+
+    /** User tapped the like icon on a PostCard rendered inside one of the tab bodies. */
+    data class OnLikeClicked(
+        val post: PostUi,
+    ) : ProfileEvent
+
+    /** User tapped the repost icon on a PostCard rendered inside one of the tab bodies. */
+    data class OnRepostClicked(
+        val post: PostUi,
+    ) : ProfileEvent
 }
 
 /**

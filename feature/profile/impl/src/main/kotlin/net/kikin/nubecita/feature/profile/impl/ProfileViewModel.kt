@@ -6,13 +6,19 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
@@ -42,6 +48,7 @@ internal class ProfileViewModel
         @Assisted private val route: Profile,
         private val repository: ProfileRepository,
         private val sessionStateProvider: SessionStateProvider,
+        private val postInteractionsCache: PostInteractionsCache,
     ) : MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>(
             ProfileScreenViewState(
                 handle = route.handle,
@@ -81,6 +88,12 @@ internal class ProfileViewModel
             } else {
                 launchInitialLoads(actor)
             }
+            viewModelScope.launch {
+                postInteractionsCache.state
+                    .map { interactionMap -> uiState.value.applyInteractions(interactionMap) }
+                    .distinctUntilChanged()
+                    .collect { merged -> setState { merged } }
+            }
         }
 
         override fun handleEvent(event: ProfileEvent) {
@@ -100,6 +113,18 @@ internal class ProfileViewModel
                 is ProfileEvent.StubActionTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
+                is ProfileEvent.OnLikeClicked ->
+                    viewModelScope.launch {
+                        postInteractionsCache
+                            .toggleLike(event.post.id, event.post.cid)
+                            .onFailure { sendEffect(ProfileEffect.ShowError(it.toProfileError())) }
+                    }
+                is ProfileEvent.OnRepostClicked ->
+                    viewModelScope.launch {
+                        postInteractionsCache
+                            .toggleRepost(event.post.id, event.post.cid)
+                            .onFailure { sendEffect(ProfileEffect.ShowError(it.toProfileError())) }
+                    }
             }
         }
 
@@ -157,8 +182,10 @@ internal class ProfileViewModel
                 viewModelScope.launch {
                     repository
                         .fetchTab(actor, tab)
-                        .onSuccess { page -> setTabStatus(tab) { page.toLoaded() } }
-                        .onFailure { throwable ->
+                        .onSuccess { page ->
+                            postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
+                            setTabStatus(tab) { page.toLoaded() }
+                        }.onFailure { throwable ->
                             setTabStatus(tab) { TabLoadStatus.InitialError(throwable.toProfileError()) }
                         }
                     activeInitialLoadJobs.remove(tab)
@@ -218,6 +245,7 @@ internal class ProfileViewModel
                     repository
                         .fetchTab(actor, tab)
                         .onSuccess { page ->
+                            postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
                             setTabStatus(tab) { page.toLoaded() }
                         }.onFailure {
                             // On refresh failure, restore the prior Loaded items
@@ -248,6 +276,7 @@ internal class ProfileViewModel
                     repository
                         .fetchTab(actor, tab, cursor = current.cursor)
                         .onSuccess { page ->
+                            postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
                             setTabStatus(tab) { latest ->
                                 // Refresh-vs-append race guard: only apply
                                 // the append if the snapshot we captured at
@@ -336,6 +365,35 @@ internal class ProfileViewModel
         private companion object {
             const val NOT_SIGNED_IN_REASON = "session-vanished-mid-mount"
         }
+    }
+
+private fun ProfileScreenViewState.applyInteractions(
+    map: PersistentMap<String, PostInteractionState>,
+): ProfileScreenViewState =
+    copy(
+        postsStatus = postsStatus.applyInteractions(map),
+        repliesStatus = repliesStatus.applyInteractions(map),
+        mediaStatus = mediaStatus.applyInteractions(map),
+    )
+
+private fun TabLoadStatus.applyInteractions(
+    map: PersistentMap<String, PostInteractionState>,
+): TabLoadStatus =
+    if (this is TabLoadStatus.Loaded) {
+        copy(items = items.map { it.applyInteraction(map) }.toImmutableList())
+    } else {
+        this
+    }
+
+private fun TabItemUi.applyInteraction(
+    map: PersistentMap<String, PostInteractionState>,
+): TabItemUi =
+    when (this) {
+        is TabItemUi.Post -> {
+            val state = map[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        is TabItemUi.MediaCell -> this // media cells don't show interaction UI
     }
 
 /**

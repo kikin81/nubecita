@@ -22,6 +22,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:feed-mapping"))
+    implementation(project(":core:post-interactions"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     implementation(project(":feature:postdetail:api"))

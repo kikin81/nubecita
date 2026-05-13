@@ -10,7 +10,14 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
@@ -23,6 +30,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Instant
 
 /**
  * Behavior tests for [ProfileViewModel]. Mirrors the structure of
@@ -416,13 +424,134 @@ internal class ProfileViewModelTest {
             )
         }
 
+    @Test
+    fun `OnLikeClicked dispatches cache toggleLike with post id and cid`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cache = FakePostInteractionsCache()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, postInteractionsCache = cache)
+            advanceUntilIdle()
+            val post = samplePostUi(id = "at://post-p", cid = "bafyP")
+
+            vm.handleEvent(ProfileEvent.OnLikeClicked(post))
+            advanceUntilIdle()
+
+            assertEquals(1, cache.toggleLikeCalls.get())
+            assertEquals("at://post-p" to "bafyP", cache.lastToggleLikeArgs.last())
+        }
+
+    @Test
+    fun `OnLikeClicked failure surfaces ProfileEffect_ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cache =
+                FakePostInteractionsCache().apply {
+                    nextToggleLikeResult = Result.failure(java.io.IOException("net down"))
+                }
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, postInteractionsCache = cache)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnLikeClicked(samplePostUi(id = "at://x", cid = "bafyX")))
+                advanceUntilIdle()
+                assertTrue(awaitItem() is ProfileEffect.ShowError)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `cache emission projects onto the active tab's items`() =
+        runTest(mainDispatcher.dispatcher) {
+            val postsPage =
+                ProfileTabPage(
+                    items =
+                        persistentListOf(
+                            TabItemUi.Post(samplePostUi(id = "at://post-A", cid = "bafyA")),
+                        ),
+                    nextCursor = null,
+                )
+            val cache = FakePostInteractionsCache()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
+                        ),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to Result.success(postsPage),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, postInteractionsCache = cache)
+            advanceUntilIdle()
+
+            cache.emit(
+                kotlinx.collections.immutable.persistentMapOf(
+                    "at://post-A" to
+                        PostInteractionState(
+                            viewerLikeUri = "at://did:plc:viewer/app.bsky.feed.like/test",
+                            likeCount = 42,
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            val merged =
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first { it.post.id == "at://post-A" }
+            assertTrue(merged.post.viewer.isLikedByViewer)
+            assertEquals(42, merged.post.stats.likeCount)
+        }
+
     // -- Test helpers ----------------------------------------------------------
+
+    private fun samplePostUi(
+        id: String,
+        cid: String = "bafyreifakefakefakefakefakefakefakefakefakefake",
+    ): PostUi =
+        PostUi(
+            id = id,
+            cid = cid,
+            author =
+                AuthorUi(
+                    did = "did:plc:fake",
+                    handle = "fake.bsky.social",
+                    displayName = "Fake",
+                    avatarUrl = null,
+                ),
+            createdAt = Instant.parse("2026-04-25T12:00:00Z"),
+            text = "fake text $id",
+            facets = persistentListOf(),
+            embed = EmbedUi.Empty,
+            stats = PostStatsUi(),
+            viewer = ViewerStateUi(),
+            repostedBy = null,
+        )
 
     private fun newVm(
         repo: ProfileRepository,
         route: Profile = Profile(handle = null),
         sessionState: SessionState =
             SessionState.SignedIn(handle = "viewer.bsky.social", did = "did:plc:viewer123"),
+        postInteractionsCache: PostInteractionsCache = FakePostInteractionsCache(),
     ): ProfileViewModel {
         val sessionProvider =
             mockk<SessionStateProvider>(relaxed = true).also {
@@ -432,6 +561,7 @@ internal class ProfileViewModelTest {
             route = route,
             repository = repo,
             sessionStateProvider = sessionProvider,
+            postInteractionsCache = postInteractionsCache,
         )
     }
 
