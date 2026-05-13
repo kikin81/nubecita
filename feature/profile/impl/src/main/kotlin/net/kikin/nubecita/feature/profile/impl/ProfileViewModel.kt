@@ -6,6 +6,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
@@ -184,7 +185,8 @@ internal class ProfileViewModel
                         .fetchTab(actor, tab)
                         .onSuccess { page ->
                             postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
-                            setTabStatus(tab) { page.toLoaded() }
+                            val merged = page.items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
+                            setTabStatus(tab) { page.toLoaded(items = merged) }
                         }.onFailure { throwable ->
                             setTabStatus(tab) { TabLoadStatus.InitialError(throwable.toProfileError()) }
                         }
@@ -246,7 +248,8 @@ internal class ProfileViewModel
                         .fetchTab(actor, tab)
                         .onSuccess { page ->
                             postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
-                            setTabStatus(tab) { page.toLoaded() }
+                            val merged = page.items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
+                            setTabStatus(tab) { page.toLoaded(items = merged) }
                         }.onFailure {
                             // On refresh failure, restore the prior Loaded items
                             // and drop the refresh flag — the existing items
@@ -277,6 +280,7 @@ internal class ProfileViewModel
                         .fetchTab(actor, tab, cursor = current.cursor)
                         .onSuccess { page ->
                             postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
+                            val mergedNewItems = page.items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
                             setTabStatus(tab) { latest ->
                                 // Refresh-vs-append race guard: only apply
                                 // the append if the snapshot we captured at
@@ -288,7 +292,7 @@ internal class ProfileViewModel
                                     latest.cursor == current.cursor
                                 ) {
                                     latest.copy(
-                                        items = (latest.items + page.items).toImmutableList(),
+                                        items = (latest.items + mergedNewItems).toImmutableList(),
                                         isAppending = false,
                                         hasMore = page.nextCursor != null,
                                         cursor = page.nextCursor,
@@ -353,7 +357,9 @@ internal class ProfileViewModel
             }
         }
 
-        private fun ProfileTabPage.toLoaded(): TabLoadStatus.Loaded =
+        private fun ProfileTabPage.toLoaded(
+            items: ImmutableList<TabItemUi> = this.items,
+        ): TabLoadStatus.Loaded =
             TabLoadStatus.Loaded(
                 items = items,
                 isAppending = false,

@@ -121,7 +121,6 @@ internal class PostDetailViewModel
                                 copy(loadStatus = PostDetailLoadStatus.InitialError(PostDetailError.NotFound))
                             }
                         } else {
-                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
                             // Seed the cache after the thread load resolves so
                             // any in-flight optimistic writes are preserved
                             // against appview eventual-consistency lag.
@@ -138,6 +137,8 @@ internal class PostDetailViewModel
                                     }
                                 }
                             postInteractionsCache.seed(postsToSeed)
+                            val mergedItems = items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
+                            setState { copy(items = mergedItems, loadStatus = PostDetailLoadStatus.Idle) }
                         }
                     }.onFailure { throwable ->
                         setState {
@@ -158,18 +159,13 @@ internal class PostDetailViewModel
                 postThreadRepository
                     .getPostThread(uri = route.postUri)
                     .onSuccess { items ->
-                        setState {
-                            // A refresh that returns an empty list means the
-                            // post became unavailable since the previous fetch.
-                            // Preserve the prior items and stay on Idle — the
-                            // user can keep reading what they had.
-                            if (items.isEmpty()) {
-                                copy(loadStatus = PostDetailLoadStatus.Idle)
-                            } else {
-                                copy(items = items, loadStatus = PostDetailLoadStatus.Idle)
-                            }
-                        }
-                        if (items.isNotEmpty()) {
+                        // A refresh that returns an empty list means the
+                        // post became unavailable since the previous fetch.
+                        // Preserve the prior items and stay on Idle — the
+                        // user can keep reading what they had.
+                        if (items.isEmpty()) {
+                            setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
+                        } else {
                             val postsToSeed =
                                 items.mapNotNull { item ->
                                     when (item) {
@@ -183,6 +179,8 @@ internal class PostDetailViewModel
                                     }
                                 }
                             postInteractionsCache.seed(postsToSeed)
+                            val mergedItems = items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
+                            setState { copy(items = mergedItems, loadStatus = PostDetailLoadStatus.Idle) }
                         }
                     }.onFailure { throwable ->
                         // Preserve items on refresh failure; surface as a snackbar.
