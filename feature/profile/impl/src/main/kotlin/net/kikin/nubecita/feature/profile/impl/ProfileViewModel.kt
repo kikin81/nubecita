@@ -82,6 +82,16 @@ internal class ProfileViewModel
          */
         private val activeInitialLoadJobs = mutableMapOf<ProfileTab, Job>()
 
+        /**
+         * Single-flight guard for the follow / unfollow write. The
+         * disabled-while-pending state on the action button is the
+         * UI-side counterpart; this Job is the belt-and-suspenders
+         * backup for racey re-entry (a stale enabled-state composition
+         * still in the wings before the disable propagates) and for
+         * any future programmatic dispatch that bypasses the button.
+         */
+        private var followJob: Job? = null
+
         init {
             val actor = resolveActor()
             if (actor == null) {
@@ -105,8 +115,7 @@ internal class ProfileViewModel
                 ProfileEvent.Refresh -> onRefresh()
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)
                 is ProfileEvent.RetryTab -> onRetryTab(event.tab)
-                ProfileEvent.FollowTapped ->
-                    sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Follow))
+                ProfileEvent.FollowTapped -> onFollowTapped()
                 ProfileEvent.EditTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Edit))
                 ProfileEvent.MessageTapped ->
@@ -333,6 +342,79 @@ internal class ProfileViewModel
         private fun onRetryTab(tab: ProfileTab) {
             val actor = resolveActor() ?: return
             launchInitialTabLoad(actor, tab)
+        }
+
+        /**
+         * Handle a Follow / Unfollow tap. Branches on the current
+         * [ViewerRelationship]:
+         *
+         * - [ViewerRelationship.NotFollowing] → optimistically flip to
+         *   `Following(followUri = null, isPending = true)`, then issue
+         *   `app.bsky.graph.follow` create. Success commits the wire
+         *   AT-URI; failure rolls back to the prior state and surfaces
+         *   a [ProfileEffect.ShowError] snackbar.
+         * - [ViewerRelationship.Following] (with a non-null `followUri`)
+         *   → optimistically flip to `NotFollowing(isPending = true)`,
+         *   then issue `app.bsky.graph.follow` delete. Same success /
+         *   rollback pattern.
+         * - [ViewerRelationship.Self] / [ViewerRelationship.None] /
+         *   pending states → silent no-op (the button shouldn't be
+         *   tappable in those states; the ViewModel guards in case the
+         *   UI's disable hasn't propagated yet).
+         */
+        private fun onFollowTapped() {
+            val current = uiState.value.viewerRelationship
+            if (current.isPending) return // single-flight: button should be disabled, but guard anyway
+            when (current) {
+                is ViewerRelationship.NotFollowing -> launchFollow(previous = current)
+                is ViewerRelationship.Following -> {
+                    val followUri = current.followUri ?: return
+                    launchUnfollow(previous = current, followUri = followUri)
+                }
+                ViewerRelationship.Self, ViewerRelationship.None -> Unit
+            }
+        }
+
+        private fun launchFollow(previous: ViewerRelationship.NotFollowing) {
+            val targetDid = uiState.value.header?.did ?: return
+            setState {
+                copy(viewerRelationship = ViewerRelationship.Following(followUri = null, isPending = true))
+            }
+            followJob?.cancel()
+            followJob =
+                viewModelScope.launch {
+                    repository
+                        .follow(targetDid)
+                        .onSuccess { uri ->
+                            setState {
+                                copy(viewerRelationship = ViewerRelationship.Following(followUri = uri, isPending = false))
+                            }
+                        }.onFailure { throwable ->
+                            setState { copy(viewerRelationship = previous) }
+                            sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
+                        }
+                    followJob = null
+                }
+        }
+
+        private fun launchUnfollow(
+            previous: ViewerRelationship.Following,
+            followUri: String,
+        ) {
+            setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = true)) }
+            followJob?.cancel()
+            followJob =
+                viewModelScope.launch {
+                    repository
+                        .unfollow(followUri)
+                        .onSuccess {
+                            setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = false)) }
+                        }.onFailure { throwable ->
+                            setState { copy(viewerRelationship = previous) }
+                            sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
+                        }
+                    followJob = null
+                }
         }
 
         // -- State / status helpers --------------------------------------------

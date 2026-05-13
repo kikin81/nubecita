@@ -138,7 +138,197 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `FollowTapped emits ShowComingSoon and never touches the repository`() =
+    fun `FollowTapped on NotFollowing optimistically flips to Following pending then commits the wire AT-URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                ViewerRelationship.NotFollowing(),
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    followResult = Result.success(SAMPLE_FOLLOW_URI),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            // Tap; gate the repo so the test can observe the pending state in
+            // between the optimistic flip and the wire commit.
+            repo.gateFollow = true
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            // The optimistic flip is synchronous on the dispatcher.
+            mainDispatcher.dispatcher.scheduler.runCurrent()
+            assertEquals(
+                ViewerRelationship.Following(followUri = null, isPending = true),
+                vm.uiState.value.viewerRelationship,
+                "FollowTapped MUST optimistically flip to Following(pending=true) before the wire call returns",
+            )
+
+            // Release the gate and let the success commit.
+            repo.releaseFollow()
+            advanceUntilIdle()
+            assertEquals(
+                ViewerRelationship.Following(followUri = SAMPLE_FOLLOW_URI, isPending = false),
+                vm.uiState.value.viewerRelationship,
+                "follow success MUST commit the wire AT-URI and clear pending",
+            )
+            assertEquals(1, repo.followCalls.get(), "exactly one follow call MUST be issued")
+            assertEquals("did:plc:alice", repo.lastFollowSubject, "follow MUST target the rendered profile's DID")
+        }
+
+    @Test
+    fun `FollowTapped on Following optimistically flips to NotFollowing pending then commits unfollow`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                SAMPLE_FOLLOWING,
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    unfollowResult = Result.success(Unit),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            repo.gateUnfollow = true
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            mainDispatcher.dispatcher.scheduler.runCurrent()
+            assertEquals(
+                ViewerRelationship.NotFollowing(isPending = true),
+                vm.uiState.value.viewerRelationship,
+                "FollowTapped on Following MUST optimistically flip to NotFollowing(pending=true)",
+            )
+
+            repo.releaseUnfollow()
+            advanceUntilIdle()
+            assertEquals(
+                ViewerRelationship.NotFollowing(isPending = false),
+                vm.uiState.value.viewerRelationship,
+                "unfollow success MUST clear pending on NotFollowing",
+            )
+            assertEquals(1, repo.unfollowCalls.get(), "exactly one unfollow call MUST be issued")
+            assertEquals(
+                SAMPLE_FOLLOW_URI,
+                repo.lastUnfollowUri,
+                "unfollow MUST target the AT-URI carried on the prior Following state",
+            )
+        }
+
+    @Test
+    fun `FollowTapped failure rolls back to the prior relationship and emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                ViewerRelationship.NotFollowing(),
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    followResult = Result.failure(IOException("net down")),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.FollowTapped)
+                advanceUntilIdle()
+                val effect = awaitItem()
+                assertTrue(effect is ProfileEffect.ShowError, "follow failure MUST surface ShowError")
+                assertEquals(
+                    ProfileError.Network,
+                    (effect as ProfileEffect.ShowError).error,
+                    "IOException MUST map to ProfileError.Network",
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(
+                ViewerRelationship.NotFollowing(),
+                vm.uiState.value.viewerRelationship,
+                "follow failure MUST roll back to the prior relationship",
+            )
+        }
+
+    @Test
+    fun `unfollow failure rolls back to Following with the original AT-URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                SAMPLE_FOLLOWING,
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    unfollowResult = Result.failure(IOException("net down")),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.FollowTapped)
+                advanceUntilIdle()
+                val effect = awaitItem()
+                assertTrue(effect is ProfileEffect.ShowError)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(
+                SAMPLE_FOLLOWING,
+                vm.uiState.value.viewerRelationship,
+                "unfollow failure MUST restore Following with the original AT-URI so a retry can target it",
+            )
+        }
+
+    @Test
+    fun `double-tap during pending is single-flighted`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                ViewerRelationship.NotFollowing(),
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    followResult = Result.success(SAMPLE_FOLLOW_URI),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            repo.gateFollow = true
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            mainDispatcher.dispatcher.scheduler.runCurrent()
+            // Second tap while pending — must NOT issue a second follow call.
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            mainDispatcher.dispatcher.scheduler.runCurrent()
+
+            repo.releaseFollow()
+            advanceUntilIdle()
+
+            assertEquals(
+                1,
+                repo.followCalls.get(),
+                "double-tap during pending MUST NOT fan out into a second follow call",
+            )
+        }
+
+    @Test
+    fun `FollowTapped on Self is a silent no-op (own profile)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
@@ -146,22 +336,19 @@ internal class ProfileViewModelTest {
                         Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
                     tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
                 )
-            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            val vm = newVm(repo = repo, route = Profile(handle = null))
             advanceUntilIdle()
-
-            // Snapshot call counts after init; FollowTapped MUST not move them.
-            val priorHeaderCalls = repo.headerCalls.get()
-            val priorPostsCalls = repo.tabCalls[ProfileTab.Posts]!!.get()
+            assertEquals(ViewerRelationship.Self, vm.uiState.value.viewerRelationship)
 
             vm.effects.test {
                 vm.handleEvent(ProfileEvent.FollowTapped)
-                val effect = awaitItem()
-                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Follow), effect)
+                advanceUntilIdle()
+                expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
-
-            assertEquals(priorHeaderCalls, repo.headerCalls.get(), "FollowTapped MUST NOT issue a repository call")
-            assertEquals(priorPostsCalls, repo.tabCalls[ProfileTab.Posts]!!.get(), "FollowTapped MUST NOT issue a tab fetch")
+            assertEquals(0, repo.followCalls.get(), "FollowTapped on Self MUST NOT call follow")
+            assertEquals(0, repo.unfollowCalls.get(), "FollowTapped on Self MUST NOT call unfollow")
+            assertEquals(ViewerRelationship.Self, vm.uiState.value.viewerRelationship)
         }
 
     @Test
@@ -387,7 +574,7 @@ internal class ProfileViewModelTest {
                         Result.success(
                             ProfileHeaderWithViewer(
                                 header = SAMPLE_HEADER,
-                                viewerRelationship = ViewerRelationship.NotFollowing,
+                                viewerRelationship = ViewerRelationship.NotFollowing(),
                             ),
                         ),
                 )
@@ -410,7 +597,7 @@ internal class ProfileViewModelTest {
                         Result.success(
                             ProfileHeaderWithViewer(
                                 header = SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
-                                viewerRelationship = ViewerRelationship.Following,
+                                viewerRelationship = SAMPLE_FOLLOWING,
                             ),
                         ),
                 )
@@ -418,7 +605,7 @@ internal class ProfileViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                ViewerRelationship.Following,
+                SAMPLE_FOLLOWING,
                 vm.uiState.value.viewerRelationship,
                 "Other-user route MUST preserve mapper-reported relationship",
             )
@@ -583,6 +770,8 @@ internal class ProfileViewModelTest {
                 followsCount = 0L,
             )
         val EMPTY_PAGE = ProfileTabPage(items = persistentListOf(), nextCursor = null)
+        const val SAMPLE_FOLLOW_URI = "at://did:plc:viewer123/app.bsky.graph.follow/sample-rkey"
+        val SAMPLE_FOLLOWING = ViewerRelationship.Following(followUri = SAMPLE_FOLLOW_URI)
     }
 
     /**
@@ -595,11 +784,39 @@ internal class ProfileViewModelTest {
             Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
         var tabResults: Map<ProfileTab, Result<ProfileTabPage>> =
             ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+        private val followResult: Result<String> = Result.success(SAMPLE_FOLLOW_URI),
+        private val unfollowResult: Result<Unit> = Result.success(Unit),
     ) : ProfileRepository {
         val headerCalls = AtomicInteger(0)
         val tabCalls: Map<ProfileTab, AtomicInteger> =
             ProfileTab.entries.associateWith { AtomicInteger(0) }
         val lastTabCursor: MutableMap<ProfileTab, String?> = mutableMapOf()
+
+        val followCalls = AtomicInteger(0)
+        val unfollowCalls = AtomicInteger(0)
+        var lastFollowSubject: String? = null
+        var lastUnfollowUri: String? = null
+
+        // Gates let pending-state tests synchronize the optimistic-flip
+        // observation with the wire commit. Set the gate before issuing
+        // FollowTapped, observe the pending state, then `release*` to
+        // let the suspended call complete.
+        var gateFollow: Boolean = false
+        var gateUnfollow: Boolean = false
+        private var followGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        private var unfollowGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+        fun releaseFollow() {
+            followGate?.complete(Unit)
+            followGate = null
+            gateFollow = false
+        }
+
+        fun releaseUnfollow() {
+            unfollowGate?.complete(Unit)
+            unfollowGate = null
+            gateUnfollow = false
+        }
 
         override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> {
             headerCalls.incrementAndGet()
@@ -618,6 +835,26 @@ internal class ProfileViewModelTest {
             // current cursor — that's what the spec scenario asserts.
             if (cursor != null) lastTabCursor[tab] = cursor
             return tabResults.getValue(tab)
+        }
+
+        override suspend fun follow(subjectDid: String): Result<String> {
+            followCalls.incrementAndGet()
+            lastFollowSubject = subjectDid
+            if (gateFollow) {
+                val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { followGate = it }
+                gate.await()
+            }
+            return followResult
+        }
+
+        override suspend fun unfollow(followUri: String): Result<Unit> {
+            unfollowCalls.incrementAndGet()
+            lastUnfollowUri = followUri
+            if (gateUnfollow) {
+                val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { unfollowGate = it }
+                gate.await()
+            }
+            return unfollowResult
         }
     }
 }

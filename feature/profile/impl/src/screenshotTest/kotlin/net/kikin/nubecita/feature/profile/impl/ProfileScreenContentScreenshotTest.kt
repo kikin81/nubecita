@@ -310,7 +310,7 @@ private fun ProfileScreenOtherUserFollowScreenshot() {
             handle = "bob.bsky.social",
             header = SAMPLE_HEADER.copy(handle = "bob.bsky.social", displayName = "Bob"),
             ownProfile = false,
-            viewerRelationship = ViewerRelationship.NotFollowing,
+            viewerRelationship = ViewerRelationship.NotFollowing(),
         ),
     )
 }
@@ -330,7 +330,7 @@ private fun ProfileScreenOtherUserFollowingScreenshot() {
             handle = "bob.bsky.social",
             header = SAMPLE_HEADER.copy(handle = "bob.bsky.social", displayName = "Bob"),
             ownProfile = false,
-            viewerRelationship = ViewerRelationship.Following,
+            viewerRelationship = ViewerRelationship.Following(followUri = "at://did:plc:viewer/app.bsky.graph.follow/sample"),
         ),
     )
 }

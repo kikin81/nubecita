@@ -112,9 +112,8 @@ internal fun ProfileViewDetailed.toProfileHeaderWithViewer(): ProfileHeaderWithV
         viewerRelationship = viewer.toViewerRelationship(),
     )
 
-private fun ViewerState?.toViewerRelationship(): ViewerRelationship =
-    when {
-        this == null -> ViewerRelationship.None
-        following != null -> ViewerRelationship.Following
-        else -> ViewerRelationship.NotFollowing
-    }
+private fun ViewerState?.toViewerRelationship(): ViewerRelationship {
+    if (this == null) return ViewerRelationship.None
+    val uri = following ?: return ViewerRelationship.NotFollowing()
+    return ViewerRelationship.Following(followUri = uri.raw)
+}

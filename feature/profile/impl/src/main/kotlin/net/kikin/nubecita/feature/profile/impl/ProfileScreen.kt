@@ -58,7 +58,6 @@ internal fun ProfileScreen(
     val errorNetworkMsg = stringResource(R.string.profile_snackbar_error_network)
     val errorUnknownMsg = stringResource(R.string.profile_snackbar_error_unknown)
     val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
-    val comingSoonFollow = stringResource(R.string.profile_snackbar_follow_coming_soon)
     val comingSoonMessage = stringResource(R.string.profile_snackbar_message_coming_soon)
     val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
     val comingSoonMute = stringResource(R.string.profile_snackbar_mute_coming_soon)
@@ -87,7 +86,6 @@ internal fun ProfileScreen(
                     val msg =
                         when (effect.action) {
                             StubbedAction.Edit -> comingSoonEdit
-                            StubbedAction.Follow -> comingSoonFollow
                             StubbedAction.Message -> comingSoonMessage
                             StubbedAction.Block -> comingSoonBlock
                             StubbedAction.Mute -> comingSoonMute

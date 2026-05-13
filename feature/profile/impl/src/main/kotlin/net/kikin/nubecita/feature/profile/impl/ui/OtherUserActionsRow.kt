@@ -22,9 +22,15 @@ import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
  * - `Following` → outlined `Following` (quiet, indicates already-following state)
  * - any other relationship → filled `Follow` (CTA, primary emphasis)
  *
- * The tap dispatches [onFollow] in both cases — real writes ship under
- * follow-up bd 7.3; bead F surfaces a "Coming soon" snackbar. [onMessage]
- * routes to `ProfileEvent.MessageTapped → ShowComingSoon(Message)`.
+ * The tap dispatches [onFollow] in both cases. The ViewModel handles
+ * the optimistic `Following ↔ NotFollowing` flip + the actual
+ * `app.bsky.graph.follow` create / delete write. While the write is
+ * in flight (`viewerRelationship.isPending`), the Follow button is
+ * disabled — the optimistic flip has already happened so the user
+ * sees the future label, and the disable absorbs double-taps. The
+ * ViewModel's single-flight guard is the belt-and-suspenders backup.
+ *
+ * [onMessage] routes to `ProfileEvent.MessageTapped → ShowComingSoon(Message)`.
  * The overflow menu's three entries each dispatch [onOverflowAction]
  * with the corresponding [StubbedAction] variant (`Block / Mute /
  * Report`); the screen-level handler routes those to
@@ -43,7 +49,7 @@ internal fun OtherUserActionsRow(
 ) {
     val followLabel =
         when (viewerRelationship) {
-            ViewerRelationship.Following -> stringResource(R.string.profile_action_following)
+            is ViewerRelationship.Following -> stringResource(R.string.profile_action_following)
             else -> stringResource(R.string.profile_action_follow)
         }
     val blockLabel = stringResource(R.string.profile_action_block)
@@ -54,12 +60,13 @@ internal fun OtherUserActionsRow(
         modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (viewerRelationship == ViewerRelationship.Following) {
-            OutlinedButton(onClick = onFollow, modifier = Modifier.weight(1f)) {
+        val followEnabled = !viewerRelationship.isPending
+        if (viewerRelationship is ViewerRelationship.Following) {
+            OutlinedButton(onClick = onFollow, enabled = followEnabled, modifier = Modifier.weight(1f)) {
                 Text(text = followLabel)
             }
         } else {
-            Button(onClick = onFollow, modifier = Modifier.weight(1f)) {
+            Button(onClick = onFollow, enabled = followEnabled, modifier = Modifier.weight(1f)) {
                 Text(text = followLabel)
             }
         }
