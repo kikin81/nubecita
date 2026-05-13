@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Top app bar -->
+    <string name="chats_title">Chats</string>
+
+    <!-- Convo list row copy -->
+    <string name="chats_row_you_prefix">You: %1$s</string>
+    <string name="chats_row_attachment_placeholder">Sent an attachment</string>
+    <string name="chats_row_deleted_placeholder">Message deleted</string>
+
+    <!-- Empty + error states -->
+    <string name="chats_empty_title">No conversations yet</string>
+    <string name="chats_empty_body">Direct messages with other Bluesky users will appear here.</string>
+    <string name="chats_error_network_title">Network error</string>
+    <string name="chats_error_network_body">Couldn\'t load your conversations. Check your connection and try again.</string>
+    <string name="chats_error_not_enrolled_title">Enable direct messages</string>
+    <string name="chats_error_not_enrolled_body">Your Bluesky account hasn\'t opted into direct messages. Enable chat in the official Bluesky app\'s settings to start using DMs.</string>
+    <string name="chats_error_unknown_title">Something went wrong</string>
+    <string name="chats_error_unknown_body">An unexpected error occurred. Try again in a moment.</string>
+    <string name="chats_error_retry">Try again</string>
+</resources>
