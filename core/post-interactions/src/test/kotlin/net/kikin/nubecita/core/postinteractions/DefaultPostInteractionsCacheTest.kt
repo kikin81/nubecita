@@ -87,6 +87,42 @@ internal class DefaultPostInteractionsCacheTest {
             assertEquals(0, fake.likeCalls.get(), "like() MUST NOT be called on unlike path")
         }
 
+    @Test
+    fun `toggleLike rolls back state and returns failure on network error`() =
+        runTest {
+            val networkFailure = IllegalStateException("net down")
+            val fake =
+                FakeLikeRepostRepository().apply {
+                    nextLikeResult = Result.failure(networkFailure)
+                }
+            val cache = newCache(fake)
+            val initial = PostInteractionState(viewerLikeUri = null, likeCount = 7)
+            cache.seedDirectly("at://post-fail", initial)
+
+            val result = cache.toggleLike("at://post-fail", "bafyFAIL")
+            advanceUntilIdle()
+
+            assertTrue(result.isFailure, "toggleLike MUST surface the underlying failure")
+            assertEquals(networkFailure, result.exceptionOrNull())
+
+            val state = cache.state.value["at://post-fail"]
+            assertEquals(
+                initial.viewerLikeUri,
+                state?.viewerLikeUri,
+                "rollback MUST restore pre-tap viewerLikeUri (null)",
+            )
+            assertEquals(
+                initial.likeCount,
+                state?.likeCount,
+                "rollback MUST restore pre-tap likeCount (7)",
+            )
+            assertEquals(
+                PendingState.None,
+                state?.pendingLikeWrite,
+                "rollback MUST clear pendingLikeWrite",
+            )
+        }
+
     // -- Test helpers ---------------------------------------------------------
 
     private fun TestScope.newCache(fake: FakeLikeRepostRepository): DefaultPostInteractionsCache =
