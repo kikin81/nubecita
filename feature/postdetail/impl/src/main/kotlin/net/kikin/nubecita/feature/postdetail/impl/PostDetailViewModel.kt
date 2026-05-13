@@ -6,9 +6,16 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.data.PostThreadRepository
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
@@ -31,10 +38,22 @@ internal class PostDetailViewModel
     constructor(
         @Assisted private val route: PostDetailRoute,
         private val postThreadRepository: PostThreadRepository,
+        private val postInteractionsCache: PostInteractionsCache,
     ) : MviViewModel<PostDetailState, PostDetailEvent, PostDetailEffect>(PostDetailState()) {
         @AssistedFactory
         interface Factory {
             fun create(route: PostDetailRoute): PostDetailViewModel
+        }
+
+        init {
+            // Subscribe to the cache BEFORE the initial thread load so the
+            // first emission from seed() is captured rather than dropped.
+            viewModelScope.launch {
+                postInteractionsCache.state
+                    .map { interactionMap -> uiState.value.applyInteractions(interactionMap) }
+                    .distinctUntilChanged()
+                    .collect { merged -> setState { merged } }
+            }
         }
 
         override fun handleEvent(event: PostDetailEvent) {
@@ -65,6 +84,18 @@ internal class PostDetailViewModel
                             imageIndex = event.imageIndex,
                         ),
                     )
+                is PostDetailEvent.OnLikeClicked ->
+                    viewModelScope.launch {
+                        postInteractionsCache
+                            .toggleLike(event.post.id, event.post.cid)
+                            .onFailure { sendEffect(PostDetailEffect.ShowError(it.toPostDetailError())) }
+                    }
+                is PostDetailEvent.OnRepostClicked ->
+                    viewModelScope.launch {
+                        postInteractionsCache
+                            .toggleRepost(event.post.id, event.post.cid)
+                            .onFailure { sendEffect(PostDetailEffect.ShowError(it.toPostDetailError())) }
+                    }
             }
         }
 
@@ -91,6 +122,22 @@ internal class PostDetailViewModel
                             }
                         } else {
                             setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
+                            // Seed the cache after the thread load resolves so
+                            // any in-flight optimistic writes are preserved
+                            // against appview eventual-consistency lag.
+                            val postsToSeed =
+                                items.mapNotNull { item ->
+                                    when (item) {
+                                        is ThreadItem.Ancestor -> item.post
+                                        is ThreadItem.Focus -> item.post
+                                        is ThreadItem.Reply -> item.post
+                                        is ThreadItem.Blocked,
+                                        is ThreadItem.NotFound,
+                                        is ThreadItem.Fold,
+                                        -> null
+                                    }
+                                }
+                            postInteractionsCache.seed(postsToSeed)
                         }
                     }.onFailure { throwable ->
                         setState {
@@ -122,6 +169,21 @@ internal class PostDetailViewModel
                                 copy(items = items, loadStatus = PostDetailLoadStatus.Idle)
                             }
                         }
+                        if (items.isNotEmpty()) {
+                            val postsToSeed =
+                                items.mapNotNull { item ->
+                                    when (item) {
+                                        is ThreadItem.Ancestor -> item.post
+                                        is ThreadItem.Focus -> item.post
+                                        is ThreadItem.Reply -> item.post
+                                        is ThreadItem.Blocked,
+                                        is ThreadItem.NotFound,
+                                        is ThreadItem.Fold,
+                                        -> null
+                                    }
+                                }
+                            postInteractionsCache.seed(postsToSeed)
+                        }
                     }.onFailure { throwable ->
                         // Preserve items on refresh failure; surface as a snackbar.
                         setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
@@ -152,4 +214,36 @@ internal class PostDetailViewModel
         private companion object {
             const val HTTP_NOT_FOUND = 404
         }
+    }
+
+// ---------- state-projection helpers ---------------------------------------
+
+private fun PostDetailState.applyInteractions(
+    map: PersistentMap<String, PostInteractionState>,
+): PostDetailState =
+    copy(
+        items = items.map { item -> item.applyInteraction(map) }.toImmutableList(),
+    )
+
+private fun ThreadItem.applyInteraction(
+    map: PersistentMap<String, PostInteractionState>,
+): ThreadItem =
+    when (this) {
+        is ThreadItem.Ancestor -> {
+            val state = map[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        is ThreadItem.Focus -> {
+            val state = map[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        is ThreadItem.Reply -> {
+            val state = map[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        // Blocked, NotFound, Fold carry no PostUi — pass through.
+        is ThreadItem.Blocked,
+        is ThreadItem.NotFound,
+        is ThreadItem.Fold,
+        -> this
     }
