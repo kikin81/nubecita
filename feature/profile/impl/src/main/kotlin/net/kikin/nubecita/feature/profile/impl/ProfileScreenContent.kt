@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,8 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.designsystem.hero.rememberBoldHeroGradient
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
@@ -85,11 +89,23 @@ internal fun ProfileScreenContent(
                     )
                 }
                 stickyHeader(key = "tabs", contentType = "tabs") {
-                    ProfilePillTabs(
-                        tabs = pillTabs,
-                        selectedValue = state.selectedTab,
-                        onSelect = { tab -> onEvent(ProfileEvent.TabSelected(tab)) },
-                    )
+                    val header = state.header
+                    val pillsBackdrop =
+                        if (header != null) {
+                            rememberBoldHeroGradient(
+                                banner = header.bannerUrl,
+                                avatarHue = header.avatarHue,
+                            ).top
+                        } else {
+                            Color.Transparent
+                        }
+                    Box(modifier = Modifier.background(pillsBackdrop)) {
+                        ProfilePillTabs(
+                            tabs = pillTabs,
+                            selectedValue = state.selectedTab,
+                            onSelect = { tab -> onEvent(ProfileEvent.TabSelected(tab)) },
+                        )
+                    }
                 }
                 when (state.selectedTab) {
                     ProfileTab.Posts ->
