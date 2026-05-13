@@ -1,13 +1,18 @@
 package net.kikin.nubecita.core.postinteractions.internal
 
+import io.github.kikin81.atproto.com.atproto.repo.StrongRef
+import io.github.kikin81.atproto.runtime.AtUri
+import io.github.kikin81.atproto.runtime.Cid
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
+import net.kikin.nubecita.core.postinteractions.PendingState
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.data.models.PostUi
@@ -47,7 +52,43 @@ internal class DefaultPostInteractionsCache
             postUri: String,
             postCid: String,
         ): Result<Unit> {
-            TODO("Tasks 8, 9, 10: toggleLike happy + failure + single-flight paths")
+            val before = _state.value[postUri] ?: PostInteractionState()
+            val optimistic =
+                before.copy(
+                    viewerLikeUri = if (before.viewerLikeUri == null) PENDING_LIKE_SENTINEL else null,
+                    likeCount = (before.likeCount + if (before.viewerLikeUri == null) 1 else -1).coerceAtLeast(0),
+                    pendingLikeWrite = PendingState.Pending,
+                )
+            _state.update { it.put(postUri, optimistic) }
+
+            val callResult =
+                runCatching {
+                    if (before.viewerLikeUri == null) {
+                        likeRepostRepository.like(StrongRef(uri = AtUri(postUri), cid = Cid(postCid))).getOrThrow()
+                    } else {
+                        likeRepostRepository.unlike(AtUri(before.viewerLikeUri)).getOrThrow()
+                        null
+                    }
+                }
+
+            return callResult.fold(
+                onSuccess = { newLikeUri: AtUri? ->
+                    _state.update {
+                        it.put(
+                            postUri,
+                            optimistic.copy(
+                                viewerLikeUri = newLikeUri?.raw,
+                                pendingLikeWrite = PendingState.None,
+                            ),
+                        )
+                    }
+                    Result.success(Unit)
+                },
+                onFailure = { throwable ->
+                    _state.update { it.put(postUri, before) }
+                    Result.failure(throwable)
+                },
+            )
         }
 
         override suspend fun toggleRepost(
