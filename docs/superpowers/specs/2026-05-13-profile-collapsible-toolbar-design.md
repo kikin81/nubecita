@@ -30,28 +30,28 @@ Add a `TopAppBar` that:
 
 ## Architecture
 
+`ProfileScreenContent` already owns a `Scaffold` (snackbarHost + content), and `listState` is already hoisted by `ProfileScreen` and threaded through. We add a `topBar` slot to the existing Scaffold — no new Scaffold wrapper.
+
 ```
 ProfileScreen
-  ├─ Scaffold
-  │    ├─ topBar = ProfileTopBar(header, listState, onBack?, modifier)
-  │    └─ content(paddingValues) = ProfileScreenContent(...)
-  │
-  └─ ProfileScreenContent
-       └─ PullToRefreshBox
-            └─ LazyColumn
-                 ├─ item("hero")          // unchanged: BoldHeroGradient + avatar + name + …
-                 ├─ stickyHeader("tabs")  // pills row; new: gradient-sampled backdrop
-                 └─ items(tab body)       // unchanged
+  ├─ reads LocalMainShellNavState → derives onBack: (() -> Unit)?
+  └─ ProfileScreenContent(... onBack = onBack ...)
+       └─ Scaffold(snackbarHost, topBar = { ProfileTopBar(...) })  // topBar slot is new
+            └─ PullToRefreshBox
+                 └─ LazyColumn(contentPadding = paddingValues, modifier = Modifier.consumeWindowInsets(paddingValues))
+                      ├─ item("hero")                                                 // unchanged
+                      ├─ stickyHeader("tabs") → Box(gradient backdrop) { ProfilePillTabs }  // backdrop wrap is new
+                      └─ items(tab body)                                              // unchanged
 ```
 
-Three existing files touched, one new file added:
+One new file, three existing files touched:
 
 | File | Change |
 |---|---|
-| `ProfileScreen.kt` | Wrap existing tree in `Scaffold(topBar = { ProfileTopBar(...) }, content = { paddingValues -> ProfileScreenContent(... contentPadding = paddingValues) })`. Read `LocalMainShellNavState.current` for the back callback. |
-| `ProfileScreenContent.kt` | Accept `contentPadding: PaddingValues` and `listState: LazyListState` parameters (listState already hoisted). Apply `Modifier.consumeWindowInsets(contentPadding)` on the LazyColumn so the existing `contentPadding` flow doesn't double-count the bar's reserved inset. Expose a `listStateSeed: LazyListState?` for screenshot fixtures. |
-| `ui/ProfileTabsRow.kt` (or current pills file) | Add gradient-sampled backdrop. Reads `rememberBoldHeroGradient(header.bannerUrl, header.avatarHue).top`. Always opaque — when scrolling alongside the hero, the same color above and below the pills means no visual seam; when stuck, the backdrop + the bar above form a continuous surface. |
+| `ProfileScreen.kt` | Read `LocalMainShellNavState.current`; compute `onBack: (() -> Unit)? = if (navState.canPop) { { navState.pop() } } else null`. Pass `onBack` into `ProfileScreenContent`. |
+| `ProfileScreenContent.kt` | Add `onBack: (() -> Unit)?` parameter. Add `topBar = { ProfileTopBar(header = state.header, listState = listState, onBack = onBack) }` to the existing Scaffold. Add `Modifier.consumeWindowInsets(padding)` on the LazyColumn so the existing `contentPadding = padding` flow doesn't double-count the bar's reserved inset. Wrap the existing `ProfilePillTabs` call inside `stickyHeader` in a `Box` whose background color is `rememberBoldHeroGradient(state.header?.bannerUrl, state.header?.avatarHue ?: 0).top` (transparent fallback when header is null). |
 | `ui/ProfileTopBar.kt` (new) | The collapsing bar. ~100 lines. |
+| `ProfileScreenContentScreenshotTest.kt` | Add `listStateSeed: LazyListState?` parameter on the screenshot host so new "scrolled" fixtures can pre-seed `LazyListState(firstVisibleItemIndex = 1)`. |
 
 ## Component contract: `ProfileTopBar`
 
