@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
@@ -60,12 +61,22 @@ enum class ProfileTab { Posts, Replies, Media }
  * [isPending] flips to `true` for [Following] / [NotFollowing] while
  * an in-flight `app.bsky.graph.follow` create / delete is pending the
  * server's confirmation. The host composable disables the action
- * button when pending so a second tap can't double-fire (single-flight
- * is also enforced inside the ViewModel — the disabled state is the
- * visible counterpart). On [Following] the [followUri] is null while
+ * button while pending so a second tap can't double-fire — the same
+ * `isPending` flag is the ViewModel's single-flight guard.
+ *
+ * On [Following] the [Following.followUri] is null **only** while
  * pending the optimistic NotFollowing → Following flip; the wire
- * response's `uri` populates it on success.
+ * response's `uri` populates it on success. The `init { require(...) }`
+ * on [Following] enforces this invariant — a committed `Following`
+ * (`isPending == false`) MUST carry a non-null URI so the matching
+ * `unfollow` path always has a record to delete.
+ *
+ * Marked `@Immutable` so Compose treats every variant — the data
+ * objects and the data classes (whose only fields are stable
+ * primitives) — as fully stable inputs to composables that take a
+ * `ViewerRelationship` parameter.
  */
+@Immutable
 sealed interface ViewerRelationship {
     val isPending: Boolean
 
@@ -80,7 +91,19 @@ sealed interface ViewerRelationship {
     data class Following(
         val followUri: String?,
         override val isPending: Boolean = false,
-    ) : ViewerRelationship
+    ) : ViewerRelationship {
+        init {
+            // Invalid by construction: a committed Following without a
+            // followUri is unrecoverable (the unfollow write path can't
+            // target a record it doesn't have a URI for). The pending
+            // optimistic flip is the only legitimate `followUri == null`
+            // case — wire success then commits the URI returned from
+            // createRecord.
+            require(followUri != null || isPending) {
+                "Following.followUri may only be null while isPending == true"
+            }
+        }
+    }
 
     data class NotFollowing(
         override val isPending: Boolean = false,

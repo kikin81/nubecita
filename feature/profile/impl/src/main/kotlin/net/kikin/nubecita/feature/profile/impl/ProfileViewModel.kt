@@ -82,16 +82,6 @@ internal class ProfileViewModel
          */
         private val activeInitialLoadJobs = mutableMapOf<ProfileTab, Job>()
 
-        /**
-         * Single-flight guard for the follow / unfollow write. The
-         * disabled-while-pending state on the action button is the
-         * UI-side counterpart; this Job is the belt-and-suspenders
-         * backup for racey re-entry (a stale enabled-state composition
-         * still in the wings before the disable propagates) and for
-         * any future programmatic dispatch that bypasses the button.
-         */
-        private var followJob: Job? = null
-
         init {
             val actor = resolveActor()
             if (actor == null) {
@@ -353,22 +343,31 @@ internal class ProfileViewModel
          *   `app.bsky.graph.follow` create. Success commits the wire
          *   AT-URI; failure rolls back to the prior state and surfaces
          *   a [ProfileEffect.ShowError] snackbar.
-         * - [ViewerRelationship.Following] (with a non-null `followUri`)
-         *   → optimistically flip to `NotFollowing(isPending = true)`,
-         *   then issue `app.bsky.graph.follow` delete. Same success /
-         *   rollback pattern.
+         * - [ViewerRelationship.Following] → optimistically flip to
+         *   `NotFollowing(isPending = true)`, then issue
+         *   `app.bsky.graph.follow` delete against the URI carried on
+         *   the prior `Following` (the [Following.followUri] invariant
+         *   guarantees it is non-null when `isPending == false`).
          * - [ViewerRelationship.Self] / [ViewerRelationship.None] /
-         *   pending states → silent no-op (the button shouldn't be
-         *   tappable in those states; the ViewModel guards in case the
-         *   UI's disable hasn't propagated yet).
+         *   any `isPending` variant → silent no-op. `isPending` is
+         *   the single-flight guard; the disabled-while-pending button
+         *   is its visible counterpart, and the early-return here
+         *   covers the wing-of-recomposition gap before the disable
+         *   propagates to the next frame.
          */
         private fun onFollowTapped() {
             val current = uiState.value.viewerRelationship
-            if (current.isPending) return // single-flight: button should be disabled, but guard anyway
+            if (current.isPending) return
             when (current) {
                 is ViewerRelationship.NotFollowing -> launchFollow(previous = current)
                 is ViewerRelationship.Following -> {
-                    val followUri = current.followUri ?: return
+                    // Following with isPending=false implies followUri != null,
+                    // enforced by Following.init { require(...) }. The require here
+                    // surfaces an invariant violation rather than silently no-op'ing.
+                    val followUri =
+                        requireNotNull(current.followUri) {
+                            "committed Following MUST have a non-null followUri"
+                        }
                     launchUnfollow(previous = current, followUri = followUri)
                 }
                 ViewerRelationship.Self, ViewerRelationship.None -> Unit
@@ -380,21 +379,18 @@ internal class ProfileViewModel
             setState {
                 copy(viewerRelationship = ViewerRelationship.Following(followUri = null, isPending = true))
             }
-            followJob?.cancel()
-            followJob =
-                viewModelScope.launch {
-                    repository
-                        .follow(targetDid)
-                        .onSuccess { uri ->
-                            setState {
-                                copy(viewerRelationship = ViewerRelationship.Following(followUri = uri, isPending = false))
-                            }
-                        }.onFailure { throwable ->
-                            setState { copy(viewerRelationship = previous) }
-                            sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
+            viewModelScope.launch {
+                repository
+                    .follow(targetDid)
+                    .onSuccess { uri ->
+                        setState {
+                            copy(viewerRelationship = ViewerRelationship.Following(followUri = uri, isPending = false))
                         }
-                    followJob = null
-                }
+                    }.onFailure { throwable ->
+                        setState { copy(viewerRelationship = previous) }
+                        sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
+                    }
+            }
         }
 
         private fun launchUnfollow(
@@ -402,19 +398,16 @@ internal class ProfileViewModel
             followUri: String,
         ) {
             setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = true)) }
-            followJob?.cancel()
-            followJob =
-                viewModelScope.launch {
-                    repository
-                        .unfollow(followUri)
-                        .onSuccess {
-                            setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = false)) }
-                        }.onFailure { throwable ->
-                            setState { copy(viewerRelationship = previous) }
-                            sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
-                        }
-                    followJob = null
-                }
+            viewModelScope.launch {
+                repository
+                    .unfollow(followUri)
+                    .onSuccess {
+                        setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = false)) }
+                    }.onFailure { throwable ->
+                        setState { copy(viewerRelationship = previous) }
+                        sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
+                    }
+            }
         }
 
         // -- State / status helpers --------------------------------------------
