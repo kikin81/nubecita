@@ -14,10 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import net.kikin.nubecita.designsystem.hero.rememberBoldHeroGradient
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
@@ -72,19 +70,24 @@ internal fun computeBarAlpha(
  * scrolling content from drawing under the system clock / cutout.
  * This is what fixes the bd's camera-cutout-overlap reproducer.
  *
- * Visibility: the [header]-derived backdrop and title are
+ * Visibility: the backdrop, title, and navigation icon are
  * alpha-modulated by [computeBarAlpha] applied to [listState]. While
  * the hero is in view, alpha is 0 → the bar reads as a transparent
  * inset reservation. As the hero scrolls past its half-height
- * threshold, alpha climbs to 1 → the bar's gradient backdrop and
- * "Display name / @handle" title cross-fade in.
+ * threshold, alpha climbs to 1 → the bar fades up to a fully opaque
+ * `MaterialTheme.colorScheme.surface` backdrop with the
+ * "Display name / @handle" title.
+ *
+ * Backdrop = standard Material surface color, NOT a sample of the
+ * hero gradient. An earlier iteration sampled
+ * `rememberBoldHeroGradient(...).top` so bar + hero shared a hue, but
+ * on-device verification surfaced unfixable contrast issues between
+ * title text and saturated gradient tones. The surface backdrop gives
+ * up the visual continuity for a baseline-AAA contrast contract with
+ * `onSurface` content.
  *
  * When [onBack] is non-null the bar paints a back-arrow navigation
  * icon (also alpha-modulated). Null = own-profile root, no nav icon.
- *
- * Backdrop: [rememberBoldHeroGradient] with the same banner +
- * avatarHue the hero uses → cache hit, same `top` color, single
- * Palette extraction shared between bar and hero.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,26 +130,18 @@ internal fun ProfileTopBar(
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    // Gradient sample shared with ProfileHero (cache hit when the hero has
-    // already measured + extracted). Falls back to the avatarHue-derived
-    // gradient when no banner; transparent when header itself is still null
-    // (loading state).
-    val gradientTop =
-        if (header != null) {
-            rememberBoldHeroGradient(banner = header.bannerUrl, avatarHue = header.avatarHue).top
-        } else {
-            Color.Transparent
-        }
-
-    // `topAppBarColors` is @Composable so it can't be wrapped in remember(...) —
-    // the calculation lambda is non-composable. M3 caches the *default* colors
-    // instance internally, but the caller's containerColor override flows
-    // through .copy(...) and allocates a fresh TopAppBarColors each call. The
-    // per-frame allocation is bounded by the derivedStateOf wrapper on `alpha`:
-    // the alpha value only changes discretely as the user scrolls, so this
-    // allocates once per visible alpha step, not once per render frame.
+    // Surface backdrop, alpha-modulated. When the hero is in view (alpha=0)
+    // the bar is fully transparent — just the status-bar inset reservation.
+    // As the user scrolls past the hero, the bar fades up to the standard M3
+    // surface color, which carries the WCAG-guaranteed contrast contract with
+    // onSurface title + icon content. `topAppBarColors` is @Composable so it
+    // can't be wrapped in remember(...) (the calculation lambda is non-
+    // composable); the per-call allocation is bounded by the derivedStateOf
+    // wrapper on `alpha` — once per discrete alpha step, not per render frame.
     val barColors =
-        TopAppBarDefaults.topAppBarColors(containerColor = gradientTop.copy(alpha = alpha))
+        TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = alpha),
+        )
 
     TopAppBar(
         title = {
@@ -169,7 +164,15 @@ internal fun ProfileTopBar(
         },
         navigationIcon = {
             if (onBack != null) {
-                IconButton(onClick = onBack, modifier = Modifier.alpha(alpha)) {
+                // Back arrow is NOT alpha-modulated — it stays fully visible
+                // regardless of scroll position so a user who landed on a
+                // pushed profile always has a clear way back. The bar's
+                // backdrop + title still fade with scroll; only this nav
+                // affordance is unconditionally opaque. Contrast over a
+                // saturated banner is acceptable in current testing; if it
+                // turns out to be a real legibility issue, wrap the icon
+                // in a small surface-tinted scrim circle.
+                IconButton(onClick = onBack) {
                     NubecitaIcon(
                         name = NubecitaIconName.ArrowBack,
                         contentDescription = stringResource(R.string.profile_topbar_back_content_description),
