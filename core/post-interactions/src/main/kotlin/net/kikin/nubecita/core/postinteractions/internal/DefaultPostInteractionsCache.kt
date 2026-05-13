@@ -43,6 +43,7 @@ internal class DefaultPostInteractionsCache
     ) : PostInteractionsCache {
         private val _state = MutableStateFlow<PersistentMap<String, PostInteractionState>>(persistentMapOf())
         private val likeJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+        private val repostJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
 
         override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
 
@@ -138,7 +139,56 @@ internal class DefaultPostInteractionsCache
             postUri: String,
             postCid: String,
         ): Result<Unit> {
-            TODO("Task 14: toggleRepost mirror")
+            if (repostJobs[postUri]?.isActive == true) {
+                return Result.success(Unit)
+            }
+
+            val before = _state.value[postUri] ?: PostInteractionState()
+            val optimistic =
+                before.copy(
+                    viewerRepostUri = if (before.viewerRepostUri == null) PENDING_REPOST_SENTINEL else null,
+                    repostCount = (before.repostCount + if (before.viewerRepostUri == null) 1 else -1).coerceAtLeast(0),
+                    pendingRepostWrite = PendingState.Pending,
+                )
+            _state.update { it.put(postUri, optimistic) }
+
+            val job =
+                applicationScope.async {
+                    val callResult =
+                        runCatching {
+                            if (before.viewerRepostUri == null) {
+                                likeRepostRepository.repost(StrongRef(uri = AtUri(postUri), cid = Cid(postCid))).getOrThrow()
+                            } else {
+                                likeRepostRepository.unrepost(AtUri(before.viewerRepostUri)).getOrThrow()
+                                null
+                            }
+                        }
+
+                    callResult.fold(
+                        onSuccess = { newRepostUri: AtUri? ->
+                            _state.update {
+                                it.put(
+                                    postUri,
+                                    optimistic.copy(
+                                        viewerRepostUri = newRepostUri?.raw,
+                                        pendingRepostWrite = PendingState.None,
+                                    ),
+                                )
+                            }
+                            Result.success(Unit)
+                        },
+                        onFailure = { throwable ->
+                            _state.update { it.put(postUri, before) }
+                            Result.failure(throwable)
+                        },
+                    )
+                }
+            repostJobs[postUri] = job
+            return try {
+                job.await()
+            } finally {
+                repostJobs.remove(postUri)
+            }
         }
 
         override fun clear() {

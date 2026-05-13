@@ -304,6 +304,69 @@ internal class DefaultPostInteractionsCacheTest {
             assertTrue(cache.state.value.isEmpty(), "clear MUST empty the cache state")
         }
 
+    @Test
+    fun `toggleRepost from seeded not-reposted state increments count and calls repost`() =
+        runTest {
+            val fake =
+                FakeLikeRepostRepository().apply {
+                    nextRepostResult = Result.success(AtUri("at://did:plc:viewer/app.bsky.feed.repost/r1"))
+                }
+            val cache = newCache(fake)
+            cache.seedDirectly("at://post-rp", PostInteractionState(viewerRepostUri = null, repostCount = 2))
+
+            val result = cache.toggleRepost("at://post-rp", "bafyRP")
+            advanceUntilIdle()
+
+            assertTrue(result.isSuccess)
+            val state = cache.state.value["at://post-rp"]
+            assertEquals("at://did:plc:viewer/app.bsky.feed.repost/r1", state?.viewerRepostUri)
+            assertEquals(3L, state?.repostCount)
+            assertEquals(1, fake.repostCalls.get())
+        }
+
+    @Test
+    fun `toggleRepost from seeded reposted state decrements count and calls unrepost`() =
+        runTest {
+            val fake = FakeLikeRepostRepository()
+            val cache = newCache(fake)
+            cache.seedDirectly(
+                "at://post-unrp",
+                PostInteractionState(viewerRepostUri = "at://did:plc:viewer/app.bsky.feed.repost/old", repostCount = 3),
+            )
+
+            val result = cache.toggleRepost("at://post-unrp", "bafyUNRP")
+            advanceUntilIdle()
+
+            assertTrue(result.isSuccess)
+            val state = cache.state.value["at://post-unrp"]
+            assertNull(state?.viewerRepostUri)
+            assertEquals(2L, state?.repostCount)
+            assertEquals(1, fake.unrepostCalls.get())
+        }
+
+    @Test
+    fun `toggleRepost rolls back state and returns failure on network error`() =
+        runTest {
+            val networkFailure = IllegalStateException("net down")
+            val fake =
+                FakeLikeRepostRepository().apply {
+                    nextRepostResult = Result.failure(networkFailure)
+                }
+            val cache = newCache(fake)
+            val initial = PostInteractionState(viewerRepostUri = null, repostCount = 4)
+            cache.seedDirectly("at://post-rp-fail", initial)
+
+            val result = cache.toggleRepost("at://post-rp-fail", "bafyRPFAIL")
+            advanceUntilIdle()
+
+            assertTrue(result.isFailure)
+            assertEquals(networkFailure, result.exceptionOrNull())
+            val state = cache.state.value["at://post-rp-fail"]
+            assertEquals(initial.viewerRepostUri, state?.viewerRepostUri)
+            assertEquals(initial.repostCount, state?.repostCount)
+            assertEquals(PendingState.None, state?.pendingRepostWrite)
+        }
+
     // -- Test helpers ---------------------------------------------------------
 
     private fun TestScope.newCache(fake: FakeLikeRepostRepository): DefaultPostInteractionsCache =
