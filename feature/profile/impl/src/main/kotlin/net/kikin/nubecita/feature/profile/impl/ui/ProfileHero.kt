@@ -115,11 +115,16 @@ private fun ProfileHeroLoaded(
             // layout shifts the entire hero up by [topInset]px, this padding
             // shifts the avatar back down so it sits below the camera cutout.
             // The gradient itself still extends edge-to-edge from screen top.
+            // We use [topInset] alone (no extra 16dp on top) because the
+            // bar's reserved height already provides ample breathing room
+            // between the cutout and the avatar — adding 16dp on top of
+            // that read as ~128dp of empty gradient space before any
+            // content appeared.
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(PaddingValues(start = 16.dp, top = 16.dp + topInset, end = 16.dp, bottom = 16.dp)),
+                        .padding(PaddingValues(start = 16.dp, top = topInset, end = 16.dp, bottom = 16.dp)),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -205,7 +210,7 @@ private fun ProfileHeroLoading(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(PaddingValues(start = 16.dp, top = 16.dp + topInset, end = 16.dp, bottom = 16.dp)),
+                .padding(PaddingValues(start = 16.dp, top = topInset, end = 16.dp, bottom = 16.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -247,7 +252,7 @@ private fun ProfileHeroError(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(PaddingValues(start = 24.dp, top = 24.dp + topInset, end = 24.dp, bottom = 24.dp)),
+                .padding(PaddingValues(start = 24.dp, top = topInset, end = 24.dp, bottom = 24.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
