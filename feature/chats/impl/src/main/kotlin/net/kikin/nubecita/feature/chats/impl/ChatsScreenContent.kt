@@ -3,12 +3,15 @@ package net.kikin.nubecita.feature.chats.impl
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -30,7 +33,7 @@ import net.kikin.nubecita.feature.chats.impl.ui.ConvoListItem
  * [ChatsScreen] hosts the ViewModel; previews + screenshot tests
  * render this composable directly with fixture inputs.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ChatsScreenContent(
     state: ChatsScreenViewState,
@@ -109,16 +112,39 @@ private fun EmptyBody() {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LoadedBody(
     items: kotlinx.collections.immutable.ImmutableList<ConvoListItemUi>,
     onTap: (otherUserDid: String) -> Unit,
 ) {
+    // Arrangement.spacedBy(ListItemDefaults.SegmentedGap) — the framework's
+    // canonical gap between rows in a segmented section. Lets the rounded-
+    // corner profile from segmentedShapes(index, count) read as one grouped
+    // surface instead of a continuous rectangle.
+    //
+    // contentPadding 8dp horizontal — matches Google Chat's grouped-list inset
+    // so the rounded surface breathes against the device edge instead of
+    // bleeding all the way to the bezel. contentPadding (not Modifier.padding)
+    // keeps the scrollable surface itself edge-to-edge while only the items
+    // get pushed inward — overscroll glow and pull-to-refresh indicator still
+    // reach the screen edges.
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
     ) {
-        items(items = items, key = { it.convoId }, contentType = { "convo-row" }) { item ->
-            ConvoListItem(item = item, onTap = onTap)
+        itemsIndexed(
+            items = items,
+            key = { _, item -> item.convoId },
+            contentType = { _, _ -> "convo-row" },
+        ) { index, item ->
+            ConvoListItem(
+                item = item,
+                index = index,
+                count = items.size,
+                onTap = onTap,
+            )
         }
     }
 }

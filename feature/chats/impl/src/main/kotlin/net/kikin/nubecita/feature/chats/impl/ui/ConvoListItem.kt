@@ -1,17 +1,14 @@
 package net.kikin.nubecita.feature.chats.impl.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,7 +17,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,13 +27,22 @@ import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
 
 /**
- * GChat-style convo list row.
+ * Material 3 Expressive segmented convo list row.
  *
- * 64dp minimum height for touch target. Tapping the row invokes
- * [onTap] with the other-user's DID — the screen's effect collector
- * translates that into a `MainShellNavState.add(Chat(did))` push.
+ * Rendered via [SegmentedListItem] — the dedicated grouped-list
+ * composable that ships with `compose-material3:1.5.0-alpha19+`.
+ * Position-aware corner shaping comes from
+ * [ListItemDefaults.segmentedShapes]: the first row in a section gets
+ * top-rounded corners, middle rows are square, the last row gets
+ * bottom-rounded corners, a single row is fully rounded. The container
+ * tone comes from [ListItemDefaults.segmentedColors] — a tonally-
+ * distinct surface so the group reads as one rounded card.
  *
- * Snippet rendering rules:
+ * Tapping the row invokes [onTap] with the other-user's DID — the
+ * screen's effect collector translates that into a
+ * `MainShellNavState.add(Chat(did))` push.
+ *
+ * Snippet rendering rules (see [SubtitleText]):
  * - `lastMessageSnippet == null` → em-dash.
  * - `lastMessageSnippet == DELETED_MESSAGE_SNIPPET` → italicized
  *   localized "Message deleted" string.
@@ -45,32 +50,44 @@ import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
  * - `lastMessageIsAttachment == true` → italicized localized "Sent
  *   an attachment" placeholder (attachment-only is a V2 mapper case
  *   the current schema doesn't reach).
+ *
+ * @param index 0-based position of this row within its grouped section.
+ * @param count Total number of rows in the grouped section. Pair with
+ *   [index] so the framework's `segmentedShapes` helper picks the right
+ *   first/middle/last/single corner profile.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ConvoListItem(
     item: ConvoListItemUi,
+    index: Int,
+    count: Int,
     onTap: (otherUserDid: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier =
-            modifier
-                .clickable(
-                    role = Role.Button,
-                    onClick = { onTap(item.otherUserDid) },
-                ).heightIn(min = 64.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    SegmentedListItem(
+        onClick = { onTap(item.otherUserDid) },
+        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
+        // segmentedColors() leaves the resting containerColor transparent —
+        // press / ripple is the only feedback. Force surfaceContainer so the
+        // rows actually look grouped against the Scaffold's `surface` background.
+        // Tone choice per Material 3 Expressive's tone-based-surface guidance
+        // (m3.material.io/blog/tone-based-surface-color-m3): surfaceContainer
+        // is the canonical "list section" tier — one step up from `surface`.
+        colors =
+            ListItemDefaults.segmentedColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            ),
+        leadingContent = { Avatar(item = item, modifier = Modifier.size(48.dp)) },
+        supportingContent = { SubtitleText(item = item) },
+        trailingContent = { TrailingTimestamp(item = item) },
+        modifier = modifier,
     ) {
-        Avatar(item = item, modifier = Modifier.size(40.dp))
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            TitleRow(item = item)
-            SubtitleLine(item = item)
-        }
+        // Trailing `content` lambda is the headline slot — same convention as
+        // ListItem / SegmentedListItem in compose-material3 alpha19. The named
+        // slots above are for the surrounding leading/supporting/trailing
+        // content; the row's primary line lives here.
+        HeadlineText(item = item)
     }
 }
 
@@ -110,31 +127,22 @@ private fun Avatar(
 }
 
 @Composable
-private fun TitleRow(item: ConvoListItemUi) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = item.displayName ?: item.otherUserHandle,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = item.timestampRelative,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
-    }
+private fun HeadlineText(item: ConvoListItemUi) {
+    // titleMedium (16sp Medium 500) — Material 3 Expressive's recommended emphasis
+    // for the primary identifier in a list row. One token bigger + heavier than the
+    // standard SegmentedListItem headline default (bodyLarge, 16sp Regular) so the
+    // contact name reads as the dominant element, matching the GChat / Google Messages
+    // visual rhythm without overshooting into titleLarge territory.
+    Text(
+        text = item.displayName ?: item.otherUserHandle,
+        style = MaterialTheme.typography.titleMedium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable
-private fun SubtitleLine(item: ConvoListItemUi) {
+private fun SubtitleText(item: ConvoListItemUi) {
     val snippet = item.lastMessageSnippet
     val (text, italic) =
         when {
@@ -147,9 +155,18 @@ private fun SubtitleLine(item: ConvoListItemUi) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
+private fun TrailingTimestamp(item: ConvoListItemUi) {
+    Text(
+        text = item.timestampRelative,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
     )
 }
