@@ -31,6 +31,7 @@ internal fun ProfileScreen(
     onNavigateToPost: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -59,7 +60,6 @@ internal fun ProfileScreen(
     val errorNetworkMsg = stringResource(R.string.profile_snackbar_error_network)
     val errorUnknownMsg = stringResource(R.string.profile_snackbar_error_unknown)
     val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
-    val comingSoonMessage = stringResource(R.string.profile_snackbar_message_coming_soon)
     val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
     val comingSoonMute = stringResource(R.string.profile_snackbar_mute_coming_soon)
     val comingSoonReport = stringResource(R.string.profile_snackbar_report_coming_soon)
@@ -70,6 +70,7 @@ internal fun ProfileScreen(
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToProfile by rememberUpdatedState(onNavigateToProfile)
     val currentOnNavigateToSettings by rememberUpdatedState(onNavigateToSettings)
+    val currentOnNavigateToMessage by rememberUpdatedState(onNavigateToMessage)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -87,7 +88,6 @@ internal fun ProfileScreen(
                     val msg =
                         when (effect.action) {
                             StubbedAction.Edit -> comingSoonEdit
-                            StubbedAction.Message -> comingSoonMessage
                             StubbedAction.Block -> comingSoonBlock
                             StubbedAction.Mute -> comingSoonMute
                             StubbedAction.Report -> comingSoonReport
@@ -98,6 +98,8 @@ internal fun ProfileScreen(
                 is ProfileEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is ProfileEffect.NavigateToProfile -> currentOnNavigateToProfile(effect.handle)
                 ProfileEffect.NavigateToSettings -> currentOnNavigateToSettings()
+                is ProfileEffect.NavigateToMessage ->
+                    currentOnNavigateToMessage(effect.otherUserDid)
             }
         }
     }

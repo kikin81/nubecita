@@ -34,6 +34,7 @@ private fun OtherUserActionsRowFollowScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         OtherUserActionsRow(
             viewerRelationship = ViewerRelationship.NotFollowing(),
+            canMessage = true,
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
@@ -56,6 +57,7 @@ private fun OtherUserActionsRowFollowPendingScreenshot() {
             // Mid-unfollow optimistic state: label flipped to `Follow`,
             // button disabled while the deleteRecord call is in flight.
             viewerRelationship = ViewerRelationship.NotFollowing(isPending = true),
+            canMessage = true,
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
@@ -79,6 +81,7 @@ private fun OtherUserActionsRowFollowingScreenshot() {
                 ViewerRelationship.Following(
                     followUri = "at://did:plc:viewer/app.bsky.graph.follow/sample",
                 ),
+            canMessage = true,
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
@@ -105,6 +108,32 @@ private fun OtherUserActionsRowFollowingPendingScreenshot() {
                     followUri = null,
                     isPending = true,
                 ),
+            canMessage = true,
+            onFollow = {},
+            onMessage = {},
+            onOverflowAction = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "other-not-messageable-light", showBackground = true, heightDp = 80)
+@Preview(
+    name = "other-not-messageable-dark",
+    showBackground = true,
+    heightDp = 80,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun OtherUserActionsRowNotMessageableScreenshot() {
+    // canMessage = false → Message OutlinedButton is hidden; Follow keeps
+    // weight(1f) so it stretches to fill the slot. Mirrors the official
+    // Bluesky Android client's behavior for accounts with
+    // associated.chat.allowIncoming = "none" or "following" + no followedBy.
+    NubecitaTheme(dynamicColor = false) {
+        OtherUserActionsRow(
+            viewerRelationship = ViewerRelationship.NotFollowing(),
+            canMessage = false,
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},

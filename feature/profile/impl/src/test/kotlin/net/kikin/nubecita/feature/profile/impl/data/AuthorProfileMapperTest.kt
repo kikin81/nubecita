@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
+import io.github.kikin81.atproto.app.bsky.actor.ProfileAssociated
+import io.github.kikin81.atproto.app.bsky.actor.ProfileAssociatedChat
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState
 import io.github.kikin81.atproto.runtime.AtUri
@@ -151,6 +153,63 @@ internal class AuthorProfileMapperTest {
         assertEquals(ViewerRelationship.NotFollowing(isPending = false), result.viewerRelationship)
     }
 
+    @Test
+    fun `canMessage is true when associated chat is absent (fail-open for accounts that never set the preference)`() {
+        val ui = sampleView(associated = null).toProfileHeaderUi()
+        assertEquals(true, ui.canMessage)
+    }
+
+    @Test
+    fun `canMessage is true when allowIncoming is all`() {
+        val ui =
+            sampleView(
+                associated = ProfileAssociated(chat = ProfileAssociatedChat(allowIncoming = "all")),
+            ).toProfileHeaderUi()
+        assertEquals(true, ui.canMessage)
+    }
+
+    @Test
+    fun `canMessage is false when allowIncoming is none, regardless of followedBy`() {
+        val ui =
+            sampleView(
+                associated = ProfileAssociated(chat = ProfileAssociatedChat(allowIncoming = "none")),
+                viewer = ViewerState(followedBy = AtUri("at://did:plc:other/app.bsky.graph.follow/abc")),
+            ).toProfileHeaderUi()
+        assertEquals(false, ui.canMessage)
+    }
+
+    @Test
+    fun `canMessage is true when allowIncoming is following and the actor follows the viewer`() {
+        val ui =
+            sampleView(
+                associated = ProfileAssociated(chat = ProfileAssociatedChat(allowIncoming = "following")),
+                viewer = ViewerState(followedBy = AtUri("at://did:plc:other/app.bsky.graph.follow/abc")),
+            ).toProfileHeaderUi()
+        assertEquals(true, ui.canMessage)
+    }
+
+    @Test
+    fun `canMessage is false when allowIncoming is following but the actor does not follow the viewer`() {
+        val ui =
+            sampleView(
+                associated = ProfileAssociated(chat = ProfileAssociatedChat(allowIncoming = "following")),
+                viewer = ViewerState(followedBy = null),
+            ).toProfileHeaderUi()
+        assertEquals(false, ui.canMessage)
+    }
+
+    @Test
+    fun `canMessage falls open when allowIncoming carries an unrecognized value`() {
+        // Forward-compat with future appview tokens — anything we don't recognize
+        // (or a typo'd value) falls through the else branch as true rather than
+        // hiding the action.
+        val ui =
+            sampleView(
+                associated = ProfileAssociated(chat = ProfileAssociatedChat(allowIncoming = "mutuals")),
+            ).toProfileHeaderUi()
+        assertEquals(true, ui.canMessage)
+    }
+
     private fun sampleView(
         did: String = "did:plc:alice123",
         handle: String = "alice.bsky.social",
@@ -164,6 +223,7 @@ internal class AuthorProfileMapperTest {
         followersCount: Long? = null,
         followsCount: Long? = null,
         viewer: ViewerState? = null,
+        associated: ProfileAssociated? = null,
     ): ProfileViewDetailed =
         ProfileViewDetailed(
             did = Did(did),
@@ -178,5 +238,6 @@ internal class AuthorProfileMapperTest {
             followersCount = followersCount,
             followsCount = followsCount,
             viewer = viewer,
+            associated = associated,
         )
 }

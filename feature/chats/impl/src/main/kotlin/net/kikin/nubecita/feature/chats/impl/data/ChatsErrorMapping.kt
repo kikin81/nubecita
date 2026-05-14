@@ -30,6 +30,28 @@ private const val NOT_ENROLLED_MARKER = "not enrolled"
 private const val CONVO_NOT_FOUND_MARKER = "convonotfound"
 
 /**
+ * `getConvoForMembers` returns this when the peer has disabled incoming DMs
+ * via their Bluesky privacy settings. Server response shape is HTTP 400 with
+ * a message of the form `MessagesDisabled: recipient has disabled incoming
+ * messages`. Routed from a profile's Message button — first reached by
+ * nubecita-a7a's cross-tab Message routing.
+ */
+private const val MESSAGES_DISABLED_MARKER = "messagesdisabled"
+
+/**
+ * `getConvoForMembers` returns this when the peer has follows-only DM
+ * acceptance and the chat appview doesn't see them following the viewer at
+ * request time. Same UX outcome as [MESSAGES_DISABLED_MARKER] from the
+ * sender's POV — collapse both into [ChatError.MessagesDisabled].
+ *
+ * The Profile screen's `canMessage` gate hides the button when
+ * `viewer.followedBy` is non-null, so this typically only fires on chat
+ * appview lag against the follow graph (the metadata says yes but the chat
+ * service's view is stale). Surfacing typed copy here is the safety net.
+ */
+private const val NOT_FOLLOWED_BY_SENDER_MARKER = "notfollowedbysender"
+
+/**
  * Maps a thrown error from the convo-list path (`listConvos`) to a screen-facing
  * [ChatsError] variant. Predates [toChatError]; kept for the existing
  * convo-list ViewModel.
@@ -61,6 +83,8 @@ internal fun Throwable.toChatError(): ChatError =
         is XrpcError -> {
             val msg = message.orEmpty().lowercase(Locale.ROOT)
             when {
+                MESSAGES_DISABLED_MARKER in msg -> ChatError.MessagesDisabled
+                NOT_FOLLOWED_BY_SENDER_MARKER in msg -> ChatError.MessagesDisabled
                 CONVO_NOT_FOUND_MARKER in msg -> ChatError.ConvoNotFound
                 NOT_ENROLLED_MARKER in msg -> ChatError.NotEnrolled
                 else -> ChatError.Unknown(javaClass.simpleName)

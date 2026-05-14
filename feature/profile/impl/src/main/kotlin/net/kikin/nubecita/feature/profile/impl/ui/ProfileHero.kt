@@ -192,6 +192,7 @@ private fun ProfileHeroLoaded(
         ProfileActionsRow(
             ownProfile = ownProfile,
             viewerRelationship = viewerRelationship,
+            canMessage = header.canMessage,
             onEdit = onEditTap,
             onFollow = onFollowTap,
             onMessage = onMessageTap,

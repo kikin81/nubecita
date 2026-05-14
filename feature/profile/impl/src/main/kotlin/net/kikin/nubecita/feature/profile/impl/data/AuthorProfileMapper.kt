@@ -38,7 +38,34 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
         postsCount = postsCount ?: 0L,
         followersCount = followersCount ?: 0L,
         followsCount = followsCount ?: 0L,
+        canMessage = canViewerMessage(),
     )
+
+/**
+ * Resolves whether the signed-in viewer is allowed to send this profile a DM.
+ *
+ * Reads `associated.chat.allowIncoming`:
+ *
+ * - `"none"` → no one accepts DMs (e.g. a brand-new account that opted out)
+ * - `"following"` → only accounts the actor *follows* can DM them; that's
+ *   encoded on the viewer's side as `viewer.followedBy != null` (the actor's
+ *   follow record pointing at the viewer)
+ * - `"all"` or absent → anyone can DM them
+ *
+ * `chat == null` means the actor never customized this setting; the appview
+ * also omits the block for accounts that pre-date the chat feature. Both
+ * cases fall through the `else` branch as `true` (fail-open, matching the
+ * official Bluesky clients).
+ */
+private fun ProfileViewDetailed.canViewerMessage(): Boolean =
+    when (associated?.chat?.allowIncoming) {
+        ALLOW_INCOMING_NONE -> false
+        ALLOW_INCOMING_FOLLOWING -> viewer?.followedBy != null
+        else -> true
+    }
+
+private const val ALLOW_INCOMING_NONE = "none"
+private const val ALLOW_INCOMING_FOLLOWING = "following"
 
 /**
  * Deterministic hue in `0..359` derived from `did + first char of

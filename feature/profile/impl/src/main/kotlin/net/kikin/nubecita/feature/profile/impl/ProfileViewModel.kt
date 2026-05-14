@@ -108,8 +108,7 @@ internal class ProfileViewModel
                 ProfileEvent.FollowTapped -> onFollowTapped()
                 ProfileEvent.EditTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Edit))
-                ProfileEvent.MessageTapped ->
-                    sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Message))
+                ProfileEvent.MessageTapped -> onMessageTapped()
                 is ProfileEvent.StubActionTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
@@ -213,6 +212,19 @@ internal class ProfileViewModel
             val currentHandle = uiState.value.header?.handle ?: route.handle
             if (handle == currentHandle) return
             sendEffect(ProfileEffect.NavigateToProfile(handle))
+        }
+
+        private fun onMessageTapped() {
+            // The Message button is rendered only on a loaded
+            // other-user header (see `ProfileHero` / `OtherUserActionsRow`),
+            // so under normal UI flow `state.header` is non-null and
+            // `ownProfile` is false. Guard defensively against
+            // synthetic events (tests, SavedStateHandle replays):
+            // a missing header or own-profile tap is a silent no-op.
+            val state = uiState.value
+            if (state.ownProfile) return
+            val did = state.header?.did ?: return
+            sendEffect(ProfileEffect.NavigateToMessage(otherUserDid = did))
         }
 
         private fun onRefresh() {

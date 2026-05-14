@@ -236,6 +236,8 @@ private fun ErrorBody(
                 Triple(R.string.chats_error_not_enrolled_title, R.string.chats_error_not_enrolled_body, false)
             ChatError.ConvoNotFound ->
                 Triple(R.string.chat_error_convo_not_found_title, R.string.chat_error_convo_not_found_body, false)
+            ChatError.MessagesDisabled ->
+                Triple(R.string.chat_error_messages_disabled_title, R.string.chat_error_messages_disabled_body, false)
             is ChatError.Unknown ->
                 Triple(R.string.chats_error_unknown_title, R.string.chats_error_unknown_body, true)
         }
