@@ -193,6 +193,17 @@ private fun LoadedBody(items: ImmutableList<ThreadItem>) {
                     // that's the visually top-most. Add a cross-run gap above it (rendered
                     // as bottom padding because the next item in newest-first list order
                     // belongs to the previous, older run).
+                    // Cross-run gap goes on the SCREEN-TOP edge of an oldest-of-run item
+                    // (runIndex == 0). With reverseLayout = true, source[i+1] (older
+                    // neighbor) renders ABOVE source[i] on screen, so it's the TOP edge
+                    // that meets the previous run. `padding(top)` here stacks with the
+                    // LazyColumn's spacedBy(4.dp) baseline to produce the 12.dp cross-run
+                    // gap. The `position < items.lastIndex` guard skips the screen-topmost
+                    // item (no neighbor above it on screen — only the TopAppBar).
+                    //
+                    // (Earlier rev used `padding(bottom)` which opened the intra-run gap
+                    // by mistake — bottom edge faces source[i-1], a same-run newer
+                    // sibling. Don't repeat that.)
                     val crossRunGap = if (item.runIndex == 0 && position < items.lastIndex) 8.dp else 0.dp
                     // 1:1 DMs only in V1 — the peer's identity is already established in the
                     // TopAppBar (avatar + display name), so we don't repeat it per message.
@@ -206,7 +217,7 @@ private fun LoadedBody(items: ImmutableList<ThreadItem>) {
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = crossRunGap),
+                                .padding(top = crossRunGap),
                         horizontalArrangement =
                             if (item.message.isOutgoing) Arrangement.End else Arrangement.Start,
                     ) {
