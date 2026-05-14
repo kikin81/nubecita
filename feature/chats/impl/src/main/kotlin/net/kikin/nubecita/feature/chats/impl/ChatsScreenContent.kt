@@ -49,15 +49,23 @@ internal fun ChatsScreenContent(
             when (val status = state.status) {
                 ChatsLoadStatus.Loading -> LoadingBody()
                 is ChatsLoadStatus.Loaded ->
-                    if (status.items.isEmpty()) {
-                        EmptyBody()
-                    } else {
-                        LoadedBody(
-                            items = status.items,
-                            isRefreshing = status.isRefreshing,
-                            onRefresh = { onEvent(ChatsEvent.Refresh) },
-                            onTap = { did -> onEvent(ChatsEvent.ConvoTapped(did)) },
-                        )
+                    // PullToRefreshBox wraps both empty and non-empty Loaded states so a user
+                    // sitting on the empty state can pull to refresh and discover newly-started
+                    // conversations without leaving the screen. Loading and InitialError have
+                    // their own affordances (spinner / Retry button), so they stay outside.
+                    PullToRefreshBox(
+                        isRefreshing = status.isRefreshing,
+                        onRefresh = { onEvent(ChatsEvent.Refresh) },
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        if (status.items.isEmpty()) {
+                            EmptyBody()
+                        } else {
+                            LoadedBody(
+                                items = status.items,
+                                onTap = { did -> onEvent(ChatsEvent.ConvoTapped(did)) },
+                            )
+                        }
                     }
                 is ChatsLoadStatus.InitialError -> ErrorBody(error = status.error, onRetry = { onEvent(ChatsEvent.RetryClicked) })
             }
@@ -104,21 +112,13 @@ private fun EmptyBody() {
 @Composable
 private fun LoadedBody(
     items: kotlinx.collections.immutable.ImmutableList<ConvoListItemUi>,
-    isRefreshing: Boolean,
-    onRefresh: () -> Unit,
     onTap: (otherUserDid: String) -> Unit,
 ) {
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            items(items = items, key = { it.convoId }, contentType = { "convo-row" }) { item ->
-                ConvoListItem(item = item, onTap = onTap)
-            }
+        items(items = items, key = { it.convoId }, contentType = { "convo-row" }) { item ->
+            ConvoListItem(item = item, onTap = onTap)
         }
     }
 }
