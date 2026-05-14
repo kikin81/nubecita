@@ -30,7 +30,13 @@ import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
  * sees the future label, and the disable absorbs double-taps. The
  * ViewModel's single-flight guard is the belt-and-suspenders backup.
  *
- * [onMessage] routes to `ProfileEvent.MessageTapped → ShowComingSoon(Message)`.
+ * [onMessage] routes to `ProfileEvent.MessageTapped`, which the VM
+ * turns into a `NavigateToMessage(otherUserDid)` effect; the host
+ * Composable switches to the Chats tab and pushes the per-conversation
+ * thread (see `ProfileNavigationModule` for the cross-tab wiring).
+ * The Message button itself is hidden when [canMessage] is `false`
+ * — derived in the mapper from `associated.chat.allowIncoming` +
+ * `viewer.followedBy`. When hidden, Follow expands to fill the slot.
  * The overflow menu's three entries each dispatch [onOverflowAction]
  * with the corresponding [StubbedAction] variant (`Block / Mute /
  * Report`); the screen-level handler routes those to
@@ -42,6 +48,7 @@ import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 @Composable
 internal fun OtherUserActionsRow(
     viewerRelationship: ViewerRelationship,
+    canMessage: Boolean,
     onFollow: () -> Unit,
     onMessage: () -> Unit,
     onOverflowAction: (StubbedAction) -> Unit,
@@ -70,8 +77,10 @@ internal fun OtherUserActionsRow(
                 Text(text = followLabel)
             }
         }
-        OutlinedButton(onClick = onMessage, modifier = Modifier.weight(1f)) {
-            Text(text = stringResource(R.string.profile_action_message))
+        if (canMessage) {
+            OutlinedButton(onClick = onMessage, modifier = Modifier.weight(1f)) {
+                Text(text = stringResource(R.string.profile_action_message))
+            }
         }
         ProfileActionsOverflowMenu(
             entries =

@@ -18,7 +18,6 @@
 
     <!-- Snackbar copy for stubbed actions (ShowComingSoon) -->
     <string name="profile_snackbar_edit_coming_soon">Edit profile — coming soon</string>
-    <string name="profile_snackbar_message_coming_soon">Direct messages — coming soon</string>
     <string name="profile_snackbar_block_coming_soon">Block — coming soon</string>
     <string name="profile_snackbar_mute_coming_soon">Mute — coming soon</string>
     <string name="profile_snackbar_report_coming_soon">Report — coming soon</string>

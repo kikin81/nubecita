@@ -37,6 +37,36 @@ internal class ChatsErrorMappingTest {
     }
 
     @Test
+    fun `XrpcError with MessagesDisabled token maps to ChatError MessagesDisabled`() {
+        // Wire shape observed end-to-end via the Profile->Message routing path
+        // (nubecita-a7a): "MessagesDisabled: recipient has disabled incoming messages".
+        val xrpc =
+            XrpcError.Unknown(
+                name = "InvalidRequest",
+                message = "MessagesDisabled: recipient has disabled incoming messages",
+                status = 400,
+            )
+        val result = xrpc.toChatError()
+        assertEquals(ChatError.MessagesDisabled, result)
+    }
+
+    @Test
+    fun `XrpcError with NotFollowedBySender token maps to ChatError MessagesDisabled`() {
+        // Same user-facing outcome as MessagesDisabled. Fires when the recipient
+        // accepts follows-only DMs and the chat appview's view of the follow
+        // graph is stale relative to ProfileViewDetailed.viewer.followedBy
+        // (so canMessage was true but the convo-open call still rejects).
+        val xrpc =
+            XrpcError.Unknown(
+                name = "InvalidRequest",
+                message = "NotFollowedBySender: recipient requires incoming messages to come from someone they follow",
+                status = 400,
+            )
+        val result = xrpc.toChatError()
+        assertEquals(ChatError.MessagesDisabled, result)
+    }
+
+    @Test
     fun `XrpcError with unrecognized message maps to ChatError Unknown`() {
         val xrpc = XrpcError.Unknown(name = "ServerError", message = "weird server-side error", status = 500)
         val result = xrpc.toChatError()

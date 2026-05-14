@@ -24,6 +24,7 @@ private fun ProfileActionsRowOwnScreenshot() {
         ProfileActionsRow(
             ownProfile = true,
             viewerRelationship = ViewerRelationship.Self,
+            canMessage = false,
             onEdit = {},
             onFollow = {},
             onMessage = {},

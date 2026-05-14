@@ -47,6 +47,24 @@ sealed interface ChatError {
     /** `resolveConvo` couldn't find or open a convo for the peer DID. */
     data object ConvoNotFound : ChatError
 
+    /**
+     * Peer cannot accept a DM from the signed-in viewer. Covers two
+     * `getConvoForMembers` wire codes that produce the same UX outcome:
+     *
+     * - `MessagesDisabled` — recipient turned off incoming DMs entirely
+     *   (`associated.chat.allowIncoming = "none"`).
+     * - `NotFollowedBySender` — recipient accepts only follows-only DMs
+     *   and the chat appview's view of the follow graph does not show
+     *   them following the viewer at request time. The Profile screen's
+     *   `canMessage` gate hides the button when `viewer.followedBy` is
+     *   non-null, so this branch typically only fires on appview lag
+     *   against the follow graph.
+     *
+     * Retry would never succeed for either; the error renders without
+     * a Retry affordance.
+     */
+    data object MessagesDisabled : ChatError
+
     data class Unknown(
         val cause: String?,
     ) : ChatError

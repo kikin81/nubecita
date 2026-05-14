@@ -563,6 +563,81 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `MessageTapped on other-user profile emits NavigateToMessage with the header DID`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(
+                                    did = "did:plc:bob",
+                                    handle = "bob.bsky.social",
+                                ),
+                                ViewerRelationship.None,
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.MessageTapped)
+                assertEquals(
+                    ProfileEffect.NavigateToMessage(otherUserDid = "did:plc:bob"),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `MessageTapped on own profile is a silent no-op (defensive — UI gates the button)`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            // route.handle = null → ownProfile = true
+            val vm = newVm(repo = repo, route = Profile(handle = null))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.MessageTapped)
+                advanceUntilIdle()
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `MessageTapped before header loads is a silent no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Header failure → state.header stays null, but ownProfile is false
+            // (other-user route). MessageTapped must still no-op because the
+            // VM has no DID to route on.
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult = Result.failure(IOException("boom")),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                // Drain the header-failure ShowError that init's launchHeaderLoad emits.
+                awaitItem()
+                vm.handleEvent(ProfileEvent.MessageTapped)
+                advanceUntilIdle()
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `own-profile header load overrides mapper-reported viewerRelationship to Self`() =
         runTest(mainDispatcher.dispatcher) {
             // Mapper reports NotFollowing (own user has no follow record pointing

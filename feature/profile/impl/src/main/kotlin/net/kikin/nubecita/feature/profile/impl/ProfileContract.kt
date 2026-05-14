@@ -134,6 +134,19 @@ data class ProfileHeaderUi(
     val postsCount: Long,
     val followersCount: Long,
     val followsCount: Long,
+    /**
+     * Whether the signed-in viewer is allowed to send this user a DM.
+     * Derived in the mapper from `associated.chat.allowIncoming` and
+     * `viewer.followedBy`. When `false`, the Message button is hidden
+     * — mirrors the official Bluesky Android client's behavior and
+     * avoids the dead-end "MessagesDisabled" error after tap.
+     *
+     * Defaults to `true` so callers that don't construct the field
+     * (older test fixtures, future synthetic header instances) keep
+     * the action visible — same fail-open posture as the wire mapping
+     * (an absent `allowIncoming` is treated as `"all"`).
+     */
+    val canMessage: Boolean = true,
 )
 
 /**
@@ -318,6 +331,18 @@ sealed interface ProfileEffect : UiEffect {
 
     /** Push the Settings sub-route onto the active tab's back stack. */
     data object NavigateToSettings : ProfileEffect
+
+    /**
+     * Switch to the Chats top-level tab and push the per-conversation
+     * thread for [otherUserDid] onto that tab's back stack. Emitted on
+     * [ProfileEvent.MessageTapped] for an other-user profile whose
+     * header has finished loading (the header carries the DID — the
+     * Chats thread resolves DID→convoId itself via
+     * `chat.bsky.convo.getConvoForMembers`).
+     */
+    data class NavigateToMessage(
+        val otherUserDid: String,
+    ) : ProfileEffect
 }
 
 /**
@@ -328,6 +353,7 @@ sealed interface ProfileEffect : UiEffect {
  * Bead F adds Block / Mute / Report to cover the other-user overflow-menu
  * stubs. The real moderation writes ship under follow-up bd 7.7. The
  * Follow stub was removed in nubecita-39l once `app.bsky.graph.follow`
- * writes landed.
+ * writes landed; `Message` was removed in nubecita-a7a once real
+ * cross-tab routing into the Chats thread landed.
  */
-enum class StubbedAction { Edit, Message, Block, Mute, Report }
+enum class StubbedAction { Edit, Block, Mute, Report }

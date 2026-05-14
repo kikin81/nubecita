@@ -22,6 +22,7 @@ import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 internal fun ProfileActionsRow(
     ownProfile: Boolean,
     viewerRelationship: ViewerRelationship,
+    canMessage: Boolean,
     onEdit: () -> Unit,
     onFollow: () -> Unit,
     onMessage: () -> Unit,
@@ -34,6 +35,7 @@ internal fun ProfileActionsRow(
     } else {
         OtherUserActionsRow(
             viewerRelationship = viewerRelationship,
+            canMessage = canMessage,
             onFollow = onFollow,
             onMessage = onMessage,
             onOverflowAction = onOverflowAction,
