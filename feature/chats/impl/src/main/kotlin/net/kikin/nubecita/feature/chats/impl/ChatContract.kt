@@ -74,9 +74,10 @@ sealed interface ThreadItem {
     }
 
     data class DaySeparator(
+        val epochDay: Long,
         val label: String,
     ) : ThreadItem {
-        override val key: String get() = "sep-$label"
+        override val key: String get() = "sep-$epochDay"
     }
 }
 

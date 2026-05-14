@@ -11,10 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import net.kikin.nubecita.feature.chats.impl.R
 
 /**
  * Asymmetric M3 Expressive bubble shape for a message at [index] in a run of
@@ -70,7 +72,6 @@ internal fun MessageBubble(
     runCount: Int,
     modifier: Modifier = Modifier,
     maxWidth: Dp = 280.dp,
-    deletedPlaceholder: String = "Message deleted",
 ) {
     val shape = messageBubbleShape(index = runIndex, count = runCount, isOutgoing = message.isOutgoing)
     val containerColor =
@@ -95,7 +96,7 @@ internal fun MessageBubble(
     ) {
         if (message.isDeleted) {
             Text(
-                text = deletedPlaceholder,
+                text = stringResource(R.string.chats_row_deleted_placeholder),
                 style = MaterialTheme.typography.bodyLarge,
                 fontStyle = FontStyle.Italic,
                 color = contentColor,

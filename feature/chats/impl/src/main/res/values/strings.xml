@@ -18,4 +18,11 @@
     <string name="chats_error_unknown_title">Something went wrong</string>
     <string name="chats_error_unknown_body">An unexpected error occurred. Try again in a moment.</string>
     <string name="chats_error_retry">Try again</string>
+
+    <!-- Chat thread (nn3.2) -->
+    <string name="chat_back_content_description">Back</string>
+    <string name="chat_empty_title">No messages yet</string>
+    <string name="chat_empty_body">Once you exchange messages with this person they\'ll appear here.</string>
+    <string name="chat_error_convo_not_found_title">No conversation yet</string>
+    <string name="chat_error_convo_not_found_body">You don\'t have a conversation with this user yet.</string>
 </resources>

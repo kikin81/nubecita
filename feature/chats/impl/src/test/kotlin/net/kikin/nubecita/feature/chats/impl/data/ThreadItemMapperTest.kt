@@ -147,6 +147,18 @@ internal class ThreadItemMapperTest {
     }
 
     @Test
+    fun `same label across different days produces different keys`() {
+        // LazyColumn keys must be unique. Two chips that happen to share a label
+        // (e.g. two distinct Mondays both render as "Mon" inside the 7-day weekday
+        // window) MUST still produce distinct keys — otherwise Compose recycles
+        // them as the same item. Direct construction is the cleanest way to pin
+        // this invariant: same label, different epochDay → different key.
+        val a = ThreadItem.DaySeparator(epochDay = 20_000L, label = "Mon")
+        val b = ThreadItem.DaySeparator(epochDay = 20_007L, label = "Mon")
+        assertTrue(a.key != b.key, "chips for different days must have different LazyColumn keys")
+    }
+
+    @Test
     fun `day-separator is emitted AFTER its bucket's messages in source order`() {
         // Under LazyColumn(reverseLayout = true), source[lastIndex] renders at the
         // SCREEN-TOP. The day chip must therefore be at HIGHER source index than
