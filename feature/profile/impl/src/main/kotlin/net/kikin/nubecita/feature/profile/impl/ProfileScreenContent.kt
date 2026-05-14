@@ -84,8 +84,8 @@ internal fun ProfileScreenContent(
             ) {
                 item(key = "hero", contentType = "hero") {
                     val density = LocalDensity.current
-                    val topInsetPx =
-                        with(density) { padding.calculateTopPadding().roundToPx() }
+                    val topInsetDp = padding.calculateTopPadding()
+                    val topInsetPx = with(density) { topInsetDp.roundToPx() }
                     ProfileHero(
                         header = state.header,
                         headerError = state.headerError,
@@ -97,16 +97,27 @@ internal fun ProfileScreenContent(
                         onMessageTap = { onEvent(ProfileEvent.MessageTapped) },
                         onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
                         onSettingsTap = { onEvent(ProfileEvent.SettingsTapped) },
+                        // [topInset] reserves space inside the hero's content for
+                        // the bar's vertical reservation. Combined with the
+                        // [Modifier.layout] shift below, the gradient backdrop
+                        // extends edge-to-edge from screen top while the avatar
+                        // / display-name / handle / loading skeleton / error
+                        // body sit at the post-bar position they'd occupy in a
+                        // no-bar layout — keeping the avatar clear of the
+                        // camera cutout.
+                        topInset = topInsetDp,
                         modifier =
                             Modifier.layout { measurable, constraints ->
-                                // Measure the hero at its natural size, then
-                                // shrink its layout slot by `topInsetPx` (so
-                                // the next item — the pills stickyHeader —
-                                // starts at the hero's visible bottom, not
-                                // `topInsetPx` below it) and pull its placed
-                                // position up by `topInsetPx` (so it draws
-                                // from the LazyColumn's bounds top, which is
-                                // the screen top behind the transparent bar).
+                                // Measure the hero at its natural (now larger by
+                                // topInsetPx, because the inner content reserves
+                                // that vertical space) size, then shrink its
+                                // layout slot by `topInsetPx` (so the next item —
+                                // the pills stickyHeader — starts at the hero's
+                                // visible bottom, not `topInsetPx` below it) and
+                                // pull its placed position up by `topInsetPx`
+                                // (so it draws from the LazyColumn's bounds top,
+                                // which is the screen top behind the transparent
+                                // bar).
                                 val placeable = measurable.measure(constraints)
                                 val slotHeight =
                                     (placeable.height - topInsetPx).coerceAtLeast(0)

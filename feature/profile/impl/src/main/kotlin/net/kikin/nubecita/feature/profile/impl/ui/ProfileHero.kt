@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.extendedTypography
@@ -62,6 +64,7 @@ internal fun ProfileHero(
     onOverflowAction: (StubbedAction) -> Unit,
     onSettingsTap: () -> Unit,
     modifier: Modifier = Modifier,
+    topInset: Dp = 0.dp,
 ) {
     when {
         header != null ->
@@ -75,14 +78,16 @@ internal fun ProfileHero(
                 onOverflowAction = onOverflowAction,
                 onSettingsTap = onSettingsTap,
                 modifier = modifier,
+                topInset = topInset,
             )
         headerError != null ->
             ProfileHeroError(
                 error = headerError,
                 onRetry = onRetryHeader,
                 modifier = modifier,
+                topInset = topInset,
             )
-        else -> ProfileHeroLoading(modifier = modifier)
+        else -> ProfileHeroLoading(modifier = modifier, topInset = topInset)
     }
 }
 
@@ -97,6 +102,7 @@ private fun ProfileHeroLoaded(
     onOverflowAction: (StubbedAction) -> Unit,
     onSettingsTap: () -> Unit,
     modifier: Modifier = Modifier,
+    topInset: Dp = 0.dp,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         BoldHeroGradient(
@@ -104,11 +110,16 @@ private fun ProfileHeroLoaded(
             avatarHue = header.avatarHue,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            // [topInset] reserves space at the top of the gradient's content for
+            // the status-bar + bar's reserved height — when the host's bd-1tc
+            // layout shifts the entire hero up by [topInset]px, this padding
+            // shifts the avatar back down so it sits below the camera cutout.
+            // The gradient itself still extends edge-to-edge from screen top.
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(PaddingValues(start = 16.dp, top = 16.dp + topInset, end = 16.dp, bottom = 16.dp)),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -186,12 +197,15 @@ private fun ProfileHeroLoaded(
 }
 
 @Composable
-private fun ProfileHeroLoading(modifier: Modifier = Modifier) {
+private fun ProfileHeroLoading(
+    modifier: Modifier = Modifier,
+    topInset: Dp = 0.dp,
+) {
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(PaddingValues(start = 16.dp, top = 16.dp + topInset, end = 16.dp, bottom = 16.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -222,6 +236,7 @@ private fun ProfileHeroError(
     error: ProfileError,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    topInset: Dp = 0.dp,
 ) {
     val bodyRes =
         when (error) {
@@ -232,7 +247,7 @@ private fun ProfileHeroError(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(PaddingValues(start = 24.dp, top = 24.dp + topInset, end = 24.dp, bottom = 24.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
