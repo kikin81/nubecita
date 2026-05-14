@@ -64,7 +64,13 @@ private val LOADED_STATE =
                             runCount = 2,
                             showAvatar = true,
                         ),
-                        ThreadItem.DaySeparator(label = "Today"),
+                        ThreadItem.DaySeparator(
+                            epochDay =
+                                java.time.LocalDate
+                                    .parse("2026-05-14")
+                                    .toEpochDay(),
+                            label = "Today",
+                        ),
                     ),
             ),
     )

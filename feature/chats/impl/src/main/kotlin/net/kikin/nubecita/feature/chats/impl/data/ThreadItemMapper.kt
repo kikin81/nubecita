@@ -7,7 +7,6 @@ import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.ThreadItem
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.time.Instant
@@ -94,14 +93,23 @@ internal fun List<MessageUi>.toThreadItems(
                 ?.toLocalDate(zone)
         val crossesDayBoundary = nextBucketDay != null && nextBucketDay != bucketDay
         if (isLastBucket || crossesDayBoundary) {
-            result.add(ThreadItem.DaySeparator(label = formatDayLabel(bucketDay, nowLocalDate)))
+            result.add(
+                ThreadItem.DaySeparator(
+                    epochDay = bucketDay.toEpochDay(),
+                    label = formatDayLabel(bucketDay, nowLocalDate),
+                ),
+            )
         }
     }
 
     return result.toImmutableList()
 }
 
-private fun Instant.toLocalDate(zone: ZoneId): LocalDate = ZonedDateTime.ofInstant(java.time.Instant.parse(toString()), zone).toLocalDate()
+private fun Instant.toLocalDate(zone: ZoneId): LocalDate =
+    java.time.Instant
+        .ofEpochSecond(epochSeconds, nanosecondsOfSecond.toLong())
+        .atZone(zone)
+        .toLocalDate()
 
 private fun formatDayLabel(
     sentDay: LocalDate,

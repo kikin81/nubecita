@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,7 +75,7 @@ internal fun ChatScreenContent(
                     IconButton(onClick = { onEvent(ChatEvent.BackPressed) }) {
                         NubecitaIcon(
                             name = NubecitaIconName.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.chat_back_content_description),
                             filled = true,
                             modifier = Modifier.mirror(),
                         )
@@ -160,12 +161,12 @@ private fun EmptyBody() {
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "No messages yet",
+            text = stringResource(R.string.chat_empty_title),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Once you exchange messages with this person they'll appear here.",
+            text = stringResource(R.string.chat_empty_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -193,31 +194,14 @@ private fun LoadedBody(items: ImmutableList<ThreadItem>) {
         ) { position, item ->
             when (item) {
                 is ThreadItem.Message -> {
-                    // runIndex == 0 is the OLDEST message of the run; with reverseLayout
-                    // that's the visually top-most. Add a cross-run gap above it (rendered
-                    // as bottom padding because the next item in newest-first list order
-                    // belongs to the previous, older run).
-                    // Cross-run gap goes on the SCREEN-TOP edge of an oldest-of-run item
-                    // (runIndex == 0). With reverseLayout = true, source[i+1] (older
-                    // neighbor) renders ABOVE source[i] on screen, so it's the TOP edge
-                    // that meets the previous run. `padding(top)` here stacks with the
-                    // LazyColumn's spacedBy(4.dp) baseline to produce the 12.dp cross-run
-                    // gap. The `position < items.lastIndex` guard skips the screen-topmost
-                    // item (no neighbor above it on screen — only the TopAppBar).
-                    //
-                    // (Earlier rev used `padding(bottom)` which opened the intra-run gap
-                    // by mistake — bottom edge faces source[i-1], a same-run newer
-                    // sibling. Don't repeat that.)
-                    // 10dp extra on top of the 2dp baseline = 12dp total cross-run gap.
+                    // Cross-run gap lives on the SCREEN-TOP edge of an oldest-of-run
+                    // item (runIndex == 0). With reverseLayout = true, source[i+1] (the
+                    // older-run neighbor) renders above source[i] on screen, so the top
+                    // edge of this Row is where the run boundary sits. 10.dp here +
+                    // the LazyColumn's spacedBy(2.dp) baseline = 12.dp total cross-run
+                    // gap. position < items.lastIndex skips the screen-topmost item
+                    // (no neighbor above; only the TopAppBar).
                     val crossRunGap = if (item.runIndex == 0 && position < items.lastIndex) 10.dp else 0.dp
-                    // 1:1 DMs only in V1 — the peer's identity is already established in the
-                    // TopAppBar (avatar + display name), so we don't repeat it per message.
-                    // No per-row avatar slot means same-sender runs stack at the bubble's
-                    // intrinsic height; spacedBy(4.dp) + the cross-run +8.dp bottom-padding
-                    // on runIndex==0 produces the GChat-style tight intra-run / loose
-                    // cross-run rhythm without the dead 40dp slot adding vertical gaps.
-                    // When/if group chats land, the data model already carries `showAvatar`
-                    // on `ThreadItem.Message` — the slot can be reintroduced here gated on it.
                     Row(
                         modifier =
                             Modifier
@@ -244,32 +228,16 @@ private fun ErrorBody(
     error: ChatError,
     onRetry: () -> Unit,
 ) {
-    val (title, body, showRetry) =
+    val (titleRes, bodyRes, showRetry) =
         when (error) {
             ChatError.Network ->
-                Triple(
-                    "Network error",
-                    "Couldn't load this thread. Check your connection and try again.",
-                    true,
-                )
+                Triple(R.string.chats_error_network_title, R.string.chats_error_network_body, true)
             ChatError.NotEnrolled ->
-                Triple(
-                    "Enable direct messages",
-                    "Your Bluesky account hasn't opted into direct messages. Enable chat in the official Bluesky app's settings to start using DMs.",
-                    false,
-                )
+                Triple(R.string.chats_error_not_enrolled_title, R.string.chats_error_not_enrolled_body, false)
             ChatError.ConvoNotFound ->
-                Triple(
-                    "No conversation yet",
-                    "You don't have a conversation with this user yet.",
-                    false,
-                )
+                Triple(R.string.chat_error_convo_not_found_title, R.string.chat_error_convo_not_found_body, false)
             is ChatError.Unknown ->
-                Triple(
-                    "Something went wrong",
-                    "An unexpected error occurred. Try again in a moment.",
-                    true,
-                )
+                Triple(R.string.chats_error_unknown_title, R.string.chats_error_unknown_body, true)
         }
     Column(
         modifier =
@@ -280,12 +248,12 @@ private fun ErrorBody(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = title,
+            text = stringResource(titleRes),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = body,
+            text = stringResource(bodyRes),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -293,7 +261,7 @@ private fun ErrorBody(
         )
         if (showRetry) {
             OutlinedButton(onClick = onRetry) {
-                Text("Try again")
+                Text(stringResource(R.string.chats_error_retry))
             }
         }
     }
