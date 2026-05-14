@@ -68,6 +68,57 @@ internal class ChatViewModelTest {
             assertTrue(loaded.items.isNotEmpty())
         }
 
+    @Test
+    fun `IOException on resolveConvo maps to InitialError Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextResolveResult = Result.failure(java.io.IOException("net down")))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            val status = vm.uiState.value.status
+            assertTrue(status is ChatLoadStatus.InitialError)
+            assertEquals(ChatError.Network, (status as ChatLoadStatus.InitialError).error)
+        }
+
+    @Test
+    fun `IOException on getMessages after successful resolve maps to InitialError Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult = Result.failure(java.io.IOException("net down")),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            val status = vm.uiState.value.status
+            assertTrue(status is ChatLoadStatus.InitialError)
+            assertEquals(ChatError.Network, (status as ChatLoadStatus.InitialError).error)
+            assertEquals("alice.bsky.social", vm.uiState.value.otherUserHandle)
+        }
+
+    @Test
+    fun `RetryClicked re-issues both resolve and getMessages`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextResolveResult = Result.failure(java.io.IOException("net down")))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            val priorResolve = repo.resolveCalls.get()
+            val priorMessages = repo.messagesCalls.get()
+            repo.nextResolveResult =
+                Result.success(
+                    ConvoResolution(
+                        convoId = "c1",
+                        otherUserHandle = "alice.bsky.social",
+                        otherUserDisplayName = "Alice",
+                        otherUserAvatarUrl = null,
+                        otherUserAvatarHue = 0,
+                    ),
+                )
+            vm.handleEvent(ChatEvent.RetryClicked)
+            advanceUntilIdle()
+            assertEquals(priorResolve + 1, repo.resolveCalls.get())
+            assertEquals(priorMessages + 1, repo.messagesCalls.get())
+            assertTrue(vm.uiState.value.status is ChatLoadStatus.Loaded)
+        }
+
     private fun chatViewModel(repo: FakeChatRepository): ChatViewModel =
         ChatViewModel(
             savedStateHandle = SavedStateHandle(mapOf("otherUserDid" to otherUserDid)),
