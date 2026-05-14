@@ -26,6 +26,9 @@ dependencies {
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
+    // MediaViewerRoute NavKey — pushed onto the back stack when an
+    // image (on a timeline PostCard) or a media-tab grid cell is tapped.
+    implementation(project(":feature:mediaviewer:api"))
     implementation(project(":feature:postdetail:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)

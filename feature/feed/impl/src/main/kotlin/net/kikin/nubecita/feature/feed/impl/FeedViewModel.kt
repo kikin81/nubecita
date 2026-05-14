@@ -50,6 +50,8 @@ internal class FeedViewModel
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
                 is FeedEvent.OnAuthorTapped -> sendEffect(FeedEffect.NavigateToAuthor(event.authorDid))
+                is FeedEvent.OnImageTapped ->
+                    sendEffect(FeedEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
                 is FeedEvent.OnLikeClicked ->
                     viewModelScope.launch {
                         postInteractionsCache

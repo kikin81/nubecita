@@ -120,6 +120,17 @@ sealed interface FeedEvent : UiEvent {
         val authorDid: String,
     ) : FeedEvent
 
+    /**
+     * User tapped a specific image inside a PostCard's image embed.
+     * Routes directly to the fullscreen MediaViewer with [imageIndex]
+     * as the carousel's starting page — skipping the PostDetail
+     * detour the outer-card tap takes.
+     */
+    data class OnImageTapped(
+        val post: PostUi,
+        val imageIndex: Int,
+    ) : FeedEvent
+
     data class OnLikeClicked(
         val post: PostUi,
     ) : FeedEvent
@@ -176,6 +187,17 @@ sealed interface FeedEffect : UiEffect {
     @Immutable
     data class NavigateToAuthor(
         val authorDid: String,
+    ) : FeedEffect
+
+    /**
+     * Open the fullscreen MediaViewer directly for the tapped image,
+     * skipping the PostDetail screen the outer-card tap routes to.
+     * [imageIndex] is the zero-based start page for the carousel.
+     */
+    @Immutable
+    data class NavigateToMediaViewer(
+        val postUri: String,
+        val imageIndex: Int,
     ) : FeedEffect
 
     /**

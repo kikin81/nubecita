@@ -527,6 +527,44 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `OnImageTapped emits NavigateToMediaViewer with the tapped post's URI and image index`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = FakeProfileRepository())
+            advanceUntilIdle()
+            val post = samplePostUi(id = "at://did:plc:alice/post/imgs", cid = "bafyI")
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnImageTapped(post = post, imageIndex = 2))
+                val effect = awaitItem()
+                assertEquals(
+                    ProfileEffect.NavigateToMediaViewer(postUri = post.id, imageIndex = 2),
+                    effect,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `OnMediaCellTapped emits NavigateToMediaViewer at imageIndex 0`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = FakeProfileRepository())
+            advanceUntilIdle()
+
+            vm.effects.test {
+                // Media cells in the grid render one thumb per post (the
+                // post's first image). Tapping the cell opens the carousel
+                // at index 0 — the same image the thumb is showing.
+                vm.handleEvent(ProfileEvent.OnMediaCellTapped(postUri = "at://did:plc:alice/post/m1"))
+                val effect = awaitItem()
+                assertEquals(
+                    ProfileEffect.NavigateToMediaViewer(postUri = "at://did:plc:alice/post/m1", imageIndex = 0),
+                    effect,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `StubActionTapped emits ShowComingSoon with the same action value, never touches the repo`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =

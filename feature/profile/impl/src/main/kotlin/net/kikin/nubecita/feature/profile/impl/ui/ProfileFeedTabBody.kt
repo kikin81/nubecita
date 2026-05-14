@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.profile.impl.ui
 
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
@@ -31,6 +32,7 @@ internal fun LazyListScope.profileFeedTabBody(
     tab: ProfileTab,
     status: TabLoadStatus,
     callbacks: PostCallbacks,
+    onImageTap: (post: PostUi, imageIndex: Int) -> Unit,
     onRetry: () -> Unit,
 ) {
     val keyPrefix =
@@ -70,7 +72,12 @@ internal fun LazyListScope.profileFeedTabBody(
                     },
                 ) { item ->
                     when (item) {
-                        is TabItemUi.Post -> PostCard(post = item.post, callbacks = callbacks)
+                        is TabItemUi.Post ->
+                            PostCard(
+                                post = item.post,
+                                callbacks = callbacks,
+                                onImageClick = { idx -> onImageTap(item.post, idx) },
+                            )
                         is TabItemUi.MediaCell -> {
                             // Posts/Replies filter never yields a MediaCell.
                             // Branch exists for type completeness; renders nothing.

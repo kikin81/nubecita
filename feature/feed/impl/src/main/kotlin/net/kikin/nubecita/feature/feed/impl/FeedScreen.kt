@@ -101,6 +101,7 @@ internal fun FeedScreen(
     modifier: Modifier = Modifier,
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
+    onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onComposeClick: () -> Unit = {},
     onReplyClick: (String) -> Unit = {},
     viewModel: FeedViewModel = hiltViewModel(),
@@ -170,6 +171,15 @@ internal fun FeedScreen(
     // a stale lambda would survive recomposition.
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
+    val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
+    // Per-PostCard image tap dispatcher. The PostCard.onImageClick slot
+    // is `(Int) -> Unit` (index only); we close over each PostCard's
+    // own `post` at the call site to form a `(PostUi, Int) -> Unit`
+    // dispatch that the VM can turn into a NavigateToMediaViewer effect.
+    val onImageTap =
+        remember(viewModel) {
+            { post: PostUi, index: Int -> viewModel.handleEvent(FeedEvent.OnImageTapped(post, index)) }
+        }
     // Hoist the VM-dispatching callbacks. Inline lambdas at the
     // FeedScreenContent call site would create new instances per
     // recomposition; with the FeedScreenContent body skip-friendly
@@ -230,6 +240,8 @@ internal fun FeedScreen(
                 }
                 is FeedEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is FeedEffect.NavigateToAuthor -> currentOnNavigateToAuthor(effect.authorDid)
+                is FeedEffect.NavigateToMediaViewer ->
+                    currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
                 is FeedEffect.SharePost -> context.launchPostShare(effect.intent)
                 is FeedEffect.CopyPermalink -> {
                     clipboardManager.setPrimaryClip(
@@ -254,6 +266,7 @@ internal fun FeedScreen(
         onRetry = onRetry,
         onLoadMore = onLoadMore,
         onComposeClick = onComposeClick,
+        onImageTap = onImageTap,
         modifier = modifier,
     )
 }
@@ -276,6 +289,7 @@ internal fun FeedScreenContent(
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
     onComposeClick: () -> Unit = {},
+    onImageTap: (post: PostUi, imageIndex: Int) -> Unit = { _, _ -> },
 ) {
     // Tap-to-top: collect MainShell's tab-retap signal and scroll the
     // feed list to the top. The default empty SharedFlow (no provider in
@@ -382,6 +396,7 @@ internal fun FeedScreenContent(
                     callbacks = callbacks,
                     onRefresh = onRefresh,
                     onLoadMore = onLoadMore,
+                    onImageTap = onImageTap,
                     contentPadding = padding,
                 )
         }
@@ -398,6 +413,7 @@ private fun LoadedFeedContent(
     callbacks: PostCallbacks,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
+    onImageTap: (post: PostUi, imageIndex: Int) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
 ) {
@@ -520,6 +536,7 @@ private fun LoadedFeedContent(
                             callbacks = callbacks,
                             videoEmbedSlot = videoSlot,
                             quotedVideoEmbedSlot = quotedVideoSlot,
+                            onImageClick = { idx -> onImageTap(item.post, idx) },
                         )
                     is FeedItemUi.ReplyCluster ->
                         ThreadCluster(
@@ -537,6 +554,7 @@ private fun LoadedFeedContent(
                             // to PostDetail." The wiring was missed at m28.3
                             // ship time; restoring it here.
                             onFoldTap = { callbacks.onTap(item.leaf) },
+                            onImageClick = onImageTap,
                         )
                     is FeedItemUi.SelfThreadChain -> {
                         // Same-author chain: render N PostCards stacked
@@ -565,6 +583,7 @@ private fun LoadedFeedContent(
                                     connectBelow = index < chainLastIndex,
                                     videoEmbedSlot = if (isLeaf) videoSlot else null,
                                     quotedVideoEmbedSlot = if (isLeaf) quotedVideoSlot else null,
+                                    onImageClick = { idx -> onImageTap(chainPost, idx) },
                                 )
                             }
                         }
