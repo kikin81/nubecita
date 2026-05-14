@@ -22,7 +22,7 @@ automatically for `.json` files.)
 | `grant_types` | `["authorization_code", "refresh_token"]` | Standard OAuth 2.0 flow + refresh. |
 | `response_types` | `["code"]` | Authorization code flow. |
 | `redirect_uris` | `["io.github.kikin81:/oauth-redirect"]` | **Single slash** after the scheme, not `://`. Per AT Protocol's Discoverable Client rule the scheme is the FQDN of `client_id` reversed (`kikin81.github.io` → `io.github.kikin81`), **not** the app's `applicationId`. |
-| `scope` | `atproto transition:generic` | Full AT Protocol API access; `transition:generic` is the current umbrella scope Bluesky accepts. |
+| `scope` | `atproto transition:generic transition:chat.bsky` | Three space-separated scopes. `atproto` is the required base scope. `transition:generic` is the umbrella for standard AppView RPCs (profiles, feeds, posts). `transition:chat.bsky` is the umbrella for `chat.bsky.*` RPCs routed through the chat AppView (`did:web:api.bsky.chat`) — without it, every chat call returns `403 ScopeMissingError`. Bluesky's consent screen lets the user opt out of `transition:chat.bsky` individually; a token issued without it can still use the rest of the API. |
 
 ## Redirect URI convention — FQDN reversed, NOT the app's applicationId
 
