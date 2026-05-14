@@ -16,3 +16,14 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data object Chats : NavKey
+
+/**
+ * Per-conversation thread destination. Pushed onto [MainShellNavState] when the user
+ * taps a row in the convo list or (future, nubecita-a7a) the Message button on
+ * another user's profile. The screen resolves [otherUserDid] → convoId itself via
+ * `chat.bsky.convo.getConvoForMembers`.
+ */
+@Serializable
+data class Chat(
+    val otherUserDid: String,
+) : NavKey
