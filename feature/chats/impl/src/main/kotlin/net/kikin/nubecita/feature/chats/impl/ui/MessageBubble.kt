@@ -1,8 +1,20 @@
 package net.kikin.nubecita.feature.chats.impl.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.feature.chats.impl.MessageUi
 
 /**
  * Asymmetric M3 Expressive bubble shape for a message at [index] in a run of
@@ -43,5 +55,57 @@ internal fun messageBubbleShape(
             bottomEnd = large,
             bottomStart = bottomSender,
         )
+    }
+}
+
+/**
+ * A single message bubble. Container color, content color, and shape are derived
+ * from [isOutgoing] + the run position; rendered text is the message body
+ * (italicised placeholder when [MessageUi.isDeleted]).
+ */
+@Composable
+internal fun MessageBubble(
+    message: MessageUi,
+    runIndex: Int,
+    runCount: Int,
+    modifier: Modifier = Modifier,
+    maxWidth: Dp = 280.dp,
+    deletedPlaceholder: String = "Message deleted",
+) {
+    val shape = messageBubbleShape(index = runIndex, count = runCount, isOutgoing = message.isOutgoing)
+    val containerColor =
+        if (message.isOutgoing) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        }
+    val contentColor =
+        if (message.isOutgoing) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        }
+    Box(
+        modifier =
+            modifier
+                .widthIn(max = maxWidth)
+                .clip(shape)
+                .background(containerColor)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        if (message.isDeleted) {
+            Text(
+                text = deletedPlaceholder,
+                style = MaterialTheme.typography.bodyMedium,
+                fontStyle = FontStyle.Italic,
+                color = contentColor,
+            )
+        } else {
+            Text(
+                text = message.text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
+            )
+        }
     }
 }
