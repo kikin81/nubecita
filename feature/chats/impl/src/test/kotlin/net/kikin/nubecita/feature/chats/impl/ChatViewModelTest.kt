@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
-import kotlin.time.Clock
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -186,6 +185,5 @@ internal class ChatViewModelTest {
         ChatViewModel(
             savedStateHandle = SavedStateHandle(mapOf("otherUserDid" to otherUserDid)),
             repository = repo,
-            clock = Clock.System,
         )
 }
