@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -12,11 +13,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
@@ -72,10 +76,29 @@ internal fun ProfileScreenContent(
         // below the bar; and `PullToRefreshBox`'s indicator anchors at the
         // bar's bottom edge (its bounds are also full-screen now, but the
         // contentPadding flows through the LazyColumn's drag offset).
+        // Hoist the refresh state so we can wire it to a custom indicator.
+        // Default PullToRefreshBox positions its indicator at the box's
+        // top edge (= screen top here, since the box bounds extend to
+        // screen top to let the hero gradient draw behind the bar). That
+        // anchors the spinner under the status bar / camera cutout. We
+        // offset the indicator down by the bar's reserved height so it
+        // appears just below the bar instead.
+        val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = activeTabIsRefreshing,
             onRefresh = { onEvent(ProfileEvent.Refresh) },
+            state = pullState,
             modifier = Modifier.fillMaxSize(),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .offset(y = padding.calculateTopPadding()),
+                    isRefreshing = activeTabIsRefreshing,
+                    state = pullState,
+                )
+            },
         ) {
             LazyColumn(
                 state = listState,
