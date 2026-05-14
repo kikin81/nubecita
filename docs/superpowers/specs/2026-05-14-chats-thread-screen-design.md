@@ -51,6 +51,8 @@ Ship a read-only chat thread screen that:
 
 10. **No composer in V1, no "Sending coming soon" banner.** Matches the epic spec.
 
+11. **`ZoneId` is a parameter to the mapper, not an ambient lookup.** `toThreadItems(now: Instant, zone: ZoneId = ZoneId.systemDefault())` — defaulted for production but explicitly overridable in tests so day-boundary cases pin deterministically across timezones. Matches `ConvoMapper`'s `relativeTimestamp` pattern (both functions read system-default at call time when called from production; both accept a deterministic zone in tests). Avoids the AT Protocol UTC-vs-local-day footgun.
+
 ## Architecture
 
 ```
@@ -186,6 +188,16 @@ internal fun List<MessageUi>.toThreadItems(now: Instant): ImmutableList<ThreadIt
     // Walk in order; for each, compare with the previous emitted message's senderDid + local-day.
     // If senderDid changed OR local-day changed: emit a DaySeparator (when day changed) and start a new run.
     //
+    // IMPORTANT — TIMEZONE: AT Protocol returns ISO-8601 timestamps in UTC. Day-boundary
+    // comparison MUST convert to the user's local timezone before computing the calendar
+    // day, otherwise a thread that runs through ~4-7pm in California (= UTC midnight)
+    // injects a spurious "Yesterday" separator mid-conversation. Use
+    // `ZoneId.systemDefault()` + `ZonedDateTime.ofInstant(...).toLocalDate()` exactly as
+    // `feature/chats/impl/src/main/kotlin/.../data/ConvoMapper.kt`'s `relativeTimestamp`
+    // already does — same `ZoneId` source, same `toLocalDate()` comparison. Inject `now`
+    // as a parameter (not `Clock.System.now()` inline) so tests can pin the boundary
+    // deterministically.
+    //
     // After the walk, assign runIndex + runCount to every Message within its run:
     //   - runIndex is OLDEST-first within the run: the oldest message of a run gets runIndex = 0,
     //     and the newest message of a run gets runIndex = runCount - 1.
@@ -316,6 +328,7 @@ Per the project's UI-task convention (unit + previews + screenshot tests).
   - Incoming run of 3 → `showAvatar = true` ONLY on the oldest message (`runIndex == 0`).
   - Day boundary across same-sender messages → separator inserted; two distinct runs (separator breaks run); `showAvatar` re-applies to the oldest of each side.
   - Day-label buckets: "Today" / "Yesterday" / weekday / "MMM d" with deterministic `now` injection.
+  - **Timezone regression**: two messages at `2026-04-25T23:30Z` and `2026-04-26T00:30Z` with a `ZoneId.systemDefault()` of `America/Los_Angeles` (UTC-7) → BOTH local to 2026-04-25, so NO `DaySeparator` between them. Conversely, same UTC pair viewed from `Europe/Berlin` (UTC+2) → splits across local days, separator emitted. Pin via `@TestZone("America/Los_Angeles")` or by passing the zone through the mapper signature (see Decision 11 below).
 - `ChatViewModelTest`:
   - `init` kicks off resolve + getMessages; on success → `Loaded`.
   - `resolveConvo` failure with `NotEnrolled` / `Network` / `ConvoNotFound` / `Unknown` → matching `InitialError` variant.
