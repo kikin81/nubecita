@@ -61,7 +61,7 @@ private val SAMPLE_LONG_SNIPPET =
 @Composable
 private fun ConvoListItemWithAvatarScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        Surface { ConvoListItem(item = SAMPLE_WITH_AVATAR, onTap = {}) }
+        Surface { ConvoListItem(item = SAMPLE_WITH_AVATAR, index = 0, count = 1, onTap = {}) }
     }
 }
 
@@ -71,7 +71,7 @@ private fun ConvoListItemWithAvatarScreenshot() {
 @Composable
 private fun ConvoListItemFallbackLetterScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        Surface { ConvoListItem(item = SAMPLE_FALLBACK_LETTER, onTap = {}) }
+        Surface { ConvoListItem(item = SAMPLE_FALLBACK_LETTER, index = 0, count = 1, onTap = {}) }
     }
 }
 
@@ -81,7 +81,7 @@ private fun ConvoListItemFallbackLetterScreenshot() {
 @Composable
 private fun ConvoListItemYouPrefixScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        Surface { ConvoListItem(item = SAMPLE_YOU_PREFIX, onTap = {}) }
+        Surface { ConvoListItem(item = SAMPLE_YOU_PREFIX, index = 0, count = 1, onTap = {}) }
     }
 }
 
@@ -91,7 +91,7 @@ private fun ConvoListItemYouPrefixScreenshot() {
 @Composable
 private fun ConvoListItemDeletedScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        Surface { ConvoListItem(item = SAMPLE_DELETED, onTap = {}) }
+        Surface { ConvoListItem(item = SAMPLE_DELETED, index = 0, count = 1, onTap = {}) }
     }
 }
 
@@ -101,6 +101,6 @@ private fun ConvoListItemDeletedScreenshot() {
 @Composable
 private fun ConvoListItemLongSnippetScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        Surface { ConvoListItem(item = SAMPLE_LONG_SNIPPET, onTap = {}) }
+        Surface { ConvoListItem(item = SAMPLE_LONG_SNIPPET, index = 0, count = 1, onTap = {}) }
     }
 }
