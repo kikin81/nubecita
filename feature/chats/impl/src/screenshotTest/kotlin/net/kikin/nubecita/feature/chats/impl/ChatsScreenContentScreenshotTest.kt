@@ -41,6 +41,20 @@ private val LOADED_STATE =
             ),
     )
 
+private val LOADED_REFRESHING_STATE =
+    ChatsScreenViewState(
+        status =
+            ChatsLoadStatus.Loaded(
+                items =
+                    persistentListOf(
+                        sampleItem("alice", "Alice Liddell", "I would love a copy.", "10m"),
+                        sampleItem("bob", "Bob", "ok", "Yesterday"),
+                        sampleItem("carol", null, "see you soon", "Mon"),
+                    ),
+                isRefreshing = true,
+            ),
+    )
+
 private val EMPTY_STATE = ChatsScreenViewState(status = ChatsLoadStatus.Loaded(items = persistentListOf()))
 private val NETWORK_ERROR_STATE = ChatsScreenViewState(status = ChatsLoadStatus.InitialError(ChatsError.Network))
 private val NOT_ENROLLED_STATE = ChatsScreenViewState(status = ChatsLoadStatus.InitialError(ChatsError.NotEnrolled))
@@ -53,6 +67,16 @@ private val LOADING_STATE = ChatsScreenViewState(status = ChatsLoadStatus.Loadin
 private fun ChatsScreenLoadedScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         ChatsScreenContent(state = LOADED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+    }
+}
+
+@PreviewTest
+@Preview(name = "chats-loaded-refreshing-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-loaded-refreshing-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsScreenLoadedRefreshingScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        ChatsScreenContent(state = LOADED_REFRESHING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
     }
 }
 

@@ -16,6 +16,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +52,12 @@ internal fun ChatsScreenContent(
                     if (status.items.isEmpty()) {
                         EmptyBody()
                     } else {
-                        LoadedBody(items = status.items, onTap = { did -> onEvent(ChatsEvent.ConvoTapped(did)) })
+                        LoadedBody(
+                            items = status.items,
+                            isRefreshing = status.isRefreshing,
+                            onRefresh = { onEvent(ChatsEvent.Refresh) },
+                            onTap = { did -> onEvent(ChatsEvent.ConvoTapped(did)) },
+                        )
                     }
                 is ChatsLoadStatus.InitialError -> ErrorBody(error = status.error, onRetry = { onEvent(ChatsEvent.RetryClicked) })
             }
@@ -98,13 +104,21 @@ private fun EmptyBody() {
 @Composable
 private fun LoadedBody(
     items: kotlinx.collections.immutable.ImmutableList<ConvoListItemUi>,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     onTap: (otherUserDid: String) -> Unit,
 ) {
-    LazyColumn(
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(items = items, key = { it.convoId }, contentType = { "convo-row" }) { item ->
-            ConvoListItem(item = item, onTap = onTap)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(items = items, key = { it.convoId }, contentType = { "convo-row" }) { item ->
+                ConvoListItem(item = item, onTap = onTap)
+            }
         }
     }
 }

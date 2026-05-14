@@ -4,6 +4,7 @@ import io.github.kikin81.atproto.runtime.XrpcError
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.feature.chats.impl.ChatsError
 import java.io.IOException
+import java.util.Locale
 
 /**
  * The `chat.bsky.convo.*` endpoints surface a specific error when the
@@ -24,7 +25,10 @@ internal fun Throwable.toChatsError(): ChatsError =
         is IOException -> ChatsError.Network
         is NoSessionException -> ChatsError.Unknown("not-signed-in")
         is XrpcError -> {
-            val msg = message.orEmpty().lowercase()
+            // Locale.ROOT — protocol/error-code matching must be locale-independent.
+            // Default-locale lowercase() flips I↔ı in Turkish, which would break
+            // future markers that contain those letters.
+            val msg = message.orEmpty().lowercase(Locale.ROOT)
             if (NOT_ENROLLED_MARKER in msg) ChatsError.NotEnrolled else ChatsError.Unknown(javaClass.simpleName)
         }
         else -> ChatsError.Unknown(javaClass.simpleName)
