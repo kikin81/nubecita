@@ -25,7 +25,6 @@ internal class ChatViewModel
     constructor(
         savedStateHandle: SavedStateHandle,
         private val repository: ChatRepository,
-        private val clock: Clock = Clock.System,
     ) : MviViewModel<ChatScreenViewState, ChatEvent, ChatEffect>(ChatScreenViewState()) {
         private val otherUserDid: String =
             requireNotNull(savedStateHandle["otherUserDid"]) {
@@ -68,7 +67,7 @@ internal class ChatViewModel
                             repository
                                 .getMessages(resolution.convoId)
                                 .onSuccess { page ->
-                                    val items = page.messages.toThreadItems(now = clock.now())
+                                    val items = page.messages.toThreadItems(now = Clock.System.now())
                                     setState { copy(status = ChatLoadStatus.Loaded(items = items)) }
                                 }.onFailure { throwable ->
                                     handleFailure(throwable)
