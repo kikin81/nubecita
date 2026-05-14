@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.EmbedUi
 import kotlin.time.Instant
 
 /**
@@ -81,6 +82,19 @@ sealed interface ThreadItem {
     }
 }
 
+/**
+ * One message in a chat thread.
+ *
+ * [embed] carries the rendered record-embed payload when the wire
+ * `MessageView.embed` resolved to `app.bsky.embed.record#view`. The
+ * chat lexicon (`chat.bsky.convo.defs#messageView.embed`) only admits
+ * the record-embed variant — external links, images, and video are
+ * not part of the chat wire format and surface either as plain `text`
+ * (external URLs, facets-pending) or are not transmittable at all.
+ * That constraint is why `embed` is typed as
+ * [EmbedUi.RecordOrUnavailable] (Record + RecordUnavailable) rather
+ * than the broader [EmbedUi].
+ */
 @Immutable
 data class MessageUi(
     val id: String,
@@ -89,6 +103,7 @@ data class MessageUi(
     val text: String,
     val isDeleted: Boolean,
     val sentAt: Instant,
+    val embed: EmbedUi.RecordOrUnavailable? = null,
 )
 
 sealed interface ChatEvent : UiEvent {

@@ -1,19 +1,25 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
+import io.github.kikin81.atproto.app.bsky.embed.RecordView
 import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesResponseMessagesUnion
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
+import io.github.kikin81.atproto.chat.bsky.convo.MessageViewEmbedUnion
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.feedmapping.toRecordOrUnavailable
+import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import kotlin.time.Instant
 
 /**
  * Maps the wire `chat.bsky.convo.getMessages` response messages to [MessageUi].
  *
- * - `MessageView` → normal `MessageUi`, `isDeleted = false`.
- * - `DeletedMessageView` → placeholder `MessageUi`, `isDeleted = true`, empty `text`.
+ * - `MessageView` → normal `MessageUi`, `isDeleted = false`, `embed` populated
+ *   when the wire `embed` is a `RecordView` (resolved or unavailable).
+ * - `DeletedMessageView` → placeholder `MessageUi`, `isDeleted = true`, empty `text`,
+ *   `embed = null`.
  * - All other union variants (`SystemMessageView`, forward-compat unknown) → filtered.
  *   System messages aren't conversational; rendering them is out of MVP scope.
  *
@@ -31,6 +37,7 @@ internal fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: Stri
                     text = union.text,
                     isDeleted = false,
                     sentAt = Instant.parse(union.sentAt.raw),
+                    embed = union.embed.toMessageEmbedUi(),
                 )
 
             is DeletedMessageView ->
@@ -47,3 +54,18 @@ internal fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: Stri
         }
     }.toImmutableList()
 }
+
+/**
+ * Maps `MessageView.embed` to [EmbedUi.RecordOrUnavailable]. The chat
+ * lexicon's `messageViewEmbedUnion` only admits `app.bsky.embed.record#view`,
+ * so the only meaningful mapping is `RecordView → toRecordOrUnavailable()`.
+ * Any forward-compat `Unknown` open-union member drops to `null` — the
+ * sender's intent isn't recoverable as a record-shape and a "Quoted post
+ * unavailable" chip would mis-state the situation.
+ */
+private fun MessageViewEmbedUnion?.toMessageEmbedUi(): EmbedUi.RecordOrUnavailable? =
+    when (this) {
+        null -> null
+        is RecordView -> toRecordOrUnavailable()
+        else -> null // MessageViewEmbedUnion.Unknown + forward-compat variants
+    }

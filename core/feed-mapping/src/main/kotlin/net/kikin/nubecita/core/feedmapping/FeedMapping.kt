@@ -214,7 +214,7 @@ fun RecordViewRecord.toEmbedUiRecord(): EmbedUi.Record? {
  * `RecordWithMedia.record` slot — which is `RecordOrUnavailable`-typed —
  * use it directly without an `as` cast.
  */
-private fun RecordView.toRecordOrUnavailable(): EmbedUi.RecordOrUnavailable =
+fun RecordView.toRecordOrUnavailable(): EmbedUi.RecordOrUnavailable =
     when (val r = record) {
         is RecordViewRecord -> r.toEmbedUiRecord() ?: EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Unknown)
         is RecordViewNotFound -> EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound)

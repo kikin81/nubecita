@@ -5,6 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
+import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import kotlin.time.Instant
 
@@ -17,6 +21,7 @@ private fun mu(
     text: String,
     sentAt: String,
     isDeleted: Boolean = false,
+    embed: EmbedUi.RecordOrUnavailable? = null,
 ): MessageUi =
     MessageUi(
         id = id,
@@ -25,6 +30,32 @@ private fun mu(
         text = text,
         isDeleted = isDeleted,
         sentAt = Instant.parse(sentAt),
+        embed = embed,
+    )
+
+private fun recordEmbed(
+    authorHandle: String = "post-author.bsky.social",
+    authorDisplayName: String = "Post Author",
+    text: String,
+    createdAt: String = "2026-05-14T16:00:00Z",
+): EmbedUi.Record =
+    EmbedUi.Record(
+        quotedPost =
+            QuotedPostUi(
+                uri = "at://did:plc:quoted-author/app.bsky.feed.post/q",
+                cid = "bafyreifakequotedcid000000000000000000000000000",
+                author =
+                    AuthorUi(
+                        did = "did:plc:quoted-author",
+                        handle = authorHandle,
+                        displayName = authorDisplayName,
+                        avatarUrl = null,
+                    ),
+                createdAt = Instant.parse(createdAt),
+                text = text,
+                facets = persistentListOf(),
+                embed = QuotedEmbedUi.Empty,
+            ),
     )
 
 private val LOADED_STATE =
@@ -75,6 +106,103 @@ private val LOADED_STATE =
             ),
     )
 
+/**
+ * Loaded state exercising the embed-card render paths added by
+ * `nubecita-nn3.7`:
+ * - Record embed paired with parent text (text bubble + card stacked).
+ * - Record-embed-only message (empty wire `text` — text bubble omitted).
+ * - `RecordUnavailable` chip (NotFound — peer shared a deleted post).
+ *
+ * Lives as its own state, not folded into [LOADED_STATE], so the
+ * pre-embed baseline screenshots remain unchanged.
+ */
+private val LOADED_WITH_EMBEDS_STATE =
+    ChatScreenViewState(
+        otherUserHandle = "alice.bsky.social",
+        otherUserDisplayName = "Alice",
+        otherUserAvatarHue = 217,
+        status =
+            ChatLoadStatus.Loaded(
+                items =
+                    persistentListOf(
+                        // Newest-first source order; reverseLayout flips visually on screen.
+                        ThreadItem.Message(
+                            message =
+                                mu(
+                                    id = "m4",
+                                    isOutgoing = true,
+                                    text = "have you seen this?",
+                                    sentAt = "2026-05-14T17:32:00Z",
+                                    embed =
+                                        recordEmbed(
+                                            authorHandle = "ana.bsky.social",
+                                            authorDisplayName = "Ana",
+                                            text =
+                                                "Trying out the new edge-to-edge insets on Android 16 " +
+                                                    "today and it really does feel like a different OS.",
+                                        ),
+                                ),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = false,
+                        ),
+                        ThreadItem.Message(
+                            message =
+                                mu(
+                                    id = "m3",
+                                    isOutgoing = false,
+                                    text = "",
+                                    sentAt = "2026-05-14T17:31:00Z",
+                                    embed =
+                                        recordEmbed(
+                                            authorHandle = "ben.bsky.social",
+                                            authorDisplayName = "Ben",
+                                            text = "Pure embed-share: zero parent text, all signal in the card.",
+                                        ),
+                                ),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = true,
+                        ),
+                        ThreadItem.Message(
+                            message =
+                                mu(
+                                    id = "m2",
+                                    isOutgoing = false,
+                                    text = "this one's gone now :(",
+                                    sentAt = "2026-05-14T17:30:00Z",
+                                    embed =
+                                        EmbedUi.RecordUnavailable(
+                                            EmbedUi.RecordUnavailable.Reason.NotFound,
+                                        ),
+                                ),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = true,
+                        ),
+                        ThreadItem.Message(
+                            message =
+                                mu(
+                                    id = "m1",
+                                    isOutgoing = false,
+                                    text = "ok last one — check these",
+                                    sentAt = "2026-05-14T17:28:00Z",
+                                ),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = true,
+                        ),
+                        ThreadItem.DaySeparator(
+                            epochDay =
+                                java.time.LocalDate
+                                    .parse("2026-05-14")
+                                    .toEpochDay(),
+                            label = "Today",
+                        ),
+                    ),
+            ),
+    )
+
 private val EMPTY_STATE =
     ChatScreenViewState(
         otherUserHandle = "alice.bsky.social",
@@ -106,6 +234,16 @@ private val NOT_ENROLLED_STATE =
 private fun ChatScreenLoadedScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         ChatScreenContent(state = LOADED_STATE, onEvent = {})
+    }
+}
+
+@PreviewTest
+@Preview(name = "chat-loaded-embeds-light", showBackground = true, heightDp = 900)
+@Preview(name = "chat-loaded-embeds-dark", showBackground = true, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenLoadedWithEmbedsScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        ChatScreenContent(state = LOADED_WITH_EMBEDS_STATE, onEvent = {})
     }
 }
 

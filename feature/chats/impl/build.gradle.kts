@@ -20,6 +20,12 @@ dependencies {
 
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    // Record-embed wire → UI mapping (RecordView → EmbedUi.RecordOrUnavailable)
+    // is shared with :feature:feed:impl. The chat lexicon
+    // (`chat.bsky.convo.defs#messageView.embed`) only admits
+    // `app.bsky.embed.record#view`; we reuse the existing helpers rather
+    // than duplicate the JsonObject decode + recursion-bound logic.
+    implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
