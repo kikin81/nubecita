@@ -19,10 +19,9 @@ class RedactDidTest {
 
     @Test
     fun identifierExactlyPreviewLength_returnsInputUnchanged() {
-        // Boundary: identifier length == DID_IDENTIFIER_PREVIEW (8). The
-        // function should NOT append "…" when there's nothing to truncate.
+        // Boundary: identifier length == preview length. The function should
+        // NOT append "…" when there's nothing to truncate.
         val did = "did:plc:abcdefgh"
-        assertEquals(8, DID_IDENTIFIER_PREVIEW)
         assertEquals(did, did.redactDid())
     }
 
@@ -33,8 +32,25 @@ class RedactDidTest {
     }
 
     @Test
-    fun trailingColon_returnsInputUnchanged() {
+    fun trailingColonAfterMethod_returnsInputUnchanged() {
         val malformed = "did:plc:"
         assertEquals(malformed, malformed.redactDid())
+    }
+
+    @Test
+    fun singleColon_returnsInputUnchanged() {
+        // No second colon → no parseable method-specific-id.
+        val malformed = "did:plc"
+        assertEquals(malformed, malformed.redactDid())
+    }
+
+    @Test
+    fun multiSegmentMethodSpecificId_truncatesAcrossInternalColons() {
+        // did:web identifiers carry path-style segments separated by ':'.
+        // Anchoring on the LAST colon would leave the trailing segment as
+        // the "identifier" and skip truncation when it's short — leaking
+        // the full DID to the log surface. Anchor on the first two colons.
+        val did = "did:web:example.com:user:alice"
+        assertEquals("did:web:example.…", did.redactDid())
     }
 }
