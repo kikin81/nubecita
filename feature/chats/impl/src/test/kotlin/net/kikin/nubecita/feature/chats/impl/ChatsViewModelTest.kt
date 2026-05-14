@@ -32,7 +32,7 @@ internal class ChatsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeChatRepository(
-                    nextResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))),
+                    nextListResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))),
                 )
             val vm = ChatsViewModel(repository = repo)
             advanceUntilIdle()
@@ -45,7 +45,7 @@ internal class ChatsViewModelTest {
     @Test
     fun `empty result yields Loaded with no items`() =
         runTest(mainDispatcher.dispatcher) {
-            val repo = FakeChatRepository(nextResult = Result.success(ConvoListPage(items = persistentListOf())))
+            val repo = FakeChatRepository(nextListResult = Result.success(ConvoListPage(items = persistentListOf())))
             val vm = ChatsViewModel(repository = repo)
             advanceUntilIdle()
             val status = vm.uiState.value.status
@@ -56,7 +56,7 @@ internal class ChatsViewModelTest {
     @Test
     fun `IOException maps to InitialError(Network)`() =
         runTest(mainDispatcher.dispatcher) {
-            val repo = FakeChatRepository(nextResult = Result.failure(IOException("net down")))
+            val repo = FakeChatRepository(nextListResult = Result.failure(IOException("net down")))
             val vm = ChatsViewModel(repository = repo)
             advanceUntilIdle()
             val status = vm.uiState.value.status
@@ -81,11 +81,11 @@ internal class ChatsViewModelTest {
     @Test
     fun `RetryClicked re-issues listConvos`() =
         runTest(mainDispatcher.dispatcher) {
-            val repo = FakeChatRepository(nextResult = Result.failure(IOException("net down")))
+            val repo = FakeChatRepository(nextListResult = Result.failure(IOException("net down")))
             val vm = ChatsViewModel(repository = repo)
             advanceUntilIdle()
             val priorCalls = repo.listCalls.get()
-            repo.nextResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1"))))
+            repo.nextListResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1"))))
             vm.handleEvent(ChatsEvent.RetryClicked)
             advanceUntilIdle()
             assertEquals(priorCalls + 1, repo.listCalls.get())
@@ -95,10 +95,10 @@ internal class ChatsViewModelTest {
     @Test
     fun `Refresh on Loaded sets isRefreshing then commits new items`() =
         runTest(mainDispatcher.dispatcher) {
-            val repo = FakeChatRepository(nextResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))))
+            val repo = FakeChatRepository(nextListResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))))
             val vm = ChatsViewModel(repository = repo)
             advanceUntilIdle()
-            repo.nextResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c2"))))
+            repo.nextListResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c2"))))
             vm.handleEvent(ChatsEvent.Refresh)
             advanceUntilIdle()
             val status = vm.uiState.value.status
@@ -109,7 +109,7 @@ internal class ChatsViewModelTest {
     @Test
     fun `double-Refresh is single-flighted`() =
         runTest(mainDispatcher.dispatcher) {
-            val repo = FakeChatRepository(nextResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))))
+            val repo = FakeChatRepository(nextListResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))))
             val vm = ChatsViewModel(repository = repo)
             advanceUntilIdle()
             val priorCalls = repo.listCalls.get()
@@ -125,7 +125,7 @@ internal class ChatsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeChatRepository(
-                    nextResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))),
+                    nextListResult = Result.success(ConvoListPage(items = persistentListOf(sampleItem(convoId = "c1")))),
                 )
             val vm = ChatsViewModel(repository = repo)
             advanceUntilIdle()
@@ -135,7 +135,7 @@ internal class ChatsViewModelTest {
             assertEquals("c1", (priorStatus as ChatsLoadStatus.Loaded).items[0].convoId)
 
             // Flip the fake to fail and trigger refresh.
-            repo.nextResult = Result.failure(IOException("net down"))
+            repo.nextListResult = Result.failure(IOException("net down"))
             vm.effects.test {
                 vm.handleEvent(ChatsEvent.Refresh)
                 advanceUntilIdle()
