@@ -96,14 +96,14 @@ internal fun MessageBubble(
         if (message.isDeleted) {
             Text(
                 text = deletedPlaceholder,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 fontStyle = FontStyle.Italic,
                 color = contentColor,
             )
         } else {
             Text(
                 text = message.text,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 color = contentColor,
             )
         }
