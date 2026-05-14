@@ -132,6 +132,11 @@ android {
             name = "OAUTH_CLIENT_METADATA_URL",
             value = "\"https://kikin81.github.io/nubecita/oauth/client-metadata.json\"",
         )
+        buildConfigField(
+            type = "String",
+            name = "OAUTH_SCOPE",
+            value = "\"atproto transition:generic transition:chat.bsky\"",
+        )
     }
 
     buildTypes {
