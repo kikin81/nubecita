@@ -4,6 +4,15 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.feature.chats.impl"
+
+    defaultConfig {
+        // Override the convention-plugin default (AndroidJUnitRunner) with the
+        // Hilt-aware runner from :core:testing-android so @HiltAndroidTest
+        // tests in src/androidTest/ can boot HiltTestApplication and drive
+        // the @TestInstallIn-replaced component graph. Mirrors the setup in
+        // :feature:composer:impl and :feature:feed:impl.
+        testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
+    }
 }
 
 dependencies {
@@ -19,8 +28,27 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.timber)
 
+    // Compose UI tests for ChatScreen — required so
+    // createAndroidComposeRule<HiltTestActivity>() can drive the screen
+    // composition path under instrumentation. Mirrors :feature:composer:impl.
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(project(":core:testing-android"))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.core)
+    // Pin espresso-core explicitly — same reason as :feature:composer:impl
+    // and :feature:feed:impl: compose-ui-test-junit4 otherwise pulls a stale
+    // transitive that hits a removed hidden API on Android 16 / API 36
+    // during ComposeRule activity launch.
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.kotlinx.collections.immutable)
+
+    kspAndroidTest(libs.hilt.android.compiler)
 }
