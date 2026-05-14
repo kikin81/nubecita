@@ -11,9 +11,11 @@ import javax.inject.Singleton
 
 /**
  * Hilt provider for the OAuth flow orchestrator. The `clientMetadataUrl`
- * is sourced from `:app`'s [OAuthClientMetadataUrl]-qualified `String`
- * binding (BuildConfig) so the dev → prod URL swap is a build-variant
- * change, not a code edit inside `:core:auth`.
+ * and `scope` values are sourced from `:app`'s
+ * [OAuthClientMetadataUrl]- / [OAuthScope]-qualified `String` bindings
+ * (both reading from `BuildConfig`) so dev → prod swaps and per-flavor
+ * capability changes are build-variant edits rather than code edits
+ * inside `:core:auth`.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -22,6 +24,7 @@ internal object AtOAuthModule {
     @Singleton
     fun provideAtOAuth(
         @OAuthClientMetadataUrl clientMetadataUrl: String,
+        @OAuthScope scope: String,
         sessionStore: OAuthSessionStore,
         httpClient: HttpClient,
     ): AtOAuth =
@@ -29,5 +32,6 @@ internal object AtOAuthModule {
             clientMetadataUrl = clientMetadataUrl,
             sessionStore = sessionStore,
             httpClient = httpClient,
+            scope = scope,
         )
 }
