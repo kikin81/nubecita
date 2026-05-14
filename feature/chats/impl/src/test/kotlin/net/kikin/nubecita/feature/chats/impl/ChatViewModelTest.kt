@@ -1,11 +1,11 @@
 package net.kikin.nubecita.feature.chats.impl
 
-import androidx.lifecycle.SavedStateHandle
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -183,7 +183,7 @@ internal class ChatViewModelTest {
 
     private fun chatViewModel(repo: FakeChatRepository): ChatViewModel =
         ChatViewModel(
-            savedStateHandle = SavedStateHandle(mapOf("otherUserDid" to otherUserDid)),
+            chat = Chat(otherUserDid = otherUserDid),
             repository = repo,
         )
 }
