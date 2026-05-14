@@ -2,12 +2,16 @@ package net.kikin.nubecita.feature.chats.impl.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
@@ -15,6 +19,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.designsystem.component.PostCardQuotedPost
+import net.kikin.nubecita.designsystem.component.PostCardRecordUnavailable
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.R
 
@@ -64,6 +71,13 @@ internal fun messageBubbleShape(
  * A single message bubble. Container color, content color, and shape are derived
  * from [isOutgoing] + the run position; rendered text is the message body
  * (italicised placeholder when [MessageUi.isDeleted]).
+ *
+ * When [MessageUi.embed] is non-null, an embed card is stacked under the
+ * text bubble (same horizontal alignment as the bubble). For an
+ * embed-only message (empty `text`, non-null `embed`), the text bubble
+ * is omitted — rendering an empty bubble would just be visual noise.
+ * Deleted messages (`isDeleted = true`) always carry a null `embed` per
+ * the mapper, so they render only the italic placeholder.
  */
 @Composable
 internal fun MessageBubble(
@@ -72,6 +86,32 @@ internal fun MessageBubble(
     runCount: Int,
     modifier: Modifier = Modifier,
     maxWidth: Dp = 280.dp,
+) {
+    val embed = message.embed
+    val showTextBubble = message.isDeleted || message.text.isNotEmpty() || embed == null
+    Column(
+        modifier = modifier.widthIn(max = maxWidth),
+        horizontalAlignment = if (message.isOutgoing) Alignment.End else Alignment.Start,
+    ) {
+        if (showTextBubble) {
+            MessageTextBubble(
+                message = message,
+                runIndex = runIndex,
+                runCount = runCount,
+            )
+        }
+        if (embed != null) {
+            if (showTextBubble) Spacer(Modifier.height(4.dp))
+            MessageEmbedCard(embed = embed)
+        }
+    }
+}
+
+@Composable
+private fun MessageTextBubble(
+    message: MessageUi,
+    runIndex: Int,
+    runCount: Int,
 ) {
     val shape = messageBubbleShape(index = runIndex, count = runCount, isOutgoing = message.isOutgoing)
     val containerColor =
@@ -88,8 +128,7 @@ internal fun MessageBubble(
         }
     Box(
         modifier =
-            modifier
-                .widthIn(max = maxWidth)
+            Modifier
                 .clip(shape)
                 .background(containerColor)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -108,5 +147,13 @@ internal fun MessageBubble(
                 color = contentColor,
             )
         }
+    }
+}
+
+@Composable
+private fun MessageEmbedCard(embed: EmbedUi.RecordOrUnavailable) {
+    when (embed) {
+        is EmbedUi.Record -> PostCardQuotedPost(quotedPost = embed.quotedPost)
+        is EmbedUi.RecordUnavailable -> PostCardRecordUnavailable(reason = embed.reason)
     }
 }
