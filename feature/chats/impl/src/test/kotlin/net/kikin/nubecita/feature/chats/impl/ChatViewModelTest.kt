@@ -119,6 +119,69 @@ internal class ChatViewModelTest {
             assertTrue(vm.uiState.value.status is ChatLoadStatus.Loaded)
         }
 
+    @Test
+    fun `Refresh on Loaded flips isRefreshing then commits new items`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.status is ChatLoadStatus.Loaded)
+            repo.nextMessagesResult =
+                Result.success(
+                    MessagePage(
+                        messages =
+                            persistentListOf(
+                                MessageUi(
+                                    id = "m-new",
+                                    senderDid = otherUserDid,
+                                    isOutgoing = false,
+                                    text = "fresh",
+                                    isDeleted = false,
+                                    sentAt = Instant.parse("2026-05-14T13:00:00Z"),
+                                ),
+                            ),
+                    ),
+                )
+            vm.handleEvent(ChatEvent.Refresh)
+            advanceUntilIdle()
+            val status = vm.uiState.value.status
+            assertTrue(status is ChatLoadStatus.Loaded)
+            val loaded = status as ChatLoadStatus.Loaded
+            assertEquals(false, loaded.isRefreshing)
+            assertTrue(loaded.items.isNotEmpty())
+        }
+
+    @Test
+    fun `double-Refresh is single-flighted`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            val priorResolve = repo.resolveCalls.get()
+            vm.handleEvent(ChatEvent.Refresh)
+            vm.handleEvent(ChatEvent.Refresh)
+            advanceUntilIdle()
+            assertEquals(priorResolve + 1, repo.resolveCalls.get())
+        }
+
+    @Test
+    fun `Refresh failure on Loaded keeps existing items, drops isRefreshing`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            val priorLoaded = vm.uiState.value.status as ChatLoadStatus.Loaded
+            val priorItems = priorLoaded.items
+            repo.nextMessagesResult = Result.failure(java.io.IOException("net down"))
+            vm.handleEvent(ChatEvent.Refresh)
+            advanceUntilIdle()
+            val status = vm.uiState.value.status
+            assertTrue(status is ChatLoadStatus.Loaded, "status should remain Loaded after refresh failure")
+            val loaded = status as ChatLoadStatus.Loaded
+            assertEquals(priorItems, loaded.items)
+            assertEquals(false, loaded.isRefreshing)
+        }
+
     private fun chatViewModel(repo: FakeChatRepository): ChatViewModel =
         ChatViewModel(
             savedStateHandle = SavedStateHandle(mapOf("otherUserDid" to otherUserDid)),
