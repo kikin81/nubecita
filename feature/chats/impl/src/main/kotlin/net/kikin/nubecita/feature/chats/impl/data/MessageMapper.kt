@@ -1,9 +1,49 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
+import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesResponseMessagesUnion
+import io.github.kikin81.atproto.chat.bsky.convo.MessageView
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import kotlin.time.Instant
 
-// TEMPORARY stub — Task 6 replaces with full TDD'd implementation.
-internal fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: String): ImmutableList<MessageUi> = persistentListOf()
+/**
+ * Maps the wire `chat.bsky.convo.getMessages` response messages to [MessageUi].
+ *
+ * - `MessageView` → normal `MessageUi`, `isDeleted = false`.
+ * - `DeletedMessageView` → placeholder `MessageUi`, `isDeleted = true`, empty `text`.
+ * - All other union variants (`SystemMessageView`, forward-compat unknown) → filtered.
+ *   System messages aren't conversational; rendering them is out of MVP scope.
+ *
+ * Order is preserved; the lexicon returns newest-first.
+ */
+internal fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: String): ImmutableList<MessageUi> {
+    if (isEmpty()) return persistentListOf()
+    return mapNotNull { union ->
+        when (union) {
+            is MessageView ->
+                MessageUi(
+                    id = union.id,
+                    senderDid = union.sender.did.raw,
+                    isOutgoing = union.sender.did.raw == viewerDid,
+                    text = union.text,
+                    isDeleted = false,
+                    sentAt = Instant.parse(union.sentAt.raw),
+                )
+
+            is DeletedMessageView ->
+                MessageUi(
+                    id = union.id,
+                    senderDid = union.sender.did.raw,
+                    isOutgoing = union.sender.did.raw == viewerDid,
+                    text = "",
+                    isDeleted = true,
+                    sentAt = Instant.parse(union.sentAt.raw),
+                )
+
+            else -> null // SystemMessageView + unknown forward-compat variants
+        }
+    }.toImmutableList()
+}
