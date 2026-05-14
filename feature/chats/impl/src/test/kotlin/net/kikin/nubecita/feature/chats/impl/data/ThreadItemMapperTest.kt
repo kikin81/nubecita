@@ -146,6 +146,44 @@ internal class ThreadItemMapperTest {
         assertEquals(0, items.size)
     }
 
+    @Test
+    fun `day-separator is emitted AFTER its bucket's messages in source order`() {
+        // Under LazyColumn(reverseLayout = true), source[lastIndex] renders at the
+        // SCREEN-TOP. The day chip must therefore be at HIGHER source index than
+        // its bucket's items so it visually sits ABOVE the day's messages
+        // (matching the Bluesky / iMessage / Google Chat convention).
+        val items =
+            listOf(
+                msg("c", peer, "2026-05-14T17:32:00Z"),
+                msg("b", peer, "2026-05-14T17:31:00Z"),
+                msg("a", peer, "2026-05-14T17:30:00Z"),
+            ).toThreadItems(nowLocal, laZone)
+        // Expected layout: [Message c, Message b, Message a, DaySeparator]
+        assertEquals(4, items.size)
+        assertTrue(items[0] is ThreadItem.Message)
+        assertTrue(items[1] is ThreadItem.Message)
+        assertTrue(items[2] is ThreadItem.Message)
+        assertTrue(items[3] is ThreadItem.DaySeparator, "chip must be the last item (highest source index = screen-top with reverseLayout)")
+    }
+
+    @Test
+    fun `multi-day - each day chip lands AFTER its bucket's messages`() {
+        // Two days, each with one peer message. Source-order expectation:
+        //   [today-msg, today-chip, yesterday-msg, yesterday-chip]
+        // On screen (reverseLayout): yesterday-chip at top, yesterday-msg below,
+        // today-chip below that, today-msg at the bottom.
+        val items =
+            listOf(
+                msg("today", peer, "2026-05-14T17:30:00Z"),
+                msg("yesterday", peer, "2026-05-13T17:30:00Z"),
+            ).toThreadItems(nowLocal, laZone)
+        assertEquals(4, items.size)
+        assertTrue(items[0] is ThreadItem.Message && (items[0] as ThreadItem.Message).message.id == "today")
+        assertTrue(items[1] is ThreadItem.DaySeparator && (items[1] as ThreadItem.DaySeparator).label == "Today")
+        assertTrue(items[2] is ThreadItem.Message && (items[2] as ThreadItem.Message).message.id == "yesterday")
+        assertTrue(items[3] is ThreadItem.DaySeparator && (items[3] as ThreadItem.DaySeparator).label == "Yesterday")
+    }
+
     private fun msg(
         id: String,
         senderDid: String,

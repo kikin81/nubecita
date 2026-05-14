@@ -58,17 +58,21 @@ internal fun List<MessageUi>.toThreadItems(
     }
 
     // Emit, walking newest-first by run.
+    //
+    // Day-separator position: the chip belongs at the TOP of its day-group on
+    // screen. With LazyColumn(reverseLayout = true), screen-top = HIGHEST source
+    // index, so the chip must be emitted AFTER its bucket items in source. We
+    // only emit a chip when the next (older) bucket is on a different day, or
+    // when this is the last (oldest) bucket — that way same-day adjacent runs
+    // (alternating senders within one day) share a single chip placed at the
+    // top of the day-group on screen, matching the Bluesky / iMessage /
+    // Google Chat convention. (Earlier rev emitted the chip BEFORE the bucket,
+    // which placed it at the screen-BOTTOM of the day-group under reverseLayout
+    // — opposite of the expected layout.)
     for (i in runBuckets.indices) {
         val bucket = runBuckets[i]
         val runCount = bucket.size
         val bucketDay = bucket.first().sentAt.toLocalDate(zone)
-        // Emit a separator before this run when its day differs from the
-        // previous (newer) run's day, OR for the very first (newest) run.
-        val sameDayAsPrev =
-            i > 0 && runBuckets[i - 1].first().sentAt.toLocalDate(zone) == bucketDay
-        if (!sameDayAsPrev) {
-            result.add(ThreadItem.DaySeparator(label = formatDayLabel(bucketDay, nowLocalDate)))
-        }
         // Bucket is newest-first; assign runIndex such that 0 = oldest.
         bucket.forEachIndexed { posInBucket, m ->
             val runIndex = runCount - 1 - posInBucket
@@ -80,6 +84,17 @@ internal fun List<MessageUi>.toThreadItems(
                     showAvatar = !m.isOutgoing && runIndex == 0,
                 ),
             )
+        }
+        val isLastBucket = i == runBuckets.lastIndex
+        val nextBucketDay =
+            runBuckets
+                .getOrNull(i + 1)
+                ?.first()
+                ?.sentAt
+                ?.toLocalDate(zone)
+        val crossesDayBoundary = nextBucketDay != null && nextBucketDay != bucketDay
+        if (isLastBucket || crossesDayBoundary) {
+            result.add(ThreadItem.DaySeparator(label = formatDayLabel(bucketDay, nowLocalDate)))
         }
     }
 

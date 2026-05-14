@@ -34,9 +34,12 @@ private val LOADED_STATE =
         otherUserAvatarHue = 217,
         status =
             ChatLoadStatus.Loaded(
+                // Matches the mapper's emission order: newest message at source[0]
+                // (= screen-bottom with reverseLayout), DaySeparator at the END of its
+                // bucket (= screen-top of the day-group), per Bluesky / iMessage /
+                // GChat convention.
                 items =
                     persistentListOf(
-                        ThreadItem.DaySeparator(label = "Today"),
                         ThreadItem.Message(
                             message = mu("m4", isOutgoing = false, text = "see you soon", sentAt = "2026-05-14T17:35:00Z"),
                             runIndex = 0,
@@ -61,6 +64,7 @@ private val LOADED_STATE =
                             runCount = 2,
                             showAvatar = true,
                         ),
+                        ThreadItem.DaySeparator(label = "Today"),
                     ),
             ),
     )
