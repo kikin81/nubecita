@@ -194,6 +194,14 @@ private fun LoadedBody(items: ImmutableList<ThreadItem>) {
                     // as bottom padding because the next item in newest-first list order
                     // belongs to the previous, older run).
                     val crossRunGap = if (item.runIndex == 0 && position < items.lastIndex) 8.dp else 0.dp
+                    // 1:1 DMs only in V1 — the peer's identity is already established in the
+                    // TopAppBar (avatar + display name), so we don't repeat it per message.
+                    // No per-row avatar slot means same-sender runs stack at the bubble's
+                    // intrinsic height; spacedBy(4.dp) + the cross-run +8.dp bottom-padding
+                    // on runIndex==0 produces the GChat-style tight intra-run / loose
+                    // cross-run rhythm without the dead 40dp slot adding vertical gaps.
+                    // When/if group chats land, the data model already carries `showAvatar`
+                    // on `ThreadItem.Message` — the slot can be reintroduced here gated on it.
                     Row(
                         modifier =
                             Modifier
@@ -202,24 +210,6 @@ private fun LoadedBody(items: ImmutableList<ThreadItem>) {
                         horizontalArrangement =
                             if (item.message.isOutgoing) Arrangement.End else Arrangement.Start,
                     ) {
-                        if (!item.message.isOutgoing) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .size(40.dp)
-                                        .padding(end = 8.dp),
-                            ) {
-                                if (item.showAvatar) {
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .fillMaxSize()
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                                    )
-                                }
-                            }
-                        }
                         MessageBubble(
                             message = item.message,
                             runIndex = item.runIndex,
