@@ -803,6 +803,25 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `OnImageTapped emits NavigateToMediaViewer with the post URI and image index`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo, FakePostInteractionsCache())
+            advanceUntilIdle()
+            val post = samplePost("at://did:plc:fake/app.bsky.feed.post/p1")
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.OnImageTapped(post = post, imageIndex = 2))
+
+                val effect = awaitItem()
+                assertTrue(effect is FeedEffect.NavigateToMediaViewer)
+                effect as FeedEffect.NavigateToMediaViewer
+                assertEquals(post.id, effect.postUri)
+                assertEquals(2, effect.imageIndex)
+            }
+        }
+
+    @Test
     fun `OnAuthorTapped emits NavigateToAuthor with the author DID`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()

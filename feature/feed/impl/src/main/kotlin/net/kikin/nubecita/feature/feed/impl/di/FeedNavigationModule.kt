@@ -14,6 +14,7 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.FeedScreen
+import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 
@@ -42,6 +43,11 @@ internal object FeedNavigationModule {
                 FeedScreen(
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
                     onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
+                    // Image-in-PostCard tap skips PostDetail — open the
+                    // MediaViewer directly with the carousel's start index.
+                    onNavigateToMediaViewer = { uri, idx ->
+                        navState.add(MediaViewerRoute(postUri = uri, imageIndex = idx))
+                    },
                     // Width-class-conditional composer launch. At Compact width
                     // the launcher pushes ComposerRoute onto the tab stack; at
                     // Medium / Expanded widths it toggles MainShell's overlay

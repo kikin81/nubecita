@@ -65,6 +65,7 @@ fun ThreadCluster(
     leafVideoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
     leafQuotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
     onFoldTap: () -> Unit = {},
+    onImageClick: ((post: PostUi, imageIndex: Int) -> Unit)? = null,
 ) {
     // When the reply is direct to the root post, replyRef.parent and
     // replyRef.root point to the SAME post. Without this collapse the
@@ -81,6 +82,7 @@ fun ThreadCluster(
             callbacks = callbacks,
             connectAbove = false,
             connectBelow = true,
+            onImageClick = onImageClick?.let { handler -> { idx -> handler(root, idx) } },
         )
         if (hasEllipsis) {
             ThreadFold(gutterX = 40.dp, onClick = onFoldTap)
@@ -91,6 +93,7 @@ fun ThreadCluster(
                 callbacks = callbacks,
                 connectAbove = true,
                 connectBelow = true,
+                onImageClick = onImageClick?.let { handler -> { idx -> handler(parent, idx) } },
             )
         }
         PostCard(
@@ -100,6 +103,7 @@ fun ThreadCluster(
             connectBelow = false,
             videoEmbedSlot = leafVideoEmbedSlot,
             quotedVideoEmbedSlot = leafQuotedVideoEmbedSlot,
+            onImageClick = onImageClick?.let { handler -> { idx -> handler(leaf, idx) } },
         )
     }
 }

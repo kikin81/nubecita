@@ -14,6 +14,7 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.Chats
+import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.api.Settings
@@ -63,6 +64,12 @@ internal object ProfileNavigationModule {
                     onNavigateToMessage = { did ->
                         navState.addTopLevel(Chats)
                         navState.add(Chat(otherUserDid = did))
+                    },
+                    // Direct gallery launch: image-in-PostCard (Posts/Replies)
+                    // and media-grid cell (Media tab) taps skip PostDetail and
+                    // open the MediaViewer carousel at the right start index.
+                    onNavigateToMediaViewer = { uri, idx ->
+                        navState.add(MediaViewerRoute(postUri = uri, imageIndex = idx))
                     },
                 )
             }

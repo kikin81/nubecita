@@ -230,8 +230,32 @@ sealed interface ProfileEvent : UiEvent {
         val tab: ProfileTab,
     ) : ProfileEvent
 
-    /** User tapped a `PostCard` or media grid cell. */
+    /**
+     * User tapped a `PostCard` body in the Posts or Replies tab (the
+     * outer card tap, not an inner image). Routes to PostDetail.
+     */
     data class PostTapped(
+        val postUri: String,
+    ) : ProfileEvent
+
+    /**
+     * User tapped a specific image inside a `PostCard`'s image embed
+     * in the Posts or Replies tab. Routes directly to the fullscreen
+     * MediaViewer with [imageIndex] as the carousel's starting page —
+     * skipping the PostDetail detour the outer-card tap takes.
+     */
+    data class OnImageTapped(
+        val post: PostUi,
+        val imageIndex: Int,
+    ) : ProfileEvent
+
+    /**
+     * User tapped a media-grid cell in the Media tab. Each cell renders
+     * the post's first image; the tap opens the MediaViewer at index 0
+     * so the user sees the same image they tapped, with the rest of the
+     * post's gallery swipeable behind it.
+     */
+    data class OnMediaCellTapped(
         val postUri: String,
     ) : ProfileEvent
 
@@ -322,6 +346,16 @@ sealed interface ProfileEffect : UiEffect {
     /** Push the post-detail route onto the active tab's back stack. */
     data class NavigateToPost(
         val postUri: String,
+    ) : ProfileEffect
+
+    /**
+     * Push the fullscreen MediaViewer route onto the active tab's back
+     * stack — skipping the PostDetail screen the outer-card tap routes
+     * to. [imageIndex] is the zero-based start page for the carousel.
+     */
+    data class NavigateToMediaViewer(
+        val postUri: String,
+        val imageIndex: Int,
     ) : ProfileEffect
 
     /** Push another user's profile onto the active tab's back stack. Self-tap is consumed silently in the VM. */

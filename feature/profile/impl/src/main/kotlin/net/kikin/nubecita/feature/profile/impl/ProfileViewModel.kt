@@ -101,6 +101,10 @@ internal class ProfileViewModel
             when (event) {
                 is ProfileEvent.TabSelected -> onTabSelected(event.tab)
                 is ProfileEvent.PostTapped -> sendEffect(ProfileEffect.NavigateToPost(event.postUri))
+                is ProfileEvent.OnImageTapped ->
+                    sendEffect(ProfileEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
+                is ProfileEvent.OnMediaCellTapped ->
+                    sendEffect(ProfileEffect.NavigateToMediaViewer(event.postUri, imageIndex = 0))
                 is ProfileEvent.HandleTapped -> onHandleTapped(event.handle)
                 ProfileEvent.Refresh -> onRefresh()
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)

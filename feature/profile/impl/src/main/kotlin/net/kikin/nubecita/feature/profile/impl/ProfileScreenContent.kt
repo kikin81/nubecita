@@ -173,6 +173,7 @@ internal fun ProfileScreenContent(
                             tab = ProfileTab.Posts,
                             status = state.postsStatus,
                             callbacks = postCallbacks,
+                            onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Posts)) },
                         )
                     ProfileTab.Replies ->
@@ -180,12 +181,16 @@ internal fun ProfileScreenContent(
                             tab = ProfileTab.Replies,
                             status = state.repliesStatus,
                             callbacks = postCallbacks,
+                            onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Replies)) },
                         )
                     ProfileTab.Media ->
                         profileMediaTabBody(
                             status = state.mediaStatus,
-                            onMediaTap = { uri -> onEvent(ProfileEvent.PostTapped(uri)) },
+                            // Media cell tap routes directly to MediaViewer
+                            // (not PostDetail) so the user lands on the gallery
+                            // matching the thumb they just tapped.
+                            onMediaTap = { uri -> onEvent(ProfileEvent.OnMediaCellTapped(uri)) },
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Media)) },
                         )
                 }
