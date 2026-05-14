@@ -180,7 +180,11 @@ private fun LoadedBody(items: ImmutableList<ThreadItem>) {
         modifier = Modifier.fillMaxSize(),
         reverseLayout = true,
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        // 2dp baseline matches ListItemDefaults.SegmentedGap (the M3 Expressive grouped-
+        // row convention we use on the convo list). Same-sender bubble runs read as
+        // tightly-grouped without the apparent ~8dp gap that comes from bodyLarge's
+        // line-height excess stacking with a larger baseline.
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         itemsIndexed(
             items = items,
@@ -204,7 +208,8 @@ private fun LoadedBody(items: ImmutableList<ThreadItem>) {
                     // (Earlier rev used `padding(bottom)` which opened the intra-run gap
                     // by mistake — bottom edge faces source[i-1], a same-run newer
                     // sibling. Don't repeat that.)
-                    val crossRunGap = if (item.runIndex == 0 && position < items.lastIndex) 8.dp else 0.dp
+                    // 10dp extra on top of the 2dp baseline = 12dp total cross-run gap.
+                    val crossRunGap = if (item.runIndex == 0 && position < items.lastIndex) 10.dp else 0.dp
                     // 1:1 DMs only in V1 — the peer's identity is already established in the
                     // TopAppBar (avatar + display name), so we don't repeat it per message.
                     // No per-row avatar slot means same-sender runs stack at the bubble's
