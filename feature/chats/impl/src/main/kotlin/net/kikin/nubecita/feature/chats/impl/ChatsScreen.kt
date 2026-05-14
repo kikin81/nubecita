@@ -30,7 +30,12 @@ internal fun ChatsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val refreshErrorMsg = stringResource(R.string.chats_error_network_body)
+    // Pre-resolve snackbar copy via stringResource() at composition time so locale + dark-mode
+    // changes participate in recomposition. Reading via context.getString(...) inside the
+    // LaunchedEffect would bypass Compose's resource tracking.
+    val networkErrorMsg = stringResource(R.string.chats_error_network_body)
+    val notEnrolledErrorMsg = stringResource(R.string.chats_error_not_enrolled_body)
+    val unknownErrorMsg = stringResource(R.string.chats_error_unknown_body)
     val currentOnNavigateToChat by rememberUpdatedState(onNavigateToChat)
 
     LaunchedEffect(Unit) {
@@ -38,8 +43,14 @@ internal fun ChatsScreen(
             when (effect) {
                 is ChatsEffect.NavigateToChat -> currentOnNavigateToChat(effect.otherUserDid)
                 is ChatsEffect.ShowRefreshError -> {
+                    val message =
+                        when (effect.error) {
+                            ChatsError.Network -> networkErrorMsg
+                            ChatsError.NotEnrolled -> notEnrolledErrorMsg
+                            is ChatsError.Unknown -> unknownErrorMsg
+                        }
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(refreshErrorMsg)
+                    snackbarHostState.showSnackbar(message)
                 }
             }
         }
