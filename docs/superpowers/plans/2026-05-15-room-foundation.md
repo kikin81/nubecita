@@ -10,9 +10,9 @@
 
 **Spec:** [`docs/superpowers/specs/2026-05-15-room-foundation-design.md`](../specs/2026-05-15-room-foundation-design.md)
 
-**bd:** This plan implements two children of a new `Epic: Room database foundation` (to be created in bd before starting):
-- Child A → Phase 1 (build-logic + version catalog). Single PR.
-- Child B → Phase 2 (`:core:database` module). Single PR. Blocked by Child A.
+**bd:** This plan implements two children of `Epic: Room database foundation` (`nubecita-50zx`):
+- **Child A — `nubecita-50zx.1`** → Phase 1 (build-logic + version catalog). Single PR.
+- **Child B — `nubecita-50zx.2`** → Phase 2 (`:core:database` module). Single PR. Blocked by Child A.
 
 ---
 
@@ -231,7 +231,7 @@ schema export to $projectDir/schemas, and wires room-runtime/-ktx +
 the Room KSP compiler. No module applies the plugin yet; the :core:database
 module that consumes it ships in the next PR.
 
-Refs: <bd-child-A-id>
+Refs: nubecita-50zx.1
 EOF
 )"
 ```
@@ -240,7 +240,7 @@ Pre-commit hooks run spotless, commitlint, and detect-secrets. If spotless rewri
 
 - [ ] **Step 3: Open the PR**
 
-Push the branch and open a PR with `Closes: <bd-child-A-id>` in the body. Phase 1 is done.
+Push the branch and open a PR with `Closes: nubecita-50zx.1` in the body. Phase 1 is done.
 
 ---
 
@@ -671,7 +671,7 @@ smoke test that opens and closes the database. Hilt provides the
 singleton database via DatabaseModule; DaosModule is empty until the
 first DAO lands.
 
-Refs: <bd-child-B-id>
+Refs: nubecita-50zx.2
 EOF
 )"
 ```
@@ -692,7 +692,7 @@ gh pr create --title "feat(core/database): scaffold Room database module" \
 The first real @Entity (RecentSearchEntity) will land as part of the Search epic
 (nubecita-vrba.2), at which point the schemas/ directory gets its first 1.json.
 
-Closes: <bd-child-B-id>
+Closes: nubecita-50zx.2
 EOF
 )"
 gh pr edit --add-label run-instrumented
@@ -707,7 +707,7 @@ Phase 2 is done. After both PRs merge, `nubecita-vrba.2` (Room recent-search per
 Run after writing the plan; surface any gaps so the engineer doesn't hit them mid-task.
 
 - **Spec coverage.** Every numbered Decision in the spec maps to a task: D1 (one DB, all entities) — Task 5 (entities array). D2 (modern `androidx.room` plugin) — Task 2 Step 2. D3 (`asExternalModel()` mapping) — captured in README; deferred to feature consumers. D4 (Flow reads, suspend writes) — captured in README; first DAO will enforce. D5 (no `fallbackToDestructiveMigration`) — Task 6 Step 1. D6 (AutoMigration preferred) — Migrations.kt KDoc + README. D7 (KSP isolation) — only `:core:database` applies the convention. D8 (Hilt provides DB + DAOs) — Tasks 6. D9 (per-domain repos elsewhere) — README + spec; nothing to implement in this plan.
-- **Placeholder scan.** Two unavoidable bd-id placeholders (`<bd-child-A-id>`, `<bd-child-B-id>`) — these are filled in at PR time per the bd-workflow skill. No other "TBD"/"TODO" in the plan.
+- **Placeholder scan.** bd IDs (`nubecita-50zx.1`, `nubecita-50zx.2`) filled in. No "TBD"/"TODO" in the plan.
 - **Type consistency.** `NubecitaDatabase`, `MANUAL_MIGRATIONS`, `InstantConverter`, `DatabaseModule`, `DaosModule`, `DatabaseTest`, `NubecitaDatabaseSmokeTest` — all spellings and packages identical across Tasks 4–8.
 - **Out-of-scope reminder.** No real entity, no DAO, no schema JSON, no migration test — those land with `nubecita-vrba.2`. The plan flags this in three places (Goal, File Structure, Task 7 Step 5) so an engineer running the plan doesn't try to validate schema export.
 - **CI label.** Task 8 Step 3 covers the `run-instrumented` label requirement (memory: `feedback_run_instrumented_label_on_androidtest_prs.md`).
