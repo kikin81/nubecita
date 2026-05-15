@@ -46,6 +46,9 @@ interface RecentSearchDao {
         trimToCapacity(capacity)
     }
 
+    @Query("DELETE FROM recent_search WHERE `query` = :query")
+    suspend fun delete(query: String)
+
     @Query("DELETE FROM recent_search")
     suspend fun clearAll()
 }
