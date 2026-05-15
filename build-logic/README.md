@@ -1,6 +1,6 @@
 # `build-logic/` — Gradle convention plugins
 
-Composite build pulled into the root via `pluginManagement { includeBuild("build-logic") }` in `settings.gradle.kts`. Hosts five class-based `Plugin<Project>` implementations that centralize the SDK versions, JVM toolchain, Compose wiring, and Hilt wiring shared across every Android module in the repo.
+Composite build pulled into the root via `pluginManagement { includeBuild("build-logic") }` in `settings.gradle.kts`. Hosts six class-based `Plugin<Project>` implementations that centralize the SDK versions, JVM toolchain, Compose wiring, and Hilt wiring shared across every Android module in the repo.
 
 ## The plugins
 
@@ -70,7 +70,7 @@ build-logic/
 ├── README.md                                  ← this file
 ├── settings.gradle.kts                        ← composite root, shares ../gradle/libs.versions.toml
 └── convention/
-    ├── build.gradle.kts                       ← registers the five plugin IDs
+    ├── build.gradle.kts                       ← registers the six plugin IDs
     └── src/main/kotlin/net/kikin/nubecita/buildlogic/
         ├── ProjectExtensions.kt               ← Project.libs helper
         ├── KotlinAndroid.kt                   ← configureKotlinAndroid(commonExtension)
