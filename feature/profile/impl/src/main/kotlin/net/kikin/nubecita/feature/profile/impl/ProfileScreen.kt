@@ -94,6 +94,12 @@ internal fun ProfileScreen(
                             ProfileError.Network -> errorNetworkMsg
                             is ProfileError.Unknown -> errorUnknownMsg
                         }
+                    // ProfileEffect.ShowError is most often a toggle / follow
+                    // failure (user-tap rejected). Over-fires slightly on
+                    // background header-refresh failures, which is acceptable
+                    // noise — header refresh is rare and a reject buzz on a
+                    // failed sync isn't misleading.
+                    haptics.rejected()
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = msg)
                 }
