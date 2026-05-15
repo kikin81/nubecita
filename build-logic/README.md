@@ -79,7 +79,8 @@ build-logic/
         ├── AndroidHiltConventionPlugin.kt
         ├── AndroidJacocoConventionPlugin.kt
         ├── AndroidFeatureConventionPlugin.kt
-        └── AndroidApplicationConventionPlugin.kt
+        ├── AndroidApplicationConventionPlugin.kt
+        └── AndroidRoomConventionPlugin.kt
 ```
 
 ## How versions are resolved
