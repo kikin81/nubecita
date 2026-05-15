@@ -10,12 +10,15 @@ modules.
 
 - Reads return `Flow<T>`; writes are `suspend fun`. Multi-statement writes
   use `@Transaction suspend fun`.
-- Entities never cross the module boundary. Each entity ships a same-file
-  top-level extension `fun FooEntity.asExternalModel(): Foo` returning a
-  `:data:models` type; repositories map before exposing flows.
+- Entities are not exposed past the repository layer. Each entity ships
+  a same-file top-level extension `fun FooEntity.asExternalModel(): Foo`
+  returning a `:data:models` type; per-domain `:core:<domain>` repositories
+  import the entity to call the mapper but expose only mapped flows to
+  ViewModels / UI. Feature modules never depend on `:core:database` directly.
 - Schema export is on (`exportSchema = true`). Generated JSON is committed
   under `schemas/`. Every schema bump must commit the new `{N}.json` and
-  add the corresponding `@AutoMigration` entry on `@Database`.
+  either add an `@AutoMigration` entry on `@Database` or register a manual
+  `Migration` in `Migrations.kt` (see the next bullet for when to use which).
 - Prefer `@AutoMigration` (with `AutoMigrationSpec` for ambiguous renames).
   Hand-write a `Migration` only when AutoMigration cannot resolve the diff.
 
