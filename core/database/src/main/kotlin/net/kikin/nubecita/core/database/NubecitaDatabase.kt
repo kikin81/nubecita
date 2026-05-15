@@ -1,18 +1,17 @@
 package net.kikin.nubecita.core.database
 
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import net.kikin.nubecita.core.database.dao.RecentSearchDao
+import net.kikin.nubecita.core.database.model.RecentSearchEntity
 import net.kikin.nubecita.core.database.util.InstantConverter
 
 /**
- * The single Room database for Nubecita. Ships at version 1 with a
- * single placeholder entity ([BootstrapEntity]) — Room 2.8.x rejects
- * `entities = []` as a hard error, so the bootstrap table exists only
- * to let the schema-export pipeline run end-to-end before any feature
- * owns persistence. The first real entity (`RecentSearchEntity` from
- * the Search epic) will land as a migration to version 2 and drop
- * [BootstrapEntity] via `@DeleteTable`.
+ * The single Room database for Nubecita. v2 introduces the first real
+ * entity ([RecentSearchEntity]) and drops the v1 `BootstrapEntity`
+ * placeholder via the [BootstrapEntityDrop] `AutoMigrationSpec`.
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
@@ -21,10 +20,14 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * [MANUAL_MIGRATIONS] when AutoMigration cannot express the diff.
  */
 @Database(
-    entities = [BootstrapEntity::class],
-    version = 1,
+    entities = [RecentSearchEntity::class],
+    version = 2,
     exportSchema = true,
-    autoMigrations = [],
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
+    ],
 )
 @TypeConverters(InstantConverter::class)
-abstract class NubecitaDatabase : RoomDatabase()
+abstract class NubecitaDatabase : RoomDatabase() {
+    abstract fun recentSearchDao(): RecentSearchDao
+}
