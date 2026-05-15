@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -95,13 +96,20 @@ internal fun PostDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val haptics = rememberPostHaptics()
     val callbacks =
-        remember(viewModel) {
+        remember(viewModel, haptics) {
             PostCallbacks(
                 onTap = { viewModel.handleEvent(PostDetailEvent.OnPostTapped(it.id)) },
                 onAuthorTap = { viewModel.handleEvent(PostDetailEvent.OnAuthorTapped(it.did)) },
-                onLike = { viewModel.handleEvent(PostDetailEvent.OnLikeClicked(it)) },
-                onRepost = { viewModel.handleEvent(PostDetailEvent.OnRepostClicked(it)) },
+                onLike = { post ->
+                    if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
+                    viewModel.handleEvent(PostDetailEvent.OnLikeClicked(post))
+                },
+                onRepost = { post ->
+                    if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
+                    viewModel.handleEvent(PostDetailEvent.OnRepostClicked(post))
+                },
                 onQuotedPostTap = { quoted ->
                     viewModel.handleEvent(PostDetailEvent.OnQuotedPostTapped(quoted.uri))
                 },
@@ -110,7 +118,13 @@ internal fun PostDetailScreen(
 
     val onRetry = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.Retry) } }
     val onRefresh = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.Refresh) } }
-    val onReply = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.OnReplyClicked) } }
+    val onReply =
+        remember(viewModel, haptics) {
+            {
+                haptics.lightTap()
+                viewModel.handleEvent(PostDetailEvent.OnReplyClicked)
+            }
+        }
     val onFocusImageClick =
         remember(viewModel) {
             { index: Int -> viewModel.handleEvent(PostDetailEvent.OnFocusImageClicked(imageIndex = index)) }
@@ -272,6 +286,8 @@ internal fun PostDetailScreenContent(
                     callbacks = callbacks,
                     onFocusImageClick = onFocusImageClick,
                     contentPadding = padding,
+                    lastLikeTapPostUri = state.lastLikeTapPostUri,
+                    lastRepostTapPostUri = state.lastRepostTapPostUri,
                 )
         }
     }
@@ -286,6 +302,8 @@ private fun LoadedThread(
     callbacks: PostCallbacks,
     onFocusImageClick: (Int) -> Unit,
     contentPadding: PaddingValues,
+    lastLikeTapPostUri: String? = null,
+    lastRepostTapPostUri: String? = null,
 ) {
     // Hoist the state so the same instance feeds both PullToRefreshBox
     // (which drives `distanceFraction` from the gesture) and the indicator
@@ -337,7 +355,13 @@ private fun LoadedThread(
         ) {
             items(items = items, key = { it.key }) { item ->
                 when (item) {
-                    is ThreadItem.Ancestor -> PostCard(post = item.post, callbacks = callbacks)
+                    is ThreadItem.Ancestor ->
+                        PostCard(
+                            post = item.post,
+                            callbacks = callbacks,
+                            animateLikeTap = item.post.id == lastLikeTapPostUri,
+                            animateRepostTap = item.post.id == lastRepostTapPostUri,
+                        )
                     is ThreadItem.Focus ->
                         Surface(
                             modifier =
@@ -355,9 +379,17 @@ private fun LoadedThread(
                                 post = item.post,
                                 callbacks = callbacks,
                                 onImageClick = onFocusImageClick,
+                                animateLikeTap = item.post.id == lastLikeTapPostUri,
+                                animateRepostTap = item.post.id == lastRepostTapPostUri,
                             )
                         }
-                    is ThreadItem.Reply -> PostCard(post = item.post, callbacks = callbacks)
+                    is ThreadItem.Reply ->
+                        PostCard(
+                            post = item.post,
+                            callbacks = callbacks,
+                            animateLikeTap = item.post.id == lastLikeTapPostUri,
+                            animateRepostTap = item.post.id == lastRepostTapPostUri,
+                        )
                     is ThreadItem.Blocked ->
                         InlineUnavailableRow(
                             label = stringResource(R.string.postdetail_inline_blocked),

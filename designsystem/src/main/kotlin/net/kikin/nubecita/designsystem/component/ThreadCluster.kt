@@ -66,6 +66,8 @@ fun ThreadCluster(
     leafQuotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
     onFoldTap: () -> Unit = {},
     onImageClick: ((post: PostUi, imageIndex: Int) -> Unit)? = null,
+    lastLikeTapPostUri: String? = null,
+    lastRepostTapPostUri: String? = null,
 ) {
     // When the reply is direct to the root post, replyRef.parent and
     // replyRef.root point to the SAME post. Without this collapse the
@@ -83,6 +85,8 @@ fun ThreadCluster(
             connectAbove = false,
             connectBelow = true,
             onImageClick = onImageClick?.let { handler -> { idx -> handler(root, idx) } },
+            animateLikeTap = root.id == lastLikeTapPostUri,
+            animateRepostTap = root.id == lastRepostTapPostUri,
         )
         if (hasEllipsis) {
             ThreadFold(gutterX = 40.dp, onClick = onFoldTap)
@@ -94,6 +98,8 @@ fun ThreadCluster(
                 connectAbove = true,
                 connectBelow = true,
                 onImageClick = onImageClick?.let { handler -> { idx -> handler(parent, idx) } },
+                animateLikeTap = parent.id == lastLikeTapPostUri,
+                animateRepostTap = parent.id == lastRepostTapPostUri,
             )
         }
         PostCard(
@@ -104,6 +110,8 @@ fun ThreadCluster(
             videoEmbedSlot = leafVideoEmbedSlot,
             quotedVideoEmbedSlot = leafQuotedVideoEmbedSlot,
             onImageClick = onImageClick?.let { handler -> { idx -> handler(leaf, idx) } },
+            animateLikeTap = leaf.id == lastLikeTapPostUri,
+            animateRepostTap = leaf.id == lastRepostTapPostUri,
         )
     }
 }

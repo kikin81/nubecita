@@ -11,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 
@@ -39,15 +40,22 @@ internal fun ProfileScreen(
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val haptics = rememberPostHaptics()
     val callbacks =
-        remember(viewModel) {
+        remember(viewModel, haptics) {
             PostCallbacks(
                 onTap = { post -> viewModel.handleEvent(ProfileEvent.PostTapped(post.id)) },
                 onAuthorTap = { author ->
                     viewModel.handleEvent(ProfileEvent.HandleTapped(author.handle))
                 },
-                onLike = { post -> viewModel.handleEvent(ProfileEvent.OnLikeClicked(post)) },
-                onRepost = { post -> viewModel.handleEvent(ProfileEvent.OnRepostClicked(post)) },
+                onLike = { post ->
+                    if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
+                    viewModel.handleEvent(ProfileEvent.OnLikeClicked(post))
+                },
+                onRepost = { post ->
+                    if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
+                    viewModel.handleEvent(ProfileEvent.OnRepostClicked(post))
+                },
                 onReply = {},
                 onShare = {},
                 onShareLongPress = {},

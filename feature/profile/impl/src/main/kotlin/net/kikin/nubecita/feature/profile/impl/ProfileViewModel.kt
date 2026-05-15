@@ -118,18 +118,22 @@ internal class ProfileViewModel
                 is ProfileEvent.StubActionTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
-                is ProfileEvent.OnLikeClicked ->
+                is ProfileEvent.OnLikeClicked -> {
+                    setState { copy(lastLikeTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
                             .toggleLike(event.post.id, event.post.cid)
                             .onFailure { sendEffect(ProfileEffect.ShowError(it.toProfileError())) }
                     }
-                is ProfileEvent.OnRepostClicked ->
+                }
+                is ProfileEvent.OnRepostClicked -> {
+                    setState { copy(lastRepostTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
                             .toggleRepost(event.post.id, event.post.cid)
                             .onFailure { sendEffect(ProfileEffect.ShowError(it.toProfileError())) }
                     }
+                }
             }
         }
 

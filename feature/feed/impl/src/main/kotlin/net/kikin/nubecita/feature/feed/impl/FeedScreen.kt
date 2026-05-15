@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.time.LocalClock
@@ -120,15 +121,30 @@ internal fun FeedScreen(
     // before `callbacks` because the lambda inside `PostCallbacks.onReply`
     // closes over it.
     val currentOnReplyClick by rememberUpdatedState(onReplyClick)
+    val haptics = rememberPostHaptics()
     val callbacks =
-        remember(viewModel, context) {
+        remember(viewModel, context, haptics) {
             PostCallbacks(
                 onTap = { viewModel.handleEvent(FeedEvent.OnPostTapped(it)) },
                 onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
-                onLike = { viewModel.handleEvent(FeedEvent.OnLikeClicked(it)) },
-                onRepost = { viewModel.handleEvent(FeedEvent.OnRepostClicked(it)) },
-                onReply = { post -> currentOnReplyClick(post.id) },
-                onShare = { viewModel.handleEvent(FeedEvent.OnShareClicked(it)) },
+                onLike = { post ->
+                    if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
+                    viewModel.handleEvent(FeedEvent.OnLikeClicked(post))
+                },
+                onRepost = { post ->
+                    if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
+                    viewModel.handleEvent(FeedEvent.OnRepostClicked(post))
+                },
+                onReply = { post ->
+                    haptics.lightTap()
+                    currentOnReplyClick(post.id)
+                },
+                onShare = { post ->
+                    haptics.lightTap()
+                    viewModel.handleEvent(FeedEvent.OnShareClicked(post))
+                },
+                // Long-press already fires the system long-press haptic via
+                // combinedClickable — don't double-tap the motor.
                 onShareLongPress = { viewModel.handleEvent(FeedEvent.OnShareLongPressed(it)) },
                 onExternalEmbedTap = { uri ->
                     // Narrowed catch: silent no-op only for the documented
@@ -236,6 +252,12 @@ internal fun FeedScreen(
                             FeedError.Unauthenticated -> unauthErrorMessage
                             is FeedError.Unknown -> unknownErrorMessage
                         }
+                    // FeedEffect.ShowError is only emitted from the
+                    // like/repost toggle failure paths today (the initial-
+                    // load error path goes through sticky FeedLoadStatus.
+                    // InitialError instead). Reject haptic here is the
+                    // toggle-was-rejected cue the bd requested.
+                    haptics.rejected()
                     // Replace, don't stack — successive errors during a flapping
                     // network spell would otherwise queue snackbars indefinitely.
                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -401,6 +423,8 @@ internal fun FeedScreenContent(
                     onLoadMore = onLoadMore,
                     onImageTap = onImageTap,
                     contentPadding = padding,
+                    lastLikeTapPostUri = viewState.lastLikeTapPostUri,
+                    lastRepostTapPostUri = viewState.lastRepostTapPostUri,
                 )
         }
     }
@@ -419,6 +443,8 @@ private fun LoadedFeedContent(
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    lastLikeTapPostUri: String? = null,
+    lastRepostTapPostUri: String? = null,
 ) {
     // Coordinator is composition-scoped: created once per FeedScreen
     // entry, released on exit. No `remember(key)` because the screen's
@@ -540,6 +566,8 @@ private fun LoadedFeedContent(
                             videoEmbedSlot = videoSlot,
                             quotedVideoEmbedSlot = quotedVideoSlot,
                             onImageClick = { idx -> onImageTap(item.post, idx) },
+                            animateLikeTap = item.post.id == lastLikeTapPostUri,
+                            animateRepostTap = item.post.id == lastRepostTapPostUri,
                         )
                     is FeedItemUi.ReplyCluster ->
                         ThreadCluster(
@@ -558,6 +586,8 @@ private fun LoadedFeedContent(
                             // ship time; restoring it here.
                             onFoldTap = { callbacks.onTap(item.leaf) },
                             onImageClick = onImageTap,
+                            lastLikeTapPostUri = lastLikeTapPostUri,
+                            lastRepostTapPostUri = lastRepostTapPostUri,
                         )
                     is FeedItemUi.SelfThreadChain -> {
                         // Same-author chain: render N PostCards stacked
@@ -587,6 +617,8 @@ private fun LoadedFeedContent(
                                     videoEmbedSlot = if (isLeaf) videoSlot else null,
                                     quotedVideoEmbedSlot = if (isLeaf) quotedVideoSlot else null,
                                     onImageClick = { idx -> onImageTap(chainPost, idx) },
+                                    animateLikeTap = chainPost.id == lastLikeTapPostUri,
+                                    animateRepostTap = chainPost.id == lastRepostTapPostUri,
                                 )
                             }
                         }
