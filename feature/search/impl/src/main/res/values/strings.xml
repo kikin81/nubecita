@@ -3,4 +3,22 @@
     <!-- Title rendered while the Search screen is just a scaffold (nubecita-vrba.1).
          Replaced by the real input row + tab content in nubecita-vrba.5 onward. -->
     <string name="search_screen_scaffold_title">Search</string>
+
+    <!-- Placeholder text inside the search bar's OutlinedTextField. -->
+    <string name="search_input_hint">Search Bluesky</string>
+
+    <!-- Content description for the leading search icon inside the input row. -->
+    <string name="search_input_leading_icon_content_desc">Search</string>
+
+    <!-- Content description for the trailing X that clears the current input. -->
+    <string name="search_input_clear_content_desc">Clear search</string>
+
+    <!-- Content description for the trailing X on an individual recent-search chip. -->
+    <string name="search_recent_remove_content_desc">Remove recent search</string>
+
+    <!-- Content description for the overflow menu trigger next to the chip strip. -->
+    <string name="search_recent_overflow_content_desc">Recent searches options</string>
+
+    <!-- Overflow menu item label: clears every entry from the recent-search list. -->
+    <string name="search_recent_clear_all">Clear all</string>
 </resources>
