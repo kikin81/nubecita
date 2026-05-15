@@ -22,6 +22,7 @@ rootProject.name = "Nubecita"
 include(":app")
 include(":core:auth")
 include(":core:common")
+include(":core:database")
 include(":core:feed-mapping")
 include(":core:posting")
 include(":core:posts")
