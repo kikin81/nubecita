@@ -175,6 +175,8 @@ internal fun ProfileScreenContent(
                             callbacks = postCallbacks,
                             onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Posts)) },
+                            lastLikeTapPostUri = state.lastLikeTapPostUri,
+                            lastRepostTapPostUri = state.lastRepostTapPostUri,
                         )
                     ProfileTab.Replies ->
                         profileFeedTabBody(
@@ -183,6 +185,8 @@ internal fun ProfileScreenContent(
                             callbacks = postCallbacks,
                             onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Replies)) },
+                            lastLikeTapPostUri = state.lastLikeTapPostUri,
+                            lastRepostTapPostUri = state.lastRepostTapPostUri,
                         )
                     ProfileTab.Media ->
                         profileMediaTabBody(

@@ -86,18 +86,22 @@ internal class PostDetailViewModel
                             imageIndex = event.imageIndex,
                         ),
                     )
-                is PostDetailEvent.OnLikeClicked ->
+                is PostDetailEvent.OnLikeClicked -> {
+                    setState { copy(lastLikeTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
                             .toggleLike(event.post.id, event.post.cid)
                             .onFailure { sendEffect(PostDetailEffect.ShowError(it.toPostDetailError())) }
                     }
-                is PostDetailEvent.OnRepostClicked ->
+                }
+                is PostDetailEvent.OnRepostClicked -> {
+                    setState { copy(lastRepostTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
                             .toggleRepost(event.post.id, event.post.cid)
                             .onFailure { sendEffect(PostDetailEffect.ShowError(it.toPostDetailError())) }
                     }
+                }
             }
         }
 

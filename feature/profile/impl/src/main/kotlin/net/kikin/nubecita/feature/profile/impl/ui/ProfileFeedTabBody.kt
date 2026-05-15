@@ -34,6 +34,8 @@ internal fun LazyListScope.profileFeedTabBody(
     callbacks: PostCallbacks,
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit,
     onRetry: () -> Unit,
+    lastLikeTapPostUri: String? = null,
+    lastRepostTapPostUri: String? = null,
 ) {
     val keyPrefix =
         when (tab) {
@@ -77,6 +79,8 @@ internal fun LazyListScope.profileFeedTabBody(
                                 post = item.post,
                                 callbacks = callbacks,
                                 onImageClick = { idx -> onImageTap(item.post, idx) },
+                                animateLikeTap = item.post.id == lastLikeTapPostUri,
+                                animateRepostTap = item.post.id == lastRepostTapPostUri,
                             )
                         is TabItemUi.MediaCell -> {
                             // Posts/Replies filter never yields a MediaCell.

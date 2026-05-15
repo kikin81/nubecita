@@ -53,18 +53,26 @@ internal class FeedViewModel
                 is FeedEvent.OnImageTapped ->
                     sendEffect(FeedEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
                 is FeedEvent.OnQuotedPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.quotedPostUri))
-                is FeedEvent.OnLikeClicked ->
+                is FeedEvent.OnLikeClicked -> {
+                    // Mark the latest user-tapped post so the screen can
+                    // animate the count's ±1 transition. Sticky — sees
+                    // through the optimistic flip in the cache that
+                    // arrives on the next merged emission.
+                    setState { copy(lastLikeTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
                             .toggleLike(event.post.id, event.post.cid)
                             .onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
                     }
-                is FeedEvent.OnRepostClicked ->
+                }
+                is FeedEvent.OnRepostClicked -> {
+                    setState { copy(lastRepostTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
                             .toggleRepost(event.post.id, event.post.cid)
                             .onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
                     }
+                }
                 is FeedEvent.OnShareClicked -> sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
                 is FeedEvent.OnShareLongPressed ->
                     sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))

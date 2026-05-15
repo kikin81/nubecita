@@ -43,6 +43,8 @@ internal sealed interface FeedScreenViewState {
         val feedItems: ImmutableList<FeedItemUi>,
         val isAppending: Boolean,
         val isRefreshing: Boolean,
+        val lastLikeTapPostUri: String? = null,
+        val lastRepostTapPostUri: String? = null,
     ) : FeedScreenViewState
 }
 
@@ -82,5 +84,7 @@ internal fun FeedState.toViewState(): FeedScreenViewState =
             feedItems = feedItems,
             isAppending = loadStatus == FeedLoadStatus.Appending,
             isRefreshing = loadStatus == FeedLoadStatus.Refreshing,
+            lastLikeTapPostUri = lastLikeTapPostUri,
+            lastRepostTapPostUri = lastRepostTapPostUri,
         )
     }

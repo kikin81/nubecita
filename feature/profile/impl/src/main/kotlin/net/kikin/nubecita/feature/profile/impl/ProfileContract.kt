@@ -41,6 +41,10 @@ data class ProfileScreenViewState(
     val postsStatus: TabLoadStatus = TabLoadStatus.Idle,
     val repliesStatus: TabLoadStatus = TabLoadStatus.Idle,
     val mediaStatus: TabLoadStatus = TabLoadStatus.Idle,
+    /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
+    val lastLikeTapPostUri: String? = null,
+    /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
+    val lastRepostTapPostUri: String? = null,
 ) : UiState
 
 /**

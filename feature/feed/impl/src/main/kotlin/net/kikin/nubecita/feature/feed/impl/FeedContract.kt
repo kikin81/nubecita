@@ -30,6 +30,18 @@ data class FeedState(
     val nextCursor: String? = null,
     val endReached: Boolean = false,
     val loadStatus: FeedLoadStatus = FeedLoadStatus.Idle,
+    /**
+     * URI of the post whose like was most recently toggled by a user
+     * tap in this session, or `null` if none. The screen reads this
+     * to decide whether a particular PostCard's like-count change
+     * should animate (user-initiated ±1) or snap (background sync).
+     * Sticky — kept until the next user tap or a screen relaunch;
+     * AnimatedCompactCount's internal rule handles "doesn't re-fire
+     * when the count hasn't changed."
+     */
+    val lastLikeTapPostUri: String? = null,
+    /** Mirror of [lastLikeTapPostUri] for the repost toggle. */
+    val lastRepostTapPostUri: String? = null,
 ) : UiState
 
 /**

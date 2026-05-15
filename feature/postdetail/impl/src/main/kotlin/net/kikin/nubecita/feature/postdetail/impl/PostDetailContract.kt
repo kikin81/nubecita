@@ -27,6 +27,10 @@ import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 internal data class PostDetailState(
     val items: ImmutableList<ThreadItem> = persistentListOf(),
     val loadStatus: PostDetailLoadStatus = PostDetailLoadStatus.Idle,
+    /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
+    val lastLikeTapPostUri: String? = null,
+    /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
+    val lastRepostTapPostUri: String? = null,
 ) : UiState
 
 /**

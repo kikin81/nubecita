@@ -27,7 +27,6 @@ import io.github.kikin81.atproto.compose.material3.rememberBlueskyAnnotatedStrin
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.core.common.text.rememberCompactCount
 import net.kikin.nubecita.core.common.time.rememberRelativeTimeText
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -94,6 +93,8 @@ fun PostCard(
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
     onImageClick: ((imageIndex: Int) -> Unit)? = null,
+    animateLikeTap: Boolean = false,
+    animateRepostTap: Boolean = false,
 ) {
     // PostCard uses NubecitaAvatar (40dp) with 20dp horizontal + 14dp vertical
     // padding, so the avatar center is at x = 20 + 20 = 40dp, NOT the
@@ -149,7 +150,12 @@ fun PostCard(
                         onImageClick = onImageClick,
                     )
                     Spacer(Modifier.height(8.dp))
-                    ActionRow(post = post, callbacks = callbacks)
+                    ActionRow(
+                        post = post,
+                        callbacks = callbacks,
+                        animateLikeTap = animateLikeTap,
+                        animateRepostTap = animateRepostTap,
+                    )
                 }
             }
         }
@@ -316,50 +322,54 @@ private fun EmbedSlot(
 private fun ActionRow(
     post: PostUi,
     callbacks: PostCallbacks,
+    animateLikeTap: Boolean,
+    animateRepostTap: Boolean,
 ) {
     // Reply / share are one-shot actions (Role.Button); like / repost are
     // toggles (Role.Switch). The toggle path announces on/off state via
     // PostStat's Modifier.toggleable, so the label here is the noun being
     // toggled ("Like", "Repost") — not the inverse-action verb ("Unlike").
     //
-    // Counts use rememberCompactCount for locale-aware short-scale
-    // abbreviation (1234 → "1.2K") matching Bluesky / TikTok conventions.
-    // PostStatsUi fields are Int, so widen to Long at the call site.
-    val replyCount = rememberCompactCount(post.stats.replyCount.toLong())
-    val repostCount = rememberCompactCount(post.stats.repostCount.toLong())
-    val likeCount = rememberCompactCount(post.stats.likeCount.toLong())
+    // Counts pass through to PostStat as Long; PostStat composes the
+    // locale-aware compact formatter and the digit-roll animation
+    // (gated by `animateUserDelta` per the careful rule in
+    // AnimatedCompactCount).
     Row(
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.padding(top = 4.dp),
     ) {
         PostStat(
             name = NubecitaIconName.ChatBubble,
-            count = replyCount,
+            count = post.stats.replyCount.toLong(),
             accessibilityLabel = stringResource(R.string.postcard_action_reply),
             onClick = { callbacks.onReply(post) },
         )
         PostStat(
             name = NubecitaIconName.Repeat,
-            count = repostCount,
+            count = post.stats.repostCount.toLong(),
             accessibilityLabel = stringResource(R.string.postcard_action_repost),
             active = post.viewer.isRepostedByViewer,
             toggleable = true,
             activeColor = MaterialTheme.colorScheme.tertiary,
             onClick = { callbacks.onRepost(post) },
+            iconAnimation = PostStatIconAnimation.Spin,
+            animateUserDelta = animateRepostTap,
         )
         PostStat(
             name = NubecitaIconName.Favorite,
             filled = post.viewer.isLikedByViewer,
-            count = likeCount,
+            count = post.stats.likeCount.toLong(),
             accessibilityLabel = stringResource(R.string.postcard_action_like),
             active = post.viewer.isLikedByViewer,
             toggleable = true,
             activeColor = MaterialTheme.colorScheme.secondary,
             onClick = { callbacks.onLike(post) },
+            iconAnimation = PostStatIconAnimation.Pop,
+            animateUserDelta = animateLikeTap,
         )
         PostStat(
             name = NubecitaIconName.IosShare,
-            count = "",
+            count = null,
             accessibilityLabel = stringResource(R.string.postcard_action_share),
             onClick = { callbacks.onShare(post) },
             // Only opt into combinedClickable's long-press path when the
