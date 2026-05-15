@@ -38,8 +38,11 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
  * Inactive uses `onSurfaceVariant`. The cell is a `Row` clipped to a
  * circle so the ripple matches the icon's affordance.
  *
- * Pass an empty `count` string for cells that don't show a number (e.g.
- * the share button).
+ * Pass `count = null` for cells that don't show a number (e.g. the
+ * share button). Non-null counts are rendered through
+ * [AnimatedCompactCount] which formats locale-aware short scale
+ * ("1.2K") and applies the digit-roll animation when
+ * [animateUserDelta] is true.
  *
  * `toggleable` selects the a11y semantics:
  * - `false` (default) — one-shot action (reply, share). Uses
@@ -111,13 +114,19 @@ internal fun PostStat(
             }
             PostStatIconAnimation.Spin -> {
                 // Twitter / Bluesky-web pattern: spin only on activate. On
-                // undo the icon just fades back through tint cross-fade.
+                // undo we snap the rotation back to 0 so a rapid undo
+                // mid-spin doesn't leave the icon stuck at some
+                // intermediate angle (the previous LaunchedEffect's
+                // cancellation drops the in-flight animateTo without
+                // resetting the underlying Animatable value).
                 if (active) {
                     rotation.snapTo(0f)
                     rotation.animateTo(
                         targetValue = 360f,
                         animationSpec = tween(durationMillis = SPIN_DURATION_MS),
                     )
+                } else {
+                    rotation.snapTo(0f)
                 }
             }
         }

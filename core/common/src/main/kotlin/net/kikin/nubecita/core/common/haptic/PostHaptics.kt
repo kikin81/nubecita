@@ -34,9 +34,14 @@ public class PostHaptics(
         perform(modern = HapticFeedbackConstants.CONFIRM, fallback = HapticFeedbackConstants.LONG_PRESS)
     }
 
-    /** Tap disabled the like — lighter, distinct from the enable cue. */
+    /**
+     * Tap disabled the like — distinct lighter cue. `TOGGLE_OFF` is API
+     * 34+, so pre-U devices fall back to `KEYBOARD_TAP` rather than
+     * reusing the heavier `CONFIRM` enable cue (which would make on/off
+     * indistinguishable).
+     */
     public fun likeOff() {
-        perform(modern = HapticFeedbackConstants.CONFIRM, fallback = HapticFeedbackConstants.KEYBOARD_TAP)
+        performToggleOff()
     }
 
     /** Tap enabled the repost — confirmation feel, same envelope as [likeOn]. */
@@ -44,9 +49,9 @@ public class PostHaptics(
         perform(modern = HapticFeedbackConstants.CONFIRM, fallback = HapticFeedbackConstants.LONG_PRESS)
     }
 
-    /** Tap disabled the repost. */
+    /** Tap disabled the repost — same shape as [likeOff]. */
     public fun repostOff() {
-        perform(modern = HapticFeedbackConstants.CONFIRM, fallback = HapticFeedbackConstants.KEYBOARD_TAP)
+        performToggleOff()
     }
 
     /**
@@ -71,6 +76,18 @@ public class PostHaptics(
         fallback: Int,
     ) {
         val constant = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) modern else fallback
+        view.performHapticFeedback(constant)
+    }
+
+    private fun performToggleOff() {
+        val constant =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                HapticFeedbackConstants.TOGGLE_OFF
+            } else {
+                // Lighter than CONFIRM so on/off feel distinct on pre-U
+                // devices that don't have the dedicated TOGGLE_* constants.
+                HapticFeedbackConstants.KEYBOARD_TAP
+            }
         view.performHapticFeedback(constant)
     }
 }

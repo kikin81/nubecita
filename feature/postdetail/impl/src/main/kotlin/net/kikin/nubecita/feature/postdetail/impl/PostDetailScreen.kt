@@ -159,6 +159,11 @@ internal fun PostDetailScreen(
                             PostDetailError.NotFound -> notFoundErrorMessage
                             is PostDetailError.Unknown -> unknownErrorMessage
                         }
+                    // Reject haptic — primarily a toggle-rejected cue (like /
+                    // repost failed). Over-fires on the refresh-failure path
+                    // too; acceptable since a buzz on any failed user-visible
+                    // action isn't misleading.
+                    haptics.rejected()
                     // Replace, don't stack — successive errors during a flapping
                     // network spell would otherwise queue snackbars indefinitely.
                     snackbarHostState.currentSnackbarData?.dismiss()
