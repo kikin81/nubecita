@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.search.impl
 
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.search.impl.data.RecentSearchRepository
 import javax.inject.Inject
@@ -59,7 +61,27 @@ internal class SearchViewModel
         }
 
         override fun handleEvent(event: SearchEvent) {
-            // Implemented in the next task.
+            when (event) {
+                SearchEvent.SubmitClicked -> persistCurrent()
+                is SearchEvent.RecentChipTapped -> {
+                    textFieldState.setTextAndPlaceCursorAtEnd(event.query)
+                    persistCurrent()
+                }
+                is SearchEvent.RecentChipRemoved ->
+                    viewModelScope.launch {
+                        recentSearches.remove(event.query)
+                    }
+                SearchEvent.ClearAllRecentsClicked ->
+                    viewModelScope.launch {
+                        recentSearches.clearAll()
+                    }
+            }
+        }
+
+        private fun persistCurrent() {
+            val text = textFieldState.text.toString().trim()
+            if (text.isEmpty()) return
+            viewModelScope.launch { recentSearches.record(text) }
         }
 
         private companion object {

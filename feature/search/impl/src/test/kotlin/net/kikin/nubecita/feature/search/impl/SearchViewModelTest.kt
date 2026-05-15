@@ -89,6 +89,82 @@ class SearchViewModelTest {
             assertEquals(false, vm.uiState.value.isQueryBlank)
         }
 
+    @Test
+    fun submitClicked_persistsCurrentNonBlankText() =
+        runTest {
+            val vm = SearchViewModel(repo)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("  kotlin  ")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+
+            assertEquals(listOf("kotlin"), dao.snapshot().map(RecentSearchEntity::query))
+        }
+
+    @Test
+    fun submitClicked_blank_isNoOp() =
+        runTest {
+            val vm = SearchViewModel(repo)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("   ")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+
+            assertTrue(dao.snapshot().isEmpty())
+        }
+
+    @Test
+    fun recentChipTapped_seedsTextField_andPersists() =
+        runTest {
+            val vm = SearchViewModel(repo)
+            runCurrent()
+
+            vm.handleEvent(SearchEvent.RecentChipTapped("compose"))
+            // Drain the chip-tap's setTextAndPlaceCursorAtEnd through the snapshotFlow path.
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            runCurrent()
+
+            assertEquals("compose", vm.textFieldState.text.toString())
+            assertEquals("compose", vm.uiState.value.currentQuery)
+            assertEquals(listOf("compose"), dao.snapshot().map(RecentSearchEntity::query))
+        }
+
+    @Test
+    fun recentChipRemoved_delegatesToRepo() =
+        runTest {
+            dao.seed(
+                RecentSearchEntity("kotlin", Instant.fromEpochMilliseconds(2_000)),
+                RecentSearchEntity("compose", Instant.fromEpochMilliseconds(1_000)),
+            )
+            val vm = SearchViewModel(repo)
+            runCurrent()
+
+            vm.handleEvent(SearchEvent.RecentChipRemoved("compose"))
+            runCurrent()
+
+            assertEquals(listOf("kotlin"), dao.snapshot().map(RecentSearchEntity::query))
+        }
+
+    @Test
+    fun clearAllRecentsClicked_delegatesToRepo() =
+        runTest {
+            dao.seed(RecentSearchEntity("kotlin", Instant.fromEpochMilliseconds(1_000)))
+            val vm = SearchViewModel(repo)
+            runCurrent()
+
+            vm.handleEvent(SearchEvent.ClearAllRecentsClicked)
+            runCurrent()
+
+            assertTrue(dao.snapshot().isEmpty())
+        }
+
     private companion object {
         const val DEBOUNCE_MS = 250L
     }
