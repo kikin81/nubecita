@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
@@ -40,13 +41,20 @@ internal object FeedNavigationModule {
             ) {
                 val navState = LocalMainShellNavState.current
                 val launchComposer = LocalComposerLauncher.current
+                // MediaViewer is registered on the OUTER NavDisplay
+                // (@OuterShell), so push it via LocalAppNavigator — pushing
+                // onto MainShell's inner back stack crashes with
+                // `IllegalStateException: Unknown screen MediaViewerRoute(...)`
+                // because the inner NavDisplay has no handler for that key.
+                // Same contract PostDetailNavigationModule uses.
+                val appNavigator = LocalAppNavigator.current
                 FeedScreen(
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
                     onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
                     // Image-in-PostCard tap skips PostDetail — open the
                     // MediaViewer directly with the carousel's start index.
                     onNavigateToMediaViewer = { uri, idx ->
-                        navState.add(MediaViewerRoute(postUri = uri, imageIndex = idx))
+                        appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = idx))
                     },
                     // Width-class-conditional composer launch. At Compact width
                     // the launcher pushes ComposerRoute onto the tab stack; at
