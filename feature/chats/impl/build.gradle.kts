@@ -27,6 +27,11 @@ dependencies {
     // than duplicate the JsonObject decode + recursion-bound logic.
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
+    // Tap-to-open the quoted-post embed inside a message bubble pushes a
+    // PostDetailRoute onto the MainShell back stack. The api module ships
+    // just the NavKey — :feature:chats:impl never depends on :impl, matching
+    // the Profile / Feed pattern.
+    implementation(project(":feature:postdetail:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)

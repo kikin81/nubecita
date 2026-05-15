@@ -52,6 +52,9 @@ internal fun ProfileScreen(
                 onShare = {},
                 onShareLongPress = {},
                 onExternalEmbedTap = {},
+                onQuotedPostTap = { quoted ->
+                    viewModel.handleEvent(ProfileEvent.OnQuotedPostTapped(quoted.uri))
+                },
             )
         }
 

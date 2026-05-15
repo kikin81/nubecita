@@ -37,10 +37,14 @@ import kotlin.time.Instant
  *   (unavailable chip). The quoted card carries its own
  *   `surfaceContainerLow` Surface — that's the visual anchor.
  *
- * **Tap target.** The composable does NOT have its own
- * `Modifier.clickable`. Tap-to-open-PostDetail is deferred to the
- * follow-up bd issue paired with the post-detail destination, same
- * as 6vq's quoted card.
+ * **Tap target.** The outer `Column` carries NO `Modifier.clickable`
+ * — taps on the media region fall through to whatever click target
+ * the media leaf manages (image gallery, external Custom Tab) or to
+ * the host PostCard's outer `onTap`. Taps on the quoted-card region
+ * route through [onQuotedPostTap] (forwarded into the nested
+ * [PostCardQuotedPost] only when [record] is [EmbedUi.Record]). When
+ * [onQuotedPostTap] is null the quoted card stays inert — preserves
+ * `:designsystem` previews / screenshot tests.
  *
  * **Inner taps.** When `media is External`, [onExternalMediaTap]
  * is forwarded to [PostCardExternalEmbed.onTap] — the link card IS
@@ -60,6 +64,7 @@ public fun PostCardRecordWithMediaEmbed(
     record: EmbedUi.RecordOrUnavailable,
     media: EmbedUi.MediaEmbed,
     modifier: Modifier = Modifier,
+    onQuotedPostTap: (() -> Unit)? = null,
     onExternalMediaTap: ((uri: String) -> Unit)? = null,
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
@@ -100,8 +105,12 @@ public fun PostCardRecordWithMediaEmbed(
             is EmbedUi.Record ->
                 PostCardQuotedPost(
                     quotedPost = record.quotedPost,
+                    onTap = onQuotedPostTap,
                     quotedVideoEmbedSlot = quotedVideoEmbedSlot,
                 )
+            // RecordUnavailable stays a no-op chip — the target is gone, so
+            // no destination to navigate to. onQuotedPostTap is dropped here
+            // intentionally.
             is EmbedUi.RecordUnavailable -> PostCardRecordUnavailable(reason = record.reason)
         }
     }

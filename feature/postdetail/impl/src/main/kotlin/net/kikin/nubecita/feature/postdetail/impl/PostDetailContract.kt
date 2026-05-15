@@ -139,6 +139,17 @@ internal sealed interface PostDetailEvent : UiEvent {
         val imageIndex: Int,
     ) : PostDetailEvent
 
+    /**
+     * Tap on the inner quoted-post region of any rendered PostCard
+     * (ancestor, focus, or reply). Pushes another post-detail screen
+     * with the quoted post as the new focus — same destination as
+     * [OnPostTapped] but distinct on the event surface so analytics
+     * and tests can tell the inner click target from the outer one.
+     */
+    data class OnQuotedPostTapped(
+        val quotedPostUri: String,
+    ) : PostDetailEvent
+
     /** User tapped like on the focused post or a thread reply. */
     data class OnLikeClicked(
         val post: PostUi,

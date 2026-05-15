@@ -52,6 +52,7 @@ internal class FeedViewModel
                 is FeedEvent.OnAuthorTapped -> sendEffect(FeedEffect.NavigateToAuthor(event.authorDid))
                 is FeedEvent.OnImageTapped ->
                     sendEffect(FeedEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
+                is FeedEvent.OnQuotedPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.quotedPostUri))
                 is FeedEvent.OnLikeClicked ->
                     viewModelScope.launch {
                         postInteractionsCache

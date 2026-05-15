@@ -102,6 +102,9 @@ internal fun PostDetailScreen(
                 onAuthorTap = { viewModel.handleEvent(PostDetailEvent.OnAuthorTapped(it.did)) },
                 onLike = { viewModel.handleEvent(PostDetailEvent.OnLikeClicked(it)) },
                 onRepost = { viewModel.handleEvent(PostDetailEvent.OnRepostClicked(it)) },
+                onQuotedPostTap = { quoted ->
+                    viewModel.handleEvent(PostDetailEvent.OnQuotedPostTapped(quoted.uri))
+                },
             )
         }
 

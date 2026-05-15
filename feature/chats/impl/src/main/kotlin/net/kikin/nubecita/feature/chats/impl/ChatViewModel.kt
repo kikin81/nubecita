@@ -48,6 +48,8 @@ internal class ChatViewModel
                 ChatEvent.Refresh -> launchLoad()
                 ChatEvent.RetryClicked -> launchLoad()
                 ChatEvent.BackPressed -> Unit // screen handles back via nav state
+                is ChatEvent.QuotedPostTapped ->
+                    sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
             }
         }
 

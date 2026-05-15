@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.chats.impl
 
+import app.cash.turbine.test
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -179,6 +180,22 @@ internal class ChatViewModelTest {
             val loaded = status as ChatLoadStatus.Loaded
             assertEquals(priorItems, loaded.items)
             assertEquals(false, loaded.isRefreshing)
+        }
+
+    @Test
+    fun `QuotedPostTapped emits NavigateToPost with the quoted post's URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            val quotedUri = "at://did:plc:other/app.bsky.feed.post/q1"
+
+            vm.effects.test {
+                vm.handleEvent(ChatEvent.QuotedPostTapped(quotedUri))
+
+                val effect = awaitItem()
+                assertEquals(ChatEffect.NavigateToPost(quotedUri), effect)
+            }
         }
 
     private fun chatViewModel(repo: FakeChatRepository): ChatViewModel =

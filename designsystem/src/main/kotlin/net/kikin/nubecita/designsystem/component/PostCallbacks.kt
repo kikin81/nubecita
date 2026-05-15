@@ -3,6 +3,7 @@ package net.kikin.nubecita.designsystem.component
 import androidx.compose.runtime.Stable
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedPostUi
 
 /**
  * Interaction callbacks consumed by [PostCard].
@@ -41,6 +42,7 @@ data class PostCallbacks(
      */
     val onShareLongPress: ((PostUi) -> Unit)? = null,
     val onExternalEmbedTap: (uri: String) -> Unit = {},
+    val onQuotedPostTap: (QuotedPostUi) -> Unit = {},
 ) {
     public companion object {
         /**

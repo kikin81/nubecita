@@ -323,6 +323,20 @@ internal class PostDetailViewModelTest {
         }
 
     @Test
+    fun `OnQuotedPostTapped emits NavigateToPost with the quoted post's URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo())
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnQuotedPostTapped("at://quoted-target"))
+
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.NavigateToPost)
+                assertEquals("at://quoted-target", (effect as PostDetailEffect.NavigateToPost).postUri)
+            }
+        }
+
+    @Test
     fun `tapping the same focus URI emits NavigateToPost (no special-case)`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = newVm(FakeRepo(), focusUri = "at://focus")

@@ -250,6 +250,16 @@ sealed interface ProfileEvent : UiEvent {
     ) : ProfileEvent
 
     /**
+     * User tapped the inner quoted-post region of a PostCard's record
+     * embed in the Posts or Replies tab. Routes to PostDetail for the
+     * quoted post — distinct from [PostTapped] which routes to the
+     * outer (parent) post.
+     */
+    data class OnQuotedPostTapped(
+        val quotedPostUri: String,
+    ) : ProfileEvent
+
+    /**
      * User tapped a media-grid cell in the Media tab. Each cell renders
      * the post's first image; the tap opens the MediaViewer at index 0
      * so the user sees the same image they tapped, with the rest of the

@@ -103,6 +103,8 @@ internal class ProfileViewModel
                 is ProfileEvent.PostTapped -> sendEffect(ProfileEffect.NavigateToPost(event.postUri))
                 is ProfileEvent.OnImageTapped ->
                     sendEffect(ProfileEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
+                is ProfileEvent.OnQuotedPostTapped ->
+                    sendEffect(ProfileEffect.NavigateToPost(event.quotedPostUri))
                 is ProfileEvent.OnMediaCellTapped ->
                     sendEffect(ProfileEffect.NavigateToMediaViewer(event.postUri, imageIndex = 0))
                 is ProfileEvent.HandleTapped -> onHandleTapped(event.handle)

@@ -86,6 +86,7 @@ internal fun MessageBubble(
     runCount: Int,
     modifier: Modifier = Modifier,
     maxWidth: Dp = 280.dp,
+    onQuotedPostTap: (quotedPostUri: String) -> Unit = {},
 ) {
     val embed = message.embed
     val showTextBubble = message.isDeleted || message.text.isNotEmpty() || embed == null
@@ -102,7 +103,7 @@ internal fun MessageBubble(
         }
         if (embed != null) {
             if (showTextBubble) Spacer(Modifier.height(4.dp))
-            MessageEmbedCard(embed = embed)
+            MessageEmbedCard(embed = embed, onQuotedPostTap = onQuotedPostTap)
         }
     }
 }
@@ -151,9 +152,18 @@ private fun MessageTextBubble(
 }
 
 @Composable
-private fun MessageEmbedCard(embed: EmbedUi.RecordOrUnavailable) {
+private fun MessageEmbedCard(
+    embed: EmbedUi.RecordOrUnavailable,
+    onQuotedPostTap: (quotedPostUri: String) -> Unit,
+) {
     when (embed) {
-        is EmbedUi.Record -> PostCardQuotedPost(quotedPost = embed.quotedPost)
+        is EmbedUi.Record ->
+            PostCardQuotedPost(
+                quotedPost = embed.quotedPost,
+                onTap = { onQuotedPostTap(embed.quotedPost.uri) },
+            )
+        // RecordUnavailable stays inert — the target is gone, no destination
+        // to navigate to.
         is EmbedUi.RecordUnavailable -> PostCardRecordUnavailable(reason = embed.reason)
     }
 }
