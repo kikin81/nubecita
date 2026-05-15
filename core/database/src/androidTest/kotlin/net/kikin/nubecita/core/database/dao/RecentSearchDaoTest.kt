@@ -77,6 +77,19 @@ internal class RecentSearchDaoTest : DatabaseTest() {
             assertTrue(dao.observeAll().first().isEmpty())
         }
 
+    @Test
+    fun delete_removesOnlyMatchingRow() =
+        runTest {
+            dao.upsertAndTrim(entity("kotlin", epoch = 1_000), capacity = 10)
+            dao.upsertAndTrim(entity("compose", epoch = 2_000), capacity = 10)
+            dao.upsertAndTrim(entity("room", epoch = 3_000), capacity = 10)
+
+            dao.delete("compose")
+
+            val rows = dao.observeAll().first()
+            assertEquals(listOf("room", "kotlin"), rows.map(RecentSearchEntity::query))
+        }
+
     private fun entity(
         query: String,
         epoch: Long,
