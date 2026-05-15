@@ -273,7 +273,11 @@ private fun EmbedSlot(
             Spacer(Modifier.height(10.dp))
             PostCardQuotedPost(
                 quotedPost = embed.quotedPost,
-                onTap = { callbacks.onQuotedPostTap(embed.quotedPost) },
+                // Forward only when the host wired a real handler. Otherwise
+                // the inner clickable would consume the gesture and do
+                // nothing — the tap should fall through to the outer parent
+                // onTap instead.
+                onTap = callbacks.onQuotedPostTap?.let { tap -> { tap(embed.quotedPost) } },
                 quotedVideoEmbedSlot = quotedVideoEmbedSlot,
             )
         }
@@ -287,12 +291,12 @@ private fun EmbedSlot(
                 record = embed.record,
                 media = embed.media,
                 // Only forward a tap target when the quoted record actually
-                // resolved — RecordUnavailable stays inert.
+                // resolved AND the host wired a real handler. RecordUnavailable
+                // and the no-handler case both stay inert.
                 onQuotedPostTap =
                     when (val r = embed.record) {
-                        is EmbedUi.Record -> {
-                            { callbacks.onQuotedPostTap(r.quotedPost) }
-                        }
+                        is EmbedUi.Record ->
+                            callbacks.onQuotedPostTap?.let { tap -> { tap(r.quotedPost) } }
                         is EmbedUi.RecordUnavailable -> null
                     },
                 onExternalMediaTap = callbacks.onExternalEmbedTap,
