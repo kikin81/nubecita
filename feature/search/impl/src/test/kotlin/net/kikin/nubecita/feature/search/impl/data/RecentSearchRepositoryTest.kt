@@ -3,7 +3,7 @@ package net.kikin.nubecita.feature.search.impl.data
 import app.cash.turbine.test
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Instant
@@ -69,12 +69,7 @@ private class FakeRecentSearchDao : RecentSearchDao {
         state.update { entities.toList() }
     }
 
-    override fun observeAll(): Flow<List<RecentSearchEntity>> =
-        state.asStateFlow().let { source ->
-            kotlinx.coroutines.flow.flow {
-                source.collect { list -> emit(list.sortedByDescending(RecentSearchEntity::recordedAt)) }
-            }
-        }
+    override fun observeAll(): Flow<List<RecentSearchEntity>> = state.map { it.sortedByDescending(RecentSearchEntity::recordedAt) }
 
     override suspend fun upsert(entity: RecentSearchEntity) {
         state.update { current ->

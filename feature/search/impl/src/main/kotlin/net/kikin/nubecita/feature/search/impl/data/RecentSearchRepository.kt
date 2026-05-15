@@ -15,10 +15,14 @@ import javax.inject.Singleton
  * timestamp is an internal ordering signal and never crosses this
  * boundary.
  *
- * Wraps [RecentSearchDao] from `:core:database`. The DAO accepts the
- * timestamp as a parameter so tests can drive recency without a clock
- * abstraction; production calls source the timestamp from
- * [Clock.System.now].
+ * Wraps [RecentSearchDao] from `:core:database`. This repository
+ * always sources the timestamp from [Clock.System.now] — there is no
+ * clock-injection seam at the repo layer. The DAO's `upsertAndTrim`
+ * does take the timestamp as a parameter, which is what lets the
+ * `:core:database` androidTest exercise the LRU + dedup semantics
+ * deterministically. Repo-level tests assert on presence / trimming /
+ * recency ordering of seeded entries, not on the timestamp `record`
+ * produces.
  *
  * Blank queries are silently ignored; non-blank queries are trimmed of
  * surrounding whitespace before persistence.
