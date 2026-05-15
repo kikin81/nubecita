@@ -19,6 +19,7 @@ dependencies {
     compileOnly(libs.hilt.gradlePlugin)
     compileOnly(libs.kotlin.gradlePlugin)
     compileOnly(libs.ksp.gradlePlugin)
+    compileOnly(libs.room.gradlePlugin)
     compileOnly(libs.screenshot.gradlePlugin)
     compileOnly(libs.sortDependencies.gradlePlugin)
 }
@@ -48,6 +49,10 @@ gradlePlugin {
         register("androidApplication") {
             id = "nubecita.android.application"
             implementationClass = "net.kikin.nubecita.buildlogic.AndroidApplicationConventionPlugin"
+        }
+        register("androidRoom") {
+            id = "nubecita.android.room"
+            implementationClass = "net.kikin.nubecita.buildlogic.AndroidRoomConventionPlugin"
         }
     }
 }
