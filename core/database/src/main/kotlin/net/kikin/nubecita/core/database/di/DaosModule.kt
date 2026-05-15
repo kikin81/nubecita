@@ -1,17 +1,20 @@
 package net.kikin.nubecita.core.database.di
 
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.database.NubecitaDatabase
+import net.kikin.nubecita.core.database.dao.RecentSearchDao
 
 /**
  * Provides each DAO from the singleton [NubecitaDatabase]. DAOs are not
  * separately scoped — Room caches them on the database instance, which
  * is `@Singleton`.
- *
- * Empty at v1; each `@Provides fun providesFooDao(db: NubecitaDatabase): FooDao
- * = db.fooDao()` lands alongside the entity/DAO it exposes.
  */
 @Module
 @InstallIn(SingletonComponent::class)
-internal object DaosModule
+internal object DaosModule {
+    @Provides
+    fun providesRecentSearchDao(database: NubecitaDatabase): RecentSearchDao = database.recentSearchDao()
+}

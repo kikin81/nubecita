@@ -1,5 +1,7 @@
 package net.kikin.nubecita.core.database
 
+import androidx.room.DeleteTable
+import androidx.room.migration.AutoMigrationSpec
 import androidx.room.migration.Migration
 
 /**
@@ -9,11 +11,18 @@ import androidx.room.migration.Migration
  * [NubecitaDatabase]; reach for a manual `Migration` only when
  * AutoMigration cannot resolve a column rename or drop unambiguously.
  *
- * Empty at v1 — the database ships with only the [BootstrapEntity]
- * placeholder, so there is nothing worth migrating yet. The v1 → v2
- * jump (when the Search epic's first real entity lands) will drop
- * [BootstrapEntity] and add `RecentSearchEntity` via `@AutoMigration`
- * entries on [NubecitaDatabase] (no manual `Migration` instances
- * required).
+ * Empty through v2 — the v1 → v2 jump (drop the foundation-epic
+ * placeholder `bootstrap` table, add `recent_search`) is fully
+ * declarative via [BootstrapEntityDrop].
  */
 internal val MANUAL_MIGRATIONS: Array<Migration> = emptyArray()
+
+/**
+ * `AutoMigrationSpec` for the v1 → v2 jump: drops the `bootstrap`
+ * placeholder table introduced in the Room foundation epic
+ * (nubecita-50zx) without touching the new `recent_search` table.
+ * The empty class is intentional — `@DeleteTable` is the entire
+ * migration. Registered on [NubecitaDatabase]'s `autoMigrations` array.
+ */
+@DeleteTable(tableName = "bootstrap")
+internal class BootstrapEntityDrop : AutoMigrationSpec
