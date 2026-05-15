@@ -147,6 +147,9 @@ internal fun FeedScreen(
                         // No browser available — silent no-op.
                     }
                 },
+                onQuotedPostTap = { quoted ->
+                    viewModel.handleEvent(FeedEvent.OnQuotedPostTapped(quoted.uri))
+                },
             )
         }
     // Pre-resolve snackbar copy via stringResource() at composition time

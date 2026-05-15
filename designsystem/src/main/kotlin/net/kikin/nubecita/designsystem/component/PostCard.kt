@@ -273,6 +273,7 @@ private fun EmbedSlot(
             Spacer(Modifier.height(10.dp))
             PostCardQuotedPost(
                 quotedPost = embed.quotedPost,
+                onTap = { callbacks.onQuotedPostTap(embed.quotedPost) },
                 quotedVideoEmbedSlot = quotedVideoEmbedSlot,
             )
         }
@@ -285,6 +286,15 @@ private fun EmbedSlot(
             PostCardRecordWithMediaEmbed(
                 record = embed.record,
                 media = embed.media,
+                // Only forward a tap target when the quoted record actually
+                // resolved — RecordUnavailable stays inert.
+                onQuotedPostTap =
+                    when (val r = embed.record) {
+                        is EmbedUi.Record -> {
+                            { callbacks.onQuotedPostTap(r.quotedPost) }
+                        }
+                        is EmbedUi.RecordUnavailable -> null
+                    },
                 onExternalMediaTap = callbacks.onExternalEmbedTap,
                 videoEmbedSlot = videoEmbedSlot,
                 quotedVideoEmbedSlot = quotedVideoEmbedSlot,

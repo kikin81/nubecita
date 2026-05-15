@@ -96,7 +96,10 @@ internal fun ChatScreenContent(
                     if (status.items.isEmpty()) {
                         EmptyBody()
                     } else {
-                        LoadedBody(status.items)
+                        LoadedBody(
+                            items = status.items,
+                            onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
+                        )
                     }
                 is ChatLoadStatus.InitialError ->
                     ErrorBody(status.error, onRetry = { onEvent(ChatEvent.RetryClicked) })
@@ -176,7 +179,10 @@ private fun EmptyBody() {
 }
 
 @Composable
-private fun LoadedBody(items: ImmutableList<ThreadItem>) {
+private fun LoadedBody(
+    items: ImmutableList<ThreadItem>,
+    onQuotedPostTap: (quotedPostUri: String) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         reverseLayout = true,
@@ -214,6 +220,7 @@ private fun LoadedBody(items: ImmutableList<ThreadItem>) {
                             message = item.message,
                             runIndex = item.runIndex,
                             runCount = item.runCount,
+                            onQuotedPostTap = onQuotedPostTap,
                         )
                     }
                 }

@@ -14,6 +14,7 @@ import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.impl.ChatScreen
 import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -35,7 +36,11 @@ internal object ChatsNavigationModule {
                     hiltViewModel<ChatViewModel, ChatViewModel.Factory>(
                         creationCallback = { factory -> factory.create(chat) },
                     )
-                ChatScreen(viewModel = viewModel, onNavigateBack = { navState.removeLast() })
+                ChatScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navState.removeLast() },
+                    onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
+                )
             }
         }
 }

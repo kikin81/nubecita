@@ -123,3 +123,26 @@ private fun PostCardRecordWithMediaUnavailableExternalScreenshot() {
         )
     }
 }
+
+// Guards the Modifier wiring when onQuotedPostTap is supplied — only
+// the nested PostCardQuotedPost gains a clickable, the outer Column
+// stays inert. Rendered layout should match the resolved-images
+// baseline; the test pins that against accidental wrapping changes
+// that would force a re-bake.
+@PreviewTest
+@Preview(name = "tappable-resolved-images-light", showBackground = true)
+@Preview(
+    name = "tappable-resolved-images-dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun PostCardRecordWithMediaTappableResolvedImagesScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardRecordWithMediaEmbed(
+            record = EmbedUi.Record(quotedPost = fixedQuotedPost()),
+            media = fixedImagesMedia(),
+            onQuotedPostTap = {},
+        )
+    }
+}

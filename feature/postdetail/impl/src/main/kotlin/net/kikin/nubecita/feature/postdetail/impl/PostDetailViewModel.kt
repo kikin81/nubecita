@@ -62,6 +62,8 @@ internal class PostDetailViewModel
                 PostDetailEvent.Refresh -> refresh()
                 PostDetailEvent.Retry -> load()
                 is PostDetailEvent.OnPostTapped -> sendEffect(PostDetailEffect.NavigateToPost(event.postUri))
+                is PostDetailEvent.OnQuotedPostTapped ->
+                    sendEffect(PostDetailEffect.NavigateToPost(event.quotedPostUri))
                 is PostDetailEvent.OnAuthorTapped -> sendEffect(PostDetailEffect.NavigateToAuthor(event.authorDid))
                 PostDetailEvent.OnReplyClicked -> {
                     // The composer's parent context is the focus post —

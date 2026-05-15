@@ -2,6 +2,7 @@ package net.kikin.nubecita.designsystem.component
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,11 +41,13 @@ import kotlin.time.Instant
  * single-line author treatment, full body text (no truncation), and
  * an embed slot that dispatches the quoted post's own embed.
  *
- * **Not clickable in v1.** The card has no `Modifier.clickable` —
- * tap-to-open-PostDetail will land in a follow-up bd issue paired
- * with the post-detail destination so wiring lands once instead of
- * being introduced and rewired. Inner embed leaf composables manage
- * their own tap surfaces (e.g. external link card, video controls).
+ * **Tap target.** When [onTap] is non-null the Surface is wrapped in
+ * `Modifier.clickable(onClick = onTap)` so the quoted region carries
+ * its own ripple + click semantics. Compose's clickable consumes the
+ * gesture, so a host PostCard's outer `Modifier.clickable` will NOT
+ * fire when the user taps the quoted region. When [onTap] is null
+ * the Surface stays inert — preserving the preview / screenshot path
+ * and any non-interactive call site.
  *
  * **Recursion bound.** [QuotedPostUi.embed] is typed as
  * [QuotedEmbedUi] which deliberately excludes a `Record` variant —
@@ -63,16 +66,18 @@ import kotlin.time.Instant
 public fun PostCardQuotedPost(
     quotedPost: QuotedPostUi,
     modifier: Modifier = Modifier,
+    onTap: (() -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
 ) {
     // Surface (not Column + clip + background) so LocalContentColor
     // resolves to the right contrast against surfaceContainerLow and
     // tonal-elevation semantics match other embed cards in the design
     // system (PostCardExternalEmbed, PostCardImageEmbed).
+    val tapModifier = if (onTap != null) Modifier.clickable(onClick = onTap) else Modifier
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = QUOTED_CARD_SHAPE,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().then(tapModifier),
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             QuotedAuthorLine(quotedPost = quotedPost)
@@ -173,12 +178,11 @@ private fun QuotedEmbedSlot(
                 description = embed.description,
                 thumbUrl = embed.thumbUrl,
                 // Null onTap → PostCardExternalEmbed omits Modifier.clickable
-                // entirely, so the inner external card is genuinely
-                // non-interactive (no ripple, no tap target). Tap behavior
-                // for the quoted card as a whole is deferred to a follow-up
-                // bd issue paired with the post-detail destination — wiring
-                // lands once for the whole card surface, not for each inner
-                // affordance.
+                // entirely. Tap behavior for the quoted card as a whole is
+                // owned by the host via PostCardQuotedPost's outer onTap —
+                // wiring lands on the whole card surface, not on each inner
+                // affordance, so a tap anywhere on the quoted region routes
+                // to the quoted post's PostDetail.
                 onTap = null,
             )
         }

@@ -130,6 +130,21 @@ sealed interface ChatEvent : UiEvent {
     data object RetryClicked : ChatEvent
 
     data object BackPressed : ChatEvent
+
+    /**
+     * User tapped the quoted-post embed under a message bubble. The VM
+     * translates this to [ChatEffect.NavigateToPost] so the screen can
+     * push `PostDetailRoute(postUri = quotedPostUri)` onto the active
+     * tab's back stack.
+     */
+    data class QuotedPostTapped(
+        val quotedPostUri: String,
+    ) : ChatEvent
 }
 
-sealed interface ChatEffect : UiEffect
+sealed interface ChatEffect : UiEffect {
+    /** Push the post-detail screen for the tapped quoted-post URI. */
+    data class NavigateToPost(
+        val postUri: String,
+    ) : ChatEffect
+}

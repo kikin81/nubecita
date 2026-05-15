@@ -545,6 +545,21 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `OnQuotedPostTapped emits NavigateToPost with the quoted post's URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = FakeProfileRepository())
+            advanceUntilIdle()
+            val quotedUri = "at://did:plc:other/app.bsky.feed.post/q1"
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnQuotedPostTapped(quotedUri))
+                val effect = awaitItem()
+                assertEquals(ProfileEffect.NavigateToPost(quotedUri), effect)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `OnMediaCellTapped emits NavigateToMediaViewer at imageIndex 0`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = newVm(repo = FakeProfileRepository())

@@ -117,3 +117,22 @@ private fun PostCardQuotedPostViewThreadScreenshot() {
         PostCardQuotedPost(quotedPost = fixedQuoted(QuotedEmbedUi.QuotedThreadChip))
     }
 }
+
+// Guards against Modifier-ordering regressions when onTap is supplied:
+// the clickable wraps Surface, NOT the inner Column, so the rendered
+// layout must be byte-identical to the text-only baseline (clickable
+// adds no draw). If a future refactor wraps the clickable inside the
+// Surface's content slot or applies it after .padding(), the captured
+// pixels would differ and these baselines would catch it.
+@PreviewTest
+@Preview(name = "tappable-light", showBackground = true)
+@Preview(name = "tappable-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardQuotedPostTappableScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardQuotedPost(
+            quotedPost = fixedQuoted(QuotedEmbedUi.Empty),
+            onTap = {},
+        )
+    }
+}

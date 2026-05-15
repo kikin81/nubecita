@@ -131,6 +131,15 @@ sealed interface FeedEvent : UiEvent {
         val imageIndex: Int,
     ) : FeedEvent
 
+    /**
+     * User tapped the inner quoted-post region of a PostCard's record
+     * embed. Routes to PostDetail for the quoted post — distinct from
+     * [OnPostTapped] which routes to the outer (parent) post.
+     */
+    data class OnQuotedPostTapped(
+        val quotedPostUri: String,
+    ) : FeedEvent
+
     data class OnLikeClicked(
         val post: PostUi,
     ) : FeedEvent

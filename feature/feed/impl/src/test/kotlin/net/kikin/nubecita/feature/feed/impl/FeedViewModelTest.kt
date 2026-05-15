@@ -822,6 +822,23 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `OnQuotedPostTapped emits NavigateToPost with the quoted post's URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo, FakePostInteractionsCache())
+            advanceUntilIdle()
+            val quotedUri = "at://did:plc:other/app.bsky.feed.post/q1"
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.OnQuotedPostTapped(quotedUri))
+
+                val effect = awaitItem()
+                assertTrue(effect is FeedEffect.NavigateToPost)
+                assertEquals(quotedUri, (effect as FeedEffect.NavigateToPost).postUri)
+            }
+        }
+
+    @Test
     fun `OnAuthorTapped emits NavigateToAuthor with the author DID`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
