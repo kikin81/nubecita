@@ -54,10 +54,7 @@ import net.kikin.nubecita.shell.composer.rememberComposerLauncher
  *
  * The four top-level destinations — Feed, Search, Chats, You — are
  * registered via the `@MainShell`-qualified `EntryProviderInstaller` set
- * collected from feature modules. `:feature:feed:impl` provides the Feed
- * entry; the other three are provided by `:app`'s
- * [MainShellPlaceholderModule] until each feature's own epic stands up
- * its `:impl` module.
+ * bound from `:feature:*:impl` modules.
  *
  * Per-tab back-stack state lives in `MainShellNavState`, created via
  * `rememberMainShellNavState(...)` in this composable's body. The state
