@@ -16,8 +16,9 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
- * `{N}.json` file and add the corresponding `@AutoMigration` entry to
- * the `autoMigrations` array below.
+ * `{N}.json` file and either add an `@AutoMigration` entry to the
+ * `autoMigrations` array below or register a manual `Migration` in
+ * [MANUAL_MIGRATIONS] when AutoMigration cannot express the diff.
  */
 @Database(
     entities = [BootstrapEntity::class],
