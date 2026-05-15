@@ -27,6 +27,7 @@ import io.github.kikin81.atproto.compose.material3.rememberBlueskyAnnotatedStrin
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.common.text.rememberCompactCount
 import net.kikin.nubecita.core.common.time.rememberRelativeTimeText
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -320,19 +321,26 @@ private fun ActionRow(
     // toggles (Role.Switch). The toggle path announces on/off state via
     // PostStat's Modifier.toggleable, so the label here is the noun being
     // toggled ("Like", "Repost") — not the inverse-action verb ("Unlike").
+    //
+    // Counts use rememberCompactCount for locale-aware short-scale
+    // abbreviation (1234 → "1.2K") matching Bluesky / TikTok conventions.
+    // PostStatsUi fields are Int, so widen to Long at the call site.
+    val replyCount = rememberCompactCount(post.stats.replyCount.toLong())
+    val repostCount = rememberCompactCount(post.stats.repostCount.toLong())
+    val likeCount = rememberCompactCount(post.stats.likeCount.toLong())
     Row(
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.padding(top = 4.dp),
     ) {
         PostStat(
             name = NubecitaIconName.ChatBubble,
-            count = post.stats.replyCount.toString(),
+            count = replyCount,
             accessibilityLabel = stringResource(R.string.postcard_action_reply),
             onClick = { callbacks.onReply(post) },
         )
         PostStat(
             name = NubecitaIconName.Repeat,
-            count = post.stats.repostCount.toString(),
+            count = repostCount,
             accessibilityLabel = stringResource(R.string.postcard_action_repost),
             active = post.viewer.isRepostedByViewer,
             toggleable = true,
@@ -342,7 +350,7 @@ private fun ActionRow(
         PostStat(
             name = NubecitaIconName.Favorite,
             filled = post.viewer.isLikedByViewer,
-            count = post.stats.likeCount.toString(),
+            count = likeCount,
             accessibilityLabel = stringResource(R.string.postcard_action_like),
             active = post.viewer.isLikedByViewer,
             toggleable = true,

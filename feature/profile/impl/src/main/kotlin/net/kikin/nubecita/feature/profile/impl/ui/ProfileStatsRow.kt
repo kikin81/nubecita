@@ -1,16 +1,14 @@
 package net.kikin.nubecita.feature.profile.impl.ui
 
-import android.icu.text.CompactDecimalFormat
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.core.common.text.rememberCompactCount
 import net.kikin.nubecita.feature.profile.impl.R
 
 /**
@@ -29,18 +27,13 @@ internal fun ProfileStatsRow(
     followsCount: Long,
     modifier: Modifier = Modifier,
 ) {
-    val locale = LocalLocale.current.platformLocale
-    // Allocate the formatter once per locale; reused across the three
-    // counts and across recompositions (e.g. the hero re-rendering as
-    // it scrolls). `CompactDecimalFormat.getInstance` does non-trivial
-    // ICU table lookups, so the saved work matters on hot paths.
-    val formatter =
-        remember(locale) {
-            CompactDecimalFormat.getInstance(locale, CompactDecimalFormat.CompactStyle.SHORT)
-        }
-    val posts = formatter.format(postsCount)
-    val followers = formatter.format(followersCount)
-    val follows = formatter.format(followsCount)
+    // Locale-aware abbreviation ("1.2K" in en, "1,2 mil" in es). The
+    // underlying CompactDecimalFormat instance is remember-keyed on the
+    // locale inside the helper, so the three calls share work and
+    // recompose only on a Settings-app language switch.
+    val posts = rememberCompactCount(postsCount)
+    val followers = rememberCompactCount(followersCount)
+    val follows = rememberCompactCount(followsCount)
     val postsLabel = stringResource(R.string.profile_stats_posts_label)
     val followersLabel = stringResource(R.string.profile_stats_followers_label)
     val followsLabel = stringResource(R.string.profile_stats_follows_label)
