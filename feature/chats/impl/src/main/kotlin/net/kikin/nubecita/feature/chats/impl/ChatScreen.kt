@@ -25,7 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 internal fun ChatScreen(
     viewModel: ChatViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToPost: (postUri: String) -> Unit,
+    onNavigateToPost: (postUri: String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()

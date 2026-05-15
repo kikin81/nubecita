@@ -42,7 +42,15 @@ data class PostCallbacks(
      */
     val onShareLongPress: ((PostUi) -> Unit)? = null,
     val onExternalEmbedTap: (uri: String) -> Unit = {},
-    val onQuotedPostTap: (QuotedPostUi) -> Unit = {},
+    /**
+     * Tap on the inner quoted-post region of a record / record-with-media
+     * embed. `null` (the default) means the host has NOT wired tap-to-open
+     * for the quoted card — PostCard.EmbedSlot omits the inner clickable
+     * entirely so the gesture falls through to the outer parent `onTap`
+     * instead of being consumed by a no-op. Hosts that want the inner
+     * tap (Feed, Profile, PostDetail) supply a real lambda.
+     */
+    val onQuotedPostTap: ((QuotedPostUi) -> Unit)? = null,
 ) {
     public companion object {
         /**
