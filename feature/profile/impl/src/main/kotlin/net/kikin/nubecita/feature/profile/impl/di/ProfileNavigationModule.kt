@@ -9,6 +9,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
@@ -49,6 +50,13 @@ internal object ProfileNavigationModule {
                     ),
             ) { route ->
                 val navState = LocalMainShellNavState.current
+                // MediaViewer is registered on the OUTER NavDisplay
+                // (@OuterShell), so push it via LocalAppNavigator — pushing
+                // onto MainShell's inner back stack crashes with
+                // `IllegalStateException: Unknown screen MediaViewerRoute(...)`
+                // because the inner NavDisplay has no handler for that key.
+                // Same contract PostDetailNavigationModule uses.
+                val appNavigator = LocalAppNavigator.current
                 val viewModel =
                     hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
@@ -69,7 +77,7 @@ internal object ProfileNavigationModule {
                     // and media-grid cell (Media tab) taps skip PostDetail and
                     // open the MediaViewer carousel at the right start index.
                     onNavigateToMediaViewer = { uri, idx ->
-                        navState.add(MediaViewerRoute(postUri = uri, imageIndex = idx))
+                        appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = idx))
                     },
                 )
             }
