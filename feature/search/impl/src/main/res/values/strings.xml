@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Title rendered while the Search screen is just a scaffold (nubecita-vrba.1).
-         Replaced by the real input row + tab content in nubecita-vrba.5 onward. -->
-    <string name="search_screen_scaffold_title">Search</string>
-
     <!-- Placeholder text inside the search bar's OutlinedTextField. -->
     <string name="search_input_hint">Search Bluesky</string>
 

@@ -1,40 +1,71 @@
 package net.kikin.nubecita.feature.search.impl
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.collections.immutable.ImmutableList
+import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
+import net.kikin.nubecita.feature.search.impl.ui.SearchInputRow
 
 /**
- * Scaffold for the Search tab. Renders a centered title so QA can
- * visually confirm `:feature:search:impl` is wired into `MainShell` and
- * the `:app`-side placeholder has been removed.
- *
- * The full implementation (parent SearchViewModel + TextFieldState
- * input row + recent-search chips + Posts / People tabs) lands across
- * subsequent children of the Search epic
- * (nubecita-vrba.5 → nubecita-vrba.8). When that arrives, the body of
- * this composable is replaced wholesale.
+ * Stateful Search tab home. Hoists [SearchViewModel] and renders the input
+ * row + (optionally) the recent-search chip strip. The tab content
+ * (Posts / People) is added below this Column in nubecita-vrba.8; this
+ * commit ships only the input half.
  */
 @Composable
-internal fun SearchScreen(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = stringResource(R.string.search_screen_scaffold_title))
-    }
+internal fun SearchScreen(
+    modifier: Modifier = Modifier,
+    viewModel: SearchViewModel = hiltViewModel(),
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    SearchScreenContent(
+        textFieldState = viewModel.textFieldState,
+        isQueryBlank = state.isQueryBlank,
+        recentSearches = state.recentSearches,
+        onSubmit = { viewModel.handleEvent(SearchEvent.SubmitClicked) },
+        onChipTap = { viewModel.handleEvent(SearchEvent.RecentChipTapped(it)) },
+        onChipRemove = { viewModel.handleEvent(SearchEvent.RecentChipRemoved(it)) },
+        onClearAll = { viewModel.handleEvent(SearchEvent.ClearAllRecentsClicked) },
+        modifier = modifier,
+    )
 }
 
-@Preview(showBackground = true)
+/**
+ * Stateless screen body. Extracted so preview / screenshot-test
+ * composables can drive the layout without a Hilt-graph dependency on
+ * [SearchViewModel].
+ */
 @Composable
-private fun SearchScreenPreview() {
-    NubecitaTheme {
-        SearchScreen()
+internal fun SearchScreenContent(
+    textFieldState: TextFieldState,
+    isQueryBlank: Boolean,
+    recentSearches: ImmutableList<String>,
+    onSubmit: () -> Unit,
+    onChipTap: (String) -> Unit,
+    onChipRemove: (String) -> Unit,
+    onClearAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        SearchInputRow(
+            textFieldState = textFieldState,
+            isQueryBlank = isQueryBlank,
+            onSubmit = onSubmit,
+        )
+        if (recentSearches.isNotEmpty()) {
+            RecentSearchChipStrip(
+                items = recentSearches,
+                onChipTap = onChipTap,
+                onChipRemove = onChipRemove,
+                onClearAll = onClearAll,
+            )
+        }
+        // The TabRow + tab content (Posts / People) land in nubecita-vrba.8.
     }
 }
