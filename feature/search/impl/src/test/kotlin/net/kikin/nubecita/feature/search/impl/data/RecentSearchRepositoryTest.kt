@@ -58,6 +58,30 @@ internal class RecentSearchRepositoryTest {
 
             assertTrue(dao.snapshot().isEmpty())
         }
+
+    @Test
+    fun remove_delegates() =
+        runTest {
+            dao.seed(
+                RecentSearchEntity("kotlin", Instant.fromEpochMilliseconds(1_000)),
+                RecentSearchEntity("compose", Instant.fromEpochMilliseconds(2_000)),
+            )
+
+            repo.remove("kotlin")
+
+            assertEquals(listOf("compose"), dao.snapshot().map(RecentSearchEntity::query))
+        }
+
+    @Test
+    fun remove_blankIgnored() =
+        runTest {
+            dao.seed(RecentSearchEntity("kotlin", Instant.fromEpochMilliseconds(1_000)))
+
+            repo.remove("")
+            repo.remove("   ")
+
+            assertEquals(listOf("kotlin"), dao.snapshot().map(RecentSearchEntity::query))
+        }
 }
 
 private class FakeRecentSearchDao : RecentSearchDao {
@@ -93,5 +117,9 @@ private class FakeRecentSearchDao : RecentSearchDao {
 
     override suspend fun clearAll() {
         state.update { emptyList() }
+    }
+
+    override suspend fun delete(query: String) {
+        state.update { current -> current.filterNot { it.query == query } }
     }
 }

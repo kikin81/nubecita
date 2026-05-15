@@ -44,6 +44,12 @@ internal class RecentSearchRepository
             )
         }
 
+        suspend fun remove(query: String) {
+            val trimmed = query.trim()
+            if (trimmed.isEmpty()) return
+            dao.delete(trimmed)
+        }
+
         suspend fun clearAll() {
             dao.clearAll()
         }
