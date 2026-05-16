@@ -116,9 +116,9 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         // Per AT Protocol's Discoverable Client rule, the redirect-URI scheme is the FQDN
-        // of client_id reversed (kikin81.github.io → io.github.kikin81), NOT the app's
+        // of client_id reversed (nubecita.app → app.nubecita), NOT the app's
         // applicationId. Must match the redirect_uris in client-metadata.json verbatim.
-        const val OAUTH_REDIRECT_SCHEME = "io.github.kikin81"
+        const val OAUTH_REDIRECT_SCHEME = "app.nubecita"
         const val OAUTH_REDIRECT_PATH = "/oauth-redirect"
     }
 }

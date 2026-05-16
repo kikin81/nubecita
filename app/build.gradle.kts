@@ -130,7 +130,7 @@ android {
         buildConfigField(
             type = "String",
             name = "OAUTH_CLIENT_METADATA_URL",
-            value = "\"https://kikin81.github.io/nubecita/oauth/client-metadata.json\"",
+            value = "\"https://nubecita.app/oauth/client-metadata.json\"",
         )
         buildConfigField(
             type = "String",
