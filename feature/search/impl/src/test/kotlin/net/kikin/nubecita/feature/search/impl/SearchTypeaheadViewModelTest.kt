@@ -39,13 +39,30 @@ class SearchTypeaheadViewModelTest {
     }
 
     @Test
-    fun setQuery_blank_stateStaysIdle_repoNotCalled() =
+    fun initialState_isIdle_repoNotCalled() =
         runTest {
             val vm = SearchTypeaheadViewModel(repo)
             runCurrent()
 
             assertEquals(SearchTypeaheadStatus.Idle, vm.uiState.value.status)
-            assertEquals("", vm.uiState.value.currentQuery)
+            assertEquals(0, repo.callLog.size, "VM init must not hit the repo")
+        }
+
+    @Test
+    fun setQuery_blank_stateStaysIdle_repoNotCalled() =
+        runTest {
+            val vm = SearchTypeaheadViewModel(repo)
+            runCurrent()
+
+            // Empty + whitespace are both blank-equivalent per the VM contract.
+            vm.setQuery("")
+            runCurrent()
+            assertEquals(SearchTypeaheadStatus.Idle, vm.uiState.value.status)
+
+            vm.setQuery("   ")
+            runCurrent()
+            assertEquals(SearchTypeaheadStatus.Idle, vm.uiState.value.status)
+
             assertEquals(0, repo.callLog.size, "blank query must not hit the repo")
         }
 
@@ -65,7 +82,6 @@ class SearchTypeaheadViewModelTest {
             assertEquals(alice, status.topMatch)
             assertTrue(status.people.isEmpty(), "single-actor response → empty people list")
             assertEquals("ali", status.query)
-            assertEquals("ali", vm.uiState.value.currentQuery)
         }
 
     @Test

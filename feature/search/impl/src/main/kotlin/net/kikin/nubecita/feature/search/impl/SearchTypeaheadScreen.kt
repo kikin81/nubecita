@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -52,6 +53,11 @@ internal fun SearchTypeaheadScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val navState = LocalMainShellNavState.current
+    // Bound method reference is allocated fresh each call; without this
+    // remember, SearchTypeaheadContent sees a "new" onEvent every parent
+    // recomposition and can't skip. Mirrors the SearchScreen pattern at
+    // `SearchScreen.kt`: `val onEvent = remember(viewModel) { viewModel::handleEvent }`.
+    val onEvent = remember(viewModel) { viewModel::handleEvent }
 
     LaunchedEffect(currentQuery) {
         viewModel.setQuery(currentQuery)
@@ -70,7 +76,7 @@ internal fun SearchTypeaheadScreen(
         query = currentQuery,
         status = state.status,
         onCommitQuery = onCommitQuery,
-        onEvent = viewModel::handleEvent,
+        onEvent = onEvent,
         modifier = modifier,
     )
 }
@@ -133,7 +139,7 @@ internal fun SearchTypeaheadContent(
                             label = stringResource(R.string.search_typeahead_people_label),
                         )
                     }
-                    items(items = status.people, key = { "person-${it.did}" }) { actor ->
+                    items(items = status.people, key = { it.did }) { actor ->
                         ActorRow(
                             actor = actor,
                             query = status.query,
