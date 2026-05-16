@@ -397,4 +397,71 @@ class SearchActorsViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+    @Test
+    fun setQuery_becomesBlankAfterLoaded_resetsToIdle() =
+        runTest {
+            // Regression for Copilot finding on PR #199: the prior
+            // `.filter { isNotBlank() }` shape silently kept the stale
+            // Loaded state visible after the user cleared the field.
+            val vm = SearchActorsViewModel(repo)
+            repo.respond(
+                query = "alice",
+                cursor = null,
+                items = listOf(actorFixture(did = "did:plc:alice", handle = "alice.bsky.social")),
+                nextCursor = null,
+            )
+
+            vm.setQuery("alice")
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is SearchActorsLoadStatus.Loaded)
+
+            vm.setQuery("")
+            runCurrent()
+
+            assertEquals(SearchActorsLoadStatus.Idle, vm.uiState.value.loadStatus)
+            assertEquals("", vm.uiState.value.currentQuery)
+        }
+
+    @Test
+    fun setQuery_becomesBlankWhileFetchInFlight_cancelsAndResetsToIdle() =
+        runTest {
+            // Regression: with `.filter { isNotBlank() }` upstream of
+            // mapLatest, a blank emission would NOT cancel an in-flight
+            // runFirstPage — so the prior fetch could resolve late and
+            // overwrite the Idle reset with a stale Loaded.
+            val vm = SearchActorsViewModel(repo)
+            val aliceGate = repo.gate(query = "alice", cursor = null)
+
+            vm.setQuery("alice")
+            runCurrent()
+            assertEquals(SearchActorsLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
+
+            // User clears the field while the fetch is still in flight.
+            vm.setQuery("")
+            runCurrent()
+            assertEquals(SearchActorsLoadStatus.Idle, vm.uiState.value.loadStatus)
+
+            // The cancelled alice fetch completes late. mapLatest should
+            // have cancelled it before the onSuccess could fire; the
+            // setState below must NOT land.
+            aliceGate.complete(
+                Result.success(
+                    net.kikin.nubecita.feature.search.impl.data.SearchActorsPage(
+                        items =
+                            kotlinx.collections.immutable.persistentListOf(
+                                actorFixture(did = "did:plc:stale", handle = "stale.bsky.social"),
+                            ),
+                        nextCursor = null,
+                    ),
+                ),
+            )
+            runCurrent()
+
+            assertEquals(
+                SearchActorsLoadStatus.Idle,
+                vm.uiState.value.loadStatus,
+                "stale alice completion must not clobber Idle after the field was cleared",
+            )
+        }
 }
