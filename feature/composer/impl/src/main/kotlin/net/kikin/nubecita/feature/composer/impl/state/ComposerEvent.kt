@@ -1,8 +1,8 @@
 package net.kikin.nubecita.feature.composer.impl.state
 
 import net.kikin.nubecita.core.common.mvi.UiEvent
-import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerAttachment
+import net.kikin.nubecita.data.models.ActorUi
 
 /**
  * Inbound UI intents the composer screen dispatches into the VM.
@@ -64,7 +64,7 @@ sealed interface ComposerEvent : UiEvent {
      * against corrupting the text with a stale insertion.
      */
     data class TypeaheadResultClicked(
-        val actor: ActorTypeaheadUi,
+        val actor: ActorUi,
     ) : ComposerEvent
 
     /**

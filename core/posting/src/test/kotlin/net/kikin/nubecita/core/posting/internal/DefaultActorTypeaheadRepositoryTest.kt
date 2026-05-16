@@ -15,7 +15,7 @@ import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.XrpcClientProvider
-import net.kikin.nubecita.core.posting.ActorTypeaheadUi
+import net.kikin.nubecita.data.models.ActorUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -30,14 +30,14 @@ import java.io.IOException
  * `ActorService.searchActorsTypeahead(...)` codepath runs end-to-end
  * against deterministic responses. The test asserts on the recorded
  * HTTP request URL (`engine.requestHistory.single().url`) for wire-
- * format guarantees and on the parsed `Result<List<ActorTypeaheadUi>>`
+ * format guarantees and on the parsed `Result<List<ActorUi>>`
  * for mapping guarantees.
  *
  * Coverage:
- *  - Happy path: handle, displayName, avatar all present → ActorTypeaheadUi
+ *  - Happy path: handle, displayName, avatar all present → ActorUi
  *    carries through unchanged.
- *  - Blank displayName upstream → null in ActorTypeaheadUi.
- *  - Missing displayName / avatar → null in ActorTypeaheadUi.
+ *  - Blank displayName upstream → null in ActorUi.
+ *  - Missing displayName / avatar → null in ActorUi.
  *  - Empty actor list → Result.success(emptyList()) (NOT failure — the
  *    "no matches" outcome is distinct from the network-failure outcome
  *    per the repository's contract).
@@ -75,7 +75,7 @@ class DefaultActorTypeaheadRepositoryTest {
             assertTrue(result.isSuccess)
             assertEquals(
                 listOf(
-                    ActorTypeaheadUi(
+                    ActorUi(
                         did = "did:plc:abc123",
                         handle = "alice.bsky.social",
                         displayName = "Alice",
@@ -167,7 +167,7 @@ class DefaultActorTypeaheadRepositoryTest {
             val result = repo.searchTypeahead("zzznomatch")
 
             assertTrue(result.isSuccess)
-            assertEquals(emptyList<ActorTypeaheadUi>(), result.getOrNull())
+            assertEquals(emptyList<ActorUi>(), result.getOrNull())
         }
 
     @Test

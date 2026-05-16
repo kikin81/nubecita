@@ -12,8 +12,8 @@ import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerAttachment
+import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
@@ -153,19 +153,19 @@ private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
                             query = "al",
                             results =
                                 persistentListOf(
-                                    ActorTypeaheadUi(
+                                    ActorUi(
                                         did = "did:plc:alice",
                                         handle = "alice.bsky.social",
                                         displayName = "Alice",
                                         avatarUrl = null,
                                     ),
-                                    ActorTypeaheadUi(
+                                    ActorUi(
                                         did = "did:plc:alex",
                                         handle = "alex.bsky.social",
                                         displayName = "Alex",
                                         avatarUrl = null,
                                     ),
-                                    ActorTypeaheadUi(
+                                    ActorUi(
                                         did = "did:plc:alvin",
                                         handle = "alvin.bsky.social",
                                         displayName = "Alvin",

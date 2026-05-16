@@ -6,7 +6,7 @@ import io.github.kikin81.atproto.app.bsky.actor.SearchActorsTypeaheadRequest
 import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
-import net.kikin.nubecita.core.posting.ActorTypeaheadUi
+import net.kikin.nubecita.data.models.ActorUi
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,7 +39,7 @@ internal class DefaultActorTypeaheadRepository
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
     ) : ActorTypeaheadRepository {
-        override suspend fun searchTypeahead(query: String): Result<List<ActorTypeaheadUi>> =
+        override suspend fun searchTypeahead(query: String): Result<List<ActorUi>> =
             try {
                 val client = xrpcClientProvider.authenticated()
                 val service = ActorService(client)
@@ -47,7 +47,7 @@ internal class DefaultActorTypeaheadRepository
                     service.searchActorsTypeahead(
                         SearchActorsTypeaheadRequest(q = query, limit = TYPEAHEAD_LIMIT),
                     )
-                Result.success(response.actors.map { it.toActorTypeaheadUi() })
+                Result.success(response.actors.map { it.toActorUi() })
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (t: Throwable) {
@@ -61,8 +61,8 @@ internal class DefaultActorTypeaheadRepository
                 Result.failure(t)
             }
 
-        private fun ProfileViewBasic.toActorTypeaheadUi(): ActorTypeaheadUi =
-            ActorTypeaheadUi(
+        private fun ProfileViewBasic.toActorUi(): ActorUi =
+            ActorUi(
                 did = did.raw,
                 handle = handle.raw,
                 // Normalize blank → null. The boundary type's contract
