@@ -87,9 +87,10 @@ internal fun SearchScreen(
  *    mid-query grouped suggestions surface with a "Search for {q}"
  *    CTA at the top.
  *  - [SearchPhase.Results]: [SecondaryTabRow] + [HorizontalPager]
- *    hosting [SearchPostsScreen] (page 0) and [SearchActorsScreen]
- *    (page 1). `beyondViewportPageCount = 1` keeps both per-tab VMs
- *    alive across tab switches so results are preserved.
+ *    hosting [SearchPostsScreen] (page 0), [SearchActorsScreen]
+ *    (page 1), and [SearchFeedsScreen] (page 2).
+ *    `beyondViewportPageCount = 1` keeps adjacent per-tab VMs alive
+ *    across tab switches so results are preserved.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -111,7 +112,7 @@ internal fun SearchScreenContent(
     val snackbarHostState = remember { SnackbarHostState() }
     val snackScope = rememberCoroutineScope()
 
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
     val tabScope = rememberCoroutineScope()
 
     // Pre-resolve all six append-error strings via stringResource() so
@@ -126,6 +127,9 @@ internal fun SearchScreenContent(
     val peopleNetworkMsg = stringResource(R.string.search_people_append_error_network)
     val peopleRateLimitedMsg = stringResource(R.string.search_people_append_error_rate_limited)
     val peopleUnknownMsg = stringResource(R.string.search_people_append_error_unknown)
+    val feedsNetworkMsg = stringResource(R.string.search_feeds_append_error_network)
+    val feedsRateLimitedMsg = stringResource(R.string.search_feeds_append_error_rate_limited)
+    val feedsUnknownMsg = stringResource(R.string.search_feeds_append_error_unknown)
 
     val onPostsAppendError =
         remember(snackScope, snackbarHostState, postsNetworkMsg, postsRateLimitedMsg, postsUnknownMsg) {
@@ -148,6 +152,19 @@ internal fun SearchScreenContent(
                         SearchActorsError.Network -> peopleNetworkMsg
                         SearchActorsError.RateLimited -> peopleRateLimitedMsg
                         is SearchActorsError.Unknown -> peopleUnknownMsg
+                    }
+                snackScope.launch { snackbarHostState.showSnackbar(message) }
+                Unit
+            }
+        }
+    val onFeedsAppendError =
+        remember(snackScope, snackbarHostState, feedsNetworkMsg, feedsRateLimitedMsg, feedsUnknownMsg) {
+            { error: SearchFeedsError ->
+                val message =
+                    when (error) {
+                        SearchFeedsError.Network -> feedsNetworkMsg
+                        SearchFeedsError.RateLimited -> feedsRateLimitedMsg
+                        is SearchFeedsError.Unknown -> feedsUnknownMsg
                     }
                 snackScope.launch { snackbarHostState.showSnackbar(message) }
                 Unit
@@ -214,6 +231,12 @@ internal fun SearchScreenContent(
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onActorsAppendError,
                                 )
+                            2 ->
+                                SearchFeedsScreen(
+                                    currentQuery = currentQuery,
+                                    onClearQuery = onClearQueryRequest,
+                                    onShowAppendError = onFeedsAppendError,
+                                )
                         }
                     }
                 }
@@ -227,9 +250,7 @@ internal fun SearchScreenContent(
  * independently screenshot-testable without standing up the Hilt graph
  * required by the per-tab Screens. Visibility is `internal` (rather
  * than `private`) so the screenshotTest source set can render it
- * directly with stub callbacks. When `nubecita-vrba.11` adds the Feeds
- * tab, append a third `Tab(...)` here and bump the pager's
- * `pageCount` at the call site.
+ * directly with stub callbacks.
  */
 @Composable
 internal fun SearchResultsTabBar(
@@ -247,6 +268,11 @@ internal fun SearchResultsTabBar(
             selected = selectedTabIndex == 1,
             onClick = { onSelectTab(1) },
             text = { Text(stringResource(R.string.search_tab_people)) },
+        )
+        Tab(
+            selected = selectedTabIndex == 2,
+            onClick = { onSelectTab(2) },
+            text = { Text(stringResource(R.string.search_tab_feeds)) },
         )
     }
 }

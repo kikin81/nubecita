@@ -1,5 +1,11 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
+    // vrba.11: hand-written @Serializable request/response types in the
+    // Feeds-tab data layer call XrpcClient.query() directly because the
+    // upstream RPC (app.bsky.unspecced.getPopularFeedGenerators) isn't
+    // covered by the lex-install pipeline. See
+    // github.com/kikin81/atproto-kotlin/issues/108.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
