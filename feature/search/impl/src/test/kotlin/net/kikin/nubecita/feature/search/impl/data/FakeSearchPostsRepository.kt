@@ -13,20 +13,31 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Instant
 
 /**
- * Hand-written fake for [SearchPostsRepository]. Two configuration
- * paths:
+ * Hand-written fake for [SearchPostsRepository].
  *
  *  - [respond] / [fail] register a result for a `(query, cursor, sort)`
- *    triple that the VM will hit. The result is completed via the gate
- *    deferred so a follow-up call to [gate] for the same triple returns
- *    a still-pending deferred (used by single-flight + mapLatest tests).
- *  - [gate] returns a [CompletableDeferred] for the triple, suspending
- *    the call until the test completes it. Used by single-flight +
- *    mapLatest-cancellation tests.
+ *    triple by completing a [CompletableDeferred] keyed on that triple.
+ *    The first registration wins: a second `respond` / `fail` for the
+ *    same key calls `complete(...)` on an already-completed deferred,
+ *    which the coroutines API silently no-ops. Use [clearGate] first if
+ *    you need to swap the response for the same key in a single test.
+ *  - [gate] returns the [CompletableDeferred] for the triple (creating
+ *    it on first call); subsequent calls return the same instance.
+ *    `searchPosts(...)` for that key suspends on `await()` until the
+ *    deferred is completed. Used by single-flight + mapLatest-cancellation
+ *    tests.
+ *  - [clearGate] removes a registered gate so the next `respond` / `fail`
+ *    for the same key creates a fresh deferred. Used by the Retry test
+ *    path where the same `(query, cursor, sort)` is hit twice with
+ *    different responses.
+ *  - [setFallback] swaps the result returned when `searchPosts` is
+ *    called with a key that has no registered gate. Defaults to an
+ *    empty page.
  *
- * [callLog] is the chronological list of every `(query, cursor, sort)`
- * the VM passed; tests use it to assert that `mapLatest` cancelled
- * stale calls and that pagination passes through the right cursor.
+ * [callLog] is the chronological list of every `(query, cursor, sort,
+ * limit)` the VM passed; tests use it to assert that `mapLatest`
+ * cancelled stale calls and that pagination passes through the right
+ * cursor.
  */
 internal class FakeSearchPostsRepository : SearchPostsRepository {
     private data class Key(
