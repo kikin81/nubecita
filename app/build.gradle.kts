@@ -199,6 +199,7 @@ dependencies {
     implementation(project(":feature:profile:api"))
     implementation(project(":feature:profile:impl"))
     implementation(project(":feature:search:api"))
+    implementation(project(":feature:search:impl"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
