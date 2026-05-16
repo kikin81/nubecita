@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.search.impl
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -106,26 +104,46 @@ internal fun SearchScreenContent(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val snackScope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val tabScope = rememberCoroutineScope()
 
+    // Pre-resolve all six append-error strings via stringResource() so
+    // the snackbar lambdas can pick by variant without calling
+    // Context.getString() at fire time. The Compose lint rule
+    // `LocalContextGetResourceValueCall` flags any in-Composable
+    // Context.getString call (even when captured in a deferred
+    // lambda — the static analyzer doesn't track invocation timing).
+    val postsNetworkMsg = stringResource(R.string.search_posts_append_error_network)
+    val postsRateLimitedMsg = stringResource(R.string.search_posts_append_error_rate_limited)
+    val postsUnknownMsg = stringResource(R.string.search_posts_append_error_unknown)
+    val peopleNetworkMsg = stringResource(R.string.search_people_append_error_network)
+    val peopleRateLimitedMsg = stringResource(R.string.search_people_append_error_rate_limited)
+    val peopleUnknownMsg = stringResource(R.string.search_people_append_error_unknown)
+
     val onPostsAppendError =
-        remember(snackScope, snackbarHostState, context) {
+        remember(snackScope, snackbarHostState, postsNetworkMsg, postsRateLimitedMsg, postsUnknownMsg) {
             { error: SearchPostsError ->
-                snackScope.launch {
-                    snackbarHostState.showSnackbar(context.getString(error.appendErrorStringRes()))
-                }
+                val message =
+                    when (error) {
+                        SearchPostsError.Network -> postsNetworkMsg
+                        SearchPostsError.RateLimited -> postsRateLimitedMsg
+                        is SearchPostsError.Unknown -> postsUnknownMsg
+                    }
+                snackScope.launch { snackbarHostState.showSnackbar(message) }
                 Unit
             }
         }
     val onActorsAppendError =
-        remember(snackScope, snackbarHostState, context) {
+        remember(snackScope, snackbarHostState, peopleNetworkMsg, peopleRateLimitedMsg, peopleUnknownMsg) {
             { error: SearchActorsError ->
-                snackScope.launch {
-                    snackbarHostState.showSnackbar(context.getString(error.appendErrorStringRes()))
-                }
+                val message =
+                    when (error) {
+                        SearchActorsError.Network -> peopleNetworkMsg
+                        SearchActorsError.RateLimited -> peopleRateLimitedMsg
+                        is SearchActorsError.Unknown -> peopleUnknownMsg
+                    }
+                snackScope.launch { snackbarHostState.showSnackbar(message) }
                 Unit
             }
         }
@@ -215,19 +233,3 @@ internal fun SearchResultsTabBar(
         )
     }
 }
-
-@StringRes
-private fun SearchPostsError.appendErrorStringRes(): Int =
-    when (this) {
-        SearchPostsError.Network -> R.string.search_posts_append_error_network
-        SearchPostsError.RateLimited -> R.string.search_posts_append_error_rate_limited
-        is SearchPostsError.Unknown -> R.string.search_posts_append_error_unknown
-    }
-
-@StringRes
-private fun SearchActorsError.appendErrorStringRes(): Int =
-    when (this) {
-        SearchActorsError.Network -> R.string.search_people_append_error_network
-        SearchActorsError.RateLimited -> R.string.search_people_append_error_rate_limited
-        is SearchActorsError.Unknown -> R.string.search_people_append_error_unknown
-    }
