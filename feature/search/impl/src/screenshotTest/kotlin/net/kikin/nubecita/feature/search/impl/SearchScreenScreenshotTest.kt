@@ -20,10 +20,7 @@ private fun SearchScreenEmptyScreenshot() {
                 textFieldState = TextFieldState(),
                 isQueryBlank = true,
                 recentSearches = persistentListOf(),
-                onSubmit = {},
-                onChipTap = {},
-                onChipRemove = {},
-                onClearAll = {},
+                onEvent = {},
             )
         }
     }
@@ -40,10 +37,7 @@ private fun SearchScreenWithChipsScreenshot() {
                 textFieldState = TextFieldState(),
                 isQueryBlank = true,
                 recentSearches = persistentListOf("kotlin", "compose", "room"),
-                onSubmit = {},
-                onChipTap = {},
-                onChipRemove = {},
-                onClearAll = {},
+                onEvent = {},
             )
         }
     }
