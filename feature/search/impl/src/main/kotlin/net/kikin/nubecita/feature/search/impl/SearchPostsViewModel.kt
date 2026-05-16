@@ -153,8 +153,4 @@ internal class SearchPostsViewModel
                     }
             }
         }
-
-        private companion object {
-            const val TAG = "SearchPostsVM"
-        }
     }
