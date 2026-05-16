@@ -134,6 +134,11 @@ android {
         )
         buildConfigField(
             type = "String",
+            name = "OAUTH_REDIRECT_URI",
+            value = "\"app.nubecita:/oauth-redirect\"",
+        )
+        buildConfigField(
+            type = "String",
             name = "OAUTH_SCOPE",
             value = "\"atproto transition:generic transition:chat.bsky\"",
         )
