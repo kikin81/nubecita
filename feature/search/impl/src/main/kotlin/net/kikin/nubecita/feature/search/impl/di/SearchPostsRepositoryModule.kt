@@ -12,10 +12,15 @@ import net.kikin.nubecita.feature.search.impl.data.SearchPostsRepository
  * `@InstallIn(SingletonComponent::class)` so the singleton repo is
  * available to any `@HiltViewModel` that eventually injects it
  * (nubecita-vrba.6's `SearchPostsViewModel`).
+ *
+ * Form mirrors `:feature:feed:impl/di/FeedRepositoryModule` — `internal
+ * interface` + `@Binds fun`, not the `internal abstract class` form.
+ * Both are sanctioned Hilt @Binds shapes; we pick the interface form
+ * to keep every feature-internal repository binding in lockstep.
  */
 @Module
 @InstallIn(SingletonComponent::class)
-internal abstract class SearchPostsRepositoryModule {
+internal interface SearchPostsRepositoryModule {
     @Binds
-    internal abstract fun bindsSearchPostsRepository(impl: DefaultSearchPostsRepository): SearchPostsRepository
+    fun bindSearchPostsRepository(impl: DefaultSearchPostsRepository): SearchPostsRepository
 }
