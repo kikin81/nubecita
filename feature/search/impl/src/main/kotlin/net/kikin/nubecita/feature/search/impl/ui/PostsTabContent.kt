@@ -70,20 +70,24 @@ internal fun PostsTabContent(
                 modifier = modifier,
             )
             // Pagination trigger — exactly once per threshold crossing.
-            val currentItems by rememberUpdatedState(status.items)
-            val endReached = status.endReached
-            val isAppending = status.isAppending
-            LaunchedEffect(listState, endReached, isAppending) {
-                if (endReached || isAppending) return@LaunchedEffect
+            // Drop `isAppending` from the LaunchedEffect key: the inner guard
+            // already enforces single-flight, and re-keying every time the
+            // flag flips tears down + restarts the snapshotFlow needlessly.
+            // `currentStatus` is the latest Loaded value at collect time so
+            // the inner read of endReached / isAppending stays fresh.
+            val currentStatus by rememberUpdatedState(status)
+            LaunchedEffect(listState) {
                 snapshotFlow {
                     val lastVisible =
                         listState.layoutInfo.visibleItemsInfo
                             .lastOrNull()
                             ?.index ?: 0
-                    lastVisible > currentItems.size - PAGINATION_PREFETCH_DISTANCE
+                    lastVisible > currentStatus.items.size - PAGINATION_PREFETCH_DISTANCE
                 }.distinctUntilChanged()
                     .collect { pastThreshold ->
-                        if (pastThreshold) currentOnEvent(SearchPostsEvent.LoadMore)
+                        if (!pastThreshold) return@collect
+                        if (currentStatus.endReached || currentStatus.isAppending) return@collect
+                        currentOnEvent(SearchPostsEvent.LoadMore)
                     }
             }
         }
