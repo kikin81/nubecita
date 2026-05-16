@@ -164,6 +164,48 @@ class DefaultSearchPostsRepositoryTest {
             assertTrue(url.contains("limit=13"))
         }
 
+    @Test
+    fun searchPosts_passesSortThrough_whenLatest() =
+        runTest {
+            val (engine, repo) =
+                newRepo { _ -> okJson("""{"posts": []}""") }
+
+            repo.searchPosts(
+                query = "kotlin",
+                cursor = null,
+                limit = 25,
+                sort = SearchPostsSort.LATEST,
+            )
+
+            val url =
+                engine.requestHistory
+                    .single()
+                    .url
+                    .toString()
+            assertTrue(url.contains("sort=latest"))
+        }
+
+    @Test
+    fun searchPosts_passesSortThrough_whenTop() =
+        runTest {
+            val (engine, repo) =
+                newRepo { _ -> okJson("""{"posts": []}""") }
+
+            repo.searchPosts(
+                query = "kotlin",
+                cursor = null,
+                limit = 25,
+                sort = SearchPostsSort.TOP,
+            )
+
+            val url =
+                engine.requestHistory
+                    .single()
+                    .url
+                    .toString()
+            assertTrue(url.contains("sort=top"))
+        }
+
     // --- helpers ---
 
     private fun newRepo(
