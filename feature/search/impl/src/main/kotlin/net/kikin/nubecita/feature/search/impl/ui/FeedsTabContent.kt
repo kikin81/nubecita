@@ -97,10 +97,7 @@ private fun LoadedBody(
 ) {
     LazyColumn(modifier = modifier.fillMaxSize(), state = listState) {
         items(items = items, key = { it.uri }) { feed ->
-            FeedRow(
-                feed = feed,
-                onClick = { onEvent(SearchFeedsEvent.FeedTapped(feed.uri)) },
-            )
+            FeedRow(feed = feed)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         if (isAppending) {

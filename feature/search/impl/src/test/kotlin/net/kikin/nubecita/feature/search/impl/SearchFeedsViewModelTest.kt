@@ -149,6 +149,144 @@ class SearchFeedsViewModelTest {
         }
 
     @Test
+    fun loadMore_alreadyAppending_isNoOp_singleFlight() =
+        runTest {
+            val vm = SearchFeedsViewModel(repo)
+            repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = "c2")
+            // Gate the second-page fetch so isAppending stays true.
+            repo.gate(query = "x", cursor = "c2")
+
+            vm.setQuery("x")
+            runCurrent()
+
+            vm.handleEvent(SearchFeedsEvent.LoadMore)
+            runCurrent()
+            val callsAfterFirstLoadMore = repo.callLog.size
+            val statusMid = vm.uiState.value.loadStatus
+            assertTrue(statusMid is SearchFeedsLoadStatus.Loaded)
+            assertEquals(true, (statusMid as SearchFeedsLoadStatus.Loaded).isAppending)
+
+            vm.handleEvent(SearchFeedsEvent.LoadMore)
+            runCurrent()
+            assertEquals(
+                callsAfterFirstLoadMore,
+                repo.callLog.size,
+                "concurrent LoadMore must not double-fire the repo",
+            )
+        }
+
+    @Test
+    fun setQuery_rapidChange_cancelsPrior_viaMapLatest() =
+        runTest {
+            val vm = SearchFeedsViewModel(repo)
+            val staleGate = repo.gate(query = "ar", cursor = null)
+            repo.respond(
+                query = "art",
+                cursor = null,
+                items = listOf(feedFixture(uri = "at://did:plc:art/app.bsky.feed.generator/art")),
+                nextCursor = null,
+            )
+
+            vm.setQuery("ar")
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is SearchFeedsLoadStatus.InitialLoading)
+
+            vm.setQuery("art")
+            runCurrent()
+
+            staleGate.complete(
+                Result.success(
+                    net.kikin.nubecita.feature.search.impl.data.SearchFeedsPage(
+                        items =
+                            kotlinx.collections.immutable.persistentListOf(
+                                feedFixture(uri = "at://did:plc:stale/app.bsky.feed.generator/stale"),
+                            ),
+                        nextCursor = null,
+                    ),
+                ),
+            )
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is SearchFeedsLoadStatus.Loaded, "expected Loaded for art, was $status")
+            assertEquals(
+                "at://did:plc:art/app.bsky.feed.generator/art",
+                (status as SearchFeedsLoadStatus.Loaded).items.single().uri,
+                "stale 'ar' completion must not clobber 'art' results",
+            )
+        }
+
+    @Test
+    fun loadMore_inFlight_whenQueryChanges_doesNotClobberNewQueryItems() =
+        runTest {
+            // Regression test for the stale-completion guard. Mirrors the
+            // analogous People VM test inherited from vrba.6's review.
+            val vm = SearchFeedsViewModel(repo)
+            // Page 1 "art": one item + nextCursor=c2 so loadMore is valid.
+            repo.respond(
+                query = "art",
+                cursor = null,
+                items = listOf(feedFixture(uri = "at://did:plc:art/app.bsky.feed.generator/art")),
+                nextCursor = "c2",
+            )
+            // Page 1 "books": end-of-results.
+            repo.respond(
+                query = "books",
+                cursor = null,
+                items = listOf(feedFixture(uri = "at://did:plc:books/app.bsky.feed.generator/books")),
+                nextCursor = null,
+            )
+            // Gate the page-2-art fetch so we control completion timing.
+            val pageTwoArtGate = repo.gate(query = "art", cursor = "c2")
+
+            vm.setQuery("art")
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is SearchFeedsLoadStatus.Loaded)
+
+            vm.handleEvent(SearchFeedsEvent.LoadMore)
+            runCurrent()
+            assertTrue(
+                (vm.uiState.value.loadStatus as SearchFeedsLoadStatus.Loaded).isAppending,
+                "page-2-art fetch should be in flight",
+            )
+
+            // User types past the boundary. mapLatest fires runFirstPage(books).
+            vm.setQuery("books")
+            runCurrent()
+            val afterTyping = vm.uiState.value.loadStatus
+            assertTrue(afterTyping is SearchFeedsLoadStatus.Loaded)
+            assertEquals(
+                "at://did:plc:books/app.bsky.feed.generator/books",
+                (afterTyping as SearchFeedsLoadStatus.Loaded).items.single().uri,
+                "books results should have landed",
+            )
+
+            // Stale page-2-art completion arrives AFTER the query change.
+            pageTwoArtGate.complete(
+                Result.success(
+                    net.kikin.nubecita.feature.search.impl.data.SearchFeedsPage(
+                        items =
+                            kotlinx.collections.immutable.persistentListOf(
+                                feedFixture(uri = "at://did:plc:stale-art/app.bsky.feed.generator/stale"),
+                            ),
+                        nextCursor = "c3",
+                    ),
+                ),
+            )
+            runCurrent()
+
+            val finalStatus = vm.uiState.value.loadStatus
+            assertTrue(finalStatus is SearchFeedsLoadStatus.Loaded)
+            finalStatus as SearchFeedsLoadStatus.Loaded
+            assertEquals(
+                listOf("at://did:plc:books/app.bsky.feed.generator/books"),
+                finalStatus.items.map { it.uri },
+                "stale art-page-2 items must not appear on the books list",
+            )
+            assertEquals(null, finalStatus.nextCursor, "cursor must remain books' null cursor")
+        }
+
+    @Test
     fun loadMore_failure_emitsShowAppendError_keepsExistingItems() =
         runTest {
             val vm = SearchFeedsViewModel(repo)
@@ -201,22 +339,6 @@ class SearchFeedsViewModelTest {
                 runCurrent()
 
                 assertEquals(SearchFeedsEffect.NavigateToClearQuery, awaitItem())
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun feedTapped_isNoOp_emitsNoEffect() =
-        runTest {
-            // V1: no feed-detail feature exists, so FeedTapped is a no-op
-            // in the VM. When :feature:feeddetail:api lands, replace this
-            // assertion with a NavigateToFeed effect expectation.
-            val vm = SearchFeedsViewModel(repo)
-            vm.effects.test {
-                vm.handleEvent(SearchFeedsEvent.FeedTapped(uri = "at://did:plc:f/app.bsky.feed.generator/x"))
-                runCurrent()
-
-                expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
         }

@@ -115,7 +115,7 @@ internal fun SearchScreenContent(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
     val tabScope = rememberCoroutineScope()
 
-    // Pre-resolve all six append-error strings via stringResource() so
+    // Pre-resolve all nine append-error strings via stringResource() so
     // the snackbar lambdas can pick by variant without calling
     // Context.getString() at fire time. The Compose lint rule
     // `LocalContextGetResourceValueCall` flags any in-Composable
@@ -131,6 +131,12 @@ internal fun SearchScreenContent(
     val feedsRateLimitedMsg = stringResource(R.string.search_feeds_append_error_rate_limited)
     val feedsUnknownMsg = stringResource(R.string.search_feeds_append_error_unknown)
 
+    // Dismiss-then-show on each snackbar emission rather than queueing,
+    // matching the convention established in :feature:feed:impl/FeedScreen
+    // and :feature:postdetail:impl/PostDetailScreen. Repeated transient
+    // failures on a flapping connection (`onPagerSwipe` typically fires
+    // bursts) shouldn't pile up an unread queue — the latest error is the
+    // most useful one to surface.
     val onPostsAppendError =
         remember(snackScope, snackbarHostState, postsNetworkMsg, postsRateLimitedMsg, postsUnknownMsg) {
             { error: SearchPostsError ->
@@ -140,7 +146,10 @@ internal fun SearchScreenContent(
                         SearchPostsError.RateLimited -> postsRateLimitedMsg
                         is SearchPostsError.Unknown -> postsUnknownMsg
                     }
-                snackScope.launch { snackbarHostState.showSnackbar(message) }
+                snackScope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message)
+                }
                 Unit
             }
         }
@@ -153,7 +162,10 @@ internal fun SearchScreenContent(
                         SearchActorsError.RateLimited -> peopleRateLimitedMsg
                         is SearchActorsError.Unknown -> peopleUnknownMsg
                     }
-                snackScope.launch { snackbarHostState.showSnackbar(message) }
+                snackScope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message)
+                }
                 Unit
             }
         }
@@ -166,7 +178,10 @@ internal fun SearchScreenContent(
                         SearchFeedsError.RateLimited -> feedsRateLimitedMsg
                         is SearchFeedsError.Unknown -> feedsUnknownMsg
                     }
-                snackScope.launch { snackbarHostState.showSnackbar(message) }
+                snackScope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message)
+                }
                 Unit
             }
         }

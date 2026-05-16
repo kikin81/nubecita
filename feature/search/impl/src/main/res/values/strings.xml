@@ -109,6 +109,14 @@
         <item quantity="other">%1$d likes</item>
     </plurals>
 
+    <!-- Byline on a FeedRow when the creator has a display name. %1$s is the
+         creator's display name, %2$s is their handle. -->
+    <string name="search_feeds_row_byline_with_display_name">by %1$s (@%2$s)</string>
+
+    <!-- Byline on a FeedRow when the creator has no display name. %1$s is the
+         creator's handle. -->
+    <string name="search_feeds_row_byline_handle_only">by @%1$s</string>
+
     <!-- vrba.10: Search typeahead screen -->
 
     <!-- Primary CTA at the top of the typeahead screen. %1$s is the current query. -->
