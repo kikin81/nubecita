@@ -9,7 +9,7 @@ import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
-// vrba.8 note: the integrated "non-blank query" variant (TabRow +
+// vrba.8 note: the integrated [SearchPhase.Results] variant (TabRow +
 // HorizontalPager mounting SearchPostsScreen / SearchActorsScreen) is
 // deliberately NOT screenshot-tested here. Both per-tab Screens hoist
 // `hiltViewModel<>()` which cannot resolve under the layoutlib-based
@@ -17,6 +17,12 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 // bodies is provided by the per-component baselines in
 // `ui/PostsTabContentScreenshotTest` + `ui/PeopleTabContentScreenshotTest`.
 // On-device verification covers the integrated swipe + tab-state path.
+//
+// vrba.10 note: the integrated [SearchPhase.Typeahead] variant
+// ([SearchTypeaheadScreen]) also hoists `hiltViewModel<>()`, so its
+// stateless body [SearchTypeaheadContent] is screenshot-tested
+// directly in `ui/SearchTypeaheadContentScreenshotTest`. The
+// SearchScreen variants here cover Discover only.
 
 @PreviewTest
 @Preview(name = "search-screen-empty-light", showBackground = true, heightDp = 600)
@@ -29,6 +35,7 @@ private fun SearchScreenEmptyScreenshot() {
                 textFieldState = TextFieldState(),
                 isQueryBlank = true,
                 currentQuery = "",
+                phase = SearchPhase.Discover,
                 recentSearches = persistentListOf(),
                 onEvent = {},
                 onClearQueryRequest = {},
@@ -48,6 +55,7 @@ private fun SearchScreenWithChipsScreenshot() {
                 textFieldState = TextFieldState(),
                 isQueryBlank = true,
                 currentQuery = "",
+                phase = SearchPhase.Discover,
                 recentSearches = persistentListOf("kotlin", "compose", "room"),
                 onEvent = {},
                 onClearQueryRequest = {},

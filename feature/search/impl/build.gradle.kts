@@ -13,6 +13,11 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:database"))
     implementation(project(":core:feed-mapping"))
+    // vrba.10: the typeahead VM reuses ActorTypeaheadRepository (the composer's
+    // searchActorsTypeahead reader). Promoting the repo to :core:posting's
+    // public API was already done for the composer; the search typeahead is
+    // the second consumer, not a copy.
+    implementation(project(":core:posting"))
     // Tap-to-open the post hit pushes a PostDetailRoute onto the MainShell
     // back stack. The api module ships just the NavKey — :feature:search:impl
     // never depends on :impl, matching the Chats / Feed / Profile pattern.

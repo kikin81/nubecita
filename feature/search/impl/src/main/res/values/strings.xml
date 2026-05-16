@@ -81,4 +81,15 @@
     <!-- vrba.8: SearchScreen tab labels -->
     <string name="search_tab_posts">Posts</string>
     <string name="search_tab_people">People</string>
+
+    <!-- vrba.10: Search typeahead screen -->
+
+    <!-- Primary CTA at the top of the typeahead screen. %1$s is the current query. -->
+    <string name="search_typeahead_search_for_cta">Search for \"%1$s\"</string>
+
+    <!-- Section heading above the first (most-relevant) actor suggestion. -->
+    <string name="search_typeahead_top_match_label">Top match</string>
+
+    <!-- Section heading above the remaining actor suggestions. -->
+    <string name="search_typeahead_people_label">People</string>
 </resources>

@@ -82,11 +82,89 @@ class SearchViewModelTest {
             // Before debounce: currentQuery still empty.
             assertEquals("", vm.uiState.value.currentQuery)
             assertTrue(vm.uiState.value.isQueryBlank)
+            assertEquals(SearchPhase.Discover, vm.uiState.value.phase)
 
             advanceTimeBy(DEBOUNCE_MS + 1)
 
             assertEquals("kotlin", vm.uiState.value.currentQuery)
             assertEquals(false, vm.uiState.value.isQueryBlank)
+            assertEquals(SearchPhase.Typeahead("kotlin"), vm.uiState.value.phase)
+        }
+
+    @Test
+    fun submit_atomicallyFlipsPhaseToResults_beforeDebounceFires() =
+        runTest {
+            val vm = SearchViewModel(repo)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            runCurrent()
+
+            // Submit BEFORE the 250ms debounce window has elapsed — the
+            // canonical path for "user types, taps Search-for CTA fast".
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+
+            assertEquals(SearchPhase.Results("kotlin"), vm.uiState.value.phase)
+            assertEquals("kotlin", vm.uiState.value.currentQuery)
+        }
+
+    @Test
+    fun typing_afterSubmit_returnsPhaseToTypeahead() =
+        runTest {
+            val vm = SearchViewModel(repo)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+            assertEquals(SearchPhase.Results("kotlin"), vm.uiState.value.phase)
+
+            // User edits the field after submitting — phase should swap
+            // back to Typeahead until the next submission.
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotli")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+
+            assertEquals(SearchPhase.Typeahead("kotli"), vm.uiState.value.phase)
+        }
+
+    @Test
+    fun clearingField_returnsPhaseToDiscover_andResetsSubmittedQuery() =
+        runTest {
+            val vm = SearchViewModel(repo)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            assertEquals(SearchPhase.Discover, vm.uiState.value.phase)
+
+            // Re-typing the same string after a clear must land in
+            // Typeahead, NOT jump straight to Results.
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+
+            assertEquals(SearchPhase.Typeahead("kotlin"), vm.uiState.value.phase)
+        }
+
+    @Test
+    fun recentChipTapped_flipsPhaseToResults() =
+        runTest {
+            val vm = SearchViewModel(repo)
+            runCurrent()
+
+            vm.handleEvent(SearchEvent.RecentChipTapped("compose"))
+            runCurrent()
+
+            assertEquals(SearchPhase.Results("compose"), vm.uiState.value.phase)
         }
 
     @Test
