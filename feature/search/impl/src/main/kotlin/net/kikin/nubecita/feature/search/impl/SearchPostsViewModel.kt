@@ -119,12 +119,16 @@ internal class SearchPostsViewModel
 
             setState { copy(loadStatus = status.copy(isAppending = true)) }
             val cursor = status.nextCursor
-            val sort = uiState.value.sort
-            val query = uiState.value.currentQuery
+            val capturedKey = fetchKey.value
             viewModelScope.launch {
                 repository
-                    .searchPosts(query = query, cursor = cursor, sort = sort)
+                    .searchPosts(query = capturedKey.query, cursor = cursor, sort = capturedKey.sort)
                     .onSuccess { page ->
+                        // Stale-completion guard: if the user changed sort or query
+                        // (or hit Retry) while this append was in flight, the
+                        // mapLatest pipeline has already moved the state on. Don't
+                        // splice old-sort results onto a new-sort list.
+                        if (fetchKey.value != capturedKey) return@onSuccess
                         val current = uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded ?: return@onSuccess
                         val appended = (current.items + page.items).toImmutableList()
                         setState {
@@ -139,6 +143,10 @@ internal class SearchPostsViewModel
                             )
                         }
                     }.onFailure { throwable ->
+                        // Same stale guard for failures — a snackbar for the OLD
+                        // sort's append failure would be confusing once the user is
+                        // already looking at LATEST results.
+                        if (fetchKey.value != capturedKey) return@onFailure
                         val current = uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded ?: return@onFailure
                         setState { copy(loadStatus = current.copy(isAppending = false)) }
                         sendEffect(SearchPostsEffect.ShowAppendError(throwable.toSearchPostsError()))
