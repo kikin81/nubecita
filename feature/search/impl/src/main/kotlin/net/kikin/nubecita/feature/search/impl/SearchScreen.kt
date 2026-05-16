@@ -61,6 +61,7 @@ internal fun SearchScreen(
         textFieldState = viewModel.textFieldState,
         isQueryBlank = state.isQueryBlank,
         currentQuery = state.currentQuery,
+        phase = state.phase,
         recentSearches = state.recentSearches,
         onEvent = onEvent,
         onClearQueryRequest = onClearQueryRequest,
@@ -74,17 +75,21 @@ internal fun SearchScreen(
  * on [SearchViewModel]. The single [onEvent] callback is the stable
  * dispatch seam; per-component callbacks are derived once via
  * `remember` so the leaf composables ([SearchInputRow],
- * [RecentSearchChipStrip]) keep their narrow `(String) -> Unit`
- * contracts without paying for unstable lambda allocations.
+ * [RecentSearchChipStrip]) keep their narrow contracts without paying
+ * for unstable lambda allocations.
  *
  * Layout: a [Scaffold] hosts a [SnackbarHost] for per-tab append
  * errors. Inside the Scaffold a [Column] renders the input row
- * followed by either the [RecentSearchChipStrip] (when
- * `isQueryBlank == true`) or a [SecondaryTabRow] + [HorizontalPager]
- * hosting [SearchPostsScreen] (page 0) and [SearchActorsScreen]
- * (page 1) (when `isQueryBlank == false`). `beyondViewportPageCount
- * = 1` keeps both per-tab VMs alive across tab switches so results
- * are preserved.
+ * followed by a body branched on [phase]:
+ *  - [SearchPhase.Discover]: [RecentSearchChipStrip] when there are
+ *    recents, otherwise nothing.
+ *  - [SearchPhase.Typeahead]: [SearchTypeaheadScreen] (vrba.10) — the
+ *    mid-query grouped suggestions surface with a "Search for {q}"
+ *    CTA at the top.
+ *  - [SearchPhase.Results]: [SecondaryTabRow] + [HorizontalPager]
+ *    hosting [SearchPostsScreen] (page 0) and [SearchActorsScreen]
+ *    (page 1). `beyondViewportPageCount = 1` keeps both per-tab VMs
+ *    alive across tab switches so results are preserved.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -92,6 +97,7 @@ internal fun SearchScreenContent(
     textFieldState: TextFieldState,
     isQueryBlank: Boolean,
     currentQuery: String,
+    phase: SearchPhase,
     recentSearches: ImmutableList<String>,
     onEvent: (SearchEvent) -> Unit,
     onClearQueryRequest: () -> Unit,
@@ -163,41 +169,52 @@ internal fun SearchScreenContent(
                 isQueryBlank = isQueryBlank,
                 onSubmit = onSubmit,
             )
-            if (isQueryBlank) {
-                if (recentSearches.isNotEmpty()) {
-                    RecentSearchChipStrip(
-                        items = recentSearches,
-                        onChipTap = onChipTap,
-                        onChipRemove = onChipRemove,
-                        onClearAll = onClearAll,
+            when (phase) {
+                SearchPhase.Discover ->
+                    if (recentSearches.isNotEmpty()) {
+                        RecentSearchChipStrip(
+                            items = recentSearches,
+                            onChipTap = onChipTap,
+                            onChipRemove = onChipRemove,
+                            onClearAll = onClearAll,
+                        )
+                    }
+                is SearchPhase.Typeahead ->
+                    SearchTypeaheadScreen(
+                        currentQuery = phase.query,
+                        onCommitQuery = onSubmit,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
                     )
-                }
-            } else {
-                SearchResultsTabBar(
-                    selectedTabIndex = pagerState.currentPage,
-                    onSelectTab = { page -> tabScope.launch { pagerState.animateScrollToPage(page) } },
-                )
-                HorizontalPager(
-                    state = pagerState,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                    beyondViewportPageCount = 1,
-                ) { page ->
-                    when (page) {
-                        0 ->
-                            SearchPostsScreen(
-                                currentQuery = currentQuery,
-                                onClearQuery = onClearQueryRequest,
-                                onShowAppendError = onPostsAppendError,
-                            )
-                        1 ->
-                            SearchActorsScreen(
-                                currentQuery = currentQuery,
-                                onClearQuery = onClearQueryRequest,
-                                onShowAppendError = onActorsAppendError,
-                            )
+                is SearchPhase.Results -> {
+                    SearchResultsTabBar(
+                        selectedTabIndex = pagerState.currentPage,
+                        onSelectTab = { page -> tabScope.launch { pagerState.animateScrollToPage(page) } },
+                    )
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                        beyondViewportPageCount = 1,
+                    ) { page ->
+                        when (page) {
+                            0 ->
+                                SearchPostsScreen(
+                                    currentQuery = currentQuery,
+                                    onClearQuery = onClearQueryRequest,
+                                    onShowAppendError = onPostsAppendError,
+                                )
+                            1 ->
+                                SearchActorsScreen(
+                                    currentQuery = currentQuery,
+                                    onClearQuery = onClearQueryRequest,
+                                    onShowAppendError = onActorsAppendError,
+                                )
+                        }
                     }
                 }
             }
