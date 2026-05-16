@@ -77,4 +77,8 @@
     <string name="search_people_append_error_network">Couldn\'t load more people. Check your connection.</string>
     <string name="search_people_append_error_rate_limited">Slow down — you\'ve been searching a lot.</string>
     <string name="search_people_append_error_unknown">Couldn\'t load more people. Try again.</string>
+
+    <!-- vrba.8: SearchScreen tab labels -->
+    <string name="search_tab_posts">Posts</string>
+    <string name="search_tab_people">People</string>
 </resources>
