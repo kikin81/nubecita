@@ -20,6 +20,7 @@ internal interface SearchPostsRepository {
         query: String,
         cursor: String?,
         limit: Int = SEARCH_POSTS_PAGE_LIMIT,
+        sort: SearchPostsSort = SearchPostsSort.TOP,
     ): Result<SearchPostsPage>
 }
 
@@ -27,6 +28,14 @@ internal data class SearchPostsPage(
     val items: ImmutableList<FeedItemUi.Single>,
     val nextCursor: String?,
 )
+
+/**
+ * Bluesky `searchPosts` sort modes. The lexicon accepts `"top"` and
+ * `"latest"`; we serialise via `name.lowercase()` at the
+ * [DefaultSearchPostsRepository] boundary. Default is [TOP] to match
+ * the official Bluesky client.
+ */
+internal enum class SearchPostsSort { TOP, LATEST }
 
 /**
  * Default page size for `searchPosts` requests. Lexicon allows 1–100;

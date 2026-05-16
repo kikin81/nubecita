@@ -38,6 +38,7 @@ internal class DefaultSearchPostsRepository
             query: String,
             cursor: String?,
             limit: Int,
+            sort: SearchPostsSort,
         ): Result<SearchPostsPage> {
             // Fail fast on misuse rather than forwarding to the server and
             // surfacing an opaque 400. The atproto lexicon for
@@ -56,6 +57,7 @@ internal class DefaultSearchPostsRepository
                                 q = query,
                                 cursor = cursor,
                                 limit = limit.toLong(),
+                                sort = sort.name.lowercase(),
                             ),
                         )
                     Result.success(
@@ -70,7 +72,14 @@ internal class DefaultSearchPostsRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
-                    Timber.tag(TAG).e(t, "searchPosts(q=%s, cursor=%s) failed: %s", query, cursor, t.javaClass.name)
+                    Timber.tag(TAG).e(
+                        t,
+                        "searchPosts(q=%s, cursor=%s, sort=%s) failed: %s",
+                        query,
+                        cursor,
+                        sort,
+                        t.javaClass.name,
+                    )
                     Result.failure(t)
                 }
             }
