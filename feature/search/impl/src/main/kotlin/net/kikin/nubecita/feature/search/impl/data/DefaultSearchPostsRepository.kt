@@ -38,8 +38,16 @@ internal class DefaultSearchPostsRepository
             query: String,
             cursor: String?,
             limit: Int,
-        ): Result<SearchPostsPage> =
-            withContext(dispatcher) {
+        ): Result<SearchPostsPage> {
+            // Fail fast on misuse rather than forwarding to the server and
+            // surfacing an opaque 400. The atproto lexicon for
+            // `app.bsky.feed.searchPosts` allows 1..100; SEARCH_POSTS_PAGE_LIMIT
+            // is the default but production callers (the search VM in vrba.6)
+            // may eventually want to vary it.
+            require(limit in 1..100) {
+                "limit must be in 1..100 (atproto lexicon range), got $limit"
+            }
+            return withContext(dispatcher) {
                 try {
                     val client = xrpcClientProvider.authenticated()
                     val response =
@@ -66,6 +74,7 @@ internal class DefaultSearchPostsRepository
                     Result.failure(t)
                 }
             }
+        }
 
         private companion object {
             private const val TAG = "SearchPostsRepo"

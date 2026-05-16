@@ -53,24 +53,36 @@ class DefaultSearchPostsRepositoryTest {
         runTest {
             val (engine, repo) =
                 newRepo { _ ->
-                    okJson(
-                        """
-                        {
-                          "cursor": "c2",
-                          "hitsTotal": 42,
-                          "posts": []
-                        }
-                        """.trimIndent(),
-                    )
+                    okJson(SEARCH_POSTS_RESPONSE_TWO_HITS)
                 }
 
             val result = repo.searchPosts(query = "kotlin", cursor = "c1", limit = 25)
 
             assertTrue(result.isSuccess)
             val page = result.getOrThrow()
-            assertEquals(0, page.items.size)
             assertEquals("c2", page.nextCursor)
             assertEquals(1, engine.requestHistory.size)
+            // Two posts in the fixture: one well-formed → projects to
+            // FeedItemUi.Single, one with a malformed embedded record → null
+            // from toFlatFeedItemUiSingle → filtered out by mapNotNull. The
+            // single well-formed post should survive.
+            assertEquals(1, page.items.size)
+            assertEquals("at://did:plc:fake/app.bsky.feed.post/p1", page.items[0].post.id)
+            assertEquals("hello world", page.items[0].post.text)
+        }
+
+    @Test
+    fun searchPosts_limitOutOfRange_throwsIllegalArgument() =
+        runTest {
+            val (_, repo) =
+                newRepo { _ -> okJson("""{"posts": []}""") }
+
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repo.searchPosts(query = "kotlin", cursor = null, limit = 0) }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repo.searchPosts(query = "kotlin", cursor = null, limit = 101) }
+            }
         }
 
     @Test
@@ -178,4 +190,53 @@ class DefaultSearchPostsRepositoryTest {
             status = HttpStatusCode.OK,
             headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
         )
+
+    private companion object {
+        /**
+         * Two-post search response: one well-formed PostView (decodes to
+         * FeedItemUi.Single) and one with a malformed embedded record
+         * (toFlatFeedItemUiSingle returns null → mapNotNull filters it
+         * out). Lets [searchPosts_happyPath_mapsPostsAndCursor] verify
+         * both the mapping path and the mapNotNull filter.
+         *
+         * PostView JSON shape mirrors
+         * `:core:feed-mapping/src/test/.../FlatFeedItemUiSingleTest.kt`'s
+         * fixtures.
+         */
+        const val SEARCH_POSTS_RESPONSE_TWO_HITS = """
+            {
+              "cursor": "c2",
+              "hitsTotal": 42,
+              "posts": [
+                {
+                  "uri": "at://did:plc:fake/app.bsky.feed.post/p1",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake",
+                    "handle": "fake.bsky.social",
+                    "displayName": "Fake User"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "hello world",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  }
+                },
+                {
+                  "uri": "at://did:plc:fake/app.bsky.feed.post/bad",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake",
+                    "handle": "fake.bsky.social"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post"
+                  }
+                }
+              ]
+            }
+        """
+    }
 }
