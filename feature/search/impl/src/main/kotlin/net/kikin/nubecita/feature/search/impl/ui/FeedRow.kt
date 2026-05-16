@@ -1,7 +1,6 @@
 package net.kikin.nubecita.feature.search.impl.ui
 
 import android.content.res.Configuration
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,26 +32,31 @@ import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
  * present, [NubecitaAsyncImage]'s standard flat-tile placeholder
  * otherwise. Primary line: feed display name (semibold). Secondary
  * line: "by @handle" (or "by Display (@handle)" when the creator has a
- * display name). Tertiary line: description capped at 2 lines.
- * Trailing meta line: localized "%d like(s)" — Bluesky surfaces a
- * feed's like count as the de-facto popularity metric.
+ * display name) — both variants come from string resources so the row
+ * localizes alongside the rest of the Search UI. Tertiary line:
+ * description, capped at 2 lines. Trailing meta line: localized
+ * "%d like(s)".
  *
- * Stateless. Click dispatch is via [onClick]; the parent
- * [FeedsTabContent] wires it to a `SearchFeedsEvent.FeedTapped`. No
- * query-substring highlighting (the Feeds tab doesn't do it — see
- * `SearchFeedsContract`'s KDoc).
+ * **Non-interactive in V1.** There is intentionally no `clickable`
+ * modifier here. `:feature:feeddetail:api` doesn't exist yet, so a
+ * tap target would be a phantom affordance — visible ripple plus an
+ * accessibility "Activate" action that does nothing. When the route
+ * lands, add a `clickable` modifier (and the matching `onClick`
+ * parameter) in the same commit that ships the
+ * `SearchFeedsEffect.NavigateToFeed` emission.
+ *
+ * No query-substring highlighting — the Feeds tab doesn't do it (see
+ * [net.kikin.nubecita.feature.search.impl.SearchFeedsContract]'s KDoc).
  */
 @Composable
 internal fun FeedRow(
     feed: FeedGeneratorUi,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
                 .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
@@ -71,8 +77,18 @@ internal fun FeedRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            val byline =
+                if (feed.creatorDisplayName != null) {
+                    stringResource(
+                        R.string.search_feeds_row_byline_with_display_name,
+                        feed.creatorDisplayName,
+                        feed.creatorHandle,
+                    )
+                } else {
+                    stringResource(R.string.search_feeds_row_byline_handle_only, feed.creatorHandle)
+                }
             Text(
-                text = feed.byline(),
+                text = byline,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -90,7 +106,7 @@ internal fun FeedRow(
             }
             Text(
                 text =
-                    androidx.compose.ui.res.pluralStringResource(
+                    pluralStringResource(
                         id = R.plurals.search_feeds_like_count,
                         count = feed.likeCount.toInt().coerceAtLeast(0),
                         feed.likeCount,
@@ -103,18 +119,11 @@ internal fun FeedRow(
     }
 }
 
-private fun FeedGeneratorUi.byline(): String =
-    if (creatorDisplayName != null) {
-        "by $creatorDisplayName (@$creatorHandle)"
-    } else {
-        "by @$creatorHandle"
-    }
-
 @Preview(name = "FeedRow — light", showBackground = true)
 @Composable
 private fun FeedRowLightPreview() {
     NubecitaTheme {
-        FeedRow(feed = SAMPLE_FEED, onClick = {})
+        FeedRow(feed = SAMPLE_FEED)
     }
 }
 
@@ -122,7 +131,7 @@ private fun FeedRowLightPreview() {
 @Composable
 private fun FeedRowDarkPreview() {
     NubecitaTheme {
-        FeedRow(feed = SAMPLE_FEED, onClick = {})
+        FeedRow(feed = SAMPLE_FEED)
     }
 }
 
@@ -130,10 +139,7 @@ private fun FeedRowDarkPreview() {
 @Composable
 private fun FeedRowNoCreatorDisplayNamePreview() {
     NubecitaTheme {
-        FeedRow(
-            feed = SAMPLE_FEED.copy(creatorDisplayName = null, description = null),
-            onClick = {},
-        )
+        FeedRow(feed = SAMPLE_FEED.copy(creatorDisplayName = null, description = null))
     }
 }
 

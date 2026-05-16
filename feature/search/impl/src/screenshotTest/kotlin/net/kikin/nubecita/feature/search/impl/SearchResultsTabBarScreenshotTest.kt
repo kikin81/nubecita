@@ -48,3 +48,19 @@ private fun SearchResultsTabBarPeopleActiveScreenshot() {
         }
     }
 }
+
+@PreviewTest
+@Preview(name = "search-results-tabbar-feeds-active-light", showBackground = true)
+@Preview(
+    name = "search-results-tabbar-feeds-active-dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun SearchResultsTabBarFeedsActiveScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            SearchResultsTabBar(selectedTabIndex = 2, onSelectTab = {})
+        }
+    }
+}

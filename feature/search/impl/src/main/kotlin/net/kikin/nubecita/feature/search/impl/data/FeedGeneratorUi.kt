@@ -16,9 +16,9 @@ import androidx.compose.runtime.Immutable
  * uses likes as the de-facto "subscriber count" surface for feeds; the
  * row's "%d likes" line maps directly to this.
  *
- * `avatarUrl` is nullable because feeds without a custom icon use the
- * row's hue-keyed placeholder (rendered by `FeedRow` against
- * `displayName.hashCode()` for stability).
+ * `avatarUrl` is nullable because feeds without a custom icon fall
+ * back to `NubecitaAsyncImage`'s standard flat placeholder tile — the
+ * same shape every other AsyncImage in the app degrades to.
  */
 @Immutable
 internal data class FeedGeneratorUi(

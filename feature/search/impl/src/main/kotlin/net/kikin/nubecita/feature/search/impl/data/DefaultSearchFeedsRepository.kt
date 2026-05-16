@@ -121,10 +121,17 @@ private data class GetPopularFeedGeneratorsRequest(
  * [GeneratorView] type (from `app.bsky.feed.defs#generatorView`) so we
  * don't re-derive its schema — only the response-envelope shape is
  * declared here.
+ *
+ * `feeds` is declared without a default: the upstream lexicon marks it
+ * `required`, and because this is an unspecced endpoint with no
+ * generated service to police schema drift, a missing field MUST
+ * fail-fast at decode time (kotlinx-serialization throws
+ * `MissingFieldException`, the repo catches it and surfaces an error
+ * state) rather than silently render as an empty "No feeds" result.
  */
 @Serializable
 private data class GetPopularFeedGeneratorsResponse(
-    val feeds: List<GeneratorView> = emptyList(),
+    val feeds: List<GeneratorView>,
     val cursor: String? = null,
 )
 

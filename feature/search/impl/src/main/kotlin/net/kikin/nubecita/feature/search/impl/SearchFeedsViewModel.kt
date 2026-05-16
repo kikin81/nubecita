@@ -31,11 +31,12 @@ import javax.inject.Inject
  * ViewModels into each other is a smell. The screen Composable is the
  * orchestration seam.
  *
- * [SearchFeedsEvent.FeedTapped] is currently a no-op (no nav effect
- * emitted) — the `:feature:feeddetail:api` NavKey doesn't exist yet.
- * When that feature lands, add the effect emission here and the screen
- * Composable collects it the same way the Posts and People tabs handle
- * their nav effects.
+ * No tap-through event in V1: `FeedRow` ships without a `clickable`
+ * modifier until `:feature:feeddetail:api` exists. When the route
+ * lands, add a `FeedTapped(uri)` event + a
+ * `SearchFeedsEffect.NavigateToFeed(uri)` emission here, and the
+ * screen Composable collects it the same way the Posts and People tabs
+ * handle their nav effects.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -76,7 +77,6 @@ internal class SearchFeedsViewModel
                     fetchKey.update { it.copy(incarnation = it.incarnation + 1) }
                 SearchFeedsEvent.ClearQueryClicked ->
                     sendEffect(SearchFeedsEffect.NavigateToClearQuery)
-                is SearchFeedsEvent.FeedTapped -> Unit
             }
         }
 

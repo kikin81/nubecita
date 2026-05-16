@@ -66,16 +66,11 @@ internal sealed interface SearchFeedsEvent : UiEvent {
     /** Empty-state "Clear search" button. Parent VM clears the field via effect. */
     data object ClearQueryClicked : SearchFeedsEvent
 
-    /**
-     * Tap on a feed row. No-op in V1 — there's no
-     * `:feature:feeddetail:api` NavKey yet. When it lands, this event
-     * gains a [SearchFeedsEffect.NavigateToFeed] emission and the
-     * screen Composable collects it the same way the Posts and People
-     * tabs handle their nav effects.
-     */
-    data class FeedTapped(
-        val uri: String,
-    ) : SearchFeedsEvent
+    // Tap on a feed row intentionally has no event in V1 — `FeedRow`
+    // ships without a `clickable` modifier until `:feature:feeddetail:api`
+    // exists. When the route lands, add the event + a
+    // `SearchFeedsEffect.NavigateToFeed` and wire the screen Composable's
+    // LaunchedEffect alongside the new `clickable` on `FeedRow`.
 }
 
 internal sealed interface SearchFeedsEffect : UiEffect {
