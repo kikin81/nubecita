@@ -17,6 +17,10 @@ dependencies {
     // back stack. The api module ships just the NavKey — :feature:search:impl
     // never depends on :impl, matching the Chats / Feed / Profile pattern.
     implementation(project(":feature:postdetail:api"))
+    // Tap-to-open an actor row pushes a Profile(handle) onto the MainShell
+    // back stack. The api module ships just the NavKey — :feature:search:impl
+    // never depends on :impl, matching the Chats / Feed / Postdetail pattern.
+    implementation(project(":feature:profile:api"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.timber)
