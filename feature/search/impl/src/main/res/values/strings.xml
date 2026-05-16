@@ -17,4 +17,36 @@
 
     <!-- Overflow menu item label: clears every entry from the recent-search list. -->
     <string name="search_recent_clear_all">Clear all</string>
+
+    <!-- vrba.6: Search Posts tab strings -->
+
+    <!-- Loading state -->
+    <string name="search_posts_loading_content_description">Searching posts</string>
+
+    <!-- Empty state -->
+    <string name="search_posts_empty_title">Nothing matches \"%1$s\"</string>
+    <string name="search_posts_empty_body">Try a different spelling, or change the sort to broaden the search.</string>
+    <string name="search_posts_empty_clear">Clear search</string>
+    <string name="search_posts_empty_change_sort_to_top">Show top posts</string>
+    <string name="search_posts_empty_change_sort_to_latest">Show latest posts</string>
+    <string name="search_posts_empty_icon_content_description">No matching posts</string>
+
+    <!-- Initial-error state -->
+    <string name="search_posts_error_network_title">No connection</string>
+    <string name="search_posts_error_network_body">Check your connection and try again.</string>
+    <string name="search_posts_error_rate_limited_title">Slow down</string>
+    <string name="search_posts_error_rate_limited_body">You\'ve been searching a lot. Wait a moment and try again.</string>
+    <string name="search_posts_error_unknown_title">Something went wrong</string>
+    <string name="search_posts_error_unknown_body">We couldn\'t load your search. Try again.</string>
+    <string name="search_posts_error_retry">Try again</string>
+
+    <!-- Sort row -->
+    <string name="search_posts_sort_top">Top</string>
+    <string name="search_posts_sort_latest">Latest</string>
+    <string name="search_posts_sort_label">Sort by</string>
+
+    <!-- Append failure snackbar -->
+    <string name="search_posts_append_error_network">Couldn\'t load more posts. Check your connection.</string>
+    <string name="search_posts_append_error_rate_limited">Slow down — you\'ve been searching a lot.</string>
+    <string name="search_posts_append_error_unknown">Couldn\'t load more posts. Try again.</string>
 </resources>
