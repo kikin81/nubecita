@@ -10,17 +10,27 @@ import java.util.concurrent.CopyOnWriteArrayList
  * Hand-written fake for [SearchActorsRepository]. Same shape as
  * `FakeSearchPostsRepository` minus the `sort` axis.
  *
- *  - [respond] / [fail] register a result for a `(query, cursor)`
- *    pair. The first matching call wins; subsequent calls fall back to
- *    [fallback] (default: empty page).
- *  - [gate] returns a [CompletableDeferred] for the pair, suspending
- *    the call until the test completes it. Used by single-flight +
- *    mapLatest-cancellation tests.
- *  - [clearGate] removes a registered gate so a subsequent `respond`
- *    can replace it (used by the Retry test path).
+ *  - [respond] / [fail] register a result for a `(query, cursor)` pair
+ *    by completing a [CompletableDeferred] keyed on that pair. The
+ *    first registration wins: a second `respond` / `fail` for the same
+ *    key calls `complete(...)` on an already-completed deferred, which
+ *    the coroutines API silently no-ops. Use [clearGate] first if you
+ *    need to swap the response for the same key in a single test.
+ *  - [gate] returns the [CompletableDeferred] for the pair (creating
+ *    it on first call); subsequent calls return the same instance.
+ *    `searchActors(...)` for that key suspends on `await()` until the
+ *    deferred is completed. Used by single-flight + mapLatest-cancellation
+ *    tests.
+ *  - [clearGate] removes a registered gate so the next `respond` / `fail`
+ *    for the same key creates a fresh deferred. Used by the Retry test
+ *    path where the same `(query, cursor)` is hit twice with different
+ *    responses.
+ *  - [setFallback] swaps the result returned when `searchActors` is
+ *    called with a key that has no registered gate. Defaults to an
+ *    empty page.
  *
- * [callLog] is the chronological list of every `(query, cursor)` the
- * VM passed.
+ * [callLog] is the chronological list of every `(query, cursor, limit)`
+ * the VM passed.
  */
 internal class FakeSearchActorsRepository : SearchActorsRepository {
     private data class Key(
