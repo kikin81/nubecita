@@ -44,13 +44,13 @@ Naming: `ActorUi` drops the misleading `Typeahead` suffix, signaling the type is
 
 This refactor lands inside the `vrba.4` PR (not as a separate prep PR) because it's mechanical and bounded to ~10 references.
 
-### D7. Dispatcher + logging match `DefaultFeedRepository`, with explicit `CancellationException` rethrow
+### D7. Dispatcher + logging match `DefaultFeedRepository` shape, with explicit `CancellationException` rethrow
 
-`withContext(@IoDispatcher dispatcher) { runCatching { ... }.onFailure { if (it is CancellationException) throw it; Timber.tag(TAG).e(it, "...failed: %s", it.javaClass.name) } }`. The `javaClass.name` log on failure preserves the diagnostic identity the project's existing error-mapping relies on.
+`withContext(@IoDispatcher dispatcher) { try { ... } catch (cancellation: CancellationException) { throw cancellation } catch (t: Throwable) { Timber.tag(TAG).e(t, "...failed: %s", t.javaClass.name); Result.failure(t) } }`. The `javaClass.name` log on failure preserves the diagnostic identity the project's existing error-mapping relies on.
 
-**The `CancellationException` rethrow inside `.onFailure` is mandatory.** When `vrba.6` / `vrba.7` debounce search and cancel the prior in-flight job, the cancellation must propagate as a real coroutine cancellation, not surface as a `Result.failure(CancellationException)` that the VM's error mapping would mis-handle. `Kotlin's `runCatching` catches every `Throwable` including `CancellationException`, so we re-throw it explicitly before logging.
+**The `CancellationException` catch must come before the general `Throwable` catch.** When `vrba.6` / `vrba.7` debounce search and cancel the prior in-flight job, the cancellation must propagate as a real coroutine cancellation, not surface as a `Result.failure(CancellationException)` that the VM's error mapping would mis-handle. The shape mirrors `:core:posting`'s `DefaultActorTypeaheadRepository`, which is the canonical cancellation-aware pattern in the project.
 
-Note: `DefaultFeedRepository` has the same latent issue today (`runCatching` without a cancellation-aware guard). Fixing the existing repo is out of scope for this PR — file a follow-up if observed in production.
+Note: `DefaultFeedRepository` uses `runCatching { ... }.onFailure { ... }` without a cancellation-aware guard today — same latent issue. Fixing the existing repo is out of scope for this PR — file a follow-up if observed in production.
 
 ### D8. Mappers: explicit `PostView.toFlatFeedItemUiSingle()` helper in `:core:feed-mapping`
 

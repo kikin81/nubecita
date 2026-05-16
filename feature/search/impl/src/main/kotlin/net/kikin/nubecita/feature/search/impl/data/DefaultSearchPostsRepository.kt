@@ -77,6 +77,6 @@ internal class DefaultSearchPostsRepository
         }
 
         private companion object {
-            private const val TAG = "SearchPostsRepo"
+            const val TAG = "SearchPostsRepo"
         }
     }
