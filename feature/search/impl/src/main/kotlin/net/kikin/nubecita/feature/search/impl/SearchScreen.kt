@@ -155,18 +155,10 @@ internal fun SearchScreenContent(
                     )
                 }
             } else {
-                SecondaryTabRow(selectedTabIndex = pagerState.currentPage) {
-                    Tab(
-                        selected = pagerState.currentPage == 0,
-                        onClick = { tabScope.launch { pagerState.animateScrollToPage(0) } },
-                        text = { Text(stringResource(R.string.search_tab_posts)) },
-                    )
-                    Tab(
-                        selected = pagerState.currentPage == 1,
-                        onClick = { tabScope.launch { pagerState.animateScrollToPage(1) } },
-                        text = { Text(stringResource(R.string.search_tab_people)) },
-                    )
-                }
+                SearchResultsTabBar(
+                    selectedTabIndex = pagerState.currentPage,
+                    onSelectTab = { page -> tabScope.launch { pagerState.animateScrollToPage(page) } },
+                )
                 HorizontalPager(
                     state = pagerState,
                     modifier =
@@ -192,6 +184,35 @@ internal fun SearchScreenContent(
                 }
             }
         }
+    }
+}
+
+/**
+ * Extracted from [SearchScreenContent]'s tab branch so the tab strip is
+ * independently screenshot-testable without standing up the Hilt graph
+ * required by the per-tab Screens. Visibility is `internal` (rather
+ * than `private`) so the screenshotTest source set can render it
+ * directly with stub callbacks. When `nubecita-vrba.11` adds the Feeds
+ * tab, append a third `Tab(...)` here and bump the pager's
+ * `pageCount` at the call site.
+ */
+@Composable
+internal fun SearchResultsTabBar(
+    selectedTabIndex: Int,
+    onSelectTab: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SecondaryTabRow(selectedTabIndex = selectedTabIndex, modifier = modifier) {
+        Tab(
+            selected = selectedTabIndex == 0,
+            onClick = { onSelectTab(0) },
+            text = { Text(stringResource(R.string.search_tab_posts)) },
+        )
+        Tab(
+            selected = selectedTabIndex == 1,
+            onClick = { onSelectTab(1) },
+            text = { Text(stringResource(R.string.search_tab_people)) },
+        )
     }
 }
 
