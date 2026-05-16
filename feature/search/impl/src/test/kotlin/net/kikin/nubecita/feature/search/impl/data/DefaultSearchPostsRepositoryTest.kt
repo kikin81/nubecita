@@ -72,18 +72,22 @@ class DefaultSearchPostsRepositoryTest {
         }
 
     @Test
-    fun searchPosts_limitOutOfRange_throwsIllegalArgument() =
-        runTest {
-            val (_, repo) =
-                newRepo { _ -> okJson("""{"posts": []}""") }
+    fun searchPosts_limitOutOfRange_throwsIllegalArgument() {
+        // No `runTest` wrapper: the `require(limit in 1..100)` check throws
+        // synchronously *before* the suspending body runs, so a plain
+        // `runBlocking` is sufficient. Nesting `runBlocking` inside
+        // `runTest` is the anti-pattern that kotlinx-coroutines-test's
+        // docs warn against — same shape as `searchPosts_cancellation_propagates`.
+        val (_, repo) =
+            newRepo { _ -> okJson("""{"posts": []}""") }
 
-            assertThrows(IllegalArgumentException::class.java) {
-                runBlocking { repo.searchPosts(query = "kotlin", cursor = null, limit = 0) }
-            }
-            assertThrows(IllegalArgumentException::class.java) {
-                runBlocking { repo.searchPosts(query = "kotlin", cursor = null, limit = 101) }
-            }
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { repo.searchPosts(query = "kotlin", cursor = null, limit = 0) }
         }
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { repo.searchPosts(query = "kotlin", cursor = null, limit = 101) }
+        }
+    }
 
     @Test
     fun searchPosts_emptyResultNullCursor_returnsEmptyPage() =
