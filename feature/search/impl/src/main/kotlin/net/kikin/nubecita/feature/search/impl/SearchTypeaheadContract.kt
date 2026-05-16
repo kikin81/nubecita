@@ -16,14 +16,15 @@ import net.kikin.nubecita.data.models.ActorUi
  * the top is rendered unconditionally; everything below is driven
  * by [status].
  *
- * [currentQuery] mirrors the latest non-debounced query set via
- * [SearchTypeaheadViewModel.setQuery] (mirrors [SearchActorsState]'s
- * field for the same reason — a stable, recompose-friendly source
- * for match-highlighting).
+ * Match-highlighting reads the query off each [SearchTypeaheadStatus]
+ * variant's `query` payload (the variant captures the exact query the
+ * fetch was issued for), so this state intentionally has no top-level
+ * `currentQuery` field — the parent [SearchViewModel] is the canonical
+ * source for "what the user is typing right now," forwarded via the
+ * `currentQuery` parameter on the screen Composable.
  */
 @Immutable
 internal data class SearchTypeaheadState(
-    val currentQuery: String = "",
     val status: SearchTypeaheadStatus = SearchTypeaheadStatus.Idle,
 ) : UiState
 
@@ -40,12 +41,16 @@ internal data class SearchTypeaheadState(
  * - [Loading]: fetch in flight for [Loading.query]. Renders an
  *   indeterminate progress indicator below the CTA.
  * - [Suggestions]: results in hand. The first actor is hoisted into
- *   [Suggestions.topMatch] (rendered with a "Top match" badge); the
- *   remaining actors render in the [Suggestions.people] list. When
- *   the RPC returns exactly one actor, [Suggestions.people] is empty.
- * - [NoResults]: fetch succeeded with zero actors. Renders an
- *   informational body below the CTA so the user knows the CTA
- *   commit is the next move.
+ *   [Suggestions.topMatch] (rendered under a "Top match" section
+ *   header); the remaining actors render under a "People" section
+ *   header in the [Suggestions.people] list. When the RPC returns
+ *   exactly one actor, [Suggestions.people] is empty and the People
+ *   header is omitted.
+ * - [NoResults]: fetch succeeded with zero actors. The screen body
+ *   below the CTA renders empty — the CTA already communicates the
+ *   next move ("Search for {q}"), so adding a per-status empty-state
+ *   line would be redundant. If product wants an explicit "no
+ *   matches" affordance later, render it here.
  */
 @Immutable
 internal sealed interface SearchTypeaheadStatus {

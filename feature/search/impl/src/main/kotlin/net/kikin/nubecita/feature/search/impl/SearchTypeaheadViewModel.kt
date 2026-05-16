@@ -7,7 +7,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.onEach
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
 import javax.inject.Inject
@@ -21,11 +20,9 @@ import javax.inject.Inject
  * debounced query (the parent already owns the 250ms text-input
  * debounce; this VM does not re-debounce).
  *
- * The init pipeline mirrors [SearchActorsViewModel]'s
- * `setQuery + mapLatest` shape:
+ * The init pipeline is:
  *
  *   queryFlow
- *     .onEach { setState(currentQuery) }
  *     .mapLatest { q -> if (blank) reset to Idle else runFetch(q) }
  *     .launchIn(viewModelScope)
  *
@@ -33,6 +30,12 @@ import javax.inject.Inject
  * the blank branch lives INSIDE `mapLatest` so a blank emission ALSO
  * cancels any in-flight `runFetch` and resets `status` to `Idle` —
  * same lesson as the SearchActorsViewModel blank-handling shape.
+ *
+ * No top-level `currentQuery` field on [SearchTypeaheadState] — the
+ * parent VM is the canonical source for the in-flight query string;
+ * match-highlighting reads the query off each non-Idle status
+ * variant's `query` payload (the snapshot that the fetch was issued
+ * for, which is what the user sees results against).
  *
  * Failure handling: per the [ActorTypeaheadRepository] contract,
  * transient failures collapse to [SearchTypeaheadStatus.Idle]
@@ -55,7 +58,6 @@ internal class SearchTypeaheadViewModel
 
         init {
             queryFlow
-                .onEach { query -> setState { copy(currentQuery = query) } }
                 .mapLatest { query ->
                     if (query.isBlank()) {
                         setState { copy(status = SearchTypeaheadStatus.Idle) }
