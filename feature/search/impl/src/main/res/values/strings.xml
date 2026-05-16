@@ -82,6 +82,33 @@
     <string name="search_tab_posts">Posts</string>
     <string name="search_tab_people">People</string>
 
+    <!-- vrba.11: Search Feeds tab -->
+    <string name="search_tab_feeds">Feeds</string>
+
+    <string name="search_feeds_loading_content_description">Searching feeds</string>
+
+    <string name="search_feeds_empty_title">No feeds match \"%1$s\"</string>
+    <string name="search_feeds_empty_body">Try a different keyword.</string>
+    <string name="search_feeds_empty_clear">Clear search</string>
+    <string name="search_feeds_empty_icon_content_description">No matching feeds</string>
+
+    <string name="search_feeds_error_network_title">No connection</string>
+    <string name="search_feeds_error_network_body">Check your connection and try again.</string>
+    <string name="search_feeds_error_rate_limited_title">Slow down</string>
+    <string name="search_feeds_error_rate_limited_body">You\'ve been searching a lot. Wait a moment and try again.</string>
+    <string name="search_feeds_error_unknown_title">Something went wrong</string>
+    <string name="search_feeds_error_unknown_body">We couldn\'t load your search. Try again.</string>
+    <string name="search_feeds_error_retry">Try again</string>
+
+    <string name="search_feeds_append_error_network">Couldn\'t load more feeds. Check your connection.</string>
+    <string name="search_feeds_append_error_rate_limited">Slow down — you\'ve been searching a lot.</string>
+    <string name="search_feeds_append_error_unknown">Couldn\'t load more feeds. Try again.</string>
+
+    <plurals name="search_feeds_like_count">
+        <item quantity="one">%1$d like</item>
+        <item quantity="other">%1$d likes</item>
+    </plurals>
+
     <!-- vrba.10: Search typeahead screen -->
 
     <!-- Primary CTA at the top of the typeahead screen. %1$s is the current query. -->
