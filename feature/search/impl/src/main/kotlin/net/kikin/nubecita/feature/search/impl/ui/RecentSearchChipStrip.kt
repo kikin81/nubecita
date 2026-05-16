@@ -61,9 +61,15 @@ internal fun RecentSearchChipStrip(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(items = items, key = { it }) { query ->
+                // Remember the per-chip dispatch lambdas keyed on the query
+                // (the item's stable identity) and the parent callback so they
+                // stay stable across the chip's own recompositions. Avoids
+                // allocating two fresh lambdas per chip per parent recompose.
+                val onChipClicked = remember(query, onChipTap) { { onChipTap(query) } }
+                val onChipRemoveClicked = remember(query, onChipRemove) { { onChipRemove(query) } }
                 InputChip(
                     selected = false,
-                    onClick = { onChipTap(query) },
+                    onClick = onChipClicked,
                     label = { Text(query) },
                     trailingIcon = {
                         // Plain Icon + clickable Box keeps the chip at its M3 baseline
@@ -76,7 +82,7 @@ internal fun RecentSearchChipStrip(
                             modifier =
                                 Modifier
                                     .size(InputChipDefaults.IconSize + 8.dp)
-                                    .clickable(onClick = { onChipRemove(query) }),
+                                    .clickable(onClick = onChipRemoveClicked),
                             contentAlignment = Alignment.Center,
                         ) {
                             NubecitaIcon(

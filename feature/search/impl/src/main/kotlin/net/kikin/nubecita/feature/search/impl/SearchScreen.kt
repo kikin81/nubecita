@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,14 +28,16 @@ internal fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Remember the bound-method reference so SearchScreenContent's onEvent
+    // parameter stays stable across recompositions. Mirrors the
+    // `:feature:chats:impl` pattern (`onEvent = viewModel::handleEvent` via
+    // a remembered reference).
+    val onEvent = remember(viewModel) { viewModel::handleEvent }
     SearchScreenContent(
         textFieldState = viewModel.textFieldState,
         isQueryBlank = state.isQueryBlank,
         recentSearches = state.recentSearches,
-        onSubmit = { viewModel.handleEvent(SearchEvent.SubmitClicked) },
-        onChipTap = { viewModel.handleEvent(SearchEvent.RecentChipTapped(it)) },
-        onChipRemove = { viewModel.handleEvent(SearchEvent.RecentChipRemoved(it)) },
-        onClearAll = { viewModel.handleEvent(SearchEvent.ClearAllRecentsClicked) },
+        onEvent = onEvent,
         modifier = modifier,
     )
 }
@@ -42,19 +45,25 @@ internal fun SearchScreen(
 /**
  * Stateless screen body. Extracted so preview / screenshot-test
  * composables can drive the layout without a Hilt-graph dependency on
- * [SearchViewModel].
+ * [SearchViewModel]. The single [onEvent] callback is the stable
+ * dispatch seam; per-component callbacks are derived once via
+ * `remember` so the leaf composables ([SearchInputRow],
+ * [RecentSearchChipStrip]) keep their narrow `(String) -> Unit`
+ * contracts without paying for unstable lambda allocations.
  */
 @Composable
 internal fun SearchScreenContent(
     textFieldState: TextFieldState,
     isQueryBlank: Boolean,
     recentSearches: ImmutableList<String>,
-    onSubmit: () -> Unit,
-    onChipTap: (String) -> Unit,
-    onChipRemove: (String) -> Unit,
-    onClearAll: () -> Unit,
+    onEvent: (SearchEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val onSubmit = remember(onEvent) { { onEvent(SearchEvent.SubmitClicked) } }
+    val onChipTap = remember(onEvent) { { query: String -> onEvent(SearchEvent.RecentChipTapped(query)) } }
+    val onChipRemove = remember(onEvent) { { query: String -> onEvent(SearchEvent.RecentChipRemoved(query)) } }
+    val onClearAll = remember(onEvent) { { onEvent(SearchEvent.ClearAllRecentsClicked) } }
+
     Column(
         modifier =
             modifier
