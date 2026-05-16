@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -95,6 +96,7 @@ fun PostCard(
     onImageClick: ((imageIndex: Int) -> Unit)? = null,
     animateLikeTap: Boolean = false,
     animateRepostTap: Boolean = false,
+    bodyMatch: String? = null,
 ) {
     // PostCard uses NubecitaAvatar (40dp) with 20dp horizontal + 14dp vertical
     // padding, so the avatar center is at x = 20 + 20 = 40dp, NOT the
@@ -141,7 +143,7 @@ fun PostCard(
                 Column(modifier = Modifier.weight(1f)) {
                     AuthorLine(post = post)
                     Spacer(Modifier.height(4.dp))
-                    BodyText(text = post.text, facets = post.facets)
+                    BodyText(text = post.text, facets = post.facets, bodyMatch = bodyMatch)
                     EmbedSlot(
                         embed = post.embed,
                         callbacks = callbacks,
@@ -237,9 +239,19 @@ private fun AuthorLine(post: PostUi) {
 private fun BodyText(
     text: String,
     facets: kotlinx.collections.immutable.ImmutableList<Facet>,
+    bodyMatch: String? = null,
 ) {
     val annotated = rememberBlueskyAnnotatedString(text = text, facets = facets)
-    Text(text = annotated, style = MaterialTheme.typography.bodyLarge)
+    val withHighlight =
+        annotated.withMatchHighlight(
+            match = bodyMatch,
+            highlightStyle =
+                SpanStyle(
+                    background = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+        )
+    Text(text = withHighlight, style = MaterialTheme.typography.bodyLarge)
 }
 
 @Composable
@@ -437,6 +449,20 @@ private fun PostCardEmptyBodyPreview() {
 private fun PostCardTypicalPreview() {
     NubecitaTheme {
         PostCard(post = previewPost())
+    }
+}
+
+@Preview(name = "PostCard — with body match highlight", showBackground = true)
+@Composable
+private fun PostCardWithBodyMatchPreview() {
+    NubecitaTheme {
+        PostCard(
+            post =
+                previewPost(
+                    text = "Kotlin is great. We use Kotlin every day at this Bluesky client.",
+                ),
+            bodyMatch = "kotlin",
+        )
     }
 }
 
