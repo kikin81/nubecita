@@ -15,9 +15,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
-import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostingRepository
+import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
@@ -345,8 +345,8 @@ class ComposerViewModelTypeaheadTest {
         did: String,
         handle: String,
         displayName: String? = null,
-    ): ActorTypeaheadUi =
-        ActorTypeaheadUi(
+    ): ActorUi =
+        ActorUi(
             did = did,
             handle = handle,
             displayName = displayName,
@@ -369,12 +369,12 @@ class ComposerViewModelTypeaheadTest {
  * and distinctUntilChanged correctly dedupe / cancel.
  */
 private class ControllableTypeaheadRepository : ActorTypeaheadRepository {
-    private val deferreds = mutableMapOf<String, CompletableDeferred<Result<List<ActorTypeaheadUi>>>>()
+    private val deferreds = mutableMapOf<String, CompletableDeferred<Result<List<ActorUi>>>>()
     val callLog: MutableList<String> = mutableListOf()
 
     fun respond(
         query: String,
-        actors: List<ActorTypeaheadUi>,
+        actors: List<ActorUi>,
     ) {
         gate(query).complete(Result.success(actors))
     }
@@ -386,9 +386,9 @@ private class ControllableTypeaheadRepository : ActorTypeaheadRepository {
         gate(query).complete(Result.failure(throwable))
     }
 
-    fun gate(query: String): CompletableDeferred<Result<List<ActorTypeaheadUi>>> = deferreds.getOrPut(query) { CompletableDeferred() }
+    fun gate(query: String): CompletableDeferred<Result<List<ActorUi>>> = deferreds.getOrPut(query) { CompletableDeferred() }
 
-    override suspend fun searchTypeahead(query: String): Result<List<ActorTypeaheadUi>> {
+    override suspend fun searchTypeahead(query: String): Result<List<ActorUi>> {
         callLog += query
         return gate(query).await()
     }

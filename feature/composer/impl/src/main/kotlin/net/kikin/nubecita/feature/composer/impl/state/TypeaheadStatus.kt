@@ -1,7 +1,7 @@
 package net.kikin.nubecita.feature.composer.impl.state
 
 import kotlinx.collections.immutable.ImmutableList
-import net.kikin.nubecita.core.posting.ActorTypeaheadUi
+import net.kikin.nubecita.data.models.ActorUi
 
 /**
  * Mutually-exclusive lifecycle for the composer's `@`-mention
@@ -50,7 +50,7 @@ sealed interface TypeaheadStatus {
     /** Server returned 1+ actors; dropdown visible. */
     data class Suggestions(
         val query: String,
-        val results: ImmutableList<ActorTypeaheadUi>,
+        val results: ImmutableList<ActorUi>,
     ) : TypeaheadStatus
 
     /** Server returned an empty actor list; dropdown visible with empty-state row. */

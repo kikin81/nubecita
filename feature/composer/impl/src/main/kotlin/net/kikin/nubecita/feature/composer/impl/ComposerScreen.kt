@@ -46,10 +46,10 @@ import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.BLUESKY_LANGUAGE_TAGS
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
@@ -147,7 +147,7 @@ fun ComposerScreen(
         }
     val onSuggestionClick =
         remember(viewModel) {
-            { actor: ActorTypeaheadUi ->
+            { actor: ActorUi ->
                 viewModel.handleEvent(ComposerEvent.TypeaheadResultClicked(actor))
             }
         }
@@ -342,7 +342,7 @@ fun ComposerScreenContent(
     onCloseClick: () -> Unit,
     onAddImageClick: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
-    onSuggestionClick: (ActorTypeaheadUi) -> Unit,
+    onSuggestionClick: (ActorUi) -> Unit,
     onRetryParentLoad: () -> Unit,
     onLanguageChipClick: () -> Unit,
     modifier: Modifier = Modifier,

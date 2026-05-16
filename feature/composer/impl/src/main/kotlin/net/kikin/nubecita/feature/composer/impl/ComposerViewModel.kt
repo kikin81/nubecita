@@ -20,11 +20,11 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
-import net.kikin.nubecita.core.posting.ActorTypeaheadUi
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
+import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.internal.GraphemeCounter
@@ -315,7 +315,7 @@ class ComposerViewModel
          * boundary and `findActiveMentionStart` returns null, so
          * the pipeline transitions `state.typeahead` back to Idle.
          */
-        private fun handleTypeaheadResultClicked(actor: ActorTypeaheadUi) {
+        private fun handleTypeaheadResultClicked(actor: ActorUi) {
             val text = textFieldState.text
             val cursor = textFieldState.selection.end
             val atPos = findActiveMentionStart(text, cursor) ?: return

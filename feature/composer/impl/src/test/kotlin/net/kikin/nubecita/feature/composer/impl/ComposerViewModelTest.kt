@@ -72,7 +72,7 @@ class ComposerViewModelTest {
     // assertions in this suite.
     private val actorTypeaheadRepository =
         object : ActorTypeaheadRepository {
-            override suspend fun searchTypeahead(query: String): Result<List<net.kikin.nubecita.core.posting.ActorTypeaheadUi>> = Result.success(emptyList())
+            override suspend fun searchTypeahead(query: String): Result<List<net.kikin.nubecita.data.models.ActorUi>> = Result.success(emptyList())
         }
 
     @BeforeEach

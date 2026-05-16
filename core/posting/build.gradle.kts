@@ -9,6 +9,7 @@ android {
 }
 
 dependencies {
+    api(project(":data:models"))
     api(libs.atproto.models)
     api(libs.atproto.runtime)
 

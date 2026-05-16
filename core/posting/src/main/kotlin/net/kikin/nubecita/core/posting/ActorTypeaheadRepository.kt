@@ -1,5 +1,7 @@
 package net.kikin.nubecita.core.posting
 
+import net.kikin.nubecita.data.models.ActorUi
+
 /**
  * Reads suggestion candidates for the composer's `@`-mention typeahead.
  *
@@ -38,5 +40,5 @@ interface ActorTypeaheadRepository {
      * token arrives. A swallowed cancel would leak coroutines past
      * their parent.
      */
-    suspend fun searchTypeahead(query: String): Result<List<ActorTypeaheadUi>>
+    suspend fun searchTypeahead(query: String): Result<List<ActorUi>>
 }
