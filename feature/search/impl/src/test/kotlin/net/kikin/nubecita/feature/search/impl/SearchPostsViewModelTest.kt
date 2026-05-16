@@ -491,4 +491,72 @@ class SearchPostsViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+    @Test
+    fun setQuery_becomesBlankAfterLoaded_resetsToIdle() =
+        runTest {
+            // Regression for Copilot finding on PR #199 (backported from
+            // vrba.7): the prior `.filter { isNotBlank() }` shape silently
+            // kept the stale Loaded state visible after the user cleared
+            // the field.
+            val vm = SearchPostsViewModel(repo)
+            repo.respond(
+                query = "kotlin",
+                cursor = null,
+                sort = SearchPostsSort.TOP,
+                items = listOf(searchPostFixture(uri = "at://did:plc:fake/p1", text = "kotlin")),
+                nextCursor = null,
+            )
+
+            vm.setQuery("kotlin")
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.Loaded)
+
+            vm.setQuery("")
+            runCurrent()
+
+            assertEquals(SearchPostsLoadStatus.Idle, vm.uiState.value.loadStatus)
+            assertEquals("", vm.uiState.value.currentQuery)
+        }
+
+    @Test
+    fun setQuery_becomesBlankWhileFetchInFlight_cancelsAndResetsToIdle() =
+        runTest {
+            // Regression: with `.filter { isNotBlank() }` upstream of
+            // mapLatest, a blank emission would NOT cancel an in-flight
+            // runFirstPage — so the prior fetch could resolve late and
+            // overwrite the Idle reset with a stale Loaded.
+            val vm = SearchPostsViewModel(repo)
+            val kotlinGate = repo.gate(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP)
+
+            vm.setQuery("kotlin")
+            runCurrent()
+            assertEquals(SearchPostsLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
+
+            // User clears the field while the fetch is still in flight.
+            vm.setQuery("")
+            runCurrent()
+            assertEquals(SearchPostsLoadStatus.Idle, vm.uiState.value.loadStatus)
+
+            // The cancelled kotlin fetch completes late. mapLatest should
+            // have cancelled it before the onSuccess could fire.
+            kotlinGate.complete(
+                Result.success(
+                    net.kikin.nubecita.feature.search.impl.data.SearchPostsPage(
+                        items =
+                            kotlinx.collections.immutable.persistentListOf(
+                                searchPostFixture(uri = "at://stale", text = "stale"),
+                            ),
+                        nextCursor = null,
+                    ),
+                ),
+            )
+            runCurrent()
+
+            assertEquals(
+                SearchPostsLoadStatus.Idle,
+                vm.uiState.value.loadStatus,
+                "stale kotlin completion must not clobber Idle after the field was cleared",
+            )
+        }
 }

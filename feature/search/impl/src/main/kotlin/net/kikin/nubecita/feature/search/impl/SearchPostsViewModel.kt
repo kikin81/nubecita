@@ -5,7 +5,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
@@ -27,8 +26,7 @@ import javax.inject.Inject
  *
  *   fetchKey
  *     .onEach { setState(currentQuery, sort) }
- *     .filter { it.query.isNotBlank() }
- *     .mapLatest { runFirstPage(it) }
+ *     .mapLatest { key -> if (blank) reset to Idle else runFirstPage(key) }
  *     .launchIn(viewModelScope)
  *
  * StateFlow's operator fusion already dedupes identical consecutive
@@ -37,7 +35,11 @@ import javax.inject.Inject
  * the prior in-flight fetch on a new key — the canonical pattern from
  * `:feature:composer:impl`'s `ComposerViewModel` typeahead path. Retry
  * bumps an internal incarnation token so the pipeline fires even when
- * query + sort haven't changed.
+ * query + sort haven't changed. The blank branch lives INSIDE
+ * `mapLatest` (rather than upstream via `.filter`) so a blank emission
+ * also cancels any in-flight `runFirstPage` and resets `loadStatus` to
+ * `Idle` — without this, clearing the search field after a load would
+ * leave the stale `Loaded` (or `InitialLoading`) state visible.
  *
  * Does NOT inject the parent `SearchViewModel` — Hilt-injecting
  * ViewModels into each other is a smell. The screen Composable is the
@@ -64,9 +66,18 @@ internal class SearchPostsViewModel
             fetchKey
                 .onEach { key ->
                     setState { copy(currentQuery = key.query, sort = key.sort) }
-                }.filter { it.query.isNotBlank() }
-                .mapLatest { key -> runFirstPage(key) }
-                .launchIn(viewModelScope)
+                }.mapLatest { key ->
+                    if (key.query.isBlank()) {
+                        // Reset to Idle on blank — covers initial state and
+                        // the user-clears-the-field case. Inside mapLatest
+                        // (not upstream `.filter`) so a blank emission ALSO
+                        // cancels any in-flight `runFirstPage`, preventing
+                        // a stale `Loaded` from landing after the reset.
+                        setState { copy(loadStatus = SearchPostsLoadStatus.Idle) }
+                    } else {
+                        runFirstPage(key)
+                    }
+                }.launchIn(viewModelScope)
         }
 
         /** Called by the screen Composable from a `LaunchedEffect(parent.currentQuery)`. */
