@@ -44,13 +44,35 @@ Naming: `ActorUi` drops the misleading `Typeahead` suffix, signaling the type is
 
 This refactor lands inside the `vrba.4` PR (not as a separate prep PR) because it's mechanical and bounded to ~10 references.
 
-### D7. Dispatcher + logging match `DefaultFeedRepository`
+### D7. Dispatcher + logging match `DefaultFeedRepository`, with explicit `CancellationException` rethrow
 
-`withContext(@IoDispatcher dispatcher) { runCatching { ... }.onFailure { Timber.tag(TAG).e(throwable, "...failed: %s", throwable.javaClass.name) } }`. The `javaClass.name` log on failure preserves the diagnostic identity the project's existing error-mapping relies on.
+`withContext(@IoDispatcher dispatcher) { runCatching { ... }.onFailure { if (it is CancellationException) throw it; Timber.tag(TAG).e(it, "...failed: %s", it.javaClass.name) } }`. The `javaClass.name` log on failure preserves the diagnostic identity the project's existing error-mapping relies on.
 
-### D8. Mappers reuse existing project infrastructure
+**The `CancellationException` rethrow inside `.onFailure` is mandatory.** When `vrba.6` / `vrba.7` debounce search and cancel the prior in-flight job, the cancellation must propagate as a real coroutine cancellation, not surface as a `Result.failure(CancellationException)` that the VM's error mapping would mis-handle. `Kotlin's `runCatching` catches every `Throwable` including `CancellationException`, so we re-throw it explicitly before logging.
 
-- **Posts:** the existing post-view mapping lives in `:core:feed-mapping`. The mapper used by `DefaultFeedRepository` to produce `FeedItemUi.Single` from a `PostView` should be reused (or a sibling `PostView.toFeedItemUiSingle()` exposed if the existing one is feed-shaped only). The implementer verifies the surface and reuses what's there; no new mapping logic if avoidable.
+Note: `DefaultFeedRepository` has the same latent issue today (`runCatching` without a cancellation-aware guard). Fixing the existing repo is out of scope for this PR — file a follow-up if observed in production.
+
+### D8. Mappers: explicit `PostView.toFlatFeedItemUiSingle()` helper in `:core:feed-mapping`
+
+- **Posts:** the existing feed mapper in `:core:feed-mapping` produces the full `FeedItemUi` sealed union — including `ReplyCluster` when a `PostView` carries reply context. That's correct for the timeline but **wrong for search**: `searchPosts` results render as flat, disconnected post cards regardless of whether each post happens to be a reply. We do NOT want threading lines, reply-cluster grouping, or root/parent stitching at search-result time.
+
+  The Posts PR (`vrba.3`) therefore adds a new strict helper in `:core:feed-mapping`:
+
+  ```kotlin
+  // :core:feed-mapping
+  /**
+   * Project a single [PostView] to [FeedItemUi.Single], ignoring any
+   * reply / cluster context. Use this for surfaces (search results,
+   * notification entries, profile post lists) where flat rendering is
+   * the explicit goal — never for the home timeline.
+   */
+  fun PostView.toFlatFeedItemUiSingle(): FeedItemUi.Single
+  ```
+
+  `DefaultSearchPostsRepository` calls this helper directly. The helper internally reuses the per-field projection logic the existing timeline mapper already implements (author, text, embeds, viewer state, counts), but stops short of the reply-cluster / chain projection. If the existing mapper already has a private "single-only" projection step that the cluster path then folds in, the new helper just calls that step; otherwise it's a 5–10 line wrapper. The implementer reports the chosen shape in the PR description.
+
+  **Why in `:core:feed-mapping` and not in `:feature:search:impl`:** placing it next to the existing mapper keeps the projection logic in one module, so a single change to how an author/embed/etc. is rendered updates timeline + search + future flat-render surfaces atomically.
+
 - **Actors:** a new `ProfileView.toActorUi()` extension in `:feature:search:impl/data/`, mirroring the existing typeahead repository's mapper shape. Single source of truth for the `ProfileView` → `ActorUi` conversion is per-consumer for now (composer's typeahead has its own); promote to `:core:posting` or `:data:models` if a third consumer appears.
 
 ### D9. Tests use hand-written fakes, plain JVM, `:core:testing` deps
@@ -148,7 +170,7 @@ For Actors specifically, plus the promotion verification:
 
 ## Risk + rollback
 
-- **Risk: existing `:core:feed-mapping` post-view helper isn't shaped to produce `FeedItemUi.Single` directly.** If the helper only produces the sealed union, we'd need a tiny wrapper. The implementer reports as `DONE_WITH_CONCERNS` if forced to deviate; the wrapper stays bounded to `DefaultSearchPostsRepository`.
+- **Risk: the new `PostView.toFlatFeedItemUiSingle()` helper has to ignore reply context the existing union mapper handles.** D8 mandates the helper goes in `:core:feed-mapping`. If the existing mapper's projection logic is so tangled that extracting a flat-only path takes more than ~30 lines, the implementer reports `DONE_WITH_CONCERNS` and we evaluate whether to refactor the timeline mapper as a follow-up.
 - **Risk: `ActorTypeaheadUi` is referenced in more places than the search reveals.** Mechanical find-and-replace catches direct references; instances behind `*` imports require a build pass to expose. The plan's verification step runs every relevant module's unit tests, which fails fast on broken references.
 - **Risk: `searchPosts` / `searchActors` rate limits.** Out of scope at the repo layer — the VMs (`vrba.6` / `vrba.7`) will debounce and single-flight per their MVI design. The repo just translates the call.
 - **Rollback:** each PR is independently revertible. `vrba.4`'s rename is the only cross-module touch; reverting that PR also reverts the rename.
