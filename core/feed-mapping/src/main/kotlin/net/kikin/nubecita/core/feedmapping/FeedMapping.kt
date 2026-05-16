@@ -23,6 +23,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.Json
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
@@ -90,6 +91,23 @@ fun PostView.toPostUiCore(): PostUi? {
         repostedBy = null,
     )
 }
+
+/**
+ * Project a single [PostView] to [FeedItemUi.Single], or `null` when
+ * [toPostUiCore] cannot produce a well-formed [PostUi] (malformed
+ * embedded record, unparseable timestamp).
+ *
+ * Use this helper for surfaces that render posts as flat,
+ * disconnected items regardless of reply context — search results,
+ * notification entries, profile post lists, etc. The home timeline
+ * uses a different mapping path that detects reply clusters and
+ * self-thread chains; this helper deliberately stops short of that
+ * projection.
+ *
+ * Callers should filter `null` entries at the collection boundary
+ * (e.g. `posts.mapNotNull(PostView::toFlatFeedItemUiSingle)`).
+ */
+fun PostView.toFlatFeedItemUiSingle(): FeedItemUi.Single? = toPostUiCore()?.let(FeedItemUi::Single)
 
 /**
  * Maps the [PostViewEmbedUnion] open-union variant to PostCard's
