@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.BuildConfig
 import net.kikin.nubecita.core.auth.di.OAuthClientMetadataUrl
+import net.kikin.nubecita.core.auth.di.OAuthRedirectUri
 import net.kikin.nubecita.core.auth.di.OAuthScope
 import javax.inject.Singleton
 
@@ -22,6 +23,11 @@ object OAuthConfigModule {
     @Singleton
     @OAuthClientMetadataUrl
     fun provideOAuthClientMetadataUrl(): String = BuildConfig.OAUTH_CLIENT_METADATA_URL
+
+    @Provides
+    @Singleton
+    @OAuthRedirectUri
+    fun provideOAuthRedirectUri(): String = BuildConfig.OAUTH_REDIRECT_URI
 
     @Provides
     @Singleton
