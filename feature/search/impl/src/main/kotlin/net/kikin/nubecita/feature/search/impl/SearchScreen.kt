@@ -1,26 +1,48 @@
 package net.kikin.nubecita.feature.search.impl
 
+import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 import net.kikin.nubecita.feature.search.impl.ui.SearchInputRow
 
 /**
- * Stateful Search tab home. Hoists [SearchViewModel] and renders the input
- * row + (optionally) the recent-search chip strip. The tab content
- * (Posts / People) is added below this Column in nubecita-vrba.8; this
- * commit ships only the input half.
+ * Stateful Search tab home. Hoists [SearchViewModel] and forwards
+ * its state + a small set of stable lambdas down to
+ * [SearchScreenContent]. The per-tab Screens (Posts / People) are
+ * mounted inside the stateless body's [HorizontalPager] gated on
+ * `!isQueryBlank`.
+ *
+ * `onClearQueryRequest` mutates [SearchViewModel.textFieldState]
+ * directly via the editor-VM exception (CLAUDE.md). Routing this
+ * through a `SearchEvent` would add a hop for no benefit — the
+ * canonical clear path is the same `textFieldState.clearText()`
+ * that [SearchInputRow]'s trailing X already calls.
  */
 @Composable
 internal fun SearchScreen(
@@ -28,35 +50,53 @@ internal fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // Remember the bound-method reference so SearchScreenContent's onEvent
+    // Remembered bound-method reference so SearchScreenContent's onEvent
     // parameter stays stable across recompositions. Mirrors the
     // `:feature:chats:impl` pattern (`onEvent = viewModel::handleEvent` via
     // a remembered reference).
     val onEvent = remember(viewModel) { viewModel::handleEvent }
+    val onClearQueryRequest =
+        remember(viewModel) {
+            { viewModel.textFieldState.clearText() }
+        }
     SearchScreenContent(
         textFieldState = viewModel.textFieldState,
         isQueryBlank = state.isQueryBlank,
+        currentQuery = state.currentQuery,
         recentSearches = state.recentSearches,
         onEvent = onEvent,
+        onClearQueryRequest = onClearQueryRequest,
         modifier = modifier,
     )
 }
 
 /**
  * Stateless screen body. Extracted so preview / screenshot-test
- * composables can drive the layout without a Hilt-graph dependency on
- * [SearchViewModel]. The single [onEvent] callback is the stable
+ * composables can drive the layout without a Hilt-graph dependency
+ * on [SearchViewModel]. The single [onEvent] callback is the stable
  * dispatch seam; per-component callbacks are derived once via
  * `remember` so the leaf composables ([SearchInputRow],
  * [RecentSearchChipStrip]) keep their narrow `(String) -> Unit`
  * contracts without paying for unstable lambda allocations.
+ *
+ * Layout: a [Scaffold] hosts a [SnackbarHost] for per-tab append
+ * errors. Inside the Scaffold a [Column] renders the input row
+ * followed by either the [RecentSearchChipStrip] (when
+ * `isQueryBlank == true`) or a [SecondaryTabRow] + [HorizontalPager]
+ * hosting [SearchPostsScreen] (page 0) and [SearchActorsScreen]
+ * (page 1) (when `isQueryBlank == false`). `beyondViewportPageCount
+ * = 1` keeps both per-tab VMs alive across tab switches so results
+ * are preserved.
  */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun SearchScreenContent(
     textFieldState: TextFieldState,
     isQueryBlank: Boolean,
+    currentQuery: String,
     recentSearches: ImmutableList<String>,
     onEvent: (SearchEvent) -> Unit,
+    onClearQueryRequest: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val onSubmit = remember(onEvent) { { onEvent(SearchEvent.SubmitClicked) } }
@@ -64,25 +104,109 @@ internal fun SearchScreenContent(
     val onChipRemove = remember(onEvent) { { query: String -> onEvent(SearchEvent.RecentChipRemoved(query)) } }
     val onClearAll = remember(onEvent) { { onEvent(SearchEvent.ClearAllRecentsClicked) } }
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars),
-    ) {
-        SearchInputRow(
-            textFieldState = textFieldState,
-            isQueryBlank = isQueryBlank,
-            onSubmit = onSubmit,
-        )
-        if (recentSearches.isNotEmpty()) {
-            RecentSearchChipStrip(
-                items = recentSearches,
-                onChipTap = onChipTap,
-                onChipRemove = onChipRemove,
-                onClearAll = onClearAll,
-            )
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val tabScope = rememberCoroutineScope()
+
+    val onPostsAppendError =
+        remember(snackScope, snackbarHostState, context) {
+            { error: SearchPostsError ->
+                snackScope.launch {
+                    snackbarHostState.showSnackbar(context.getString(error.appendErrorStringRes()))
+                }
+                Unit
+            }
         }
-        // The TabRow + tab content (Posts / People) land in nubecita-vrba.8.
+    val onActorsAppendError =
+        remember(snackScope, snackbarHostState, context) {
+            { error: SearchActorsError ->
+                snackScope.launch {
+                    snackbarHostState.showSnackbar(context.getString(error.appendErrorStringRes()))
+                }
+                Unit
+            }
+        }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { innerPadding ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+        ) {
+            SearchInputRow(
+                textFieldState = textFieldState,
+                isQueryBlank = isQueryBlank,
+                onSubmit = onSubmit,
+            )
+            if (isQueryBlank) {
+                if (recentSearches.isNotEmpty()) {
+                    RecentSearchChipStrip(
+                        items = recentSearches,
+                        onChipTap = onChipTap,
+                        onChipRemove = onChipRemove,
+                        onClearAll = onClearAll,
+                    )
+                }
+            } else {
+                SecondaryTabRow(selectedTabIndex = pagerState.currentPage) {
+                    Tab(
+                        selected = pagerState.currentPage == 0,
+                        onClick = { tabScope.launch { pagerState.animateScrollToPage(0) } },
+                        text = { Text(stringResource(R.string.search_tab_posts)) },
+                    )
+                    Tab(
+                        selected = pagerState.currentPage == 1,
+                        onClick = { tabScope.launch { pagerState.animateScrollToPage(1) } },
+                        text = { Text(stringResource(R.string.search_tab_people)) },
+                    )
+                }
+                HorizontalPager(
+                    state = pagerState,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                    beyondViewportPageCount = 1,
+                ) { page ->
+                    when (page) {
+                        0 ->
+                            SearchPostsScreen(
+                                currentQuery = currentQuery,
+                                onClearQuery = onClearQueryRequest,
+                                onShowAppendError = onPostsAppendError,
+                            )
+                        1 ->
+                            SearchActorsScreen(
+                                currentQuery = currentQuery,
+                                onClearQuery = onClearQueryRequest,
+                                onShowAppendError = onActorsAppendError,
+                            )
+                    }
+                }
+            }
+        }
     }
 }
+
+@StringRes
+private fun SearchPostsError.appendErrorStringRes(): Int =
+    when (this) {
+        SearchPostsError.Network -> R.string.search_posts_append_error_network
+        SearchPostsError.RateLimited -> R.string.search_posts_append_error_rate_limited
+        is SearchPostsError.Unknown -> R.string.search_posts_append_error_unknown
+    }
+
+@StringRes
+private fun SearchActorsError.appendErrorStringRes(): Int =
+    when (this) {
+        SearchActorsError.Network -> R.string.search_people_append_error_network
+        SearchActorsError.RateLimited -> R.string.search_people_append_error_rate_limited
+        is SearchActorsError.Unknown -> R.string.search_people_append_error_unknown
+    }
