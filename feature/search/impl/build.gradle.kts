@@ -4,6 +4,13 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.feature.search.impl"
+
+    defaultConfig {
+        // Hilt-aware runner from :core:testing-android so @HiltAndroidTest
+        // tests in src/androidTest/ boot HiltTestApplication and drive the
+        // @TestInstallIn-replaced component graph (vrba.9 tap-through tests).
+        testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
+    }
 }
 
 dependencies {
@@ -30,8 +37,28 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.timber)
 
+    // vrba.9: Compose UI tap-through tests in androidTest/ need the test
+    // manifest's empty Activity so createAndroidComposeRule can launch.
+    // Matches :feature:feed:impl's setup until a second feature module
+    // adopts the same pattern and the dep moves into the convention plugin.
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.turbine)
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(project(":core:testing-android"))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.core)
+    // Pin espresso-core explicitly — otherwise compose-ui-test-junit4 pulls a
+    // stale transitive version whose InputManagerEventInjectionStrategy uses
+    // a hidden API removed in Android 16 / API 36 (NoSuchMethodException on
+    // InputManager.getInstance during ComposeRule activity launch). Mirrors
+    // :feature:feed:impl.
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+
+    kspAndroidTest(libs.hilt.android.compiler)
 }
