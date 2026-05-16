@@ -308,6 +308,84 @@ class SearchPostsViewModelTest {
         }
 
     @Test
+    fun loadMore_inFlight_whenSortChanges_doesNotClobberNewSortItems() =
+        runTest {
+            val vm = SearchPostsViewModel(repo)
+            // Page 1 TOP: one item + nextCursor=c2 so loadMore is valid.
+            repo.respond(
+                query = "kotlin",
+                cursor = null,
+                sort = SearchPostsSort.TOP,
+                items = listOf(searchPostFixture("at://top1", "top1")),
+                nextCursor = "c2",
+            )
+            // Page 1 LATEST: a single fresh item, end-of-results.
+            repo.respond(
+                query = "kotlin",
+                cursor = null,
+                sort = SearchPostsSort.LATEST,
+                items = listOf(searchPostFixture("at://latest1", "latest1")),
+                nextCursor = null,
+            )
+            // Gate the page-2-TOP fetch so we control completion timing.
+            val pageTwoTopGate =
+                repo.gate(query = "kotlin", cursor = "c2", sort = SearchPostsSort.TOP)
+
+            // 1. Initial query → Loaded(TOP).
+            vm.setQuery("kotlin")
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.Loaded)
+
+            // 2. LoadMore on TOP → isAppending=true, page-2-TOP fetch suspended.
+            vm.handleEvent(SearchPostsEvent.LoadMore)
+            runCurrent()
+            assertTrue(
+                (vm.uiState.value.loadStatus as SearchPostsLoadStatus.Loaded).isAppending,
+                "page-2-TOP fetch should be in flight",
+            )
+
+            // 3. User switches sort. mapLatest fires runFirstPage(LATEST).
+            vm.handleEvent(SearchPostsEvent.SortClicked(SearchPostsSort.LATEST))
+            runCurrent()
+            val afterSort = vm.uiState.value.loadStatus
+            assertTrue(afterSort is SearchPostsLoadStatus.Loaded)
+            assertEquals(
+                "at://latest1",
+                (afterSort as SearchPostsLoadStatus.Loaded)
+                    .items
+                    .single()
+                    .post.id,
+                "LATEST results should have landed",
+            )
+
+            // 4. The stale page-2-TOP completion arrives AFTER the sort change.
+            //    Without the stale guard, this would splice TOP-page-2 items
+            //    onto the LATEST list.
+            pageTwoTopGate.complete(
+                Result.success(
+                    SearchPostsPage(
+                        items =
+                            persistentListOf(
+                                searchPostFixture("at://stale-top-page-2", "stale"),
+                            ),
+                        nextCursor = "c3",
+                    ),
+                ),
+            )
+            runCurrent()
+
+            val finalStatus = vm.uiState.value.loadStatus
+            assertTrue(finalStatus is SearchPostsLoadStatus.Loaded)
+            finalStatus as SearchPostsLoadStatus.Loaded
+            assertEquals(
+                listOf("at://latest1"),
+                finalStatus.items.map { it.post.id },
+                "stale TOP-page-2 items must not appear on the LATEST list",
+            )
+            assertEquals(null, finalStatus.nextCursor, "cursor must remain the LATEST page's null cursor")
+        }
+
+    @Test
     fun sortClicked_resetsPaginationAndFetches_freshFirstPage() =
         runTest {
             val vm = SearchPostsViewModel(repo)
