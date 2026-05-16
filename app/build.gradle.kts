@@ -179,10 +179,12 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
-    // :core:posting types (ActorTypeaheadUi, ComposerError, ComposerAttachment)
-    // surface in :feature:composer:impl's public ComposerScreenContent
-    // signature — :app needs them on its compile classpath to construct
-    // overlay screenshots that call ComposerScreenContent directly.
+    // :core:posting types (ComposerError, ComposerAttachment) surface in
+    // :feature:composer:impl's public ComposerScreenContent signature —
+    // :app needs them on its compile classpath to construct overlay
+    // screenshots that call ComposerScreenContent directly. `ActorUi`
+    // used to live here as `ActorTypeaheadUi` but was promoted to
+    // :data:models in nubecita-vrba.4 and is now reachable transitively.
     implementation(project(":core:posting"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
