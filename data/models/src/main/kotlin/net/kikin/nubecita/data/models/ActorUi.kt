@@ -12,8 +12,10 @@ import androidx.compose.runtime.Immutable
  * display. `avatarUrl` is nullable because actors without a profile
  * picture serve no avatar.
  *
- * Promoted from `:core:posting`'s former `ActorUi` in
- * `nubecita-vrba.4` — same shape, broader applicability.
+ * Promoted from `:core:posting`'s former `ActorTypeaheadUi` in
+ * `nubecita-vrba.4` — same shape, broader applicability, dropped the
+ * misleading `Typeahead` suffix since it's now also used for non-
+ * typeahead actor-row surfaces (search People tab, future profile lists).
  */
 @Immutable
 public data class ActorUi(
