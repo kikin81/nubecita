@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-16
 **Scope:** `nubecita-vrba.8` — wire the per-tab stateful entries shipped by `vrba.6` (`SearchPostsScreen`) and `vrba.7` (`SearchActorsScreen`) into the parent `SearchScreen` (shipped by `vrba.5`) via a `SecondaryTabRow` + `HorizontalPager`, hoist a `SnackbarHostState` for tab-level append errors, and route the per-tab `onClearQuery` callback back to the parent's `TextFieldState`. No new business logic, no new VM, no new contract types — pure composition + a small handful of strings.
-**Status:** Draft for user review.
+**Status:** Implemented in PR #201.
 
 ## Why this slice
 
@@ -63,7 +63,17 @@ if (isQueryBlank) {
 
 When the user clears the field (via the input's clear button, via the per-tab "Clear search" empty-state CTA, or via backspace-to-empty), `isQueryBlank` flips to true after the 250ms debounce → the TabRow + Pager unmount, the chip strip re-renders (if any recents exist). Symmetric and clean.
 
-**Side benefit:** clearing the query unmounts both per-tab Screens — their VMs are released by Hilt + the `viewModelStoreOwner`. Re-typing a query remounts → fresh VMs → fresh fetch. No stale state to manage. (This is also why `Search{Posts,Actors}ViewModel.loadStatus` already resets to `Idle` on blank in vrba.6 fix + vrba.12 backport, in case the Pager is held in composition for any reason — defense in depth.)
+**VM lifecycle on unmount (Copilot review #201, corrected from an earlier draft of this spec):**
+
+Unmounting the Pager does NOT destroy the per-tab VMs. `SearchPostsViewModel` and `SearchActorsViewModel` are obtained via `hiltViewModel()` inside `Search{Posts,Actors}Screen`, scoped to the Search tab's `NavBackStackEntry` `ViewModelStoreOwner`. That scope outlives any composable in the tab — both VMs survive until the user navigates away from the Search tab entirely. So:
+
+- The unmount also detaches each per-tab Screen's `LaunchedEffect(currentQuery)`. The VMs never see the blank query (`setQuery("")` is never called).
+- Each VM retains its last `fetchKey` (e.g. `query="alice"`) and its last `loadStatus = Loaded(alice items)` in the background.
+- **Repeat-search (same query) is instant.** When the user re-types the same query, the Pager re-mounts, `LaunchedEffect(currentQuery)` fires with `"alice"`, and `setQuery("alice")` is a `StateFlow` value-equality no-op — `mapLatest` does not refire and the user sees the previously-loaded results immediately. This is a UX win, not a bug.
+- **Different-query search re-fetches.** Typing `"bob"` updates `fetchKey.query` to `"bob"`, `mapLatest` cancels any prior in-flight `runFirstPage`, and a fresh fetch starts. The vrba.6 + vrba.12 blank-query → Idle fix inside `mapLatest` also handles the case where the per-tab VM ever does see a blank propagate through (e.g. if a future refactor keeps the Screens mounted) — defense in depth.
+- **In-flight `LoadMore` that completes during the unmount period** is handled by the stale-completion guard added in vrba.6 (and backported in vrba.12). The captured `fetchKey` at LoadMore-start matches `fetchKey.value` at completion (both still `"alice"`), so the append lands harmlessly into the VM's background state — visible the next time the user re-types `"alice"`.
+
+The original spec draft promised "fresh VMs on re-typing"; that was wrong and has been corrected. The actual behavior (VM-state retention across the chip↔tab UI toggle) is what we want.
 
 ### O5. `Scaffold(snackbarHost = ...)` wraps the existing Column
 

@@ -51,7 +51,8 @@ None. All work lands as modifications to two existing files (plus screenshot bas
 - [ ] **Step 1: Confirm working directory**
 
 ```bash
-cd /Users/velazquez/code/nubecita-vrba.8
+# cd into the worktree the controller provisioned at ../nubecita-vrba.8
+# (sibling of the main checkout, per the bd-worktree skill convention).
 git rev-parse --abbrev-ref HEAD   # expect feat/nubecita-vrba.8-searchscreen-orchestration
 git log --oneline -3
 ls feature/search/impl/src/main/kotlin/net/kikin/nubecita/feature/search/impl/ | head -20
