@@ -207,6 +207,8 @@ dependencies {
     implementation(project(":feature:profile:impl"))
     implementation(project(":feature:search:api"))
     implementation(project(":feature:search:impl"))
+    implementation(project(":feature:videoplayer:api"))
+    implementation(project(":feature:videoplayer:impl"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
