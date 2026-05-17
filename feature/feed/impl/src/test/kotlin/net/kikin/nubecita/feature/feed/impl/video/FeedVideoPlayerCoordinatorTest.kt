@@ -9,11 +9,13 @@ import android.media.AudioManager
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.unmockkAll
 import io.mockk.verify
+import io.mockk.verifyOrder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -115,6 +118,81 @@ internal class FeedVideoPlayerCoordinatorTest {
             advanceUntilIdle()
 
             verify(exactly = 0) { audioManager.requestAudioFocus(any<AudioFocusRequest>()) }
+        }
+
+    @Test
+    fun `bindMostVisibleVideo delegates to holder bind setMode attachSurface play`() =
+        runTest(dispatcher) {
+            val coordinator = newCoordinator()
+
+            coordinator.bindMostVisibleVideo(
+                VideoBindingTarget(postId = "post1", playlistUrl = "https://video.cdn/hls/post1.m3u8"),
+            )
+            advanceUntilIdle()
+
+            verifyOrder {
+                holder.setMode(PlaybackMode.FeedPreview)
+                holder.bind(playlistUrl = "https://video.cdn/hls/post1.m3u8", posterUrl = null)
+                holder.attachSurface()
+                holder.play()
+            }
+
+            coordinator.release()
+        }
+
+    @Test
+    fun `bindMostVisibleVideo null pauses and detaches without clearing holder bound url`() =
+        runTest(dispatcher) {
+            val coordinator = newCoordinator()
+
+            // First bind so there's something to unbind from.
+            coordinator.bindMostVisibleVideo(
+                VideoBindingTarget(postId = "post1", playlistUrl = "https://video.cdn/hls/post1.m3u8"),
+            )
+            advanceUntilIdle()
+            clearMocks(holder, mockPlayer, answers = false, recordedCalls = true, childMocks = false)
+
+            // Now unbind.
+            coordinator.bindMostVisibleVideo(null)
+            advanceUntilIdle()
+
+            // Unbind path: pause the existing player + detach the surface.
+            verify(exactly = 1) { mockPlayer.pause() }
+            verify(exactly = 1) { holder.detachSurface() }
+
+            // Critical instance-transfer property: unbind MUST NOT call holder.bind
+            // with a different URL or clearMediaItems — the bound playlist must
+            // stay prepared on the holder so a future fullscreen tap (zak.4 / zak.5)
+            // can pick up mid-playback without a re-prepare cycle.
+            verify(exactly = 0) { holder.bind(any(), any()) }
+
+            coordinator.release()
+        }
+
+    @Test
+    fun `bindMostVisibleVideo to the same postId is idempotent no-op`() =
+        runTest(dispatcher) {
+            val coordinator = newCoordinator()
+            val target = VideoBindingTarget(postId = "post1", playlistUrl = "https://video.cdn/hls/post1.m3u8")
+
+            coordinator.bindMostVisibleVideo(target)
+            advanceUntilIdle()
+            clearMocks(holder, mockPlayer, answers = false, recordedCalls = true, childMocks = false)
+
+            // Second bind to the exact same target — should be a no-op
+            // (scroll-gated bindMostVisibleVideo distinctUntilChanges on
+            // bind id, but a layout recompute that doesn't change the
+            // resting post still passes through here; the coordinator's
+            // early-return prevents the rebind).
+            coordinator.bindMostVisibleVideo(target)
+            advanceUntilIdle()
+
+            verify(exactly = 0) { holder.bind(any(), any()) }
+            verify(exactly = 0) { holder.setMode(any()) }
+            verify(exactly = 0) { holder.attachSurface() }
+            verify(exactly = 0) { holder.play() }
+
+            coordinator.release()
         }
 
     @Test
