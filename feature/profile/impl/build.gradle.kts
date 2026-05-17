@@ -30,6 +30,10 @@ dependencies {
     // image (on a timeline PostCard) or a media-tab grid cell is tapped.
     implementation(project(":feature:mediaviewer:api"))
     implementation(project(":feature:postdetail:api"))
+    // VideoPlayerRoute NavKey — pushed onto the outer back stack when
+    // a video media-grid cell is tapped (the MediaViewer can't render
+    // video embeds, so the route here splits image vs video taps).
+    implementation(project(":feature:videoplayer:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)

@@ -106,7 +106,11 @@ internal class ProfileViewModel
                 is ProfileEvent.OnQuotedPostTapped ->
                     sendEffect(ProfileEffect.NavigateToPost(event.quotedPostUri))
                 is ProfileEvent.OnMediaCellTapped ->
-                    sendEffect(ProfileEffect.NavigateToMediaViewer(event.postUri, imageIndex = 0))
+                    if (event.isVideo) {
+                        sendEffect(ProfileEffect.NavigateToVideoPlayer(event.postUri))
+                    } else {
+                        sendEffect(ProfileEffect.NavigateToMediaViewer(event.postUri, imageIndex = 0))
+                    }
                 is ProfileEvent.HandleTapped -> onHandleTapped(event.handle)
                 ProfileEvent.Refresh -> onRefresh()
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)

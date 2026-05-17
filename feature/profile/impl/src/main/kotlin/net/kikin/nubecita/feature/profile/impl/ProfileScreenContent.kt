@@ -192,9 +192,19 @@ internal fun ProfileScreenContent(
                         profileMediaTabBody(
                             status = state.mediaStatus,
                             // Media cell tap routes directly to MediaViewer
-                            // (not PostDetail) so the user lands on the gallery
-                            // matching the thumb they just tapped.
-                            onMediaTap = { uri -> onEvent(ProfileEvent.OnMediaCellTapped(uri)) },
+                            // for images or the fullscreen video player for
+                            // video posts (the VM branches on cell.isVideo).
+                            // Neither path goes through PostDetail so the
+                            // user lands on the right surface for the thumb
+                            // they tapped.
+                            onMediaTap = { cell ->
+                                onEvent(
+                                    ProfileEvent.OnMediaCellTapped(
+                                        postUri = cell.postUri,
+                                        isVideo = cell.isVideo,
+                                    ),
+                                )
+                            },
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Media)) },
                         )
                 }

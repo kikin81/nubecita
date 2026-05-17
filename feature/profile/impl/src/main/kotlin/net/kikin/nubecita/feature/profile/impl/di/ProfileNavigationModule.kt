@@ -22,6 +22,7 @@ import net.kikin.nubecita.feature.profile.api.Settings
 import net.kikin.nubecita.feature.profile.impl.ProfileScreen
 import net.kikin.nubecita.feature.profile.impl.ProfileViewModel
 import net.kikin.nubecita.feature.profile.impl.SettingsStubScreen
+import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 
 /**
  * Real Profile entry. Bead D wires the screen for `Profile(handle = null)`
@@ -74,10 +75,18 @@ internal object ProfileNavigationModule {
                         navState.add(Chat(otherUserDid = did))
                     },
                     // Direct gallery launch: image-in-PostCard (Posts/Replies)
-                    // and media-grid cell (Media tab) taps skip PostDetail and
+                    // and image media-grid cell taps skip PostDetail and
                     // open the MediaViewer carousel at the right start index.
                     onNavigateToMediaViewer = { uri, idx ->
                         appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = idx))
+                    },
+                    // Video media-grid cell taps land here instead of
+                    // MediaViewer (the viewer dead-ends on "post has no
+                    // images" for video embeds). VideoPlayerRoute is
+                    // @OuterShell-registered so it presents fullscreen
+                    // over MainShell's bottom-nav chrome.
+                    onNavigateToVideoPlayer = { uri ->
+                        appNavigator.goTo(VideoPlayerRoute(postUri = uri))
                     },
                 )
             }
