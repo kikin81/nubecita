@@ -237,6 +237,8 @@ class SharedVideoPlayerTest {
             val player = mockk<ExoPlayer>(relaxed = true)
             val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
             var invocations = 0
+            val testDispatcher =
+                coroutineContext[kotlinx.coroutines.CoroutineDispatcher]!!
             val holder =
                 SharedVideoPlayer(
                     playerFactory = { _ ->
@@ -245,6 +247,7 @@ class SharedVideoPlayerTest {
                     },
                     trackSelectorFactory = { trackSelector },
                     scope = this,
+                    mainDispatcher = testDispatcher,
                     idleReleaseMs = 30_000L,
                 )
 
@@ -504,11 +507,17 @@ class SharedVideoPlayerTest {
     ): Pair<SharedVideoPlayer, ExoPlayer> {
         val player = mockk<ExoPlayer>(relaxed = true)
         val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
+        // Production passes Dispatchers.Main.immediate; tests use the same
+        // scheduler that drives runTest so advanceTimeBy still drives the
+        // polling and idle-release jobs deterministically.
+        val testDispatcher =
+            testScope.coroutineContext[kotlinx.coroutines.CoroutineDispatcher]!!
         val holder =
             SharedVideoPlayer(
                 playerFactory = { _ -> player },
                 trackSelectorFactory = { trackSelector },
                 scope = testScope,
+                mainDispatcher = testDispatcher,
                 idleReleaseMs = 30_000L,
             )
         return holder to player

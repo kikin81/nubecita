@@ -4,7 +4,9 @@ package net.kikin.nubecita.core.video
 
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +37,15 @@ class SharedVideoPlayer
         private val playerFactory: (DefaultTrackSelector) -> ExoPlayer,
         private val trackSelectorFactory: () -> DefaultTrackSelector,
         private val scope: CoroutineScope,
+        // All ExoPlayer touches MUST happen on the application thread —
+        // `verifyApplicationThread()` throws otherwise (see
+        // https://developer.android.com/guide/topics/media/issues/player-accessed-on-wrong-thread).
+        // The provided [scope] is `@ApplicationScope` in production
+        // (Dispatchers.Default), so background jobs that read or release
+        // the player explicitly hop to this dispatcher before touching it.
+        // Tests inject the same scheduler that drives `runTest` so
+        // advanceTimeBy still drives the polling deterministically.
+        private val mainDispatcher: CoroutineDispatcher,
         private val idleReleaseMs: Long,
     ) {
         private val _mode = MutableStateFlow(PlaybackMode.FeedPreview)
@@ -148,7 +159,7 @@ class SharedVideoPlayer
         private fun startPositionPolling() {
             if (positionPollingJob?.isActive == true) return
             positionPollingJob =
-                scope.launch {
+                scope.launch(mainDispatcher) {
                     while (isActive) {
                         val p = cachedExoPlayer
                         if (p != null) {
@@ -197,7 +208,7 @@ class SharedVideoPlayer
                 stopPositionPolling()
                 idleReleaseJob?.cancel()
                 idleReleaseJob =
-                    scope.launch {
+                    scope.launch(mainDispatcher) {
                         delay(idleReleaseMs)
                         cachedExoPlayer?.release()
                         cachedExoPlayer = null
@@ -408,6 +419,11 @@ fun createSharedVideoPlayer(
             }
         },
         scope = scope,
+        // ExoPlayer was built on the main thread (called from
+        // SharedVideoPlayerModule which Hilt invokes on the singleton-init
+        // path) and rejects access from anything else. Main.immediate lets
+        // hops from main-thread callers stay synchronous.
+        mainDispatcher = Dispatchers.Main.immediate,
         idleReleaseMs = idleReleaseMs,
     )
 }
