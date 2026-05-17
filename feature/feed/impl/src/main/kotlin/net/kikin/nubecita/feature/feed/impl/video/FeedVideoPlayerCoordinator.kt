@@ -383,12 +383,6 @@ internal class FeedVideoPlayerCoordinator(
     private suspend fun onPlaybackStarted() =
         mutex.withLock {
             if (released) return@withLock
-            // Capture the bind id at scheduling time. The 10-second
-            // delay below outlives the current player.play() call, so
-            // a stale onPlaybackStarted from a previous binding could
-            // otherwise unlock bitrate for a freshly-bound video. The
-            // inner `mutex.withLock` re-checks both the released flag
-            // and the bound post before any bitrate-floor mutation.
             val bindAtScheduling = _boundPostId.value ?: return@withLock
             if (bitrateUnlockJob?.isActive == true) return@withLock
             bitrateUnlockJob =
@@ -397,8 +391,10 @@ internal class FeedVideoPlayerCoordinator(
                     mutex.withLock {
                         if (released) return@withLock
                         if (_boundPostId.value != bindAtScheduling) return@withLock
-                        // Bitrate-floor unlock: reworked in Task 3 to
-                        // route through the holder's trackSelector accessor.
+                        val ts = sharedVideoPlayer.trackSelector ?: return@withLock
+                        ts.setParameters(
+                            ts.buildUponParameters().setForceLowestBitrate(false),
+                        )
                         bitrateUnlockJob = null
                     }
                 }
