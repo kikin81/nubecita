@@ -18,6 +18,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -60,6 +61,18 @@ internal fun ProfileScreenContent(
 ) {
     val pillTabs = rememberProfilePillTabs()
     val activeTabIsRefreshing = state.activeTabIsRefreshing()
+    // Hoist the video-tap dispatcher once so both Posts and Replies tab
+    // bodies share the same lambda identity across recompositions —
+    // [profileFeedTabBody] keys its per-PostCard slot `remember` on
+    // (postUri, onVideoTap), and an unstable lambda here would defeat
+    // the cross-recomposition caching the keying is designed for. The
+    // FeedScreen pattern uses `remember(viewModel)` for the same reason;
+    // here [onEvent] is the screen's stable boundary (a method reference
+    // from `viewModel::handleEvent`).
+    val onVideoTap =
+        remember(onEvent) {
+            { uri: String -> onEvent(ProfileEvent.OnVideoTapped(uri)) }
+        }
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -174,7 +187,7 @@ internal fun ProfileScreenContent(
                             status = state.postsStatus,
                             callbacks = postCallbacks,
                             onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
-                            onVideoTap = { uri -> onEvent(ProfileEvent.OnVideoTapped(uri)) },
+                            onVideoTap = onVideoTap,
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Posts)) },
                             lastLikeTapPostUri = state.lastLikeTapPostUri,
                             lastRepostTapPostUri = state.lastRepostTapPostUri,
@@ -185,7 +198,7 @@ internal fun ProfileScreenContent(
                             status = state.repliesStatus,
                             callbacks = postCallbacks,
                             onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
-                            onVideoTap = { uri -> onEvent(ProfileEvent.OnVideoTapped(uri)) },
+                            onVideoTap = onVideoTap,
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Replies)) },
                             lastLikeTapPostUri = state.lastLikeTapPostUri,
                             lastRepostTapPostUri = state.lastRepostTapPostUri,

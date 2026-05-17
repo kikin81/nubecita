@@ -16,13 +16,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
@@ -62,6 +63,11 @@ fun VideoPosterEmbed(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Fall back to a generic label when the lexicon's altText is null so
+    // TalkBack never lands on an unlabeled `Role.Button`. Resolved at
+    // composition time (rather than inside the semantics block) so locale
+    // changes participate in recomposition.
+    val resolvedDescription = altText ?: stringResource(R.string.video_poster_default_content_description)
     Box(
         modifier =
             modifier
@@ -69,13 +75,7 @@ fun VideoPosterEmbed(
                 .aspectRatio(aspectRatio)
                 .clip(MaterialTheme.shapes.large)
                 .clickable(role = Role.Button, onClick = onTap)
-                .let { base ->
-                    if (altText != null) {
-                        base.semantics { contentDescription = altText }
-                    } else {
-                        base
-                    }
-                },
+                .semantics { contentDescription = resolvedDescription },
     ) {
         if (posterUrl != null) {
             NubecitaAsyncImage(
