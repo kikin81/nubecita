@@ -202,3 +202,51 @@ class SharedVideoPlayer
             _boundPlaylistUrl.value = playlistUrl
         }
     }
+
+/**
+ * Production factory for [SharedVideoPlayer]. Wires the real Media3
+ * chain: an `ExoPlayer` built with a `DefaultTrackSelector` whose
+ * HLS-bitrate floor starts pinned to the lowest variant (the
+ * sustained-playback unlock arrives in a follow-up task for
+ * `nubecita-zak.4`; the floor stays unconditionally pinned for
+ * `zak.1`). Audio attributes start at `FeedPreview` defaults
+ * (`handleAudioFocus = false`, volume = 0) — `setMode(Fullscreen)`
+ * flips them in.
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+fun createSharedVideoPlayer(
+    context: android.content.Context,
+    scope: CoroutineScope,
+    idleReleaseMs: Long = DEFAULT_IDLE_RELEASE_MS,
+): SharedVideoPlayer {
+    val appContext = context.applicationContext
+    val trackSelector =
+        DefaultTrackSelector(appContext).apply {
+            setParameters(buildUponParameters().setForceLowestBitrate(true))
+        }
+    val attrs =
+        androidx.media3.common.AudioAttributes
+            .Builder()
+            .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+            .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
+            .build()
+    val player =
+        ExoPlayer
+            .Builder(appContext)
+            .setTrackSelector(trackSelector)
+            .build()
+            .apply {
+                volume = 0f
+                // FeedPreview default — flipped to `true` by setMode(Fullscreen).
+                setAudioAttributes(attrs, false)
+            }
+    return SharedVideoPlayer(
+        player = player,
+        trackSelector = trackSelector,
+        scope = scope,
+        idleReleaseMs = idleReleaseMs,
+    )
+}
+
+/** 30 seconds. Calibrated to the design's idle-release rule. */
+const val DEFAULT_IDLE_RELEASE_MS: Long = 30_000L
