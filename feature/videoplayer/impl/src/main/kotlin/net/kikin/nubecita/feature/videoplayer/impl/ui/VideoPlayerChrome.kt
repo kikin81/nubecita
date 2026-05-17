@@ -18,10 +18,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -30,16 +36,15 @@ import net.kikin.nubecita.feature.videoplayer.impl.R
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerState
+import java.util.Locale
 
 /**
  * Chrome overlay for the fullscreen player. Tap-to-toggle visibility +
  * 3s auto-hide is managed by [VideoPlayerViewModel]; this composable
  * just renders the controls assuming it's visible.
  *
- * Layout: top row (back button + spacer), spacer, bottom column
- * (seek bar with elapsed/total + transport-row with mute + play/pause).
- * Both bands sit on a black-to-transparent scrim for legibility over
- * busy video frames.
+ * Layout: top row (back button), bottom column (seek bar with elapsed
+ * /total + transport-row with mute + play/pause).
  */
 @Composable
 internal fun VideoPlayerChrome(
@@ -73,7 +78,6 @@ internal fun VideoPlayerChrome(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Seek bar (renders even at Resolving — Slider with 0..0 is OK).
             VideoPlayerSeekBar(
                 positionMs = state.positionMs,
                 durationMs = state.durationMs,
@@ -86,12 +90,12 @@ internal fun VideoPlayerChrome(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = state.positionMs.toMmSs(),
+                    text = formatPositionMs(state.positionMs),
                     color = Color.White,
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(
-                    text = " / " + state.durationMs.toMmSs(),
+                    text = " / " + formatPositionMs(state.durationMs),
                     color = Color.White.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -135,6 +139,14 @@ internal fun VideoPlayerChrome(
     }
 }
 
+/**
+ * Seek bar with drag-only commit semantics: `onValueChange` is many
+ * times per gesture (every touch frame on Material's Slider), but
+ * `seekTo` on Media3 can be expensive for HLS-backed playback (segment
+ * fetch, decoder flush). Track the drag fraction locally and only fire
+ * [onSeek] on `onValueChangeFinished` so a single scrub gesture
+ * produces a single seek.
+ */
 @Composable
 private fun VideoPlayerSeekBar(
     positionMs: Long,
@@ -142,31 +154,67 @@ private fun VideoPlayerSeekBar(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var draggingFraction: Float? by remember { mutableStateOf(null) }
+    val seekContentDescription = stringResource(R.string.video_player_seek_content_description)
+    val positionFraction =
+        if (durationMs > 0L) {
+            // Position can outrun duration near EOS or while the player's
+            // duration probe lags the position polling tick — Slider crashes
+            // if value escapes valueRange, so clamp defensively.
+            (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
     Slider(
-        value =
-            if (durationMs > 0L) {
-                positionMs.toFloat() / durationMs.toFloat()
-            } else {
-                0f
-            },
+        value = draggingFraction ?: positionFraction,
         onValueChange = { fraction ->
-            if (durationMs > 0L) onSeek((fraction * durationMs).toLong())
+            if (durationMs > 0L) {
+                draggingFraction = fraction.coerceIn(0f, 1f)
+            }
+        },
+        onValueChangeFinished = {
+            val committed = draggingFraction
+            draggingFraction = null
+            if (durationMs > 0L && committed != null) {
+                onSeek((committed * durationMs).toLong())
+            }
         },
         valueRange = 0f..1f,
-        modifier = modifier,
+        modifier = modifier.semantics { contentDescription = seekContentDescription },
     )
 }
 
-private fun Long.toMmSs(): String {
-    val totalSec = (this / 1_000L).coerceAtLeast(0L)
-    val minutes = totalSec / 60L
-    val seconds = totalSec % 60L
-    return "%d:%02d".format(minutes, seconds)
+/**
+ * `m:ss` for clips under an hour, `h:mm:ss` for longer.
+ * Mirrors `feature/feed/impl/.../PostCardVideoEmbed.formatDuration`:
+ * the format string runs through [Locale.ROOT] so digit shaping stays
+ * ASCII (locales like `ar-SA` would otherwise render Eastern Arabic
+ * numerals and divergence between devices/CI would break screenshot
+ * tests). Operates on milliseconds (the chrome's native unit) instead
+ * of seconds.
+ */
+private fun formatPositionMs(positionMs: Long): String {
+    val totalSec = (positionMs / 1_000L).coerceAtLeast(0L)
+    val h = totalSec / 3600L
+    val m = (totalSec % 3600L) / 60L
+    val s = totalSec % 60L
+    return if (h > 0L) {
+        String.format(Locale.ROOT, "%d:%02d:%02d", h, m, s)
+    } else {
+        String.format(Locale.ROOT, "%d:%02d", m, s)
+    }
 }
 
 @Composable
 internal fun VideoPlayerLoadingBody(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+    val loadingContentDescription = stringResource(R.string.video_player_loading_content_description)
+    Box(
+        modifier =
+            modifier
+                .background(Color.Black)
+                .semantics { contentDescription = loadingContentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
         CircularProgressIndicator(color = Color.White)
     }
 }

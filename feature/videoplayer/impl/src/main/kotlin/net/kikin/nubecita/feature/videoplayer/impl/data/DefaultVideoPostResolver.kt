@@ -38,6 +38,12 @@ internal class DefaultVideoPostResolver
     ) : VideoPostResolver {
         override suspend fun resolve(postUri: String): Result<ResolvedVideoPost> =
             withContext(dispatcher) {
+                // Log the rkey only (segment after the final `/`) — the
+                // AtUri's DID segment is third-party PII. The rkey alone
+                // identifies the post within a known dataset; this matches
+                // the redaction policy `DefaultPostThreadRepository` and
+                // `:core:auth` use across the codebase.
+                val rkey = postUri.substringAfterLast('/')
                 try {
                     val client = xrpcClientProvider.authenticated()
                     val response =
@@ -47,17 +53,17 @@ internal class DefaultVideoPostResolver
                     val post =
                         response.posts.firstOrNull()
                             ?: return@withContext Result.failure(
-                                IllegalStateException("No post returned for $postUri"),
+                                IllegalStateException("No post returned for rkey=$rkey"),
                             )
                     val flat =
                         post.toFlatFeedItemUiSingle()
                             ?: return@withContext Result.failure(
-                                IllegalStateException("Post $postUri did not map to a feed item"),
+                                IllegalStateException("Post rkey=$rkey did not map to a feed item"),
                             )
                     val video =
                         flat.post.embed as? EmbedUi.Video
                             ?: return@withContext Result.failure(
-                                IllegalStateException("Post $postUri has no video embed"),
+                                IllegalStateException("Post rkey=$rkey has no video embed"),
                             )
                     Result.success(
                         ResolvedVideoPost(
@@ -70,7 +76,7 @@ internal class DefaultVideoPostResolver
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
-                    Timber.tag(TAG).e(t, "resolve(postUri=%s) failed: %s", postUri, t.javaClass.name)
+                    Timber.tag(TAG).e(t, "resolve(rkey=%s) failed: %s", rkey, t.javaClass.name)
                     Result.failure(t)
                 }
             }
