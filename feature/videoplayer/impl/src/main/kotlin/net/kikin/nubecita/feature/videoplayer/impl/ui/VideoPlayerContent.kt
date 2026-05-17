@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
 import androidx.compose.animation.AnimatedVisibility
