@@ -1,7 +1,6 @@
 package net.kikin.nubecita.core.video
 
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
@@ -16,10 +15,10 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 /**
- * Unit tests for [SharedVideoPlayer]. The class takes its [ExoPlayer]
- * + [DefaultTrackSelector] via constructor so tests inject relaxed
- * mockks; the production factory `createSharedVideoPlayer(...)` wires
- * the real Media3 chain.
+ * Unit tests for [SharedVideoPlayer]. The class takes a [playerFactory]
+ * lambda via its constructor so tests inject relaxed mockks; the
+ * production factory `createSharedVideoPlayer(...)` wires the real
+ * Media3 chain inside the lambda.
  *
  * The harness uses `TestScope(UnconfinedTestDispatcher())` as the
  * holder's internal coroutine scope so the idle-release timer and
@@ -225,15 +224,42 @@ class SharedVideoPlayerTest {
             assertNull(holder.boundPlaylistUrl.value)
         }
 
+    @Test
+    fun bind_afterRelease_recreatesPlayer_andSetsMediaItem() =
+        runTest {
+            // Use a counting factory so we can verify recreation:
+            val player = mockk<ExoPlayer>(relaxed = true)
+            var invocations = 0
+            val holder =
+                SharedVideoPlayer(
+                    playerFactory = {
+                        invocations += 1
+                        player
+                    },
+                    scope = this,
+                    idleReleaseMs = 30_000L,
+                )
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            assertEquals(1, invocations, "first bind should create the player")
+
+            holder.release()
+            // After release, _player is null and mode resets to FeedPreview.
+            assertNull(holder.boundPlaylistUrl.value)
+            assertEquals(PlaybackMode.FeedPreview, holder.mode.value)
+
+            holder.bind("https://video.cdn/hls/b.m3u8", null)
+            assertEquals(2, invocations, "bind after release must invoke the factory again")
+            assertEquals("https://video.cdn/hls/b.m3u8", holder.boundPlaylistUrl.value)
+        }
+
     private fun newHolder(
         testScope: TestScope,
     ): Pair<SharedVideoPlayer, ExoPlayer> {
         val player = mockk<ExoPlayer>(relaxed = true)
-        val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
         val holder =
             SharedVideoPlayer(
-                player = player,
-                trackSelector = trackSelector,
+                playerFactory = { player },
                 scope = testScope,
                 idleReleaseMs = 30_000L,
             )
