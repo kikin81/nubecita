@@ -845,6 +845,23 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `OnVideoTapped emits NavigateToVideoPlayer with the tapped post's URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+            advanceUntilIdle()
+            val videoUri = "at://did:plc:abc/app.bsky.feed.post/3v1d"
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.OnVideoTapped(videoUri))
+
+                val effect = awaitItem()
+                assertTrue(effect is FeedEffect.NavigateToVideoPlayer)
+                assertEquals(videoUri, (effect as FeedEffect.NavigateToVideoPlayer).postUri)
+            }
+        }
+
+    @Test
     fun `OnAuthorTapped emits NavigateToAuthor with the author DID`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()

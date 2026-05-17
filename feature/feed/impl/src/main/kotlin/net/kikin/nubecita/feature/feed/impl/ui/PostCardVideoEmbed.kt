@@ -80,13 +80,21 @@ import java.util.Locale
 internal fun PostCardVideoEmbed(
     video: EmbedUi.Video,
     modifier: Modifier = Modifier,
+    onTap: (() -> Unit)? = null,
 ) {
     Box(
         modifier =
             modifier
                 .fillMaxWidth()
                 .aspectRatio(video.aspectRatio)
-                .clip(MaterialTheme.shapes.large),
+                .clip(MaterialTheme.shapes.large)
+                .let { base ->
+                    // Inner clickable absorbs the tap so it doesn't bubble
+                    // up to PostCard's outer `clickable { callbacks.onTap }`
+                    // (which routes to PostDetail). Skipped when [onTap]
+                    // is null (preview / screenshot tests).
+                    if (onTap != null) base.clickable(onClick = onTap) else base
+                },
     ) {
         PosterLayer(video = video)
         DurationChipIfPresent(durationSeconds = video.durationSeconds)
@@ -122,17 +130,19 @@ internal fun PostCardVideoEmbed(
     postId: String,
     coordinator: FeedVideoPlayerCoordinator,
     modifier: Modifier = Modifier,
+    onTap: (() -> Unit)? = null,
 ) {
     if (LocalInspectionMode.current) {
         // Inspection mode (IDE @Preview, screenshot tests) — render the
         // phase-B variant; layoutlib can't construct PlayerSurface.
-        PostCardVideoEmbed(video = video, modifier = modifier)
+        PostCardVideoEmbed(video = video, modifier = modifier, onTap = onTap)
     } else {
         PostCardVideoEmbedAutoplay(
             video = video,
             postId = postId,
             coordinator = coordinator,
             modifier = modifier,
+            onTap = onTap,
         )
     }
 }
@@ -148,9 +158,10 @@ internal fun PostCardVideoEmbed(
 internal fun PostCardVideoEmbed(
     quotedVideo: QuotedEmbedUi.Video,
     modifier: Modifier = Modifier,
+    onTap: (() -> Unit)? = null,
 ) {
     val asEmbedUiVideo = remember(quotedVideo) { quotedVideo.toEmbedUiVideo() }
-    PostCardVideoEmbed(video = asEmbedUiVideo, modifier = modifier)
+    PostCardVideoEmbed(video = asEmbedUiVideo, modifier = modifier, onTap = onTap)
 }
 
 /**
@@ -169,6 +180,7 @@ internal fun PostCardVideoEmbed(
     postId: String,
     coordinator: FeedVideoPlayerCoordinator,
     modifier: Modifier = Modifier,
+    onTap: (() -> Unit)? = null,
 ) {
     val asEmbedUiVideo = remember(quotedVideo) { quotedVideo.toEmbedUiVideo() }
     PostCardVideoEmbed(
@@ -176,6 +188,7 @@ internal fun PostCardVideoEmbed(
         postId = postId,
         coordinator = coordinator,
         modifier = modifier,
+        onTap = onTap,
     )
 }
 
@@ -203,6 +216,7 @@ private fun PostCardVideoEmbedAutoplay(
     postId: String,
     coordinator: FeedVideoPlayerCoordinator,
     modifier: Modifier = Modifier,
+    onTap: (() -> Unit)? = null,
 ) {
     val boundPostId by coordinator.boundPostId.collectAsStateWithLifecycle()
     val isBoundHere = boundPostId == postId
@@ -211,7 +225,17 @@ private fun PostCardVideoEmbedAutoplay(
             modifier
                 .fillMaxWidth()
                 .aspectRatio(video.aspectRatio)
-                .clip(MaterialTheme.shapes.large),
+                .clip(MaterialTheme.shapes.large)
+                .let { base ->
+                    // Inner clickable absorbs the tap so the video region
+                    // routes to fullscreen — does NOT propagate to
+                    // PostCard's outer `clickable { callbacks.onTap }`
+                    // (which routes to PostDetail). The mute icon +
+                    // resume overlay each have their own inner clickables
+                    // that absorb taps on those affordances before the
+                    // outer video-Box clickable can fire.
+                    if (onTap != null) base.clickable(onClick = onTap) else base
+                },
     ) {
         // Poster (or gradient) is the base layer regardless of bind
         // state. When bound, the PlayerSurface paints over it; once
