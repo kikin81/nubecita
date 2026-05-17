@@ -199,6 +199,7 @@ class SharedVideoPlayer
                         _durationMs.value = 0L
                         _playbackError.value = null
                         _boundPlaylistUrl.value = null
+                        _mode.value = PlaybackMode.FeedPreview
                     }
             }
         }
