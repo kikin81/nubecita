@@ -1,3 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Chrome content descriptions for accessibility. -->
+    <string name="video_player_play_content_description">Play</string>
+    <string name="video_player_pause_content_description">Pause</string>
+    <string name="video_player_mute_content_description">Mute</string>
+    <string name="video_player_unmute_content_description">Unmute</string>
+    <string name="video_player_back_content_description">Close player</string>
+    <string name="video_player_seek_content_description">Scrub video position</string>
+
+    <!-- Time format strings. mm:ss for videos under an hour. -->
+    <string name="video_player_time_format">%1$d:%2$02d</string>
+
+    <!-- Resolving + error states. -->
+    <string name="video_player_loading_content_description">Loading video</string>
+    <string name="video_player_error_network_title">No connection</string>
+    <string name="video_player_error_network_body">Check your connection and try again.</string>
+    <string name="video_player_error_decode_title">Can\'t play this video</string>
+    <string name="video_player_error_decode_body">The video format isn\'t supported on this device.</string>
+    <string name="video_player_error_unknown_title">Something went wrong</string>
+    <string name="video_player_error_unknown_body">We couldn\'t load this video. Try again.</string>
+    <string name="video_player_error_retry">Try again</string>
 </resources>
