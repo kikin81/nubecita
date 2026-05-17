@@ -17,22 +17,21 @@ import kotlinx.coroutines.sync.Mutex
  * Process-scoped owner of *the* `ExoPlayer` instance.
  *
  * Multiple Compose surfaces (feed cards, fullscreen route) attach and
- * detach against this holder; the underlying player is never recreated
- * across navigation transitions. Audio-focus discipline and unmute
- * state live here (not on the surface) so flipping between
- * [PlaybackMode.FeedPreview] and [PlaybackMode.Fullscreen] is a mode
- * change, not a re-prepare.
+ * detach against this holder; the underlying player is lazily created
+ * on the first [bind] call and recreated after [release] or idle-release.
+ * Audio-focus discipline and unmute state live here (not on the surface)
+ * so flipping between [PlaybackMode.FeedPreview] and
+ * [PlaybackMode.Fullscreen] is a mode change, not a re-prepare.
  *
- * Constructor takes the [ExoPlayer] + [DefaultTrackSelector] so unit
- * tests can inject relaxed mockks. Production code uses
- * [createSharedVideoPlayer] to wire the real Media3 chain.
+ * Constructor takes a [playerFactory] lambda so unit tests can inject
+ * relaxed mockks. Production code uses [createSharedVideoPlayer] to wire
+ * the real Media3 chain.
  *
  * Design: `docs/superpowers/specs/2026-05-16-fullscreen-video-player-design.md`.
  */
 class SharedVideoPlayer
     internal constructor(
-        private val player: ExoPlayer,
-        private val trackSelector: DefaultTrackSelector,
+        private val playerFactory: () -> ExoPlayer,
         private val scope: CoroutineScope,
         private val idleReleaseMs: Long,
     ) {
@@ -56,8 +55,33 @@ class SharedVideoPlayer
         private val _durationMs = MutableStateFlow(0L)
         val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
 
-        @Suppress("unused") // Reserved for future mutations + idle timer.
+        // Populated by zak.4's Player.Listener wiring. Surfaces ExoPlayer
+        // playback errors (ExoPlaybackException, HLS playlist 404, codec
+        // failures) so the VideoPlayerViewModel can map them to a
+        // VideoPlayerLoadStatus.Error variant.
+        private val _playbackError = MutableStateFlow<Throwable?>(null)
+        val playbackError: StateFlow<Throwable?> = _playbackError.asStateFlow()
+
+        // Not yet wired — all zak.1 mutations happen on the main thread
+        // (single-threaded tests). Mutex enforcement + concurrency tests
+        // land in zak.2 when the feed coordinator drives this holder
+        // concurrently with the VideoPlayerViewModel.
+        @Suppress("unused")
         private val mutationMutex = Mutex()
+
+        private var _player: ExoPlayer? = null
+
+        /**
+         * The currently-bound ExoPlayer instance, or `null` if no surface has
+         * triggered a bind yet (or if the player was released and not yet
+         * rebound). Compose surfaces render `PlayerSurface(player = …)` against
+         * this; the surface composes a black tile when null and the underlying
+         * poster image (per the design's "surface composition rule") shows
+         * through.
+         */
+        val player: androidx.media3.common.Player? get() = _player
+
+        private fun requirePlayer(): ExoPlayer = _player ?: playerFactory().also { _player = it }
 
         private var refcount: Int = 0
         private var idleReleaseJob: Job? = null
@@ -92,7 +116,9 @@ class SharedVideoPlayer
                 idleReleaseJob =
                     scope.launch {
                         delay(idleReleaseMs)
-                        player.release()
+                        _player?.release()
+                        _player = null
+                        _mode.value = PlaybackMode.FeedPreview
                         _boundPlaylistUrl.value = null
                         _isPlaying.value = false
                     }
@@ -114,14 +140,15 @@ class SharedVideoPlayer
         fun setMode(target: PlaybackMode) {
             if (_mode.value == target) return
             val attrs = audioAttributes
+            val p = requirePlayer()
             when (target) {
                 PlaybackMode.Fullscreen -> {
-                    player.setAudioAttributes(attrs, true)
-                    player.volume = 1f
+                    p.setAudioAttributes(attrs, true)
+                    p.volume = 1f
                 }
                 PlaybackMode.FeedPreview -> {
-                    player.setAudioAttributes(attrs, false)
-                    player.volume = 0f
+                    p.setAudioAttributes(attrs, false)
+                    p.volume = 0f
                 }
             }
             _mode.value = target
@@ -136,19 +163,19 @@ class SharedVideoPlayer
 
         /** Resume playback. Volume + audio-focus state come from the current [mode]. */
         fun play() {
-            player.play()
+            requirePlayer().play()
             _isPlaying.value = true
         }
 
         /** Pause playback. The bound URL stays — re-binding to the same URL is idempotent. */
         fun pause() {
-            player.pause()
+            requirePlayer().pause()
             _isPlaying.value = false
         }
 
         /** Seek within the current media item. */
         fun seekTo(positionMs: Long) {
-            player.seekTo(positionMs)
+            requirePlayer().seekTo(positionMs)
         }
 
         /**
@@ -158,7 +185,8 @@ class SharedVideoPlayer
          * Fullscreen first.
          */
         fun toggleMute() {
-            player.volume = if (player.volume > 0f) 0f else 1f
+            val p = requirePlayer()
+            p.volume = if (p.volume > 0f) 0f else 1f
         }
 
         /**
@@ -171,7 +199,9 @@ class SharedVideoPlayer
         fun release() {
             idleReleaseJob?.cancel()
             idleReleaseJob = null
-            player.release()
+            _player?.release()
+            _player = null
+            _mode.value = PlaybackMode.FeedPreview
             _boundPlaylistUrl.value = null
             _isPlaying.value = false
         }
@@ -182,6 +212,10 @@ class SharedVideoPlayer
          * which is the load-bearing property for the feed → fullscreen
          * instance-transfer. Different URL triggers `setMediaItem` +
          * `prepare`; the previous media item is replaced.
+         *
+         * If the player was previously released (manual or idle-release),
+         * the factory is invoked to construct a fresh [ExoPlayer] before
+         * proceeding — this is the lazy-reconstruction contract.
          *
          * [posterUrl] is reserved for a future poster-binding seam — the
          * surface composables resolve their own poster image today, so
@@ -194,11 +228,12 @@ class SharedVideoPlayer
             posterUrl: String?,
         ) {
             if (_boundPlaylistUrl.value == playlistUrl) return
-            player.setMediaItem(
+            val p = requirePlayer()
+            p.setMediaItem(
                 androidx.media3.common.MediaItem
                     .fromUri(playlistUrl),
             )
-            player.prepare()
+            p.prepare()
             _boundPlaylistUrl.value = playlistUrl
         }
     }
@@ -212,6 +247,10 @@ class SharedVideoPlayer
  * `zak.1`). Audio attributes start at `FeedPreview` defaults
  * (`handleAudioFocus = false`, volume = 0) — `setMode(Fullscreen)`
  * flips them in.
+ *
+ * The [ExoPlayer] is constructed lazily inside the [playerFactory] lambda
+ * so the holder can recreate it after [SharedVideoPlayer.release] without
+ * needing a new [SharedVideoPlayer] instance.
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 fun createSharedVideoPlayer(
@@ -220,29 +259,28 @@ fun createSharedVideoPlayer(
     idleReleaseMs: Long = DEFAULT_IDLE_RELEASE_MS,
 ): SharedVideoPlayer {
     val appContext = context.applicationContext
-    val trackSelector =
-        DefaultTrackSelector(appContext).apply {
-            setParameters(buildUponParameters().setForceLowestBitrate(true))
-        }
-    val attrs =
-        androidx.media3.common.AudioAttributes
-            .Builder()
-            .setUsage(androidx.media3.common.C.USAGE_MEDIA)
-            .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
-            .build()
-    val player =
-        ExoPlayer
-            .Builder(appContext)
-            .setTrackSelector(trackSelector)
-            .build()
-            .apply {
-                volume = 0f
-                // FeedPreview default — flipped to `true` by setMode(Fullscreen).
-                setAudioAttributes(attrs, false)
-            }
     return SharedVideoPlayer(
-        player = player,
-        trackSelector = trackSelector,
+        playerFactory = {
+            val trackSelector =
+                DefaultTrackSelector(appContext).apply {
+                    setParameters(buildUponParameters().setForceLowestBitrate(true))
+                }
+            val attrs =
+                androidx.media3.common.AudioAttributes
+                    .Builder()
+                    .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                    .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build()
+            ExoPlayer
+                .Builder(appContext)
+                .setTrackSelector(trackSelector)
+                .build()
+                .apply {
+                    volume = 0f
+                    // FeedPreview default — flipped to `true` by setMode(Fullscreen).
+                    setAudioAttributes(attrs, false)
+                }
+        },
         scope = scope,
         idleReleaseMs = idleReleaseMs,
     )
