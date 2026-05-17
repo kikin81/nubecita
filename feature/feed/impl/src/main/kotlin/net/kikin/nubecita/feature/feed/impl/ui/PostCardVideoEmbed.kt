@@ -233,11 +233,12 @@ private fun PostCardVideoEmbedAutoplay(
 private fun BoxScope.BoundOverlay(coordinator: FeedVideoPlayerCoordinator) {
     val isUnmuted by coordinator.isUnmuted.collectAsStateWithLifecycle()
     val playbackHint by coordinator.playbackHint.collectAsStateWithLifecycle()
+    val player by coordinator.player.collectAsStateWithLifecycle()
     val onMuteClick = remember(coordinator) { { coordinator.toggleMute() } }
     val onResumeClick = remember(coordinator) { { coordinator.resume() } }
 
     PlayerSurface(
-        player = coordinator.player,
+        player = player,
         surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
         modifier = Modifier.fillMaxSize(),
     )
