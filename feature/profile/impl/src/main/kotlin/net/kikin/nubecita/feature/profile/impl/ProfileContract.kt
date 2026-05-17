@@ -174,12 +174,17 @@ sealed interface TabItemUi {
 
     /**
      * Media grid cell — one thumb per post. [thumbUrl] is the first
-     * image in the post's embed (or the video thumbnail for video
-     * posts).
+     * image in the post's embed (or the video poster for video posts).
+     *
+     * [isVideo] differentiates a video post from an image post so the
+     * grid can overlay a small play-badge on video cells and the VM
+     * can route the tap to the fullscreen video player (the MediaViewer
+     * route would crash with "post has no images" for a video).
      */
     data class MediaCell(
         override val postUri: String,
         val thumbUrl: String?,
+        val isVideo: Boolean = false,
     ) : TabItemUi
 }
 
@@ -264,13 +269,15 @@ sealed interface ProfileEvent : UiEvent {
     ) : ProfileEvent
 
     /**
-     * User tapped a media-grid cell in the Media tab. Each cell renders
-     * the post's first image; the tap opens the MediaViewer at index 0
-     * so the user sees the same image they tapped, with the rest of the
-     * post's gallery swipeable behind it.
+     * User tapped a media-grid cell in the Media tab. Image cells open
+     * the MediaViewer at index 0; video cells (marked by [isVideo])
+     * open the fullscreen video player instead, since the MediaViewer
+     * can't render a video embed and would dead-end on "post has no
+     * images".
      */
     data class OnMediaCellTapped(
         val postUri: String,
+        val isVideo: Boolean = false,
     ) : ProfileEvent
 
     /** User tapped an author handle inside one of the rendered posts. */
@@ -370,6 +377,16 @@ sealed interface ProfileEffect : UiEffect {
     data class NavigateToMediaViewer(
         val postUri: String,
         val imageIndex: Int,
+    ) : ProfileEffect
+
+    /**
+     * Push the fullscreen video player route — fired when a video
+     * media-grid cell is tapped. Same instance-transfer contract as
+     * the feed → fullscreen path: SharedVideoPlayer is process-scoped
+     * so no playback restart at the transition.
+     */
+    data class NavigateToVideoPlayer(
+        val postUri: String,
     ) : ProfileEffect
 
     /** Push another user's profile onto the active tab's back stack. Self-tap is consumed silently in the VM. */

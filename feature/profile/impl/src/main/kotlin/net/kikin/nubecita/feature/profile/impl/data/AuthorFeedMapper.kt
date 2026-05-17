@@ -64,8 +64,25 @@ private fun FeedViewPost.toPostTabItemOrNull(): TabItemUi.Post? {
 private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
     val core: PostUi = post.toPostUiCore() ?: return null
     val thumb = core.embed.toMediaThumbUrlOrNull() ?: return null
-    return TabItemUi.MediaCell(postUri = core.id, thumbUrl = thumb)
+    return TabItemUi.MediaCell(
+        postUri = core.id,
+        thumbUrl = thumb,
+        isVideo = core.embed.isVideoMedia(),
+    )
 }
+
+/**
+ * True when the embed surfaces a playable video — either as a direct
+ * [EmbedUi.Video] or nested inside a [EmbedUi.RecordWithMedia]'s media
+ * slot. The Media tab routes these taps to the fullscreen player
+ * instead of the MediaViewer.
+ */
+private fun EmbedUi.isVideoMedia(): Boolean =
+    when (this) {
+        is EmbedUi.Video -> true
+        is EmbedUi.RecordWithMedia -> media.isVideoMedia()
+        else -> false
+    }
 
 /**
  * Pluck the first renderable thumb URL out of an embed. Returns

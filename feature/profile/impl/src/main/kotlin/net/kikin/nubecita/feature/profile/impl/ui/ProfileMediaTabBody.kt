@@ -40,7 +40,7 @@ private const val MEDIA_GRID_COLUMNS = 3
  */
 internal fun LazyListScope.profileMediaTabBody(
     status: TabLoadStatus,
-    onMediaTap: (postUri: String) -> Unit,
+    onMediaTap: (cell: TabItemUi.MediaCell) -> Unit,
     onRetry: () -> Unit,
 ) {
     when (status) {
@@ -102,13 +102,13 @@ internal fun LazyListScope.profileMediaTabBody(
 @Composable
 private fun MediaGridRow(
     row: ImmutableList<TabItemUi.MediaCell>,
-    onMediaTap: (postUri: String) -> Unit,
+    onMediaTap: (cell: TabItemUi.MediaCell) -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth()) {
         row.forEach { cell ->
             MediaCellThumb(
                 cell = cell,
-                onClick = { onMediaTap(cell.postUri) },
+                onClick = { onMediaTap(cell) },
                 modifier = Modifier.weight(1f).aspectRatio(1f),
             )
         }

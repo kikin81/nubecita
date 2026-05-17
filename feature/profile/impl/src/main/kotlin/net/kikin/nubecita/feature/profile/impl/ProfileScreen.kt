@@ -34,6 +34,7 @@ internal fun ProfileScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToMessage: (String) -> Unit,
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit,
+    onNavigateToVideoPlayer: (postUri: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -84,6 +85,7 @@ internal fun ProfileScreen(
     val currentOnNavigateToSettings by rememberUpdatedState(onNavigateToSettings)
     val currentOnNavigateToMessage by rememberUpdatedState(onNavigateToMessage)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
+    val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -121,6 +123,8 @@ internal fun ProfileScreen(
                     currentOnNavigateToMessage(effect.otherUserDid)
                 is ProfileEffect.NavigateToMediaViewer ->
                     currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
+                is ProfileEffect.NavigateToVideoPlayer ->
+                    currentOnNavigateToVideoPlayer(effect.postUri)
             }
         }
     }
