@@ -18,6 +18,7 @@ import net.kikin.nubecita.feature.feed.impl.FeedScreen
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -55,6 +56,16 @@ internal object FeedNavigationModule {
                     // MediaViewer directly with the carousel's start index.
                     onNavigateToMediaViewer = { uri, idx ->
                         appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = idx))
+                    },
+                    // Video-in-PostCard tap skips PostDetail — push the
+                    // fullscreen video player route onto MainShell's
+                    // inner back stack. The route is @MainShell-qualified
+                    // (per the design.md "MainShell's inner NavDisplay
+                    // mounts VideoPlayerScreen" decision), so the feed →
+                    // fullscreen instance-transfer keeps the same
+                    // ExoPlayer bound across the navigation.
+                    onNavigateToVideoPlayer = { uri ->
+                        navState.add(VideoPlayerRoute(postUri = uri))
                     },
                     // Width-class-conditional composer launch. At Compact width
                     // the launcher pushes ComposerRoute onto the tab stack; at

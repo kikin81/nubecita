@@ -152,6 +152,18 @@ sealed interface FeedEvent : UiEvent {
         val quotedPostUri: String,
     ) : FeedEvent
 
+    /**
+     * User tapped a video embed (parent or quoted) in a PostCard.
+     * Routes directly to the fullscreen video player route, skipping
+     * the PostDetail detour the outer-card tap takes. [postUri] is the
+     * AT URI of the post that owns the video — for a quoted video this
+     * is the quoted post's URI, NOT the parent's, so the resolver looks
+     * up the right embed.
+     */
+    data class OnVideoTapped(
+        val postUri: String,
+    ) : FeedEvent
+
     data class OnLikeClicked(
         val post: PostUi,
     ) : FeedEvent
@@ -219,6 +231,20 @@ sealed interface FeedEffect : UiEffect {
     data class NavigateToMediaViewer(
         val postUri: String,
         val imageIndex: Int,
+    ) : FeedEffect
+
+    /**
+     * Open the fullscreen video player for the tapped video embed,
+     * skipping the PostDetail screen the outer-card tap routes to.
+     * Carries just the post AT URI — the video player VM resolves the
+     * playlist URL via `app.bsky.feed.getPosts`. Same instance-transfer
+     * contract as `nubecita-zak.1`: if the feed's `SharedVideoPlayer`
+     * is already bound to this post's playlist, the fullscreen route
+     * picks up the existing ExoPlayer with no restart.
+     */
+    @Immutable
+    data class NavigateToVideoPlayer(
+        val postUri: String,
     ) : FeedEffect
 
     /**

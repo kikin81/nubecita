@@ -103,6 +103,7 @@ internal fun FeedScreen(
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
+    onNavigateToVideoPlayer: (postUri: String) -> Unit = {},
     onComposeClick: () -> Unit = {},
     onReplyClick: (String) -> Unit = {},
     viewModel: FeedViewModel = hiltViewModel(),
@@ -191,6 +192,7 @@ internal fun FeedScreen(
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
+    val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
     // Per-PostCard image tap dispatcher. The PostCard.onImageClick slot
     // is `(Int) -> Unit` (index only); we close over each PostCard's
     // own `post` at the call site to form a `(PostUi, Int) -> Unit`
@@ -198,6 +200,13 @@ internal fun FeedScreen(
     val onImageTap =
         remember(viewModel) {
             { post: PostUi, index: Int -> viewModel.handleEvent(FeedEvent.OnImageTapped(post, index)) }
+        }
+    // Per-video tap dispatcher. Each PostCard's videoSlot lambda closes
+    // over its leaf URI (parent video) or the quoted post's URI (quoted
+    // video). The VM turns the event into NavigateToVideoPlayer.
+    val onVideoTap =
+        remember(viewModel) {
+            { postUri: String -> viewModel.handleEvent(FeedEvent.OnVideoTapped(postUri)) }
         }
     // Hoist the VM-dispatching callbacks. Inline lambdas at the
     // FeedScreenContent call site would create new instances per
@@ -296,6 +305,7 @@ internal fun FeedScreen(
                 is FeedEffect.NavigateToAuthor -> currentOnNavigateToAuthor(effect.authorDid)
                 is FeedEffect.NavigateToMediaViewer ->
                     currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
+                is FeedEffect.NavigateToVideoPlayer -> currentOnNavigateToVideoPlayer(effect.postUri)
                 is FeedEffect.SharePost -> context.launchPostShare(effect.intent)
                 is FeedEffect.CopyPermalink -> {
                     clipboardManager.setPrimaryClip(
@@ -321,6 +331,7 @@ internal fun FeedScreen(
         onLoadMore = onLoadMore,
         onComposeClick = onComposeClick,
         onImageTap = onImageTap,
+        onVideoTap = onVideoTap,
         coordinator = coordinator,
         modifier = modifier,
     )
@@ -345,6 +356,7 @@ internal fun FeedScreenContent(
     modifier: Modifier = Modifier,
     onComposeClick: () -> Unit = {},
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit = { _, _ -> },
+    onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
     // Tap-to-top: collect MainShell's tab-retap signal and scroll the
@@ -456,6 +468,7 @@ internal fun FeedScreenContent(
                     contentPadding = padding,
                     lastLikeTapPostUri = viewState.lastLikeTapPostUri,
                     lastRepostTapPostUri = viewState.lastRepostTapPostUri,
+                    onVideoTap = onVideoTap,
                     coordinator = coordinator,
                 )
         }
@@ -477,6 +490,7 @@ private fun LoadedFeedContent(
     contentPadding: PaddingValues = PaddingValues(),
     lastLikeTapPostUri: String? = null,
     lastRepostTapPostUri: String? = null,
+    onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
     PullToRefreshBox(
@@ -523,17 +537,23 @@ private fun LoadedFeedContent(
                 // Inspection mode (preview / screenshot tests) gets the
                 // phase-B static-poster variant so the screen-level
                 // previews stay layoutlib-safe.
+                val onParentVideoTap: (() -> Unit)? =
+                    onVideoTap?.let { tap -> { tap(leaf.id) } }
                 val videoSlot: @Composable (EmbedUi.Video) -> Unit =
-                    remember(leaf.id, coordinator) {
+                    remember(leaf.id, coordinator, onParentVideoTap) {
                         { video ->
                             if (coordinator != null) {
                                 PostCardVideoEmbed(
                                     video = video,
                                     postId = leaf.id,
                                     coordinator = coordinator,
+                                    onTap = onParentVideoTap,
                                 )
                             } else {
-                                PostCardVideoEmbed(video = video)
+                                PostCardVideoEmbed(
+                                    video = video,
+                                    onTap = onParentVideoTap,
+                                )
                             }
                         }
                     }
@@ -549,8 +569,14 @@ private fun LoadedFeedContent(
                 // same call site every recomposition (key flip drops
                 // the lambda cleanly).
                 val quotedVideoUri = leaf.embed.quotedRecord?.uri
+                val onQuotedVideoTap: (() -> Unit)? =
+                    if (quotedVideoUri != null) {
+                        onVideoTap?.let { tap -> { tap(quotedVideoUri) } }
+                    } else {
+                        null
+                    }
                 val quotedVideoSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
-                    remember(quotedVideoUri, coordinator) {
+                    remember(quotedVideoUri, coordinator, onQuotedVideoTap) {
                         if (quotedVideoUri == null) {
                             null
                         } else {
@@ -560,9 +586,13 @@ private fun LoadedFeedContent(
                                         quotedVideo = qVideo,
                                         postId = quotedVideoUri,
                                         coordinator = coordinator,
+                                        onTap = onQuotedVideoTap,
                                     )
                                 } else {
-                                    PostCardVideoEmbed(quotedVideo = qVideo)
+                                    PostCardVideoEmbed(
+                                        quotedVideo = qVideo,
+                                        onTap = onQuotedVideoTap,
+                                    )
                                 }
                             }
                         }

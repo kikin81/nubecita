@@ -55,6 +55,7 @@ internal class FeedViewModel
                 is FeedEvent.OnImageTapped ->
                     sendEffect(FeedEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
                 is FeedEvent.OnQuotedPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.quotedPostUri))
+                is FeedEvent.OnVideoTapped -> sendEffect(FeedEffect.NavigateToVideoPlayer(event.postUri))
                 is FeedEvent.OnLikeClicked -> {
                     // Mark the latest user-tapped post so the screen can
                     // animate the count's ±1 transition. Sticky — sees

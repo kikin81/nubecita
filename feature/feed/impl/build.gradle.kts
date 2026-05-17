@@ -42,6 +42,10 @@ dependencies {
     // Profile NavKey — pushed onto the back stack when an author handle
     // is tapped inside a PostCard. Imports `:api` only; never `:impl`.
     implementation(project(":feature:profile:api"))
+    // VideoPlayerRoute NavKey — pushed onto the back stack when a video
+    // embed in a feed PostCard is tapped (skip the PostDetail detour).
+    // Imports `:api` only; never `:impl`.
+    implementation(project(":feature:videoplayer:api"))
     implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
