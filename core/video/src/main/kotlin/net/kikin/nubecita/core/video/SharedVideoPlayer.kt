@@ -266,11 +266,21 @@ class SharedVideoPlayer
          * On [PlaybackMode.Fullscreen]: ExoPlayer's audio attributes get
          * `handleAudioFocus = true`, so Media3's built-in handler claims
          * focus on the next `play()` and pauses on transient loss
-         * (incoming call, other media). Volume goes to 1.
+         * (incoming call, other media). Volume goes to 1, and the HLS
+         * bitrate floor is LIFTED — fullscreen viewing is an explicit
+         * user signal that quality matters, so ExoPlayer's adaptive
+         * bitrate selector chooses the best variant the network and
+         * decoder can sustain.
          *
          * On [PlaybackMode.FeedPreview]: `handleAudioFocus = false`
-         * (silent preview must never interrupt the user's music) and
-         * volume = 0.
+         * (silent preview must never interrupt the user's music),
+         * volume = 0, and the HLS bitrate floor is RE-PINNED to the
+         * lowest variant. Feed autoplay-muted previews are the
+         * data-intensive case (every visible card preloads, most plays
+         * are scroll-past seconds); pinning low keeps cellular costs
+         * sane. The coordinator's sustained-playback unlock timer
+         * still applies if the user deliberately lingers on a single
+         * feed card.
          */
         fun setMode(target: PlaybackMode) {
             if (_mode.value == target) return
@@ -280,13 +290,30 @@ class SharedVideoPlayer
                 PlaybackMode.Fullscreen -> {
                     p.setAudioAttributes(attrs, true)
                     p.volume = 1f
+                    applyBitrateFloor(forceLowest = false)
                 }
                 PlaybackMode.FeedPreview -> {
                     p.setAudioAttributes(attrs, false)
                     p.volume = 0f
+                    applyBitrateFloor(forceLowest = true)
                 }
             }
             _mode.value = target
+        }
+
+        /**
+         * Mutate the cached [DefaultTrackSelector]'s `forceLowestBitrate`
+         * parameter. No-op if the track selector hasn't been
+         * lazy-constructed yet (no `bind` / `setMode` has touched the
+         * player). Safe to call from any code path already on the
+         * application thread — the VM hops to [mainDispatcher] for
+         * its player accesses, the coordinator uses
+         * `Dispatchers.Main.immediate` for its scope, and unit tests
+         * single-thread through the test scheduler.
+         */
+        private fun applyBitrateFloor(forceLowest: Boolean) {
+            val ts = cachedTrackSelector ?: return
+            ts.setParameters(ts.buildUponParameters().setForceLowestBitrate(forceLowest))
         }
 
         private val audioAttributes: androidx.media3.common.AudioAttributes =
