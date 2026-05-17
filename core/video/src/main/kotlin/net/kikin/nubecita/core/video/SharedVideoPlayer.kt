@@ -182,11 +182,24 @@ class SharedVideoPlayer
          * round-trip (which happens during the feed → fullscreen
          * surface hand-off as one PlayerSurface unmounts and another
          * mounts).
+         *
+         * The 0 → 1 transition also restarts position polling if the
+         * player is already in `isPlaying = true`. The polling job is
+         * driven by `onIsPlayingChanged`, so a refcount-zero
+         * `stopPositionPolling()` leaves no listener to restart it when
+         * the next surface attaches mid-playback (e.g. fullscreen route
+         * → back to feed within the idle-release grace window). Without
+         * this restart, `positionMs` would freeze at its last value
+         * until the user paused and resumed.
          */
         fun attachSurface() {
+            val wasZero = refcount == 0
             refcount += 1
             idleReleaseJob?.cancel()
             idleReleaseJob = null
+            if (wasZero && cachedExoPlayer?.isPlaying == true) {
+                startPositionPolling()
+            }
         }
 
         /**
@@ -419,10 +432,15 @@ fun createSharedVideoPlayer(
             }
         },
         scope = scope,
-        // ExoPlayer was built on the main thread (called from
-        // SharedVideoPlayerModule which Hilt invokes on the singleton-init
-        // path) and rejects access from anything else. Main.immediate lets
-        // hops from main-thread callers stay synchronous.
+        // The ExoPlayer is lazily constructed inside `playerFactory` on
+        // the first `requirePlayer()` (called from bind() / setMode()),
+        // and `verifyApplicationThread()` rejects any access from a
+        // different thread thereafter. The internal background jobs
+        // (position polling, idle-release teardown) launch on the
+        // application scope (Dispatchers.Default) and hop to this
+        // dispatcher before touching the player. Main.immediate keeps
+        // the hop synchronous when callers are already on Main, avoiding
+        // an unnecessary post-back to the looper for every player access.
         mainDispatcher = Dispatchers.Main.immediate,
         idleReleaseMs = idleReleaseMs,
     )

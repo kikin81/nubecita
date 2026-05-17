@@ -110,6 +110,20 @@ internal class VideoPlayerViewModel
                             isPlaying = isPlaying,
                             positionMs = positionMs,
                             durationMs = durationMs,
+                            // If we previously transitioned to Error because of a
+                            // playback failure that has since cleared (ExoPlayer
+                            // internally recovered → STATE_READY clears
+                            // `_playbackError`, or a Retry succeeded), bring the
+                            // screen back to Ready. Gated on `surfaceAttached` so
+                            // a resolver-failure Error (player never bound) can't
+                            // be silently recovered by an unrelated holder-flow
+                            // tick — those failures require an explicit Retry.
+                            loadStatus =
+                                if (loadStatus is VideoPlayerLoadStatus.Error && surfaceAttached) {
+                                    VideoPlayerLoadStatus.Ready
+                                } else {
+                                    loadStatus
+                                },
                         )
                     }
                 }

@@ -333,6 +333,55 @@ internal class VideoPlayerViewModelTest {
         }
 
     @Test
+    fun playerError_clearedAfterReachingReady_autoRecoversToReady() =
+        runTest {
+            // Reach Ready, surfaceAttached = true.
+            stubReady()
+            val vm = newVm()
+            runCurrent()
+            assertEquals(VideoPlayerLoadStatus.Ready, vm.uiState.value.loadStatus)
+
+            // Transient playback error — VM enters Error.
+            val pe = mockk<PlaybackException>(relaxed = true)
+            val errorCodeField = PlaybackException::class.java.getField("errorCode")
+            errorCodeField.isAccessible = true
+            errorCodeField.set(pe, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+            playbackErrorFlow.value = pe
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error)
+
+            // ExoPlayer internally recovers → STATE_READY clears
+            // `_playbackError`. The VM's combine projection must bring
+            // loadStatus back to Ready, not strand the user on the
+            // error layout.
+            playbackErrorFlow.value = null
+            runCurrent()
+            assertEquals(VideoPlayerLoadStatus.Ready, vm.uiState.value.loadStatus)
+        }
+
+    @Test
+    fun resolverError_doesNotAutoRecoverFromHolderFlowEmissions() =
+        runTest {
+            // Resolver-failure path: surfaceAttached = false, loadStatus = Error.
+            resolver.stubFailure(AT_URI, IOException("disconnected"))
+            val vm = newVm()
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error)
+
+            // An unrelated holder-flow tick fires combine (e.g. another
+            // surface elsewhere paused the player) while playbackError
+            // is null. We MUST NOT recover from a resolver-failure Error
+            // — no playback has ever started for this screen. The user
+            // has to tap Retry to escape this state.
+            isPlayingFlow.value = false
+            runCurrent()
+            assertTrue(
+                vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error,
+                "resolver-failure Error must persist across combine emissions",
+            )
+        }
+
+    @Test
     fun playerError_fromHolderFlow_mapsToErrorLoadStatus() =
         runTest {
             stubReady()
