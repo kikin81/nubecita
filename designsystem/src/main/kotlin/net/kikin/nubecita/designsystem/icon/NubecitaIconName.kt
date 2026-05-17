@@ -51,6 +51,7 @@ enum class NubecitaIconName(
     MoreHoriz("\uE5D3"),
     MoreVert("\uE5D4"),
     Notifications("\uE7F5"),
+    Pause("\uE034"),
     Person("\uF0D3"),
     PersonAdd("\uEA4D"),
     PlayArrow("\uE037"),
