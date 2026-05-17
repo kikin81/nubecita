@@ -102,6 +102,8 @@ internal class PostDetailViewModel
                             .onFailure { sendEffect(PostDetailEffect.ShowError(it.toPostDetailError())) }
                     }
                 }
+                is PostDetailEvent.OnVideoTapped ->
+                    sendEffect(PostDetailEffect.NavigateToVideoPlayer(event.postUri))
             }
         }
 

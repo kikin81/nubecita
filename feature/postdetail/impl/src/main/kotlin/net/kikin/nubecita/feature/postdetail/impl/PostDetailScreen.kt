@@ -49,10 +49,13 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.data.models.quotedRecord
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
+import net.kikin.nubecita.designsystem.component.VideoPosterEmbed
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
@@ -92,6 +95,7 @@ internal fun PostDetailScreen(
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
+    onNavigateToVideoPlayer: (postUri: String) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -133,6 +137,7 @@ internal fun PostDetailScreen(
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
+    val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
 
     // Pre-resolve snackbar copy at composition time so locale changes
     // participate in recomposition (lint: LocalContextGetResourceValueCall).
@@ -193,9 +198,16 @@ internal fun PostDetailScreen(
                 }
                 is PostDetailEffect.NavigateToMediaViewer ->
                     currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
+                is PostDetailEffect.NavigateToVideoPlayer ->
+                    currentOnNavigateToVideoPlayer(effect.postUri)
             }
         }
     }
+
+    val onVideoTap =
+        remember(viewModel) {
+            { uri: String -> viewModel.handleEvent(PostDetailEvent.OnVideoTapped(uri)) }
+        }
 
     PostDetailScreenContent(
         state = state,
@@ -206,6 +218,7 @@ internal fun PostDetailScreen(
         onRefresh = onRefresh,
         onReply = onReply,
         onFocusImageClick = onFocusImageClick,
+        onVideoTap = onVideoTap,
         modifier = modifier,
     )
 }
@@ -222,6 +235,7 @@ internal fun PostDetailScreenContent(
     modifier: Modifier = Modifier,
     onReply: () -> Unit = {},
     onFocusImageClick: (Int) -> Unit = {},
+    onVideoTap: (postUri: String) -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -290,6 +304,7 @@ internal fun PostDetailScreenContent(
                     onRefresh = onRefresh,
                     callbacks = callbacks,
                     onFocusImageClick = onFocusImageClick,
+                    onVideoTap = onVideoTap,
                     contentPadding = padding,
                     lastLikeTapPostUri = state.lastLikeTapPostUri,
                     lastRepostTapPostUri = state.lastRepostTapPostUri,
@@ -306,6 +321,7 @@ private fun LoadedThread(
     onRefresh: () -> Unit,
     callbacks: PostCallbacks,
     onFocusImageClick: (Int) -> Unit,
+    onVideoTap: (postUri: String) -> Unit,
     contentPadding: PaddingValues,
     lastLikeTapPostUri: String? = null,
     lastRepostTapPostUri: String? = null,
@@ -360,14 +376,21 @@ private fun LoadedThread(
         ) {
             items(items = items, key = { it.key }) { item ->
                 when (item) {
-                    is ThreadItem.Ancestor ->
+                    is ThreadItem.Ancestor -> {
+                        val (videoSlot, quotedVideoSlot) =
+                            rememberThreadPostVideoSlots(item.post, onVideoTap)
                         PostCard(
                             post = item.post,
                             callbacks = callbacks,
+                            videoEmbedSlot = videoSlot,
+                            quotedVideoEmbedSlot = quotedVideoSlot,
                             animateLikeTap = item.post.id == lastLikeTapPostUri,
                             animateRepostTap = item.post.id == lastRepostTapPostUri,
                         )
-                    is ThreadItem.Focus ->
+                    }
+                    is ThreadItem.Focus -> {
+                        val (videoSlot, quotedVideoSlot) =
+                            rememberThreadPostVideoSlots(item.post, onVideoTap)
                         Surface(
                             modifier =
                                 Modifier
@@ -379,22 +402,33 @@ private fun LoadedThread(
                             // Per task 4.3: ancestor / reply PostCards do NOT
                             // wire onImageClick — taps on those images stay
                             // no-op for v1. Only the Focus PostCard surfaces
-                            // the per-image-index callback.
+                            // the per-image-index callback. Video taps DO
+                            // route on every PostCard in the thread — there's
+                            // no fullscreen-viewer detour to skip the way
+                            // images go through PostDetail.
                             PostCard(
                                 post = item.post,
                                 callbacks = callbacks,
                                 onImageClick = onFocusImageClick,
+                                videoEmbedSlot = videoSlot,
+                                quotedVideoEmbedSlot = quotedVideoSlot,
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
                             )
                         }
-                    is ThreadItem.Reply ->
+                    }
+                    is ThreadItem.Reply -> {
+                        val (videoSlot, quotedVideoSlot) =
+                            rememberThreadPostVideoSlots(item.post, onVideoTap)
                         PostCard(
                             post = item.post,
                             callbacks = callbacks,
+                            videoEmbedSlot = videoSlot,
+                            quotedVideoEmbedSlot = quotedVideoSlot,
                             animateLikeTap = item.post.id == lastLikeTapPostUri,
                             animateRepostTap = item.post.id == lastRepostTapPostUri,
                         )
+                    }
                     is ThreadItem.Blocked ->
                         InlineUnavailableRow(
                             label = stringResource(R.string.postdetail_inline_blocked),
@@ -413,6 +447,56 @@ private fun LoadedThread(
             }
         }
     }
+}
+
+/**
+ * Builds the parent + quoted `VideoPosterEmbed` slot lambdas for one
+ * thread PostCard, hoisting them inside a `remember` keyed on the
+ * post URI + tap callback so the per-item closures stay stable across
+ * recompositions (PostCallbacks-style stability — without it the slot
+ * lambdas would re-allocate every recomposition and defeat PostCard's
+ * skip optimizations). Quoted slot is `null` when the post's embed
+ * doesn't carry a quoted record, so `EmbedSlot` falls through to the
+ * outer-card tap as the KDoc contract requires.
+ */
+@Composable
+private fun rememberThreadPostVideoSlots(
+    post: PostUi,
+    onVideoTap: (postUri: String) -> Unit,
+): Pair<@Composable (EmbedUi.Video) -> Unit, (@Composable (QuotedEmbedUi.Video) -> Unit)?> {
+    val parentUri = post.id
+    val videoSlot: @Composable (EmbedUi.Video) -> Unit =
+        remember(parentUri, onVideoTap) {
+            val tap = { onVideoTap(parentUri) }
+            val slot: @Composable (EmbedUi.Video) -> Unit = { video ->
+                VideoPosterEmbed(
+                    posterUrl = video.posterUrl,
+                    aspectRatio = video.aspectRatio,
+                    altText = video.altText,
+                    onTap = tap,
+                )
+            }
+            slot
+        }
+    val quotedUri = post.embed.quotedRecord?.uri
+    val quotedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
+        remember(quotedUri, onVideoTap) {
+            if (quotedUri == null) {
+                null
+            } else {
+                val tap = { onVideoTap(quotedUri) }
+                val slot: @Composable (QuotedEmbedUi.Video) -> Unit = { qVideo ->
+                    VideoPosterEmbed(
+                        posterUrl = qVideo.posterUrl,
+                        aspectRatio = qVideo.aspectRatio,
+                        altText = qVideo.altText,
+                        onTap = tap,
+                    )
+                }
+                slot
+            }
+        }
+    return videoSlot to quotedSlot
 }
 
 @Composable

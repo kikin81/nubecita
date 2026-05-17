@@ -111,6 +111,8 @@ internal class ProfileViewModel
                     } else {
                         sendEffect(ProfileEffect.NavigateToMediaViewer(event.postUri, imageIndex = 0))
                     }
+                is ProfileEvent.OnVideoTapped ->
+                    sendEffect(ProfileEffect.NavigateToVideoPlayer(event.postUri))
                 is ProfileEvent.HandleTapped -> onHandleTapped(event.handle)
                 ProfileEvent.Refresh -> onRefresh()
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)

@@ -17,6 +17,7 @@ import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.PostDetailScreen
 import net.kikin.nubecita.feature.postdetail.impl.PostDetailViewModel
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 
 /**
  * Provides the `@MainShell`-qualified `EntryProviderInstaller` that
@@ -67,6 +68,13 @@ internal object PostDetailNavigationModule {
                     onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
                     onNavigateToMediaViewer = { uri, index ->
                         appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = index))
+                    },
+                    // VideoPlayerRoute is `@OuterShell`-qualified (see
+                    // VideoPlayerNavigationModule) so it escapes
+                    // MainShell's NavigationSuiteScaffold chrome the same
+                    // way MediaViewer does — push via the outer Navigator.
+                    onNavigateToVideoPlayer = { uri ->
+                        appNavigator.goTo(VideoPlayerRoute(postUri = uri))
                     },
                     viewModel = viewModel,
                 )

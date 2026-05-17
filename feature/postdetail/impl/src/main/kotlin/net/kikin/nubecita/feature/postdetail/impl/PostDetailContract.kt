@@ -163,6 +163,19 @@ internal sealed interface PostDetailEvent : UiEvent {
     data class OnRepostClicked(
         val post: PostUi,
     ) : PostDetailEvent
+
+    /**
+     * Tap on a video embed rendered inside a thread PostCard (ancestor,
+     * focus, or reply). Routes to the fullscreen video player on the
+     * outer NavDisplay (escaping MainShell chrome), matching the feed
+     * → fullscreen entry path. [postUri] is the URI of the post whose
+     * embed carries the video — or the quoted post's URI when the tap
+     * lands inside a quoted-record video — so the player's resolver
+     * fetches the right `app.bsky.embed.video#view`.
+     */
+    data class OnVideoTapped(
+        val postUri: String,
+    ) : PostDetailEvent
 }
 
 internal sealed interface PostDetailEffect : UiEffect {
@@ -212,5 +225,19 @@ internal sealed interface PostDetailEffect : UiEffect {
     data class NavigateToMediaViewer(
         val postUri: String,
         val imageIndex: Int,
+    ) : PostDetailEffect
+
+    /**
+     * Push the fullscreen video player route for the given post. Same
+     * instance-transfer contract as the feed → fullscreen path —
+     * `SharedVideoPlayer` is process-scoped, so a transition from this
+     * screen never restarts a video already buffered elsewhere. The
+     * route is `@OuterShell`-qualified in `VideoPlayerNavigationModule`,
+     * so the entry composable routes this via the outer Navigator
+     * rather than `LocalMainShellNavState`.
+     */
+    @Immutable
+    data class NavigateToVideoPlayer(
+        val postUri: String,
     ) : PostDetailEffect
 }

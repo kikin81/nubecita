@@ -280,6 +280,20 @@ sealed interface ProfileEvent : UiEvent {
         val isVideo: Boolean = false,
     ) : ProfileEvent
 
+    /**
+     * User tapped a video embed rendered inside a `PostCard` in the
+     * Posts or Replies tab (a `VideoPosterEmbed`'s tap surface). Routes
+     * to the fullscreen player, bypassing the PostDetail detour that
+     * an outer-card tap takes. [postUri] is the URI of the parent post
+     * whose embed carries the video — also the URI of the quoted post
+     * when the video was tapped inside a quoted-record embed, so the
+     * resolver fetches the right `app.bsky.embed.video` view either
+     * way.
+     */
+    data class OnVideoTapped(
+        val postUri: String,
+    ) : ProfileEvent
+
     /** User tapped an author handle inside one of the rendered posts. */
     data class HandleTapped(
         val handle: String,
