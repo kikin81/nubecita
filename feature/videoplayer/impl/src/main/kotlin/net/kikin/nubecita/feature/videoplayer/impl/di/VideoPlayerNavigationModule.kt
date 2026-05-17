@@ -7,7 +7,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
-import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerScreen
@@ -31,8 +30,9 @@ import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerViewModel
  * the failure mode that motivated this pattern across the codebase).
  *
  * Pop semantics: the screen's `NavigateBack` effect resolves via the
- * outer [LocalAppNavigator] and calls `goBack()` — popping the player
- * off the outer back stack returns to `Main`, which preserves
+ * outer `LocalAppNavigator` (in `:core:common:navigation`) and calls
+ * `goBack()` — popping the player off the outer back stack returns to
+ * `Main`, which preserves
  * `MainShell`'s inner back stack (the feed / profile / postdetail tab
  * the user was on).
  */

@@ -35,8 +35,12 @@ private val VIDEO_BADGE_ICON_SIZE = 18.dp
  * apply `Modifier.weight(1f).aspectRatio(1f)` so the cell sizes itself
  * to one third of the row width.
  *
- * Tap dispatches via [onClick]; the screen-level effect collector
- * routes this through `ProfileEffect.NavigateToPost(cell.postUri)`.
+ * Tap dispatches via [onClick]; the screen wires it to
+ * `ProfileEvent.OnMediaCellTapped(cell.postUri, cell.isVideo)`. The
+ * VM branches: image cells emit `ProfileEffect.NavigateToMediaViewer`,
+ * video cells emit `ProfileEffect.NavigateToVideoPlayer`. Video cells
+ * also render a small PlayArrow badge overlay so users can tell at a
+ * glance which thumbs are video.
  *
  * Image URL source: `cell.thumbUrl` is already a thumbnail-sized URL
  * via `nubecita-nwn`'s `thumbOrFullsize()` projection (falls back to

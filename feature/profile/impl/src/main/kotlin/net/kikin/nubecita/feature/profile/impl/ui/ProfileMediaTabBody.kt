@@ -33,10 +33,13 @@ private const val MEDIA_GRID_COLUMNS = 3
  * - [TabLoadStatus.Loaded] with items → chunked rows of MediaCellThumb +
  *   optional appending row
  *
- * [onMediaTap] receives the tapped cell's `postUri` and is wired to
- * `ProfileEvent.PostTapped` at the screen level — identical chain to a
- * PostCard tap on Posts/Replies (proven by `ProfileViewModelTest`'s
- * Media-PostTapped regression test).
+ * [onMediaTap] receives the full tapped [TabItemUi.MediaCell] (not
+ * just the URI) so the screen can branch on `cell.isVideo` when
+ * dispatching. The screen wires this to
+ * `ProfileEvent.OnMediaCellTapped(postUri, isVideo)`; the VM then
+ * routes image taps to `ProfileEffect.NavigateToMediaViewer` and
+ * video taps to `ProfileEffect.NavigateToVideoPlayer`. Tap chain is
+ * covered by `ProfileViewModelTest`'s OnMediaCellTapped variants.
  */
 internal fun LazyListScope.profileMediaTabBody(
     status: TabLoadStatus,

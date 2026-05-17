@@ -120,9 +120,13 @@ internal fun PostCardVideoEmbed(
  * off-screen non-bound video cards in the LazyColumn.
  *
  * **Tap targets.** The mute icon and resume overlay each consume
- * their own `clickable` so taps on those affordances do NOT propagate
- * to PostCard's outer `clickable { callbacks.onTap }`. Anywhere else
- * on the card body still navigates to detail.
+ * their own inner `clickable` so taps on those affordances don't
+ * propagate. When `onTap` is non-null (production wiring from
+ * FeedScreen → `FeedEvent.OnVideoTapped`), the video Box installs
+ * its own `clickable` that absorbs the rest of the surface and
+ * routes to the fullscreen player (`VideoPlayerRoute`); anywhere
+ * else on the surrounding card body still falls through to
+ * PostCard's outer `clickable { callbacks.onTap }` (PostDetail).
  */
 @Composable
 internal fun PostCardVideoEmbed(

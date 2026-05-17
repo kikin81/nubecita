@@ -207,12 +207,22 @@ internal class VideoPlayerViewModel
                             surfaceAttached = true
                         }
                         sharedVideoPlayer.play()
+                        // On instance-transfer the holder may already
+                        // have decoded the video and emitted a real
+                        // aspectRatio into state.aspectRatio via the
+                        // videoAspectRatio collector. Don't clobber that
+                        // measured value with the (possibly fallback)
+                        // lexicon hint — fall back to the hint only
+                        // when no decoded value has arrived yet.
                         setState {
                             copy(
                                 loadStatus = VideoPlayerLoadStatus.Ready,
                                 posterUrl = resolved.posterUrl,
                                 altText = resolved.altText,
-                                aspectRatio = resolved.aspectRatio,
+                                aspectRatio =
+                                    sharedVideoPlayer.videoAspectRatio.value
+                                        ?: aspectRatio
+                                        ?: resolved.aspectRatio,
                             )
                         }
                         // Arm the auto-hide timer the first time the

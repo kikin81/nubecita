@@ -580,6 +580,31 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `OnMediaCellTapped with isVideo emits NavigateToVideoPlayer instead of MediaViewer`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = FakeProfileRepository())
+            advanceUntilIdle()
+
+            vm.effects.test {
+                // Video cells in the grid route around MediaViewer (which
+                // would dead-end on "post has no images") and into the
+                // fullscreen video player route.
+                vm.handleEvent(
+                    ProfileEvent.OnMediaCellTapped(
+                        postUri = "at://did:plc:alice/post/v1",
+                        isVideo = true,
+                    ),
+                )
+                val effect = awaitItem()
+                assertEquals(
+                    ProfileEffect.NavigateToVideoPlayer(postUri = "at://did:plc:alice/post/v1"),
+                    effect,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `StubActionTapped emits ShowComingSoon with the same action value, never touches the repo`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =

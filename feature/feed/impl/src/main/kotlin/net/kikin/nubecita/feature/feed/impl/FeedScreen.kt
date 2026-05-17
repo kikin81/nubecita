@@ -537,11 +537,18 @@ private fun LoadedFeedContent(
                 // Inspection mode (preview / screenshot tests) gets the
                 // phase-B static-poster variant so the screen-level
                 // previews stay layoutlib-safe.
-                val onParentVideoTap: (() -> Unit)? =
-                    onVideoTap?.let { tap -> { tap(leaf.id) } }
+                // Build the per-leaf tap lambda inside the same remember
+                // block that produces videoSlot. The earlier shape derived
+                // `onParentVideoTap` outside via `onVideoTap?.let { ... }`,
+                // which allocates a fresh lambda on every recomposition;
+                // using that lambda as a `remember` key then defeated the
+                // stability goal (function values compare by reference, so
+                // the key would churn each recomposition).
                 val videoSlot: @Composable (EmbedUi.Video) -> Unit =
-                    remember(leaf.id, coordinator, onParentVideoTap) {
-                        { video ->
+                    remember(leaf.id, coordinator, onVideoTap) {
+                        val onParentVideoTap: (() -> Unit)? =
+                            onVideoTap?.let { tap -> { tap(leaf.id) } }
+                        val slot: @Composable (EmbedUi.Video) -> Unit = { video ->
                             if (coordinator != null) {
                                 PostCardVideoEmbed(
                                     video = video,
@@ -556,6 +563,7 @@ private fun LoadedFeedContent(
                                 )
                             }
                         }
+                        slot
                     }
                 // Quoted-post video slot. Bind identity is the QUOTED
                 // post's URI (per mostVisibleVideoTarget's
@@ -569,18 +577,16 @@ private fun LoadedFeedContent(
                 // same call site every recomposition (key flip drops
                 // the lambda cleanly).
                 val quotedVideoUri = leaf.embed.quotedRecord?.uri
-                val onQuotedVideoTap: (() -> Unit)? =
-                    if (quotedVideoUri != null) {
-                        onVideoTap?.let { tap -> { tap(quotedVideoUri) } }
-                    } else {
-                        null
-                    }
+                // Build the quoted-video tap lambda inside the remember
+                // (same stability fix as the parent-video slot above).
                 val quotedVideoSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
-                    remember(quotedVideoUri, coordinator, onQuotedVideoTap) {
+                    remember(quotedVideoUri, coordinator, onVideoTap) {
                         if (quotedVideoUri == null) {
                             null
                         } else {
-                            { qVideo ->
+                            val onQuotedVideoTap: (() -> Unit)? =
+                                onVideoTap?.let { tap -> { tap(quotedVideoUri) } }
+                            val slot: @Composable (QuotedEmbedUi.Video) -> Unit = { qVideo ->
                                 if (coordinator != null) {
                                     PostCardVideoEmbed(
                                         quotedVideo = qVideo,
@@ -595,6 +601,7 @@ private fun LoadedFeedContent(
                                     )
                                 }
                             }
+                            slot
                         }
                     }
                 when (item) {
