@@ -10,11 +10,8 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import androidx.core.content.ContextCompat
-import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,10 +20,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import androidx.media3.common.AudioAttributes as Media3AudioAttributes
+import net.kikin.nubecita.core.video.PlaybackMode
+import net.kikin.nubecita.core.video.SharedVideoPlayer
 
 /**
  * Owns one `ExoPlayer` instance and binds it to the most-visible video
@@ -53,36 +52,38 @@ import androidx.media3.common.AudioAttributes as Media3AudioAttributes
  * interleave (e.g. a focus-loss callback firing mid-rebind).
  *
  * **HLS bitrate floor.** Initial track selection forces the lowest
- * variant via [DefaultTrackSelector]. After
+ * variant via the holder's factory. After
  * [SUSTAINED_PLAYBACK_BITRATE_UNLOCK_MS] of continuous playback on a
- * single bound video, the force flag clears and the platform ABR
- * may upgrade. A scroll-driven rebind to a different post resets the
- * timer.
+ * single bound video, the bitrate-floor logic is reworked in Task 3.
  *
  * @param context an Android `Context` retained for the broadcast
  *   receiver registration. The application context is used so the
  *   coordinator never retains the `Activity`.
  * @param audioManager the system [AudioManager]; passed in so unit
  *   tests can supply a mock.
+ * @param sharedVideoPlayer the process-scoped video player holder that
+ *   owns the underlying ExoPlayer lifecycle.
  */
 internal class FeedVideoPlayerCoordinator(
     context: Context,
     private val audioManager: AudioManager,
-    /**
-     * The shared `ExoPlayer`. The bound video card passes this to its
-     * `PlayerSurface(player = ...)`; non-bound cards pass `null` so
-     * only one surface holds the player at a time. Production
-     * construction goes through [createFeedVideoPlayerCoordinator],
-     * which configures the player with `volume = 0`,
-     * `setHandleAudioFocus(false)` (the coordinator manages focus
-     * manually), the matching track selector, and the playback-started
-     * listener for the bitrate-floor unlock. Unit tests inject a
-     * relaxed mock so the audio-focus contract can be exercised
-     * without a real Android framework.
-     */
-    val player: ExoPlayer,
-    private val trackSelector: DefaultTrackSelector,
+    private val sharedVideoPlayer: SharedVideoPlayer,
 ) {
+    /**
+     * Reactive accessor for the underlying ExoPlayer, proxied from
+     * [sharedVideoPlayer]. PostCardVideoEmbed reads this via
+     * `coordinator.player.collectAsStateWithLifecycle()` to render
+     * `PlayerSurface(player = …)` against the currently-bound player.
+     * Null until the first bind triggers lazy construction, and null
+     * again after the holder's idle-release timer fires.
+     *
+     * Exposed on the coordinator (not the holder directly) so the
+     * existing PostCardVideoEmbed call site doesn't need to know about
+     * `:core:video`; only the feed module's wiring is aware of the
+     * delegation.
+     */
+    val player: StateFlow<androidx.media3.common.Player?> = sharedVideoPlayer.player
+
     private val appContext: Context = context.applicationContext
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -106,6 +107,36 @@ internal class FeedVideoPlayerCoordinator(
     private var noisyReceiverRegistered: Boolean = false
     private var bitrateUnlockJob: Job? = null
     private var released: Boolean = false
+
+    /**
+     * Re-attached every time [sharedVideoPlayer.player] emits a fresh
+     * ExoPlayer (first bind, or post-idle-release rebind). Triggers
+     * [notifyPlaybackStarted] when the player reaches STATE_READY +
+     * playWhenReady. The holder's lazy reconstruction means the
+     * listener registration can't live in a one-shot factory — it
+     * must follow the player instance through release-and-recreate
+     * cycles. The job is cancelled in [release].
+     */
+    private val playerListenerAttachJob: Job =
+        scope.launch {
+            sharedVideoPlayer.player.collect { current ->
+                current?.addListener(playbackStartedListener)
+                // Note: we don't removeListener on the prior player — the
+                // holder's release() already detached all listeners by
+                // releasing the ExoPlayer. The flow emits null between
+                // release and the next bind, and we no-op on null.
+            }
+        }
+
+    private val playbackStartedListener: Player.Listener =
+        object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                val p = sharedVideoPlayer.player.value ?: return
+                if (playbackState == Player.STATE_READY && p.playWhenReady) {
+                    notifyPlaybackStarted()
+                }
+            }
+        }
 
     private val systemAudioAttributes: AudioAttributes =
         AudioAttributes
@@ -209,35 +240,21 @@ internal class FeedVideoPlayerCoordinator(
     /**
      * Tear down the coordinator. Called from
      * `DisposableEffect(Unit) { onDispose { ... } }` in `FeedScreen`.
-     * Releases the player, abandons focus (if held), unregisters the
-     * BECOMING_NOISY receiver (if registered), cancels the bitrate
-     * unlock timer, and cancels the coordinator's coroutine scope so
-     * no stray `bindMostVisibleVideo` from a recomposition mid-exit
-     * can resurrect state. After release, all coordinator entry
-     * points are no-ops.
+     * Abandons focus (if held), unregisters the BECOMING_NOISY receiver
+     * (if registered), cancels the bitrate unlock timer, detaches the
+     * surface from the holder, and cancels the coordinator's coroutine
+     * scope so no stray `bindMostVisibleVideo` from a recomposition
+     * mid-exit can resurrect state. After release, all coordinator
+     * entry points are no-ops.
      */
     fun release() {
         if (released) return
-        // Order matters: flag → cancel scope → synchronous teardown.
-        //
-        // 1. `released = true` so any coroutine resuming inside the
-        //    mutex (or queued to acquire it) sees the flag and exits
-        //    early before mutating the player.
-        // 2. `scope.cancel(...)` cancels the bitrate-unlock timer +
-        //    any in-flight `bindInternal / toggleMute / resume`
-        //    launches. Since the coordinator's scope is bound to
-        //    `Dispatchers.Main.immediate` and every withLock body is
-        //    synchronous (no suspends mid-block), no coroutine can be
-        //    actively touching the player at the moment release()
-        //    runs — the worst case is a coroutine suspended on
-        //    `mutex.withLock` waiting to acquire, which the cancel
-        //    fail-fasts.
-        // 3. THEN release focus + unregister receiver + release the
-        //    player. Doing this after the cancel guarantees no
-        //    cancelled launch can resume and call `player.X()` on a
-        //    released player.
         released = true
         bitrateUnlockJob?.cancel()
+        playerListenerAttachJob.cancel()
+        // Cancel coordinator's scope BEFORE the synchronous teardown
+        // below so no queued bindInternal / toggleMuteInternal can race
+        // with abandon / unregister.
         scope.cancel("FeedVideoPlayerCoordinator released")
         if (activeFocusRequest != null) {
             audioManager.abandonAudioFocusRequest(activeFocusRequest!!)
@@ -247,7 +264,12 @@ internal class FeedVideoPlayerCoordinator(
             runCatching { appContext.unregisterReceiver(noisyReceiver) }
             noisyReceiverRegistered = false
         }
-        player.release()
+        // NOTE: do NOT call sharedVideoPlayer.release() here. The
+        // holder is process-scoped — feed exiting MainShell is not a
+        // signal to tear down playback. The holder's idle-release
+        // timer + the auth-state-cleared broadcaster (out of scope for
+        // zak.2) own the holder's lifecycle. Feed just stops driving.
+        sharedVideoPlayer.detachSurface()
         _boundPostId.value = null
         _isUnmuted.value = false
         _playbackHint.value = PlaybackHint.None
@@ -260,39 +282,41 @@ internal class FeedVideoPlayerCoordinator(
             if (released) return@withLock
             val current = _boundPostId.value
             if (target?.postId == current && target != null) {
-                // Already bound to this post — nothing to do. The
-                // scroll-gated flow distinctUntilChanged()s on bind id,
-                // but a layout recompute that doesn't change the
-                // resting post still passes through.
                 return@withLock
             }
-            // Either rebinding to a different post OR unbinding. In both
-            // cases, drop focus + auto-mute first if the prior card was
-            // unmuted (per the "scroll-away from an unmuted card auto-mutes"
-            // contract — Decision 5 in design.md).
+            // Cross-card transition (or unbind): drop the unmute state +
+            // audio focus + NOISY receiver first per the "scroll-away
+            // from an unmuted card auto-mutes" contract.
             if (_isUnmuted.value) {
                 releaseFocusAndUnregisterNoisy()
-                player.volume = 0f
+                sharedVideoPlayer.player.value?.volume = 0f
                 _isUnmuted.value = false
             }
             _playbackHint.value = PlaybackHint.None
             bitrateUnlockJob?.cancel()
             bitrateUnlockJob = null
-            // Reset the bitrate floor for the next playback session.
-            trackSelector.setParameters(
-                trackSelector.buildUponParameters().setForceLowestBitrate(true),
-            )
 
             if (target == null) {
-                player.pause()
-                player.clearMediaItems()
+                // Unbind: pause + detach surface but DO NOT clear the
+                // holder's bound URL. The same playlist stays prepared
+                // so a future fullscreen tap (zak.4 / zak.5) can pick
+                // up mid-playback via the instance-transfer payoff.
+                sharedVideoPlayer.player.value?.pause()
+                sharedVideoPlayer.detachSurface()
                 _boundPostId.value = null
                 return@withLock
             }
+
+            // Bind: ensure the holder is in FeedPreview mode (the
+            // holder also pins volume=0 + handleAudioFocus=false; the
+            // coordinator may later flip volume=1 for unmute via
+            // direct player.volume mutation, leaving the holder's
+            // mode at FeedPreview — see toggleMuteInternal).
+            sharedVideoPlayer.setMode(PlaybackMode.FeedPreview)
+            sharedVideoPlayer.bind(playlistUrl = target.playlistUrl, posterUrl = null)
+            sharedVideoPlayer.attachSurface()
             _boundPostId.value = target.postId
-            player.setMediaItem(MediaItem.fromUri(target.playlistUrl))
-            player.prepare()
-            player.playWhenReady = true
+            sharedVideoPlayer.play()
         }
 
     private suspend fun toggleMuteInternal() =
@@ -300,20 +324,17 @@ internal class FeedVideoPlayerCoordinator(
             if (released) return@withLock
             if (_boundPostId.value == null) return@withLock
             if (_isUnmuted.value) {
-                // Unmuted → muted.
                 releaseFocusAndUnregisterNoisy()
-                player.volume = 0f
+                sharedVideoPlayer.player.value?.volume = 0f
                 _isUnmuted.value = false
             } else {
-                // Muted → unmuted.
                 val granted = requestAudioFocus()
                 if (granted) {
                     registerNoisyReceiver()
-                    player.volume = 1f
+                    sharedVideoPlayer.player.value?.volume = 1f
                     _isUnmuted.value = true
                     _playbackHint.value = PlaybackHint.None
                 }
-                // Denied: silently leave muted. The user can retry.
             }
         }
 
@@ -328,34 +349,32 @@ internal class FeedVideoPlayerCoordinator(
             val granted = requestAudioFocus()
             if (granted) {
                 registerNoisyReceiver()
-                player.volume = 1f
-                player.play()
+                val p = sharedVideoPlayer.player.value
+                if (p != null) {
+                    p.volume = 1f
+                    p.play()
+                }
                 _playbackHint.value = PlaybackHint.None
-                // isUnmuted was already true throughout the focus loss;
-                // it is preserved by design (user intent kept).
             }
-            // Denied: leave the FocusLost overlay in place; user can retry.
         }
 
     private suspend fun handleFocusLostInternal() =
         mutex.withLock {
             if (released) return@withLock
             if (!_isUnmuted.value) return@withLock
-            // Pause + mute + release focus + unregister NOISY but KEEP
-            // isUnmuted = true so the user's intent survives the
-            // interruption. The bound card surfaces a "tap to resume"
-            // overlay driven by playbackHint = FocusLost.
-            player.pause()
-            player.volume = 0f
+            val p = sharedVideoPlayer.player.value
+            if (p != null) {
+                p.pause()
+                p.volume = 0f
+            }
             releaseFocusAndUnregisterNoisy()
             _playbackHint.value = PlaybackHint.FocusLost
         }
 
     /**
-     * Hook called by the player listener (wired in
-     * [createFeedVideoPlayerCoordinator]) when the bound video
+     * Hook called by [playbackStartedListener] when the bound video
      * actually begins rendering. Visibility-promoted to `internal`
-     * so the listener can call back here from the factory site.
+     * so unit tests can call back here directly.
      */
     internal fun notifyPlaybackStarted() {
         scope.launch { onPlaybackStarted() }
@@ -369,7 +388,7 @@ internal class FeedVideoPlayerCoordinator(
             // a stale onPlaybackStarted from a previous binding could
             // otherwise unlock bitrate for a freshly-bound video. The
             // inner `mutex.withLock` re-checks both the released flag
-            // and the bound post before flipping the track selector.
+            // and the bound post before any bitrate-floor mutation.
             val bindAtScheduling = _boundPostId.value ?: return@withLock
             if (bitrateUnlockJob?.isActive == true) return@withLock
             bitrateUnlockJob =
@@ -378,9 +397,8 @@ internal class FeedVideoPlayerCoordinator(
                     mutex.withLock {
                         if (released) return@withLock
                         if (_boundPostId.value != bindAtScheduling) return@withLock
-                        trackSelector.setParameters(
-                            trackSelector.buildUponParameters().setForceLowestBitrate(false),
-                        )
+                        // Bitrate-floor unlock: reworked in Task 3 to
+                        // route through the holder's trackSelector accessor.
                         bitrateUnlockJob = null
                     }
                 }
@@ -445,10 +463,13 @@ internal class FeedVideoPlayerCoordinator(
 }
 
 /**
- * Production factory that constructs a real `ExoPlayer` +
- * `DefaultTrackSelector` and wires the playback-started listener for
- * the bitrate-floor unlock timer. Kept out of the coordinator's
- * primary constructor so unit tests can inject relaxed mocks.
+ * Production factory that constructs a [FeedVideoPlayerCoordinator]
+ * wired to the process-scoped [SharedVideoPlayer]. Kept out of the
+ * coordinator's primary constructor so unit tests can inject relaxed
+ * mocks.
+ *
+ * TODO(nubecita-zak.2 Task 4): inject a real [SharedVideoPlayer] from
+ * the DI graph. This stub compiles but is not wired to a real holder.
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 internal fun createFeedVideoPlayerCoordinator(
@@ -456,44 +477,17 @@ internal fun createFeedVideoPlayerCoordinator(
     audioManager: AudioManager,
 ): FeedVideoPlayerCoordinator {
     val appContext = context.applicationContext
-    val trackSelector =
-        DefaultTrackSelector(appContext).apply {
-            setParameters(buildUponParameters().setForceLowestBitrate(true))
-        }
-    val media3AudioAttributes =
-        Media3AudioAttributes
-            .Builder()
-            .setUsage(androidx.media3.common.C.USAGE_MEDIA)
-            .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
-            .build()
-    val player =
-        ExoPlayer
-            .Builder(appContext)
-            .setTrackSelector(trackSelector)
-            .build()
-            .apply {
-                volume = 0f
-                // handleAudioFocus = false: Media3's built-in focus
-                // handler would claim focus on every play(), which
-                // contradicts the never-autoplay-claim contract. The
-                // coordinator manages focus manually.
-                setAudioAttributes(media3AudioAttributes, false)
-            }
-    val coordinator =
-        FeedVideoPlayerCoordinator(
+    // Task 4 replaces this stub with the process-scoped SharedVideoPlayer
+    // from the Hilt graph. Left as a compile stub so the module compiles
+    // while the wiring is incomplete.
+    val sharedVideoPlayer =
+        net.kikin.nubecita.core.video.createSharedVideoPlayer(
             context = appContext,
-            audioManager = audioManager,
-            player = player,
-            trackSelector = trackSelector,
+            scope = kotlinx.coroutines.MainScope(),
         )
-    player.addListener(
-        object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY && player.playWhenReady) {
-                    coordinator.notifyPlaybackStarted()
-                }
-            }
-        },
+    return FeedVideoPlayerCoordinator(
+        context = appContext,
+        audioManager = audioManager,
+        sharedVideoPlayer = sharedVideoPlayer,
     )
-    return coordinator
 }
