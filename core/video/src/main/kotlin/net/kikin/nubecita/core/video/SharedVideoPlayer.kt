@@ -69,19 +69,30 @@ class SharedVideoPlayer
         @Suppress("unused")
         private val mutationMutex = Mutex()
 
-        private var _player: ExoPlayer? = null
+        // Raw ExoPlayer reference — no underscore since it has no public counterpart;
+        // the public observable is `player: StateFlow<Player?>` backed by `_player`.
+        private var cachedExoPlayer: ExoPlayer? = null
+        private val _player = MutableStateFlow<androidx.media3.common.Player?>(null)
 
         /**
-         * The currently-bound ExoPlayer instance, or `null` if no surface has
-         * triggered a bind yet (or if the player was released and not yet
-         * rebound). Compose surfaces render `PlayerSurface(player = …)` against
-         * this; the surface composes a black tile when null and the underlying
-         * poster image (per the design's "surface composition rule") shows
-         * through.
+         * Reactive view of the currently-bound ExoPlayer instance. Emits
+         * `null` until the first surface attaches and `bind()` triggers
+         * lazy construction, then the live ExoPlayer; emits `null`
+         * again when `release()` or the idle-release timer tears the
+         * player down. Compose surfaces render `PlayerSurface(player =
+         * player.collectAsStateWithLifecycle().value)` against this so
+         * recomposition tracks the bound state automatically; the
+         * static poster image underneath the surface (per the design's
+         * "surface composition rule") shows through whenever the value
+         * is null.
          */
-        val player: androidx.media3.common.Player? get() = _player
+        val player: StateFlow<androidx.media3.common.Player?> = _player.asStateFlow()
 
-        private fun requirePlayer(): ExoPlayer = _player ?: playerFactory().also { _player = it }
+        private fun requirePlayer(): ExoPlayer =
+            cachedExoPlayer ?: playerFactory().also {
+                cachedExoPlayer = it
+                _player.value = it
+            }
 
         private var refcount: Int = 0
         private var idleReleaseJob: Job? = null
@@ -116,8 +127,9 @@ class SharedVideoPlayer
                 idleReleaseJob =
                     scope.launch {
                         delay(idleReleaseMs)
-                        _player?.release()
-                        _player = null
+                        cachedExoPlayer?.release()
+                        cachedExoPlayer = null
+                        _player.value = null
                         _mode.value = PlaybackMode.FeedPreview
                         _boundPlaylistUrl.value = null
                         _isPlaying.value = false
@@ -179,12 +191,15 @@ class SharedVideoPlayer
         }
 
         /**
-         * Flip volume between 0f and 1f. Only meaningful in
-         * [PlaybackMode.Fullscreen] — in [PlaybackMode.FeedPreview] the
-         * mode contract pins volume at 0, and unmute requires entering
-         * Fullscreen first.
+         * Flip volume between 0f and 1f when in [PlaybackMode.Fullscreen].
+         * No-op in [PlaybackMode.FeedPreview]: the silent-preview
+         * contract pins volume at 0, and unmute requires entering
+         * Fullscreen first (which itself flips volume to 1). Calling
+         * this in FeedPreview would otherwise silently break the
+         * "never interrupt the user's music" invariant.
          */
         fun toggleMute() {
+            if (_mode.value != PlaybackMode.Fullscreen) return
             val p = requirePlayer()
             p.volume = if (p.volume > 0f) 0f else 1f
         }
@@ -199,8 +214,9 @@ class SharedVideoPlayer
         fun release() {
             idleReleaseJob?.cancel()
             idleReleaseJob = null
-            _player?.release()
-            _player = null
+            cachedExoPlayer?.release()
+            cachedExoPlayer = null
+            _player.value = null
             _mode.value = PlaybackMode.FeedPreview
             _boundPlaylistUrl.value = null
             _isPlaying.value = false

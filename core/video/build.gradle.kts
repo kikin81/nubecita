@@ -14,8 +14,9 @@ android {
 }
 
 dependencies {
-    implementation(libs.media3.exoplayer)
-    implementation(libs.media3.exoplayer.hls)
+    api(libs.media3.exoplayer) // was: implementation
+    implementation(libs.media3.exoplayer.hls) // unchanged — HLS types stay internal
+    implementation(project(":core:common")) // NEW — for @ApplicationScope qualifier
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))

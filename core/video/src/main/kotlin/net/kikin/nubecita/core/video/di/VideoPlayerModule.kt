@@ -7,17 +7,17 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
+import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.core.video.createSharedVideoPlayer
 import javax.inject.Singleton
 
 /**
- * Hilt module for [SharedVideoPlayer]. The holder is process-scoped
- * (one ExoPlayer per process); a dedicated `SupervisorJob`-backed
- * scope drives the idle-release timer independently of any UI
- * coroutine context so a cancelled feed scope doesn't kill the
- * release timer mid-countdown.
+ * Hilt module for [SharedVideoPlayer]. Process-scoped: one ExoPlayer
+ * per process. Reuses the existing `@ApplicationScope` (SupervisorJob +
+ * Dispatchers.Default) provided by `:core:common` so the idle-release
+ * timer runs on the same long-lived scope as other "outlives any
+ * screen" work in the app — no duplicated scope construction.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -26,9 +26,10 @@ internal object VideoPlayerModule {
     @Singleton
     fun provideSharedVideoPlayer(
         @ApplicationContext context: Context,
+        @ApplicationScope appScope: CoroutineScope,
     ): SharedVideoPlayer =
         createSharedVideoPlayer(
             context = context,
-            scope = CoroutineScope(SupervisorJob()),
+            scope = appScope,
         )
 }

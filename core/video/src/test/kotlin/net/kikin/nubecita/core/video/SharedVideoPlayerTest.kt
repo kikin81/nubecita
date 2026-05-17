@@ -156,23 +156,28 @@ class SharedVideoPlayerTest {
         }
 
     @Test
-    fun detachSurface_whenAlreadyAtZero_isNoOp() =
+    fun detachSurface_whenAlreadyAtZero_isNoOp_andLaterMatchedDetachStillReleases() =
         runTest {
-            val (holder, _) = newHolder(testScope = this)
+            val (holder, player) = newHolder(testScope = this)
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
 
-            // Detach without an attach: refcount must clamp at zero, not go negative.
-            // Otherwise a stray onDispose in a never-attached composable could
-            // poison the refcount and prevent later idle-release timers from firing.
+            // Stray detaches with no attach — refcount must clamp at zero,
+            // not go negative. Otherwise a stray onDispose in a never-
+            // attached composable would poison the count and prevent
+            // later idle-release timers from firing.
             holder.detachSurface()
             holder.detachSurface()
             holder.attachSurface()
             holder.detachSurface()
+
+            // Refcount is back at zero; the timer should fire normally.
             advanceTimeBy(30_000L)
             runCurrent()
 
-            // Idle release SHOULD fire after the last (matching) detach — refcount
-            // is back to zero and the timer ran.
-            // No assertion on the player here; the next test pins release behavior.
+            // Verifies the stray detaches didn't poison the refcount —
+            // the matched attach/detach pair still drives the timer to
+            // exactly one release call.
+            io.mockk.verify(exactly = 1) { player.release() }
         }
 
     @Test
@@ -251,6 +256,42 @@ class SharedVideoPlayerTest {
             holder.bind("https://video.cdn/hls/b.m3u8", null)
             assertEquals(2, invocations, "bind after release must invoke the factory again")
             assertEquals("https://video.cdn/hls/b.m3u8", holder.boundPlaylistUrl.value)
+        }
+
+    @Test
+    fun toggleMute_inFeedPreview_isNoOp_volumeUnchanged() =
+        runTest {
+            // FeedPreview's silent contract: toggleMute MUST NOT flip
+            // volume to 1, even if the caller invokes it accidentally.
+            val (holder, player) = newHolder(testScope = this)
+
+            // Holder starts in FeedPreview. Call toggleMute without
+            // setMode(Fullscreen) first.
+            holder.toggleMute()
+
+            // The volume setter must NEVER have been invoked.
+            io.mockk.verify(exactly = 0) { player.volume = any() }
+        }
+
+    @Test
+    fun player_emitsBoundInstanceOnBind_andClearsOnRelease() =
+        runTest {
+            val (holder, mockPlayer) = newHolder(testScope = this)
+
+            // Before bind: emits null (no factory invocation yet).
+            assertNull(holder.player.value)
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+
+            // After bind: emits the lazily-constructed player instance.
+            assertEquals(mockPlayer, holder.player.value)
+
+            holder.release()
+
+            // After release: emits null again. The next bind would
+            // re-invoke the factory; verified separately by
+            // bind_afterRelease_recreatesPlayer_andSetsMediaItem.
+            assertNull(holder.player.value)
         }
 
     private fun newHolder(
