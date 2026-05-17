@@ -71,6 +71,7 @@ internal class DefaultVideoPostResolver
                             posterUrl = video.posterUrl,
                             durationSeconds = video.durationSeconds,
                             altText = video.altText,
+                            aspectRatio = video.aspectRatio,
                         ),
                     )
                 } catch (cancellation: CancellationException) {

@@ -57,15 +57,17 @@ internal object FeedNavigationModule {
                     onNavigateToMediaViewer = { uri, idx ->
                         appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = idx))
                     },
-                    // Video-in-PostCard tap skips PostDetail — push the
-                    // fullscreen video player route onto MainShell's
-                    // inner back stack. The route is @MainShell-qualified
-                    // (per the design.md "MainShell's inner NavDisplay
-                    // mounts VideoPlayerScreen" decision), so the feed →
-                    // fullscreen instance-transfer keeps the same
-                    // ExoPlayer bound across the navigation.
+                    // Video-in-PostCard tap skips PostDetail. The
+                    // fullscreen player route is registered on the OUTER
+                    // NavDisplay (@OuterShell, same as MediaViewer), so
+                    // push via appNavigator — pushing onto MainShell's
+                    // inner back stack would leave the bottom-nav chrome
+                    // visible behind the supposedly fullscreen canvas.
+                    // SharedVideoPlayer is process-scoped, so the
+                    // feed → fullscreen instance-transfer holds across
+                    // the shell boundary too.
                     onNavigateToVideoPlayer = { uri ->
-                        navState.add(VideoPlayerRoute(postUri = uri))
+                        appNavigator.goTo(VideoPlayerRoute(postUri = uri))
                     },
                     // Width-class-conditional composer launch. At Compact width
                     // the launcher pushes ComposerRoute onto the tab stack; at

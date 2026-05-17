@@ -200,6 +200,7 @@ internal class VideoPlayerViewModel
                                 loadStatus = VideoPlayerLoadStatus.Ready,
                                 posterUrl = resolved.posterUrl,
                                 altText = resolved.altText,
+                                aspectRatio = resolved.aspectRatio,
                             )
                         }
                         // Arm the auto-hide timer the first time the
