@@ -37,6 +37,7 @@ internal class VideoPlayerViewModelTest {
     private lateinit var durationMsFlow: MutableStateFlow<Long>
     private lateinit var playbackErrorFlow: MutableStateFlow<PlaybackException?>
     private lateinit var boundPlaylistUrlFlow: MutableStateFlow<String?>
+    private lateinit var videoAspectRatioFlow: MutableStateFlow<Float?>
     private lateinit var holder: SharedVideoPlayer
 
     @BeforeEach
@@ -47,6 +48,7 @@ internal class VideoPlayerViewModelTest {
         durationMsFlow = MutableStateFlow(0L)
         playbackErrorFlow = MutableStateFlow<PlaybackException?>(null)
         boundPlaylistUrlFlow = MutableStateFlow<String?>(null)
+        videoAspectRatioFlow = MutableStateFlow<Float?>(null)
 
         holder = mockk(relaxed = true)
         every { holder.isPlaying } returns isPlayingFlow.asStateFlow()
@@ -54,6 +56,7 @@ internal class VideoPlayerViewModelTest {
         every { holder.durationMs } returns durationMsFlow.asStateFlow()
         every { holder.playbackError } returns playbackErrorFlow.asStateFlow()
         every { holder.boundPlaylistUrl } returns boundPlaylistUrlFlow.asStateFlow()
+        every { holder.videoAspectRatio } returns videoAspectRatioFlow.asStateFlow()
     }
 
     @AfterEach
@@ -199,6 +202,35 @@ internal class VideoPlayerViewModelTest {
 
             verify { holder.clearPlaybackError() }
             verify { holder.prepareCurrent() }
+        }
+
+    @Test
+    fun decodedVideoAspectRatio_overridesLexiconHint() =
+        runTest {
+            // Resolver hands back a 16:9 lexicon hint (the FeedMapping
+            // fallback when app.bsky.embed.video#view.aspectRatio is
+            // absent).
+            resolver.stub(
+                postUri = AT_URI,
+                resolved =
+                    ResolvedVideoPost(
+                        playlistUrl = "https://video.cdn/hls/a.m3u8",
+                        posterUrl = null,
+                        durationSeconds = 30,
+                        altText = null,
+                        aspectRatio = 16f / 9f,
+                    ),
+            )
+            val vm = newVm()
+            runCurrent()
+            assertEquals(16f / 9f, vm.uiState.value.aspectRatio)
+
+            // ExoPlayer decodes the first frame and reports the real
+            // dimensions (e.g. 9:16 portrait shot). The VM must replace
+            // the lexicon hint with the measured value.
+            videoAspectRatioFlow.value = 9f / 16f
+            runCurrent()
+            assertEquals(9f / 16f, vm.uiState.value.aspectRatio)
         }
 
     @Test
