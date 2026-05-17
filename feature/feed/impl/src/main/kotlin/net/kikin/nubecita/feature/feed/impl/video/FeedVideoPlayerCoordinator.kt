@@ -464,26 +464,17 @@ internal class FeedVideoPlayerCoordinator(
  * coordinator's primary constructor so unit tests can inject relaxed
  * mocks.
  *
- * TODO(nubecita-zak.2 Task 4): inject a real [SharedVideoPlayer] from
- * the DI graph. This stub compiles but is not wired to a real holder.
+ * The [sharedVideoPlayer] is a Hilt-provided `@Singleton` — callers
+ * obtain it from [FeedViewModel] and pass it in so this factory stays
+ * a thin facade with no DI knowledge of its own.
  */
-@androidx.annotation.OptIn(UnstableApi::class)
 internal fun createFeedVideoPlayerCoordinator(
     context: Context,
     audioManager: AudioManager,
-): FeedVideoPlayerCoordinator {
-    val appContext = context.applicationContext
-    // Task 4 replaces this stub with the process-scoped SharedVideoPlayer
-    // from the Hilt graph. Left as a compile stub so the module compiles
-    // while the wiring is incomplete.
-    val sharedVideoPlayer =
-        net.kikin.nubecita.core.video.createSharedVideoPlayer(
-            context = appContext,
-            scope = kotlinx.coroutines.MainScope(),
-        )
-    return FeedVideoPlayerCoordinator(
-        context = appContext,
+    sharedVideoPlayer: SharedVideoPlayer,
+): FeedVideoPlayerCoordinator =
+    FeedVideoPlayerCoordinator(
+        context = context,
         audioManager = audioManager,
         sharedVideoPlayer = sharedVideoPlayer,
     )
-}

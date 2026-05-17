@@ -208,6 +208,35 @@ internal fun FeedScreen(
     val onRetry = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Retry) } }
     val onLoadMore = remember(viewModel) { { viewModel.handleEvent(FeedEvent.LoadMore) } }
 
+    // Coordinator is hoisted here so it can receive the Hilt-injected
+    // SharedVideoPlayer from the ViewModel. Keyed on viewModel so a VM
+    // re-creation (process death + restore) rebuilds the coordinator
+    // with the fresh holder reference. Inspection mode skips construction
+    // — ExoPlayer in layoutlib is unsafe.
+    val inInspection = LocalInspectionMode.current
+    val appContext = context.applicationContext
+    val audioManager =
+        remember(context) {
+            context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        }
+    val coordinator: FeedVideoPlayerCoordinator? =
+        remember(viewModel) {
+            if (inInspection) {
+                null
+            } else {
+                createFeedVideoPlayerCoordinator(
+                    context = appContext,
+                    audioManager = audioManager,
+                    sharedVideoPlayer = viewModel.sharedVideoPlayer,
+                )
+            }
+        }
+    if (coordinator != null) {
+        DisposableEffect(viewModel) {
+            onDispose { coordinator.release() }
+        }
+    }
+
     LaunchedEffect(Unit) { viewModel.handleEvent(FeedEvent.Load) }
 
     // Composer submit-success bus. Fires when either composer host
@@ -292,6 +321,7 @@ internal fun FeedScreen(
         onLoadMore = onLoadMore,
         onComposeClick = onComposeClick,
         onImageTap = onImageTap,
+        coordinator = coordinator,
         modifier = modifier,
     )
 }
@@ -315,6 +345,7 @@ internal fun FeedScreenContent(
     modifier: Modifier = Modifier,
     onComposeClick: () -> Unit = {},
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit = { _, _ -> },
+    coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
     // Tap-to-top: collect MainShell's tab-retap signal and scroll the
     // feed list to the top. The default empty SharedFlow (no provider in
@@ -425,6 +456,7 @@ internal fun FeedScreenContent(
                     contentPadding = padding,
                     lastLikeTapPostUri = viewState.lastLikeTapPostUri,
                     lastRepostTapPostUri = viewState.lastRepostTapPostUri,
+                    coordinator = coordinator,
                 )
         }
     }
@@ -445,31 +477,8 @@ private fun LoadedFeedContent(
     contentPadding: PaddingValues = PaddingValues(),
     lastLikeTapPostUri: String? = null,
     lastRepostTapPostUri: String? = null,
+    coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
-    // Coordinator is composition-scoped: created once per FeedScreen
-    // entry, released on exit. No `remember(key)` because the screen's
-    // composition lifetime IS the coordinator's lifetime. Inspection
-    // mode (IDE preview / screenshot tests) skips construction —
-    // ExoPlayer in layoutlib is unsafe.
-    val context = LocalContext.current
-    val inInspection = LocalInspectionMode.current
-    val coordinator: FeedVideoPlayerCoordinator? =
-        remember {
-            if (inInspection) {
-                null
-            } else {
-                createFeedVideoPlayerCoordinator(
-                    context = context,
-                    audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager,
-                )
-            }
-        }
-    if (coordinator != null) {
-        DisposableEffect(Unit) {
-            onDispose { coordinator.release() }
-        }
-    }
-
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
