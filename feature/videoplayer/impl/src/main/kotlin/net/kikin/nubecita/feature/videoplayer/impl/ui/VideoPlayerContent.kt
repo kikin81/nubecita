@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerLoadStatus
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerState
@@ -95,5 +97,84 @@ internal fun VideoPlayerContent(
                     modifier = Modifier.fillMaxSize(),
                 )
         }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "VideoPlayer — Resolving",
+    showBackground = true,
+)
+@Composable
+private fun VideoPlayerContentResolvingPreview() {
+    NubecitaTheme(dynamicColor = false) {
+        VideoPlayerContent(
+            state = VideoPlayerState(loadStatus = VideoPlayerLoadStatus.Resolving),
+            player = null,
+            onEvent = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "VideoPlayer — Ready chrome visible",
+    showBackground = true,
+)
+@Composable
+private fun VideoPlayerContentReadyChromeVisiblePreview() {
+    NubecitaTheme(dynamicColor = false) {
+        VideoPlayerContent(
+            state =
+                VideoPlayerState(
+                    loadStatus = VideoPlayerLoadStatus.Ready,
+                    isPlaying = true,
+                    isMuted = false,
+                    positionMs = 5_400L,
+                    durationMs = 30_000L,
+                    chromeVisible = true,
+                ),
+            player = null,
+            onEvent = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "VideoPlayer — Ready chrome hidden",
+    showBackground = true,
+)
+@Composable
+private fun VideoPlayerContentReadyChromeHiddenPreview() {
+    NubecitaTheme(dynamicColor = false) {
+        VideoPlayerContent(
+            state =
+                VideoPlayerState(
+                    loadStatus = VideoPlayerLoadStatus.Ready,
+                    isPlaying = true,
+                    isMuted = true,
+                    positionMs = 12_000L,
+                    durationMs = 30_000L,
+                    chromeVisible = false,
+                ),
+            player = null,
+            onEvent = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "VideoPlayer — Error network",
+    showBackground = true,
+)
+@Composable
+private fun VideoPlayerContentErrorPreview() {
+    NubecitaTheme(dynamicColor = false) {
+        VideoPlayerContent(
+            state =
+                VideoPlayerState(
+                    loadStatus = VideoPlayerLoadStatus.Error(error = VideoPlayerError.Network),
+                ),
+            player = null,
+            onEvent = {},
+        )
     }
 }
