@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.video
 
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
@@ -232,15 +233,16 @@ class SharedVideoPlayerTest {
     @Test
     fun bind_afterRelease_recreatesPlayer_andSetsMediaItem() =
         runTest {
-            // Use a counting factory so we can verify recreation:
             val player = mockk<ExoPlayer>(relaxed = true)
+            val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
             var invocations = 0
             val holder =
                 SharedVideoPlayer(
-                    playerFactory = {
+                    playerFactory = { _ ->
                         invocations += 1
                         player
                     },
+                    trackSelectorFactory = { trackSelector },
                     scope = this,
                     idleReleaseMs = 30_000L,
                 )
@@ -249,7 +251,6 @@ class SharedVideoPlayerTest {
             assertEquals(1, invocations, "first bind should create the player")
 
             holder.release()
-            // After release, _player is null and mode resets to FeedPreview.
             assertNull(holder.boundPlaylistUrl.value)
             assertEquals(PlaybackMode.FeedPreview, holder.mode.value)
 
@@ -298,9 +299,11 @@ class SharedVideoPlayerTest {
         testScope: TestScope,
     ): Pair<SharedVideoPlayer, ExoPlayer> {
         val player = mockk<ExoPlayer>(relaxed = true)
+        val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
         val holder =
             SharedVideoPlayer(
-                playerFactory = { player },
+                playerFactory = { _ -> player },
+                trackSelectorFactory = { trackSelector },
                 scope = testScope,
                 idleReleaseMs = 30_000L,
             )

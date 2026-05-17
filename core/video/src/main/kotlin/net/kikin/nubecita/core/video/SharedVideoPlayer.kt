@@ -31,7 +31,8 @@ import kotlinx.coroutines.sync.Mutex
  */
 class SharedVideoPlayer
     internal constructor(
-        private val playerFactory: () -> ExoPlayer,
+        private val playerFactory: (DefaultTrackSelector) -> ExoPlayer,
+        private val trackSelectorFactory: () -> DefaultTrackSelector,
         private val scope: CoroutineScope,
         private val idleReleaseMs: Long,
     ) {
@@ -72,7 +73,22 @@ class SharedVideoPlayer
         // Raw ExoPlayer reference — no underscore since it has no public counterpart;
         // the public observable is `player: StateFlow<Player?>` backed by `_player`.
         private var cachedExoPlayer: ExoPlayer? = null
+        private var cachedTrackSelector: DefaultTrackSelector? = null
         private val _player = MutableStateFlow<androidx.media3.common.Player?>(null)
+
+        /**
+         * The currently-bound `DefaultTrackSelector`, lazy-constructed
+         * alongside the ExoPlayer. Exposed for in-feed bitrate-floor
+         * unlock logic (see `:feature:feed:impl`'s coordinator). zak.4's
+         * VM will likely subsume this surface when the sustained-playback
+         * unlock policy moves into the holder; for now the accessor is
+         * internal and only `:feature:feed:impl` consumes it.
+         *
+         * Null after release / idle-release, populated lazily on the
+         * next bind() that triggers requirePlayer().
+         */
+        val trackSelector: DefaultTrackSelector?
+            get() = cachedTrackSelector
 
         /**
          * Reactive view of the currently-bound ExoPlayer instance. Emits
@@ -88,11 +104,15 @@ class SharedVideoPlayer
          */
         val player: StateFlow<androidx.media3.common.Player?> = _player.asStateFlow()
 
-        private fun requirePlayer(): ExoPlayer =
-            cachedExoPlayer ?: playerFactory().also {
-                cachedExoPlayer = it
-                _player.value = it
-            }
+        private fun requirePlayer(): ExoPlayer {
+            val existing = cachedExoPlayer
+            if (existing != null) return existing
+            val ts = cachedTrackSelector ?: trackSelectorFactory().also { cachedTrackSelector = it }
+            val built = playerFactory(ts)
+            cachedExoPlayer = built
+            _player.value = built
+            return built
+        }
 
         private var refcount: Int = 0
         private var idleReleaseJob: Job? = null
@@ -129,6 +149,7 @@ class SharedVideoPlayer
                         delay(idleReleaseMs)
                         cachedExoPlayer?.release()
                         cachedExoPlayer = null
+                        cachedTrackSelector = null
                         _player.value = null
                         _mode.value = PlaybackMode.FeedPreview
                         _boundPlaylistUrl.value = null
@@ -216,6 +237,7 @@ class SharedVideoPlayer
             idleReleaseJob = null
             cachedExoPlayer?.release()
             cachedExoPlayer = null
+            cachedTrackSelector = null
             _player.value = null
             _mode.value = PlaybackMode.FeedPreview
             _boundPlaylistUrl.value = null
@@ -276,11 +298,7 @@ fun createSharedVideoPlayer(
 ): SharedVideoPlayer {
     val appContext = context.applicationContext
     return SharedVideoPlayer(
-        playerFactory = {
-            val trackSelector =
-                DefaultTrackSelector(appContext).apply {
-                    setParameters(buildUponParameters().setForceLowestBitrate(true))
-                }
+        playerFactory = { trackSelector ->
             val attrs =
                 androidx.media3.common.AudioAttributes
                     .Builder()
@@ -293,9 +311,13 @@ fun createSharedVideoPlayer(
                 .build()
                 .apply {
                     volume = 0f
-                    // FeedPreview default — flipped to `true` by setMode(Fullscreen).
                     setAudioAttributes(attrs, false)
                 }
+        },
+        trackSelectorFactory = {
+            DefaultTrackSelector(appContext).apply {
+                setParameters(buildUponParameters().setForceLowestBitrate(true))
+            }
         },
         scope = scope,
         idleReleaseMs = idleReleaseMs,
