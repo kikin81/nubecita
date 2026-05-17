@@ -70,6 +70,12 @@ internal class VideoPlayerViewModel
         private var autoHideJob: Job? = null
         private var autoHideArmed: Boolean = false
 
+        // Tracks whether this VM has incremented the holder's refcount so
+        // a successful Retry doesn't double-attach. `onCleared` always
+        // calls `detachSurface`, which is refcount-zero-safe inside the
+        // holder, so a never-attached VM is harmless.
+        private var surfaceAttached: Boolean = false
+
         init {
             // Restore FeedPreview mode when the VM is destroyed (back-nav,
             // process death, screen leaves the back stack).
@@ -170,7 +176,10 @@ internal class VideoPlayerViewModel
                             sharedVideoPlayer.prepareCurrent()
                         }
                         sharedVideoPlayer.setMode(PlaybackMode.Fullscreen)
-                        sharedVideoPlayer.attachSurface()
+                        if (!surfaceAttached) {
+                            sharedVideoPlayer.attachSurface()
+                            surfaceAttached = true
+                        }
                         sharedVideoPlayer.play()
                         setState {
                             copy(

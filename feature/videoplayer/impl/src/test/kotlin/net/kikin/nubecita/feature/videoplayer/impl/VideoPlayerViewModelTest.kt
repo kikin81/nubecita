@@ -151,6 +151,25 @@ internal class VideoPlayerViewModelTest {
         }
 
     @Test
+    fun retryClicked_doesNotDoubleAttachSurface() =
+        runTest {
+            // First success: attach happens once.
+            stubReady()
+            val vm = newVm()
+            runCurrent()
+            verify(exactly = 1) { holder.attachSurface() }
+
+            // Trigger another successful resolve via Retry — the success
+            // branch must NOT call attachSurface again, otherwise the
+            // holder refcount drifts and the idle-release timer never
+            // fires after onCleared.
+            vm.handleEvent(VideoPlayerEvent.RetryClicked)
+            runCurrent()
+
+            verify(exactly = 1) { holder.attachSurface() }
+        }
+
+    @Test
     fun retryClicked_afterPlaybackError_callsPrepareCurrentWhenAlreadyBound() =
         runTest {
             // Initial bind + Ready.
