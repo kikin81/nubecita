@@ -11,6 +11,7 @@ dependencies {
 
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    implementation(project(":core:feed-mapping"))
     implementation(project(":core:video"))
     implementation(project(":data:models"))
     implementation(libs.atproto.models)
