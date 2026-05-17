@@ -399,6 +399,41 @@ class SharedVideoPlayerTest {
         }
 
     @Test
+    fun attachSurface_zeroToOneTransition_restartsPollingIfPlayerAlreadyPlaying() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+            every { player.currentPosition } returnsMany listOf(0L, 250L, 500L, 750L, 1_000L, 1_250L)
+
+            // First attach + start playback drives polling.
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            holder.attachSurface()
+            listenerSlot.captured.onIsPlayingChanged(true)
+            advanceTimeBy(250L)
+            runCurrent()
+            assertEquals(250L, holder.positionMs.value)
+
+            // Detach + immediate re-attach while player is still playing —
+            // no isPlaying state change occurs, so without an explicit
+            // restart positionMs would freeze for the new surface.
+            every { player.isPlaying } returns true
+            holder.detachSurface()
+            holder.attachSurface()
+            advanceTimeBy(500L)
+            runCurrent()
+            assertEquals(
+                1_000L,
+                holder.positionMs.value,
+                "polling must resume on the 0→1 attach when the player is still playing",
+            )
+
+            // Stop polling so runTest doesn't hang waiting for the infinite
+            // delay-loop to terminate.
+            listenerSlot.captured.onIsPlayingChanged(false)
+        }
+
+    @Test
     fun detachSurface_atRefcountZero_stopsPositionPollingImmediately() =
         runTest {
             val (holder, player) = newHolder(testScope = this)
