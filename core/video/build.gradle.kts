@@ -11,6 +11,7 @@ android {
     // The Media3 audio-attributes path runs through java.net stubs that
     // need default-values to be tolerated. Same fix as :feature:feed:impl.
     testOptions.unitTests.isReturnDefaultValues = true
+    testOptions.unitTests.all { it.jvmArgs("-Xmx4g") }
 }
 
 dependencies {
