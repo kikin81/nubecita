@@ -61,6 +61,12 @@
         <item quantity="other">· %1$d more</item>
     </plurals>
 
+    <!-- VideoPosterEmbed fallback content description when the lexicon's
+         `altText` field is null. TalkBack would otherwise announce the
+         clickable Box with Role.Button but no label ("button, double-tap
+         to activate"), which is meaningless. -->
+    <string name="video_poster_default_content_description">Play video</string>
+
     <!-- ListDetailSceneStrategy detail-pane empty state. Used by any feature
          whose entry carries `listPane(detailPlaceholder = { PostDetailPaneEmptyState() })`.
          Bead F (nubecita-s6p.6) promoted this from :feature:feed:impl when
