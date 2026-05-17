@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 
@@ -109,6 +110,7 @@ class SharedVideoPlayer
             if (existing != null) return existing
             val ts = cachedTrackSelector ?: trackSelectorFactory().also { cachedTrackSelector = it }
             val built = playerFactory(ts)
+            built.addListener(playerStateListener)
             cachedExoPlayer = built
             _player.value = built
             return built
@@ -116,6 +118,46 @@ class SharedVideoPlayer
 
         private var refcount: Int = 0
         private var idleReleaseJob: Job? = null
+
+        private var positionPollingJob: Job? = null
+
+        private val playerStateListener: androidx.media3.common.Player.Listener =
+            object : androidx.media3.common.Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    _isPlaying.value = isPlaying
+                    if (isPlaying) startPositionPolling() else stopPositionPolling()
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    _playbackError.value = error
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == androidx.media3.common.Player.STATE_READY) {
+                        val p = cachedExoPlayer ?: return
+                        _durationMs.value = p.duration.coerceAtLeast(0L)
+                    }
+                }
+            }
+
+        private fun startPositionPolling() {
+            if (positionPollingJob?.isActive == true) return
+            positionPollingJob =
+                scope.launch {
+                    while (isActive) {
+                        val p = cachedExoPlayer
+                        if (p != null) {
+                            _positionMs.value = p.currentPosition.coerceAtLeast(0L)
+                        }
+                        delay(POSITION_POLLING_INTERVAL_MS)
+                    }
+                }
+        }
+
+        private fun stopPositionPolling() {
+            positionPollingJob?.cancel()
+            positionPollingJob = null
+        }
 
         /**
          * Increment the active-surface refcount. The first call after a
@@ -147,13 +189,16 @@ class SharedVideoPlayer
                 idleReleaseJob =
                     scope.launch {
                         delay(idleReleaseMs)
+                        stopPositionPolling()
                         cachedExoPlayer?.release()
                         cachedExoPlayer = null
                         cachedTrackSelector = null
                         _player.value = null
-                        _mode.value = PlaybackMode.FeedPreview
-                        _boundPlaylistUrl.value = null
                         _isPlaying.value = false
+                        _positionMs.value = 0L
+                        _durationMs.value = 0L
+                        _playbackError.value = null
+                        _boundPlaylistUrl.value = null
                     }
             }
         }
@@ -197,13 +242,13 @@ class SharedVideoPlayer
         /** Resume playback. Volume + audio-focus state come from the current [mode]. */
         fun play() {
             requirePlayer().play()
-            _isPlaying.value = true
+            // _isPlaying.value driven by playerStateListener.onIsPlayingChanged.
         }
 
         /** Pause playback. The bound URL stays — re-binding to the same URL is idempotent. */
         fun pause() {
             requirePlayer().pause()
-            _isPlaying.value = false
+            // _isPlaying.value driven by playerStateListener.onIsPlayingChanged.
         }
 
         /** Seek within the current media item. */
@@ -233,6 +278,7 @@ class SharedVideoPlayer
          * cleanup path.
          */
         fun release() {
+            stopPositionPolling()
             idleReleaseJob?.cancel()
             idleReleaseJob = null
             cachedExoPlayer?.release()
@@ -242,6 +288,9 @@ class SharedVideoPlayer
             _mode.value = PlaybackMode.FeedPreview
             _boundPlaylistUrl.value = null
             _isPlaying.value = false
+            _positionMs.value = 0L
+            _durationMs.value = 0L
+            _playbackError.value = null
         }
 
         /**
@@ -326,3 +375,5 @@ fun createSharedVideoPlayer(
 
 /** 30 seconds. Calibrated to the design's idle-release rule. */
 const val DEFAULT_IDLE_RELEASE_MS: Long = 30_000L
+
+private const val POSITION_POLLING_INTERVAL_MS: Long = 250L

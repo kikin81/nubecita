@@ -5,6 +5,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -293,6 +294,105 @@ class SharedVideoPlayerTest {
             // re-invoke the factory; verified separately by
             // bind_afterRelease_recreatesPlayer_andSetsMediaItem.
             assertNull(holder.player.value)
+        }
+
+    @Test
+    fun listener_onIsPlayingChanged_updatesIsPlayingFlow() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            // Capture the listener that the holder attaches to the player.
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+
+            // Lazy player construction registers the listener.
+            verify(atLeast = 1) { player.addListener(any<androidx.media3.common.Player.Listener>()) }
+
+            // Simulate the player firing onIsPlayingChanged.
+            listenerSlot.captured.onIsPlayingChanged(true)
+            assertEquals(true, holder.isPlaying.value)
+
+            listenerSlot.captured.onIsPlayingChanged(false)
+            assertEquals(false, holder.isPlaying.value)
+        }
+
+    @Test
+    fun listener_onPlayerError_updatesPlaybackErrorFlow() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            assertNull(holder.playbackError.value)
+
+            val exoError = mockk<androidx.media3.common.PlaybackException>(relaxed = true)
+            listenerSlot.captured.onPlayerError(exoError)
+            assertEquals(exoError, holder.playbackError.value)
+        }
+
+    @Test
+    fun listener_onPlaybackStateReady_updatesDurationFlow() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            every { player.duration } returns 42_500L
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            assertEquals(0L, holder.durationMs.value)
+
+            listenerSlot.captured.onPlaybackStateChanged(androidx.media3.common.Player.STATE_READY)
+            assertEquals(42_500L, holder.durationMs.value)
+        }
+
+    @Test
+    fun positionPolling_runsWhilePlaying_updatesPositionMsEvery250ms() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+            every { player.currentPosition } returnsMany listOf(0L, 250L, 500L, 750L)
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            listenerSlot.captured.onIsPlayingChanged(true)
+            runCurrent()
+            assertEquals(0L, holder.positionMs.value)
+
+            advanceTimeBy(250L)
+            runCurrent()
+            assertEquals(250L, holder.positionMs.value)
+
+            advanceTimeBy(500L)
+            runCurrent()
+            assertEquals(750L, holder.positionMs.value)
+
+            // Cancel the polling job so runTest doesn't hang waiting for an
+            // infinite loop to complete.
+            listenerSlot.captured.onIsPlayingChanged(false)
+        }
+
+    @Test
+    fun positionPolling_stopsOnIsPlayingFalse() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+            every { player.currentPosition } returnsMany listOf(0L, 250L, 999L, 999L)
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            listenerSlot.captured.onIsPlayingChanged(true)
+            advanceTimeBy(250L)
+            runCurrent()
+            assertEquals(250L, holder.positionMs.value)
+
+            // Stop playing: the polling job should be cancelled, position
+            // stays at last-known value.
+            listenerSlot.captured.onIsPlayingChanged(false)
+            advanceTimeBy(2_000L)
+            runCurrent()
+            assertEquals(250L, holder.positionMs.value, "position must not advance after pause")
         }
 
     private fun newHolder(
