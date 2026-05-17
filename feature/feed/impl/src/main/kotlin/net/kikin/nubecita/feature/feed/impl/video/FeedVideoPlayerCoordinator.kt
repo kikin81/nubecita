@@ -108,6 +108,16 @@ internal class FeedVideoPlayerCoordinator(
     private var bitrateUnlockJob: Job? = null
     private var released: Boolean = false
 
+    private val playbackStartedListener: Player.Listener =
+        object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                val p = sharedVideoPlayer.player.value ?: return
+                if (playbackState == Player.STATE_READY && p.playWhenReady) {
+                    notifyPlaybackStarted()
+                }
+            }
+        }
+
     /**
      * Re-attached every time [sharedVideoPlayer.player] emits a fresh
      * ExoPlayer (first bind, or post-idle-release rebind). Triggers
@@ -116,6 +126,17 @@ internal class FeedVideoPlayerCoordinator(
      * listener registration can't live in a one-shot factory — it
      * must follow the player instance through release-and-recreate
      * cycles. The job is cancelled in [release].
+     *
+     * MUST be declared AFTER [playbackStartedListener] — [scope] uses
+     * `Dispatchers.Main.immediate`, so when FeedScreen recomposes on
+     * the main thread while the holder already has a non-null player
+     * (e.g. coming back from post detail before the 30 s idle-release
+     * fires), `scope.launch { ... }` runs the body synchronously inside
+     * the coordinator's `<init>`. The StateFlow.collect's first emission
+     * is also synchronous and reads [playbackStartedListener] via its
+     * accessor — if that field's initializer hasn't run yet,
+     * `current.addListener(null)` NPEs. Declaring the listener first
+     * makes its backing field available before this collect can fire.
      */
     private val playerListenerAttachJob: Job =
         scope.launch {
@@ -125,16 +146,6 @@ internal class FeedVideoPlayerCoordinator(
                 // holder's release() already detached all listeners by
                 // releasing the ExoPlayer. The flow emits null between
                 // release and the next bind, and we no-op on null.
-            }
-        }
-
-    private val playbackStartedListener: Player.Listener =
-        object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                val p = sharedVideoPlayer.player.value ?: return
-                if (playbackState == Player.STATE_READY && p.playWhenReady) {
-                    notifyPlaybackStarted()
-                }
             }
         }
 
