@@ -130,16 +130,10 @@ class SharedVideoPlayerTest {
     fun setMode_fullscreen_liftsHlsBitrateFloor() =
         runTest {
             val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
-            val initialParams =
-                mockk<androidx.media3.exoplayer.trackselection.DefaultTrackSelector.Parameters>(relaxed = true)
-            val unlockedParams =
-                mockk<androidx.media3.exoplayer.trackselection.DefaultTrackSelector.Parameters>(relaxed = true)
             val builder =
                 mockk<androidx.media3.exoplayer.trackselection.DefaultTrackSelector.Parameters.Builder>(relaxed = true)
             every { trackSelector.buildUponParameters() } returns builder
-            every { builder.setForceLowestBitrate(false) } returns builder
-            every { builder.setForceLowestBitrate(true) } returns builder
-            every { builder.build() } returns unlockedParams
+            every { builder.setForceLowestBitrate(any()) } returns builder
             val (holder, _) = newHolderWith(testScope = this, trackSelector = trackSelector)
 
             holder.setMode(PlaybackMode.Fullscreen)
