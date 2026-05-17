@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.video
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import io.mockk.clearMocks
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -173,6 +174,55 @@ class SharedVideoPlayerTest {
             // Idle release SHOULD fire after the last (matching) detach — refcount
             // is back to zero and the timer ran.
             // No assertion on the player here; the next test pins release behavior.
+        }
+
+    @Test
+    fun play_callsPlayerPlay() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            holder.play()
+            io.mockk.verify { player.play() }
+        }
+
+    @Test
+    fun pause_callsPlayerPause() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            holder.pause()
+            io.mockk.verify { player.pause() }
+        }
+
+    @Test
+    fun seekTo_callsPlayerSeekTo_withPositionMs() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            holder.seekTo(12_345L)
+            io.mockk.verify { player.seekTo(12_345L) }
+        }
+
+    @Test
+    fun toggleMute_inFullscreen_flipsVolumeBetweenZeroAndOne() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            holder.setMode(PlaybackMode.Fullscreen)
+            io.mockk.clearMocks(player, answers = false)
+            io.mockk.every { player.volume } returns 1f
+
+            holder.toggleMute()
+
+            io.mockk.verify { player.volume = 0f }
+        }
+
+    @Test
+    fun release_callsPlayerRelease_andClearsBoundUrl() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+
+            holder.release()
+
+            io.mockk.verify { player.release() }
+            assertNull(holder.boundPlaylistUrl.value)
         }
 
     private fun newHolder(

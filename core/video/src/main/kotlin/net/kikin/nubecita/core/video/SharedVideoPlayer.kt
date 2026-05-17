@@ -134,6 +134,48 @@ class SharedVideoPlayer
                 .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build()
 
+        /** Resume playback. Volume + audio-focus state come from the current [mode]. */
+        fun play() {
+            player.play()
+            _isPlaying.value = true
+        }
+
+        /** Pause playback. The bound URL stays — re-binding to the same URL is idempotent. */
+        fun pause() {
+            player.pause()
+            _isPlaying.value = false
+        }
+
+        /** Seek within the current media item. */
+        fun seekTo(positionMs: Long) {
+            player.seekTo(positionMs)
+        }
+
+        /**
+         * Flip volume between 0f and 1f. Only meaningful in
+         * [PlaybackMode.Fullscreen] — in [PlaybackMode.FeedPreview] the
+         * mode contract pins volume at 0, and unmute requires entering
+         * Fullscreen first.
+         */
+        fun toggleMute() {
+            player.volume = if (player.volume > 0f) 0f else 1f
+        }
+
+        /**
+         * Force-release the underlying ExoPlayer immediately and clear
+         * the bound URL. Used by the auth-state-cleared broadcaster on
+         * logout so a stale player doesn't survive across users. Also
+         * called by the idle-release timer, which goes through the same
+         * cleanup path.
+         */
+        fun release() {
+            idleReleaseJob?.cancel()
+            idleReleaseJob = null
+            player.release()
+            _boundPlaylistUrl.value = null
+            _isPlaying.value = false
+        }
+
         /**
          * Bind the holder to a video. Idempotent on same `playlistUrl`:
          * a re-bind to the URL already in [boundPlaylistUrl] is a no-op,
