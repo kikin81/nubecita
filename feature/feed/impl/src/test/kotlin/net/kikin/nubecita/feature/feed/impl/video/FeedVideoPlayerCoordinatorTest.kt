@@ -6,9 +6,9 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -16,11 +16,14 @@ import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.video.SharedVideoPlayer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -52,8 +55,8 @@ internal class FeedVideoPlayerCoordinatorTest {
     private val dispatcher = UnconfinedTestDispatcher()
     private lateinit var context: Context
     private lateinit var audioManager: AudioManager
-    private lateinit var player: ExoPlayer
-    private lateinit var trackSelector: DefaultTrackSelector
+    private lateinit var mockPlayer: ExoPlayer
+    private lateinit var holder: SharedVideoPlayer
 
     @BeforeEach
     fun setUp() {
@@ -85,9 +88,9 @@ internal class FeedVideoPlayerCoordinatorTest {
         context = mockk(relaxed = true)
         every { context.applicationContext } returns context
         audioManager = mockk(relaxed = true)
-        player = mockk(relaxed = true)
-        trackSelector = mockk(relaxed = true)
-        every { trackSelector.buildUponParameters() } returns mockk(relaxed = true)
+        mockPlayer = mockk(relaxed = true)
+        holder = mockk(relaxed = true)
+        every { holder.player } returns MutableStateFlow<Player?>(mockPlayer).asStateFlow()
     }
 
     @AfterEach
@@ -236,7 +239,10 @@ internal class FeedVideoPlayerCoordinatorTest {
 
             verify(exactly = 1) { audioManager.abandonAudioFocusRequest(any()) }
             verify(atLeast = 1) { context.unregisterReceiver(any()) }
-            verify(exactly = 1) { player.release() }
+            // Feed must NOT release the singleton holder — it is process-scoped.
+            verify(exactly = 0) { mockPlayer.release() }
+            // Coordinator must detach the surface on release.
+            verify(exactly = 1) { holder.detachSurface() }
             assertEquals(false, coordinator.isUnmuted.value)
             assertEquals(PlaybackHint.None, coordinator.playbackHint.value)
         }
@@ -251,7 +257,10 @@ internal class FeedVideoPlayerCoordinatorTest {
             coordinator.release()
 
             verify(exactly = 0) { audioManager.abandonAudioFocusRequest(any()) }
-            verify(exactly = 1) { player.release() }
+            // Feed must NOT release the singleton holder — it is process-scoped.
+            verify(exactly = 0) { mockPlayer.release() }
+            // Coordinator must detach the surface on release.
+            verify(exactly = 1) { holder.detachSurface() }
         }
 
     @Test
@@ -283,7 +292,6 @@ internal class FeedVideoPlayerCoordinatorTest {
         FeedVideoPlayerCoordinator(
             context = context,
             audioManager = audioManager,
-            player = player,
-            trackSelector = trackSelector,
+            sharedVideoPlayer = holder,
         )
 }
