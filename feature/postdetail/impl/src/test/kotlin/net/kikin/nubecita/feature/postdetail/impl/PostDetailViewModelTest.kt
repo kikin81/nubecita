@@ -400,6 +400,25 @@ internal class PostDetailViewModelTest {
             }
         }
 
+    @Test
+    fun `OnVideoTapped emits NavigateToVideoPlayer with the tapped URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo())
+
+            vm.effects.test {
+                // Per-PostCard videoEmbedSlot dispatches with the URI of
+                // the post whose embed carries the video (or, when the
+                // tap lands inside a quoted-record video, the quoted
+                // post's URI). The VM forwards it verbatim.
+                vm.handleEvent(PostDetailEvent.OnVideoTapped(postUri = "at://video"))
+                val effect = awaitItem()
+                assertEquals(
+                    PostDetailEffect.NavigateToVideoPlayer(postUri = "at://video"),
+                    effect,
+                )
+            }
+        }
+
     // ---------- cache interaction tests ----------
 
     @Test

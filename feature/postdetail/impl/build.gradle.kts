@@ -17,6 +17,11 @@ dependencies {
     // Profile NavKey — pushed onto the back stack when an author handle
     // is tapped inside a thread post. Imports `:api` only; never `:impl`.
     implementation(project(":feature:profile:api"))
+    // VideoPlayerRoute NavKey — pushed onto the outer back stack when a
+    // video embed inside a thread PostCard is tapped. Routes through the
+    // outer Navigator (the route is `@OuterShell`-qualified) so the
+    // player escapes MainShell's NavigationSuiteScaffold chrome.
+    implementation(project(":feature:videoplayer:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)

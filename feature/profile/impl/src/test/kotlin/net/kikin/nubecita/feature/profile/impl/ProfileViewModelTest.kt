@@ -605,6 +605,26 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `OnVideoTapped emits NavigateToVideoPlayer with the same URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = FakeProfileRepository())
+            advanceUntilIdle()
+
+            vm.effects.test {
+                // Posts/Replies tab in-card video taps route to the
+                // fullscreen player on the outer NavDisplay, bypassing
+                // the PostDetail detour an outer-card tap takes.
+                vm.handleEvent(ProfileEvent.OnVideoTapped(postUri = "at://did:plc:alice/post/v1"))
+                val effect = awaitItem()
+                assertEquals(
+                    ProfileEffect.NavigateToVideoPlayer(postUri = "at://did:plc:alice/post/v1"),
+                    effect,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `StubActionTapped emits ShowComingSoon with the same action value, never touches the repo`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =
