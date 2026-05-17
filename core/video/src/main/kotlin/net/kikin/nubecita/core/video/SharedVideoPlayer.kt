@@ -136,6 +136,11 @@ class SharedVideoPlayer
                     if (playbackState == androidx.media3.common.Player.STATE_READY) {
                         val p = cachedExoPlayer ?: return
                         _durationMs.value = p.duration.coerceAtLeast(0L)
+                        // Successful (re-)prepare clears any prior playback
+                        // error so the consuming VM doesn't get stuck in an
+                        // Error LoadStatus after a transient HLS failure
+                        // recovers (e.g. retry → re-prepare → STATE_READY).
+                        _playbackError.value = null
                     }
                 }
             }
@@ -185,11 +190,15 @@ class SharedVideoPlayer
             if (refcount == 0) return
             refcount -= 1
             if (refcount == 0) {
+                // No surface is observing positionMs anymore — kill the
+                // poller immediately to drop the 250ms background tick.
+                // The idle-release timer below still tears down the player
+                // itself after the grace window.
+                stopPositionPolling()
                 idleReleaseJob?.cancel()
                 idleReleaseJob =
                     scope.launch {
                         delay(idleReleaseMs)
-                        stopPositionPolling()
                         cachedExoPlayer?.release()
                         cachedExoPlayer = null
                         cachedTrackSelector = null
@@ -317,12 +326,41 @@ class SharedVideoPlayer
         ) {
             if (_boundPlaylistUrl.value == playlistUrl) return
             val p = requirePlayer()
+            // New media item — drop any prior playback error so the VM
+            // doesn't immediately bounce back into Error before the new
+            // prepare() either succeeds (STATE_READY clears) or fails
+            // (onPlayerError re-sets).
+            _playbackError.value = null
             p.setMediaItem(
                 androidx.media3.common.MediaItem
                     .fromUri(playlistUrl),
             )
             p.prepare()
             _boundPlaylistUrl.value = playlistUrl
+        }
+
+        /**
+         * Re-prepare the currently-bound media item without changing
+         * [boundPlaylistUrl]. Used by retry flows: after a transient
+         * playback failure, the consumer clears the error and asks the
+         * player to try the same URL again. No-op if no media item is
+         * bound (i.e. the player has been released).
+         */
+        fun prepareCurrent() {
+            val p = cachedExoPlayer ?: return
+            _playbackError.value = null
+            p.prepare()
+        }
+
+        /**
+         * Drop a sticky [playbackError] without otherwise touching the
+         * player. Used by the VM's retry path so the
+         * combine(...).onEach handler doesn't bounce the screen straight
+         * back into Error between the user tapping Retry and the next
+         * STATE_READY (or fresh onPlayerError) arriving.
+         */
+        fun clearPlaybackError() {
+            _playbackError.value = null
         }
     }
 

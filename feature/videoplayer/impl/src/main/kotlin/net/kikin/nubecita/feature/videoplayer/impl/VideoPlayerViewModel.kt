@@ -1,7 +1,9 @@
 package net.kikin.nubecita.feature.videoplayer.impl
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -12,23 +14,35 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import net.kikin.nubecita.feature.videoplayer.impl.data.VideoPostResolver
-import javax.inject.Inject
 
 /**
  * Presenter for the fullscreen video player.
  *
- * On init: reads the postUri from the navigation handle, resolves it
- * via [VideoPostResolver] (network round-trip), checks if the holder is
- * already bound to the resolved URL (instance-transfer payoff if true),
- * and either skips the rebind or calls [SharedVideoPlayer.bind] before
- * flipping the mode to [PlaybackMode.Fullscreen].
+ * Uses Hilt's assisted-injection bridge so the [VideoPlayerRoute] (the
+ * Nav 3 NavKey carrying the post AT URI) flows from the entry-provider
+ * call site into the VM constructor without a SavedStateHandle decode
+ * step. The canonical Nav 3 pattern documented in the official Hilt
+ * recipe — `hiltViewModel<VM, Factory>(creationCallback = { it.create(route) })`
+ * — preserves a per-NavEntry VM instance via the
+ * `rememberViewModelStoreNavEntryDecorator` already wired in `MainShell`.
+ * (NavKey types aren't reachable through SavedStateHandle by default; see
+ * `ChatScreenInstrumentationTest.kt` for the failure mode the assisted-
+ * inject route prevents.)
+ *
+ * On init: resolves the post URI via [VideoPostResolver] (network
+ * round-trip), checks if the holder is already bound to the resolved
+ * URL (instance-transfer payoff if true), and either skips the rebind
+ * or calls [SharedVideoPlayer.bind] before flipping the mode to
+ * [PlaybackMode.Fullscreen].
  *
  * Observes [SharedVideoPlayer]'s state flows (isPlaying, positionMs,
  * durationMs, playbackError) and projects them into the flat
  * [VideoPlayerState] via a single `combine` operator. Chrome auto-hide
- * is a screen-local timer keyed on user interaction (events that fire
- * the timer reset: ToggleChrome, PlayPauseClicked, MuteClicked, SeekTo).
+ * is a screen-local timer; the initial timer arms on first entry to
+ * [VideoPlayerLoadStatus.Ready] (not in init), so a slow resolver doesn't
+ * hide the controls before the user ever sees them.
  *
  * Restores `PlaybackMode.FeedPreview` on `viewModelScope.cancellation`
  * via the registered `addCloseable { … }` — this is the symmetric
@@ -38,18 +52,23 @@ import javax.inject.Inject
  * composable can read `sharedVideoPlayer.player` to render
  * `PlayerSurface(player = …)`.
  */
-@HiltViewModel
+@HiltViewModel(assistedFactory = VideoPlayerViewModel.Factory::class)
 internal class VideoPlayerViewModel
-    @Inject
+    @AssistedInject
     constructor(
-        savedStateHandle: SavedStateHandle,
+        @Assisted private val route: VideoPlayerRoute,
         val sharedVideoPlayer: SharedVideoPlayer,
         private val resolver: VideoPostResolver,
     ) : MviViewModel<VideoPlayerState, VideoPlayerEvent, VideoPlayerEffect>(VideoPlayerState()) {
-        private val postUri: String =
-            savedStateHandle.get<String>("postUri") ?: error("postUri missing from SavedStateHandle")
+        @AssistedFactory
+        interface Factory {
+            fun create(route: VideoPlayerRoute): VideoPlayerViewModel
+        }
+
+        private val postUri: String = route.postUri
 
         private var autoHideJob: Job? = null
+        private var autoHideArmed: Boolean = false
 
         init {
             // Restore FeedPreview mode when the VM is destroyed (back-nav,
@@ -89,9 +108,6 @@ internal class VideoPlayerViewModel
                     }
                 }
             }.launchIn(viewModelScope)
-
-            // Auto-hide chrome on entry — kick off the initial timer.
-            scheduleChromeAutoHide()
         }
 
         override fun handleEvent(event: VideoPlayerEvent) {
@@ -122,12 +138,20 @@ internal class VideoPlayerViewModel
                     sendEffect(VideoPlayerEffect.NavigateBack)
                 }
                 VideoPlayerEvent.RetryClicked -> {
-                    resolveAndBind()
+                    // Clear the sticky playback error first so the
+                    // combine(...) projection doesn't bounce the screen
+                    // straight back into Error between Retry and the next
+                    // STATE_READY arriving. force=true makes the success
+                    // branch call prepareCurrent() even if the holder is
+                    // already bound to the same URL (the typical retry
+                    // case after a transient playback failure).
+                    sharedVideoPlayer.clearPlaybackError()
+                    resolveAndBind(force = true)
                 }
             }
         }
 
-        private fun resolveAndBind() {
+        private fun resolveAndBind(force: Boolean = false) {
             setState { copy(loadStatus = VideoPlayerLoadStatus.Resolving) }
             viewModelScope.launch {
                 resolver
@@ -140,6 +164,10 @@ internal class VideoPlayerViewModel
                                 playlistUrl = resolved.playlistUrl,
                                 posterUrl = resolved.posterUrl,
                             )
+                        } else if (force) {
+                            // Retry path with the same URL: ask ExoPlayer
+                            // to re-prepare the existing media item.
+                            sharedVideoPlayer.prepareCurrent()
                         }
                         sharedVideoPlayer.setMode(PlaybackMode.Fullscreen)
                         sharedVideoPlayer.attachSurface()
@@ -148,7 +176,16 @@ internal class VideoPlayerViewModel
                             copy(
                                 loadStatus = VideoPlayerLoadStatus.Ready,
                                 posterUrl = resolved.posterUrl,
+                                altText = resolved.altText,
                             )
+                        }
+                        // Arm the auto-hide timer the first time the
+                        // screen reaches Ready (subsequent Ready entries
+                        // — e.g. retry — don't re-arm; the user's
+                        // interactions are the only thing that does).
+                        if (!autoHideArmed) {
+                            autoHideArmed = true
+                            scheduleChromeAutoHide()
                         }
                     }.onFailure { throwable ->
                         setState {

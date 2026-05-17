@@ -5,7 +5,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
@@ -18,11 +17,16 @@ import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
  *  - `VideoPlayerEffect.NavigateBack` to a back-pop on the inner
  *    MainShell NavDisplay (mirrors `SearchPostsScreen`'s pattern for
  *    nav effects from a feature impl).
+ *
+ * The [viewModel] argument is required (no `hiltViewModel()` default)
+ * because [VideoPlayerViewModel] is assisted-injected with the
+ * `VideoPlayerRoute` NavKey — only the entry-provider call site has the
+ * route in scope to feed the Factory's `creationCallback`.
  */
 @Composable
 internal fun VideoPlayerScreen(
+    viewModel: VideoPlayerViewModel,
     modifier: Modifier = Modifier,
-    viewModel: VideoPlayerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val player by viewModel.sharedVideoPlayer.player.collectAsStateWithLifecycle()

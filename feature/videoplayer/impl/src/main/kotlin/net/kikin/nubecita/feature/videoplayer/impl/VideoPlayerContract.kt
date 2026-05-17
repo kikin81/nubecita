@@ -18,11 +18,17 @@ import net.kikin.nubecita.core.common.mvi.UiState
  * the PlayerSurface — per the design's "surface composition rule"
  * that says PlayerSurface must layer over the poster so detach
  * transitions reveal the poster image, not a black flash.
+ *
+ * [altText] is the author-provided video description (parity with the
+ * feed's PostCardVideoEmbed contentDescription). Forwarded to the
+ * poster image's `contentDescription` so TalkBack announces the same
+ * text when the screen first enters Ready before the surface attaches.
  */
 @Immutable
 internal data class VideoPlayerState(
     val loadStatus: VideoPlayerLoadStatus = VideoPlayerLoadStatus.Idle,
     val posterUrl: String? = null,
+    val altText: String? = null,
     val isMuted: Boolean = false,
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,

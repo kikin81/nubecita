@@ -395,6 +395,110 @@ class SharedVideoPlayerTest {
             assertEquals(250L, holder.positionMs.value, "position must not advance after pause")
         }
 
+    @Test
+    fun detachSurface_atRefcountZero_stopsPositionPollingImmediately() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+            every { player.currentPosition } returnsMany listOf(0L, 250L, 500L, 999L, 999L)
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            holder.attachSurface()
+            listenerSlot.captured.onIsPlayingChanged(true)
+            advanceTimeBy(250L)
+            runCurrent()
+            assertEquals(250L, holder.positionMs.value)
+
+            // Refcount drops to zero. Polling must stop NOW, not after the
+            // idle-release grace window — no surface is observing positionMs
+            // anymore.
+            holder.detachSurface()
+            advanceTimeBy(2_000L)
+            runCurrent()
+            assertEquals(250L, holder.positionMs.value, "position must freeze the instant refcount hits 0")
+        }
+
+    @Test
+    fun listener_onPlaybackStateReady_clearsPriorPlaybackError() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+            every { player.duration } returns 1_000L
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            val exoError = mockk<androidx.media3.common.PlaybackException>(relaxed = true)
+            listenerSlot.captured.onPlayerError(exoError)
+            assertEquals(exoError, holder.playbackError.value)
+
+            // A subsequent successful re-prepare arriving as STATE_READY
+            // clears the sticky error so the VM doesn't get pinned on it.
+            listenerSlot.captured.onPlaybackStateChanged(androidx.media3.common.Player.STATE_READY)
+            assertNull(holder.playbackError.value)
+        }
+
+    @Test
+    fun bind_newUrl_clearsPriorPlaybackError() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            val exoError = mockk<androidx.media3.common.PlaybackException>(relaxed = true)
+            listenerSlot.captured.onPlayerError(exoError)
+            assertEquals(exoError, holder.playbackError.value)
+
+            // Bind a different URL — the sticky error from the previous
+            // media item must not leak across.
+            holder.bind("https://video.cdn/hls/b.m3u8", null)
+            assertNull(holder.playbackError.value)
+        }
+
+    @Test
+    fun clearPlaybackError_drops_stickyError() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            val exoError = mockk<androidx.media3.common.PlaybackException>(relaxed = true)
+            listenerSlot.captured.onPlayerError(exoError)
+            assertEquals(exoError, holder.playbackError.value)
+
+            holder.clearPlaybackError()
+            assertNull(holder.playbackError.value)
+        }
+
+    @Test
+    fun prepareCurrent_callsPlayerPrepare_andClearsError() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            val exoError = mockk<androidx.media3.common.PlaybackException>(relaxed = true)
+            listenerSlot.captured.onPlayerError(exoError)
+            clearMocks(player, answers = false, recordedCalls = true)
+
+            holder.prepareCurrent()
+
+            verify(exactly = 1) { player.prepare() }
+            assertNull(holder.playbackError.value)
+        }
+
+    @Test
+    fun prepareCurrent_isNoOpWhenPlayerReleased() =
+        runTest {
+            val (holder, _) = newHolder(testScope = this)
+            // Player never built — cachedExoPlayer is null. Must not crash.
+            holder.prepareCurrent()
+            assertNull(holder.playbackError.value)
+        }
+
     private fun newHolder(
         testScope: TestScope,
     ): Pair<SharedVideoPlayer, ExoPlayer> {

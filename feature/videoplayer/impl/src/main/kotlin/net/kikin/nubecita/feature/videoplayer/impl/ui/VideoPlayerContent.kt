@@ -67,7 +67,7 @@ internal fun VideoPlayerContent(
                 if (state.posterUrl != null) {
                     NubecitaAsyncImage(
                         model = state.posterUrl,
-                        contentDescription = null,
+                        contentDescription = state.altText,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit,
                     )

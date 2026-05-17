@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.videoplayer.impl
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.media3.common.PlaybackException
 import app.cash.turbine.test
 import io.mockk.every
@@ -18,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import net.kikin.nubecita.feature.videoplayer.impl.data.FakeVideoPostResolver
 import net.kikin.nubecita.feature.videoplayer.impl.data.ResolvedVideoPost
 import org.junit.jupiter.api.AfterEach
@@ -146,7 +146,75 @@ internal class VideoPlayerViewModelTest {
             vm.handleEvent(VideoPlayerEvent.RetryClicked)
             runCurrent()
 
+            verify { holder.clearPlaybackError() }
             assertEquals(VideoPlayerLoadStatus.Ready, vm.uiState.value.loadStatus)
+        }
+
+    @Test
+    fun retryClicked_afterPlaybackError_callsPrepareCurrentWhenAlreadyBound() =
+        runTest {
+            // Initial bind + Ready.
+            stubReady()
+            boundPlaylistUrlFlow.value = "https://video.cdn/hls/a.m3u8"
+            val vm = newVm()
+            runCurrent()
+            assertEquals(VideoPlayerLoadStatus.Ready, vm.uiState.value.loadStatus)
+
+            // Simulate the holder surfacing a playback error.
+            val pe = mockk<PlaybackException>(relaxed = true)
+            val errorCodeField = PlaybackException::class.java.getField("errorCode")
+            errorCodeField.isAccessible = true
+            errorCodeField.set(pe, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+            playbackErrorFlow.value = pe
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error)
+
+            // Retry: holder is already bound to the same URL, so the VM
+            // must ask the player to re-prepare instead of skipping the
+            // bind silently.
+            vm.handleEvent(VideoPlayerEvent.RetryClicked)
+            runCurrent()
+
+            verify { holder.clearPlaybackError() }
+            verify { holder.prepareCurrent() }
+        }
+
+    @Test
+    fun init_resolveSuccess_propagatesAltTextIntoState() =
+        runTest {
+            resolver.stub(
+                postUri = AT_URI,
+                resolved =
+                    ResolvedVideoPost(
+                        playlistUrl = "https://video.cdn/hls/a.m3u8",
+                        posterUrl = "https://video.cdn/poster/a.jpg",
+                        durationSeconds = 30,
+                        altText = "Two cats wrestling on a couch",
+                    ),
+            )
+
+            val vm = newVm()
+            runCurrent()
+
+            assertEquals("Two cats wrestling on a couch", vm.uiState.value.altText)
+        }
+
+    @Test
+    fun init_resolveFails_doesNotArmChromeAutoHide() =
+        runTest {
+            resolver.stubFailure(AT_URI, IOException("disconnected"))
+            val vm = newVm()
+            runCurrent()
+            assertTrue(vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error)
+            assertEquals(true, vm.uiState.value.chromeVisible)
+
+            // No Ready state has been reached, so the auto-hide timer must
+            // not have armed during init — chrome stays visible even past
+            // the 3s mark, otherwise the retry button would vanish before
+            // the user could tap it.
+            advanceTimeBy(5_000L)
+            runCurrent()
+            assertEquals(true, vm.uiState.value.chromeVisible)
         }
 
     @Test
@@ -282,14 +350,12 @@ internal class VideoPlayerViewModelTest {
         )
     }
 
-    private fun newVm(): VideoPlayerViewModel {
-        val savedState = SavedStateHandle(mapOf("postUri" to AT_URI))
-        return VideoPlayerViewModel(
-            savedStateHandle = savedState,
+    private fun newVm(): VideoPlayerViewModel =
+        VideoPlayerViewModel(
+            route = VideoPlayerRoute(postUri = AT_URI),
             sharedVideoPlayer = holder,
             resolver = resolver,
         )
-    }
 
     private companion object {
         const val AT_URI = "at://did:plc:abc/app.bsky.feed.post/3abc"
