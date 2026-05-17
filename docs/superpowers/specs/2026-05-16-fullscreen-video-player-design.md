@@ -52,7 +52,7 @@ class SharedVideoPlayer {
     fun detachSurface()
 
     val mode: StateFlow<PlaybackMode>
-    fun setMode(m: PlaybackMode)                // drives audio focus + volume
+    fun setMode(m: PlaybackMode)                // flips ExoPlayer audio attrs + volume
 
     val positionMs: StateFlow<Long>
     val durationMs: StateFlow<Long>
@@ -70,10 +70,19 @@ class SharedVideoPlayer {
 enum class PlaybackMode { FeedPreview, Fullscreen }
 ```
 
-`FeedPreview`: volume=0, no audio focus claim, autoplay-when-visible.
-`Fullscreen`: claims audio focus, unmute, play unconditionally.
+`FeedPreview`: volume=0, **ExoPlayer.setAudioAttributes(attrs, handleAudioFocus = false)** so the player never interrupts the user's music; autoplay-when-visible.
+`Fullscreen`: volume=1, **ExoPlayer.setAudioAttributes(attrs, handleAudioFocus = true)** so Media3 itself manages the OS audio-focus hierarchy — pause on incoming call, ducking on transient losses, resume on focus regained, all per the platform contract. Mode flips re-call `setAudioAttributes` with the new `handleAudioFocus` flag rather than reaching into `AudioManager` directly. This is a deliberate departure from the existing `FeedVideoPlayerCoordinator`'s manual `AudioFocusRequest` plumbing — Media3's built-in handler is the canonical path and gets the hierarchy right for free.
 
 `bind(playlistUrl, posterUrl)` is **idempotent** when the URL matches the currently bound one — that's the load-bearing property for the instance-transfer optimization. Mutations on the holder are serialized via a `Mutex` (same shape as the existing coordinator) so audio-focus callbacks and visibility-driven binds don't interleave.
+
+### Idle-release rule
+
+Hardware video decoders are finite. The holder must NOT pin an `ExoPlayer` instance forever while the user reads text posts. Discipline:
+
+- Internally tracks "active surfaces" (a refcount of `attachSurface` minus `detachSurface` calls).
+- When the refcount drops to zero AND no surface re-attaches within `IDLE_RELEASE_MS` (default 30s), the holder calls `exoPlayer.release()` and nulls the instance. `boundPlaylistUrl` flips to `null`.
+- The next `bind(...)` re-creates the ExoPlayer lazily. Cost: one extra prepare cycle if the user comes back to a video card after a long pause through text-only content — acceptable.
+- Logout still calls `release()` immediately via the auth-state-cleared broadcaster regardless of refcount.
 
 ## Components
 
@@ -86,6 +95,10 @@ enum class PlaybackMode { FeedPreview, Fullscreen }
 | `PostCardVideoEmbed` (existing) | `:feature:feed:impl` | Gains an `onTap(postUri)` callback. Autoplay behavior unchanged — keeps driving `SharedVideoPlayer` through the refactored coordinator. |
 
 `VideoPlayerState` shape follows the project's MVI conventions (flat fields for independent flags, sealed `VideoPlayerLoadStatus` for mutually-exclusive lifecycle — `Idle`, `Resolving`, `Ready`, `Error`).
+
+### Surface composition rule (poster-behind-player)
+
+`PostCardVideoEmbed`, `VideoPosterEmbed`, **and** `VideoPlayerScreen` MUST compose their `PlayerSurface` over the static `posterUrl` image in a `Box`, with the poster as the lower Z-layer. When `SharedVideoPlayer` detaches the surface — which happens every time another surface claims it, e.g. during the feed → fullscreen transition or back-nav, or when the idle-release rule fires — the underlying surface goes black for a frame or two. Without the poster fallback the user sees a black flash; with it, the still poster image is revealed and the transition reads as seamless. This is non-negotiable for every surface that hosts a `PlayerSurface`; the same Box scaffolding is the visual contract.
 
 ## Data flow
 
@@ -108,7 +121,7 @@ MainShell's inner `NavDisplay` mounts `VideoPlayerScreen`. **The ExoPlayer insta
 ## Error and edge cases
 
 - **Playlist resolution fails** (profile/postdetail entry, post not cached, `getPosts` errors): VM emits `ShowError(error)` effect; screen renders a centered error layout with a Retry button. Holder stays unbound.
-- **Audio focus loss** (incoming call, other media app): holder pauses + drops focus (Media3 default). Player stays bound. User taps play to resume; the focus claim re-fires.
+- **Audio focus loss** (incoming call, other media app): Media3's built-in audio-focus handler (set via `handleAudioFocus = true` on Fullscreen mode) handles pause-on-transient-loss, duck-on-transient-loss-may-duck, and resume-on-focus-regained automatically per platform contract. The holder doesn't need a manual loss-listener; `isPlaying.StateFlow` reflects the resulting state.
 - **Process death while fullscreen**: `VideoPlayerRoute(postUri)` survives via Nav3 serialization. On restore, the holder is fresh — VM resolves + binds, plays from 0:00. Position persistence is a follow-up if it bites.
 - **App background mid-fullscreen**: `Lifecycle.onStop` pauses + drops focus, *without* releasing the bound URL. Returning to foreground keeps the player bound, ready to play on user input.
 - **Logout**: `SharedVideoPlayer.release()` wired to the auth-state-cleared broadcaster so a stale ExoPlayer doesn't survive across users.
@@ -118,7 +131,7 @@ MainShell's inner `NavDisplay` mounts `VideoPlayerScreen`. **The ExoPlayer insta
 
 **Unit tests:**
 
-- `SharedVideoPlayerTest` (in `:core:video`): state-transition matrix across `PlaybackMode` flips; audio-focus claim/release asserted via a fake `AudioManager`; mutex serialization tested with concurrent `bind` + `setMode`; idempotent rebind when URL matches.
+- `SharedVideoPlayerTest` (in `:core:video`): state-transition matrix across `PlaybackMode` flips; asserts that `setMode(Fullscreen)` calls `setAudioAttributes(attrs, handleAudioFocus = true)` and `setMode(FeedPreview)` calls it with `false` (verified by spying on a `Player` fake — we don't reach into `AudioManager` and don't need to fake one); idle-release timer fires after `IDLE_RELEASE_MS` of zero-refcount and re-bind reconstructs the ExoPlayer; mutex serialization tested with concurrent `bind` + `setMode`; idempotent rebind when URL matches.
 - `VideoPlayerViewModelTest`: state-flow → flat `VideoPlayerState` mapping; auto-hide-chrome timer (driven via `TestDispatcher.scheduler`); URI-mismatch rebind path; error mapping.
 - `FeedVideoPlayerCoordinatorTest` (existing): port to the new `SharedVideoPlayer`-delegating shape. Existing audio-focus + bitrate-floor + most-visible-selection tests must stay green.
 
