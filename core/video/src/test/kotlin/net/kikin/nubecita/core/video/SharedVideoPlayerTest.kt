@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.video
 
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import io.mockk.clearMocks
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -74,6 +75,51 @@ class SharedVideoPlayerTest {
             verify(exactly = 2) { player.setMediaItem(any<androidx.media3.common.MediaItem>()) }
             verify(exactly = 2) { player.prepare() }
             assertEquals("https://video.cdn/hls/b.m3u8", holder.boundPlaylistUrl.value)
+        }
+
+    @Test
+    fun setMode_fullscreen_setsAudioAttributesWithHandleAudioFocusTrue_andUnmutes() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+
+            holder.setMode(PlaybackMode.Fullscreen)
+
+            io.mockk.verify {
+                player.setAudioAttributes(any<androidx.media3.common.AudioAttributes>(), eq(true))
+                player.volume = 1f
+            }
+            assertEquals(PlaybackMode.Fullscreen, holder.mode.value)
+        }
+
+    @Test
+    fun setMode_feedPreview_setsAudioAttributesWithHandleAudioFocusFalse_andMutes() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            holder.setMode(PlaybackMode.Fullscreen) // start in Fullscreen so the flip is observable
+            io.mockk.clearMocks(player, answers = false)
+
+            holder.setMode(PlaybackMode.FeedPreview)
+
+            io.mockk.verify {
+                player.setAudioAttributes(any<androidx.media3.common.AudioAttributes>(), eq(false))
+                player.volume = 0f
+            }
+            assertEquals(PlaybackMode.FeedPreview, holder.mode.value)
+        }
+
+    @Test
+    fun setMode_sameMode_isNoOp() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            holder.setMode(PlaybackMode.Fullscreen)
+            io.mockk.clearMocks(player, answers = false)
+
+            holder.setMode(PlaybackMode.Fullscreen)
+
+            // No second flip — already in Fullscreen.
+            io.mockk.verify(exactly = 0) {
+                player.setAudioAttributes(any<androidx.media3.common.AudioAttributes>(), any())
+            }
         }
 
     private fun newHolder(

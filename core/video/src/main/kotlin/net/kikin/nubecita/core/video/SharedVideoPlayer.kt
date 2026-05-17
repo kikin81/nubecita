@@ -57,6 +57,41 @@ class SharedVideoPlayer
         private val mutationMutex = Mutex()
 
         /**
+         * Flip the holder's [PlaybackMode]. Idempotent on same mode.
+         *
+         * On [PlaybackMode.Fullscreen]: ExoPlayer's audio attributes get
+         * `handleAudioFocus = true`, so Media3's built-in handler claims
+         * focus on the next `play()` and pauses on transient loss
+         * (incoming call, other media). Volume goes to 1.
+         *
+         * On [PlaybackMode.FeedPreview]: `handleAudioFocus = false`
+         * (silent preview must never interrupt the user's music) and
+         * volume = 0.
+         */
+        fun setMode(target: PlaybackMode) {
+            if (_mode.value == target) return
+            val attrs = audioAttributes
+            when (target) {
+                PlaybackMode.Fullscreen -> {
+                    player.setAudioAttributes(attrs, true)
+                    player.volume = 1f
+                }
+                PlaybackMode.FeedPreview -> {
+                    player.setAudioAttributes(attrs, false)
+                    player.volume = 0f
+                }
+            }
+            _mode.value = target
+        }
+
+        private val audioAttributes: androidx.media3.common.AudioAttributes =
+            androidx.media3.common.AudioAttributes
+                .Builder()
+                .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
+                .build()
+
+        /**
          * Bind the holder to a video. Idempotent on same `playlistUrl`:
          * a re-bind to the URL already in [boundPlaylistUrl] is a no-op,
          * which is the load-bearing property for the feed → fullscreen
