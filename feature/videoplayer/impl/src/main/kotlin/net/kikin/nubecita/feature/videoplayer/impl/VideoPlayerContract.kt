@@ -29,6 +29,14 @@ internal data class VideoPlayerState(
     val loadStatus: VideoPlayerLoadStatus = VideoPlayerLoadStatus.Idle,
     val posterUrl: String? = null,
     val altText: String? = null,
+    /**
+     * `width / height` for the active video embed. Null while resolving;
+     * populated when the resolver succeeds. The Content composable wraps
+     * the poster + PlayerSurface in a `Modifier.aspectRatio(it)` Box so
+     * a portrait clip on a portrait screen with mismatched ratio is
+     * letterboxed instead of stretched.
+     */
+    val aspectRatio: Float? = null,
     val isMuted: Boolean = false,
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,

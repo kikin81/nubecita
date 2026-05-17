@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
 
 /**
@@ -14,9 +14,11 @@ import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
  *
  * Hoists [VideoPlayerViewModel] and routes:
  *  - `VideoPlayerEvent` from the chrome composables back to the VM.
- *  - `VideoPlayerEffect.NavigateBack` to a back-pop on the inner
- *    MainShell NavDisplay (mirrors `SearchPostsScreen`'s pattern for
- *    nav effects from a feature impl).
+ *  - `VideoPlayerEffect.NavigateBack` to a `goBack()` on the OUTER
+ *    NavDisplay (`MainNavigation` in `:app`). The route is
+ *    `@OuterShell`-qualified per `VideoPlayerNavigationModule`, so
+ *    dismissing the player pops the outer back stack back to `Main`,
+ *    preserving the inner MainShell tab the user was on.
  *
  * The [viewModel] argument is required (no `hiltViewModel()` default)
  * because [VideoPlayerViewModel] is assisted-injected with the
@@ -30,13 +32,13 @@ internal fun VideoPlayerScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val player by viewModel.sharedVideoPlayer.player.collectAsStateWithLifecycle()
-    val navState = LocalMainShellNavState.current
-    val currentNavState by rememberUpdatedState(navState)
+    val navigator = LocalAppNavigator.current
+    val currentNavigator by rememberUpdatedState(navigator)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                VideoPlayerEffect.NavigateBack -> currentNavState.removeLast()
+                VideoPlayerEffect.NavigateBack -> currentNavigator.goBack()
             }
         }
     }

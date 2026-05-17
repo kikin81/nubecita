@@ -72,6 +72,7 @@ internal class VideoPlayerViewModelTest {
                         posterUrl = "https://video.cdn/poster/a.jpg",
                         durationSeconds = 30,
                         altText = null,
+                        aspectRatio = 16f / 9f,
                     ),
             )
 
@@ -98,6 +99,7 @@ internal class VideoPlayerViewModelTest {
                         posterUrl = null,
                         durationSeconds = 30,
                         altText = null,
+                        aspectRatio = 16f / 9f,
                     ),
             )
 
@@ -140,6 +142,7 @@ internal class VideoPlayerViewModelTest {
                         posterUrl = null,
                         durationSeconds = 30,
                         altText = null,
+                        aspectRatio = 16f / 9f,
                     ),
             )
 
@@ -209,6 +212,7 @@ internal class VideoPlayerViewModelTest {
                         posterUrl = "https://video.cdn/poster/a.jpg",
                         durationSeconds = 30,
                         altText = "Two cats wrestling on a couch",
+                        aspectRatio = 16f / 9f,
                     ),
             )
 
@@ -414,6 +418,7 @@ internal class VideoPlayerViewModelTest {
                     posterUrl = null,
                     durationSeconds = 30,
                     altText = null,
+                    aspectRatio = 16f / 9f,
                 ),
         )
     }

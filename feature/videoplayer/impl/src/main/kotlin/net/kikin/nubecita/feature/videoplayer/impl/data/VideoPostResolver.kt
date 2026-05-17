@@ -17,4 +17,13 @@ internal data class ResolvedVideoPost(
     val posterUrl: String?,
     val durationSeconds: Int?,
     val altText: String?,
+    /**
+     * `width / height` from the post's video embed. Forwarded to the
+     * fullscreen surface so the rendered video matches the source frame
+     * shape — without it, a portrait clip on a portrait screen with
+     * slightly different ratio would be stretched by PlayerSurface's
+     * fillMaxSize, since the Media3 composable surface doesn't apply
+     * an aspect-fit by default.
+     */
+    val aspectRatio: Float,
 )

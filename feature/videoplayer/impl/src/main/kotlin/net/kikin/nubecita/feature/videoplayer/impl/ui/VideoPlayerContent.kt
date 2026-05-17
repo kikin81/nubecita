@@ -9,9 +9,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -63,21 +65,46 @@ internal fun VideoPlayerContent(
             VideoPlayerLoadStatus.Idle, VideoPlayerLoadStatus.Resolving ->
                 VideoPlayerLoadingBody(modifier = Modifier.fillMaxSize())
             VideoPlayerLoadStatus.Ready -> {
-                // Surface composition rule: poster (lowest) → player (middle) → chrome (top).
-                if (state.posterUrl != null) {
-                    NubecitaAsyncImage(
-                        model = state.posterUrl,
-                        contentDescription = state.altText,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit,
-                    )
-                }
-                if (player != null) {
-                    PlayerSurface(
-                        player = player,
-                        surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                // Surface composition rule: poster (lowest) → player
+                // (middle) → chrome (top). The poster + player are
+                // wrapped in a centered, aspect-ratio-respecting Box so
+                // the rendered video matches the source frame shape —
+                // PlayerSurface itself fills its bounds without an
+                // intrinsic aspect-fit, so without this wrapper a clip
+                // whose aspect ratio differs from the screen's would be
+                // stretched horizontally or vertically. The remaining
+                // area shows through to the outer Box's black bg as
+                // letterbox bars. Chrome stays on the outer Box so the
+                // back button and seek bar sit on the screen edges,
+                // not the video edges.
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.Center)
+                            .fillMaxSize()
+                            .then(
+                                if (state.aspectRatio != null) {
+                                    Modifier.aspectRatio(state.aspectRatio)
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                ) {
+                    if (state.posterUrl != null) {
+                        NubecitaAsyncImage(
+                            model = state.posterUrl,
+                            contentDescription = state.altText,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
+                    if (player != null) {
+                        PlayerSurface(
+                            player = player,
+                            surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
                 AnimatedVisibility(
                     visible = state.chromeVisible,
