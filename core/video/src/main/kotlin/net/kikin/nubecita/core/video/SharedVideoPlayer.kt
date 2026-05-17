@@ -5,9 +5,12 @@ package net.kikin.nubecita.core.video
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 
 /**
@@ -55,6 +58,46 @@ class SharedVideoPlayer
 
         @Suppress("unused") // Reserved for future mutations + idle timer.
         private val mutationMutex = Mutex()
+
+        private var refcount: Int = 0
+        private var idleReleaseJob: Job? = null
+
+        /**
+         * Increment the active-surface refcount. The first call after a
+         * zero-refcount state cancels any pending idle-release timer so
+         * the ExoPlayer instance survives a quick detach → attach
+         * round-trip (which happens during the feed → fullscreen
+         * surface hand-off as one PlayerSurface unmounts and another
+         * mounts).
+         */
+        fun attachSurface() {
+            refcount += 1
+            idleReleaseJob?.cancel()
+            idleReleaseJob = null
+        }
+
+        /**
+         * Decrement the refcount. Clamps at zero so a stray detach from
+         * a never-attached composable can't poison the count. When the
+         * count drops to zero, schedules an idle-release job that calls
+         * [ExoPlayer.release] after [idleReleaseMs] of continuous
+         * zero-refcount. Hardware video decoders are finite; pinning
+         * the player while the user reads text posts is wasteful.
+         */
+        fun detachSurface() {
+            if (refcount == 0) return
+            refcount -= 1
+            if (refcount == 0) {
+                idleReleaseJob?.cancel()
+                idleReleaseJob =
+                    scope.launch {
+                        delay(idleReleaseMs)
+                        player.release()
+                        _boundPlaylistUrl.value = null
+                        _isPlaying.value = false
+                    }
+            }
+        }
 
         /**
          * Flip the holder's [PlaybackMode]. Idempotent on same mode.
