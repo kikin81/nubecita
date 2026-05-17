@@ -55,4 +55,30 @@ class SharedVideoPlayer
 
         @Suppress("unused") // Reserved for future mutations + idle timer.
         private val mutationMutex = Mutex()
+
+        /**
+         * Bind the holder to a video. Idempotent on same `playlistUrl`:
+         * a re-bind to the URL already in [boundPlaylistUrl] is a no-op,
+         * which is the load-bearing property for the feed → fullscreen
+         * instance-transfer. Different URL triggers `setMediaItem` +
+         * `prepare`; the previous media item is replaced.
+         *
+         * [posterUrl] is reserved for a future poster-binding seam — the
+         * surface composables resolve their own poster image today, so
+         * this method only stores the URL but doesn't act on it. Kept on
+         * the contract so future bind-time poster fetches don't require
+         * a breaking API change.
+         */
+        fun bind(
+            playlistUrl: String,
+            posterUrl: String?,
+        ) {
+            if (_boundPlaylistUrl.value == playlistUrl) return
+            player.setMediaItem(
+                androidx.media3.common.MediaItem
+                    .fromUri(playlistUrl),
+            )
+            player.prepare()
+            _boundPlaylistUrl.value = playlistUrl
+        }
     }
