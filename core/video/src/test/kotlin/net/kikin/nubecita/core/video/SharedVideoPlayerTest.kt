@@ -458,6 +458,68 @@ class SharedVideoPlayerTest {
         }
 
     @Test
+    fun listener_onVideoSizeChanged_publishesAspectRatio_withPixelRatioApplied() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            assertNull(holder.videoAspectRatio.value)
+
+            // Square-pixel 1920x1080 → ~16:9.
+            listenerSlot.captured.onVideoSizeChanged(
+                androidx.media3.common.VideoSize(1920, 1080, 1.0f),
+            )
+            assertEquals(1920f / 1080f, holder.videoAspectRatio.value)
+
+            // Anamorphic 1440x1080 with par=4/3 → display 1920x1080 ≈ 16:9.
+            // (Some legacy HLS streams encode 4:3 storage with anamorphic
+            // par for 16:9 display — multiplying par in keeps the
+            // rendered Box matching display aspect.)
+            listenerSlot.captured.onVideoSizeChanged(
+                androidx.media3.common.VideoSize(1440, 1080, 4f / 3f),
+            )
+            assertEquals(1440f * (4f / 3f) / 1080f, holder.videoAspectRatio.value)
+        }
+
+    @Test
+    fun listener_onVideoSizeChanged_ignoresZeroDimensions() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            // Media3 emits VideoSize.UNKNOWN (0, 0) when no frame has
+            // been decoded; the consumer must not divide by zero.
+            listenerSlot.captured.onVideoSizeChanged(
+                androidx.media3.common.VideoSize(0, 0, 1.0f),
+            )
+            assertNull(holder.videoAspectRatio.value)
+        }
+
+    @Test
+    fun bind_newUrl_resetsVideoAspectRatio() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            val listenerSlot = slot<androidx.media3.common.Player.Listener>()
+            every { player.addListener(capture(listenerSlot)) } returns Unit
+
+            holder.bind("https://video.cdn/hls/a.m3u8", null)
+            listenerSlot.captured.onVideoSizeChanged(
+                androidx.media3.common.VideoSize(1920, 1080, 1.0f),
+            )
+            assertEquals(1920f / 1080f, holder.videoAspectRatio.value)
+
+            // Binding to a different URL clears the cached dimensions —
+            // the consumer should fall back to the lexicon hint for the
+            // new clip until the next onVideoSizeChanged fires.
+            holder.bind("https://video.cdn/hls/b.m3u8", null)
+            assertNull(holder.videoAspectRatio.value)
+        }
+
+    @Test
     fun listener_onPlaybackStateReady_clearsPriorPlaybackError() =
         runTest {
             val (holder, player) = newHolder(testScope = this)

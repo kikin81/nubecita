@@ -86,6 +86,18 @@ internal class VideoPlayerViewModel
             // Begin resolution + bind + setMode(Fullscreen).
             resolveAndBind()
 
+            // Override the lexicon's aspectRatio hint with the actual
+            // decoded video dimensions once ExoPlayer reports them. The
+            // lexicon's app.bsky.embed.video#view.aspectRatio field is
+            // optional, so a video without it would otherwise be
+            // letterboxed at the FeedMapping fallback (16:9) regardless
+            // of its real frame shape. Once the decoder produces the
+            // first frame, VideoSize is authoritative.
+            sharedVideoPlayer.videoAspectRatio
+                .onEach { ratio ->
+                    if (ratio != null) setState { copy(aspectRatio = ratio) }
+                }.launchIn(viewModelScope)
+
             // Project holder flows → flat VideoPlayerState.
             combine(
                 sharedVideoPlayer.isPlaying,

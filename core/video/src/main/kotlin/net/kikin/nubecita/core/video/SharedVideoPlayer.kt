@@ -75,6 +75,16 @@ class SharedVideoPlayer
         private val _playbackError = MutableStateFlow<Throwable?>(null)
         val playbackError: StateFlow<Throwable?> = _playbackError.asStateFlow()
 
+        // Decoded video aspect ratio (`width / height`, with the codec's
+        // pixelWidthHeightRatio applied for anamorphic streams). Null
+        // until the first frame is rendered; once known, takes
+        // precedence over the lexicon's optional aspectRatio hint —
+        // covers the case where Bluesky's app.bsky.embed.video#view
+        // omits aspectRatio and the consumer would otherwise fall back
+        // to a hardcoded 16:9 letterbox.
+        private val _videoAspectRatio = MutableStateFlow<Float?>(null)
+        val videoAspectRatio: StateFlow<Float?> = _videoAspectRatio.asStateFlow()
+
         // Not yet wired — all zak.1 mutations happen on the main thread
         // (single-threaded tests). Mutex enforcement + concurrency tests
         // land in zak.2 when the feed coordinator drives this holder
@@ -154,6 +164,18 @@ class SharedVideoPlayer
                         _playbackError.value = null
                     }
                 }
+
+                override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                    if (videoSize.width <= 0 || videoSize.height <= 0) return
+                    // pixelWidthHeightRatio accounts for anamorphic streams
+                    // where the storage aspect differs from the display
+                    // aspect — multiply it in so the rendered Box matches
+                    // the player's actual display dimensions.
+                    val ratio =
+                        (videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio) /
+                            videoSize.height.toFloat()
+                    _videoAspectRatio.value = ratio
+                }
             }
 
         private fun startPositionPolling() {
@@ -231,6 +253,7 @@ class SharedVideoPlayer
                         _positionMs.value = 0L
                         _durationMs.value = 0L
                         _playbackError.value = null
+                        _videoAspectRatio.value = null
                         _boundPlaylistUrl.value = null
                         _mode.value = PlaybackMode.FeedPreview
                     }
@@ -325,6 +348,7 @@ class SharedVideoPlayer
             _positionMs.value = 0L
             _durationMs.value = 0L
             _playbackError.value = null
+            _videoAspectRatio.value = null
         }
 
         /**
@@ -353,8 +377,13 @@ class SharedVideoPlayer
             // New media item — drop any prior playback error so the VM
             // doesn't immediately bounce back into Error before the new
             // prepare() either succeeds (STATE_READY clears) or fails
-            // (onPlayerError re-sets).
+            // (onPlayerError re-sets). Also drop the cached video
+            // dimensions: the next clip's aspect ratio may differ, and
+            // until the new first frame is rendered the consumer should
+            // fall back to the lexicon hint rather than the prior clip's
+            // measured ratio.
             _playbackError.value = null
+            _videoAspectRatio.value = null
             p.setMediaItem(
                 androidx.media3.common.MediaItem
                     .fromUri(playlistUrl),
