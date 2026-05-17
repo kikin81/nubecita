@@ -127,6 +127,52 @@ class SharedVideoPlayerTest {
         }
 
     @Test
+    fun setMode_fullscreen_liftsHlsBitrateFloor() =
+        runTest {
+            val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
+            val initialParams =
+                mockk<androidx.media3.exoplayer.trackselection.DefaultTrackSelector.Parameters>(relaxed = true)
+            val unlockedParams =
+                mockk<androidx.media3.exoplayer.trackselection.DefaultTrackSelector.Parameters>(relaxed = true)
+            val builder =
+                mockk<androidx.media3.exoplayer.trackselection.DefaultTrackSelector.Parameters.Builder>(relaxed = true)
+            every { trackSelector.buildUponParameters() } returns builder
+            every { builder.setForceLowestBitrate(false) } returns builder
+            every { builder.setForceLowestBitrate(true) } returns builder
+            every { builder.build() } returns unlockedParams
+            val (holder, _) = newHolderWith(testScope = this, trackSelector = trackSelector)
+
+            holder.setMode(PlaybackMode.Fullscreen)
+
+            io.mockk.verify { builder.setForceLowestBitrate(false) }
+            io.mockk.verify { trackSelector.setParameters(builder) }
+        }
+
+    @Test
+    fun setMode_feedPreview_rePinsHlsBitrateFloor() =
+        runTest {
+            val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
+            val builder =
+                mockk<androidx.media3.exoplayer.trackselection.DefaultTrackSelector.Parameters.Builder>(relaxed = true)
+            every { trackSelector.buildUponParameters() } returns builder
+            every { builder.setForceLowestBitrate(any()) } returns builder
+            val (holder, _) = newHolderWith(testScope = this, trackSelector = trackSelector)
+
+            // Start in Fullscreen so the flip back to FeedPreview is
+            // observable; clear the Fullscreen-entry calls so the
+            // re-pin verification isn't drowned in noise.
+            holder.setMode(PlaybackMode.Fullscreen)
+            io.mockk.clearMocks(trackSelector, builder, answers = false)
+            every { trackSelector.buildUponParameters() } returns builder
+            every { builder.setForceLowestBitrate(any()) } returns builder
+
+            holder.setMode(PlaybackMode.FeedPreview)
+
+            io.mockk.verify { builder.setForceLowestBitrate(true) }
+            io.mockk.verify { trackSelector.setParameters(builder) }
+        }
+
+    @Test
     fun attachSurface_then_detachAllSurfaces_within_idleWindow_doesNotRelease() =
         runTest {
             val (holder, player) = newHolder(testScope = this)
@@ -601,9 +647,18 @@ class SharedVideoPlayerTest {
 
     private fun newHolder(
         testScope: TestScope,
+    ): Pair<SharedVideoPlayer, ExoPlayer> = newHolderWith(testScope = testScope, trackSelector = mockk(relaxed = true))
+
+    /**
+     * Variant of [newHolder] that lets the test supply a pre-stubbed
+     * [DefaultTrackSelector] so it can assert on `buildUponParameters`
+     * / `setParameters` calls (the bitrate-floor flips in `setMode`).
+     */
+    private fun newHolderWith(
+        testScope: TestScope,
+        trackSelector: DefaultTrackSelector,
     ): Pair<SharedVideoPlayer, ExoPlayer> {
         val player = mockk<ExoPlayer>(relaxed = true)
-        val trackSelector = mockk<DefaultTrackSelector>(relaxed = true)
         // Production passes Dispatchers.Main.immediate; tests use the same
         // scheduler that drives runTest so advanceTimeBy still drives the
         // polling and idle-release jobs deterministically.
