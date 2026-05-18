@@ -63,3 +63,10 @@ build/icon-cache/
 # Superpowers brainstorm session artifacts (mockup HTML + server state).
 # Regenerated per session; never committed.
 .superpowers/
+
+# Fastlane / Bundler. Gemfile + Gemfile.lock + fastlane/{Fastfile,Appfile,
+# Pluginfile,README.md} ARE committed; everything below is local-only.
+vendor/bundle/
+.bundle/
+fastlane/report.xml
+fastlane/test_output/
