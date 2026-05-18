@@ -87,8 +87,8 @@ jobs:
         # `${{ secrets.FIREBASE_SERVICE_ACCOUNT }}` into the rendered
         # `run:` script; if the secret ever contained shell-active
         # characters (newlines, dollar signs, backticks) the substituted
-        # command could execute parts of it as code. Reading via `$SA`
-        # keeps the value inside an environment variable that bash
+        # command could execute parts of it as code. Reading via
+        # `$FIREBASE_SA` keeps the value inside an environment variable that bash
         # treats as opaque data, and GitHub's secret-masking still
         # redacts it from logs.
         env:

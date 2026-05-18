@@ -45,7 +45,7 @@ Add these rules to the existing set (`non_fast_forward`, `deletion`, `copilot_co
     - `Lint`
     - `Screenshot tests`
     - `Instrumented tests`
-  - Require branches to be up to date before merging: **off** (squash-merge handles this; flipping it on adds rebase friction).
+  - Require branches to be up to date before merging: **off** — deliberate tradeoff, not a free lunch. Squash-merge does NOT re-run the required checks against the current `main` tip, so a PR whose CI passed against an older base can merge and still break `main` if `main` advanced in between. For a solo-owner repo with high merge cadence, the cost of rebasing every PR before merge outweighs the small window where a same-day collision could land a regression. Revisit if/when the merge cadence picks up across multiple contributors, or flip to **on** for any release-track branch where breakage cost is higher.
 
 Add bypass actor:
 - **`Repository admin`** *(yourself)* — for the cases where you legitimately need to push a fix without a PR (rare).
