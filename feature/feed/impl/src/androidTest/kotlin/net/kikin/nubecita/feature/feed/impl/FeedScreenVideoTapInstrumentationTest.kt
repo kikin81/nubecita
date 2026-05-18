@@ -58,7 +58,12 @@ class FeedScreenVideoTapInstrumentationTest {
         (feedRepository as FakeFeedRepository).page =
             FakeFeedRepository.singleVideoPostTimeline(
                 postUri = VIDEO_POST_URI,
-                playlistUrl = "https://example.com/test-stream.m3u8",
+                // RFC 6761 `.invalid` TLD — DNS resolution is guaranteed
+                // to fail, so ExoPlayer's HLS load aborts immediately
+                // without generating any real network traffic. Mirrors
+                // the `example.invalid` convention `TestOAuthConfigModule`
+                // already uses for the OAuth metadata URL.
+                playlistUrl = "https://example.invalid/test-stream.m3u8",
                 posterUrl = null,
                 altText = VIDEO_ALT_TEXT,
             )
