@@ -154,6 +154,18 @@ android {
                 // the value into the cache silently.
                 releaseNotes = providers.environmentVariable("APP_DISTRIBUTION_RELEASE_NOTES").orElse("").get()
             }
+            // When the release keystore is resolvable (CI exports the env vars, or
+            // a local developer has set up keystore.properties), sign debug APKs
+            // with it too. This is what lets CI-built FAD APKs pass the OS-level
+            // Digital Asset Links verification for the nubecita.app App Link:
+            // assetlinks.json only lists the release / Play / maintainer-debug
+            // fingerprints, not the runner's auto-generated debug keystore.
+            // When the env vars aren't present, debug builds fall back to AGP's
+            // standard auto-generated debug keystore — local dev workflow is
+            // unchanged unless the developer opts in via keystore.properties.
+            if (signingConfigs.getByName("release").storeFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             // Only attach the signing config when a real keystore was resolved.
