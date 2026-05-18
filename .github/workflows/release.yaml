@@ -85,8 +85,14 @@ jobs:
     # `distribute` inherits them unless we override here. Limiting
     # the blast radius means a compromised step in this job (e.g. a
     # malicious action update) couldn't push to main or create issues.
+    #
+    # `id-token: write` is required for Workload Identity Federation:
+    # the google-github-actions/auth step exchanges this job's OIDC
+    # token for a short-lived Google access token. Without it the
+    # auth step fails with "OIDC token endpoint not available".
     permissions:
       contents: read
+      id-token: write
     steps:
       - name: Checkout post-bump main
         # Explicitly check out post-bump main so the build picks up
@@ -117,23 +123,37 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Decode service account key
-        # Pass the secret through `env:` instead of interpolating it
-        # into the shell command directly. The previous shape inlined
-        # `${{ secrets.FIREBASE_SERVICE_ACCOUNT }}` into the rendered
-        # `run:` script; if the secret ever contained shell-active
-        # characters (newlines, dollar signs, backticks) the substituted
-        # command could execute parts of it as code. Reading via
-        # `$FIREBASE_SA` keeps the value inside an environment variable that bash
-        # treats as opaque data, and GitHub's secret-masking still
-        # redacts it from logs.
-        env:
-          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: echo "$FIREBASE_SA" | base64 -d > /tmp/firebase-sa-key.json
+      - name: Authenticate to Google Cloud (WIF)
+        # Federated auth: exchange this workflow's OIDC token for a
+        # short-lived Google access token + credentials file via
+        # Workload Identity Federation. Replaces the previous
+        # long-lived base64 service-account JSON secret
+        # (`FIREBASE_SERVICE_ACCOUNT`). The action writes the
+        # credentials to a temp file and exports
+        # `GOOGLE_APPLICATION_CREDENTIALS` for downstream steps —
+        # the Firebase App Distribution Gradle plugin reads that
+        # env var natively.
+        #
+        # `workload_identity_provider` and `service_account` are
+        # stored as `release` **environment** secrets (not repo
+        # secrets) so they inherit the environment's deployment-
+        # branch policy — only runs against `main` / protected tags
+        # can read them. The values themselves aren't load-bearing
+        # secrets (the GCP-side WIF binding is what gates token
+        # impersonation), but env-scoping prevents PR-branch
+        # workflow edits from exfiltrating them and gives us an
+        # approval/wait-timer gate if we ever want one.
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Decode release keystore
-        # Same env-var-protected pattern as the Firebase SA decode above —
-        # never interpolate the base64 secret directly into the `run:` script.
+        # Pass the secret through `env:` rather than interpolating into
+        # the `run:` script directly — `${{ secrets.X }}` inlined into
+        # a rendered shell command would let shell-active characters
+        # in the secret execute as code. Reading via `$VAR` keeps the
+        # value opaque to bash and GitHub still masks it in logs.
         # The decoded keystore lands at /tmp/release.jks and is fed to AGP
         # via the KEYSTORE_FILE env var that app/build.gradle.kts already
         # reads through its `keystoreValue()` helper. Signing the FAD debug
@@ -160,9 +180,11 @@ jobs:
           fi
 
       - name: Build and distribute
+        # `GOOGLE_APPLICATION_CREDENTIALS` is exported by the
+        # google-github-actions/auth step above; no need to set it
+        # here.
         run: ./gradlew assembleDebug appDistributionUploadDebug
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa-key.json
           APP_DISTRIBUTION_RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"
           # Env vars consumed by app/build.gradle.kts's keystoreValue() helper.
           # When all four are present and the file exists, the `release`
