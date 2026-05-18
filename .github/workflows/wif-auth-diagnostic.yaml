@@ -35,9 +35,9 @@ jobs:
           fetch-depth: 1
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install firebase-tools
         # Pin matches `release.yaml`'s distribute job so this diagnostic
