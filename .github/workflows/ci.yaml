@@ -38,10 +38,27 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - name: Generate bot App token
+        # Dry-run-only test of the dedicated GitHub App we provisioned
+        # for semantic-release (see
+        # `docs/superpowers/specs/2026-05-17-main-branch-hardening.md`).
+        # The lint job already runs semantic-release in dry-run mode
+        # and posts the projected notes as a PR comment; swapping the
+        # `github-token` from `GITHUB_TOKEN` to the App's installation
+        # token here proves the App identity can do the read +
+        # PR-comment work end-to-end. If the dry-run comment lands
+        # under the App's `[bot]` identity on this PR, the same token
+        # will work for the real release path in `release.yaml`.
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
       - name: Action lint
         uses: open-turo/actions-jvm/lint@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token }}
           checkout-repo: true
 
       - name: Set up JDK
