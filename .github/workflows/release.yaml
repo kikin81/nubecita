@@ -123,6 +123,25 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install firebase-tools
+        # firebase-tools CLI replaces the firebase-appdistribution-gradle
+        # plugin for FAD upload. The Gradle plugin (5.2.1) uses the
+        # deprecated `com.google.api.client.googleapis.auth.oauth2
+        # .GoogleCredential.fromStream`, which only dispatches on
+        # `service_account` / `authorized_user` credential types — WIF
+        # `external_account` JSONs throw on parse and the plugin
+        # rethrows as the misleading "Service credentials file does not
+        # exist." firebase-tools uses `GoogleAuth` from
+        # `google-auth-library@^9.11` which dispatches on type natively
+        # and handles `external_account` out of the box. Context in
+        # nubecita-b6b6.
+        run: npm install -g firebase-tools@14
+
       - name: Authenticate to Google Cloud (WIF)
         # Federated auth: exchange this workflow's OIDC token for a
         # short-lived Google access token + credentials file via
@@ -131,8 +150,9 @@ jobs:
         # (`FIREBASE_SERVICE_ACCOUNT`). The action writes the
         # credentials to a temp file and exports
         # `GOOGLE_APPLICATION_CREDENTIALS` for downstream steps —
-        # the Firebase App Distribution Gradle plugin reads that
-        # env var natively.
+        # both firebase-tools (FAD upload) and fastlane / supply
+        # (Play Console upload) read that env var natively via
+        # `google-auth-library`.
         #
         # `workload_identity_provider` and `service_account` are
         # stored as `release` **environment** secrets (not repo
@@ -179,21 +199,43 @@ jobs:
             exit 1
           fi
 
-      - name: Build and distribute
+      - name: Build debug APK
         # `GOOGLE_APPLICATION_CREDENTIALS` is exported by the
-        # google-github-actions/auth step above; no need to set it
-        # here.
-        run: ./gradlew assembleDebug appDistributionUploadDebug
+        # google-github-actions/auth step above; firebase-tools (next
+        # step) reads it natively. The keystore env vars are consumed by
+        # `app/build.gradle.kts`'s `keystoreValue()` helper: when all
+        # four are present and the file exists, the `release`
+        # signingConfig resolves and the debug buildType picks it up via
+        # the conditional `signingConfig =` assignment in
+        # `buildTypes.debug`.
+        run: ./gradlew assembleDebug
         env:
-          APP_DISTRIBUTION_RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"
-          # Env vars consumed by app/build.gradle.kts's keystoreValue() helper.
-          # When all four are present and the file exists, the `release`
-          # signingConfig resolves and the debug buildType picks it up via
-          # the conditional `signingConfig =` assignment in buildTypes.debug.
           KEYSTORE_FILE: /tmp/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload debug APK to Firebase App Distribution
+        # FIREBASE_APP_ID is sourced from `app/google-services.json`
+        # (`mobilesdk_app_id` field, scoped to the
+        # `net.kikin.nubecita` package) so the workflow stays in sync
+        # if google-services.json is ever regenerated. The file is
+        # checked in — the app ID isn't a secret (package + SHA-1
+        # scoped per Firebase's threat model).
+        run: |
+          set -euo pipefail
+          APP_ID=$(jq -r '.client[] | select(.client_info.android_client_info.package_name == "net.kikin.nubecita") | .client_info.mobilesdk_app_id' app/google-services.json)
+          if [[ -z "$APP_ID" || "$APP_ID" == "null" ]]; then
+            echo "::error::Failed to extract Firebase app id from app/google-services.json"
+            exit 1
+          fi
+          firebase appdistribution:distribute \
+            app/build/outputs/apk/debug/app-debug.apk \
+            --app "$APP_ID" \
+            --groups internal-testers \
+            --release-notes "$RELEASE_NOTES"
+        env:
+          RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"
 
   playstore:
     name: Upload Signed AAB to Play Console (internal track)
@@ -238,6 +280,13 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+
+      - name: Install pandoc
+        # The release-notes step below pipes the GitHub Release body
+        # through `pandoc -f gfm -t plain --wrap=preserve`. pandoc isn't
+        # preinstalled on current `ubuntu-latest` images, so install it
+        # explicitly. The install adds ~10s to the release-only path.
+        run: sudo apt-get update && sudo apt-get install -y pandoc
 
       - name: Authenticate to Google Cloud (WIF)
         # Same WIF binding the `distribute` job uses — the bound service

@@ -1,11 +1,9 @@
-import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.nubecita.android.application)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.google.services)
-    alias(libs.plugins.firebase.appdistribution)
     alias(libs.plugins.firebase.crashlytics)
 }
 
@@ -157,14 +155,6 @@ android {
 
     buildTypes {
         debug {
-            firebaseAppDistribution {
-                groups = "internal-testers"
-                // providers.environmentVariable(...) is configuration-cache-aware:
-                // Gradle tracks the env var as an input and invalidates the cache
-                // when it changes between runs, unlike System.getenv() which bakes
-                // the value into the cache silently.
-                releaseNotes = providers.environmentVariable("APP_DISTRIBUTION_RELEASE_NOTES").orElse("").get()
-            }
             // When the release keystore is resolvable (CI exports the env vars, or
             // a local developer has set up keystore.properties), sign debug APKs
             // with it too. This is what lets CI-built FAD APKs pass the OS-level
