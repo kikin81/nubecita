@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.ImageUi
+import net.kikin.nubecita.data.models.thumbOrFullsize
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
@@ -79,10 +80,13 @@ private fun SingleImage(
     val clickModifier =
         if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
     NubecitaAsyncImage(
-        // PostCard renders the high-res variant — in-feed image embeds
-        // occupy a significant fraction of the viewport. Grid surfaces
-        // (Profile Media tab) use the thumbnail variant instead via
-        // [ImageUi.thumbOrFullsize].
+        // Single-image PostCard embeds use `fillMaxWidth()` + aspectRatio,
+        // so a portrait source clamped to MIN_ASPECT_RATIO (2/3) renders
+        // ~540dp tall = ~1620px at 3x density — outside `feed_thumbnail`'s
+        // ~1000px max edge. Read fullsize here to avoid upscale softness
+        // on tall single-image posts. The multi-image carousel below
+        // CAN use thumb because it's clamped to a fixed 180dp slide.
+        // Matches the per-variant guidance in [ImageUi]'s KDoc.
         model = image.fullsizeUrl,
         contentDescription = image.altText,
         modifier =
@@ -154,7 +158,7 @@ private fun MultiImageCarousel(
                     .then(clickModifier),
         ) {
             NubecitaAsyncImage(
-                model = image.fullsizeUrl,
+                model = image.carouselSlideUrl,
                 contentDescription = image.altText,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
@@ -167,6 +171,25 @@ private val EMBED_HEIGHT: Dp = 180.dp
 private val EMBED_GAP: Dp = 4.dp
 private val CAROUSEL_PREFERRED_ITEM_WIDTH: Dp = 220.dp
 private val IMAGE_SHAPE = RoundedCornerShape(16.dp)
+
+/**
+ * URL the [MultiImageCarousel] should pass to Coil for each slide.
+ *
+ * Carousel slides clamp to [CAROUSEL_PREFERRED_ITEM_WIDTH] (220dp) ×
+ * [EMBED_HEIGHT] (180dp) with `ContentScale.Crop`, so the decode target is
+ * ~540dp × ~660px at 3x density — comfortably inside `feed_thumbnail`'s
+ * ~1000px max edge. Reading thumb here avoids pulling a 2000px+ fullsize
+ * per slide on multi-image posts, which was the original concern Copilot
+ * raised on PR #139 (nubecita-e02).
+ *
+ * Do NOT reuse this on [SingleImage] — that surface uses
+ * `fillMaxWidth() + aspectRatio(displayedAspectRatio())`, so a portrait
+ * source clamped to [MIN_ASPECT_RATIO] (2:3) renders ~540dp tall (~1620px
+ * at 3x) and would upscale the thumb variant visibly. The single-image
+ * call site reads [ImageUi.fullsizeUrl] directly.
+ */
+private val ImageUi.carouselSlideUrl: String
+    get() = thumbOrFullsize()
 
 /**
  * Tallest portrait we'll display for a single image (2:3 = ~0.667 width/height).
