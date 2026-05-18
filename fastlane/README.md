@@ -26,9 +26,16 @@ bundle exec fastlane lanes        # list available lanes
 
 ## Google credentials
 
-`fastlane/Appfile` resolves the Play Console service-account JSON from
-`GOOGLE_APPLICATION_CREDENTIALS`. Both local and CI flows must export it; the
-two flows differ only in how the file gets created.
+Auth flows through Google's Application Default Credentials (ADC). Both local
+and CI flows export `GOOGLE_APPLICATION_CREDENTIALS`; supply picks it up via
+`Google::Auth.get_application_default` automatically. The two flows differ
+only in how the credentials file gets created.
+
+> **Why not `json_key_file`?** Supply's explicit `json_key_file` path only
+> accepts `service_account`-type JSON. WIF (`external_account`) and local
+> impersonation (`impersonated_service_account`) JSONs fail with
+> "Invalid Google Credentials file provided - no credential type found."
+> Falling back to ADC handles all three.
 
 ### CI
 
