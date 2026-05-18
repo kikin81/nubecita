@@ -55,6 +55,12 @@ Then report: branch name, bd id + title, and a suggested first commit subject (`
 3. At least one commit ahead of base: `git rev-list --count main..HEAD` > 0.
 4. Infer the bd id from the branch name (`<type>/<bd-id>-<slug>`) or accept one from the user.
 
+**Pre-PR verification** — run these before pushing. If any fails, stop and fix the underlying issue (never `--no-verify` past it):
+
+1. `./gradlew :app:assembleDebug` — proves the app graph still links. Cheaper than the full build and catches missing deps / Hilt graph breaks the IDE wouldn't flag.
+2. `./gradlew <changed-module>:lintDebug` for each module touched. Lint catches Compose-rule violations (stability, unused state, modifier order) and other correctness issues that compilation and unit tests don't. Run on the specific modules rather than the umbrella `lint` task so the loop stays fast.
+3. Pre-commit hook on the commit itself already ran spotless + commitlint + secret scan — no extra step needed here, just don't skip the hook.
+
 **Execute:**
 
 ```bash
@@ -65,6 +71,15 @@ gh pr create --base main \
 ```
 
 Use the **first** commit on the branch as the PR title (`git log --reverse --format=%s main..HEAD | head -1`) — that's the convention for squash-merges. If the user wants a draft PR, add `--draft`.
+
+**Post-PR — tag Copilot for review:**
+
+```bash
+gh api -X POST /repos/<owner>/<repo>/pulls/<pr-number>/requested_reviewers \
+  -f 'reviewers[]=Copilot'
+```
+
+The GitHub Copilot review bot is added via the literal handle `Copilot` (case-sensitive). `gh pr edit --add-reviewer copilot-pull-request-reviewer` and the GraphQL `requestReviews` mutation both fail — the REST endpoint with the `Copilot` handle is the only path that works for this repo.
 
 After `gh pr create` succeeds, print the PR URL and remind the user: "bd issue stays open until the PR merges; run `bd close <id>` after merge."
 
