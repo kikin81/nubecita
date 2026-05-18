@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.ImageUi
+import net.kikin.nubecita.data.models.thumbOrFullsize
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
@@ -79,11 +80,12 @@ private fun SingleImage(
     val clickModifier =
         if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
     NubecitaAsyncImage(
-        // PostCard renders the high-res variant — in-feed image embeds
-        // occupy a significant fraction of the viewport. Grid surfaces
-        // (Profile Media tab) use the thumbnail variant instead via
-        // [ImageUi.thumbOrFullsize].
-        model = image.fullsizeUrl,
+        // Feed cells render at most EMBED_HEIGHT (180dp) tall, so the
+        // `feed_thumbnail` variant is large enough to fill them without
+        // visible quality loss — and small enough to spare the bandwidth
+        // and decode cost of fullsize. Mediaviewer (full-screen tap-
+        // through) reads `fullsizeUrl` directly for the zoomable surface.
+        model = image.thumbOrFullsize(),
         contentDescription = image.altText,
         modifier =
             modifier
@@ -154,7 +156,10 @@ private fun MultiImageCarousel(
                     .then(clickModifier),
         ) {
             NubecitaAsyncImage(
-                model = image.fullsizeUrl,
+                // Same rationale as SingleImage — carousel slides are
+                // CAROUSEL_PREFERRED_ITEM_WIDTH wide × EMBED_HEIGHT tall;
+                // the thumbnail variant covers it.
+                model = image.thumbOrFullsize(),
                 contentDescription = image.altText,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
