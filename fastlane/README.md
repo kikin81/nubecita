@@ -84,3 +84,21 @@ Optional:
   changelog. Truncated to Play Console's 500-char cap. If unset, a generic
   placeholder is uploaded so the track release isn't created without notes
   (real changelog plumbing lands in `nubecita-kbmd.5`).
+
+## A note on iterative local smoke testing
+
+A successful `bundle exec fastlane internal` upload locks the current
+`versionCode` on Play Console's internal track. Subsequent uploads at the
+same `versionCode` are rejected — Play Console requires strictly increasing
+codes within a track.
+
+Do **not** manually bump `versionName` / `versionCode` to work around this.
+Both are computed by semantic-release on `main` from Conventional Commit
+history (and by `parseVersionCode()` in `app/build.gradle.kts`); a manual
+bump drifts from that history and the next CI release will collide.
+
+For repeat smoke tests against the same `versionCode`, route through Play
+Console's **Internal App Sharing** instead (a separate distribution channel
+that doesn't lock `versionCode`s). A future lane wrapping
+`upload_to_play_store_internal_app_sharing` is the right shape; track it as
+a follow-up to `nubecita-kbmd.3` if iterative debugging becomes routine.
