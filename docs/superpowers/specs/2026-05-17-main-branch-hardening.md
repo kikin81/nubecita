@@ -10,17 +10,18 @@
 - **Repository ruleset "Copilot review for default branch":** active, with `non_fast_forward`, `deletion`, `copilot_code_review`, `required_linear_history` rules; `bypass_actors: []`. Force-pushes to `main` are already blocked.
 - **Required status checks:** ❌ not enforced. PRs can be merged regardless of CI state.
 - **Require PR for direct pushes:** ❌ not enforced. `release.yaml` pushes version-bump commits straight to `main` via `secrets.GITHUB_TOKEN` and that's fine today; will need a bypass actor if we ever add the `pull_request` rule.
-- **Workflow permissions:** the `lint` job in `ci.yaml` had `contents: write` + `pull-requests: write` without needing either. The `release.yaml` step that decoded the Firebase service account inlined `${{ secrets.FIREBASE_SERVICE_ACCOUNT }}` directly into a shell command. The `update-screenshot-baselines.yaml` workflow's `if:` didn't gate on same-repo PRs.
+- **Workflow permissions:** the `release.yaml` step that decoded the Firebase service account inlined `${{ secrets.FIREBASE_SERVICE_ACCOUNT }}` directly into a shell command. The `update-screenshot-baselines.yaml` workflow's `if:` didn't gate on same-repo PRs. The `lint` job in `ci.yaml` carried `contents: write` + `pull-requests: write` — initially flagged as overly permissive, but those are required by `open-turo/actions-jvm/lint@v2`, which runs a semantic-release dry-run and posts the projected release notes as a PR comment. Keeping both scopes; mitigation is the SHA-pinning follow-up below.
 - **Secrets in use:** `GITHUB_TOKEN` (built-in) and `FIREBASE_SERVICE_ACCOUNT` (repository secret). The earlier audit-list item about `RELEASE_PAT` was a false flag — no PAT is referenced anywhere in `.github/workflows/`.
 - **`CODEOWNERS`:** already exists at `.github/CODEOWNERS` with `* @kikin81`. Satisfies the "require code-owner review" prerequisite; no PR-side change needed.
 
 ## Companion PR scope (this PR)
 
-Three workflow hardening fixes that don't need Settings-UI changes:
+Two workflow hardening fixes that don't need Settings-UI changes:
 
-1. **`ci.yaml`** — drop the `lint` job's `permissions:` block from `contents: write` + `pull-requests: write` to `contents: read`. The job only runs `./gradlew spotlessCheck lint :app:checkSortDependencies`; no writes happen.
-2. **`release.yaml`** — replace the inline `${{ secrets.FIREBASE_SERVICE_ACCOUNT }}` interpolation in the "Decode service account key" step with an `env:` block + `echo "$FIREBASE_SA" | base64 -d`. The previous shape was vulnerable to shell-active characters in the secret value.
-3. **`update-screenshot-baselines.yaml`** — add `github.event.pull_request.head.repo.full_name == github.repository` to the job's `if:` so fork PRs can't trigger the regenerate-baselines workflow. Fork PRs from outside collaborators currently land with a read-only token, so exfiltration is bounded — but the rule is "deny by default, allow explicitly," and the screenshot job runs Gradle code from the PR head.
+1. **`release.yaml`** — replace the inline `${{ secrets.FIREBASE_SERVICE_ACCOUNT }}` interpolation in the "Decode service account key" step with an `env:` block + `echo "$FIREBASE_SA" | base64 -d`. The previous shape was vulnerable to shell-active characters in the secret value.
+2. **`update-screenshot-baselines.yaml`** — add `github.event.pull_request.head.repo.full_name == github.repository` to the job's `if:` so fork PRs can't trigger the regenerate-baselines workflow. Fork PRs from outside collaborators currently land with a read-only token, so exfiltration is bounded — but the rule is "deny by default, allow explicitly," and the screenshot job runs Gradle code from the PR head.
+
+The original audit list also called for dropping the `lint` job's `permissions:` block to `contents: read`. **That change was reverted before this PR shipped:** `open-turo/actions-jvm/lint@v2` runs a semantic-release dry-run and posts the projected release notes as a PR comment. `pull-requests: write` is required for the comment; `contents: write` is required for semantic-release's analyze/notes-staging steps. Narrowing these breaks the dry-run comment reviewers rely on. The real mitigation is the SHA-pinning follow-up below — once the action's bytecode is immutable, a compromised tag can't escalate via these scopes.
 
 ## Settings UI runbook (operator's hands-on work)
 
