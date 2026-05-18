@@ -82,7 +82,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Decode service account key
-        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" | base64 -d > /tmp/firebase-sa-key.json
+        # Pass the secret through `env:` instead of interpolating it
+        # into the shell command directly. The previous shape inlined
+        # `${{ secrets.FIREBASE_SERVICE_ACCOUNT }}` into the rendered
+        # `run:` script; if the secret ever contained shell-active
+        # characters (newlines, dollar signs, backticks) the substituted
+        # command could execute parts of it as code. Reading via `$SA`
+        # keeps the value inside an environment variable that bash
+        # treats as opaque data, and GitHub's secret-masking still
+        # redacts it from logs.
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: echo "$FIREBASE_SA" | base64 -d > /tmp/firebase-sa-key.json
 
       - name: Build and distribute
         run: ./gradlew assembleDebug appDistributionUploadDebug

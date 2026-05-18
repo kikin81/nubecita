@@ -22,9 +22,15 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    # Lint runs `./gradlew spotlessCheck lint :app:checkSortDependencies` —
+    # no file writes, no PR comments. The previous `contents: write` +
+    # `pull-requests: write` grant was overly permissive (a compromised
+    # third-party action could push to main or comment on PRs from this
+    # job). The `open-turo/actions-jvm/lint` wrapper accepts a
+    # `github-token` but uses it for read-side operations (checkout);
+    # no write scope required.
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - name: Action lint
         uses: open-turo/actions-jvm/lint@v2
