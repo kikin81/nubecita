@@ -22,15 +22,21 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    # Lint runs `./gradlew spotlessCheck lint :app:checkSortDependencies` —
-    # no file writes, no PR comments. The previous `contents: write` +
-    # `pull-requests: write` grant was overly permissive (a compromised
-    # third-party action could push to main or comment on PRs from this
-    # job). The `open-turo/actions-jvm/lint` wrapper accepts a
-    # `github-token` but uses it for read-side operations (checkout);
-    # no write scope required.
+    # `open-turo/actions-jvm/lint@v2` runs a semantic-release dry-run
+    # and posts the projected release notes as a PR comment. That's why
+    # both write scopes are required:
+    #   - `pull-requests: write` — for the dry-run comment.
+    #   - `contents: write` — semantic-release's analyze/notes plugins
+    #     stage tag/changelog updates against the working tree as part
+    #     of the dry-run, which the action treats as a write-class
+    #     operation.
+    # SHA-pinning the action (tracked as the medium-priority follow-up
+    # in `docs/superpowers/specs/2026-05-17-main-branch-hardening.md`)
+    # is the real mitigation here — narrowing the scopes any further
+    # breaks the dry-run comment that reviewers rely on.
     permissions:
-      contents: read
+      contents: write
+      pull-requests: write
     steps:
       - name: Action lint
         uses: open-turo/actions-jvm/lint@v2
