@@ -1,6 +1,6 @@
 # Main Branch Hardening — Spec & Operator Runbook
 
-> **Scope:** Lock down `main` so CI must pass before merge, the release path runs in an isolated environment, and fork-PR workflows can't trigger signing in the future. Most steps are GitHub Settings UI changes the repo owner has to apply by hand; this doc is the paste-ready runbook plus the in-repo PR companion (CODEOWNERS verification + three workflow fixes).
+> **Scope:** Lock down `main` so CI must pass before merge, the release path runs in an isolated environment, and fork-PR workflows can't trigger signing in the future. Most steps are GitHub Settings UI changes the repo owner has to apply by hand; this doc is the paste-ready runbook plus the in-repo PR companion (CODEOWNERS verification + two workflow fixes).
 >
 > **Trigger:** Security audit of `kikin81/nubecita` immediately before adding the upload keystore for Firebase App Distribution signing.
 
@@ -49,7 +49,7 @@ Add these rules to the existing set (`non_fast_forward`, `deletion`, `copilot_co
 
 Add bypass actor:
 - **`Repository admin`** *(yourself)* — for the cases where you legitimately need to push a fix without a PR (rare).
-- **`Deploy keys: github-actions[bot]`** — so the existing `release.yaml` semantic-release push to `main` keeps working. Without this, the version-bump commit fails the "Require pull requests" rule.
+- **A dedicated GitHub App for semantic-release.** *Don't* add `github-actions[bot]` (it isn't a deploy key, and the built-in `GITHUB_TOKEN` runs under that bot identity — adding it as a bypass actor would silently let *every* workflow run with `GITHUB_TOKEN` push to `main` bypassing PR review, which neuters this whole ruleset). Instead: provision a GitHub App scoped to `contents: write` on this repo, install it on the repo, mint an installation token in `release.yaml` (e.g. via `actions/create-github-app-token`), and add the **integration** (the App, by ID) as the bypass actor. Only `release.yaml`'s explicit `actions/create-github-app-token` step gets the bypass; other workflows that pick up `GITHUB_TOKEN` automatically do not. Track as a follow-up bd issue alongside enabling the PR rule — chicken-and-egg, so enable the rule and the bypass together.
 
 #### 2. Create a `release` deployment environment
 
@@ -79,9 +79,9 @@ Once the environment exists, every workflow run that reaches the `distribute` jo
 
 #### 3. Fork PR workflow approval gate
 
-Settings → Actions → General → **Fork pull request workflows from outside collaborators** → set to **"Require approval for all outside collaborators"** (or at minimum, **"Require approval for first-time contributors"**).
+Settings → Actions → General → **Fork pull request workflows from outside collaborators** → set to **"Require approval for all outside collaborators"**. (The weaker "first-time contributors" option lets repeat outside contributors trigger workflows without re-approval, which doesn't satisfy the acceptance criterion below — don't pick that one.)
 
-This is the canonical control that prevents a fork PR from triggering any workflow — including future signing workflows — without an explicit approve click. The fork-PR guard inside `update-screenshot-baselines.yaml` (item 7 in this PR) is defense-in-depth on top of this setting.
+This is the canonical control that prevents a fork PR from triggering any workflow — including future signing workflows — without an explicit approve click. The fork-PR guard inside `update-screenshot-baselines.yaml` (companion PR item 2 above) is defense-in-depth on top of this setting.
 
 ### ⚠️ Medium — schedule before public beta
 
@@ -89,12 +89,12 @@ This is the canonical control that prevents a fork PR from triggering any workfl
 
 Replace floating-tag references like `open-turo/actions-jvm/release@v2` with full commit SHAs. A compromised maintainer of any third-party action can force-push the `v2` tag to point at malicious code, and that code runs with the workflow's permissions on every release. SHA-pinning makes the action's bytecode immutable.
 
-Affected workflows:
-- `ci.yaml`: `open-turo/actions-jvm/lint@v2`, `actions/setup-java@v5`, `android-actions/setup-android@v4`, `gradle/actions/setup-gradle@v6`, `gradle/actions/wrapper-validation@v6`, plus checkout/upload-artifact actions in other jobs.
+Affected workflows (full inventory — every floating-tag reference, not just the third-party-most-suspect ones):
+- `ci.yaml`: `open-turo/actions-jvm/lint@v2`, `actions/setup-java@v5`, `android-actions/setup-android@v4`, `gradle/actions/setup-gradle@v6`, `gradle/actions/wrapper-validation@v6`, `actions/checkout@v6`, `madrapps/jacoco-report@v1.7.2`, `actions/upload-artifact@v7`, `actions/github-script@v9`, `actions/cache@v5`, `reactivecircus/android-emulator-runner@v2`.
 - `release.yaml`: `actions/checkout@v6`, `actions/setup-java@v5`, `android-actions/setup-android@v4`, `gradle/actions/setup-gradle@v6`, `open-turo/actions-jvm/release@v2`.
 - `update-screenshot-baselines.yaml`: `actions/checkout@v6`, `actions/setup-java@v5`, `android-actions/setup-android@v4`, `gradle/actions/setup-gradle@v6`, `actions/github-script@v9`.
 
-Best done as a single follow-up PR; Dependabot's `gha` ecosystem keeps the SHAs current.
+Best done as a single follow-up PR. The repo's existing Renovate config (`.github/renovate.json`) is the right place to add a `github-actions` manager (or extend the existing one) so the pinned SHAs stay current automatically — Renovate's `github-actions` manager will open update PRs the same way Dependabot's `gha` ecosystem would in repos that use Dependabot.
 
 ### 🔵 Low — opportunistic
 
@@ -109,9 +109,29 @@ The static-site repo has no branch protection at all. Lower stakes (no secrets, 
 
 5-minute Settings UI step on `kikin81/nubecita-web` whenever convenient.
 
+### ⚠️ Medium — Firebase auth migration (Workload Identity Federation)
+
+The `release.yaml` `distribute` job currently authenticates to GCP via a long-lived JSON service-account key (`FIREBASE_SERVICE_ACCOUNT` base-64 decoded onto disk; `GOOGLE_APPLICATION_CREDENTIALS` points at the file for the whole job). The `env:` fix in this PR closes the shell-interpolation hole, but the underlying auth model still has problems Google explicitly discourages:
+
+- The key file sits in `/tmp` for the entire job duration; every subsequent step inherits access through `GOOGLE_APPLICATION_CREDENTIALS`.
+- JSON keys don't expire — if the base-64 secret leaks, the key stays valid until manually revoked.
+- GCP audit logs show "service account X did Y," not "this specific workflow run at this SHA did Y."
+- Many org policies now block new SA-key creation entirely; rotation gets harder.
+
+The Google-recommended path is **Workload Identity Federation** via `google-github-actions/auth@v2`. The action exchanges GitHub's OIDC token for a short-lived (1h) GCP access token — no key file on disk, no long-lived secret, and the WIF pool can be scoped to accept tokens only from `kikin81/nubecita` on `main` (or a specific workflow path). Setup is one-time on the GCP side (~30 min: WIF pool + provider + IAM binding); the workflow change is a clean swap:
+
+```yaml
+- uses: google-github-actions/auth@v2
+  with:
+    workload_identity_provider: projects/<PROJECT-NUMBER>/locations/global/workloadIdentityPools/github/providers/github-actions
+    service_account: firebase-distributor@<PROJECT-ID>.iam.gserviceaccount.com
+```
+
+This is its own bd/PR — pairs naturally with moving secrets into the `release` deployment environment (step 2 above), since WIF removes the secret altogether rather than relocating it. Track under the keystore/release-flow epic when that epic gets created.
+
 ## Acceptance
 
-- This PR's three workflow changes pass CI on the new ruleset (the workflow files compile + the jobs they define still run green).
+- This PR's two workflow changes pass CI on the new ruleset (the workflow files compile + the jobs they define still run green).
 - Operator has applied steps 1–3 in the runbook before adding the upload keystore.
 - A test PR raised against `main` cannot be merged when any of the five required checks is failing.
 - The `distribute` job in `release.yaml`, after step 2's environment gate, blocks on manual approval before accessing `FIREBASE_SERVICE_ACCOUNT`.
