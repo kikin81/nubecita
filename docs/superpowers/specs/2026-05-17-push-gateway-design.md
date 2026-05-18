@@ -63,8 +63,8 @@ Two artifacts live outside the `nubecita` Android repo:
 
 ## Assumptions to verify before deploying to public beta
 
-1. **Bluesky's push-proxy → gateway payload shape is not in a public lexicon.** The wire format the AppView posts to a registered `BskyNotificationService` is defined in `bluesky-social/atproto`'s server module, not in `lexicons/app/bsky/notification/`. Before public beta, pin the exact shape against that source (search the open-source codebase for `BskyNotificationService` consumers). The schema sketched below is the *minimum-viable shape* that the gateway needs: token, platform, appId, title, body, optional collapse_key and data.
-2. **Inbound authentication.** Bluesky's push service signs requests with a JWT (`Authorization: Bearer ...`). v1.0 of this gateway accepts unauthenticated POSTs and relies on URL obscurity + Cloud Functions per-IP rate limiting; **v1.1 must verify the JWT signature** against Bluesky's published signing keys before processing. Target: ship v1.1 before the Android app's public-beta milestone.
+1. **Bluesky's push-proxy → gateway payload shape is not in a public lexicon.** The wire format the AppView posts to a registered `BskyNotificationService` is defined in `bluesky-social/atproto`'s server module, not in `lexicons/app/bsky/notification/`. Before public beta, pin the exact shape against that source (search the open-source codebase for `BskyNotificationService` consumers). The schema sketched below is the *minimum-viable shape* the gateway needs: `token`, `platform`, `appId`, `title`, `message`, optional `collapse_key` and `data`. (The inbound field is `message`; the function maps it onto FCM's `body` field inside the data payload. The two names refer to the same string at different layers — incoming wire vs. outgoing FCM.)
+2. **Inbound authentication.** Bluesky's push service signs requests with a JWT (`Authorization: Bearer ...`). v1.0 of this gateway accepts unauthenticated POSTs and relies on **URL obscurity + Cloud Functions's global concurrency cap** (`maxInstances: 10` below). The cap is *not* per-IP throttling — a single source that learns the URL can saturate all 10 instances. The actual control while v1.0 ships is the URL not being public. **v1.1 must verify the JWT signature** against Bluesky's published signing keys before processing, which is what closes the bypass — and v1.1 must land **before** the Android app's public beta, since at that point the URL is reachable from anyone who decodes the app's network traffic.
 3. **Custom domain on the function** (e.g. `push.nubecita.app` via Firebase Hosting rewrite) is optional for v1 — the raw Cloud Run URL is fine. The URL only changes when we redeploy the function under a different name; deploys under the same name keep a stable URL.
 
 ## Phase 1 — GitHub Pages Static Identity (`kikin81/nubecita-web`)
@@ -329,15 +329,17 @@ The deploy step prints the function URL — capture it.
    # Device receives the push and onMessageReceived fires.
    ```
 
-## Outstanding work tracked for v1.1 (post-Android-beta)
+## Outstanding work tracked for v1.1
 
-| Concern | Mitigation |
-|---|---|
-| Unauthenticated webhook | Verify the JWT in `Authorization: Bearer <jwt>` against Bluesky's published signing keys. Reject with 401 if invalid or signed by an unknown key. Track the key set so it can rotate without redeploy. |
-| Stale device tokens | When FCM returns `messaging/registration-token-not-registered`, write the token to a Firestore tombstone set. The Android client's foreground re-register reads the tombstone and skips re-registering tokens already known dead (one round-trip to clear). |
-| Per-account quotas | Add per-account rate-limit (e.g. 100 pushes/min/account) once we see abuse patterns. Cloud Functions has account-level concurrency limits as a floor. |
-| Custom domain | Wire `push.nubecita.app` via Firebase Hosting rewrite → `notify` function. Stable URL across redeploys + lets us migrate functions later without re-publishing the DID document. |
-| Aggregate-payload support | If Bluesky's server starts batching ("Justin Bieber" Tier 3 defense), this function passes `data` through unchanged; the Android client handles the rendering. No server-side change here. |
+The "v1.1" label here denotes a follow-up release of *the gateway*, not a follow-up phase of the Android app. JWT verification is in this table because it's a server-side change, but the **scheduling target is pre-Android-public-beta**, not post — consistent with Assumption #2 above. The remaining rows (stale tokens, per-account quotas, custom domain, aggregate-payload support) are genuine post-beta polish without the same urgency.
+
+| Concern | Scheduling | Mitigation |
+|---|---|---|
+| Unauthenticated webhook | **Pre-Android-public-beta** | Verify the JWT in `Authorization: Bearer <jwt>` against Bluesky's published signing keys. Reject with 401 if invalid or signed by an unknown key. Track the key set so it can rotate without redeploy. |
+| Stale device tokens | Post-beta polish | When FCM returns `messaging/registration-token-not-registered`, write the token to a Firestore tombstone set. The Android client's foreground re-register reads the tombstone and skips re-registering tokens already known dead (one round-trip to clear). |
+| Per-account quotas | Post-beta polish | Add per-account rate-limit (e.g. 100 pushes/min/account) once we see abuse patterns. Cloud Functions has account-level concurrency limits as a floor. |
+| Custom domain | Opportunistic | Wire `push.nubecita.app` via Firebase Hosting rewrite → `notify` function. Stable URL across redeploys + lets us migrate functions later without re-publishing the DID document. |
+| Aggregate-payload support | If/when Bluesky enables it | If Bluesky's server starts batching ("Justin Bieber" Tier 3 defense), this function passes `data` through unchanged; the Android client handles the rendering. No server-side change here. |
 
 ## Follow-ups for the `nubecita-1fy` epic
 
