@@ -141,12 +141,22 @@ jobs:
         # and handles `external_account` out of the box. Context in
         # nubecita-b6b6.
         #
-        # Pinned to an exact patch version (vs `@14` major-pin) so
+        # Pinned to an exact patch version (vs floating major) so
         # release-time installs are reproducible — a bad patch on the
-        # latest 14.x line otherwise breaks the pipeline silently.
+        # latest line otherwise breaks the pipeline silently.
         # Renovate will propose bumps via the npm manager once the
         # Bundler/npm packageRules in nubecita-mcy7 land.
-        run: npm install -g firebase-tools@14.27.0
+        #
+        # On 15.x specifically: local `firebase appdistribution:distribute`
+        # against an `impersonated_service_account` ADC file (gcloud
+        # impersonate flow) confirmed working with 15.18.0 against this
+        # repo's Firebase project. Prior pin at 14.27.0 produced
+        # "Failed to authenticate, have you run firebase login?" against
+        # the WIF `external_account` ADC file. The 14→15 bump includes
+        # auth library upgrades that likely fix the issue. Diagnostic
+        # workflow at `.github/workflows/wif-auth-diagnostic.yaml`
+        # confirms the WIF chain end-to-end. Context in nubecita-nvi2.
+        run: npm install -g firebase-tools@15.18.0
 
       - name: Authenticate to Google Cloud (WIF)
         # Federated auth: exchange this workflow's OIDC token for a
