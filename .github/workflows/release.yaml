@@ -153,12 +153,27 @@ jobs:
         # short-lived Google access token + credentials file via
         # Workload Identity Federation. Replaces the previous
         # long-lived base64 service-account JSON secret
-        # (`FIREBASE_SERVICE_ACCOUNT`). The action writes the
-        # credentials to a temp file and exports
-        # `GOOGLE_APPLICATION_CREDENTIALS` for downstream steps —
-        # both firebase-tools (FAD upload) and fastlane / supply
-        # (Play Console upload) read that env var natively via
-        # `google-auth-library`.
+        # (`FIREBASE_SERVICE_ACCOUNT`).
+        #
+        # `token_format: access_token` makes the action mint the
+        # OAuth access token directly via the federated exchange (vs
+        # the default mode where only an `external_account`
+        # credential file is written and downstream tools are
+        # responsible for completing the federation). Empirically the
+        # default mode fails for firebase-tools 14.27.0 with
+        # "Failed to authenticate, have you run firebase login?"
+        # despite the credential file being present and
+        # `GOOGLE_APPLICATION_CREDENTIALS` being set — the token
+        # exchange inside Node `google-auth-library` doesn't
+        # complete. Pre-minting the token sidesteps it. Context in
+        # nubecita-nvi2.
+        #
+        # The minted access token is exported as
+        # `CLOUDSDK_AUTH_ACCESS_TOKEN` plus picked up by gcloud /
+        # firebase-tools via the same credential file the action
+        # still writes. `access_token_scopes` is the default
+        # `cloud-platform` (firebase-tools and fastlane / supply both
+        # accept that as the umbrella scope).
         #
         # `workload_identity_provider` and `service_account` are
         # stored as `release` **environment** secrets (not repo
@@ -173,6 +188,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
 
       - name: Decode release keystore
         # Pass the secret through `env:` rather than interpolating into
