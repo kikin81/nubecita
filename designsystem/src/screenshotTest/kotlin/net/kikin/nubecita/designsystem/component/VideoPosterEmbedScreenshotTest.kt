@@ -66,3 +66,30 @@ private fun VideoPosterEmbedPortraitScreenshot() {
         )
     }
 }
+
+// Long-altText baseline: altText is contentDescription-only today, so
+// the rendered surface looks identical to the with-poster baseline.
+// The screenshot exists as a regression lock — if a future change
+// starts displaying altText visually (caption strip, overlay label,
+// etc.) the layout shift will surface here before it ships. Per
+// nubecita-zak.7 acceptance: "with very long altText (a11y truncation
+// check)".
+@PreviewTest
+@Preview(name = "long-alttext-light", showBackground = true)
+@Preview(name = "long-alttext-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun VideoPosterEmbedLongAltTextScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        VideoPosterEmbed(
+            posterUrl = "https://example.com/poster.jpg",
+            aspectRatio = 16f / 9f,
+            altText =
+                "An exceptionally long video alt-text describing the scene in detail " +
+                    "for screen-reader users — covers subjects, setting, on-screen text, " +
+                    "and notable audio cues. Long enough to surface any future truncation " +
+                    "or overflow regressions if the surface starts rendering altText " +
+                    "as visible chrome.",
+            onTap = {},
+        )
+    }
+}
