@@ -158,15 +158,7 @@ private fun MultiImageCarousel(
                     .then(clickModifier),
         ) {
             NubecitaAsyncImage(
-                // Carousel slides clamp to CAROUSEL_PREFERRED_ITEM_WIDTH
-                // (220dp) × EMBED_HEIGHT (180dp) with ContentScale.Crop,
-                // so the actual decode target is ~540dp × ~660px at 3x
-                // density — well inside `feed_thumbnail`'s ~1000px max
-                // edge. Read thumb here so multi-image posts don't pull
-                // a 2000px+ fullsize per slide. SingleImage above uses
-                // fullsize because its variable-height layout can render
-                // tall enough to upscale the thumb visibly.
-                model = image.thumbOrFullsize(),
+                model = image.carouselSlideUrl,
                 contentDescription = image.altText,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
@@ -179,6 +171,25 @@ private val EMBED_HEIGHT: Dp = 180.dp
 private val EMBED_GAP: Dp = 4.dp
 private val CAROUSEL_PREFERRED_ITEM_WIDTH: Dp = 220.dp
 private val IMAGE_SHAPE = RoundedCornerShape(16.dp)
+
+/**
+ * URL the [MultiImageCarousel] should pass to Coil for each slide.
+ *
+ * Carousel slides clamp to [CAROUSEL_PREFERRED_ITEM_WIDTH] (220dp) ×
+ * [EMBED_HEIGHT] (180dp) with `ContentScale.Crop`, so the decode target is
+ * ~540dp × ~660px at 3x density — comfortably inside `feed_thumbnail`'s
+ * ~1000px max edge. Reading thumb here avoids pulling a 2000px+ fullsize
+ * per slide on multi-image posts, which was the original concern Copilot
+ * raised on PR #139 (nubecita-e02).
+ *
+ * Do NOT reuse this on [SingleImage] — that surface uses
+ * `fillMaxWidth() + aspectRatio(displayedAspectRatio())`, so a portrait
+ * source clamped to [MIN_ASPECT_RATIO] (2:3) renders ~540dp tall (~1620px
+ * at 3x) and would upscale the thumb variant visibly. The single-image
+ * call site reads [ImageUi.fullsizeUrl] directly.
+ */
+private val ImageUi.carouselSlideUrl: String
+    get() = thumbOrFullsize()
 
 /**
  * Tallest portrait we'll display for a single image (2:3 = ~0.667 width/height).
