@@ -40,30 +40,40 @@ setting it in the first place.
 
 ### Local
 
-Mint Application Default Credentials that impersonate the same WIF-bound
-service account CI uses:
+> **Status:** local smoke testing of `bundle exec fastlane internal` is
+> currently **not supported** out of the box. The bundled `googleauth`
+> (1.11.2) doesn't recognize the `impersonated_service_account`
+> credential type that `gcloud auth application-default login
+> --impersonate-service-account=...` writes, and supply falls through to
+> an interactive `json_key_file` prompt that no impersonation flow can
+> satisfy. CI (which uses an `external_account` WIF JSON) is unaffected.
 
-```bash
-gcloud auth application-default login \
-  --impersonate-service-account=<wif-sa-email>
-```
+If you need to run the lane locally, pick one of these workarounds:
 
-That command writes `~/.config/gcloud/application_default_credentials.json`
-(gcloud's well-known location, which is exactly where ADC looks when
-`GOOGLE_APPLICATION_CREDENTIALS` is unset). No exports needed.
+1. **Local WIF cred-config** (no SA key, recommended for WIF parity):
+   ```bash
+   gcloud iam workload-identity-pools create-cred-config \
+     projects/<project-num>/locations/global/workloadIdentityPools/<pool>/providers/<provider> \
+     --service-account=<wif-sa-email> \
+     --output-file=$HOME/.config/gcloud/wif-credentials.json \
+     --credential-source-file=<path-to-your-oidc-token>
+   export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/wif-credentials.json
+   ```
+   Produces an `external_account` JSON that googleauth handles natively.
 
-The `<wif-sa-email>` is whatever the `GCP_SERVICE_ACCOUNT` repo/environment
-secret points at — ask in `#release` if you don't have it. The service
-account must have the `Service Account Token Creator` role granted to your
-user for impersonation to succeed.
+2. **Temporary SA key** (defeats WIF locally; smallest change):
+   ```bash
+   gcloud iam service-accounts keys create /tmp/sa.json \
+     --iam-account=<wif-sa-email>
+   export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
+   bundle exec fastlane internal
+   gcloud iam service-accounts keys delete <key-id> \
+     --iam-account=<wif-sa-email>
+   ```
 
-If you have a stale `GOOGLE_APPLICATION_CREDENTIALS` set from a previous
-session, run `unset GOOGLE_APPLICATION_CREDENTIALS` before invoking the
-lane — the Fastfile preflight will also strip it, but starting clean keeps
-the logs quieter.
-
-After the gcloud login, `bundle exec fastlane <lane>` will authenticate
-against Play Console using the impersonation chain.
+3. **Bump `googleauth`** — check whether a newer release added
+   `impersonated_service_account` support, then pin it in the repo
+   Gemfile ahead of fastlane's transitive constraint.
 
 ### CI
 
