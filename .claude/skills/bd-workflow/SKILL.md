@@ -81,6 +81,22 @@ gh api -X POST /repos/<owner>/<repo>/pulls/<pr-number>/requested_reviewers \
 
 The GitHub Copilot review bot is added via the literal handle `Copilot` (case-sensitive). `gh pr edit --add-reviewer copilot-pull-request-reviewer` and the GraphQL `requestReviews` mutation both fail — the REST endpoint with the `Copilot` handle is the only path that works for this repo.
 
+**Post-PR — monitor CI status between turns:**
+
+Schedule a recurring poll via `CronCreate` so CI checks run in the background without blocking a shell or stealing the user's attention.
+
+```
+CronCreate(cron: "*/3 * * * *", prompt: "Check CI status for PR #<PR-NUMBER>. Run: gh pr checks <PR-NUMBER>. If any check is still pending, say nothing and wait for the next poll. If ALL checks have completed (every line shows pass, fail, skipping, or cancel), cancel this cron job with CronDelete, then report concisely: count of passed/failed checks. If any failed, fetch logs via `gh run view <RUN-ID> --log-failed` and propose a fix.")
+```
+
+Tell the user once:
+
+```
+👀 Monitoring CI for PR #<pr>. I'll report back when all checks reach a terminal state.
+```
+
+Do NOT use `gh pr checks --watch` — reprints the full table each poll, drowns the conversation. Do NOT use a background bash polling loop — blocks a shell and produces noisy output. Do NOT dump the full check list on success: just `✅ CI passed — N/N checks green` (or `❌ N of M failed`, with the failing names).
+
 After `gh pr create` succeeds, print the PR URL and remind the user: "bd issue stays open until the PR merges; run `bd close <id>` after merge."
 
 ## Invariants
