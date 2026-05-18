@@ -130,8 +130,8 @@ android {
         // Gradle-property overrides for the two OAuth identity fields, so a one-off
         // build can point at a test client_id (or a staging PDS, or anything else with
         // a different metadata URL / redirect target) via -PoauthClientMetadataUrl=...
-        // -PoauthRedirectUri=... without editing this file. Defaults reproduce
-        // production exactly so the common path is unchanged.
+        // -PoauthRedirectUri=... without editing this file. Defaults below are the
+        // current production values.
         val oauthClientMetadataUrl =
             providers.gradleProperty("oauthClientMetadataUrl").orNull
                 ?: "https://nubecita.app/oauth/client-metadata.json"
