@@ -80,12 +80,14 @@ private fun SingleImage(
     val clickModifier =
         if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
     NubecitaAsyncImage(
-        // Feed cells render at most EMBED_HEIGHT (180dp) tall, so the
-        // `feed_thumbnail` variant is large enough to fill them without
-        // visible quality loss — and small enough to spare the bandwidth
-        // and decode cost of fullsize. Mediaviewer (full-screen tap-
-        // through) reads `fullsizeUrl` directly for the zoomable surface.
-        model = image.thumbOrFullsize(),
+        // Single-image PostCard embeds use `fillMaxWidth()` + aspectRatio,
+        // so a portrait source clamped to MIN_ASPECT_RATIO (2/3) renders
+        // ~540dp tall = ~1620px at 3x density — outside `feed_thumbnail`'s
+        // ~1000px max edge. Read fullsize here to avoid upscale softness
+        // on tall single-image posts. The multi-image carousel below
+        // CAN use thumb because it's clamped to a fixed 180dp slide.
+        // Matches the per-variant guidance in [ImageUi]'s KDoc.
+        model = image.fullsizeUrl,
         contentDescription = image.altText,
         modifier =
             modifier
@@ -156,9 +158,14 @@ private fun MultiImageCarousel(
                     .then(clickModifier),
         ) {
             NubecitaAsyncImage(
-                // Same rationale as SingleImage — carousel slides are
-                // CAROUSEL_PREFERRED_ITEM_WIDTH wide × EMBED_HEIGHT tall;
-                // the thumbnail variant covers it.
+                // Carousel slides clamp to CAROUSEL_PREFERRED_ITEM_WIDTH
+                // (220dp) × EMBED_HEIGHT (180dp) with ContentScale.Crop,
+                // so the actual decode target is ~540dp × ~660px at 3x
+                // density — well inside `feed_thumbnail`'s ~1000px max
+                // edge. Read thumb here so multi-image posts don't pull
+                // a 2000px+ fullsize per slide. SingleImage above uses
+                // fullsize because its variable-height layout can render
+                // tall enough to upscale the thumb visibly.
                 model = image.thumbOrFullsize(),
                 contentDescription = image.altText,
                 modifier = Modifier.fillMaxSize(),

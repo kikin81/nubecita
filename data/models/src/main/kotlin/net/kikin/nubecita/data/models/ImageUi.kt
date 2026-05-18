@@ -8,14 +8,18 @@ import androidx.compose.runtime.Stable
  * Bluesky's appview serves two pre-rendered CDN variants per image, both
  * ending in the `@jpeg` suffix — the variant is encoded in the path
  * segment, not the suffix:
- * - [fullsizeUrl] — large variant served from `.../img/feed_fullsize/...`.
- *   Use for full-screen media viewers, in-feed PostCard image embeds, and
- *   anywhere the rendered surface can occupy a significant chunk of the
- *   screen.
- * - [thumbUrl] — small variant served from `.../img/feed_thumbnail/...`.
- *   Use for n×n grids (the Profile Media tab is a 3-col grid) and any
- *   surface that draws the image at avatar-or-smaller scale. Falls back to
- *   [fullsizeUrl] when null — see [thumbOrFullsize] for the canonical pick.
+ * - [fullsizeUrl] — large variant served from `.../img/feed_fullsize/...`
+ *   (typically ~2000px+ max edge). Use for full-screen media viewers and
+ *   variable-height in-feed surfaces — single-image PostCard embeds, where
+ *   a portrait source clamped to 2:3 can render ~540dp tall (~1620px @ 3x)
+ *   and would upscale the thumb variant visibly.
+ * - [thumbUrl] — small variant served from `.../img/feed_thumbnail/...`
+ *   (typically ~1000px max edge). Use for fixed-size cropped surfaces
+ *   bounded under that resolution: n×n grids (the Profile Media tab is a
+ *   3-col grid), multi-image PostCard carousel slides (180dp × 220dp with
+ *   `ContentScale.Crop`), and any surface that draws the image at
+ *   avatar-or-smaller scale. Falls back to [fullsizeUrl] when null — see
+ *   [thumbOrFullsize] for the canonical pick.
  *
  * The atproto lexicon (`app.bsky.embed.images#viewImage`) lists BOTH as
  * required, so [thumbUrl] is non-null when [ImageUi] is constructed from
