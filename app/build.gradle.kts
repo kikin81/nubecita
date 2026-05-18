@@ -137,7 +137,7 @@ android {
                 ?: "https://nubecita.app/oauth/client-metadata.json"
         val oauthRedirectUri =
             providers.gradleProperty("oauthRedirectUri").orNull
-                ?: "app.nubecita:/oauth-redirect"
+                ?: "https://nubecita.app/oauth-redirect"
         buildConfigField(
             type = "String",
             name = "OAUTH_CLIENT_METADATA_URL",
