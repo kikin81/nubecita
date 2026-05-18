@@ -26,44 +26,54 @@ bundle exec fastlane lanes        # list available lanes
 
 ## Google credentials
 
-Auth flows through Google's Application Default Credentials (ADC). Both local
-and CI flows export `GOOGLE_APPLICATION_CREDENTIALS`; supply picks it up via
-`Google::Auth.get_application_default` automatically. The two flows differ
-only in how the credentials file gets created.
+Auth flows through Google's Application Default Credentials (ADC) and the
+gcloud well-known path. **Do not set `GOOGLE_APPLICATION_CREDENTIALS`** —
+fastlane's `upload_to_play_store` auto-maps that env var to its
+`json_key_file` parameter, which only accepts `service_account`-type JSON.
+WIF (`external_account`) and local impersonation
+(`impersonated_service_account`) JSONs both fail there with
+"Invalid Google Credentials file provided - no credential type found."
 
-> **Why not `json_key_file`?** Supply's explicit `json_key_file` path only
-> accepts `service_account`-type JSON. WIF (`external_account`) and local
-> impersonation (`impersonated_service_account`) JSONs fail with
-> "Invalid Google Credentials file provided - no credential type found."
-> Falling back to ADC handles all three.
-
-### CI
-
-CI auth runs through Workload Identity Federation. The
-`google-github-actions/auth@v2` step writes a short-lived credentials file and
-exports `GOOGLE_APPLICATION_CREDENTIALS` automatically — no further setup
-needed. See the `release` workflow's `playstore` job (added in
-`nubecita-kbmd.4`).
+The lane defensively `ENV.delete`s `GOOGLE_APPLICATION_CREDENTIALS` if it
+notices the file isn't a `service_account` JSON; the recipes below avoid
+setting it in the first place.
 
 ### Local
 
-For local Play Console uploads, mint Application Default Credentials that
-impersonate the same WIF-bound service account CI uses:
+Mint Application Default Credentials that impersonate the same WIF-bound
+service account CI uses:
 
 ```bash
 gcloud auth application-default login \
   --impersonate-service-account=<wif-sa-email>
-
-export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default_credentials.json"
 ```
 
-The `<wif-sa-email>` is whatever the `GCP_SERVICE_ACCOUNT` repo/environment
-secret points at — ask in `#release` if you don't have it. The service account
-must have the `Service Account Token Creator` role granted to your user for
-impersonation to succeed.
+That command writes `~/.config/gcloud/application_default_credentials.json`
+(gcloud's well-known location, which is exactly where ADC looks when
+`GOOGLE_APPLICATION_CREDENTIALS` is unset). No exports needed.
 
-After both commands, `bundle exec fastlane <lane>` will authenticate against
-Play Console the same way CI does.
+The `<wif-sa-email>` is whatever the `GCP_SERVICE_ACCOUNT` repo/environment
+secret points at — ask in `#release` if you don't have it. The service
+account must have the `Service Account Token Creator` role granted to your
+user for impersonation to succeed.
+
+If you have a stale `GOOGLE_APPLICATION_CREDENTIALS` set from a previous
+session, run `unset GOOGLE_APPLICATION_CREDENTIALS` before invoking the
+lane — the Fastfile preflight will also strip it, but starting clean keeps
+the logs quieter.
+
+After the gcloud login, `bundle exec fastlane <lane>` will authenticate
+against Play Console using the impersonation chain.
+
+### CI
+
+CI auth runs through Workload Identity Federation. The
+`google-github-actions/auth@v2` action writes a short-lived
+`external_account` credentials file to a temp path and exports
+`GOOGLE_APPLICATION_CREDENTIALS`. The lane preflight detects the non-SA
+type and unsets the env var; **kbmd.4** is responsible for copying the
+temp file to the gcloud well-known path on the runner before invoking the
+lane so ADC can still find it.
 
 ## Release-build env vars
 
