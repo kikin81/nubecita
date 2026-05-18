@@ -268,18 +268,71 @@ jobs:
             exit 1
           fi
 
+      - name: Build Play Console release notes from GitHub Release body
+        # Fetch the rendered release notes that semantic-release wrote to
+        # the GitHub Release body, transform markdown → plain text, and
+        # truncate to Play Console's 500-char per-locale cap (with a small
+        # buffer for a trailing ellipsis).
+        #
+        # Why fetch the GitHub Release body rather than the action output:
+        # `open-turo/actions-jvm/release@v2` (the `release` job) wraps
+        # `open-turo/actions-release/semantic-release@v5`, which DOES emit
+        # `new-release-notes`, but the JVM wrapper drops that output and
+        # only re-exposes published/version/major. The GitHub Release body
+        # is the same content rendered by `@semantic-release/github`, and
+        # it exists on the tag by the time this job runs (we `needs:
+        # release`). One `gh api` + pandoc step is simpler than bypassing
+        # the wrapper. Rationale + rejected alternatives recorded under
+        # nubecita-kbmd.5.
+        #
+        # Fallback to the same `v<version> — <sha>` placeholder the
+        # `distribute` job uses if the fetch fails or returns empty — a
+        # release never goes out with empty release notes.
+        id: release_notes
+        env:
+          VERSION: ${{ needs.release.outputs.new-release-version }}
+          SHA: ${{ steps.built.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          fallback="v${VERSION} — ${SHA}"
+          raw=$(gh api "repos/${REPO}/releases/tags/v${VERSION}" --jq .body 2>/dev/null || true)
+          if [[ -z "$raw" || "$raw" == "null" ]]; then
+            echo "::warning::GitHub Release body empty or missing for v${VERSION}; falling back to placeholder."
+            notes="$fallback"
+          else
+            # pandoc is preinstalled on ubuntu-latest runners. `--wrap=preserve`
+            # keeps semantic-release's hand-rolled bullet structure readable.
+            plain=$(printf '%s' "$raw" | pandoc -f gfm -t plain --wrap=preserve)
+            # Truncate at 480 chars with a trailing ellipsis so the Fastfile's
+            # defensive 500-char cap (PLAY_CHANGELOG_MAX_CHARS) never has to
+            # cut mid-word. ${#plain} is a byte count, but release notes are
+            # ASCII-dominant; the small margin absorbs the rare multi-byte
+            # character without overrunning the Play Console cap.
+            if (( ${#plain} > 480 )); then
+              notes="${plain:0:480}…"
+            else
+              notes="$plain"
+            fi
+          fi
+          {
+            echo 'notes<<NOTES_EOF'
+            echo "$notes"
+            echo 'NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Upload AAB to Play Console internal track
         # `bundle exec fastlane internal` runs `gradle bundleRelease`
         # (signed by the keystore env vars below) then uploads the AAB
         # via supply. See fastlane/Fastfile for the lane shape.
         #
-        # PLAY_RELEASE_NOTES is a placeholder until kbmd.5 wires the
-        # semantic-release changelog through — same shape as
-        # APP_DISTRIBUTION_RELEASE_NOTES in `distribute` so the lane has
-        # something meaningful to attach to the track release.
+        # PLAY_RELEASE_NOTES is sourced from the previous step (rendered
+        # GitHub Release body → plain text → truncated). The lane re-caps
+        # at 500 chars defensively.
         run: bundle exec fastlane internal
         env:
-          PLAY_RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"
+          PLAY_RELEASE_NOTES: ${{ steps.release_notes.outputs.notes }}
           KEYSTORE_FILE: /tmp/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
