@@ -23,6 +23,33 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!--
+                Verified Android App Link for the OAuth redirect.
+                android:autoVerify="true" tells the package manager to fetch
+                https://nubecita.app/.well-known/assetlinks.json on install / update
+                and pin this app as the verified handler when the signing-cert
+                fingerprint matches one listed there. Verified handlers bypass the
+                chooser dialog entirely, so the Chrome Custom Tab → app redirect is
+                seamless. Without autoVerify the OS would show a chooser between
+                Nubecita and the browser, defeating the migration.
+
+                pathPrefix (not exact path) so additional redirect_uris on the same
+                host can be added without a manifest change. MainActivity.handleIntent
+                re-validates the exact path before forwarding to the broker, so
+                the looser filter doesn't widen the attack surface.
+
+                Scheme + host derive from the OAuth client_id host (nubecita.app),
+                per AT Protocol's Discoverable Client rule.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="nubecita.app"
+                    android:pathPrefix="/oauth-redirect" />
+            </intent-filter>
+            <!--
                 OAuth redirect — Bluesky's authorization server sends the user back via
                 app.nubecita:/oauth-redirect after PAR. android:launchMode="singleTask"
                 ensures the redirect re-delivers to this MainActivity instance via
