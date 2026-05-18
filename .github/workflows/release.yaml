@@ -135,14 +135,18 @@ jobs:
         # env var natively.
         #
         # `workload_identity_provider` and `service_account` are
-        # repo-level **variables** (not secrets) because the
-        # provider resource path and SA email aren't sensitive on
-        # their own — only an OIDC token from this repo can trade
-        # them for credentials.
+        # stored as `release` **environment** secrets (not repo
+        # secrets) so they inherit the environment's deployment-
+        # branch policy — only runs against `main` / protected tags
+        # can read them. The values themselves aren't load-bearing
+        # secrets (the GCP-side WIF binding is what gates token
+        # impersonation), but env-scoping prevents PR-branch
+        # workflow edits from exfiltrating them and gives us an
+        # approval/wait-timer gate if we ever want one.
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Decode release keystore
         # Pass the secret through `env:` rather than interpolating into
