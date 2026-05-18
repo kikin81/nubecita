@@ -1,19 +1,9 @@
 package_name("net.kikin.nubecita")
 
-# `json_key_file` resolves to supply's `:json_key` param, which routes
-# auth through fastlane's explicit-credentials code path (handles
-# `service_account`, `authorized_user`, AND `external_account` JSONs
-# natively via `Google::Auth::ExternalAccount::Credentials.make_creds`).
-#
-# Going through this explicit path instead of supply's ADC fallback —
-# the ADC path empirically fails on WIF `external_account` JSONs in
-# fastlane 2.234.0 + googleauth 1.11.2 with "Could not load Google
-# credentials." Per the canonical recipe in
-# https://github.com/fastlane/fastlane/discussions/19869#discussioncomment-16543339,
-# passing the WIF credentials file explicitly is what makes WIF auth
-# work end-to-end since fastlane 2.232.0+.
-#
-# `GOOGLE_APPLICATION_CREDENTIALS` is set by
-# `google-github-actions/auth@v3` in CI and points at the WIF
-# credentials file. Locally, see fastlane/README.md.
-json_key_file(ENV["GOOGLE_APPLICATION_CREDENTIALS"])
+# Intentionally no `json_key_file` here while we diagnose WIF auth.
+# Supply auto-reads `GOOGLE_APPLICATION_CREDENTIALS` into that param,
+# but the explicit `json_key_file` path only accepts `service_account`
+# JSON. WIF (`external_account`) creds have to route through supply's
+# ADC fallback — which is what the diagnostic workflow at
+# `.github/workflows/wif-auth-diagnostic.yaml` is meant to validate.
+# See fastlane/README.md for the auth picture.

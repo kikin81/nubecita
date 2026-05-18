@@ -1,0 +1,104 @@
+name: WIF auth diagnostic
+
+# Manual-fire diagnostic for the Workload Identity Federation auth
+# chain consumed by `release.yaml`'s `distribute` and `playstore` jobs.
+# Exercises the EXACT same auth step those jobs use, then runs cheap
+# no-op API calls against firebase-tools and gcloud so we can validate
+# (or narrow) WIF failures without burning a release tag + versionCode.
+#
+# Fire from the Actions tab: Workflow → "WIF auth diagnostic" → Run
+# workflow. Inspect the run's logs for credential-file shape, tool
+# versions, and per-tool auth output.
+#
+# Context: nubecita-nvi2 (post-b6b6 WIF auth still failing for both
+# firebase-tools and fastlane despite the auth step succeeding).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  diagnose:
+    name: Diagnose WIF auth
+    runs-on: ubuntu-latest
+    # Same `release` environment as the real upload jobs so the WIF
+    # binding the diagnostic exercises matches production.
+    environment: release
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools@14.27.0
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Install gcloud
+        # Adds the `gcloud` CLI on top of the auth step so we can probe
+        # the WIF chain independent of either tool's auth library.
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Inspect credential file shape
+        # Prints the credential file's structure (type, top-level keys,
+        # audience, impersonation URL prefix) so we know exactly what
+        # auth@v3 wrote without leaking the embedded bearer token.
+        run: |
+          set -euo pipefail
+          echo "=== Path ==="
+          echo "$GOOGLE_APPLICATION_CREDENTIALS"
+          echo "=== 'type' field ==="
+          jq -r '.type' "$GOOGLE_APPLICATION_CREDENTIALS"
+          echo "=== Top-level keys ==="
+          jq -r 'keys' "$GOOGLE_APPLICATION_CREDENTIALS"
+          echo "=== audience (if external_account) ==="
+          jq -r '.audience // "(absent)"' "$GOOGLE_APPLICATION_CREDENTIALS"
+          echo "=== service_account_impersonation_url prefix ==="
+          jq -r '.service_account_impersonation_url // "(absent)"' "$GOOGLE_APPLICATION_CREDENTIALS" | head -c 100
+          echo ""
+          echo "=== subject_token_type ==="
+          jq -r '.subject_token_type // "(absent)"' "$GOOGLE_APPLICATION_CREDENTIALS"
+          echo "=== credential_source keys (if external_account) ==="
+          jq -r '.credential_source | keys // []' "$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: Tool versions
+        run: |
+          node --version
+          firebase --version
+          gcloud --version | head -3
+
+      - name: Probe WIF chain at gcloud level
+        # `gcloud auth print-access-token` exercises the EXACT federation
+        # chain the auth libraries are supposed to follow. If this succeeds
+        # but firebase-tools fails, the issue is firebase-tools-specific.
+        # If this fails too, the WIF binding / GCP-side config is at fault.
+        # `continue-on-error` so we always reach the firebase-tools probe.
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          echo "=== gcloud-side token mint via WIF ==="
+          token=$(gcloud auth print-access-token)
+          echo "Token (first 20 chars): ${token:0:20}...(truncated)"
+
+      - name: Probe firebase-tools auth via projects:list
+        # `firebase projects:list` is a no-op API call that exercises
+        # firebase-tools' full auth chain (google-auth-library →
+        # GoogleAuth → external_account dispatch → STS exchange →
+        # impersonation → access token → API request). `--debug` surfaces
+        # the failure point if auth fails.
+        continue-on-error: true
+        run: firebase --debug projects:list 2>&1 | tail -80
