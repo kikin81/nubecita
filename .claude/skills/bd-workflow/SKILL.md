@@ -58,7 +58,7 @@ Then report: branch name, bd id + title, and a suggested first commit subject (`
 **Pre-PR verification** — run these before pushing. If any fails, stop and fix the underlying issue; never bypass a failing pre-commit hook with `git commit --no-verify`:
 
 1. `./gradlew :app:assembleDebug` — proves the app graph still links. Cheaper than the full build and catches missing deps / Hilt graph breaks the IDE wouldn't flag.
-2. `./gradlew <changed-module>:lintDebug` for each Android Gradle module touched. Lint catches Compose-rule violations (stability, unused state, modifier order) and other correctness issues that compilation and unit tests don't. Run on the specific modules rather than the umbrella `lint` task so the loop stays fast. Modules outside the main Android build (e.g. `build-logic`, plain JVM libs) have no `lintDebug` task — skip them here, the convention plugins already gate them at compile time.
+2. `./gradlew :<changed-module>:lintDebug` for each Android Gradle module touched (e.g. `:feature:feed:impl:lintDebug`). Lint catches Compose-rule violations (stability, unused state, modifier order) and other correctness issues that compilation and unit tests don't. Run on the specific modules rather than the umbrella `lint` task so the loop stays fast. Modules outside the main Android build (e.g. `build-logic`, plain JVM libs) have no `lintDebug` task — skip them here, the convention plugins already gate them at compile time.
 3. Pre-commit hook on the commit itself already ran spotless + commitlint + secret scan — no extra step needed here. If the hook reports a failure, fix the underlying issue rather than re-running with `--no-verify`.
 
 **Execute:**
