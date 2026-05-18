@@ -1,0 +1,3 @@
+package_name("net.kikin.nubecita")
+
+json_key_file(ENV["GOOGLE_APPLICATION_CREDENTIALS"])
