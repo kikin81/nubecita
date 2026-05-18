@@ -352,8 +352,10 @@ jobs:
             echo "::warning::GitHub Release body empty or missing for v${VERSION}; falling back to placeholder."
             notes="$fallback"
           else
-            # pandoc is preinstalled on ubuntu-latest runners. `--wrap=preserve`
-            # keeps semantic-release's hand-rolled bullet structure readable.
+            # pandoc is installed by the `Install pandoc` step above —
+            # it isn't preinstalled on current `ubuntu-latest` images.
+            # `--wrap=preserve` keeps semantic-release's hand-rolled
+            # bullet structure readable.
             plain=$(printf '%s' "$raw" | pandoc -f gfm -t plain --wrap=preserve)
             # Truncate at 480 chars with a trailing ellipsis so the Fastfile's
             # defensive 500-char cap (PLAY_CHANGELOG_MAX_CHARS) never has to
