@@ -104,5 +104,58 @@ internal class FakeFeedRepository
                             repostedBy = null,
                         ),
                 )
+
+            /**
+             * Single-post timeline whose only post carries an
+             * `EmbedUi.Video`. Used by the feed → fullscreen instrumented
+             * test to exercise the autoplay-coordinator bind and the
+             * `onVideoTap → onNavigateToVideoPlayer` wiring.
+             *
+             * `playlistUrl` is a deliberately unreachable example.com
+             * stub — ExoPlayer will fail the HLS load on-device, but
+             * `PlayerSurface` still attaches and the coordinator still
+             * marks the holder bound. The tap-routing assertion the test
+             * cares about doesn't depend on successful playback.
+             */
+            fun singleVideoPostTimeline(
+                postUri: String,
+                playlistUrl: String,
+                posterUrl: String?,
+                altText: String,
+            ): TimelinePage =
+                TimelinePage(
+                    feedItems =
+                        listOf(
+                            FeedItemUi.Single(
+                                post =
+                                    PostUi(
+                                        id = postUri,
+                                        cid = "bafyreitestvideo",
+                                        author =
+                                            AuthorUi(
+                                                did = postUri.substringAfter("at://").substringBefore("/"),
+                                                handle = "video.bsky.social",
+                                                displayName = "Video Author",
+                                                avatarUrl = null,
+                                            ),
+                                        createdAt = Instant.fromEpochSeconds(1_700_000_000),
+                                        text = "Post with a video",
+                                        facets = persistentListOf(),
+                                        embed =
+                                            EmbedUi.Video(
+                                                posterUrl = posterUrl,
+                                                playlistUrl = playlistUrl,
+                                                aspectRatio = 16f / 9f,
+                                                durationSeconds = null,
+                                                altText = altText,
+                                            ),
+                                        stats = PostStatsUi(),
+                                        viewer = ViewerStateUi(),
+                                        repostedBy = null,
+                                    ),
+                            ),
+                        ).toImmutableList(),
+                    nextCursor = null,
+                )
         }
     }
