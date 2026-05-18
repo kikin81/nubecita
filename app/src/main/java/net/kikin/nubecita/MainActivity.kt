@@ -101,24 +101,17 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent) {
         val uri = intent.data ?: return
-        // Defense in depth: the manifest intent filter constrains scheme + path, but
-        // also re-validate here so a misconfigured filter (or a future second deep link
-        // sharing the scheme) can't leak unrelated URIs into the OAuth completeLogin
-        // path. Path must match the redirect_uri declared in client-metadata.json.
-        if (uri.scheme == OAUTH_REDIRECT_SCHEME && uri.path == OAUTH_REDIRECT_PATH) {
+        // Defense in depth: the manifest intent filters constrain scheme + host + path
+        // at the OS level, but re-validate here so a misconfigured filter (or a future
+        // unrelated deep link sharing a scheme or host) can't leak unrelated URIs into
+        // the OAuth completeLogin path. See [isOAuthRedirect] for the predicate and
+        // its accompanying unit tests for the exact accepted shapes.
+        if (isOAuthRedirect(scheme = uri.scheme, host = uri.host, path = uri.path)) {
             val redirectUri = uri.toString()
             lifecycleScope.launch { oauthRedirectBroker.publish(redirectUri) }
             // Consume so configuration changes (rotation, theme switch, dark-mode flip)
             // don't re-fire the redirect handler and double-invoke completeLogin.
             intent.data = null
         }
-    }
-
-    private companion object {
-        // Per AT Protocol's Discoverable Client rule, the redirect-URI scheme is the FQDN
-        // of client_id reversed (nubecita.app → app.nubecita), NOT the app's
-        // applicationId. Must match the redirect_uris in client-metadata.json verbatim.
-        const val OAUTH_REDIRECT_SCHEME = "app.nubecita"
-        const val OAUTH_REDIRECT_PATH = "/oauth-redirect"
     }
 }
