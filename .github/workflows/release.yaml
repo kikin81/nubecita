@@ -140,7 +140,13 @@ jobs:
         # `google-auth-library@^9.11` which dispatches on type natively
         # and handles `external_account` out of the box. Context in
         # nubecita-b6b6.
-        run: npm install -g firebase-tools@14
+        #
+        # Pinned to an exact patch version (vs `@14` major-pin) so
+        # release-time installs are reproducible — a bad patch on the
+        # latest 14.x line otherwise breaks the pipeline silently.
+        # Renovate will propose bumps via the npm manager once the
+        # Bundler/npm packageRules in nubecita-mcy7 land.
+        run: npm install -g firebase-tools@14.27.0
 
       - name: Authenticate to Google Cloud (WIF)
         # Federated auth: exchange this workflow's OIDC token for a
