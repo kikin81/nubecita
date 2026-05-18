@@ -1,8 +1,13 @@
 # fastlane
 
 Fastlane orchestrates Play Console uploads (and, later, store-listing changes)
-for Nubecita. This scaffold is intentionally lane-free — the `internal` lane
-lands in a follow-up issue (`nubecita-kbmd.3`).
+for Nubecita.
+
+## Lanes
+
+| Lane       | What it does                                                                                                                                                                                                                            |
+|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `internal` | Builds a signed release AAB (`./gradlew bundleRelease`) and uploads it to the Play Console **internal** track. Skips listing metadata, images, and screenshots; uploads release notes from `PLAY_RELEASE_NOTES` (placeholder if unset). |
 
 ## Prerequisites
 
@@ -16,7 +21,7 @@ honored:
 
 ```bash
 bundle exec fastlane <lane>
-bundle exec fastlane lanes        # list available lanes (currently empty)
+bundle exec fastlane lanes        # list available lanes
 ```
 
 ## Google credentials
@@ -52,3 +57,23 @@ impersonation to succeed.
 
 After both commands, `bundle exec fastlane <lane>` will authenticate against
 Play Console the same way CI does.
+
+## Release-build env vars
+
+The `internal` lane needs the same four keystore env vars `:app`'s release
+buildType already consumes (`app/build.gradle.kts` → `keystoreValue()`). The
+lane fails fast with a clear error if any are missing:
+
+| Env var             | Meaning                                                       |
+|---------------------|---------------------------------------------------------------|
+| `KEYSTORE_FILE`     | Absolute (or `~`-prefixed) path to the release keystore JKS.  |
+| `KEYSTORE_PASSWORD` | Store password.                                               |
+| `KEY_ALIAS`         | Key alias inside the keystore.                                |
+| `KEY_PASSWORD`      | Key password (usually identical to `KEYSTORE_PASSWORD`).      |
+
+Optional:
+
+- `PLAY_RELEASE_NOTES` — release notes text uploaded as the `en-US`
+  changelog. Truncated to Play Console's 500-char cap. If unset, a generic
+  placeholder is uploaded so the track release isn't created without notes
+  (real changelog plumbing lands in `nubecita-kbmd.5`).
