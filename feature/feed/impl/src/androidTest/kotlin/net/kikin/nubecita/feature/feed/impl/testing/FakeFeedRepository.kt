@@ -111,11 +111,12 @@ internal class FakeFeedRepository
              * test to exercise the autoplay-coordinator bind and the
              * `onVideoTap → onNavigateToVideoPlayer` wiring.
              *
-             * `playlistUrl` is a deliberately unreachable example.com
-             * stub — ExoPlayer will fail the HLS load on-device, but
-             * `PlayerSurface` still attaches and the coordinator still
-             * marks the holder bound. The tap-routing assertion the test
-             * cares about doesn't depend on successful playback.
+             * Tests should pass a `playlistUrl` under the RFC 6761
+             * `.invalid` TLD (e.g. `https://example.invalid/...`) so
+             * ExoPlayer's HLS load fails fast at DNS resolution and
+             * never reaches a real server. The tap-routing assertion
+             * the test cares about doesn't depend on successful
+             * playback.
              */
             fun singleVideoPostTimeline(
                 postUri: String,
