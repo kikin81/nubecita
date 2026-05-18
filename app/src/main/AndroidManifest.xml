@@ -50,16 +50,27 @@
                     android:pathPrefix="/oauth-redirect" />
             </intent-filter>
             <!--
-                OAuth redirect — Bluesky's authorization server sends the user back via
-                app.nubecita:/oauth-redirect after PAR. android:launchMode="singleTask"
-                ensures the redirect re-delivers to this MainActivity instance via
-                onNewIntent rather than spawning a new task; MainActivity.handleIntent
-                forwards the URI to OAuthRedirectBroker for LoginViewModel to consume.
+                Legacy OAuth redirect — Bluesky's authorization server sends the user
+                back via app.nubecita:/oauth-redirect after PAR.
+                android:launchMode="singleTask" ensures the redirect re-delivers to
+                this MainActivity instance via onNewIntent rather than spawning a new
+                task; MainActivity.handleIntent forwards the URI to OAuthRedirectBroker
+                for LoginViewModel to consume.
 
                 Scheme MUST be the FQDN of client_id reversed, per AT Protocol's
                 Discoverable Client rule (nubecita.app → app.nubecita). It does
                 NOT match the app's applicationId (net.kikin.nubecita). The auth server
                 rejects mismatches with HTTP 400 invalid_redirect_uri.
+
+                KEPT ALONGSIDE the HTTPS App Link filter above during the migration to
+                a verified Android App Link. The hosted client-metadata.json drives
+                which redirect_uri the authorization server picks at PAR time; until
+                that file is migrated to the HTTPS value AND the change has soaked long
+                enough for the long tail of installs to update, this is still the
+                canonical callback target. Removing it prematurely breaks OAuth for
+                every install whose cached metadata still names the custom scheme.
+                Removal is a separately tracked, post-rollout chore — do NOT delete
+                without confirming production install distribution.
             -->
             <!--
                 AppLinkUrlError suppressed: lint expects an android:host whenever
