@@ -216,26 +216,27 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload debug APK to Firebase App Distribution
-        # FIREBASE_APP_ID is sourced from `app/google-services.json`
-        # (`mobilesdk_app_id` field, scoped to the
-        # `net.kikin.nubecita` package) so the workflow stays in sync
-        # if google-services.json is ever regenerated. The file is
-        # checked in — the app ID isn't a secret (package + SHA-1
-        # scoped per Firebase's threat model).
+        # FIREBASE_APP_ID lives as an environment variable on the
+        # `release` environment (repo Settings → Environments →
+        # release → Environment variables), scoped to runs that pass
+        # the environment's deployment-branch policy. The app ID
+        # isn't a secret (Firebase's package + SHA-1 threat model
+        # already gates installs), but env-var-scoping keeps it
+        # co-located with the WIF binding the same job consumes.
+        env:
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"
         run: |
           set -euo pipefail
-          APP_ID=$(jq -r '.client[] | select(.client_info.android_client_info.package_name == "net.kikin.nubecita") | .client_info.mobilesdk_app_id' app/google-services.json)
-          if [[ -z "$APP_ID" || "$APP_ID" == "null" ]]; then
-            echo "::error::Failed to extract Firebase app id from app/google-services.json"
+          if [[ -z "$FIREBASE_APP_ID" ]]; then
+            echo "::error::FIREBASE_APP_ID env var is empty — check the 'release' environment is provisioned with this variable"
             exit 1
           fi
           firebase appdistribution:distribute \
             app/build/outputs/apk/debug/app-debug.apk \
-            --app "$APP_ID" \
+            --app "$FIREBASE_APP_ID" \
             --groups internal-testers \
             --release-notes "$RELEASE_NOTES"
-        env:
-          RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"
 
   playstore:
     name: Upload Signed AAB to Play Console (internal track)
