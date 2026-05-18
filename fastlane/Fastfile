@@ -1,4 +1,62 @@
+require "fileutils"
+require "tmpdir"
+
+# fastlane regenerates fastlane/README.md on every run by default, which
+# clobbers the hand-written invocation / auth / env-var docs we maintain
+# there. skip_docs disables that so the README stays human-authored.
+skip_docs
+
 default_platform(:android)
 
+# Env vars consumed by app/build.gradle.kts's keystoreValue() helper.
+# Surface a clear error before any upload attempt if any are missing —
+# without this, gradle silently signs nothing and supply uploads an
+# unsigned AAB that Play Console rejects deep in the request lifecycle
+# with a confusing "Upload failed" message.
+REQUIRED_KEYSTORE_ENV = %w[KEYSTORE_FILE KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD].freeze
+
+# Play Console caps changelog at 500 chars per locale. We truncate
+# defensively so a long placeholder / unbounded env var doesn't fail
+# the upload mid-request with a hard-to-debug "field too long" error.
+PLAY_CHANGELOG_MAX_CHARS = 500
+
 platform :android do
+  desc "Build a signed release AAB and upload it to the Play Console internal track."
+  lane :internal do
+    missing = REQUIRED_KEYSTORE_ENV.reject { |k| ENV[k] && !ENV[k].empty? }
+    unless missing.empty?
+      UI.user_error!(
+        "Missing required keystore env vars: #{missing.join(', ')}. " \
+          "See fastlane/README.md for the local-dev setup."
+      )
+    end
+
+    gradle(task: "bundleRelease")
+
+    release_notes = ENV["PLAY_RELEASE_NOTES"]
+    release_notes = "Internal build — wire PLAY_RELEASE_NOTES for human-readable notes." if release_notes.nil? || release_notes.empty?
+
+    # supply reads changelogs from <metadata_path>/android/<locale>/changelogs/default.txt.
+    # We synthesize a single en-US changelog in a per-run tmpdir so the
+    # only field that leaves this lane is the release note — listing
+    # metadata, images, and screenshots are all skip_upload_*'d below.
+    Dir.mktmpdir("nubecita-fastlane-metadata") do |metadata_path|
+      changelog_dir = File.join(metadata_path, "android", "en-US", "changelogs")
+      FileUtils.mkdir_p(changelog_dir)
+      File.write(
+        File.join(changelog_dir, "default.txt"),
+        release_notes.to_s[0, PLAY_CHANGELOG_MAX_CHARS]
+      )
+
+      upload_to_play_store(
+        track: "internal",
+        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
+        metadata_path: metadata_path,
+        skip_upload_apk: true,
+        skip_upload_metadata: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: true,
+      )
+    end
+  end
 end
