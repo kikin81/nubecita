@@ -1,5 +1,4 @@
 require "fileutils"
-require "json"
 require "tmpdir"
 
 # fastlane regenerates fastlane/README.md on every run by default, which
@@ -30,27 +29,6 @@ platform :android do
         "Missing required keystore env vars: #{missing.join(', ')}. " \
           "See fastlane/README.md for the local-dev setup."
       )
-    end
-
-    # supply auto-maps GOOGLE_APPLICATION_CREDENTIALS to `json_key_file`,
-    # which only accepts `service_account` JSON. Strip the env var when it
-    # points at any other type (e.g. CI WIF's `external_account`) so supply
-    # takes its ADC fallback instead. See fastlane/README.md.
-    creds_path = ENV["GOOGLE_APPLICATION_CREDENTIALS"]
-    if creds_path && !creds_path.empty?
-      expanded = File.expand_path(creds_path)
-      cred_type =
-        if File.exist?(expanded)
-          begin
-            JSON.parse(File.read(expanded))["type"]
-          rescue JSON::ParserError
-            nil
-          end
-        end
-      if cred_type && cred_type != "service_account"
-        UI.important("Detected #{cred_type} credentials; unsetting GOOGLE_APPLICATION_CREDENTIALS to route through ADC.")
-        ENV.delete("GOOGLE_APPLICATION_CREDENTIALS")
-      end
     end
 
     gradle(task: "bundleRelease")

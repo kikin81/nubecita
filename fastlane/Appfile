@@ -1,8 +1,7 @@
 package_name("net.kikin.nubecita")
 
-# Intentionally no `json_key_file`. Supply auto-reads
-# `GOOGLE_APPLICATION_CREDENTIALS` into that param, but the explicit
-# `json_key_file` path only accepts `service_account` JSON. WIF
-# (`external_account`) creds have to route through supply's ADC fallback,
-# which the Fastfile pre-flight prepares by stripping the env var when it
-# points at a non-SA type. See fastlane/README.md.
+# Intentionally no `json_key_file` here. With `:json_key` unset, supply
+# falls through to `Google::Auth.get_application_default`, which reads
+# `GOOGLE_APPLICATION_CREDENTIALS` (or the gcloud well-known path) and
+# handles `service_account`, `authorized_user`, and `external_account`
+# (WIF) JSONs via the bundled `googleauth` gem. See fastlane/README.md.

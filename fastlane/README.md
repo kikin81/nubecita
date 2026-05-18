@@ -26,29 +26,28 @@ bundle exec fastlane lanes        # list available lanes
 
 ## Google credentials
 
-Auth flows through Google's Application Default Credentials (ADC) and the
-gcloud well-known path. **Do not set `GOOGLE_APPLICATION_CREDENTIALS`** —
-fastlane's `upload_to_play_store` auto-maps that env var to its
-`json_key_file` parameter, which only accepts `service_account`-type JSON.
-WIF (`external_account`) and local impersonation
-(`impersonated_service_account`) JSONs both fail there with
-"Invalid Google Credentials file provided - no credential type found."
+Auth flows through Google's Application Default Credentials (ADC). The
+Appfile leaves supply's `:json_key` unset, so supply falls through to
+`Google::Auth.get_application_default`, which reads
+`GOOGLE_APPLICATION_CREDENTIALS` (or, if unset, the gcloud well-known path
+at `~/.config/gcloud/application_default_credentials.json`). The bundled
+`googleauth` (1.11.2) dispatches on the credentials file's `type`:
 
-The lane defensively `ENV.delete`s `GOOGLE_APPLICATION_CREDENTIALS` if it
-notices the file isn't a `service_account` JSON; the recipes below avoid
-setting it in the first place.
+| Type                            | Handled? | Source                                                                 |
+|---------------------------------|----------|------------------------------------------------------------------------|
+| `service_account`               | ✅       | Static SA key (`gcloud iam service-accounts keys create`).             |
+| `authorized_user`               | ✅       | Plain `gcloud auth application-default login` (no impersonation).      |
+| `external_account`              | ✅       | WIF — `google-github-actions/auth@v2` in CI; local cred-config.        |
+| `impersonated_service_account`  | ❌       | `gcloud auth application-default login --impersonate-service-account`. |
+
+Anything in the ❌ row raises `credentials type '...' is not supported`
+inside ADC and falls through to supply's interactive `json_key` prompt.
 
 ### Local
 
-> **Status:** local smoke testing of `bundle exec fastlane internal` is
-> currently **not supported** out of the box. The bundled `googleauth`
-> (1.11.2) doesn't recognize the `impersonated_service_account`
-> credential type that `gcloud auth application-default login
-> --impersonate-service-account=...` writes, and supply falls through to
-> an interactive `json_key_file` prompt that no impersonation flow can
-> satisfy. CI (which uses an `external_account` WIF JSON) is unaffected.
-
-If you need to run the lane locally, pick one of these workarounds:
+`gcloud auth application-default login --impersonate-service-account=<wif-sa>`
+is the natural local-dev recipe but it writes `impersonated_service_account`,
+which `googleauth` 1.11.2 can't load. Pick whichever workaround fits:
 
 1. **Local WIF cred-config** (no SA key, recommended for WIF parity):
    ```bash
@@ -58,8 +57,9 @@ If you need to run the lane locally, pick one of these workarounds:
      --output-file=$HOME/.config/gcloud/wif-credentials.json \
      --credential-source-file=<path-to-your-oidc-token>
    export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/wif-credentials.json
+   bundle exec fastlane internal
    ```
-   Produces an `external_account` JSON that googleauth handles natively.
+   Produces an `external_account` JSON, which the table above handles.
 
 2. **Temporary SA key** (defeats WIF locally; smallest change):
    ```bash
@@ -79,11 +79,10 @@ If you need to run the lane locally, pick one of these workarounds:
 
 CI auth runs through Workload Identity Federation. The
 `google-github-actions/auth@v2` action writes a short-lived
-`external_account` credentials file to a temp path and exports
-`GOOGLE_APPLICATION_CREDENTIALS`. The lane preflight detects the non-SA
-type and unsets the env var; **kbmd.4** is responsible for copying the
-temp file to the gcloud well-known path on the runner before invoking the
-lane so ADC can still find it.
+`external_account` credentials file and exports
+`GOOGLE_APPLICATION_CREDENTIALS`; ADC reads it on the next call and
+`googleauth` handles `external_account` natively. See the `release`
+workflow's `playstore` job (added in `nubecita-kbmd.4`).
 
 ## Release-build env vars
 
