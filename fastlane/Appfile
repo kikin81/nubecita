@@ -1,17 +1,8 @@
 package_name("net.kikin.nubecita")
 
-# Intentionally NOT setting `json_key_file` here.
-#
-# fastlane's `supply` action requires a `service_account`-type JSON when
-# `json_key_file` is set — it does NOT recognize WIF (`external_account`,
-# from `google-github-actions/auth@v2`) or local impersonation
-# (`impersonated_service_account`, from
-# `gcloud auth application-default login --impersonate-service-account=...`)
-# credential JSONs, and fails with
-# "Invalid Google Credentials file provided - no credential type found."
-#
-# Leaving `json_key_file` unset routes supply through
-# `Google::Auth.get_application_default`, which handles every credential
-# type the gcloud + workload-identity toolchain produces and reads
-# `GOOGLE_APPLICATION_CREDENTIALS` automatically. See fastlane/README.md
-# for the local + CI auth flows.
+# Intentionally no `json_key_file`. Supply auto-reads
+# `GOOGLE_APPLICATION_CREDENTIALS` into that param, but the explicit
+# `json_key_file` path only accepts `service_account` JSON. WIF
+# (`external_account`) creds have to route through supply's ADC fallback,
+# which the Fastfile pre-flight prepares by stripping the env var when it
+# points at a non-SA type. See fastlane/README.md.

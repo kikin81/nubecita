@@ -32,16 +32,10 @@ platform :android do
       )
     end
 
-    # `upload_to_play_store` auto-maps GOOGLE_APPLICATION_CREDENTIALS to its
-    # `json_key_file` param (it's in supply's `env_names`). That code path
-    # only handles `service_account`-type JSONs and blows up with
-    #   "Invalid Google Credentials file provided - no credential type found."
-    # on WIF (`external_account`) or local impersonation
-    # (`impersonated_service_account`) creds. If we detect a non-SA JSON,
-    # unset the env var so supply falls through to
-    # `Google::Auth.get_application_default`, which reads the gcloud
-    # well-known path (~/.config/gcloud/application_default_credentials.json)
-    # and handles every credential type.
+    # supply auto-maps GOOGLE_APPLICATION_CREDENTIALS to `json_key_file`,
+    # which only accepts `service_account` JSON. Strip the env var when it
+    # points at any other type (e.g. CI WIF's `external_account`) so supply
+    # takes its ADC fallback instead. See fastlane/README.md.
     creds_path = ENV["GOOGLE_APPLICATION_CREDENTIALS"]
     if creds_path && !creds_path.empty?
       expanded = File.expand_path(creds_path)
@@ -54,11 +48,7 @@ platform :android do
           end
         end
       if cred_type && cred_type != "service_account"
-        UI.important(
-          "Detected #{cred_type} credentials at #{expanded}; unsetting " \
-            "GOOGLE_APPLICATION_CREDENTIALS so supply falls back to ADC " \
-            "(reads ~/.config/gcloud/application_default_credentials.json)."
-        )
+        UI.important("Detected #{cred_type} credentials; unsetting GOOGLE_APPLICATION_CREDENTIALS to route through ADC.")
         ENV.delete("GOOGLE_APPLICATION_CREDENTIALS")
       end
     end
