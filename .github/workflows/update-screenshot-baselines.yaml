@@ -21,9 +21,18 @@ permissions:
 jobs:
   update:
     name: Regenerate baselines
+    # Fork-PR guard: the `pull_request` trigger fires for forks too, and
+    # this job runs Gradle code from the PR head. On a fork PR that
+    # would let a malicious contributor's code execute on our runner
+    # (read-only token still allows exfil of anything we put into the
+    # job's environment in the future). Restrict the PR path to
+    # same-repo branches; the `workflow_dispatch` path stays open for
+    # manual reruns on any branch in this repo.
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.label.name == 'update-baselines')
+      (github.event_name == 'pull_request' &&
+       github.event.label.name == 'update-baselines' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - name: Resolve target ref
