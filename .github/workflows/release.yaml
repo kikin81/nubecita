@@ -22,11 +22,30 @@ jobs:
       new-release-published: ${{ steps.release.outputs.new-release-published }}
       new-release-version: ${{ steps.release.outputs.new-release-version }}
     steps:
+      - name: Generate bot App token
+        # Authenticate the semantic-release push as the dedicated bot
+        # App (provisioned per the main-branch-hardening spec) instead
+        # of the built-in `GITHUB_TOKEN`. Once the repo ruleset gains a
+        # "require pull requests" rule, the App's installation token is
+        # the identity we add to `bypass_actors` — keeping `GITHUB_TOKEN`
+        # out of the bypass list so no other workflow inherits direct
+        # push rights to `main`.
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          persist-credentials: false
+          # `persist-credentials: false` would strip the actions/checkout
+          # token from the git remote config, which semantic-release's
+          # internal `git push` falls back to when no explicit token is
+          # configured. Persist the App token so the push of the
+          # version-bump commit authenticates as the bot App.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -44,7 +63,7 @@ jobs:
         id: release
         uses: open-turo/actions-jvm/release@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token }}
 
   distribute:
     name: Distribute Debug APK
