@@ -31,6 +31,7 @@ import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import kotlin.time.Instant
+import io.github.kikin81.atproto.app.bsky.actor.ViewerState as ActorViewerState
 
 /**
  * `Json` instance used to decode the embedded `post.record: JsonObject`
@@ -87,7 +88,7 @@ fun PostView.toPostUiCore(): PostUi? {
                 likeCount = (likeCount ?: 0L).toInt(),
                 quoteCount = (quoteCount ?: 0L).toInt(),
             ),
-        viewer = viewer.toViewerStateUi(isFollowingAuthor = author.viewer?.following != null),
+        viewer = viewer.toViewerStateUi(authorViewer = author.viewer),
         repostedBy = null,
     )
 }
@@ -141,13 +142,31 @@ fun ProfileViewBasic.toAuthorUi(): AuthorUi =
         avatarUrl = avatar?.raw,
     )
 
-fun ViewerState?.toViewerStateUi(isFollowingAuthor: Boolean = false): ViewerStateUi =
+/**
+ * Projects the post-level [ViewerState] (like / repost record URIs) into
+ * the UI-layer [ViewerStateUi], folding in the author-side moderation
+ * flags from the post's `author.viewer` ([app.bsky.actor.defs#viewerState]).
+ *
+ * Moderation lives on the **actor** viewer state, not the post viewer:
+ * `muted` / `blocking` / `blockedBy` are properties of the viewer-actor
+ * relationship, independent of any single post. We surface them through
+ * `ViewerStateUi` so downstream `PostCard` consumers can read them off
+ * the same field they already read like / repost from.
+ *
+ * Callers that don't have an author viewer (synthetic test fixtures,
+ * pure-post contexts) pass `authorViewer = null` and get the all-defaults
+ * baseline (`false` for the three flags, follow-relationship `false`).
+ */
+fun ViewerState?.toViewerStateUi(authorViewer: ActorViewerState? = null): ViewerStateUi =
     ViewerStateUi(
         isLikedByViewer = this?.like != null,
         isRepostedByViewer = this?.repost != null,
-        isFollowingAuthor = isFollowingAuthor,
+        isFollowingAuthor = authorViewer?.following != null,
         likeUri = this?.like?.raw,
         repostUri = this?.repost?.raw,
+        isAuthorMutedByViewer = authorViewer?.muted == true,
+        isAuthorBlockedByViewer = authorViewer?.blocking != null,
+        isAuthorBlockingViewer = authorViewer?.blockedBy == true,
     )
 
 /**
