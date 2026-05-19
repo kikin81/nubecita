@@ -121,11 +121,101 @@ internal class RelativeTimeTest {
                 minutes = { "hace $it min" },
                 hours = { "hace $it h" },
                 days = { "hace $it d" },
+                yesterday = "ayer",
             )
         assertEquals("ahora", formatRelativeTime(now, now, spanish, utc, locale))
         assertEquals("ahora", formatRelativeTime(now, now - 30.seconds, spanish, utc, locale))
         assertEquals("hace 5 min", formatRelativeTime(now, now - 5.minutes, spanish, utc, locale))
         assertEquals("hace 3 h", formatRelativeTime(now, now - 3.hours, spanish, utc, locale))
         assertEquals("hace 5 d", formatRelativeTime(now, now - 5.days, spanish, utc, locale))
+    }
+
+    // --- formatChatRelativeTime --------------------------------------------------
+    // The chat formatter uses calendar-aware buckets (Yesterday, weekday names)
+    // distinct from the Twitter-style compact form above. Calendar comparisons
+    // pin to `utc` for these tests so day-flip behavior is deterministic.
+
+    private fun chat(then: Instant): String = formatChatRelativeTime(now, then, strings, utc, locale)
+
+    @Test
+    fun `chat - sub-minute is now`() {
+        assertEquals("now", chat(now - 30.seconds))
+    }
+
+    @Test
+    fun `chat - 5 minutes ago is 5m`() {
+        assertEquals("5m", chat(now - 5.minutes))
+    }
+
+    @Test
+    fun `chat - 59 minutes ago is 59m`() {
+        assertEquals("59m", chat(now - 59.minutes))
+    }
+
+    @Test
+    fun `chat - same calendar day shows Nh`() {
+        // now is 2026-04-25T12:00:00Z; 3h earlier is still 2026-04-25.
+        assertEquals("3h", chat(now - 3.hours))
+    }
+
+    @Test
+    fun `chat - 11 hours ago on the same calendar day shows 11h`() {
+        // 2026-04-25T01:00:00Z is still the same calendar day in UTC.
+        assertEquals("11h", chat(now - 11.hours))
+    }
+
+    @Test
+    fun `chat - 13 hours ago crosses into previous day and shows Yesterday`() {
+        // 2026-04-25T12:00 - 13h = 2026-04-24T23:00 — previous calendar day.
+        assertEquals("Yesterday", chat(now - 13.hours))
+    }
+
+    @Test
+    fun `chat - 28 hours ago shows Yesterday`() {
+        // Unambiguously the prior calendar day.
+        assertEquals("Yesterday", chat(now - 28.hours))
+    }
+
+    @Test
+    fun `chat - 2 days ago shows weekday`() {
+        // 2026-04-25 is a Saturday; 2026-04-23 is a Thursday.
+        assertEquals("Thu", chat(now - 2.days))
+    }
+
+    @Test
+    fun `chat - 6 days ago shows weekday`() {
+        // 2026-04-25 - 6 days = 2026-04-19 (Sunday).
+        assertEquals("Sun", chat(now - 6.days))
+    }
+
+    @Test
+    fun `chat - 7 days ago crosses into absolute date (same year)`() {
+        // 2026-04-25 - 7 days = 2026-04-18.
+        assertEquals("Apr 18", chat(now - 7.days))
+    }
+
+    @Test
+    fun `chat - 30 days ago shows absolute date in same year`() {
+        // 2026-04-25 - 30 days = 2026-03-26.
+        assertEquals("Mar 26", chat(now - 30.days))
+    }
+
+    @Test
+    fun `chat - prior year crosses to MMM d, yyyy`() {
+        // 2026-04-25 - 200 days = 2025-10-07.
+        assertEquals("Oct 7, 2025", chat(now - 200.days))
+    }
+
+    @Test
+    fun `chat - future timestamp clamps to now`() {
+        assertEquals("now", chat(now + 5.minutes))
+    }
+
+    @Test
+    fun `chat - weekday is locale-aware`() {
+        // 2026-04-23 (Thursday) in French is "jeu." — the exact suffix is
+        // JDK-dependent; assert the prefix is stable across JDK releases.
+        val french = formatChatRelativeTime(now, now - 2.days, strings, utc, Locale.FRENCH)
+        assertTrue(french.startsWith("jeu", ignoreCase = true))
     }
 }

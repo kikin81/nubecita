@@ -13,4 +13,10 @@
         <item quantity="one">%dd</item>
         <item quantity="other">%dd</item>
     </plurals>
+    <!--
+        Used by formatChatRelativeTime for the "previous calendar day" bucket
+        in the Chats convo list. Twitter-style compact form (formatRelativeTime)
+        does not read this — it stays on Nd plurals through 6 days.
+    -->
+    <string name="relative_time_yesterday">Yesterday</string>
 </resources>

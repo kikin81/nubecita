@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import java.io.IOException
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class ChatsViewModelTest {
@@ -166,6 +167,6 @@ internal class ChatsViewModelTest {
             lastMessageSnippet = "hello",
             lastMessageFromViewer = false,
             lastMessageIsAttachment = false,
-            timestampRelative = "10m",
+            sentAt = Instant.parse("2026-05-13T11:50:00Z"),
         )
 }

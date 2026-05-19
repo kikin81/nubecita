@@ -5,10 +5,6 @@ import io.github.kikin81.atproto.chat.bsky.convo.ConvoViewLastMessageUnion
 import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.time.Instant
 
 /**
@@ -33,16 +29,16 @@ internal const val DELETED_MESSAGE_SNIPPET: String = "__deleted__"
  * types. Everything downstream sees [ConvoListItemUi] with primitive
  * fields.
  *
+ * The raw `sentAt: Instant?` is propagated unchanged; relative-time
+ * rendering happens in the UI layer via `rememberChatRelativeTimeText`
+ * so labels stay localized and tick live as time passes. See
+ * nubecita-nn3.3.
+ *
  * @param viewerDid The current authenticated user's DID, used to pick
  *   the "other member" out of the convo's members list and to determine
  *   whether the last message was sent by the viewer.
- * @param now The current time, injected so tests can assert relative-
- *   timestamp rendering deterministically.
  */
-internal fun ConvoView.toConvoListItemUi(
-    viewerDid: String,
-    now: Instant,
-): ConvoListItemUi {
+internal fun ConvoView.toConvoListItemUi(viewerDid: String): ConvoListItemUi {
     val other =
         members.firstOrNull { it.did.raw != viewerDid }
             ?: members.firstOrNull()
@@ -57,7 +53,7 @@ internal fun ConvoView.toConvoListItemUi(
         lastMessageSnippet = lastMessage?.snippet(),
         lastMessageFromViewer = lastMessage?.senderDid() == viewerDid,
         lastMessageIsAttachment = lastMessage.isAttachmentOnly(),
-        timestampRelative = lastMessage?.sentAt()?.let { sent -> relativeTimestamp(sent, now) } ?: "",
+        sentAt = lastMessage?.sentAt(),
     )
 }
 
@@ -112,47 +108,3 @@ private fun ConvoViewLastMessageUnion.sentAt(): Instant? =
         is DeletedMessageView -> Instant.parse(sentAt.raw)
         else -> null
     }
-
-/**
- * Renders a wire timestamp into the row's relative-time label:
- *
- * - `< 1 min ago` → `"now"`
- * - `< 1 hour ago` → `"{N}m"`
- * - same calendar day → `"{N}h"`
- * - previous calendar day → `"Yesterday"`
- * - within the last 7 days → short weekday name (e.g. `"Sun"`)
- * - older → `"MMM d"` (e.g. `"Apr 25"`)
- *
- * Calendar comparisons use the system default zone — locally relative,
- * not UTC-relative.
- */
-private fun relativeTimestamp(
-    sent: Instant,
-    now: Instant,
-): String {
-    val deltaMin = (now - sent).inWholeMinutes
-    if (deltaMin < 1) return "now"
-    if (deltaMin < 60) return "${deltaMin}m"
-
-    val zone = ZoneId.systemDefault()
-    val sentZoned = ZonedDateTime.ofInstant(java.time.Instant.parse(sent.toString()), zone)
-    val nowZoned = ZonedDateTime.ofInstant(java.time.Instant.parse(now.toString()), zone)
-    val sentDate = sentZoned.toLocalDate()
-    val nowDate = nowZoned.toLocalDate()
-
-    if (sentDate == nowDate) {
-        val deltaHr = (now - sent).inWholeHours
-        return "${deltaHr}h"
-    }
-    if (sentDate == nowDate.minusDays(1)) return "Yesterday"
-    if (sentDate.isAfter(nowDate.minusDays(7))) {
-        return sentZoned.format(WEEKDAY_FORMATTER)
-    }
-    return sentZoned.format(MONTH_DAY_FORMATTER)
-}
-
-private val WEEKDAY_FORMATTER: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
-
-private val MONTH_DAY_FORMATTER: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())

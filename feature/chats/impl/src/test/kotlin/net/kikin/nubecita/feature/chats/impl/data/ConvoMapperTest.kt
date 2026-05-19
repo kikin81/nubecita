@@ -27,7 +27,7 @@ internal class ConvoMapperTest {
                     ),
             )
 
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
 
         assertEquals("did:plc:alice", ui.otherUserDid)
         assertEquals("alice.bsky.social", ui.otherUserHandle)
@@ -37,21 +37,21 @@ internal class ConvoMapperTest {
     @Test
     fun `null displayName falls back to null and the row will display the handle upstream`() {
         val view = sampleConvoView(otherDisplayName = null)
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
         assertNull(ui.displayName)
     }
 
     @Test
     fun `blank displayName treated as null`() {
         val view = sampleConvoView(otherDisplayName = "   ")
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
         assertNull(ui.displayName)
     }
 
     @Test
     fun `text MessageView populates the snippet and is not marked as attachment`() {
         val view = sampleConvoView(lastMessage = sampleMessage(text = "hey there", senderDid = "did:plc:alice"))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
 
         assertEquals("hey there", ui.lastMessageSnippet)
         assertFalse(ui.lastMessageFromViewer)
@@ -61,14 +61,14 @@ internal class ConvoMapperTest {
     @Test
     fun `sender == viewer flips lastMessageFromViewer to true`() {
         val view = sampleConvoView(lastMessage = sampleMessage(text = "ok", senderDid = VIEWER_DID))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
         assertTrue(ui.lastMessageFromViewer)
     }
 
     @Test
     fun `DeletedMessageView yields a 'Message deleted' snippet and isAttachment false`() {
         val view = sampleConvoView(lastMessage = sampleDeleted(senderDid = "did:plc:alice"))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
 
         // Sentinel value the UI layer interprets via the chats_row_deleted_placeholder string resource.
         assertEquals("__deleted__", ui.lastMessageSnippet)
@@ -78,53 +78,45 @@ internal class ConvoMapperTest {
     @Test
     fun `null lastMessage yields null snippet`() {
         val view = sampleConvoView(lastMessage = null)
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
         assertNull(ui.lastMessageSnippet)
     }
 
     @Test
     fun `avatarHue is deterministic per (did, handle)`() {
-        val a = sampleConvoView(otherDid = "did:plc:alice", otherHandle = "alice.bsky.social").toConvoListItemUi(VIEWER_DID, NOW)
-        val b = sampleConvoView(otherDid = "did:plc:alice", otherHandle = "alice.bsky.social").toConvoListItemUi(VIEWER_DID, NOW)
+        val a = sampleConvoView(otherDid = "did:plc:alice", otherHandle = "alice.bsky.social").toConvoListItemUi(VIEWER_DID)
+        val b = sampleConvoView(otherDid = "did:plc:alice", otherHandle = "alice.bsky.social").toConvoListItemUi(VIEWER_DID)
         assertEquals(a.avatarHue, b.avatarHue)
         assertTrue(a.avatarHue in 0..359, "hue ${a.avatarHue} MUST be in [0, 359]")
     }
 
     @Test
-    fun `messages sent in the last hour render relative minutes`() {
-        val tenMinAgo = NOW.minus(kotlin.time.Duration.parse("10m"))
-        val view = sampleConvoView(lastMessage = sampleMessage(text = "ok", senderDid = "did:plc:alice", sentAt = tenMinAgo))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
-        assertEquals("10m", ui.timestampRelative)
+    fun `MessageView sentAt is propagated as a raw Instant`() {
+        val sent = Instant.parse("2026-05-13T11:50:00Z")
+        val view = sampleConvoView(lastMessage = sampleMessage(text = "ok", senderDid = "did:plc:alice", sentAt = sent))
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        // Raw Instant: relative-time rendering lives in the UI layer via
+        // rememberChatRelativeTimeText. Mapper just propagates the wire value.
+        assertEquals(sent, ui.sentAt)
     }
 
     @Test
-    fun `messages from earlier today render relative hours`() {
-        val threeHoursAgo = NOW.minus(kotlin.time.Duration.parse("3h"))
-        val view = sampleConvoView(lastMessage = sampleMessage(text = "ok", senderDid = "did:plc:alice", sentAt = threeHoursAgo))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
-        assertEquals("3h", ui.timestampRelative)
+    fun `DeletedMessageView sentAt is propagated`() {
+        val view = sampleConvoView(lastMessage = sampleDeleted(senderDid = "did:plc:alice"))
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        // sampleDeleted hardcodes sentAt = 2026-05-13T17:50:00Z (see helper below).
+        assertEquals(Instant.parse("2026-05-13T17:50:00Z"), ui.sentAt)
     }
 
     @Test
-    fun `messages from yesterday render 'Yesterday'`() {
-        // 28 hours ago — guaranteed yesterday in any locale where the previous calendar day exists.
-        val yesterday = NOW.minus(kotlin.time.Duration.parse("28h"))
-        val view = sampleConvoView(lastMessage = sampleMessage(text = "ok", senderDid = "did:plc:alice", sentAt = yesterday))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
-        assertEquals("Yesterday", ui.timestampRelative)
-    }
-
-    @Test
-    fun `null lastMessage yields empty timestamp`() {
+    fun `null lastMessage yields null sentAt`() {
         val view = sampleConvoView(lastMessage = null)
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID, now = NOW)
-        assertEquals("", ui.timestampRelative)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        assertNull(ui.sentAt)
     }
 
     private companion object {
         const val VIEWER_DID = "did:plc:viewer123"
-        val NOW: Instant = Instant.parse("2026-05-13T12:00:00Z")
     }
 
     private fun sampleConvoView(

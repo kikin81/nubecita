@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import kotlin.time.Instant
 
 /**
  * MVI state for the Chats tab home.
@@ -64,6 +65,13 @@ sealed interface ChatsError {
  * "You: " prefix. `lastMessageIsAttachment = true` causes the snippet to
  * render in italic (matches GChat's "Sent an image"); the italic style
  * is composed in the UI layer, not encoded in the snippet string.
+ *
+ * `sentAt` is the wire timestamp of the last message (null when the convo
+ * has no messages yet). The row composable runs it through
+ * `rememberChatRelativeTimeText` so the rendered label is localized via
+ * `LocalConfiguration` resources and ticks live as time passes. Keeping
+ * the raw `Instant` here (instead of a pre-formatted string baked at
+ * fetch time) is what makes both behaviors work — see nubecita-nn3.3.
  */
 @Immutable
 data class ConvoListItemUi(
@@ -76,7 +84,7 @@ data class ConvoListItemUi(
     val lastMessageSnippet: String?,
     val lastMessageFromViewer: Boolean,
     val lastMessageIsAttachment: Boolean,
-    val timestampRelative: String,
+    val sentAt: Instant?,
 )
 
 sealed interface ChatsEvent : UiEvent {
