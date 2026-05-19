@@ -47,8 +47,12 @@ internal data class ReportDialogState(
  *
  * Back transitions are monotonic the opposite direction, clearing the
  * field set during the abandoned step (see [ReportDialogEvent.OnBackPressed]).
+ *
+ * Not a [UiState] — that marker is reserved for the top-level screen
+ * state ([ReportDialogState]). This is a sub-state sum carried inside
+ * that screen state.
  */
-internal sealed interface ReportDialogStep : UiState {
+internal sealed interface ReportDialogStep {
     @Immutable data object Subject : ReportDialogStep
 
     @Immutable data object Category : ReportDialogStep

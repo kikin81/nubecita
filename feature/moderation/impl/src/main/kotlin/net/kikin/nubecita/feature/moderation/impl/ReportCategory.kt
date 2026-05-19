@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.moderation.impl
 
+import androidx.compose.runtime.Immutable
+
 /**
  * The 9 top-level cards shown in the Report dialog's Category step.
  *
@@ -16,7 +18,15 @@ package net.kikin.nubecita.feature.moderation.impl
  * - [Other] is the granular catch-all (`reasonOther`). Selecting it
  *   forces the Details textarea (it appears in
  *   `ReportReasons.OTHER_REPORT_REASONS`).
+ *
+ * `@Immutable` is a Compose stability promise: every variant is a
+ * `data object` whose `reasons` list is constructed once at class-init
+ * and never mutated. The annotation lets Compose's skipping inference
+ * treat `ReportCategory` parameters as stable across recompositions —
+ * without it, the `List<String>` field would taint the inferred
+ * stability of the whole sealed hierarchy.
  */
+@Immutable
 sealed interface ReportCategory {
     val reasons: List<String>
 

@@ -38,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.moderation.api.ReportSubject
@@ -162,7 +164,11 @@ internal fun ReportDialogContent(
     }
 }
 
-@Composable
+// Pure function — not `@Composable`. Avoids the implicit `Composer`
+// parameter every recomposition would otherwise pay just to look up
+// a string-resource id. The caller (`ReportDialogContent`) reads
+// `state.step` / `state.submission` directly; this helper is a closed
+// `when` over those two axes.
 private fun headerTitleResForStep(state: ReportDialogState): Int =
     when (state.submission) {
         is SubmissionStatus.Success -> R.string.report_dialog_title_success
@@ -340,7 +346,13 @@ private fun CategoryStep(onCategoryClick: (ReportCategory) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(vertical = 4.dp),
     ) {
-        items(CATEGORY_ORDER) { category ->
+        items(
+            items = CATEGORY_ORDER,
+            // The fully-qualified class name of each `data object` variant
+            // is the stable, unique key — guards against positional re-
+            // keying if CATEGORY_ORDER is ever re-ordered in a future PR.
+            key = { it::class.qualifiedName ?: it.toString() },
+        ) { category ->
             CategoryRow(
                 category = category,
                 onClick = { onCategoryClick(category) },
@@ -401,7 +413,10 @@ private fun SubReasonStep(
                 .testTag(ReportDialogTestTags.SUBREASON_STEP),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(reasons) { token ->
+        // Token strings are unique per reason — use them directly as the
+        // stable key so the row identity survives Step → Back → Step
+        // re-entries without re-running each row's enter animation.
+        items(items = reasons, key = { it }) { token ->
             SubReasonRow(token = token, onClick = { onReasonClick(token) })
             HorizontalDivider()
         }
@@ -580,8 +595,13 @@ private fun SuccessCard() {
 }
 
 // ---------- string-resource lookup helpers ----------------------------------
+//
+// These are plain functions, not `@Composable`. Each returns an `Int`
+// resource id from a closed `when` over a sealed sum (or a string
+// constant). Marking them `@Composable` would pay the implicit-Composer
+// cost without any benefit — they read no composition locals and call
+// nothing composable themselves.
 
-@Composable
 private fun labelResForCategory(category: ReportCategory): Int =
     when (category) {
         ReportCategory.Spam -> R.string.report_category_spam
@@ -595,7 +615,6 @@ private fun labelResForCategory(category: ReportCategory): Int =
         ReportCategory.Other -> R.string.report_category_other
     }
 
-@Composable
 private fun labelResForReasonToken(token: String): Int =
     when (token) {
         ReportReasons.REASON_LEGACY_SPAM -> R.string.report_reason_legacy_spam
@@ -646,9 +665,14 @@ private fun labelResForReasonToken(token: String): Int =
  * ReportDialog card order (Spam first as the most-common reason; Other
  * last as the fallback). Sub-reason ordering inside each category lives
  * on the [ReportCategory] sealed sum (PR 1's foundation).
+ *
+ * Typed as `ImmutableList` (not `List`) so Compose's stability
+ * inference can treat the `CategoryStep` parameter chain as stable —
+ * the Kotlin `List` interface is unstable even when the underlying
+ * backing collection never mutates.
  */
-private val CATEGORY_ORDER: List<ReportCategory> =
-    listOf(
+private val CATEGORY_ORDER: ImmutableList<ReportCategory> =
+    persistentListOf(
         ReportCategory.Spam,
         ReportCategory.Misleading,
         ReportCategory.Harassment,
