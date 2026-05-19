@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Step titles -->
+    <string name="report_dialog_title_subject">Report this content</string>
+    <string name="report_dialog_title_category">What\'s the issue?</string>
+    <string name="report_dialog_title_subreason">Choose a sub-reason</string>
+    <string name="report_dialog_title_details">Add context</string>
+    <string name="report_dialog_title_success">Thanks for the report</string>
+
+    <!-- Subject step -->
+    <string name="report_dialog_subject_fallback_post">Reporting this post.</string>
+    <string name="report_dialog_subject_fallback_account">Reporting this account.</string>
+
+    <!-- CTAs -->
+    <string name="report_dialog_continue_cta">Continue</string>
+    <string name="report_dialog_submit_cta">Submit report</string>
+    <string name="report_dialog_close_content_description">Close report dialog</string>
+
+    <!-- Details step -->
+    <string name="report_dialog_details_helper">Add any extra context that will help Bluesky moderation review this report. Up to 300 characters.</string>
+    <string name="report_dialog_details_placeholder_optional">Optional context (e.g. links, screenshots)</string>
+    <string name="report_dialog_details_placeholder_required">Required: tell us why this content needs review</string>
+    <string name="report_dialog_details_counter">%1$d / %2$d</string>
+
+    <!-- Success card -->
+    <string name="report_dialog_success_title">Report submitted</string>
+    <string name="report_dialog_success_body">Bluesky moderation will review it. Thanks for helping keep the community safe.</string>
+
+    <!-- Submission failure (generic fallback when the underlying throwable has no localized message). -->
+    <string name="report_dialog_error_submit_failed">Couldn\'t submit report. Please try again.</string>
+
+    <!-- Categories (top-level cards on the Category step) -->
+    <string name="report_category_spam">Spam</string>
+    <string name="report_category_misleading">Misleading</string>
+    <string name="report_category_harassment">Harassment or hate</string>
+    <string name="report_category_sexual">Sexual content</string>
+    <string name="report_category_violence">Violence or threats</string>
+    <string name="report_category_child_safety">Child safety</string>
+    <string name="report_category_self_harm">Self-harm</string>
+    <string name="report_category_rule_violation">Rule violation</string>
+    <string name="report_category_other">Other</string>
+
+    <!-- Sub-reasons. Phrasing mirrors social-app's ReportDialog where possible. -->
+    <string name="report_reason_legacy_spam">Unwanted promotional or repetitive content</string>
+
+    <string name="report_reason_violence_animal">Animal abuse</string>
+    <string name="report_reason_violence_threats">Threats of violence</string>
+    <string name="report_reason_violence_graphic">Graphic violence</string>
+    <string name="report_reason_violence_glorification">Glorification of violence</string>
+    <string name="report_reason_violence_extremist">Extremist content</string>
+    <string name="report_reason_violence_trafficking">Human trafficking</string>
+    <string name="report_reason_violence_other">Other violence</string>
+
+    <string name="report_reason_sexual_abuse">Non-consensual sexual content</string>
+    <string name="report_reason_sexual_ncii">Intimate imagery shared without consent</string>
+    <string name="report_reason_sexual_deepfake">Sexual deepfake</string>
+    <string name="report_reason_sexual_animal">Sexual content involving animals</string>
+    <string name="report_reason_sexual_unlabeled">Unlabeled adult content</string>
+    <string name="report_reason_sexual_other">Other sexual content</string>
+
+    <string name="report_reason_child_safety_csam">Child sexual abuse material (CSAM)</string>
+    <string name="report_reason_child_safety_groom">Grooming or sexual exploitation</string>
+    <string name="report_reason_child_safety_privacy">Compromises a minor\'s privacy</string>
+    <string name="report_reason_child_safety_harassment">Harassment of a minor</string>
+    <string name="report_reason_child_safety_other">Other child-safety concern</string>
+
+    <string name="report_reason_harassment_troll">Trolling</string>
+    <string name="report_reason_harassment_targeted">Targeted harassment</string>
+    <string name="report_reason_harassment_hate_speech">Hate speech</string>
+    <string name="report_reason_harassment_doxxing">Doxxing</string>
+    <string name="report_reason_harassment_other">Other harassment</string>
+
+    <string name="report_reason_misleading_bot">Bot or automated account</string>
+    <string name="report_reason_misleading_impersonation">Impersonation</string>
+    <string name="report_reason_misleading_spam">Spam content</string>
+    <string name="report_reason_misleading_scam">Scam or fraud</string>
+    <string name="report_reason_misleading_elections">Election misinformation</string>
+    <string name="report_reason_misleading_other">Other misleading content</string>
+
+    <string name="report_reason_rule_site_security">Site security violation</string>
+    <string name="report_reason_rule_prohibited_sales">Prohibited sales</string>
+    <string name="report_reason_rule_ban_evasion">Ban evasion</string>
+    <string name="report_reason_rule_other">Other rule violation</string>
+
+    <string name="report_reason_self_harm_content">Self-harm content</string>
+    <string name="report_reason_self_harm_ed">Eating-disorder content</string>
+    <string name="report_reason_self_harm_stunts">Dangerous stunts</string>
+    <string name="report_reason_self_harm_substances">Substance abuse</string>
+    <string name="report_reason_self_harm_other">Other self-harm concern</string>
+
+    <string name="report_reason_other">Something else</string>
+    <string name="report_reason_unknown_fallback">Other</string>
+
+</resources>
