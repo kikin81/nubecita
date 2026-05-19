@@ -1,9 +1,9 @@
 package_name("net.kikin.nubecita")
 
-# Intentionally no `json_key_file` here while we diagnose WIF auth.
-# Supply auto-reads `GOOGLE_APPLICATION_CREDENTIALS` into that param,
-# but the explicit `json_key_file` path only accepts `service_account`
-# JSON. WIF (`external_account`) creds have to route through supply's
-# ADC fallback — which is what the diagnostic workflow at
-# `.github/workflows/wif-auth-diagnostic.yaml` is meant to validate.
-# See fastlane/README.md for the auth picture.
+# Intentionally no `json_key_file` here. When `:json_key` / `:json_key_file`
+# are unset, supply falls through to `Google::Auth.get_application_default`,
+# which reads `GOOGLE_APPLICATION_CREDENTIALS` and dispatches on the credential
+# `type` natively — including `external_account` (WIF). Setting `:json_key_file`
+# explicitly would route through the `Google::APIClient::ClientSecrets`
+# loader instead, which only accepts `service_account` / `authorized_user`
+# JSONs and rejects `external_account`. See fastlane/README.md.
