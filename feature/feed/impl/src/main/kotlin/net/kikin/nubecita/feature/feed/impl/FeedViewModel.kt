@@ -512,8 +512,17 @@ private fun stripLeadingTailOverlap(
         ) {
             break
         }
-        w = w.drop(1)
         val firstItem = p.first()
+        // Tombstones never duplicate against a wire post URI on the
+        // cursor-resync boundary — they carry no PostUi, so the outer
+        // URI guard could only have matched against a different wire
+        // entry. Short-circuit BEFORE any list mutation: stripping
+        // here would silently delete the tombstone from the projection
+        // and desync it from the wire list. Today's mapper never emits
+        // tombstones at a page head, so this branch protects future
+        // client-side optimism (oftc.4) rather than current behavior.
+        if (firstItem is FeedItemUi.Blocked || firstItem is FeedItemUi.NotFound) break
+        w = w.drop(1)
         val replacementHead: List<FeedItemUi> =
             when (firstItem) {
                 is FeedItemUi.Single, is FeedItemUi.ReplyCluster -> emptyList()
@@ -525,12 +534,10 @@ private fun stripLeadingTailOverlap(
                         else -> listOf(FeedItemUi.SelfThreadChain(chainTail.toImmutableList()))
                     }
                 }
-                // Tombstones never duplicate against a wire post URI on the
-                // cursor-resync boundary — they carry no PostUi for the overlap
-                // match to anchor against, so the outer loop's URI guard would
-                // not have entered this branch in practice. Treat the head as
-                // unconsumed so the page passes through.
-                is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
+                // Short-circuited above; this branch keeps the sealed
+                // match exhaustive without contributing reachable code.
+                is FeedItemUi.Blocked, is FeedItemUi.NotFound ->
+                    error("Tombstone short-circuit above prevents this branch")
             }
         p = replacementHead + p.drop(1)
     }
