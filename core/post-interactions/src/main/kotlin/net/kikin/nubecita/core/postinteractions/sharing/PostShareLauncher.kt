@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.share
+package net.kikin.nubecita.core.postinteractions.sharing
 
 import android.app.Activity
 import android.content.Context
@@ -21,7 +21,7 @@ import android.content.Intent
  * the share target. From a non-Activity Context, the flag is required
  * by `Context.startActivity`'s contract.
  */
-internal fun Context.launchPostShare(intent: PostShareIntent) {
+fun Context.launchPostShare(intent: PostShareIntent) {
     val sendIntent =
         Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

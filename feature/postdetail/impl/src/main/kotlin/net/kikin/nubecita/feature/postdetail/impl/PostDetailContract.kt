@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.core.postinteractions.sharing.PostShareIntent
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
@@ -126,19 +127,18 @@ internal sealed interface PostDetailEvent : UiEvent {
     /**
      * Tap on the floating reply composer FAB. Resolves the focus URI
      * out of state at the VM and emits [PostDetailEffect.NavigateToComposer]
-     * — same effect surface as future PostCard-action-row reply triggers
-     * when those land. Idempotent against the load lifecycle: if the VM
-     * hasn't resolved a focus yet (still in `InitialLoading` /
+     * which the screen routes to `LocalComposerLauncher`. Per-post
+     * reply taps on a PostCard's action row don't pass through the VM
+     * at all — the screen invokes `onReplyClick` directly, same shape
+     * as `FeedScreen`. Idempotent against the load lifecycle: if the
+     * VM hasn't resolved a focus yet (still in `InitialLoading` /
      * `InitialError`), the event is dropped silently.
      */
     data object OnReplyClicked : PostDetailEvent
 
     /**
      * Tap on a focus-post image. The screen routes this to the
-     * fullscreen media viewer (or, until that destination ships,
-     * surfaces a transient acknowledgement Snackbar — see
-     * [PostDetailEffect.NavigateToMediaViewer] for the missing-route
-     * contract).
+     * fullscreen media viewer via [PostDetailEffect.NavigateToMediaViewer].
      */
     data class OnFocusImageClicked(
         val imageIndex: Int,
@@ -162,6 +162,25 @@ internal sealed interface PostDetailEvent : UiEvent {
 
     /** User tapped repost on the focused post or a thread reply. */
     data class OnRepostClicked(
+        val post: PostUi,
+    ) : PostDetailEvent
+
+    /**
+     * User tapped the share action on a thread post (focus / ancestor /
+     * reply). Routed through the VM so the share-intent construction
+     * stays unit-testable; the screen consumes [PostDetailEffect.SharePost]
+     * and fires the system share sheet from a Context extension.
+     */
+    data class OnShareClicked(
+        val post: PostUi,
+    ) : PostDetailEvent
+
+    /**
+     * Long-press on the share action — copy the post's permalink to the
+     * clipboard (Threads-style). Same intent shape as [OnShareClicked],
+     * different effect.
+     */
+    data class OnShareLongPressed(
         val post: PostUi,
     ) : PostDetailEvent
 
@@ -212,12 +231,11 @@ internal sealed interface PostDetailEffect : UiEffect {
     ) : PostDetailEffect
 
     /**
-     * Push the reply composer keyed to the given parent post URI.
-     * Until the composer feature module ships its NavKey (tracked
-     * in nubecita-8f6.3), the screen's effect collector logs a
-     * Timber breadcrumb tagged `PostDetailScreen` AND surfaces a
-     * transient "Reply coming soon" Snackbar so the FAB tap registers
-     * tactile feedback rather than feeling broken.
+     * Open the reply composer keyed to the given parent post URI. The
+     * screen invokes `LocalComposerLauncher` (passed in as
+     * `onReplyClick`) which dispatches based on window width — a
+     * `ComposerRoute` push at Compact width, a centered Dialog overlay
+     * at Medium / Expanded.
      */
     @Immutable
     data class NavigateToComposer(
@@ -226,11 +244,9 @@ internal sealed interface PostDetailEffect : UiEffect {
 
     /**
      * Push the fullscreen media viewer for the given focus post +
-     * image index. Until that destination ships in
-     * `:core:common:navigation`, the screen's effect collector logs a
-     * Timber breadcrumb tagged `PostDetailScreen` AND surfaces a
-     * transient "Fullscreen viewer coming soon" Snackbar — same
-     * acknowledgement-not-broken pattern as [NavigateToComposer].
+     * image index. The screen forwards this to the outer
+     * `LocalAppNavigator` (wired in `PostDetailNavigationModule`) so
+     * the viewer escapes `MainShell`'s NavigationSuiteScaffold chrome.
      * String-typed `postUri` matches the rest of the effect surface
      * (`NavigateToPost`, `NavigateToAuthor`); `AtUri(...)` construction
      * is deferred to the XRPC boundary if downstream code needs it.
@@ -263,5 +279,24 @@ internal sealed interface PostDetailEffect : UiEffect {
     @Immutable
     data class ShowComingSoon(
         val action: PostOverflowAction,
+    ) : PostDetailEffect
+
+    /**
+     * Fire the system share sheet with the pre-computed permalink
+     * payload. The screen collects this and calls `Context.launchPostShare`.
+     */
+    @Immutable
+    data class SharePost(
+        val intent: PostShareIntent,
+    ) : PostDetailEffect
+
+    /**
+     * Copy the post's permalink to the clipboard. The screen collects
+     * this, writes via `ClipboardManager.setPrimaryClip`, and surfaces
+     * a "link copied" snackbar.
+     */
+    @Immutable
+    data class CopyPermalink(
+        val permalink: String,
     ) : PostDetailEffect
 }

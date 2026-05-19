@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.share
+package net.kikin.nubecita.core.postinteractions.sharing
 
 import androidx.compose.runtime.Immutable
 import net.kikin.nubecita.data.models.PostUi
@@ -8,9 +8,9 @@ import net.kikin.nubecita.data.models.PostUi
  *
  * Built in the VM layer so the UI side stays free of AT-URI parsing and
  * the test surface (`PostUi → PostShareIntent`) is a pure-Kotlin
- * function. The screen consumes this via [FeedEffect.SharePost]
- * (single tap → system share sheet) or reads [permalink] only via
- * [FeedEffect.CopyPermalink] (long press → clipboard).
+ * function. Consumed via each screen's "share" effect (single tap →
+ * system share sheet) and "copy permalink" effect (long press →
+ * clipboard).
  *
  * `text` is what goes into `Intent.EXTRA_TEXT` for the system share
  * sheet. We keep it as **just the permalink** because bsky.app links
@@ -25,7 +25,7 @@ data class PostShareIntent(
 )
 
 /**
- * Build a [PostShareIntent] from a feed [PostUi].
+ * Build a [PostShareIntent] from a [PostUi].
  *
  * Permalink shape: `https://bsky.app/profile/<handle>/post/<rkey>`
  * matching what bsky.app uses publicly. Handle is preferred over DID

@@ -16,6 +16,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.data.PostThreadRepository
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
@@ -106,6 +107,10 @@ internal class PostDetailViewModel
                     sendEffect(PostDetailEffect.NavigateToVideoPlayer(event.postUri))
                 is PostDetailEvent.OnOverflowAction ->
                     sendEffect(PostDetailEffect.ShowComingSoon(event.action))
+                is PostDetailEvent.OnShareClicked ->
+                    sendEffect(PostDetailEffect.SharePost(event.post.toShareIntent()))
+                is PostDetailEvent.OnShareLongPressed ->
+                    sendEffect(PostDetailEffect.CopyPermalink(event.post.toShareIntent().permalink))
             }
         }
 

@@ -14,6 +14,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
@@ -22,7 +23,6 @@ import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import net.kikin.nubecita.feature.feed.impl.data.linksToWire
-import net.kikin.nubecita.feature.feed.impl.share.toShareIntent
 import java.io.IOException
 import javax.inject.Inject
 

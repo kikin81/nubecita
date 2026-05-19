@@ -55,6 +55,7 @@ import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.time.LocalClock
+import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
@@ -71,7 +72,6 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.designsystem.component.ThreadCluster
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
-import net.kikin.nubecita.feature.feed.impl.share.launchPostShare
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState

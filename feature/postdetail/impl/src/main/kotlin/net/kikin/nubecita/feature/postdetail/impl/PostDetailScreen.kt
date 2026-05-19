@@ -1,5 +1,8 @@
 package net.kikin.nubecita.feature.postdetail.impl
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,6 +49,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.time.LocalClock
+import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -61,7 +66,6 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
-import timber.log.Timber
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -97,9 +101,18 @@ internal fun PostDetailScreen(
     onNavigateToAuthor: (String) -> Unit = {},
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onNavigateToVideoPlayer: (postUri: String) -> Unit = {},
+    onReplyClick: (String) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    // Reply tap on a per-post action row does NOT pass through
+    // PostDetailViewModel (same shape as FeedScreen). The host wires
+    // `onReplyClick` to the width-conditional composer launcher; keep
+    // the lambda identity stable across recompositions via
+    // rememberUpdatedState so the remembered PostCallbacks below
+    // captures the live reference instead of a stale snapshot.
+    val currentOnReplyClick by rememberUpdatedState(onReplyClick)
 
     val haptics = rememberPostHaptics()
     val callbacks =
@@ -115,6 +128,17 @@ internal fun PostDetailScreen(
                     if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
                     viewModel.handleEvent(PostDetailEvent.OnRepostClicked(post))
                 },
+                onReply = { post ->
+                    haptics.lightTap()
+                    currentOnReplyClick(post.id)
+                },
+                onShare = { post ->
+                    haptics.lightTap()
+                    viewModel.handleEvent(PostDetailEvent.OnShareClicked(post))
+                },
+                // Long-press already fires the system long-press haptic via
+                // combinedClickable — don't double-tap the motor.
+                onShareLongPress = { viewModel.handleEvent(PostDetailEvent.OnShareLongPressed(it)) },
                 onQuotedPostTap = { quoted ->
                     viewModel.handleEvent(PostDetailEvent.OnQuotedPostTapped(quoted.uri))
                 },
@@ -153,7 +177,8 @@ internal fun PostDetailScreen(
     val unauthErrorMessage = stringResource(R.string.postdetail_snackbar_error_unauthenticated)
     val notFoundErrorMessage = stringResource(R.string.postdetail_snackbar_error_notfound)
     val unknownErrorMessage = stringResource(R.string.postdetail_snackbar_error_unknown)
-    val composerComingSoonMessage = stringResource(R.string.postdetail_snackbar_composer_coming_soon)
+    val linkCopiedMessage = stringResource(R.string.postdetail_snackbar_link_copied)
+    val clipLabel = stringResource(R.string.postdetail_clipboard_label_post_link)
     // Pre-resolve PostCard overflow-menu coming-soon snackbars at composition time.
     val overflowReportComingSoon =
         stringResource(R.string.postdetail_snackbar_overflow_report_coming_soon)
@@ -171,6 +196,10 @@ internal fun PostDetailScreen(
         stringResource(R.string.postdetail_snackbar_overflow_unmute_thread_coming_soon)
     val overflowCopyTextComingSoon =
         stringResource(R.string.postdetail_snackbar_overflow_copy_text_coming_soon)
+    val clipboardManager =
+        remember(context) {
+            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        }
 
     LaunchedEffect(Unit) { viewModel.handleEvent(PostDetailEvent.Load) }
 
@@ -197,26 +226,8 @@ internal fun PostDetailScreen(
                 }
                 is PostDetailEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is PostDetailEffect.NavigateToAuthor -> currentOnNavigateToAuthor(effect.authorDid)
-                is PostDetailEffect.NavigateToComposer -> {
-                    // The composer feature module's NavKey is tracked under
-                    // nubecita-8f6.3 and is not yet wired into
-                    // :core:common:navigation. Until it lands, log a Timber
-                    // breadcrumb and surface a transient acknowledgement
-                    // Snackbar so the FAB tap registers tactile feedback
-                    // without blocking the user the way a dialog would.
-                    //
-                    // Log the rkey only — the AtUri's DID segment is
-                    // third-party PII; the rkey alone identifies the post
-                    // within a known dataset, matching the redaction pattern
-                    // in :core:auth's DefaultXrpcClientProvider and the
-                    // post-thread repository's failure logging.
-                    Timber.tag("PostDetailScreen").d(
-                        "NavigateToComposer for parent rkey=%s — composer route not yet wired (nubecita-8f6.3); falling back to Snackbar",
-                        effect.parentPostUri.substringAfterLast('/'),
-                    )
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = composerComingSoonMessage)
-                }
+                is PostDetailEffect.NavigateToComposer ->
+                    currentOnReplyClick(effect.parentPostUri)
                 is PostDetailEffect.NavigateToMediaViewer ->
                     currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
                 is PostDetailEffect.NavigateToVideoPlayer ->
@@ -235,6 +246,16 @@ internal fun PostDetailScreen(
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)
+                }
+                is PostDetailEffect.SharePost -> context.launchPostShare(effect.intent)
+                is PostDetailEffect.CopyPermalink -> {
+                    clipboardManager.setPrimaryClip(
+                        ClipData.newPlainText(clipLabel, effect.permalink),
+                    )
+                    // Replace any pending snackbar — fresh "link copied"
+                    // confirmation outranks a stale error message.
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = linkCopiedMessage)
                 }
             }
         }
