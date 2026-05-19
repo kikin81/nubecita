@@ -244,22 +244,6 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Diagnostic preflight (WIF cred file + tool versions)
-        # TEMP DIAGNOSTIC: surface the credential file's shape + tool
-        # versions on each release run so the next failure has
-        # actionable context. Remove once distribute consistently
-        # uploads green — track on nubecita-nvi2.
-        run: |
-          set -euo pipefail
-          echo "=== Credential file 'type' field ==="
-          jq -r '.type' "$GOOGLE_APPLICATION_CREDENTIALS"
-          echo "=== Credential file top-level keys ==="
-          jq -r 'keys' "$GOOGLE_APPLICATION_CREDENTIALS"
-          echo "=== firebase-tools version ==="
-          firebase --version
-          echo "=== node version ==="
-          node --version
-
       - name: Upload debug APK to Firebase App Distribution
         # FIREBASE_APP_ID lives as an environment variable on the
         # `release` environment (repo Settings → Environments →
@@ -269,8 +253,14 @@ jobs:
         # already gates installs), but env-var-scoping keeps it
         # co-located with the WIF binding the same job consumes.
         #
-        # `--debug` is on TEMPORARILY while we diagnose WIF auth.
-        # Remove once the upload path is green — track on
+        # `--debug` is captured to a file (not stderr) so verbose
+        # output — including HTTP bodies, auth-exchange request
+        # payloads, and per-request bearer fragments that can escape
+        # GitHub's substring masking — never lands in the public
+        # workflow log. The file is only surfaced as an artifact on
+        # failure (next step), gated to 7-day retention so a failing
+        # run is debuggable without permanently broadcasting Firebase
+        # project internals from a public repo. Context in
         # nubecita-nvi2.
         env:
           FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
@@ -285,7 +275,20 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk \
             --app "$FIREBASE_APP_ID" \
             --groups internal-testers \
-            --release-notes "$RELEASE_NOTES"
+            --release-notes "$RELEASE_NOTES" \
+            2> firebase-debug.log
+
+      - name: Upload firebase debug log (on failure)
+        # Only fires on failure of the previous step. The debug log
+        # contains enough internal Firebase API shape that we don't
+        # want it on the happy path — but on failure it's the fastest
+        # path to a root cause without re-running with --debug live.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-debug-log
+          path: firebase-debug.log
+          retention-days: 7
 
   playstore:
     name: Upload Signed AAB to Play Console (internal track)
