@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
 /**
  * Stateful Profile screen.
@@ -64,6 +65,9 @@ internal fun ProfileScreen(
                 onQuotedPostTap = { quoted ->
                     viewModel.handleEvent(ProfileEvent.OnQuotedPostTapped(quoted.uri))
                 },
+                onOverflowAction = { post, action ->
+                    viewModel.handleEvent(ProfileEvent.OnPostOverflowAction(post, action))
+                },
             )
         }
 
@@ -76,6 +80,25 @@ internal fun ProfileScreen(
     val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
     val comingSoonMute = stringResource(R.string.profile_snackbar_mute_coming_soon)
     val comingSoonReport = stringResource(R.string.profile_snackbar_report_coming_soon)
+    // PostCard overflow-menu "coming soon" copy (oftc.2). Pre-resolved
+    // via stringResource() at composition time so locale changes
+    // participate in recomposition.
+    val postOverflowReport =
+        stringResource(R.string.profile_snackbar_post_overflow_report_coming_soon)
+    val postOverflowMute =
+        stringResource(R.string.profile_snackbar_post_overflow_mute_coming_soon)
+    val postOverflowUnmute =
+        stringResource(R.string.profile_snackbar_post_overflow_unmute_coming_soon)
+    val postOverflowBlock =
+        stringResource(R.string.profile_snackbar_post_overflow_block_coming_soon)
+    val postOverflowUnblock =
+        stringResource(R.string.profile_snackbar_post_overflow_unblock_coming_soon)
+    val postOverflowMuteThread =
+        stringResource(R.string.profile_snackbar_post_overflow_mute_thread_coming_soon)
+    val postOverflowUnmuteThread =
+        stringResource(R.string.profile_snackbar_post_overflow_unmute_thread_coming_soon)
+    val postOverflowCopyText =
+        stringResource(R.string.profile_snackbar_post_overflow_copy_text_coming_soon)
 
     // Wrap nav callbacks so the long-lived effect collector keys on Unit
     // (one collector for the screen's lifetime) but always calls the most
@@ -112,6 +135,21 @@ internal fun ProfileScreen(
                             StubbedAction.Block -> comingSoonBlock
                             StubbedAction.Mute -> comingSoonMute
                             StubbedAction.Report -> comingSoonReport
+                        }
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = msg)
+                }
+                is ProfileEffect.ShowPostOverflowComingSoon -> {
+                    val msg =
+                        when (effect.action) {
+                            PostOverflowAction.ReportPost -> postOverflowReport
+                            PostOverflowAction.MuteAuthor -> postOverflowMute
+                            PostOverflowAction.UnmuteAuthor -> postOverflowUnmute
+                            PostOverflowAction.BlockAuthor -> postOverflowBlock
+                            PostOverflowAction.UnblockAuthor -> postOverflowUnblock
+                            PostOverflowAction.MuteThread -> postOverflowMuteThread
+                            PostOverflowAction.UnmuteThread -> postOverflowUnmuteThread
+                            PostOverflowAction.CopyPostText -> postOverflowCopyText
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = msg)

@@ -140,6 +140,8 @@ internal class ProfileViewModel
                             .onFailure { sendEffect(ProfileEffect.ShowError(it.toProfileError())) }
                     }
                 }
+                is ProfileEvent.OnPostOverflowAction ->
+                    sendEffect(ProfileEffect.ShowPostOverflowComingSoon(event.action))
             }
         }
 

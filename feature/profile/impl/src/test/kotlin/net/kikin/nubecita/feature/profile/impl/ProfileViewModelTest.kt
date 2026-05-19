@@ -661,6 +661,42 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `OnPostOverflowAction emits ShowPostOverflowComingSoon carrying the action verbatim`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            val post = samplePostUi("at://did:plc:fake/app.bsky.feed.post/x")
+            val variants =
+                listOf(
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
+                )
+            vm.effects.test {
+                for (action in variants) {
+                    vm.handleEvent(ProfileEvent.OnPostOverflowAction(post = post, action = action))
+                    assertEquals(
+                        ProfileEffect.ShowPostOverflowComingSoon(action),
+                        awaitItem(),
+                    )
+                }
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `MessageTapped on other-user profile emits NavigateToMessage with the header DID`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =
