@@ -30,31 +30,75 @@ The system SHALL ship a new `:feature:moderation:impl` Android library module ap
 
 ### Requirement: `ReportReasons` exposes granular `tools.ozone.report.defs` and legacy `com.atproto.moderation.defs` tokens as `String` constants
 
-The system SHALL ship a `ReportReasons` Kotlin `object` (in `:feature:moderation:impl`) holding each granular `tools.ozone.report.defs` reason and each legacy `com.atproto.moderation.defs` fallback reason as a `const val String` whose value matches the canonical lexicon token string. The object MUST include at minimum: `REASON_SPAM`, `REASON_SEXUAL_ABUSE`, `REASON_SEXUAL_NCII`, `REASON_SEXUAL_DEEPFAKE`, `REASON_SEXUAL_OTHER`, `REASON_VIOLENCE_ANIMAL`, `REASON_VIOLENCE_THREATS`, `REASON_VIOLENCE_GRAPHIC`, `REASON_VIOLENCE_OTHER`, `REASON_CHILD_SAFETY_CSAM`, `REASON_CHILD_SAFETY_GROOM`, `REASON_CHILD_SAFETY_MINOR`, `REASON_CHILD_SAFETY_OTHER`, `REASON_HARASSMENT_TROLL`, `REASON_HARASSMENT_TARGETED`, `REASON_HARASSMENT_HATE`, `REASON_HARASSMENT_OTHER`, `REASON_MISLEADING_BOT`, `REASON_MISLEADING_IMPERSONATION`, `REASON_MISLEADING_SCAM`, `REASON_MISLEADING_SYNTHETIC`, `REASON_MISLEADING_MANIPULATED`, `REASON_MISLEADING_OTHER`, `REASON_RULE_SITE_SECURITY`, `REASON_RULE_BAN_EVASION`, `REASON_RULE_OTHER`, `REASON_SELF_HARM_SUICIDE`, `REASON_SELF_HARM_OTHER`, `REASON_OTHER`, and the legacy fallbacks `REASON_SPAM_LEGACY`, `REASON_SEXUAL_LEGACY`, `REASON_RUDE_LEGACY`, `REASON_VIOLATION_LEGACY`, `REASON_MISLEADING_LEGACY`. The object SHALL also expose `OTHER_REPORT_REASONS: Set<String>` containing every `*_OTHER`-suffixed token plus `REASON_OTHER`.
+The system SHALL ship a `ReportReasons` Kotlin `object` (in `:feature:moderation:impl`) holding each granular `tools.ozone.report.defs` reason and each legacy `com.atproto.moderation.defs` fallback reason as a `const val String` whose value matches the canonical lexicon token string verbatim (case- and prefix-sensitive). The object MUST include the following granular tokens from `tools.ozone.report.defs#reasonType`:
 
-#### Scenario: `OTHER_REPORT_REASONS` contains exactly the `_OTHER` tokens
+- `REASON_OTHER` = `"tools.ozone.report.defs#reasonOther"`
+- `REASON_APPEAL` = `"tools.ozone.report.defs#reasonAppeal"`
+- Violence: `REASON_VIOLENCE_ANIMAL`, `REASON_VIOLENCE_THREATS`, `REASON_VIOLENCE_GRAPHIC_CONTENT`, `REASON_VIOLENCE_GLORIFICATION`, `REASON_VIOLENCE_EXTREMIST_CONTENT`, `REASON_VIOLENCE_TRAFFICKING`, `REASON_VIOLENCE_OTHER`
+- Sexual: `REASON_SEXUAL_ABUSE_CONTENT`, `REASON_SEXUAL_NCII`, `REASON_SEXUAL_DEEPFAKE`, `REASON_SEXUAL_ANIMAL`, `REASON_SEXUAL_UNLABELED`, `REASON_SEXUAL_OTHER`
+- Child safety: `REASON_CHILD_SAFETY_CSAM`, `REASON_CHILD_SAFETY_GROOM`, `REASON_CHILD_SAFETY_PRIVACY`, `REASON_CHILD_SAFETY_HARASSMENT`, `REASON_CHILD_SAFETY_OTHER`
+- Harassment: `REASON_HARASSMENT_TROLL`, `REASON_HARASSMENT_TARGETED`, `REASON_HARASSMENT_HATE_SPEECH`, `REASON_HARASSMENT_DOXXING`, `REASON_HARASSMENT_OTHER`
+- Misleading: `REASON_MISLEADING_BOT`, `REASON_MISLEADING_IMPERSONATION`, `REASON_MISLEADING_SPAM`, `REASON_MISLEADING_SCAM`, `REASON_MISLEADING_ELECTIONS`, `REASON_MISLEADING_OTHER`
+- Rule violation: `REASON_RULE_SITE_SECURITY`, `REASON_RULE_PROHIBITED_SALES`, `REASON_RULE_BAN_EVASION`, `REASON_RULE_OTHER`
+- Self-harm: `REASON_SELF_HARM_CONTENT`, `REASON_SELF_HARM_ED`, `REASON_SELF_HARM_STUNTS`, `REASON_SELF_HARM_SUBSTANCES`, `REASON_SELF_HARM_OTHER`
+
+The object MUST also include these legacy fallbacks from `com.atproto.moderation.defs#reasonType`:
+
+- `REASON_LEGACY_SPAM` = `"com.atproto.moderation.defs#reasonSpam"`
+- `REASON_LEGACY_VIOLATION` = `"com.atproto.moderation.defs#reasonViolation"`
+- `REASON_LEGACY_MISLEADING` = `"com.atproto.moderation.defs#reasonMisleading"`
+- `REASON_LEGACY_SEXUAL` = `"com.atproto.moderation.defs#reasonSexual"`
+- `REASON_LEGACY_RUDE` = `"com.atproto.moderation.defs#reasonRude"`
+- `REASON_LEGACY_OTHER` = `"com.atproto.moderation.defs#reasonOther"`
+- `REASON_LEGACY_APPEAL` = `"com.atproto.moderation.defs#reasonAppeal"`
+
+The object SHALL also expose `OTHER_REPORT_REASONS: Set<String>` containing every `*Other`-suffixed granular token plus the top-level granular `REASON_OTHER` (the catch-all fallback). Legacy fallbacks are NOT included in `OTHER_REPORT_REASONS`.
+
+#### Scenario: `OTHER_REPORT_REASONS` contains exactly the granular `*Other` tokens plus the top-level granular `reasonOther`
 
 - **WHEN** application code references `ReportReasons.OTHER_REPORT_REASONS`
-- **THEN** the set contains `REASON_SEXUAL_OTHER`, `REASON_VIOLENCE_OTHER`, `REASON_CHILD_SAFETY_OTHER`, `REASON_HARASSMENT_OTHER`, `REASON_MISLEADING_OTHER`, `REASON_RULE_OTHER`, `REASON_SELF_HARM_OTHER`, and `REASON_OTHER` — no more, no fewer
+- **THEN** the set contains exactly these 8 values: `REASON_VIOLENCE_OTHER`, `REASON_SEXUAL_OTHER`, `REASON_CHILD_SAFETY_OTHER`, `REASON_HARASSMENT_OTHER`, `REASON_MISLEADING_OTHER`, `REASON_RULE_OTHER`, `REASON_SELF_HARM_OTHER`, `REASON_OTHER` — no more, no fewer
 
-#### Scenario: Constants match canonical lexicon strings
+#### Scenario: Granular CSAM constant matches canonical lexicon string verbatim
 
 - **WHEN** the test suite reads `ReportReasons.REASON_CHILD_SAFETY_CSAM`
-- **THEN** the value SHALL be the exact string `tools.ozone.report.defs#reasonChildSafetyCSAM` (or whichever canonical token the upstream lexicon uses — case- and prefix-sensitive)
+- **THEN** the value SHALL be the exact string `"tools.ozone.report.defs#reasonChildSafetyCSAM"` (case-sensitive, prefix-sensitive — `CSAM` is uppercase per the lexicon)
+
+#### Scenario: Legacy Spam constant maps to the `com.atproto.moderation.defs` namespace
+
+- **WHEN** the test suite reads `ReportReasons.REASON_LEGACY_SPAM`
+- **THEN** the value SHALL be the exact string `"com.atproto.moderation.defs#reasonSpam"`
 
 ### Requirement: `ReportCategory` sealed sum models the 9 dialog cards and their child reasons
 
-The system's UI / VM layer SHALL define a sealed `ReportCategory` with exactly 9 variants: `Spam`, `Sexual`, `Violence`, `ChildSafety`, `Harassment`, `Misleading`, `RuleViolation`, `SelfHarm`, `Other`. Each variant SHALL expose a `reasons: List<String>` property whose entries are token strings from `ReportReasons`. The `Other` variant's `reasons` list MUST be a single-element list containing `REASON_OTHER` (the fallback). Sub-reason ordering within each category MUST match the order specified in the change's design document (matching social-app's reference UI order).
+The system's UI / VM layer SHALL define a sealed `ReportCategory` with exactly 9 variants: `Spam`, `Sexual`, `Violence`, `ChildSafety`, `Harassment`, `Misleading`, `RuleViolation`, `SelfHarm`, `Other`. Each variant SHALL expose a `reasons: List<String>` property whose entries are token strings from `ReportReasons`. Sub-reason ordering within each category MUST match the order declared in the design document (matching the lexicon's `knownValues` ordering).
 
-#### Scenario: ChildSafety category exposes all four child-safety reasons
+The 9 variants and their canonical `reasons` lists are:
+
+- `Spam`: `[REASON_LEGACY_SPAM]` (single legacy token — there is no granular `reasonSpam` under the ozone hierarchy; the Spam top-level card submits the legacy spam reason directly and bypasses the sub-reason step)
+- `Violence`: `[REASON_VIOLENCE_ANIMAL, REASON_VIOLENCE_THREATS, REASON_VIOLENCE_GRAPHIC_CONTENT, REASON_VIOLENCE_GLORIFICATION, REASON_VIOLENCE_EXTREMIST_CONTENT, REASON_VIOLENCE_TRAFFICKING, REASON_VIOLENCE_OTHER]`
+- `Sexual`: `[REASON_SEXUAL_ABUSE_CONTENT, REASON_SEXUAL_NCII, REASON_SEXUAL_DEEPFAKE, REASON_SEXUAL_ANIMAL, REASON_SEXUAL_UNLABELED, REASON_SEXUAL_OTHER]`
+- `ChildSafety`: `[REASON_CHILD_SAFETY_CSAM, REASON_CHILD_SAFETY_GROOM, REASON_CHILD_SAFETY_PRIVACY, REASON_CHILD_SAFETY_HARASSMENT, REASON_CHILD_SAFETY_OTHER]`
+- `Harassment`: `[REASON_HARASSMENT_TROLL, REASON_HARASSMENT_TARGETED, REASON_HARASSMENT_HATE_SPEECH, REASON_HARASSMENT_DOXXING, REASON_HARASSMENT_OTHER]`
+- `Misleading`: `[REASON_MISLEADING_BOT, REASON_MISLEADING_IMPERSONATION, REASON_MISLEADING_SPAM, REASON_MISLEADING_SCAM, REASON_MISLEADING_ELECTIONS, REASON_MISLEADING_OTHER]`
+- `RuleViolation`: `[REASON_RULE_SITE_SECURITY, REASON_RULE_PROHIBITED_SALES, REASON_RULE_BAN_EVASION, REASON_RULE_OTHER]`
+- `SelfHarm`: `[REASON_SELF_HARM_CONTENT, REASON_SELF_HARM_ED, REASON_SELF_HARM_STUNTS, REASON_SELF_HARM_SUBSTANCES, REASON_SELF_HARM_OTHER]`
+- `Other`: `[REASON_OTHER]` (single granular token — the catch-all `tools.ozone.report.defs#reasonOther`)
+
+#### Scenario: ChildSafety category exposes the five granular child-safety reasons in lexicon order
 
 - **WHEN** the UI iterates `ReportCategory.ChildSafety.reasons`
-- **THEN** the list contains exactly `[REASON_CHILD_SAFETY_CSAM, REASON_CHILD_SAFETY_GROOM, REASON_CHILD_SAFETY_MINOR, REASON_CHILD_SAFETY_OTHER]` in that order
+- **THEN** the list contains exactly `[REASON_CHILD_SAFETY_CSAM, REASON_CHILD_SAFETY_GROOM, REASON_CHILD_SAFETY_PRIVACY, REASON_CHILD_SAFETY_HARASSMENT, REASON_CHILD_SAFETY_OTHER]` in that order
 
-#### Scenario: Spam category has no sub-reasons
+#### Scenario: Spam category uses the legacy reason token and has no sub-reason step
 
 - **WHEN** the UI iterates `ReportCategory.Spam.reasons`
-- **THEN** the list contains exactly `[REASON_SPAM]` — Spam selects directly to submission without a sub-reason picker step
+- **THEN** the list contains exactly `[REASON_LEGACY_SPAM]` — Spam submits the legacy spam token directly and the dialog bypasses the SubReason step
+
+#### Scenario: Other category is the granular catch-all
+
+- **WHEN** the UI iterates `ReportCategory.Other.reasons`
+- **THEN** the list contains exactly `[REASON_OTHER]` — equivalent to selecting a `*Other` granular reason from any other category (forces the Details required gate)
 
 ### Requirement: `ReportDialogViewModel` extends `MviViewModel` with a sealed `ReportDialogStep`
 
@@ -77,8 +121,8 @@ The system SHALL ship `ReportDialogViewModel` extending `net.kikin.nubecita.ui.m
 
 #### Scenario: Selecting a non-OTHER reason skips the required Details gate
 
-- **WHEN** the user is on `step = SubReason` for `ReportCategory.Violence` and dispatches `ReportDialogEvent.OnReasonSelected(ReportReasons.REASON_VIOLENCE_GRAPHIC)`
-- **THEN** the emitted state has `selectedReason = REASON_VIOLENCE_GRAPHIC`, `detailsRequired = false`, and `step = Details` (the details textarea is shown but the Submit CTA is enabled even with `details = ""`)
+- **WHEN** the user is on `step = SubReason` for `ReportCategory.Violence` and dispatches `ReportDialogEvent.OnReasonSelected(ReportReasons.REASON_VIOLENCE_GRAPHIC_CONTENT)`
+- **THEN** the emitted state has `selectedReason = REASON_VIOLENCE_GRAPHIC_CONTENT`, `detailsRequired = false`, and `step = Details` (the details textarea is shown but the Submit CTA is enabled even with `details = ""`)
 
 ### Requirement: `canSubmit` is derived state — disabled until a reason is chosen and details satisfy validation
 
@@ -105,8 +149,8 @@ The system SHALL ship `ModerationRepository` (interface) with `suspend fun repor
 
 #### Scenario: `reportPost` uses `StrongRef` subject
 
-- **WHEN** a caller invokes `repository.reportPost(uri = "at://...", cid = "bafy...", reasonToken = REASON_SPAM, details = null)`
-- **THEN** the SDK call's `request.subject` is a `StrongRef(uri = "at://...", cid = "bafy...")` (NOT a `RepoRef`), `request.reasonType == REASON_SPAM`, `request.reason` is `AtField.Absent()`, and `request.modTool.name == "nubecita/android"`
+- **WHEN** a caller invokes `repository.reportPost(uri = "at://...", cid = "bafy...", reasonToken = REASON_LEGACY_SPAM, details = null)`
+- **THEN** the SDK call's `request.subject` is a `StrongRef(uri = "at://...", cid = "bafy...")` (NOT a `RepoRef`), `request.reasonType == REASON_LEGACY_SPAM`, `request.reason` is `AtField.Absent()`, and `request.modTool.name == "nubecita/android"`
 
 #### Scenario: `reportAccount` uses `RepoRef` subject
 
@@ -143,8 +187,8 @@ When `ReportDialogViewModel` receives `OnSubmitClicked` and the underlying `Mode
 
 #### Scenario: Submission failure preserves form state
 
-- **WHEN** the user submits a report with `selectedReason = REASON_VIOLENCE_GRAPHIC`, `details = "context"`, and the repository returns `Result.failure(IOException("..."))`
-- **THEN** the emitted state has `submission is SubmissionStatus.Failed`, `selectedReason == REASON_VIOLENCE_GRAPHIC`, `details == "context"`, `step == Details`; the inline error banner displays the failure message
+- **WHEN** the user submits a report with `selectedReason = REASON_VIOLENCE_GRAPHIC_CONTENT`, `details = "context"`, and the repository returns `Result.failure(IOException("..."))`
+- **THEN** the emitted state has `submission is SubmissionStatus.Failed`, `selectedReason == REASON_VIOLENCE_GRAPHIC_CONTENT`, `details == "context"`, `step == Details`; the inline error banner displays the failure message
 
 #### Scenario: Retry re-attempts submission
 
