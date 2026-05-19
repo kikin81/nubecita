@@ -115,6 +115,39 @@ sealed interface ViewerRelationship {
 }
 
 /**
+ * Moderation-relevant viewer state for the rendered profile, sourced
+ * from `app.bsky.actor.defs#viewerState`. Independent of
+ * [ViewerRelationship] — the follow graph and the mute / block graph
+ * are orthogonal (a viewer can mute someone they follow, or block
+ * someone unrelated to their follow graph), so the two are exposed
+ * as sibling fields on [ProfileHeaderUi] rather than nested.
+ *
+ * Defaults are the all-`false` / null "no moderation in play" baseline
+ * so existing test fixtures and synthetic header instances keep
+ * compiling and rendering unchanged.
+ *
+ * `@Immutable` because every field is a stable primitive (Boolean /
+ * nullable String). Compose treats this as a fully stable input.
+ *
+ * - [isMutedByViewer]: viewer has muted this profile's author.
+ *   Sourced from `viewer.muted == true`.
+ * - [blockUri]: AT URI of the viewer's own `app.bsky.graph.block` record
+ *   pointing at this profile. Non-null iff the viewer is currently
+ *   blocking. Captured as a String (the runtime `AtUri.raw`) so the
+ *   UI layer stays atproto-runtime-light, matching the [PostUi]
+ *   layer's `likeUri`/`repostUri` shape.
+ * - [isBlockingViewer]: this profile's author is blocking the viewer.
+ *   Sourced from `viewer.blockedBy == true`. Independent of
+ *   [blockUri] — the two directions can each hold independently.
+ */
+@androidx.compose.runtime.Immutable
+data class ViewerModerationState(
+    val isMutedByViewer: Boolean = false,
+    val blockUri: String? = null,
+    val isBlockingViewer: Boolean = false,
+)
+
+/**
  * Header-row UI model. Derived from `app.bsky.actor.defs#profileViewDetailed`
  * via [net.kikin.nubecita.feature.profile.impl.data.AuthorProfileMapper].
  *
@@ -151,6 +184,14 @@ data class ProfileHeaderUi(
      * (an absent `allowIncoming` is treated as `"all"`).
      */
     val canMessage: Boolean = true,
+    /**
+     * Mute / block-direction flags for the viewer's relationship to
+     * this profile. Sourced from `app.bsky.actor.defs#viewerState`
+     * via [net.kikin.nubecita.feature.profile.impl.data.AuthorProfileMapper].
+     * Defaults to the all-false / null baseline so existing test
+     * fixtures keep compiling.
+     */
+    val viewerModeration: ViewerModerationState = ViewerModerationState(),
 )
 
 /**

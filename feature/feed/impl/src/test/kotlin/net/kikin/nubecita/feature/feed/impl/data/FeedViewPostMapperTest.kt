@@ -115,6 +115,127 @@ internal class FeedViewPostMapperTest {
     }
 
     @Test
+    fun `author viewer with muted=true surfaces as isAuthorMutedByViewer`() {
+        // The post-level viewer block has nothing to do with mute/block —
+        // moderation lives on the actor (author) viewer state, per
+        // `app.bsky.actor.defs#viewerState`. This test pins the mapper's
+        // mute-only projection.
+        val mutedJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake/app.bsky.feed.post/m1",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake",
+                    "handle": "fake.bsky.social",
+                    "viewer": { "muted": true }
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "post by a muted author",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), mutedJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        assertEquals(true, mapped!!.viewer.isAuthorMutedByViewer)
+        assertEquals(false, mapped.viewer.isAuthorBlockedByViewer)
+        assertEquals(false, mapped.viewer.isAuthorBlockingViewer)
+    }
+
+    @Test
+    fun `author viewer with blocking AT-URI surfaces as isAuthorBlockedByViewer`() {
+        // `author.viewer.blocking` is an AtUri? — non-null means the
+        // viewer is currently blocking the author. The mapper uses
+        // truthiness (not equality with a placeholder), so any non-null
+        // AT URI flips the flag.
+        val blockingJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake/app.bsky.feed.post/b1",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake",
+                    "handle": "fake.bsky.social",
+                    "viewer": {
+                      "blocking": "at://did:plc:viewer/app.bsky.graph.block/abc"
+                    }
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "post by an author the viewer blocks",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), blockingJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        assertEquals(false, mapped!!.viewer.isAuthorMutedByViewer)
+        assertEquals(true, mapped.viewer.isAuthorBlockedByViewer)
+        assertEquals(false, mapped.viewer.isAuthorBlockingViewer)
+    }
+
+    @Test
+    fun `author viewer with blockedBy=true surfaces as isAuthorBlockingViewer`() {
+        // `author.viewer.blockedBy` is the inverse direction: the author
+        // is blocking the viewer. Independent of the viewer-blocks-author
+        // direction.
+        val blockedByJson =
+            """
+            {
+              "feed": [{
+                "post": {
+                  "uri": "at://did:plc:fake/app.bsky.feed.post/bb1",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake",
+                    "handle": "fake.bsky.social",
+                    "viewer": { "blockedBy": true }
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "post by an author who is blocking the viewer",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  }
+                }
+              }]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetTimelineResponse.serializer(), blockedByJson)
+        val mapped = response.feed.single().toPostUiOrNull()
+        assertNotNull(mapped)
+        assertEquals(false, mapped!!.viewer.isAuthorMutedByViewer)
+        assertEquals(false, mapped.viewer.isAuthorBlockedByViewer)
+        assertEquals(true, mapped.viewer.isAuthorBlockingViewer)
+    }
+
+    @Test
+    fun `author viewer with no moderation flags surfaces as all false`() {
+        // Default-everything path: author.viewer is absent on the wire.
+        // The three moderation flags must all be false (not null, not true).
+        val response = decodeFixture("timeline_typical.json")
+        val mapped = response.feed.first().toPostUiOrNull()
+        assertNotNull(mapped)
+        assertEquals(false, mapped!!.viewer.isAuthorMutedByViewer)
+        assertEquals(false, mapped.viewer.isAuthorBlockedByViewer)
+        assertEquals(false, mapped.viewer.isAuthorBlockingViewer)
+    }
+
+    @Test
     fun `posts with no embed map to EmbedUi_Empty`() {
         val response = decodeFixture("timeline_typical.json")
         response.feed.forEach { entry ->

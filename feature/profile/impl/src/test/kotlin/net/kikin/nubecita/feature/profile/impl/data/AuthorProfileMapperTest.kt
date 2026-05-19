@@ -9,6 +9,7 @@ import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Handle
 import io.github.kikin81.atproto.runtime.Uri
+import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -196,6 +197,83 @@ internal class AuthorProfileMapperTest {
                 viewer = ViewerState(followedBy = null),
             ).toProfileHeaderUi()
         assertEquals(false, ui.canMessage)
+    }
+
+    @Test
+    fun `viewerModeration defaults to all-false when viewer is null`() {
+        val ui = sampleView(viewer = null).toProfileHeaderUi()
+        assertEquals(ViewerModerationState(), ui.viewerModeration)
+    }
+
+    @Test
+    fun `viewerModeration captures muted-only viewer state`() {
+        val ui =
+            sampleView(viewer = ViewerState(muted = true)).toProfileHeaderUi()
+        assertEquals(
+            ViewerModerationState(
+                isMutedByViewer = true,
+                blockUri = null,
+                isBlockingViewer = false,
+            ),
+            ui.viewerModeration,
+        )
+    }
+
+    @Test
+    fun `viewerModeration captures blocking-only viewer state and exposes the block AT URI`() {
+        val blockUri = "at://did:plc:viewer/app.bsky.graph.block/abc"
+        val ui =
+            sampleView(viewer = ViewerState(blocking = AtUri(blockUri))).toProfileHeaderUi()
+        assertEquals(
+            ViewerModerationState(
+                isMutedByViewer = false,
+                blockUri = blockUri,
+                isBlockingViewer = false,
+            ),
+            ui.viewerModeration,
+        )
+    }
+
+    @Test
+    fun `viewerModeration captures blockedBy-only viewer state`() {
+        val ui =
+            sampleView(viewer = ViewerState(blockedBy = true)).toProfileHeaderUi()
+        assertEquals(
+            ViewerModerationState(
+                isMutedByViewer = false,
+                blockUri = null,
+                isBlockingViewer = true,
+            ),
+            ui.viewerModeration,
+        )
+    }
+
+    @Test
+    fun `viewerModeration captures both directions when viewer is blocking and is blocked by`() {
+        val blockUri = "at://did:plc:viewer/app.bsky.graph.block/def"
+        val ui =
+            sampleView(
+                viewer =
+                    ViewerState(
+                        blocking = AtUri(blockUri),
+                        blockedBy = true,
+                    ),
+            ).toProfileHeaderUi()
+        assertEquals(
+            ViewerModerationState(
+                isMutedByViewer = false,
+                blockUri = blockUri,
+                isBlockingViewer = true,
+            ),
+            ui.viewerModeration,
+        )
+    }
+
+    @Test
+    fun `viewerModeration is all-false when viewer is present but no moderation flags are set`() {
+        val ui =
+            sampleView(viewer = ViewerState(following = null)).toProfileHeaderUi()
+        assertEquals(ViewerModerationState(), ui.viewerModeration)
     }
 
     @Test

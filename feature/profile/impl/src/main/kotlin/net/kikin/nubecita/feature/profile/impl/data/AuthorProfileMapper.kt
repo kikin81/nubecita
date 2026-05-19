@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.profile.impl.data
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
+import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -39,7 +40,29 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
         followersCount = followersCount ?: 0L,
         followsCount = followsCount ?: 0L,
         canMessage = canViewerMessage(),
+        viewerModeration = viewer.toViewerModerationState(),
     )
+
+/**
+ * Projects the mute / block-direction flags off `viewer` into the
+ * UI-layer [ViewerModerationState]. Treats `null` `viewer` (an
+ * unauthenticated request, or an appview that omitted the block) as
+ * the all-defaults "no moderation in play" baseline — matches the
+ * same posture as [toViewerRelationship].
+ *
+ * `viewer.blocking` is an `AtUri?` on the wire; we capture `.raw` so
+ * the UI layer never sees the runtime value class. `viewer.muted` and
+ * `viewer.blockedBy` are nullable `Boolean?` — null is treated as the
+ * default `false` for both.
+ */
+private fun ViewerState?.toViewerModerationState(): ViewerModerationState {
+    if (this == null) return ViewerModerationState()
+    return ViewerModerationState(
+        isMutedByViewer = muted == true,
+        blockUri = blocking?.raw,
+        isBlockingViewer = blockedBy == true,
+    )
+}
 
 /**
  * Resolves whether the signed-in viewer is allowed to send this profile a DM.
