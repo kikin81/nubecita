@@ -15,7 +15,6 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import timber.log.Timber
 import javax.inject.Inject
-import kotlin.time.Clock
 
 internal class DefaultChatRepository
     @Inject
@@ -36,11 +35,10 @@ internal class DefaultChatRepository
                         ConvoService(client).listConvos(
                             ListConvosRequest(cursor = cursor, limit = limit.toLong()),
                         )
-                    val now = Clock.System.now()
                     ConvoListPage(
                         items =
                             response.convos
-                                .map { it.toConvoListItemUi(viewerDid = viewerDid, now = now) }
+                                .map { it.toConvoListItemUi(viewerDid = viewerDid) }
                                 .toImmutableList(),
                         nextCursor = response.cursor,
                     )

@@ -3,17 +3,32 @@ package net.kikin.nubecita.feature.chats.impl
 import android.content.res.Configuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
+
+// `now` pinned so rememberChatRelativeTimeText renders the same labels
+// on every screenshot run. Aligned with ConvoListItemScreenshotTest.
+private val FIXTURE_NOW = Instant.parse("2026-05-13T12:00:00Z")
+
+private object FixtureClock : Clock {
+    override fun now(): Instant = FIXTURE_NOW
+}
 
 private fun sampleItem(
     convoId: String,
     displayName: String?,
     snippet: String,
-    ts: String,
+    sentAt: Instant?,
 ): ConvoListItemUi =
     ConvoListItemUi(
         convoId = convoId,
@@ -25,7 +40,7 @@ private fun sampleItem(
         lastMessageSnippet = snippet,
         lastMessageFromViewer = false,
         lastMessageIsAttachment = false,
-        timestampRelative = ts,
+        sentAt = sentAt,
     )
 
 private val LOADED_STATE =
@@ -34,9 +49,9 @@ private val LOADED_STATE =
             ChatsLoadStatus.Loaded(
                 items =
                     persistentListOf(
-                        sampleItem("alice", "Alice Liddell", "I would love a copy.", "10m"),
-                        sampleItem("bob", "Bob", "ok", "Yesterday"),
-                        sampleItem("carol", null, "see you soon", "Mon"),
+                        sampleItem("alice", "Alice Liddell", "I would love a copy.", FIXTURE_NOW - 10.minutes),
+                        sampleItem("bob", "Bob", "ok", FIXTURE_NOW - 28.hours),
+                        sampleItem("carol", null, "see you soon", FIXTURE_NOW - 2.days),
                     ),
             ),
     )
@@ -47,9 +62,9 @@ private val LOADED_REFRESHING_STATE =
             ChatsLoadStatus.Loaded(
                 items =
                     persistentListOf(
-                        sampleItem("alice", "Alice Liddell", "I would love a copy.", "10m"),
-                        sampleItem("bob", "Bob", "ok", "Yesterday"),
-                        sampleItem("carol", null, "see you soon", "Mon"),
+                        sampleItem("alice", "Alice Liddell", "I would love a copy.", FIXTURE_NOW - 10.minutes),
+                        sampleItem("bob", "Bob", "ok", FIXTURE_NOW - 28.hours),
+                        sampleItem("carol", null, "see you soon", FIXTURE_NOW - 2.days),
                     ),
                 isRefreshing = true,
             ),
@@ -65,8 +80,10 @@ private val LOADING_STATE = ChatsScreenViewState(status = ChatsLoadStatus.Loadin
 @Preview(name = "chats-loaded-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatsScreenLoadedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        ChatsScreenContent(state = LOADED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaTheme(dynamicColor = false) {
+            ChatsScreenContent(state = LOADED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+        }
     }
 }
 
@@ -75,8 +92,10 @@ private fun ChatsScreenLoadedScreenshot() {
 @Preview(name = "chats-loaded-refreshing-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatsScreenLoadedRefreshingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        ChatsScreenContent(state = LOADED_REFRESHING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaTheme(dynamicColor = false) {
+            ChatsScreenContent(state = LOADED_REFRESHING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+        }
     }
 }
 

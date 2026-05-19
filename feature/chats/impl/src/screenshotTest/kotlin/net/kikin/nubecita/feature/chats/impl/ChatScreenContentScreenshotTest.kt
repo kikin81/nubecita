@@ -2,15 +2,32 @@ package net.kikin.nubecita.feature.chats.impl
 
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import kotlin.time.Clock
 import kotlin.time.Instant
+
+// Pin LocalClock so PostCardQuotedPost's rememberRelativeTimeText renders a
+// stable label inside the WithEmbeds screenshot. createdAt for embed fixtures
+// is 2026-05-14T16:00:00Z; THREAD_FIXTURE_NOW is 5h later so the embed shows "5h" —
+// matches the committed baseline, avoiding a re-baseline. Before this wrap
+// the test pulled Clock.System and drifted day over day (the baseline went
+// stale within ~24h of being generated). Adjacent to nubecita-nn3.3 in spirit
+// (screenshot test stability), distinct in mechanism (this surface already
+// used rememberRelativeTimeText; only the missing CompositionLocal was the bug).
+private val THREAD_FIXTURE_NOW = Instant.parse("2026-05-14T21:00:00Z")
+
+private object ThreadFixtureClock : Clock {
+    override fun now(): Instant = THREAD_FIXTURE_NOW
+}
 
 private const val VIEWER = "did:plc:viewer"
 private const val PEER = "did:plc:alice"
@@ -242,8 +259,10 @@ private fun ChatScreenLoadedScreenshot() {
 @Preview(name = "chat-loaded-embeds-dark", showBackground = true, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatScreenLoadedWithEmbedsScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        ChatScreenContent(state = LOADED_WITH_EMBEDS_STATE, onEvent = {})
+    CompositionLocalProvider(LocalClock provides ThreadFixtureClock) {
+        NubecitaTheme(dynamicColor = false) {
+            ChatScreenContent(state = LOADED_WITH_EMBEDS_STATE, onEvent = {})
+        }
     }
 }
 

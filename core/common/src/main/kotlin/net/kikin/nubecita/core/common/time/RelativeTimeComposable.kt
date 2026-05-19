@@ -35,6 +35,7 @@ fun rememberRelativeTimeStrings(): RelativeTimeStrings {
             minutes = { count -> resources.getQuantityString(R.plurals.relative_time_minutes, count, count) },
             hours = { count -> resources.getQuantityString(R.plurals.relative_time_hours, count, count) },
             days = { count -> resources.getQuantityString(R.plurals.relative_time_days, count, count) },
+            yesterday = resources.getString(R.string.relative_time_yesterday),
         )
     }
 }
@@ -70,6 +71,38 @@ fun rememberRelativeTimeText(
         while (true) {
             val now = clock.now()
             value = formatRelativeTime(now, then, strings)
+            delay(tickInterval(now - then))
+        }
+    }
+
+/**
+ * Composable wrapper around [formatChatRelativeTime] that auto-updates as time
+ * passes — same shape as [rememberRelativeTimeText] but uses the calendar-
+ * aware chat buckets (Yesterday, weekday names) defined in
+ * [formatChatRelativeTime]. Use this in the Chats convo list rows; use
+ * [rememberRelativeTimeText] in Feed / PostCard surfaces.
+ *
+ * Tick cadence is shared with [rememberRelativeTimeText] — [tickInterval]'s
+ * choice already covers both formatters' bucket boundaries (≤30s under 1h,
+ * ≤5m under 1d, ≤1h after). The calendar-day flip in the chat formatter
+ * happens at most once per hour-tick, which is the right cadence for a
+ * convo row label.
+ */
+@Composable
+fun rememberChatRelativeTimeText(
+    then: Instant,
+    strings: RelativeTimeStrings = rememberRelativeTimeStrings(),
+    clock: Clock = LocalClock.current,
+): State<String> =
+    produceState(
+        initialValue = formatChatRelativeTime(clock.now(), then, strings),
+        then,
+        strings,
+        clock,
+    ) {
+        while (true) {
+            val now = clock.now()
+            value = formatChatRelativeTime(now, then, strings)
             delay(tickInterval(now - then))
         }
     }
