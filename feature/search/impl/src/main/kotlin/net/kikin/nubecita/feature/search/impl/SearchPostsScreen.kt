@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.ui.PostsTabContent
@@ -34,12 +35,14 @@ internal fun SearchPostsScreen(
     onShowAppendError: (SearchPostsError) -> Unit,
     modifier: Modifier = Modifier,
     initialSort: SearchPostsSort = SearchPostsSort.TOP,
+    onShowOverflowComingSoon: (PostOverflowAction) -> Unit = {},
     viewModel: SearchPostsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val navState = LocalMainShellNavState.current
     val currentOnClearQuery by rememberUpdatedState(onClearQuery)
     val currentOnShowAppendError by rememberUpdatedState(onShowAppendError)
+    val currentOnShowOverflowComingSoon by rememberUpdatedState(onShowOverflowComingSoon)
 
     // Push the latest debounced query down to the VM. The VM
     // dedupes via StateFlow operator fusion on the FetchKey.
@@ -65,6 +68,8 @@ internal fun SearchPostsScreen(
                     currentOnShowAppendError(effect.error)
                 SearchPostsEffect.NavigateToClearQuery ->
                     currentOnClearQuery()
+                is SearchPostsEffect.ShowComingSoon ->
+                    currentOnShowOverflowComingSoon(effect.action)
             }
         }
     }

@@ -6,6 +6,8 @@ import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 
 /**
@@ -85,6 +87,17 @@ internal sealed interface SearchPostsEvent : UiEvent {
     data class PostTapped(
         val uri: String,
     ) : SearchPostsEvent
+
+    /**
+     * User selected an overflow-menu entry on a PostCard in the search
+     * results. Wired in oftc.2 to surface a coming-soon snackbar via
+     * [SearchPostsEffect.ShowComingSoon]; oftc.3 / .4 / .5 swap each
+     * variant for its real moderation RPC.
+     */
+    data class OnOverflowAction(
+        val post: PostUi,
+        val action: PostOverflowAction,
+    ) : SearchPostsEvent
 }
 
 internal sealed interface SearchPostsEffect : UiEffect {
@@ -105,4 +118,13 @@ internal sealed interface SearchPostsEffect : UiEffect {
      * directly (MVI rule: no Hilt ViewModel-into-ViewModel injection).
      */
     data object NavigateToClearQuery : SearchPostsEffect
+
+    /**
+     * Surface a "coming soon" snackbar for a PostCard overflow-menu
+     * action (oftc.2). oftc.3 / .4 / .5 swap each variant for its real
+     * RPC call.
+     */
+    data class ShowComingSoon(
+        val action: PostOverflowAction,
+    ) : SearchPostsEffect
 }

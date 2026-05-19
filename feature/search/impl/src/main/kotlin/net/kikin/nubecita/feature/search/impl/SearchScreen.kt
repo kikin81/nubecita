@@ -26,6 +26,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 import net.kikin.nubecita.feature.search.impl.ui.SearchInputRow
 
@@ -130,6 +131,23 @@ internal fun SearchScreenContent(
     val feedsNetworkMsg = stringResource(R.string.search_feeds_append_error_network)
     val feedsRateLimitedMsg = stringResource(R.string.search_feeds_append_error_rate_limited)
     val feedsUnknownMsg = stringResource(R.string.search_feeds_append_error_unknown)
+    // PostCard overflow-menu coming-soon snackbars (oftc.2).
+    val overflowReportComingSoon =
+        stringResource(R.string.search_snackbar_overflow_report_coming_soon)
+    val overflowMuteComingSoon =
+        stringResource(R.string.search_snackbar_overflow_mute_coming_soon)
+    val overflowUnmuteComingSoon =
+        stringResource(R.string.search_snackbar_overflow_unmute_coming_soon)
+    val overflowBlockComingSoon =
+        stringResource(R.string.search_snackbar_overflow_block_coming_soon)
+    val overflowUnblockComingSoon =
+        stringResource(R.string.search_snackbar_overflow_unblock_coming_soon)
+    val overflowMuteThreadComingSoon =
+        stringResource(R.string.search_snackbar_overflow_mute_thread_coming_soon)
+    val overflowUnmuteThreadComingSoon =
+        stringResource(R.string.search_snackbar_overflow_unmute_thread_coming_soon)
+    val overflowCopyTextComingSoon =
+        stringResource(R.string.search_snackbar_overflow_copy_text_coming_soon)
 
     // Dismiss-then-show on each snackbar emission rather than queueing,
     // matching the convention established in :feature:feed:impl/FeedScreen
@@ -177,6 +195,40 @@ internal fun SearchScreenContent(
                         SearchFeedsError.Network -> feedsNetworkMsg
                         SearchFeedsError.RateLimited -> feedsRateLimitedMsg
                         is SearchFeedsError.Unknown -> feedsUnknownMsg
+                    }
+                snackScope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message)
+                }
+                Unit
+            }
+        }
+    // Surface PostCard overflow-menu coming-soon snackbars on the search
+    // screen's SnackbarHostState (same surface as the append-error path).
+    val onPostsOverflowComingSoon =
+        remember(
+            snackScope,
+            snackbarHostState,
+            overflowReportComingSoon,
+            overflowMuteComingSoon,
+            overflowUnmuteComingSoon,
+            overflowBlockComingSoon,
+            overflowUnblockComingSoon,
+            overflowMuteThreadComingSoon,
+            overflowUnmuteThreadComingSoon,
+            overflowCopyTextComingSoon,
+        ) {
+            { action: PostOverflowAction ->
+                val message =
+                    when (action) {
+                        PostOverflowAction.ReportPost -> overflowReportComingSoon
+                        PostOverflowAction.MuteAuthor -> overflowMuteComingSoon
+                        PostOverflowAction.UnmuteAuthor -> overflowUnmuteComingSoon
+                        PostOverflowAction.BlockAuthor -> overflowBlockComingSoon
+                        PostOverflowAction.UnblockAuthor -> overflowUnblockComingSoon
+                        PostOverflowAction.MuteThread -> overflowMuteThreadComingSoon
+                        PostOverflowAction.UnmuteThread -> overflowUnmuteThreadComingSoon
+                        PostOverflowAction.CopyPostText -> overflowCopyTextComingSoon
                     }
                 snackScope.launch {
                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -239,6 +291,7 @@ internal fun SearchScreenContent(
                                     currentQuery = currentQuery,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onPostsAppendError,
+                                    onShowOverflowComingSoon = onPostsOverflowComingSoon,
                                 )
                             1 ->
                                 SearchActorsScreen(
