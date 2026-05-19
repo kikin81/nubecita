@@ -13,9 +13,12 @@ import androidx.compose.runtime.Immutable
  *
  * `Author` (Mute / Block) variants come in pairs — the menu renders
  * exactly one of each pair based on `post.viewer.isAuthorMutedByViewer`
- * / `post.viewer.isAuthorBlockedByViewer`. Threads only carry the Mute
- * side in V1; the unmute path lands when the per-post mute-state lookup
- * does (tracked under oftc.5).
+ * / `post.viewer.isAuthorBlockedByViewer`. The thread pair is asymmetric
+ * in oftc.2: the menu emits only [MuteThread] because per-post
+ * thread-mute-state is not yet projected onto `PostUi` (that lands with
+ * oftc.5 / oftc.7). [UnmuteThread] is declared so host VMs' `when`
+ * switches stay exhaustive ahead of that wiring — it is part of the
+ * type surface but not currently emitted by the closed-state menu.
  */
 @Immutable
 sealed interface PostOverflowAction {

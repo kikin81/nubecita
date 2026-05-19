@@ -43,7 +43,16 @@ private fun overflowScreenshotAuthor(): AuthorUi =
         avatarUrl = null,
     )
 
-private fun overflowScreenshotPost(viewer: ViewerStateUi = ViewerStateUi(isLikedByViewer = true)): PostUi =
+/**
+ * Shared base viewer state for the overflow fixtures. Per-fixture
+ * variations MUST be expressed via `BASE_VIEWER.copy(...)` so unrelated
+ * flags (like / repost icon fills) stay constant across baselines and
+ * the only varying surface really is the row geometry plus whatever
+ * moderation cue is under test.
+ */
+private val BASE_VIEWER: ViewerStateUi = ViewerStateUi(isLikedByViewer = true)
+
+private fun overflowScreenshotPost(viewer: ViewerStateUi = BASE_VIEWER): PostUi =
     PostUi(
         id = "screenshot-overflow",
         cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
@@ -100,7 +109,7 @@ private fun PostCardOverflowViewerMutedAuthorScreenshot() {
     // (e.g. a badge on the overflow icon) lands here for review.
     NubecitaTheme(dynamicColor = false) {
         PostCard(
-            post = overflowScreenshotPost(viewer = ViewerStateUi(isAuthorMutedByViewer = true)),
+            post = overflowScreenshotPost(viewer = BASE_VIEWER.copy(isAuthorMutedByViewer = true)),
             callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),
         )
     }
@@ -117,7 +126,7 @@ private fun PostCardOverflowViewerMutedAuthorScreenshot() {
 private fun PostCardOverflowViewerBlockedAuthorScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         PostCard(
-            post = overflowScreenshotPost(viewer = ViewerStateUi(isAuthorBlockedByViewer = true)),
+            post = overflowScreenshotPost(viewer = BASE_VIEWER.copy(isAuthorBlockedByViewer = true)),
             callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),
         )
     }
@@ -134,7 +143,7 @@ private fun PostCardOverflowViewerBlockedAuthorScreenshot() {
 private fun PostCardOverflowViewerNeutralScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         PostCard(
-            post = overflowScreenshotPost(viewer = ViewerStateUi()),
+            post = overflowScreenshotPost(viewer = BASE_VIEWER),
             callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),
         )
     }

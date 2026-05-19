@@ -16,6 +16,7 @@ import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -42,6 +43,28 @@ import kotlin.time.Duration.Companion.minutes
 class PostCardClickModelTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+
+    // Labels resolved from the host activity's resources rather than
+    // hardcoded literals so the tests track strings.xml automatically —
+    // a copy or l10n change only needs to update the resource, not also
+    // a parallel constant table. `get()` because composeTestRule.activity
+    // isn't initialized at field-init time.
+    private val moreOptionsLabel: String
+        get() = composeTestRule.activity.getString(R.string.postcard_action_more)
+    private val reportPostLabel: String
+        get() = composeTestRule.activity.getString(R.string.moderation_action_report_post)
+    private val muteThreadLabel: String
+        get() = composeTestRule.activity.getString(R.string.moderation_action_mute_thread)
+    private val copyPostTextLabel: String
+        get() = composeTestRule.activity.getString(R.string.moderation_action_copy_post_text)
+
+    private fun muteAuthorLabel(handle: String = PARENT_AUTHOR.handle): String = composeTestRule.activity.getString(R.string.moderation_action_mute_author, handle)
+
+    private fun unmuteAuthorLabel(handle: String = PARENT_AUTHOR.handle): String = composeTestRule.activity.getString(R.string.moderation_action_unmute_author, handle)
+
+    private fun blockAuthorLabel(handle: String = PARENT_AUTHOR.handle): String = composeTestRule.activity.getString(R.string.moderation_action_block_author, handle)
+
+    private fun unblockAuthorLabel(handle: String = PARENT_AUTHOR.handle): String = composeTestRule.activity.getString(R.string.moderation_action_unblock_author, handle)
 
     @Test
     fun record_tappingQuotedRegion_firesQuotedTap_not_parentTap() {
@@ -184,7 +207,7 @@ class PostCardClickModelTest {
         // affordance. assertDoesNotExist() rather than fishing for a click
         // — the contract is "no node with this contentDescription".
         composeTestRule
-            .onNodeWithContentDescription(MORE_OPTIONS_LABEL)
+            .onNodeWithContentDescription(moreOptionsLabel)
             .assertDoesNotExist()
     }
 
@@ -205,7 +228,7 @@ class PostCardClickModelTest {
         }
 
         composeTestRule
-            .onNodeWithContentDescription(MORE_OPTIONS_LABEL)
+            .onNodeWithContentDescription(moreOptionsLabel)
             .assertIsDisplayed()
     }
 
@@ -224,8 +247,8 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
-        composeTestRule.onNodeWithText(REPORT_POST_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNodeWithText(reportPostLabel).performClick()
 
         assertEquals(PostOverflowAction.ReportPost, recorded)
     }
@@ -245,9 +268,9 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
         composeTestRule
-            .onNodeWithText(MUTE_AUTHOR_LABEL_FORMATTED)
+            .onNodeWithText(muteAuthorLabel())
             .performClick()
 
         assertEquals(PostOverflowAction.MuteAuthor, recorded)
@@ -268,9 +291,9 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
         composeTestRule
-            .onNodeWithText(UNMUTE_AUTHOR_LABEL_FORMATTED)
+            .onNodeWithText(unmuteAuthorLabel())
             .performClick()
 
         assertEquals(PostOverflowAction.UnmuteAuthor, recorded)
@@ -291,9 +314,9 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
         composeTestRule
-            .onNodeWithText(BLOCK_AUTHOR_LABEL_FORMATTED)
+            .onNodeWithText(blockAuthorLabel())
             .performClick()
 
         assertEquals(PostOverflowAction.BlockAuthor, recorded)
@@ -314,9 +337,9 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
         composeTestRule
-            .onNodeWithText(UNBLOCK_AUTHOR_LABEL_FORMATTED)
+            .onNodeWithText(unblockAuthorLabel())
             .performClick()
 
         assertEquals(PostOverflowAction.UnblockAuthor, recorded)
@@ -337,8 +360,8 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
-        composeTestRule.onNodeWithText(MUTE_THREAD_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNodeWithText(muteThreadLabel).performClick()
 
         assertEquals(PostOverflowAction.MuteThread, recorded)
     }
@@ -358,8 +381,8 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
-        composeTestRule.onNodeWithText(COPY_POST_TEXT_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNodeWithText(copyPostTextLabel).performClick()
 
         assertEquals(PostOverflowAction.CopyPostText, recorded)
     }
@@ -375,15 +398,15 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
         // Mute @handle should NOT exist when the author is already muted —
         // the menu renders Unmute @handle instead. Belt-and-suspenders for
         // the "exactly one of the pair" invariant.
         composeTestRule
-            .onNodeWithText(MUTE_AUTHOR_LABEL_FORMATTED)
+            .onNodeWithText(muteAuthorLabel())
             .assertDoesNotExist()
         composeTestRule
-            .onNodeWithText(UNMUTE_AUTHOR_LABEL_FORMATTED)
+            .onNodeWithText(unmuteAuthorLabel())
             .assertIsDisplayed()
     }
 
@@ -398,12 +421,12 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
         composeTestRule
-            .onNodeWithText(BLOCK_AUTHOR_LABEL_FORMATTED)
+            .onNodeWithText(blockAuthorLabel())
             .assertDoesNotExist()
         composeTestRule
-            .onNodeWithText(UNBLOCK_AUTHOR_LABEL_FORMATTED)
+            .onNodeWithText(unblockAuthorLabel())
             .assertIsDisplayed()
     }
 
@@ -426,8 +449,8 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(MORE_OPTIONS_LABEL).performClick()
-        composeTestRule.onNodeWithText(REPORT_POST_LABEL).performClick()
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNodeWithText(reportPostLabel).performClick()
 
         assertTrue("callback should receive the post it was rendered for", recordedPost === target)
     }
@@ -456,19 +479,6 @@ class PostCardClickModelTest {
             "Parent post body text — outside the quoted region."
         const val QUOTED_BODY_TEXT =
             "Quoted post body text — inside the quoted Surface."
-
-        // Mirrors the formatted versions of postcard_action_more and the
-        // moderation_action_* strings in designsystem/src/main/res. Keep
-        // these in lockstep with strings.xml — a divergence makes these
-        // tests fail with a "node not found" rather than a useful message.
-        const val MORE_OPTIONS_LABEL = "More options"
-        const val REPORT_POST_LABEL = "Report post"
-        const val MUTE_AUTHOR_LABEL_FORMATTED = "Mute @parent.bsky.social"
-        const val UNMUTE_AUTHOR_LABEL_FORMATTED = "Unmute @parent.bsky.social"
-        const val BLOCK_AUTHOR_LABEL_FORMATTED = "Block @parent.bsky.social"
-        const val UNBLOCK_AUTHOR_LABEL_FORMATTED = "Unblock @parent.bsky.social"
-        const val MUTE_THREAD_LABEL = "Mute thread"
-        const val COPY_POST_TEXT_LABEL = "Copy post text"
 
         val PARENT_AUTHOR: AuthorUi =
             AuthorUi(
