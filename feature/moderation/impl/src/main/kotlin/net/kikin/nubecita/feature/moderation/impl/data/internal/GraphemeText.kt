@@ -43,4 +43,21 @@ internal object GraphemeText {
         }
         return text.substring(0, boundary)
     }
+
+    /**
+     * Counts extended grapheme clusters in [text]. Symmetric with
+     * [truncate]: `count(truncate(s, max)) <= max` always holds. Used by
+     * the Details step's `n/300` counter and by the [canSubmit] gate to
+     * reject empty-but-required free-text input.
+     */
+    fun count(text: String): Int {
+        if (text.isEmpty()) return 0
+        val iter = BreakIterator.getCharacterInstance()
+        iter.setText(text)
+        var count = 0
+        while (iter.next() != BreakIterator.DONE) {
+            count++
+        }
+        return count
+    }
 }

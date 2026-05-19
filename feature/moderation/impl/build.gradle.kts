@@ -22,4 +22,17 @@ dependencies {
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
+
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // Instrumentation tests for the report dialog flow (the
+    // `run-instrumented` PR label is required to exercise these in CI).
+    // Pin espresso-core explicitly per the convention used by every
+    // other feature module — compose-ui-test-junit4 otherwise pulls a
+    // stale transitive Espresso that breaks `Espresso.pressBack()`.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }
