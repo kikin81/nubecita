@@ -8,6 +8,7 @@ import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.feed.impl.share.PostShareIntent
 
 /**
@@ -194,6 +195,18 @@ sealed interface FeedEvent : UiEvent {
     data class OnReplySubmittedToParent(
         val parentUri: String,
     ) : FeedEvent
+
+    /**
+     * User selected an overflow-menu entry on a PostCard. Routed through
+     * the VM so it can decide the appropriate effect — oftc.2 wires
+     * every action to a coming-soon snackbar via
+     * [FeedEffect.ShowComingSoon]; oftc.3 / .4 / .5 swap each variant
+     * for its real moderation RPC.
+     */
+    data class OnOverflowAction(
+        val post: PostUi,
+        val action: PostOverflowAction,
+    ) : FeedEvent
 }
 
 sealed interface FeedEffect : UiEffect {
@@ -267,5 +280,16 @@ sealed interface FeedEffect : UiEffect {
     @Immutable
     data class CopyPermalink(
         val permalink: String,
+    ) : FeedEffect
+
+    /**
+     * Surface a "coming soon" snackbar for an overflow-menu action.
+     * Lives on the effect surface (not state) so it doesn't stick — the
+     * acknowledgement is transient. Each variant of [PostOverflowAction]
+     * maps to its own piece of copy at the screen.
+     */
+    @Immutable
+    data class ShowComingSoon(
+        val action: PostOverflowAction,
     ) : FeedEffect
 }

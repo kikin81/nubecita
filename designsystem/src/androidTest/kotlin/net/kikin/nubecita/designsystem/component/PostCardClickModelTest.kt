@@ -1,7 +1,9 @@
 package net.kikin.nubecita.designsystem.component
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import kotlinx.collections.immutable.persistentListOf
@@ -14,7 +16,10 @@ import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import kotlin.time.Clock
@@ -38,6 +43,28 @@ import kotlin.time.Duration.Companion.minutes
 class PostCardClickModelTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+
+    // Labels resolved from the host activity's resources rather than
+    // hardcoded literals so the tests track strings.xml automatically —
+    // a copy or l10n change only needs to update the resource, not also
+    // a parallel constant table. `get()` because composeTestRule.activity
+    // isn't initialized at field-init time.
+    private val moreOptionsLabel: String
+        get() = composeTestRule.activity.getString(R.string.postcard_action_more)
+    private val reportPostLabel: String
+        get() = composeTestRule.activity.getString(R.string.moderation_action_report_post)
+    private val muteThreadLabel: String
+        get() = composeTestRule.activity.getString(R.string.moderation_action_mute_thread)
+    private val copyPostTextLabel: String
+        get() = composeTestRule.activity.getString(R.string.moderation_action_copy_post_text)
+
+    private fun muteAuthorLabel(handle: String = PARENT_AUTHOR.handle): String = composeTestRule.activity.getString(R.string.moderation_action_mute_author, handle)
+
+    private fun unmuteAuthorLabel(handle: String = PARENT_AUTHOR.handle): String = composeTestRule.activity.getString(R.string.moderation_action_unmute_author, handle)
+
+    private fun blockAuthorLabel(handle: String = PARENT_AUTHOR.handle): String = composeTestRule.activity.getString(R.string.moderation_action_block_author, handle)
+
+    private fun unblockAuthorLabel(handle: String = PARENT_AUTHOR.handle): String = composeTestRule.activity.getString(R.string.moderation_action_unblock_author, handle)
 
     @Test
     fun record_tappingQuotedRegion_firesQuotedTap_not_parentTap() {
@@ -163,6 +190,290 @@ class PostCardClickModelTest {
         assertEquals("quoted tap must not fire from non-quoted regions", 0, quotedTaps)
     }
 
+    // ---------- overflow-menu (oftc.2) ----------
+
+    @Test
+    fun overflowIcon_isNotRendered_whenCallbackIsNull() {
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty),
+                    callbacks = PostCallbacks.None,
+                )
+            }
+        }
+
+        // PostCallbacks.None has onOverflowAction = null → no More-options
+        // affordance. assertDoesNotExist() rather than fishing for a click
+        // — the contract is "no node with this contentDescription".
+        composeTestRule
+            .onNodeWithContentDescription(moreOptionsLabel)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun overflowIcon_isRendered_whenCallbackProvided() {
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty),
+                    callbacks =
+                        PostCallbacks(
+                            // Recording lambda kept empty — the test only
+                            // asserts the icon's render-gate, not the dispatch.
+                            onOverflowAction = { _, _ -> },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithContentDescription(moreOptionsLabel)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun overflowMenu_reportPost_invokesCallbackWithReportPost() {
+        var recorded: PostOverflowAction? = null
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty),
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { _, action -> recorded = action },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNodeWithText(reportPostLabel).performClick()
+
+        assertEquals(PostOverflowAction.ReportPost, recorded)
+    }
+
+    @Test
+    fun overflowMenu_muteAuthor_invokesCallbackWithMuteAuthor_whenNotMuted() {
+        var recorded: PostOverflowAction? = null
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty, isAuthorMutedByViewer = false),
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { _, action -> recorded = action },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule
+            .onNodeWithText(muteAuthorLabel())
+            .performClick()
+
+        assertEquals(PostOverflowAction.MuteAuthor, recorded)
+    }
+
+    @Test
+    fun overflowMenu_unmuteAuthor_invokesCallbackWithUnmuteAuthor_whenMuted() {
+        var recorded: PostOverflowAction? = null
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty, isAuthorMutedByViewer = true),
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { _, action -> recorded = action },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule
+            .onNodeWithText(unmuteAuthorLabel())
+            .performClick()
+
+        assertEquals(PostOverflowAction.UnmuteAuthor, recorded)
+    }
+
+    @Test
+    fun overflowMenu_blockAuthor_invokesCallbackWithBlockAuthor_whenNotBlocked() {
+        var recorded: PostOverflowAction? = null
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty, isAuthorBlockedByViewer = false),
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { _, action -> recorded = action },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule
+            .onNodeWithText(blockAuthorLabel())
+            .performClick()
+
+        assertEquals(PostOverflowAction.BlockAuthor, recorded)
+    }
+
+    @Test
+    fun overflowMenu_unblockAuthor_invokesCallbackWithUnblockAuthor_whenBlocked() {
+        var recorded: PostOverflowAction? = null
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty, isAuthorBlockedByViewer = true),
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { _, action -> recorded = action },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule
+            .onNodeWithText(unblockAuthorLabel())
+            .performClick()
+
+        assertEquals(PostOverflowAction.UnblockAuthor, recorded)
+    }
+
+    @Test
+    fun overflowMenu_muteThread_invokesCallbackWithMuteThread() {
+        var recorded: PostOverflowAction? = null
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty),
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { _, action -> recorded = action },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNodeWithText(muteThreadLabel).performClick()
+
+        assertEquals(PostOverflowAction.MuteThread, recorded)
+    }
+
+    @Test
+    fun overflowMenu_copyPostText_invokesCallbackWithCopyPostText() {
+        var recorded: PostOverflowAction? = null
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty),
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { _, action -> recorded = action },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNodeWithText(copyPostTextLabel).performClick()
+
+        assertEquals(PostOverflowAction.CopyPostText, recorded)
+    }
+
+    @Test
+    fun overflowMenu_muteAuthor_isAbsent_whenAlreadyMuted() {
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty, isAuthorMutedByViewer = true),
+                    callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        // Mute @handle should NOT exist when the author is already muted —
+        // the menu renders Unmute @handle instead. Belt-and-suspenders for
+        // the "exactly one of the pair" invariant.
+        composeTestRule
+            .onNodeWithText(muteAuthorLabel())
+            .assertDoesNotExist()
+        composeTestRule
+            .onNodeWithText(unmuteAuthorLabel())
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun overflowMenu_blockAuthor_isAbsent_whenAlreadyBlocked() {
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty, isAuthorBlockedByViewer = true),
+                    callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule
+            .onNodeWithText(blockAuthorLabel())
+            .assertDoesNotExist()
+        composeTestRule
+            .onNodeWithText(unblockAuthorLabel())
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun overflowMenu_passesThePostInstanceToTheCallback() {
+        // Independent recording slot for the (post, action) pair — locks
+        // that the host receives both halves; oftc.3 / .4 / .5 will need
+        // the post identity to issue the right RPC.
+        var recordedPost: PostUi? = null
+        val target = parentPost(embed = EmbedUi.Empty)
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = target,
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { post, _ -> recordedPost = post },
+                        ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNodeWithText(reportPostLabel).performClick()
+
+        assertTrue("callback should receive the post it was rendered for", recordedPost === target)
+    }
+
+    @Test
+    fun overflowMenu_neverFiresUntilMenuOpenedAndItemTapped() {
+        // Render — but don't open the menu. The callback must NOT fire
+        // from composition alone.
+        var fired: PostOverflowAction? = null
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(
+                    post = parentPost(embed = EmbedUi.Empty),
+                    callbacks =
+                        PostCallbacks(
+                            onOverflowAction = { _, action -> fired = action },
+                        ),
+                )
+            }
+        }
+        assertNull("callback must not fire on mere render", fired)
+    }
+
     private companion object {
         const val PARENT_BODY_TEXT =
             "Parent post body text — outside the quoted region."
@@ -209,7 +520,11 @@ class PostCardClickModelTest {
                     ),
             )
 
-        fun parentPost(embed: EmbedUi): PostUi =
+        fun parentPost(
+            embed: EmbedUi,
+            isAuthorMutedByViewer: Boolean = false,
+            isAuthorBlockedByViewer: Boolean = false,
+        ): PostUi =
             PostUi(
                 id = "at://did:plc:parent/app.bsky.feed.post/p",
                 cid = "bafyreiparentcid000000000000000000000000000000000",
@@ -219,7 +534,11 @@ class PostCardClickModelTest {
                 facets = persistentListOf(),
                 embed = embed,
                 stats = PostStatsUi(),
-                viewer = ViewerStateUi(),
+                viewer =
+                    ViewerStateUi(
+                        isAuthorMutedByViewer = isAuthorMutedByViewer,
+                        isAuthorBlockedByViewer = isAuthorBlockedByViewer,
+                    ),
                 repostedBy = null,
             )
     }

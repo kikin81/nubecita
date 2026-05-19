@@ -80,6 +80,7 @@ internal class FeedViewModel
                 is FeedEvent.OnShareLongPressed ->
                     sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))
                 is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
+                is FeedEvent.OnOverflowAction -> sendEffect(FeedEffect.ShowComingSoon(event.action))
             }
         }
 

@@ -7,6 +7,7 @@ import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 
 /**
@@ -176,6 +177,19 @@ internal sealed interface PostDetailEvent : UiEvent {
     data class OnVideoTapped(
         val postUri: String,
     ) : PostDetailEvent
+
+    /**
+     * User selected an overflow-menu entry on a PostCard inside the
+     * post-detail thread (focus, ancestor, or reply). Routed through the
+     * VM so it can decide the appropriate effect — oftc.2 wires every
+     * action to a coming-soon snackbar via
+     * [PostDetailEffect.ShowComingSoon]; oftc.3 / .4 / .5 swap each
+     * variant for its real moderation RPC.
+     */
+    data class OnOverflowAction(
+        val post: PostUi,
+        val action: PostOverflowAction,
+    ) : PostDetailEvent
 }
 
 internal sealed interface PostDetailEffect : UiEffect {
@@ -239,5 +253,15 @@ internal sealed interface PostDetailEffect : UiEffect {
     @Immutable
     data class NavigateToVideoPlayer(
         val postUri: String,
+    ) : PostDetailEffect
+
+    /**
+     * Surface a "coming soon" snackbar for a PostCard overflow-menu
+     * action (oftc.2). Routed through the same SnackbarHostState as
+     * [ShowError] / [NavigateToComposer]'s acknowledgement copy.
+     */
+    @Immutable
+    data class ShowComingSoon(
+        val action: PostOverflowAction,
     ) : PostDetailEffect
 }

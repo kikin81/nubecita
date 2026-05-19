@@ -7,6 +7,7 @@ import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
 /**
  * MVI state for the Profile screen.
@@ -388,6 +389,17 @@ sealed interface ProfileEvent : UiEvent {
     data class OnRepostClicked(
         val post: PostUi,
     ) : ProfileEvent
+
+    /**
+     * User selected an overflow-menu entry on a PostCard inside one of
+     * the tab bodies (Posts / Replies / Media). Distinct from the
+     * profile-level overflow which is handled by [StubActionTapped]; this
+     * event is per-post moderation while [StubActionTapped] is per-author.
+     */
+    data class OnPostOverflowAction(
+        val post: PostUi,
+        val action: PostOverflowAction,
+    ) : ProfileEvent
 }
 
 /**
@@ -462,6 +474,17 @@ sealed interface ProfileEffect : UiEffect {
      */
     data class NavigateToMessage(
         val otherUserDid: String,
+    ) : ProfileEffect
+
+    /**
+     * Surface a "coming soon" snackbar for a PostCard overflow-menu
+     * action (oftc.2). Distinct from [ShowComingSoon] which fires for
+     * profile-level Edit / Block / Mute / Report stubs — that event
+     * tracks per-author stubs; this one tracks per-post moderation. The
+     * two stay separate so neither's copy depends on the other.
+     */
+    data class ShowPostOverflowComingSoon(
+        val action: PostOverflowAction,
     ) : ProfileEffect
 }
 

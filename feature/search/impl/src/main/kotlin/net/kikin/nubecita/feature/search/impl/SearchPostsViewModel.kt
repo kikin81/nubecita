@@ -96,6 +96,8 @@ internal class SearchPostsViewModel
                     fetchKey.update { it.copy(sort = event.sort, incarnation = it.incarnation + 1) }
                 is SearchPostsEvent.PostTapped ->
                     sendEffect(SearchPostsEffect.NavigateToPost(event.uri))
+                is SearchPostsEvent.OnOverflowAction ->
+                    sendEffect(SearchPostsEffect.ShowComingSoon(event.action))
             }
         }
 

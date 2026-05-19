@@ -125,7 +125,12 @@ private fun LoadedBody(
 ) {
     val callbacks =
         remember(onEvent) {
-            PostCallbacks(onTap = { post -> onEvent(SearchPostsEvent.PostTapped(post.id)) })
+            PostCallbacks(
+                onTap = { post -> onEvent(SearchPostsEvent.PostTapped(post.id)) },
+                onOverflowAction = { post, action ->
+                    onEvent(SearchPostsEvent.OnOverflowAction(post, action))
+                },
+            )
         }
     LazyColumn(
         modifier = modifier.fillMaxSize(),

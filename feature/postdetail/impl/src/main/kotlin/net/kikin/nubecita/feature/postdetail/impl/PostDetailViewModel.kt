@@ -104,6 +104,8 @@ internal class PostDetailViewModel
                 }
                 is PostDetailEvent.OnVideoTapped ->
                     sendEffect(PostDetailEffect.NavigateToVideoPlayer(event.postUri))
+                is PostDetailEvent.OnOverflowAction ->
+                    sendEffect(PostDetailEffect.ShowComingSoon(event.action))
             }
         }
 

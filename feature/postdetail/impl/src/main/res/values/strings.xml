@@ -28,4 +28,15 @@
          that has not yet shipped. They tell the user the tap registered without blocking the way a
          dialog would. Each will be removed when its target route lands. -->
     <string name="postdetail_snackbar_composer_coming_soon">Reply composer coming soon</string>
+
+    <!-- PostCard overflow-menu "coming soon" snackbars (oftc.2). oftc.3 / .4 / .5 swap each
+         variant for its real moderation RPC. -->
+    <string name="postdetail_snackbar_overflow_report_coming_soon">Report — coming soon</string>
+    <string name="postdetail_snackbar_overflow_mute_coming_soon">Mute — coming soon</string>
+    <string name="postdetail_snackbar_overflow_unmute_coming_soon">Unmute — coming soon</string>
+    <string name="postdetail_snackbar_overflow_block_coming_soon">Block — coming soon</string>
+    <string name="postdetail_snackbar_overflow_unblock_coming_soon">Unblock — coming soon</string>
+    <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
+    <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
+    <string name="postdetail_snackbar_overflow_copy_text_coming_soon">Copy post text — coming soon</string>
 </resources>

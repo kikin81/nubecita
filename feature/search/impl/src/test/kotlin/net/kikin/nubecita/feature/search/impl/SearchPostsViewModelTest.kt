@@ -480,6 +480,57 @@ class SearchPostsViewModelTest {
         }
 
     @Test
+    fun onOverflowAction_emitsShowComingSoonEffect_for_every_variant() =
+        // oftc.2: VM is a pass-through for every PostOverflowAction
+        // variant. Locks the contract so oftc.3 / .4 / .5 can swap each
+        // variant individually for real RPC dispatch.
+        runTest {
+            val vm = SearchPostsViewModel(repo)
+            val post =
+                net.kikin.nubecita.data.models.PostUi(
+                    id = "at://did:plc:fake/app.bsky.feed.post/over",
+                    cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
+                    author =
+                        net.kikin.nubecita.data.models.AuthorUi(
+                            did = "did:plc:fake",
+                            handle = "fake.bsky.social",
+                            displayName = "Fake",
+                            avatarUrl = null,
+                        ),
+                    createdAt = kotlin.time.Instant.parse("2025-10-15T12:00:00Z"),
+                    text = "x",
+                    facets = persistentListOf(),
+                    embed = net.kikin.nubecita.data.models.EmbedUi.Empty,
+                    stats =
+                        net.kikin.nubecita.data.models
+                            .PostStatsUi(),
+                    viewer =
+                        net.kikin.nubecita.data.models
+                            .ViewerStateUi(),
+                    repostedBy = null,
+                )
+            val variants =
+                listOf(
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
+                )
+            vm.effects.test {
+                for (action in variants) {
+                    vm.handleEvent(SearchPostsEvent.OnOverflowAction(post = post, action = action))
+                    runCurrent()
+                    assertEquals(SearchPostsEffect.ShowComingSoon(action), awaitItem())
+                }
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun clearQueryClicked_emitsNavigateToClearQueryEffect() =
         runTest {
             val vm = SearchPostsViewModel(repo)

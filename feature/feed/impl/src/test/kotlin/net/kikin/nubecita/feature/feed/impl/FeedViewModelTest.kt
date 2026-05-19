@@ -861,6 +861,46 @@ internal class FeedViewModelTest {
             }
         }
 
+    // ---------- oftc.2 overflow-menu tests ----------
+
+    @Test
+    fun `OnOverflowAction emits ShowComingSoon carrying the action verbatim`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+            advanceUntilIdle()
+            val post = samplePost("at://did:plc:fake/app.bsky.feed.post/over1")
+
+            // Drive every variant through the same VM and assert the
+            // effect surface mirrors each one byte-for-byte. Locks the
+            // "VM is a pass-through in oftc.2" contract so oftc.3 / .4 / .5
+            // can safely swap individual variants for real RPC dispatch
+            // without touching the other variants' flows.
+            val variants =
+                listOf(
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
+                )
+
+            vm.effects.test {
+                for (action in variants) {
+                    vm.handleEvent(FeedEvent.OnOverflowAction(post = post, action = action))
+                    val effect = awaitItem()
+                    assertTrue(
+                        effect is FeedEffect.ShowComingSoon,
+                        "expected ShowComingSoon, got $effect (variant=$action)",
+                    )
+                    assertEquals(action, (effect as FeedEffect.ShowComingSoon).action)
+                }
+            }
+        }
+
     @Test
     fun `OnAuthorTapped emits NavigateToAuthor with the author DID`() =
         runTest(mainDispatcher.dispatcher) {
