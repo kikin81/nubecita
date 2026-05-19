@@ -36,12 +36,20 @@ platform :android do
     release_notes = ENV["PLAY_RELEASE_NOTES"]
     release_notes = "Internal build — wire PLAY_RELEASE_NOTES for human-readable notes." if release_notes.nil? || release_notes.empty?
 
-    # supply reads changelogs from <metadata_path>/android/<locale>/changelogs/default.txt.
-    # We synthesize a single en-US changelog in a per-run tmpdir so the
-    # only field that leaves this lane is the release note — listing
-    # metadata, images, and screenshots are all skip_upload_*'d below.
+    # supply reads changelogs from <metadata_path>/<locale>/changelogs/default.txt.
+    # When `metadata_path` is overridden (as it is here), it points DIRECTLY at
+    # the locale-rooted tree — the `android/` segment that appears under the
+    # default `./fastlane/metadata/android/<locale>/...` layout is fastlane's
+    # platform prefix and MUST NOT be reintroduced under an overridden path,
+    # or supply will scan the tmpdir, find a single directory named "android",
+    # treat that string as a locale, and call
+    # `get_edit_listing(language: "android")` — which Play Console rejects with
+    # a 400 "Invalid request". We synthesize a single en-US changelog in a
+    # per-run tmpdir so the only field that leaves this lane is the release
+    # note — listing metadata, images, and screenshots are all skip_upload_*'d
+    # below.
     Dir.mktmpdir("nubecita-fastlane-metadata") do |metadata_path|
-      changelog_dir = File.join(metadata_path, "android", "en-US", "changelogs")
+      changelog_dir = File.join(metadata_path, "en-US", "changelogs")
       FileUtils.mkdir_p(changelog_dir)
       File.write(
         File.join(changelog_dir, "default.txt"),
