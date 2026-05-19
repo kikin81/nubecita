@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.share
+package net.kikin.nubecita.core.postinteractions.sharing
 
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.AuthorUi

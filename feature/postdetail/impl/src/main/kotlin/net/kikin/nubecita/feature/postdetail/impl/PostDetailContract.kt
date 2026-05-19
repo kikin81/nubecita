@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.core.postinteractions.sharing.PostShareIntent
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
@@ -166,6 +167,25 @@ internal sealed interface PostDetailEvent : UiEvent {
     ) : PostDetailEvent
 
     /**
+     * User tapped the share action on a thread post (focus / ancestor /
+     * reply). Routed through the VM so the share-intent construction
+     * stays unit-testable; the screen consumes [PostDetailEffect.SharePost]
+     * and fires the system share sheet from a Context extension.
+     */
+    data class OnShareClicked(
+        val post: PostUi,
+    ) : PostDetailEvent
+
+    /**
+     * Long-press on the share action — copy the post's permalink to the
+     * clipboard (Threads-style). Same intent shape as [OnShareClicked],
+     * different effect.
+     */
+    data class OnShareLongPressed(
+        val post: PostUi,
+    ) : PostDetailEvent
+
+    /**
      * Tap on a video embed rendered inside a thread PostCard (ancestor,
      * focus, or reply). Routes to the fullscreen video player on the
      * outer NavDisplay (escaping MainShell chrome), matching the feed
@@ -263,5 +283,24 @@ internal sealed interface PostDetailEffect : UiEffect {
     @Immutable
     data class ShowComingSoon(
         val action: PostOverflowAction,
+    ) : PostDetailEffect
+
+    /**
+     * Fire the system share sheet with the pre-computed permalink
+     * payload. The screen collects this and calls `Context.launchPostShare`.
+     */
+    @Immutable
+    data class SharePost(
+        val intent: PostShareIntent,
+    ) : PostDetailEffect
+
+    /**
+     * Copy the post's permalink to the clipboard. The screen collects
+     * this, writes via `ClipboardManager.setPrimaryClip`, and surfaces
+     * a "link copied" snackbar.
+     */
+    @Immutable
+    data class CopyPermalink(
+        val permalink: String,
     ) : PostDetailEffect
 }

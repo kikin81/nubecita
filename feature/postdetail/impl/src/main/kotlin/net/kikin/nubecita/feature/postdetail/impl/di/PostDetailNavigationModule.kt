@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
+import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
@@ -58,6 +59,7 @@ internal object PostDetailNavigationModule {
                 // the bottom nav visible behind the fullscreen canvas.
                 // Push via the outer Navigator instead.
                 val appNavigator = LocalAppNavigator.current
+                val launchComposer = LocalComposerLauncher.current
                 val viewModel =
                     hiltViewModel<PostDetailViewModel, PostDetailViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
@@ -76,6 +78,12 @@ internal object PostDetailNavigationModule {
                     onNavigateToVideoPlayer = { uri ->
                         appNavigator.goTo(VideoPlayerRoute(postUri = uri))
                     },
+                    // Width-class-conditional composer launch, mirroring
+                    // FeedNavigationModule. Wired to both the FAB (via
+                    // PostDetailEffect.NavigateToComposer) and the per-
+                    // post reply taps (PostCallbacks.onReply skips the VM
+                    // and calls this directly, same as Feed).
+                    onReplyClick = { uri -> launchComposer(uri) },
                     viewModel = viewModel,
                 )
             }

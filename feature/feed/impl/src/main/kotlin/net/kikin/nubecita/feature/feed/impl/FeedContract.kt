@@ -6,10 +6,10 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.core.postinteractions.sharing.PostShareIntent
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
-import net.kikin.nubecita.feature.feed.impl.share.PostShareIntent
 
 /**
  * One frame's worth of UI state for the Following timeline screen.

@@ -449,6 +449,49 @@ internal class PostDetailViewModelTest {
             }
         }
 
+    // ---------- share tests ----------
+
+    @Test
+    fun `OnShareClicked emits SharePost with bsky_app permalink derived from author handle and rkey`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo())
+            val post =
+                samplePost(
+                    id = "at://did:plc:fake/app.bsky.feed.post/3kabc123",
+                    handle = "alice.bsky.social",
+                )
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnShareClicked(post))
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.SharePost)
+                val intent = (effect as PostDetailEffect.SharePost).intent
+                assertEquals("https://bsky.app/profile/alice.bsky.social/post/3kabc123", intent.permalink)
+                assertEquals(intent.permalink, intent.text)
+            }
+        }
+
+    @Test
+    fun `OnShareLongPressed emits CopyPermalink with the same permalink shape`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo())
+            val post =
+                samplePost(
+                    id = "at://did:plc:fake/app.bsky.feed.post/3kxyz789",
+                    handle = "bob.bsky.social",
+                )
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnShareLongPressed(post))
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.CopyPermalink)
+                assertEquals(
+                    "https://bsky.app/profile/bob.bsky.social/post/3kxyz789",
+                    (effect as PostDetailEffect.CopyPermalink).permalink,
+                )
+            }
+        }
+
     // ---------- cache interaction tests ----------
 
     @Test
@@ -537,6 +580,7 @@ internal class PostDetailViewModelTest {
         id: String,
         text: String = "sample text",
         cid: String = "bafyreifakefakefakefakefakefakefakefakefakefake",
+        handle: String = "test.bsky.social",
     ): PostUi =
         PostUi(
             id = id,
@@ -544,7 +588,7 @@ internal class PostDetailViewModelTest {
             author =
                 AuthorUi(
                     did = "did:plc:test",
-                    handle = "test.bsky.social",
+                    handle = handle,
                     displayName = "Test",
                     avatarUrl = null,
                 ),

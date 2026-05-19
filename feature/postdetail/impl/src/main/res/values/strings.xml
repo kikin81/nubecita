@@ -24,10 +24,9 @@
     <!-- Floating reply composer FAB. -->
     <string name="postdetail_reply_fab_content_description">Reply to post</string>
 
-    <!-- Transient acknowledgement Snackbars surfaced when a navigation effect targets a destination
-         that has not yet shipped. They tell the user the tap registered without blocking the way a
-         dialog would. Each will be removed when its target route lands. -->
-    <string name="postdetail_snackbar_composer_coming_soon">Reply composer coming soon</string>
+    <!-- Share long-press: clipboard label + confirmation snackbar. -->
+    <string name="postdetail_clipboard_label_post_link">Post link</string>
+    <string name="postdetail_snackbar_link_copied">Link copied</string>
 
     <!-- PostCard overflow-menu "coming soon" snackbars (oftc.2). oftc.3 / .4 / .5 swap each
          variant for its real moderation RPC. -->
