@@ -1,7 +1,9 @@
 package_name("net.kikin.nubecita")
 
-# Intentionally no `json_key_file` here. With `:json_key` unset, supply
-# falls through to `Google::Auth.get_application_default`, which reads
-# `GOOGLE_APPLICATION_CREDENTIALS` (or the gcloud well-known path) and
-# handles `service_account`, `authorized_user`, and `external_account`
-# (WIF) JSONs via the bundled `googleauth` gem. See fastlane/README.md.
+# Intentionally no `json_key_file` here. When `:json_key` / `:json_key_file`
+# are unset, supply falls through to `Google::Auth.get_application_default`,
+# which reads `GOOGLE_APPLICATION_CREDENTIALS` and dispatches on the credential
+# `type` natively — including `external_account` (WIF). Setting `:json_key_file`
+# explicitly would route through the `Google::APIClient::ClientSecrets`
+# loader instead, which only accepts `service_account` / `authorized_user`
+# JSONs and rejects `external_account`. See fastlane/README.md.

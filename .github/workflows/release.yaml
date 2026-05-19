@@ -141,12 +141,22 @@ jobs:
         # and handles `external_account` out of the box. Context in
         # nubecita-b6b6.
         #
-        # Pinned to an exact patch version (vs `@14` major-pin) so
+        # Pinned to an exact patch version (vs floating major) so
         # release-time installs are reproducible — a bad patch on the
-        # latest 14.x line otherwise breaks the pipeline silently.
+        # latest line otherwise breaks the pipeline silently.
         # Renovate will propose bumps via the npm manager once the
         # Bundler/npm packageRules in nubecita-mcy7 land.
-        run: npm install -g firebase-tools@14.27.0
+        #
+        # On 15.x specifically: local `firebase appdistribution:distribute`
+        # against an `impersonated_service_account` ADC file (gcloud
+        # impersonate flow) confirmed working with 15.18.0 against this
+        # repo's Firebase project. Prior pin at 14.27.0 produced
+        # "Failed to authenticate, have you run firebase login?" against
+        # the WIF `external_account` ADC file. The 14→15 bump includes
+        # auth library upgrades that likely fix the issue. Diagnostic
+        # workflow at `.github/workflows/wif-auth-diagnostic.yaml`
+        # confirms the WIF chain end-to-end. Context in nubecita-nvi2.
+        run: npm install -g firebase-tools@15.18.0
 
       - name: Authenticate to Google Cloud (WIF)
         # Federated auth: exchange this workflow's OIDC token for a
@@ -169,6 +179,19 @@ jobs:
         # impersonation), but env-scoping prevents PR-branch
         # workflow edits from exfiltrating them and gives us an
         # approval/wait-timer gate if we ever want one.
+        #
+        # Local-test recipe (validate without burning a release):
+        #   gcloud auth application-default login \
+        #     --impersonate-service-account=<wif-sa-email>
+        #   firebase appdistribution:distribute <apk> \
+        #     --app <FIREBASE_APP_ID> --groups internal-testers \
+        #     --release-notes "local test" --debug
+        # Node google-auth-library 9+ supports
+        # `impersonated_service_account` (the JSON gcloud writes for
+        # that command), so the firebase-tools auth path is
+        # reproducible locally. Ruby googleauth 1.11.2 does NOT
+        # support that type, so fastlane local testing isn't viable
+        # without a temp SA key — see fastlane/README.md.
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -229,6 +252,21 @@ jobs:
         # isn't a secret (Firebase's package + SHA-1 threat model
         # already gates installs), but env-var-scoping keeps it
         # co-located with the WIF binding the same job consumes.
+        #
+        # `--debug` is captured to a file (not stderr) so verbose
+        # output — including HTTP bodies, auth-exchange request
+        # payloads, and per-request bearer fragments that can escape
+        # GitHub's substring masking — never lands in the public
+        # workflow log. The file is only surfaced as an artifact on
+        # failure (next step), gated to 7-day retention so a failing
+        # run is debuggable without permanently broadcasting Firebase
+        # project internals from a public repo. Context in
+        # nubecita-nvi2.
+        #
+        # Written under `$RUNNER_TEMP` (not the workspace root) so it's
+        # isolated from `app/build/...` and any later step's git
+        # operations or broad-glob artifact uploads — see PR #238
+        # Copilot review.
         env:
           FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
           RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"
@@ -238,11 +276,24 @@ jobs:
             echo "::error::FIREBASE_APP_ID env var is empty — check the 'release' environment is provisioned with this variable"
             exit 1
           fi
-          firebase appdistribution:distribute \
+          firebase --debug appdistribution:distribute \
             app/build/outputs/apk/debug/app-debug.apk \
             --app "$FIREBASE_APP_ID" \
             --groups internal-testers \
-            --release-notes "$RELEASE_NOTES"
+            --release-notes "$RELEASE_NOTES" \
+            2> "$RUNNER_TEMP/firebase-debug.log"
+
+      - name: Upload firebase debug log (on failure)
+        # Only fires on failure of the previous step. The debug log
+        # contains enough internal Firebase API shape that we don't
+        # want it on the happy path — but on failure it's the fastest
+        # path to a root cause without re-running with --debug live.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-debug-log
+          path: ${{ runner.temp }}/firebase-debug.log
+          retention-days: 7
 
   playstore:
     name: Upload Signed AAB to Play Console (internal track)
