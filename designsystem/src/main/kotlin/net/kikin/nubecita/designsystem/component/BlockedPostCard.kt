@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -60,12 +61,20 @@ public fun BlockedPostCard(
                     .background(MaterialTheme.colorScheme.surfaceContainer)
                     .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // Notice text claims the leftover space (weight = 1f) so the
+            // trailing Unblock CTA always wins layout priority. Without
+            // weight + maxLines, a long localization (e.g. German) or a
+            // 1.5× font scale would let the Text consume the full Row
+            // width and clip the TextButton off the right edge.
             Text(
                 text = stringResource(R.string.tombstone_blocked_post),
                 style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
             if (onUnblock != null) {
                 TextButton(onClick = onUnblock) {
