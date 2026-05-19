@@ -1,0 +1,25 @@
+plugins {
+    alias(libs.plugins.nubecita.android.feature)
+}
+
+android {
+    namespace = "net.kikin.nubecita.feature.moderation.impl"
+}
+
+dependencies {
+    api(project(":feature:moderation:api"))
+
+    implementation(project(":core:auth"))
+    implementation(project(":core:common"))
+    implementation(libs.atproto.models)
+    implementation(libs.atproto.runtime)
+    implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.timber)
+
+    testImplementation(project(":core:testing"))
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.mockk)
+    testImplementation(libs.turbine)
+}
