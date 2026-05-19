@@ -108,7 +108,8 @@ internal class DefaultModerationRepository
             const val TAG = "ModerationRepository"
 
             // Lexicon `reason.maxGraphemes` for createReport. Audit
-            // against ~/code/kikinlex/.../moderation/createReport.json
+            // against the upstream lexicon at
+            // https://github.com/bluesky-social/atproto/blob/main/lexicons/com/atproto/moderation/createReport.json
             // when this constant is touched.
             const val REASON_MAX_GRAPHEMES = 2000
 

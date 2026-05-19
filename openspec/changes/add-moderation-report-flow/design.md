@@ -138,11 +138,11 @@ This follows the CLAUDE.md MVI guidance: the four-step lifecycle is mutually exc
 - *Repository takes a `ReportReason` enum* — requires the enum (Decision 2 rejected this) and forces every reason-vocabulary change through a generated-types regeneration step.
 - *Repository takes a sealed `ReportRequest` union (`ReportPost(uri, cid, reason)` | `ReportAccount(did, reason)`)* — equivalent expressiveness; two separate methods are clearer at the call site and easier to test independently. The current signature mirrors the bd issue's specification.
 
-The repository's only behavior beyond the SDK call is graceme-truncating `details` to 2000 (the lexicon max). The UI's 300-graceme cap is a UI concern; the repository's 2000-graceme cap is the server's contract.
+The repository's only behavior beyond the SDK call is grapheme-truncating `details` to 2000 (the lexicon max). The UI's 300-grapheme cap is a UI concern; the repository's 2000-grapheme cap is the server's contract.
 
 ### Decision 7: `modTool.name = "nubecita/android"`, `modTool.meta = null` — versionName is NOT included in V1
 
-**Choice:** The repository constructs `CreateReportModTool(name = "nubecita/android", meta = AtField.Absent())` on every submission. The app's `BuildConfig.VERSION_NAME` is intentionally NOT included.
+**Choice:** The repository constructs `CreateReportModTool(name = "nubecita/android", meta = AtField.Missing)` on every submission. The app's `BuildConfig.VERSION_NAME` is intentionally NOT included.
 
 **Why this over alternatives:**
 

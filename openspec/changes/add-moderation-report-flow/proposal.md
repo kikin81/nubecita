@@ -10,7 +10,7 @@ The Bluesky moderation lexicon ships a granular reason hierarchy under `tools.oz
 
 ### New modules
 
-- **NEW** `:feature:moderation:api` — Navigation 3 module owning a single `Report : NavKey` parameterized by a `ReportSubject` sealed sum (`Post(uri: AtUri, cid: Cid)` or `Account(did: Did)`). No DI, no Compose. Mirrors `:feature:postdetail:api` and `:feature:profile:api`.
+- **NEW** `:feature:moderation:api` — Navigation 3 module owning a single `Report : NavKey` parameterized by a `ReportSubject` sealed sum (`Post(uri: String, cid: String)` or `Account(did: String)`). Plain `String` fields per the codebase's nav-layer convention (`PostDetailRoute.postUri`, `PostUi.id` / `PostUi.cid`); SDK value-class wrapping happens at the XRPC boundary inside `:impl`. No DI, no Compose. Mirrors `:feature:postdetail:api` and `:feature:profile:api`.
 - **NEW** `:feature:moderation:impl` — applies `nubecita.android.feature` (the convention plugin from `build-logic/`). Owns the report dialog screen, `ReportDialogViewModel`, `ModerationRepository` + impl, `ReportReasons` token constants, Hilt modules.
 
 ### Reason hierarchy as constants
@@ -27,12 +27,12 @@ The Bluesky moderation lexicon ships a granular reason hierarchy under `tools.oz
   3. **Sub-reason pick** — list of granular reasons within the chosen category; tap a non-`_OTHER` → optional step 4 or direct submit; tap a `_OTHER` → step 4 required.
   4. **Optional / required details + submit** — 300-grapheme textarea with a live counter, plus a primary "Submit report" CTA. Validation: required when the selected reason is in `OTHER_REPORT_REASONS`, otherwise optional.
 - Submit calls `ModerationService.createReport` with the correct subject union variant (`RepoRef(did)` for account; `StrongRef(uri, cid)` for post) and `modTool = ModTool(name = "nubecita/android", meta = null)` per the bd issue's lexicon fingerprint.
-- Success → `ReportDialogEffect.SubmissionSucceeded` → dialog closes; the host surface (PostCard's host screen or ProfileScreen) renders a `"Report submitted. Thanks — Bluesky moderation will review."` snackbar. No optimistic state change on the feed (reports don't change feed visibility).
+- Success → the dialog transitions to `SubmissionStatus.Success` and swaps its form content for an in-dialog success card (`"Report submitted. Thanks — Bluesky moderation will review."`), then auto-dismisses after ~2.5 s via `ReportDialogEffect.RequestDismiss` (the screen pops the `Report` NavKey off `LocalMainShellNavState`). The host Feed / Profile screen does NOT receive a separate snackbar — the success acknowledgement lives entirely inside the dialog. No optimistic state change on the feed (reports don't change feed visibility). See design Decision 5 for the rationale.
 - Failure → `ReportDialogEffect.SubmissionFailed(message)` → dialog stays open on step 4 so the user can retry without losing the selected reason + details.
 
 ### Repository
 
-- **NEW** `ModerationRepository` interface in `:feature:moderation:impl` with `suspend fun reportPost(uri: AtUri, cid: Cid, reasonToken: String, details: String?): Result<Unit>` and `suspend fun reportAccount(did: Did, reasonToken: String, details: String?): Result<Unit>`. Both internally truncate `details` to 2000 graphemes (lexicon max) — the UI's 300-grapheme cap stays at the UI layer for parity with bsky.app.
+- **NEW** `ModerationRepository` interface in `:feature:moderation:impl` with `suspend fun reportPost(uri: String, cid: String, reasonToken: String, details: String?): Result<Unit>` and `suspend fun reportAccount(did: String, reasonToken: String, details: String?): Result<Unit>`. Plain `String`s — the implementation wraps to lexicon-typed values at the XRPC boundary. Both internally truncate `details` to 2000 graphemes (lexicon max); the UI's 300-grapheme cap stays at the UI layer for parity with bsky.app.
 - **NEW** `DefaultModerationRepository` calls `ModerationService(client).createReport(...)` and translates the `KtorResult` shape into `Result<Unit>`. The repository is the only call site that mentions `ModTool` — call sites never construct it.
 
 ### Wiring entry points
