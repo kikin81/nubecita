@@ -176,7 +176,7 @@ private fun PostDetailScreenBlockedRootScreenshot() {
                 PostDetailState(
                     items =
                         persistentListOf<ThreadItem>(
-                            ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked"),
+                            ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked", authorDid = "did:plc:blocked"),
                         ),
                     loadStatus = PostDetailLoadStatus.Idle,
                 ),
@@ -299,7 +299,7 @@ private fun fixtureThread(): ImmutableList<ThreadItem> =
     persistentListOf<ThreadItem>(
         ThreadItem.Ancestor(post = fixturePost("ancestor", text = "Ancestor — what kicked off the thread.")),
         ThreadItem.Focus(post = fixturePost("focus", text = "Focused post — the one tapped from the feed.")),
-        ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked"),
+        ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked", authorDid = "did:plc:blocked"),
         ThreadItem.Reply(post = fixturePost("reply-1", text = "Top-level reply — direct child of the focus."), depth = 1),
         ThreadItem.Reply(post = fixturePost("reply-2", text = "Another top-level reply — sibling of reply-1."), depth = 1),
     )

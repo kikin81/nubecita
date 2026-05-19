@@ -91,4 +91,39 @@ public sealed interface FeedItemUi {
     ) : FeedItemUi {
         override val key: String get() = posts.last().id
     }
+
+    /**
+     * `app.bsky.feed.defs#blockedPost` placeholder — the viewer has
+     * blocked the author (or is blocked by them) and the AppView is
+     * returning a tombstone in place of the post. The wire never emits
+     * this variant for [FeedViewPost.post] directly (that field is
+     * always a `PostView`); a [Blocked] entry appears here only via the
+     * UGC moderation epic's client-side optimism — after the viewer
+     * blocks an author the feed VM may swap in-list posts by that
+     * author with [Blocked] entries until the next refresh, so the
+     * tombstone surfaces immediately rather than waiting for the next
+     * `getTimeline` round-trip to elide them.
+     *
+     * [authorDid] is preserved so the tombstone's "Unblock" affordance
+     * can dispatch the unblock RPC. [uri] is preserved for deep-link /
+     * debug parity with [ThreadItem.Blocked] in `:feature:postdetail`.
+     */
+    public data class Blocked(
+        val uri: String,
+        val authorDid: String,
+    ) : FeedItemUi {
+        override val key: String get() = "blocked:$uri"
+    }
+
+    /**
+     * `app.bsky.feed.defs#notFoundPost` placeholder — the post was
+     * deleted or never existed. URI preserved for parity with
+     * [ThreadItem.NotFound]; no author info on the wire, so no
+     * affordance beyond the inline message.
+     */
+    public data class NotFound(
+        val uri: String,
+    ) : FeedItemUi {
+        override val key: String get() = "notfound:$uri"
+    }
 }

@@ -65,6 +65,8 @@ import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.data.models.quotedRecord
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.BlockedPostCard
+import net.kikin.nubecita.designsystem.component.NotFoundPostCard
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
@@ -549,6 +551,8 @@ private fun LoadedFeedContent(
                         is FeedItemUi.Single -> "single"
                         is FeedItemUi.ReplyCluster -> "cluster"
                         is FeedItemUi.SelfThreadChain -> "chain"
+                        is FeedItemUi.Blocked -> "blocked"
+                        is FeedItemUi.NotFound -> "notfound"
                     }
                 },
             ) { item ->
@@ -558,11 +562,37 @@ private fun LoadedFeedContent(
                 // ThreadCluster KDoc + design.md decision D3 from m28.3,
                 // applied here by symmetry per
                 // `add-feed-same-author-thread-chain` task 5.2).
+                //
+                // Tombstone variants (Blocked / NotFound) carry no
+                // renderable post, so they never produce a leaf and
+                // never participate in the video coordinator. Render
+                // them inline and skip the slot wiring entirely — both
+                // composables are stateless, no remember key churn
+                // possible. The early `return@items` keeps the leaf
+                // smart-cast narrow for the rest of the block.
+                when (item) {
+                    is FeedItemUi.Blocked -> {
+                        BlockedPostCard(onUnblock = null)
+                        return@items
+                    }
+                    is FeedItemUi.NotFound -> {
+                        NotFoundPostCard()
+                        return@items
+                    }
+                    is FeedItemUi.Single,
+                    is FeedItemUi.ReplyCluster,
+                    is FeedItemUi.SelfThreadChain,
+                    -> Unit
+                }
                 val leaf =
                     when (item) {
                         is FeedItemUi.Single -> item.post
                         is FeedItemUi.ReplyCluster -> item.leaf
                         is FeedItemUi.SelfThreadChain -> item.posts.last()
+                        // The above tombstone guard cleared these
+                        // variants — see the early `return@items`.
+                        is FeedItemUi.Blocked, is FeedItemUi.NotFound ->
+                            error("Tombstone variants returned early; leaf unreachable")
                     }
                 // Hoist the videoEmbedSlot lambda so it's stable across
                 // recompositions of this item — without this, every
@@ -638,6 +668,8 @@ private fun LoadedFeedContent(
                         }
                     }
                 when (item) {
+                    is FeedItemUi.Blocked, is FeedItemUi.NotFound ->
+                        error("Tombstone variants returned early; render unreachable")
                     is FeedItemUi.Single ->
                         PostCard(
                             post = item.post,
@@ -752,11 +784,18 @@ private fun LoadedFeedContent(
         // the coordinator (design D3).
         val postsById =
             remember(feedItems) {
-                feedItems.associate { item ->
-                    when (item) {
-                        is FeedItemUi.Single -> item.post.id to item.post
-                        is FeedItemUi.ReplyCluster -> item.leaf.id to item.leaf
-                        is FeedItemUi.SelfThreadChain -> item.posts.last().id to item.posts.last()
+                buildMap {
+                    feedItems.forEach { item ->
+                        when (item) {
+                            is FeedItemUi.Single -> put(item.post.id, item.post)
+                            is FeedItemUi.ReplyCluster -> put(item.leaf.id, item.leaf)
+                            is FeedItemUi.SelfThreadChain ->
+                                put(item.posts.last().id, item.posts.last())
+                            // Tombstone variants carry no renderable post — they're
+                            // skipped from the video-coordinator registry so the
+                            // most-visible-target lookup never resolves to them.
+                            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> Unit
+                        }
                     }
                 }
             }

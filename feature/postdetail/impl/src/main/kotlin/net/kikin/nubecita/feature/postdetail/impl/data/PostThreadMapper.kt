@@ -43,7 +43,7 @@ import net.kikin.nubecita.core.feedmapping.toPostUiCore
  */
 internal fun GetPostThreadResponseThreadUnion.toThreadItems(): ImmutableList<ThreadItem> =
     when (this) {
-        is BlockedPost -> persistentListOf(ThreadItem.Blocked(uri = uri.raw))
+        is BlockedPost -> persistentListOf(ThreadItem.Blocked(uri = uri.raw, authorDid = author.did.raw))
         is NotFoundPost -> persistentListOf(ThreadItem.NotFound(uri = uri.raw))
         is ThreadViewPost -> flattenThreadViewPost()
         else -> persistentListOf()
@@ -76,7 +76,7 @@ private fun collectAncestors(start: ThreadViewPostParentUnion?): List<ThreadItem
                 cursor = node.parent
             }
             is BlockedPost -> {
-                ancestors += ThreadItem.Blocked(uri = node.uri.raw)
+                ancestors += ThreadItem.Blocked(uri = node.uri.raw, authorDid = node.author.did.raw)
                 cursor = null
             }
             is NotFoundPost -> {
@@ -109,7 +109,7 @@ private fun ThreadViewPostRepliesUnion.toReplyItems(depth: Int): List<ThreadItem
                 }
             }
         }
-        is BlockedPost -> listOf(ThreadItem.Blocked(uri = uri.raw))
+        is BlockedPost -> listOf(ThreadItem.Blocked(uri = uri.raw, authorDid = author.did.raw))
         is NotFoundPost -> listOf(ThreadItem.NotFound(uri = uri.raw))
         else -> emptyList()
     }

@@ -11,10 +11,6 @@
     <string name="postdetail_error_unknown_title">Something went wrong</string>
     <string name="postdetail_error_action">Try again</string>
 
-    <!-- Inline placeholder copy for blocked / not-found sibling posts in the thread. -->
-    <string name="postdetail_inline_blocked">Post unavailable</string>
-    <string name="postdetail_inline_notfound">Post deleted</string>
-
     <!-- Snackbar messages — used for non-sticky refresh failures via PostDetailEffect.ShowError. -->
     <string name="postdetail_snackbar_error_network">Network error. Pull to retry.</string>
     <string name="postdetail_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>

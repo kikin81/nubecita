@@ -58,6 +58,8 @@ import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.data.models.quotedRecord
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.BlockedPostCard
+import net.kikin.nubecita.designsystem.component.NotFoundPostCard
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -487,13 +489,15 @@ private fun LoadedThread(
                         )
                     }
                     is ThreadItem.Blocked ->
-                        InlineUnavailableRow(
-                            label = stringResource(R.string.postdetail_inline_blocked),
-                        )
-                    is ThreadItem.NotFound ->
-                        InlineUnavailableRow(
-                            label = stringResource(R.string.postdetail_inline_notfound),
-                        )
+                        // m31.6 (oftc.6) — proper tombstone visual replaces the
+                        // earlier inline "Post unavailable" Text. The Unblock
+                        // CTA is intentionally null here until oftc.4 lands the
+                        // real unblock RPC + optimistic state — wiring an empty
+                        // onClick lambda would mislead users about what tapping
+                        // does (silently nothing). NotFound has no recovery
+                        // path, so [NotFoundPostCard] never carries a CTA.
+                        BlockedPostCard(onUnblock = null)
+                    is ThreadItem.NotFound -> NotFoundPostCard()
                     is ThreadItem.Fold -> {
                         // m28.5.1 mapper does not emit Fold; leaving the case
                         // explicit here so the exhaustive-when stays compile-
@@ -554,22 +558,6 @@ private fun rememberThreadPostVideoSlots(
             }
         }
     return videoSlot to quotedSlot
-}
-
-@Composable
-private fun InlineUnavailableRow(label: String) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
 }
 
 @Composable
@@ -771,7 +759,7 @@ private fun previewThread(): ImmutableList<ThreadItem> =
     persistentListOf<ThreadItem>(
         ThreadItem.Ancestor(post = previewPost("ancestor", text = "Ancestor — what kicked off the thread.")),
         ThreadItem.Focus(post = previewPost("focus", text = "Focused post — the one tapped from the feed.")),
-        ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked"),
+        ThreadItem.Blocked(uri = "at://did:plc:blocked/app.bsky.feed.post/blocked", authorDid = "did:plc:blocked"),
         ThreadItem.Reply(post = previewPost("reply-1", text = "Top-level reply — direct child of the focus."), depth = 1),
         ThreadItem.Reply(post = previewPost("reply-2", text = "Another top-level reply — sibling of reply-1."), depth = 1),
     )

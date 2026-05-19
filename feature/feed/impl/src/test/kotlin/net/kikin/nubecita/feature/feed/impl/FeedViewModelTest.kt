@@ -1233,4 +1233,9 @@ private fun FeedItemUi.leafPost(): PostUi =
         is FeedItemUi.Single -> post
         is FeedItemUi.ReplyCluster -> leaf
         is FeedItemUi.SelfThreadChain -> posts.last()
+        // Tombstones never carry a post. Test fixtures never construct these
+        // variants and then call leafPost(); the branch is here so the sealed
+        // match stays exhaustive after oftc.6 added Blocked / NotFound.
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound ->
+            error("leafPost called on tombstone $this")
     }

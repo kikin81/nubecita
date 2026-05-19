@@ -85,11 +85,16 @@ internal sealed interface ThreadItem {
     /**
      * `app.bsky.feed.defs#blockedPost` — the viewer cannot see this
      * post because of a block relationship. The URI is preserved for
-     * deep-link / debug / future "view in browser" affordances.
+     * deep-link / debug / future "view in browser" affordances; the
+     * `authorDid` is preserved so the tombstone's "Unblock" affordance
+     * (wired under oftc.4) can dispatch the unblock RPC against the
+     * right account. The wire's `BlockedPost.author.did` is always
+     * present, so this field is non-nullable.
      */
     @Immutable
     data class Blocked(
         val uri: String,
+        val authorDid: String,
     ) : ThreadItem {
         override val key: String get() = "blocked:$uri"
     }

@@ -51,18 +51,41 @@ class FeedItemUiTest {
     }
 
     @Test
-    fun `Single, ReplyCluster, and SelfThreadChain are exhaustive when targets`() {
+    fun `Blocked key encodes the variant role alongside uri`() {
+        val item: FeedItemUi =
+            FeedItemUi.Blocked(
+                uri = "at://did:plc:blocked/app.bsky.feed.post/x",
+                authorDid = "did:plc:blocked",
+            )
+        // The "blocked:" prefix keeps the LazyColumn key disjoint from
+        // any Single carrying the same URI — a post can transition from
+        // Single → Blocked when the viewer blocks the author, and the
+        // recycler must treat the two as distinct slots.
+        assertEquals("blocked:at://did:plc:blocked/app.bsky.feed.post/x", item.key)
+    }
+
+    @Test
+    fun `NotFound key encodes the variant role alongside uri`() {
+        val item: FeedItemUi = FeedItemUi.NotFound(uri = "at://did:plc:abc/app.bsky.feed.post/y")
+        assertEquals("notfound:at://did:plc:abc/app.bsky.feed.post/y", item.key)
+    }
+
+    @Test
+    fun `All FeedItemUi variants are exhaustive when targets`() {
         // The compiler verifies exhaustiveness; this test exists so a
         // future variant addition breaks this compile and forces the
         // implementer to update render dispatch sites everywhere.
         // (Updated when SelfThreadChain landed in m28.4 — the test
-        // tripwire fired exactly as designed.)
+        // tripwire fired exactly as designed. Updated again when
+        // Blocked + NotFound landed in oftc.6.)
         val item: FeedItemUi = FeedItemUi.Single(PostUiFixtures.fakePost())
         val rendered: String =
             when (item) {
                 is FeedItemUi.Single -> "single"
                 is FeedItemUi.ReplyCluster -> "cluster"
                 is FeedItemUi.SelfThreadChain -> "chain"
+                is FeedItemUi.Blocked -> "blocked"
+                is FeedItemUi.NotFound -> "notfound"
             }
         assertEquals("single", rendered)
     }

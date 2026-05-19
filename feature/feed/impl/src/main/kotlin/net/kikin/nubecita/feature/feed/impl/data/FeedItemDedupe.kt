@@ -43,6 +43,9 @@ internal fun List<FeedItemUi>.dedupeClusterContext(): List<FeedItemUi> {
                         }
                     }
                     is FeedItemUi.Single -> Unit
+                    // Tombstones carry no PostUi, so they can't contribute
+                    // to context-URI dedupe and they can't shadow a Single.
+                    is FeedItemUi.Blocked, is FeedItemUi.NotFound -> Unit
                 }
             }
         }
