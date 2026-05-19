@@ -273,6 +273,11 @@ private fun List<FeedItemUi>.allPosts(): List<PostUi> =
             is FeedItemUi.Single -> listOf(item.post)
             is FeedItemUi.ReplyCluster -> listOf(item.root, item.parent, item.leaf)
             is FeedItemUi.SelfThreadChain -> item.posts
+            // Tombstone variants carry no PostUi — nothing to seed into the
+            // interactions cache, and nothing to project for the video
+            // coordinator. The mapper doesn't emit these today; they will
+            // surface only via client-side optimism under oftc.4 (block).
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
         }
     }
 
@@ -325,6 +330,10 @@ private fun ImmutableList<FeedItemUi>.applyInteractions(
                         }.toImmutableList()
                 if (changed) item.copy(posts = mergedPosts) else item
             }
+            // Tombstones have no interaction state to merge — they carry no
+            // PostUi, no like/repost counters. Pass through unchanged so the
+            // map preserves referential equality for LazyColumn skip-recompose.
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> item
         }
     }.toImmutableList()
 
@@ -390,7 +399,14 @@ private fun mergeChainBoundary(
         when (existingTail) {
             is FeedItemUi.Single -> listOf(existingTail.post)
             is FeedItemUi.SelfThreadChain -> existingTail.posts
-            is FeedItemUi.ReplyCluster ->
+            // Reply clusters and tombstones can never be the head of a
+            // self-author chain — clusters carry a different leaf author than
+            // root/parent, and tombstones carry no author at all. Bail without
+            // an attempted merge.
+            is FeedItemUi.ReplyCluster,
+            is FeedItemUi.Blocked,
+            is FeedItemUi.NotFound,
+            ->
                 return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = newPageItems)
         }
     val tailLeafPost = tailPosts.last()
@@ -433,6 +449,12 @@ private fun mergeChainBoundary(
             is FeedItemUi.Single -> listOf(newFirstItem.post)
             is FeedItemUi.ReplyCluster -> listOf(newFirstItem.leaf)
             is FeedItemUi.SelfThreadChain -> newFirstItem.posts
+            // Tombstone variants can't link to an existing chain — bail back
+            // to the caller with the page untouched. The mapper doesn't emit
+            // tombstones at the head of a wire-fetched page today; this guard
+            // exists for symmetry with the FeedItemUi sealed surface.
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound ->
+                return ChainBoundaryMerge(trimmedExisting = existing, pageWithAbsorbedHead = effectivePageItems)
         }
     // Defense in depth: even after the leading-overlap strip above, drop
     // any prefix of newFirstPosts whose URIs match the existing tail's
@@ -503,6 +525,12 @@ private fun stripLeadingTailOverlap(
                         else -> listOf(FeedItemUi.SelfThreadChain(chainTail.toImmutableList()))
                     }
                 }
+                // Tombstones never duplicate against a wire post URI on the
+                // cursor-resync boundary — they carry no PostUi for the overlap
+                // match to anchor against, so the outer loop's URI guard would
+                // not have entered this branch in practice. Treat the head as
+                // unconsumed so the page passes through.
+                is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
             }
         p = replacementHead + p.drop(1)
     }
@@ -529,6 +557,8 @@ private fun ImmutableList<FeedItemUi>.findPost(id: String): PostUi? =
                     else -> null
                 }
             is FeedItemUi.SelfThreadChain -> item.posts.firstOrNull { it.id == id }
+            // Tombstones carry no PostUi to match against — skip them.
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> null
         }
     }
 
@@ -567,6 +597,8 @@ private fun ImmutableList<FeedItemUi>.replacePost(updated: PostUi): ImmutableLis
                     item.copy(posts = newPosts.toImmutableList())
                 }
             }
+            // Tombstones carry no PostUi to swap; pass through unchanged.
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> item
         }
     }.toImmutableList()
 }

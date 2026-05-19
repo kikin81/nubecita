@@ -69,6 +69,16 @@
     <string name="moderation_action_unmute_thread">Unmute thread</string>
     <string name="moderation_action_copy_post_text">Copy post text</string>
 
+    <!-- Tombstone copy for blocked / not-found / detached posts rendered in
+         place of a normal PostCard. tombstone_blocked_post + tombstone_unblock
+         are paired strings ("Post from a blocked user" + "Unblock" CTA); only
+         the unblock affordance dispatches an RPC (route through the same
+         oftc.4 unblock flow). tombstone_not_found_post is a plain notice with
+         no affordance — the post is gone, there's no recovery action. -->
+    <string name="tombstone_blocked_post">Post from a blocked user</string>
+    <string name="tombstone_unblock">Unblock</string>
+    <string name="tombstone_not_found_post">Post unavailable</string>
+
     <!-- ThreadFold copy. thread_fold_view_full_thread is both the visible
          label and the clickable's onClickLabel so TalkBack announces
          "View full thread, button, double-tap to View full thread".
