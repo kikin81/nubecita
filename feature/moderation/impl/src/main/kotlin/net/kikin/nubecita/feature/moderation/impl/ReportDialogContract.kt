@@ -8,6 +8,15 @@ import net.kikin.nubecita.feature.moderation.api.ReportSubject
 import kotlin.time.Instant
 
 /**
+ * UI-side grapheme cap for the free-text details field. Shared between
+ * the VM's truncation, the reducer's `canSubmit` range, and the screen's
+ * `n/300` counter so the three never drift. The lexicon's own cap
+ * (2000 graphemes, enforced inside `DefaultModerationRepository`) is a
+ * separate floor — this is the smaller UI-level limit.
+ */
+internal const val REPORT_DETAILS_MAX_GRAPHEMES: Int = 300
+
+/**
  * One frame's worth of UI state for the Report dialog.
  *
  * The four-step lifecycle (Subject → Category → SubReason → Details) is

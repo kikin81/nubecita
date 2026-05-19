@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.moderation.impl.di
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -67,12 +68,25 @@ internal object ModerationNavigationModule {
                 // its frames, then pop. Used by both the VM's
                 // RequestDismiss path AND the sheet's outside-tap /
                 // drag-dismiss path so they look identical.
+                //
+                // Two independent triggers can race here — a swipe-down
+                // gesture firing `onDismissRequest` while a
+                // `RequestDismiss` effect is in flight (the post-success
+                // auto-timer is the most realistic case). Without a
+                // guard, both would call `navState.removeLast()` and the
+                // second pop would discard whatever sub-route Report was
+                // pushed on top of. The `dismissed` flag latches on the
+                // first invocation; subsequent calls fall through.
+                val dismissed = remember { mutableStateOf(false) }
                 val dismiss =
-                    remember(scope, sheetState, navState) {
+                    remember(scope, sheetState, navState, dismissed) {
                         {
-                            scope.launch {
-                                sheetState.hide()
-                                navState.removeLast()
+                            if (!dismissed.value) {
+                                dismissed.value = true
+                                scope.launch {
+                                    sheetState.hide()
+                                    navState.removeLast()
+                                }
                             }
                             Unit
                         }

@@ -48,10 +48,14 @@ import net.kikin.nubecita.feature.moderation.api.ReportSubject
  * Test-tag identifiers exposed for instrumentation tests in this and
  * downstream feature modules (feed / profile-side wiring will assert
  * the Subject step's tag is present after the overflow-tap nav push).
- * Kept as `const val` strings so cross-module references don't need a
- * dependency on `:feature:moderation:impl`'s symbol graph.
+ *
+ * Public on purpose: `:feature:feed:impl` and `:feature:profile:impl`
+ * androidTest sources will reference these constants directly when
+ * PR 3 / PR 4 land their overflow-tap → dialog instrumentation tests.
+ * Strings stay as `const val` so the cross-module reference is a
+ * Java-bytecode constant rather than a method call.
  */
-internal object ReportDialogTestTags {
+object ReportDialogTestTags {
     const val ROOT: String = "report-dialog-root"
     const val SUBJECT_STEP: String = "report-dialog-subject"
     const val CATEGORY_STEP: String = "report-dialog-category"
@@ -519,7 +523,12 @@ private fun DetailsField(
         isError = required && details.isBlank(),
         supportingText = {
             Text(
-                text = stringResource(R.string.report_dialog_details_counter, count, DETAILS_MAX),
+                text =
+                    stringResource(
+                        R.string.report_dialog_details_counter,
+                        count,
+                        REPORT_DETAILS_MAX_GRAPHEMES,
+                    ),
                 style = MaterialTheme.typography.bodySmall,
             )
         },
@@ -683,5 +692,3 @@ private val CATEGORY_ORDER: ImmutableList<ReportCategory> =
         ReportCategory.RuleViolation,
         ReportCategory.Other,
     )
-
-private const val DETAILS_MAX = 300

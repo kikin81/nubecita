@@ -118,7 +118,7 @@ internal class ReportDialogViewModel
         }
 
         private fun handleDetailsChanged(text: String) {
-            val truncated = GraphemeText.truncate(text, max = DETAILS_MAX_GRAPHEMES)
+            val truncated = GraphemeText.truncate(text, max = REPORT_DETAILS_MAX_GRAPHEMES)
             val count = GraphemeText.count(truncated)
             setState {
                 copy(
@@ -239,9 +239,6 @@ internal class ReportDialogViewModel
         }
 
         private companion object {
-            /** UI-side cap on free-text details. The repo applies a 2000-grapheme floor before send. */
-            const val DETAILS_MAX_GRAPHEMES = 300
-
             /** Auto-dismiss timer for the success card. See design Decision 5. */
             const val SUCCESS_DISMISS_DELAY_MS = 2_500L
 
@@ -262,7 +259,7 @@ internal class ReportDialogViewModel
  */
 internal fun ReportDialogState.recomputeCanSubmit(): ReportDialogState {
     val reasonChosen = selectedReason != null
-    val detailsOk = !detailsRequired || detailsGraphemeCount in 1..300
+    val detailsOk = !detailsRequired || detailsGraphemeCount in 1..REPORT_DETAILS_MAX_GRAPHEMES
     val notSubmitting = submission !is SubmissionStatus.Submitting
     return copy(canSubmit = reasonChosen && detailsOk && notSubmitting)
 }
