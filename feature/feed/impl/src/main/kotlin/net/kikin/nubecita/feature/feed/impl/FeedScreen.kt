@@ -67,6 +67,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.designsystem.component.ThreadCluster
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -167,6 +168,9 @@ internal fun FeedScreen(
                 onQuotedPostTap = { quoted ->
                     viewModel.handleEvent(FeedEvent.OnQuotedPostTapped(quoted.uri))
                 },
+                onOverflowAction = { post, action ->
+                    viewModel.handleEvent(FeedEvent.OnOverflowAction(post, action))
+                },
             )
         }
     // Pre-resolve snackbar copy via stringResource() at composition time
@@ -180,6 +184,20 @@ internal fun FeedScreen(
     val clipLabel = stringResource(R.string.feed_clipboard_label_post_link)
     val postPublishedMessage = stringResource(R.string.feed_snackbar_post_published)
     val replyPublishedMessage = stringResource(R.string.feed_snackbar_reply_published)
+    // Pre-resolve each overflow-menu "coming soon" snackbar via
+    // stringResource() at composition time so locale changes
+    // participate in recomposition (lint: LocalContextGetResourceValueCall).
+    val overflowReportComingSoon = stringResource(R.string.feed_snackbar_overflow_report_coming_soon)
+    val overflowMuteComingSoon = stringResource(R.string.feed_snackbar_overflow_mute_coming_soon)
+    val overflowUnmuteComingSoon = stringResource(R.string.feed_snackbar_overflow_unmute_coming_soon)
+    val overflowBlockComingSoon = stringResource(R.string.feed_snackbar_overflow_block_coming_soon)
+    val overflowUnblockComingSoon = stringResource(R.string.feed_snackbar_overflow_unblock_coming_soon)
+    val overflowMuteThreadComingSoon =
+        stringResource(R.string.feed_snackbar_overflow_mute_thread_coming_soon)
+    val overflowUnmuteThreadComingSoon =
+        stringResource(R.string.feed_snackbar_overflow_unmute_thread_coming_soon)
+    val overflowCopyTextComingSoon =
+        stringResource(R.string.feed_snackbar_overflow_copy_text_coming_soon)
     val clipboardManager =
         remember(context) {
             context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -316,6 +334,21 @@ internal fun FeedScreen(
                     // for the moment the user just took action.
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = linkCopiedMessage)
+                }
+                is FeedEffect.ShowComingSoon -> {
+                    val message =
+                        when (effect.action) {
+                            PostOverflowAction.ReportPost -> overflowReportComingSoon
+                            PostOverflowAction.MuteAuthor -> overflowMuteComingSoon
+                            PostOverflowAction.UnmuteAuthor -> overflowUnmuteComingSoon
+                            PostOverflowAction.BlockAuthor -> overflowBlockComingSoon
+                            PostOverflowAction.UnblockAuthor -> overflowUnblockComingSoon
+                            PostOverflowAction.MuteThread -> overflowMuteThreadComingSoon
+                            PostOverflowAction.UnmuteThread -> overflowUnmuteThreadComingSoon
+                            PostOverflowAction.CopyPostText -> overflowCopyTextComingSoon
+                        }
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = message)
                 }
             }
         }
