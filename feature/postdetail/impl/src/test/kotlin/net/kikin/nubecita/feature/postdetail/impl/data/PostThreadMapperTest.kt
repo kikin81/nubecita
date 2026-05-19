@@ -194,6 +194,7 @@ internal class PostThreadMapperTest {
         assertTrue(items[0] is ThreadItem.Focus)
         val blocked = items[1] as ThreadItem.Blocked
         assertEquals("at://blocked-reply", blocked.uri)
+        assertEquals("did:plc:blocked", blocked.authorDid)
     }
 
     @Test
@@ -222,6 +223,7 @@ internal class PostThreadMapperTest {
         assertEquals(1, items.size)
         val blocked = items.single() as ThreadItem.Blocked
         assertEquals("at://blocked-focus", blocked.uri)
+        assertEquals("did:plc:blocked", blocked.authorDid)
     }
 
     @Test
