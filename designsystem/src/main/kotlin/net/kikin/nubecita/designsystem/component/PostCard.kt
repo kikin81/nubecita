@@ -2,17 +2,23 @@ package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -391,6 +397,138 @@ private fun ActionRow(
             onLongClick = callbacks.onShareLongPress?.let { handler -> { handler(post) } },
             onLongClickLabel = stringResource(R.string.postcard_action_copy_link),
         )
+        // 5th action-row cell: overflow menu. Suppressed entirely when
+        // the host hasn't wired `onOverflowAction` — mirrors the
+        // `onQuotedPostTap == null` and `onShareLongPress == null`
+        // suppression patterns. Hosts opt in by passing a non-null
+        // handler.
+        callbacks.onOverflowAction?.let { handler ->
+            PostOverflowAffordance(post = post, onAction = { handler(post, it) })
+        }
+    }
+}
+
+/**
+ * 5th action-row affordance — an icon-button that opens a DropdownMenu
+ * with the moderation / utility entries listed in [PostOverflowAction].
+ *
+ * **DropdownMenu (not ModalBottomSheet).** Matches the existing
+ * ProfileHero pattern, cheaper to render at 120Hz scroll (no scrim, no
+ * sheet animations to budget around), and matches social-app's
+ * PostMenu shape on web. Owns its own `expanded` state — the parent
+ * passes a single dispatch lambda, not visibility.
+ *
+ * Visibility rules (per the oftc.2 spec):
+ * - "Report post" — always visible.
+ * - "Mute @handle" / "Unmute @handle" — exactly one of the pair,
+ *   keyed on `post.viewer.isAuthorMutedByViewer`.
+ * - "Block @handle" / "Unblock @handle" — exactly one of the pair,
+ *   keyed on `post.viewer.isAuthorBlockedByViewer`.
+ * - "Mute thread" — always visible in oftc.2; per-thread mute-state
+ *   lookup ships under oftc.5.
+ * - "Copy post text" — always visible.
+ */
+@Composable
+private fun PostOverflowAffordance(
+    post: PostUi,
+    onAction: (PostOverflowAction) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        PostStat(
+            name = NubecitaIconName.MoreHoriz,
+            count = null,
+            accessibilityLabel = stringResource(R.string.postcard_action_more),
+            onClick = { expanded = true },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.moderation_action_report_post)) },
+                onClick = {
+                    expanded = false
+                    onAction(PostOverflowAction.ReportPost)
+                },
+            )
+            // Mute / Unmute pair — exactly one renders. Keyed on the
+            // post's viewer projection so oftc.1's mapper population is
+            // load-bearing.
+            if (post.viewer.isAuthorMutedByViewer) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.moderation_action_unmute_author,
+                                post.author.handle,
+                            ),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onAction(PostOverflowAction.UnmuteAuthor)
+                    },
+                )
+            } else {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.moderation_action_mute_author,
+                                post.author.handle,
+                            ),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onAction(PostOverflowAction.MuteAuthor)
+                    },
+                )
+            }
+            if (post.viewer.isAuthorBlockedByViewer) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.moderation_action_unblock_author,
+                                post.author.handle,
+                            ),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onAction(PostOverflowAction.UnblockAuthor)
+                    },
+                )
+            } else {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.moderation_action_block_author,
+                                post.author.handle,
+                            ),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onAction(PostOverflowAction.BlockAuthor)
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.moderation_action_mute_thread)) },
+                onClick = {
+                    expanded = false
+                    onAction(PostOverflowAction.MuteThread)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.moderation_action_copy_post_text)) },
+                onClick = {
+                    expanded = false
+                    onAction(PostOverflowAction.CopyPostText)
+                },
+            )
+        }
     }
 }
 

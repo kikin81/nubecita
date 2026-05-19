@@ -51,6 +51,23 @@ data class PostCallbacks(
      * tap (Feed, Profile, PostDetail) supply a real lambda.
      */
     val onQuotedPostTap: ((QuotedPostUi) -> Unit)? = null,
+    /**
+     * One of the overflow-menu entries (Report / Mute / Unmute /
+     * Block / Unblock / MuteThread / UnmuteThread / CopyPostText) was
+     * selected on [post]'s overflow menu. `null` (the default) suppresses
+     * the overflow icon entirely — PostCard does NOT render the 5th
+     * action-row affordance when this is unwired. Same suppression
+     * pattern as [onShareLongPress] and [onQuotedPostTap] — gives
+     * previews and non-feed call sites (e.g. `PostCallbacks.None`) a
+     * clean "no extras" rendering without TalkBack advertising a
+     * no-op affordance.
+     *
+     * Hosts that wire this (Feed / Profile / PostDetail / Search)
+     * route the action through an MVI event whose effect surfaces a
+     * coming-soon snackbar in oftc.2; oftc.3 / .4 / .5 swap each
+     * variant's snackbar for the matching RPC call.
+     */
+    val onOverflowAction: ((post: PostUi, action: PostOverflowAction) -> Unit)? = null,
 ) {
     public companion object {
         /**
