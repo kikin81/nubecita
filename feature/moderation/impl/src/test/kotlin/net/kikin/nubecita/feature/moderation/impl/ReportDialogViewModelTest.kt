@@ -363,7 +363,7 @@ internal class ReportDialogViewModelTest {
         }
 
     @Test
-    fun `failed submission with no message uses the generic fallback copy`() =
+    fun `failed submission with no message leaves message null for UI fallback`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeModerationRepository(
@@ -375,8 +375,12 @@ internal class ReportDialogViewModelTest {
             vm.handleEvent(ReportDialogEvent.OnSubmitClicked)
             advanceUntilIdle()
 
+            // Throwable with no `localizedMessage` → `Failed.message` is
+            // null. The UI's `FailureBanner` resolves null to the
+            // localized `R.string.report_dialog_error_submit_failed`
+            // fallback; the VM stays Android-resource-free.
             val failed = vm.uiState.value.submission as SubmissionStatus.Failed
-            assertEquals("Couldn't submit report. Please try again.", failed.message)
+            assertNull(failed.message)
         }
 
     @Test

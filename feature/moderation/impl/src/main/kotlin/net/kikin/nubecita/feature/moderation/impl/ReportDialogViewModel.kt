@@ -207,10 +207,12 @@ internal class ReportDialogViewModel
                         delay(SUCCESS_DISMISS_DELAY_MS)
                         sendEffect(ReportDialogEffect.RequestDismiss)
                     }.onFailure { throwable ->
-                        val message =
-                            throwable.localizedMessage
-                                ?.takeIf { it.isNotBlank() }
-                                ?: FALLBACK_ERROR_MESSAGE
+                        // Pass `localizedMessage` through verbatim when the
+                        // throwable carries one; null when it doesn't. The
+                        // UI resolves null to the localized fallback resource
+                        // (`R.string.report_dialog_error_submit_failed`) so
+                        // the VM stays Android-resource-free.
+                        val message = throwable.localizedMessage?.takeIf { it.isNotBlank() }
                         setState {
                             copy(submission = SubmissionStatus.Failed(message = message))
                                 .recomputeCanSubmit()
@@ -241,9 +243,6 @@ internal class ReportDialogViewModel
         private companion object {
             /** Auto-dismiss timer for the success card. See design Decision 5. */
             const val SUCCESS_DISMISS_DELAY_MS = 2_500L
-
-            /** Fallback when the underlying exception has no localized message. */
-            const val FALLBACK_ERROR_MESSAGE = "Couldn't submit report. Please try again."
         }
     }
 

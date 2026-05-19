@@ -27,6 +27,9 @@
     <string name="report_dialog_success_title">Report submitted</string>
     <string name="report_dialog_success_body">Bluesky moderation will review it. Thanks for helping keep the community safe.</string>
 
+    <!-- Submission failure (generic fallback when the underlying throwable has no localized message). -->
+    <string name="report_dialog_error_submit_failed">Couldn\'t submit report. Please try again.</string>
+
     <!-- Categories (top-level cards on the Category step) -->
     <string name="report_category_spam">Spam</string>
     <string name="report_category_misleading">Misleading</string>

@@ -90,9 +90,16 @@ internal sealed interface SubmissionStatus {
         val sentAt: Instant,
     ) : SubmissionStatus
 
+    /**
+     * Submission failed. [message] carries the underlying throwable's
+     * `localizedMessage` when one was present; when null, the UI resolves
+     * to the localized `R.string.report_dialog_error_submit_failed`
+     * fallback. Keeping the resource indirection at the UI boundary
+     * keeps the VM Android-resource-free.
+     */
     @Immutable
     data class Failed(
-        val message: String,
+        val message: String?,
     ) : SubmissionStatus
 }
 

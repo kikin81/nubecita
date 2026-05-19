@@ -29,9 +29,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -161,7 +164,10 @@ internal fun ReportDialogContent(
                 onClose = { onEvent(ReportDialogEvent.OnCancelClicked) },
             )
             when (state.submission) {
-                is SubmissionStatus.Success -> SuccessCard()
+                is SubmissionStatus.Success ->
+                    SuccessCard(
+                        onTap = { onEvent(ReportDialogEvent.OnCancelClicked) },
+                    )
                 else -> StepBody(state = state, onEvent = onEvent)
             }
         }
@@ -512,13 +518,24 @@ private fun DetailsField(
         } else {
             R.string.report_dialog_details_placeholder_optional
         }
+    // Auto-focus the field when the Details step enters composition so
+    // the IME pops without an extra tap. The `DetailsField` Composable
+    // is only mounted while `state.step == Details`, so a
+    // `LaunchedEffect(Unit)` keyed on first entry triggers exactly once
+    // per visit. Step-back → step-forward unmounts/remounts and triggers
+    // the request again, which is the desired behavior.
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
     OutlinedTextField(
         value = details,
         onValueChange = onDetailsChange,
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 120.dp),
+                .heightIn(min = 120.dp)
+                .focusRequester(focusRequester),
         placeholder = { Text(stringResource(placeholderRes)) },
         isError = required && details.isBlank(),
         supportingText = {
@@ -536,7 +553,12 @@ private fun DetailsField(
 }
 
 @Composable
-private fun FailureBanner(message: String) {
+private fun FailureBanner(message: String?) {
+    // Null `message` (the throwable carried no `localizedMessage`)
+    // collapses to the localized fallback. Non-null passes through
+    // verbatim — typically a network/transport-level message that's
+    // already user-readable.
+    val resolved = message ?: stringResource(R.string.report_dialog_error_submit_failed)
     Surface(
         modifier =
             Modifier
@@ -558,7 +580,7 @@ private fun FailureBanner(message: String) {
                 contentDescription = null,
             )
             Text(
-                text = message,
+                text = resolved,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
@@ -569,11 +591,12 @@ private fun FailureBanner(message: String) {
 // ---------- Success card ---------------------------------------------------
 
 @Composable
-private fun SuccessCard() {
+private fun SuccessCard(onTap: () -> Unit) {
     Card(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .clickable(onClick = onTap)
                 .testTag(ReportDialogTestTags.SUCCESS_CARD),
     ) {
         Column(
