@@ -419,6 +419,36 @@ internal class PostDetailViewModelTest {
             }
         }
 
+    // ---------- oftc.2 overflow-menu tests ----------
+
+    @Test
+    fun `OnOverflowAction emits ShowComingSoon carrying the action verbatim`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo())
+            val post = samplePost("at://post-overflow")
+            val variants =
+                listOf(
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
+                    net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
+                )
+
+            vm.effects.test {
+                for (action in variants) {
+                    vm.handleEvent(PostDetailEvent.OnOverflowAction(post = post, action = action))
+                    assertEquals(
+                        PostDetailEffect.ShowComingSoon(action),
+                        awaitItem(),
+                    )
+                }
+            }
+        }
+
     // ---------- cache interaction tests ----------
 
     @Test
