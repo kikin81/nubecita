@@ -262,6 +262,11 @@ jobs:
         # run is debuggable without permanently broadcasting Firebase
         # project internals from a public repo. Context in
         # nubecita-nvi2.
+        #
+        # Written under `$RUNNER_TEMP` (not the workspace root) so it's
+        # isolated from `app/build/...` and any later step's git
+        # operations or broad-glob artifact uploads — see PR #238
+        # Copilot review.
         env:
           FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
           RELEASE_NOTES: "v${{ needs.release.outputs.new-release-version }} — ${{ steps.built.outputs.sha }}"
@@ -276,7 +281,7 @@ jobs:
             --app "$FIREBASE_APP_ID" \
             --groups internal-testers \
             --release-notes "$RELEASE_NOTES" \
-            2> firebase-debug.log
+            2> "$RUNNER_TEMP/firebase-debug.log"
 
       - name: Upload firebase debug log (on failure)
         # Only fires on failure of the previous step. The debug log
@@ -287,7 +292,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: firebase-debug-log
-          path: firebase-debug.log
+          path: ${{ runner.temp }}/firebase-debug.log
           retention-days: 7
 
   playstore:
