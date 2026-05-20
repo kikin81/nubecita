@@ -112,8 +112,36 @@ class LoginScreenInstrumentationTest {
         }
     }
 
+    @Test
+    fun signupCtaLaunchesCustomTabForBlueskySignup() {
+        composeTestRule.setContent {
+            NubecitaTheme {
+                LoginScreen()
+            }
+        }
+
+        val ctaLabel =
+            InstrumentationRegistry
+                .getInstrumentation()
+                .targetContext
+                .getString(R.string.login_signup_cta_label)
+        composeTestRule.onNodeWithText(ctaLabel).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = INTENT_WAIT_TIMEOUT_MILLIS) {
+            runCatching {
+                intended(
+                    allOf(
+                        hasAction(Intent.ACTION_VIEW),
+                        hasData(Uri.parse(BLUESKY_SIGNUP_URL)),
+                    ),
+                )
+            }.isSuccess
+        }
+    }
+
     private companion object {
         const val VALID_HANDLE = "alice.bsky.social"
         const val INTENT_WAIT_TIMEOUT_MILLIS = 5_000L
+        const val BLUESKY_SIGNUP_URL = "https://bsky.app/signup"
     }
 }

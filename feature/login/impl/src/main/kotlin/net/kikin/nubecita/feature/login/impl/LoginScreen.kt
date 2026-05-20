@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -159,6 +160,20 @@ internal fun LoginScreen(
                 isLoading = state.isLoading,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            Spacer(Modifier.height(MaterialTheme.spacing.s2))
+
+            Text(
+                text = stringResource(R.string.login_signup_cta_supporting),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(
+                onClick = { onEvent(LoginEvent.OpenSignup) },
+                enabled = !state.isLoading,
+            ) {
+                Text(stringResource(R.string.login_signup_cta_label))
+            }
         }
     }
 }
@@ -167,9 +182,10 @@ internal fun LoginScreen(
 private fun displayStringFor(error: LoginError): String =
     when (error) {
         LoginError.BlankHandle -> stringResource(R.string.login_error_blank_handle)
-        is LoginError.Failure ->
-            error.cause?.takeIf { it.isNotBlank() }
-                ?: stringResource(R.string.login_error_generic_failure)
+        is LoginError.HandleNotFound ->
+            stringResource(R.string.login_error_handle_not_found, error.handle)
+        LoginError.Network -> stringResource(R.string.login_error_network)
+        LoginError.Generic -> stringResource(R.string.login_error_generic_failure)
     }
 
 @Preview(name = "Empty", showBackground = true)
@@ -207,16 +223,38 @@ private fun LoginScreenBlankErrorPreview() {
     }
 }
 
-@Preview(name = "Failure error", showBackground = true)
+@Preview(name = "Handle-not-found error", showBackground = true)
 @Composable
-private fun LoginScreenFailureErrorPreview() {
+private fun LoginScreenHandleNotFoundPreview() {
     NubecitaTheme {
         LoginScreen(
             state =
                 LoginState(
-                    handle = "alice",
-                    errorMessage = LoginError.Failure("Handle could not be resolved."),
+                    handle = "alise.bsky.social",
+                    errorMessage = LoginError.HandleNotFound("alise.bsky.social"),
                 ),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(name = "Network error", showBackground = true)
+@Composable
+private fun LoginScreenNetworkErrorPreview() {
+    NubecitaTheme {
+        LoginScreen(
+            state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.Network),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(name = "Generic error", showBackground = true)
+@Composable
+private fun LoginScreenGenericErrorPreview() {
+    NubecitaTheme {
+        LoginScreen(
+            state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.Generic),
             onEvent = {},
         )
     }

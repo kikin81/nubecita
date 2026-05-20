@@ -29,15 +29,31 @@ sealed interface LoginError {
     data object BlankHandle : LoginError
 
     /**
-     * Underlying [AuthRepository.beginLogin] returned a failure. The
-     * [cause] message (if non-blank) comes from the network layer / OAuth
-     * server and is shown verbatim; the screen falls back to a generic
-     * resource string when [cause] is null or blank.
+     * The submitted handle did not resolve to a DID via DNS-over-HTTPS or
+     * the HTTP `/.well-known/atproto-did` fallback. The screen interpolates
+     * [handle] into the user-facing message so the user can verify spelling
+     * without retyping.
      */
     @Immutable
-    data class Failure(
-        val cause: String?,
+    data class HandleNotFound(
+        val handle: String,
     ) : LoginError
+
+    /**
+     * A network failure occurred during the login flow — the device is
+     * offline, DNS lookup failed, or a socket-level timeout fired. The
+     * underlying throwable is never exposed to the UI.
+     */
+    @Immutable
+    data object Network : LoginError
+
+    /**
+     * Any unclassified failure (server config error, malformed metadata,
+     * unexpected exception). The screen renders a static "try again"
+     * resource; the throwable's `message` is never forwarded.
+     */
+    @Immutable
+    data object Generic : LoginError
 }
 
 sealed interface LoginEvent : UiEvent {
@@ -48,6 +64,13 @@ sealed interface LoginEvent : UiEvent {
     data object SubmitLogin : LoginEvent
 
     data object ClearError : LoginEvent
+
+    /**
+     * User tapped the secondary "Create one on Bluesky" affordance. The VM
+     * responds by emitting a `LaunchCustomTab` effect pointing at the
+     * Bluesky web sign-up flow without mutating state.
+     */
+    data object OpenSignup : LoginEvent
 }
 
 sealed interface LoginEffect : UiEffect {
