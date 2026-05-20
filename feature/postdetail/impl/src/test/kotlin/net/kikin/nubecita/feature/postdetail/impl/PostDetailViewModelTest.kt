@@ -422,13 +422,15 @@ internal class PostDetailViewModelTest {
     // ---------- oftc.2 overflow-menu tests ----------
 
     @Test
-    fun `OnOverflowAction emits ShowComingSoon carrying the action verbatim`() =
+    fun `OnOverflowAction emits ShowComingSoon for every action except ReportPost`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = newVm(FakeRepo())
             val post = samplePost("at://post-overflow")
-            val variants =
+            // ReportPost graduated in oftc.3.1 — covered by the next test.
+            // The seven remaining variants still pass through as
+            // ShowComingSoon until oftc.4 / .5 / future cleanup land.
+            val stubbedVariants =
                 listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
@@ -439,13 +441,59 @@ internal class PostDetailViewModelTest {
                 )
 
             vm.effects.test {
-                for (action in variants) {
+                for (action in stubbedVariants) {
                     vm.handleEvent(PostDetailEvent.OnOverflowAction(post = post, action = action))
                     assertEquals(
                         PostDetailEffect.ShowComingSoon(action),
                         awaitItem(),
                     )
                 }
+            }
+        }
+
+    @Test
+    fun `OnOverflowAction(ReportPost) emits NavigateTo with a Report Post NavKey`() =
+        // Pin: oftc.3.1 graduates the PostCard overflow Report row on the
+        // PostDetail thread out of ShowComingSoon. The VM now emits
+        // PostDetailEffect.NavigateTo carrying Report.forPost(post) — the
+        // screen's effect collector pushes the NavKey via onNavigateTo
+        // onto MainShell's inner back stack. URI + CID match the tapped
+        // post; no ShowComingSoon for this variant; no state mutation.
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo())
+            val post =
+                samplePost(
+                    id = "at://did:plc:author/app.bsky.feed.post/rprt1",
+                    cid = "bafyreitestreportcid",
+                )
+
+            vm.effects.test {
+                vm.handleEvent(
+                    PostDetailEvent.OnOverflowAction(
+                        post = post,
+                        action = net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
+                    ),
+                )
+                val effect = awaitItem()
+                assertTrue(
+                    effect is PostDetailEffect.NavigateTo,
+                    "expected NavigateTo, got $effect",
+                )
+                val key = (effect as PostDetailEffect.NavigateTo).key
+                assertTrue(
+                    key is net.kikin.nubecita.feature.moderation.api.Report,
+                    "expected Report NavKey, got $key",
+                )
+                val subject = (key as net.kikin.nubecita.feature.moderation.api.Report).subject
+                assertTrue(
+                    subject is net.kikin.nubecita.feature.moderation.api.ReportSubject.Post,
+                    "expected ReportSubject.Post, got $subject",
+                )
+                assertEquals(
+                    post.id,
+                    (subject as net.kikin.nubecita.feature.moderation.api.ReportSubject.Post).uri,
+                )
+                assertEquals(post.cid, subject.cid)
             }
         }
 

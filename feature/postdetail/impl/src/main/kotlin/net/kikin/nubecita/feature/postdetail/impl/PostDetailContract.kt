@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.postdetail.impl
 
 import androidx.compose.runtime.Immutable
+import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
@@ -298,5 +299,20 @@ internal sealed interface PostDetailEffect : UiEffect {
     @Immutable
     data class CopyPermalink(
         val permalink: String,
+    ) : PostDetailEffect
+
+    /**
+     * Push a sub-route NavKey onto `MainShell`'s inner back stack via
+     * the screen's `onNavigateTo` callback (which the host wires to
+     * `LocalMainShellNavState.current.add(key)`). The VM never reads
+     * the navigation state holder — that lives in `CompositionLocal`,
+     * which is unreachable from a ViewModel. Currently emitted only
+     * for the Report dialog sub-route (`Report` NavKey from
+     * `:feature:moderation:api`); future moderation children
+     * (Block / Mute confirmation sub-routes) travel the same effect.
+     */
+    @Immutable
+    data class NavigateTo(
+        val key: NavKey,
     ) : PostDetailEffect
 }

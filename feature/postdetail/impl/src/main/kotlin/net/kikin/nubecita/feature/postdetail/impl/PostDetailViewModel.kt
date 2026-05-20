@@ -17,6 +17,8 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.data.PostThreadRepository
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
@@ -106,7 +108,18 @@ internal class PostDetailViewModel
                 is PostDetailEvent.OnVideoTapped ->
                     sendEffect(PostDetailEffect.NavigateToVideoPlayer(event.postUri))
                 is PostDetailEvent.OnOverflowAction ->
-                    sendEffect(PostDetailEffect.ShowComingSoon(event.action))
+                    when (event.action) {
+                        PostOverflowAction.ReportPost ->
+                            sendEffect(PostDetailEffect.NavigateTo(Report.forPost(event.post)))
+                        PostOverflowAction.MuteAuthor,
+                        PostOverflowAction.UnmuteAuthor,
+                        PostOverflowAction.BlockAuthor,
+                        PostOverflowAction.UnblockAuthor,
+                        PostOverflowAction.MuteThread,
+                        PostOverflowAction.UnmuteThread,
+                        PostOverflowAction.CopyPostText,
+                        -> sendEffect(PostDetailEffect.ShowComingSoon(event.action))
+                    }
                 is PostDetailEvent.OnShareClicked ->
                     sendEffect(PostDetailEffect.SharePost(event.post.toShareIntent()))
                 is PostDetailEvent.OnShareLongPressed ->

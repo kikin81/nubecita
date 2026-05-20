@@ -24,10 +24,12 @@
     <string name="profile_snackbar_mute_coming_soon">Mute — coming soon</string>
 
     <!-- PostCard overflow-menu "coming soon" snackbars (oftc.2). Distinct
-         from the profile-level Block / Mute / Report stubs above — these
-         fire from PostCard's per-post overflow menu in the tab bodies.
-         oftc.3 / .4 / .5 swap each variant for its real RPC. -->
-    <string name="profile_snackbar_post_overflow_report_coming_soon">Report — coming soon</string>
+         from the profile-level Block / Mute stubs above — these fire
+         from PostCard's per-post overflow menu in the tab bodies.
+         oftc.4 / .5 swap each variant for its real RPC. ReportPost
+         graduated in oftc.3.1 and now flows through
+         ProfileEffect.NavigateTo(Report.forPost(...)); its
+         coming-soon string was removed at the same time. -->
     <string name="profile_snackbar_post_overflow_mute_coming_soon">Mute — coming soon</string>
     <string name="profile_snackbar_post_overflow_unmute_coming_soon">Unmute — coming soon</string>
     <string name="profile_snackbar_post_overflow_block_coming_soon">Block — coming soon</string>
