@@ -37,17 +37,17 @@
 - [x] 6.1 Add screenshot fixtures for the three new error states (`HandleNotFound`, `Network`, `Generic`) in `feature/login/impl/src/screenshotTest/`. Light + dark themes per the project's `@PreviewNubecitaScreenPreviews` wrapper.
 - [x] 6.2 Add a screenshot fixture for the always-visible sign-up CTA (no error, empty handle). Light + dark themes. (Covered by the existing `empty-light` / `empty-dark` fixtures — the CTA is always visible, so the empty-state baseline now captures it.)
 - [x] 6.3 Verify existing baselines for `Empty`, `Typed`, `Loading`, `BlankHandle` still match — re-baseline only those altered by the CTA addition.
-- [ ] 6.4 Add the `update-baselines` label to the PR once the screenshot tests have produced new images.
+- [x] 6.4 Add the `update-baselines` label to the PR once the screenshot tests have produced new images.
 
 ## 7. Instrumentation test
 
 - [x] 7.1 Add a `LoginScreenInstrumentationTest` case `signupCtaLaunchesCustomTabForBlueskySignup` that taps the CTA and asserts a `CustomTabsIntent` (or equivalent `Intent` with `ACTION_VIEW` + `https://bsky.app/signup`) is launched. Use the existing instrumentation harness pattern in `:feature:login:impl/src/androidTest/`.
-- [ ] 7.2 Add the `run-instrumented` label to the PR so CI runs the instrumented job.
+- [x] 7.2 Add the `run-instrumented` label to the PR so CI runs the instrumented job.
 
 ## 8. PR ceremony
 
 - [x] 8.1 Run `./gradlew spotlessApply :feature:login:impl:testDebugUnitTest :feature:login:impl:validateDebugScreenshotTest :feature:login:impl:lintDebug` locally and clear all findings.
 - [x] 8.2 Commit on `feat/nubecita-lq9t.3.3-login-friendlier-errors-and-signup-cta` with Conventional Commits; reference `nubecita-lq9t.3.3` in the body footer.
-- [ ] 8.3 Open the PR with `Closes: nubecita-lq9t.3.3` in the body; add `update-baselines` and `run-instrumented` labels.
-- [ ] 8.4 Address Copilot review feedback; resolve threads via GraphQL on reply.
-- [ ] 8.5 After merge, archive this OpenSpec change via `/opsx:archive add-login-error-mapping-and-signup-affordance`.
+- [x] 8.3 Open the PR with `Closes: nubecita-lq9t.3.3` in the body; add `update-baselines` and `run-instrumented` labels.
+- [x] 8.4 Address Copilot review feedback; resolve threads via GraphQL on reply.
+- [x] 8.5 After merge, archive this OpenSpec change via `/opsx:archive add-login-error-mapping-and-signup-affordance`.
