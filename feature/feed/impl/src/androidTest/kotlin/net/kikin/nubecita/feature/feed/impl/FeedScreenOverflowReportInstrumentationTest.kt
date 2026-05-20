@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.feed.impl
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -11,7 +10,6 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
-import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -23,26 +21,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import net.kikin.nubecita.designsystem.R as DesignsystemR
 
 /**
  * Instrumentation pin-down for oftc.3 (nubecita-6buu): the PostCard
- * overflow's "Report post" row, tapped on a feed-side PostCard, pushes a
- * [Report] sub-route onto the active tab's stack via
- * `LocalMainShellNavState.current.add(...)`. The Report NavKey carries a
- * [ReportSubject.Post] with the tapped post's URI + CID — the same shape
- * `ModerationNavigationModule`'s `@MainShell` provider resolves to a
- * Modal Bottom Sheet hosting the report dialog.
+ * overflow's "Report post" row, tapped on a feed-side PostCard, emits
+ * `FeedEffect.NavigateTo(Report(...))` from the VM. The screen's effect
+ * collector routes the key out via its `onNavigateTo: (NavKey) -> Unit`
+ * callback — the same host hook that `FeedNavigationModule` wires to
+ * `LocalMainShellNavState.current.add(key)` in production. The Report
+ * NavKey carries a [ReportSubject.Post] with the tapped post's URI +
+ * CID — the same shape `ModerationNavigationModule`'s `@MainShell`
+ * provider resolves to a Modal Bottom Sheet hosting the report dialog.
  *
- * Mirrors the precedent set by `SearchPostsScreenInstrumentationTest`:
- * construct [MainShellNavState] directly via its public primary
- * constructor (per its kdoc's "Direct construction (tests only)" note),
- * with [Feed] as the sole top-level route. The assertion target is
- * `navState.backStack` — the same snapshot list the production inner
- * `NavDisplay` reads. Asserting the dialog's actual render is covered by
- * `ReportDialogScreenInstrumentationTest` inside `:feature:moderation:impl`;
- * standing the dialog up here would force a NavDisplay + Hilt-injected
- * EntryProviderInstaller multibinding harness for no incremental
- * contract gain.
+ * The test constructs [MainShellNavState] directly via its public
+ * primary constructor (per its kdoc's "Direct construction (tests only)"
+ * note) and wires `onNavigateTo = { key -> navState.add(key) }` — the
+ * exact lambda `FeedNavigationModule` uses. The assertion target is
+ * `navState.backStack`, the same snapshot list the production inner
+ * `NavDisplay` reads. The screen stays host-agnostic per the Nav3
+ * modular-hilt recipe (screens take callbacks; hosts wire navState).
+ *
+ * Asserting the dialog's actual render is covered by
+ * `ReportDialogScreenInstrumentationTest` inside
+ * `:feature:moderation:impl`; standing the dialog up here would force a
+ * NavDisplay + Hilt-injected EntryProviderInstaller multibinding harness
+ * for no incremental contract gain.
  *
  * Like `FeedScreenInstrumentationTest`, the repository is faked via
  * `@TestInstallIn`-replaced `FeedRepositoryModule` (see
@@ -72,11 +76,28 @@ class FeedScreenOverflowReportInstrumentationTest {
 
     @Test
     fun overflowMenu_reportRow_pushesReportNavKeyOntoActiveTabStack() {
+        // Resolve UI strings from `:designsystem` (where they live) via
+        // the live activity rather than hardcoding English literals.
+        // Keeps the assertion locale-safe and survives string-resource
+        // edits. Mirrors `ReportDialogScreenInstrumentationTest`'s
+        // `composeTestRule.activity.getString(...)` pattern.
+        val moreOptionsCd =
+            composeTestRule.activity.getString(DesignsystemR.string.postcard_action_more)
+        val reportPostLabel =
+            composeTestRule.activity.getString(DesignsystemR.string.moderation_action_report_post)
+
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalMainShellNavState provides navState) {
-                NubecitaTheme {
-                    FeedScreen()
-                }
+            NubecitaTheme {
+                // FeedScreen takes a generic `(NavKey) -> Unit` for
+                // tab-internal sub-routes; the host (FeedNavigationModule)
+                // wires it to `navState.add(key)` in production. The
+                // test wires the same shape — verifies the screen routes
+                // the effect to the callback rather than re-implementing
+                // host knowledge. No `LocalMainShellNavState` provider
+                // needed (per the Nav3 modular-hilt recipe: screens stay
+                // host-agnostic, only the EntryProviderInstaller knows
+                // the navState).
+                FeedScreen(onNavigateTo = { key -> navState.add(key) })
             }
         }
 
@@ -94,26 +115,27 @@ class FeedScreenOverflowReportInstrumentationTest {
         assertEquals(listOf<NavKey>(Feed), navState.backStack.toList())
 
         // Tap the first PostCard's overflow affordance (contentDescription
-        // "More options" — the design-system label set on the 5th action-
-        // row cell by PostOverflowAffordance). useUnmergedTree because
-        // the icon button's semantics are nested under the action row's
-        // merged tree; without it Compose collapses the icon-button
-        // semantics into the parent row and the matcher returns nothing.
+        // resolves to `R.string.postcard_action_more` from `:designsystem`,
+        // the label set on the 5th action-row cell by PostOverflowAffordance).
+        // useUnmergedTree because the icon button's semantics are nested
+        // under the action row's merged tree; without it Compose collapses
+        // the icon-button semantics into the parent row and the matcher
+        // returns nothing.
         composeTestRule
-            .onAllNodes(hasContentDescription(MORE_OPTIONS_CD), useUnmergedTree = true)[0]
+            .onAllNodes(hasContentDescription(moreOptionsCd), useUnmergedTree = true)[0]
             .performClick()
         composeTestRule.waitForIdle()
 
         // DropdownMenu is now open — tap "Report post". The displayed
-        // text matches R.string.moderation_action_report_post exactly.
-        composeTestRule.onNodeWithText(REPORT_POST_LABEL).performClick()
+        // text resolves to `R.string.moderation_action_report_post` from
+        // `:designsystem` (where PostCard.kt reads it).
+        composeTestRule.onNodeWithText(reportPostLabel).performClick()
 
-        // The screen's effect collector resolves the LaunchedEffect's
-        // FeedEffect.NavigateTo branch by calling
-        // LocalMainShellNavState.current.add(key); the test's navState
-        // is the same instance bound via CompositionLocalProvider above,
-        // so the push lands here. Allow time for the effect coroutine to
-        // round-trip through the dispatcher.
+        // The screen's effect collector resolves the
+        // `FeedEffect.NavigateTo` branch by invoking the `onNavigateTo`
+        // callback wired above — which lands directly on `navState.add`.
+        // Allow time for the effect coroutine to round-trip through the
+        // dispatcher.
         composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) {
             navState.backStack.any { it is Report }
         }
@@ -148,16 +170,5 @@ class FeedScreenOverflowReportInstrumentationTest {
         const val POST_ALICE_TEXT = "Hello world from alice"
         const val POST_ALICE_URI = "at://did:plc:alice/app.bsky.feed.post/post1"
         const val POST_ALICE_CID = "bafyreitest1"
-
-        // Hardcoded mirror of the design-system string
-        // `R.string.postcard_action_more` and the moderation-impl string
-        // `R.string.moderation_action_report_post`. Compose tests can't
-        // resolve string resources from another module's R class without
-        // instrumentation context plumbing, and pinning the literals
-        // here makes a string change show up as a test failure rather
-        // than a silent semantic drift. Same pattern as the existing
-        // FeedScreenInstrumentationTest's REPLY_CD constant.
-        const val MORE_OPTIONS_CD = "More options"
-        const val REPORT_POST_LABEL = "Report post"
     }
 }

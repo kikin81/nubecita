@@ -69,6 +69,16 @@ internal object FeedNavigationModule {
                     onNavigateToVideoPlayer = { uri ->
                         appNavigator.goTo(VideoPlayerRoute(postUri = uri))
                     },
+                    // Generic tab-internal sub-route push — pushed onto
+                    // MainShell's inner back stack so the @MainShell
+                    // entry provider for the key resolves it (e.g. the
+                    // Report dialog provider from :feature:moderation:impl).
+                    // Keeping the host-side callback shape ((NavKey) -> Unit)
+                    // means the screen doesn't directly read
+                    // LocalMainShellNavState — mirrors the canonical
+                    // Nav3 modular-hilt recipe and matches the other
+                    // nav callbacks above.
+                    onNavigateTo = { key -> navState.add(key) },
                     // Width-class-conditional composer launch. At Compact width
                     // the launcher pushes ComposerRoute onto the tab stack; at
                     // Medium / Expanded widths it toggles MainShell's overlay
