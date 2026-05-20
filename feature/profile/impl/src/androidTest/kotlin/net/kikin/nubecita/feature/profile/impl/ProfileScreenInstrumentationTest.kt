@@ -74,6 +74,7 @@ class ProfileScreenInstrumentationTest {
                     snackbarHostState = snackbarHostState,
                     postCallbacks = PostCallbacks.None,
                     onEvent = onEvent,
+                    onBack = null,
                 )
             }
         }
@@ -120,6 +121,7 @@ class ProfileScreenInstrumentationTest {
                     snackbarHostState = remember { SnackbarHostState() },
                     postCallbacks = PostCallbacks.None,
                     onEvent = { capturedEvents += it },
+                    onBack = null,
                 )
             }
         }

@@ -29,6 +29,11 @@ dependencies {
     // MediaViewerRoute NavKey — pushed onto the back stack when an
     // image (on a timeline PostCard) or a media-tab grid cell is tapped.
     implementation(project(":feature:mediaviewer:api"))
+    // Report NavKey + ReportSubject sealed sum — pushed onto MainShell's
+    // inner back stack from the ProfileHero overflow "Report account"
+    // row (oftc.3 PR 4). :api only — :feature:moderation:impl owns the
+    // dialog, VM, and repository and stays opt-in via Hilt multibinding.
+    implementation(project(":feature:moderation:api"))
     implementation(project(":feature:postdetail:api"))
     // VideoPlayerRoute NavKey — pushed onto the outer back stack when
     // a video media-grid cell is tapped (the MediaViewer can't render

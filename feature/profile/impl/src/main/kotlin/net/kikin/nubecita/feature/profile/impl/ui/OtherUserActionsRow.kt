@@ -37,10 +37,15 @@ import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
  * The Message button itself is hidden when [canMessage] is `false`
  * — derived in the mapper from `associated.chat.allowIncoming` +
  * `viewer.followedBy`. When hidden, Follow expands to fill the slot.
- * The overflow menu's three entries each dispatch [onOverflowAction]
- * with the corresponding [StubbedAction] variant (`Block / Mute /
- * Report`); the screen-level handler routes those to
- * `ProfileEvent.StubActionTapped(action) → ShowComingSoon(action)`.
+ * The overflow menu's first two entries (`Block`, `Mute`) dispatch
+ * [onOverflowAction] with the corresponding [StubbedAction] variant —
+ * the screen-level handler routes those to
+ * `ProfileEvent.StubActionTapped(action) → ShowComingSoon(action)`. The
+ * `Report` row dispatches [onReport] instead: it graduated out of the
+ * coming-soon stub in `oftc.3` and routes to a real Report dialog
+ * sub-route via `ProfileEvent.OnReportAccountRequested →
+ * ProfileEffect.NavigateTo(Report(...))`. `Block` and `Mute` will
+ * follow the same migration in `oftc.4` / `oftc.5`.
  *
  * The Follow / Message buttons share equal width via `Modifier.weight(1f)`;
  * the overflow stays content-sized.
@@ -52,6 +57,7 @@ internal fun OtherUserActionsRow(
     onFollow: () -> Unit,
     onMessage: () -> Unit,
     onOverflowAction: (StubbedAction) -> Unit,
+    onReport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val followLabel =
@@ -87,7 +93,7 @@ internal fun OtherUserActionsRow(
                 listOf(
                     OverflowEntry(label = blockLabel, onClick = { onOverflowAction(StubbedAction.Block) }),
                     OverflowEntry(label = muteLabel, onClick = { onOverflowAction(StubbedAction.Mute) }),
-                    OverflowEntry(label = reportLabel, onClick = { onOverflowAction(StubbedAction.Report) }),
+                    OverflowEntry(label = reportLabel, onClick = onReport),
                 ),
         )
     }

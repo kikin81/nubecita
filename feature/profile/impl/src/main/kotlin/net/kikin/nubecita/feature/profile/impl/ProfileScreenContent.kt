@@ -132,6 +132,7 @@ internal fun ProfileScreenContent(
                         onFollowTap = { onEvent(ProfileEvent.FollowTapped) },
                         onMessageTap = { onEvent(ProfileEvent.MessageTapped) },
                         onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
+                        onReportTap = { onEvent(ProfileEvent.OnReportAccountRequested) },
                         onSettingsTap = { onEvent(ProfileEvent.SettingsTapped) },
                         // [topInset] reserves space inside the hero's content for
                         // the bar's vertical reservation. Combined with the
