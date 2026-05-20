@@ -34,6 +34,7 @@ enum class NubecitaIconName(
     Add("\uE145"),
     AddPhotoAlternate("\uE43E"),
     ArrowBack("\uE5C4"),
+    ArrowForward("\uE5C8"),
     Article("\uEF42"),
     Bookmark("\uE8E7"),
     ChatBubble("\uE0CB"),
