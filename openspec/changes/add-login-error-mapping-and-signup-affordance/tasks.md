@@ -46,8 +46,8 @@
 
 ## 8. PR ceremony
 
-- [ ] 8.1 Run `./gradlew spotlessApply :feature:login:impl:testDebugUnitTest :feature:login:impl:validateDebugScreenshotTest :feature:login:impl:lintDebug` locally and clear all findings.
-- [ ] 8.2 Commit on `feat/nubecita-lq9t.3.3-login-friendlier-errors-and-signup-cta` with Conventional Commits; reference `nubecita-lq9t.3.3` in the body footer.
+- [x] 8.1 Run `./gradlew spotlessApply :feature:login:impl:testDebugUnitTest :feature:login:impl:validateDebugScreenshotTest :feature:login:impl:lintDebug` locally and clear all findings.
+- [x] 8.2 Commit on `feat/nubecita-lq9t.3.3-login-friendlier-errors-and-signup-cta` with Conventional Commits; reference `nubecita-lq9t.3.3` in the body footer.
 - [ ] 8.3 Open the PR with `Closes: nubecita-lq9t.3.3` in the body; add `update-baselines` and `run-instrumented` labels.
 - [ ] 8.4 Address Copilot review feedback; resolve threads via GraphQL on reply.
 - [ ] 8.5 After merge, archive this OpenSpec change via `/opsx:archive add-login-error-mapping-and-signup-affordance`.
