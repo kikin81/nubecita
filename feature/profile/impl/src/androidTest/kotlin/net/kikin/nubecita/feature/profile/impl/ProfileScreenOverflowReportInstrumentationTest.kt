@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -16,6 +17,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
@@ -144,17 +146,28 @@ class ProfileScreenOverflowReportInstrumentationTest {
             )
 
         composeTestRule.setContent {
+            // ProfileScreen reads LocalMainShellNavState.current
+            // unconditionally to wire its back-handler. The local has no
+            // default value (compositionLocalOf { error(...) }), so the
+            // test must provide it explicitly — without this wrap the
+            // first composition crashes with "MainShellNavState not
+            // provided" before the overflow menu ever renders. The
+            // host-provided `onNavigateTo` callback still carries the
+            // sub-route push contract under test; this provider just
+            // satisfies the back-handler read.
             NubecitaTheme(dynamicColor = false) {
-                ProfileScreen(
-                    viewModel = viewModel,
-                    onNavigateToPost = {},
-                    onNavigateToProfile = {},
-                    onNavigateToSettings = {},
-                    onNavigateToMessage = {},
-                    onNavigateToMediaViewer = { _, _ -> },
-                    onNavigateToVideoPlayer = {},
-                    onNavigateTo = { key -> navState.add(key) },
-                )
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    ProfileScreen(
+                        viewModel = viewModel,
+                        onNavigateToPost = {},
+                        onNavigateToProfile = {},
+                        onNavigateToSettings = {},
+                        onNavigateToMessage = {},
+                        onNavigateToMediaViewer = { _, _ -> },
+                        onNavigateToVideoPlayer = {},
+                        onNavigateTo = { key -> navState.add(key) },
+                    )
+                }
             }
         }
 
