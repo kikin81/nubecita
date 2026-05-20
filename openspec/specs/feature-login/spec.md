@@ -237,9 +237,9 @@ The stateless `LoginScreen(state, onEvent, modifier)` composable MUST wrap its c
 - A separate tappable button — not a clickable span inside an error message.
 - Composed of supporting copy from `R.string.login_signup_cta_supporting` ("Don't have an account?") and a button labelled `R.string.login_signup_cta_label` ("Create one on Bluesky").
 
-Tapping the button SHALL dispatch `LoginEvent.OpenSignup`. `LoginViewModel` SHALL respond by emitting `LoginEffect.LaunchCustomTab("https://bsky.app/signup")`. The screen's existing `LaunchedEffect(viewModel)` collector dispatches `LaunchCustomTab` to a Chrome Custom Tab via `CustomTabsIntent`; no separate effect variant is required.
+Tapping the button SHALL dispatch `LoginEvent.OpenSignup`. `LoginViewModel` SHALL respond by emitting `LoginEffect.LaunchCustomTab("https://bsky.app/")`. The screen's existing `LaunchedEffect(viewModel)` collector dispatches `LaunchCustomTab` to a Chrome Custom Tab via `CustomTabsIntent`; no separate effect variant is required.
 
-The sign-up URL SHALL be a private `const val` inside `LoginViewModel.kt` (`BLUESKY_SIGNUP_URL = "https://bsky.app/signup"`) so the production URL is asserted by a single source.
+The sign-up URL SHALL be an `internal const val` inside `LoginViewModel.kt` (`BLUESKY_SIGNUP_URL = "https://bsky.app/"`) so the production URL is asserted by a single source — production code and the instrumentation test reference the same constant. `https://bsky.app/signup` was the original placeholder; it 404s, and the unauthenticated `bsky.app/` landing surfaces a "Create account" button directly.
 
 #### Scenario: CTA is rendered on the login screen
 
@@ -251,15 +251,15 @@ The sign-up URL SHALL be a private `const val` inside `LoginViewModel.kt` (`BLUE
 - **WHEN** the user taps the sign-up CTA
 - **THEN** the screen's `onEvent` callback SHALL be invoked with `LoginEvent.OpenSignup`
 
-#### Scenario: OpenSignup emits a LaunchCustomTab for bsky.app/signup
+#### Scenario: OpenSignup emits a LaunchCustomTab for bsky.app
 
 - **WHEN** `LoginViewModel.handleEvent(LoginEvent.OpenSignup)` is called
-- **THEN** the VM SHALL emit `LoginEffect.LaunchCustomTab("https://bsky.app/signup")` exactly once, and SHALL NOT mutate `state` (`isLoading`, `handle`, and `errorMessage` SHALL retain their prior values)
+- **THEN** the VM SHALL emit `LoginEffect.LaunchCustomTab("https://bsky.app/")` exactly once, and SHALL NOT mutate `state` (`isLoading`, `handle`, and `errorMessage` SHALL retain their prior values)
 
 #### Scenario: CTA tap launches a Chrome Custom Tab on the device
 
 - **WHEN** an instrumented test taps the sign-up CTA on `LoginScreen`
-- **THEN** a `CustomTabsIntent` SHALL be launched whose target URI equals `https://bsky.app/signup`
+- **THEN** a `CustomTabsIntent` SHALL be launched whose target URI equals `https://bsky.app/`
 
 ### Requirement: `LoginError` is a typed sum with no free-form cause string
 
