@@ -18,11 +18,14 @@ import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import net.kikin.nubecita.feature.feed.impl.data.linksToWire
+import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.moderation.api.ReportSubject
 import java.io.IOException
 import javax.inject.Inject
 
@@ -80,7 +83,29 @@ internal class FeedViewModel
                 is FeedEvent.OnShareLongPressed ->
                     sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))
                 is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
-                is FeedEvent.OnOverflowAction -> sendEffect(FeedEffect.ShowComingSoon(event.action))
+                is FeedEvent.OnOverflowAction ->
+                    when (event.action) {
+                        PostOverflowAction.ReportPost ->
+                            sendEffect(
+                                FeedEffect.NavigateTo(
+                                    Report(
+                                        subject =
+                                            ReportSubject.Post(
+                                                uri = event.post.id,
+                                                cid = event.post.cid,
+                                            ),
+                                    ),
+                                ),
+                            )
+                        PostOverflowAction.MuteAuthor,
+                        PostOverflowAction.UnmuteAuthor,
+                        PostOverflowAction.BlockAuthor,
+                        PostOverflowAction.UnblockAuthor,
+                        PostOverflowAction.MuteThread,
+                        PostOverflowAction.UnmuteThread,
+                        PostOverflowAction.CopyPostText,
+                        -> sendEffect(FeedEffect.ShowComingSoon(event.action))
+                    }
             }
         }
 

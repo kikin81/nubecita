@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
@@ -213,6 +214,14 @@ internal fun FeedScreen(
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
+    // Tab-internal sub-route push target. Read from the CompositionLocal
+    // here (in the stateful wrapper) so `FeedScreenContent` — exercised
+    // by previews / screenshot tests that don't provide the CL — stays
+    // unchanged. ViewModels can't see `CompositionLocal`s by design, so
+    // the canonical "VM emits NavigateTo → screen pushes" handoff lives
+    // in the collector below. Matches the CLAUDE.md MVI guidance and
+    // the search / postdetail / composer modules' wiring.
+    val mainShellNavState = LocalMainShellNavState.current
     // Per-PostCard image tap dispatcher. The PostCard.onImageClick slot
     // is `(Int) -> Unit` (index only); we close over each PostCard's
     // own `post` at the call site to form a `(PostUi, Int) -> Unit`
@@ -352,6 +361,7 @@ internal fun FeedScreen(
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)
                 }
+                is FeedEffect.NavigateTo -> mainShellNavState.add(effect.key)
             }
         }
     }

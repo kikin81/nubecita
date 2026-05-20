@@ -36,6 +36,12 @@ dependencies {
     // MediaViewerRoute NavKey — pushed onto the back stack when an
     // image in a feed PostCard is tapped (skip the PostDetail detour).
     implementation(project(":feature:mediaviewer:api"))
+    // Report NavKey — pushed onto the inner MainShell back stack when
+    // the PostCard overflow's "Report post" row is tapped. Imports
+    // `:api` only; never `:impl` (the :impl provider that resolves the
+    // NavKey is wired through Hilt's @MainShell multibinding from the
+    // moderation module, not via a direct dep here).
+    implementation(project(":feature:moderation:api"))
     // PostDetailRoute NavKey — pushed onto the back stack when a feed
     // post body is tapped. Imports `:api` only; never `:impl`.
     implementation(project(":feature:postdetail:api"))

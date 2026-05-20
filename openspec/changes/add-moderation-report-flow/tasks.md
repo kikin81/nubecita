@@ -50,13 +50,13 @@ per task are the minimum bar. Reviewers may request more.
 
 ## 3. PR 3 — Feed-side wiring: PostCard overflow Report routes to dialog
 
-- [ ] 3.1 In `:feature:feed:impl/FeedViewModel.kt`: add (or extend) the handler for `PostOverflowAction.ReportPost`. Emit exactly one `FeedEffect.NavigateTo(Report(subject = ReportSubject.Post(uri = post.uri, cid = post.cid)))`. Do NOT emit `ShowError` / `ShowMessage` / inline modal
-- [ ] 3.2 In `:feature:feed:impl/FeedScreen.kt`: extend the effect collector to handle `FeedEffect.NavigateTo`. On `Report(...)` keys, call `LocalMainShellNavState.current.add(key)`. Match the pattern `FeedEffect.NavigateToPost` already uses
-- [ ] 3.3 `:feature:feed:impl` build.gradle.kts: add `implementation(project(":feature:moderation:api"))`. Do NOT add `:impl` — only the NavKey is needed from feed
-- [ ] 3.4 Unit test in `FeedViewModelTest`: scenario where the user taps `PostOverflowAction.ReportPost` on a specific post. Assert: exactly one `FeedEffect.NavigateTo(Report(...))` effect emitted; payload's URI + CID match the tapped post's; no state field changes
-- [ ] 3.5 Instrumentation test under `:feature:feed:impl/src/androidTest/`: render the feed via `createAndroidComposeRule`, long-press a PostCard to open the overflow menu, tap "Report post", assert the test-tag of the report-dialog Subject step is in the composition (use `composeTestRule.onNodeWithTag("report-dialog-subject")`. Add the `run-instrumented` label to the PR
-- [ ] 3.6 If `:feature:postdetail:impl` and `:feature:profile:impl` (Posts tab) also render PostCards with overflow menus, repeat steps 3.1–3.4 in each of those VMs / screens so the Report row works consistently from all three hosts (NOT a hard requirement of `nubecita-oftc.3` if only the feed timeline ships in V1, but flag the gap in the PR description if deferred)
-- [ ] 3.7 Run `./gradlew :feature:feed:impl:assembleDebug :feature:feed:impl:lintDebug` clean before PR
+- [x] 3.1 In `:feature:feed:impl/FeedViewModel.kt`: add (or extend) the handler for `PostOverflowAction.ReportPost`. Emit exactly one `FeedEffect.NavigateTo(Report(subject = ReportSubject.Post(uri = post.uri, cid = post.cid)))`. Do NOT emit `ShowError` / `ShowMessage` / inline modal
+- [x] 3.2 In `:feature:feed:impl/FeedScreen.kt`: extend the effect collector to handle `FeedEffect.NavigateTo`. On `Report(...)` keys, call `LocalMainShellNavState.current.add(key)`. Match the pattern `FeedEffect.NavigateToPost` already uses
+- [x] 3.3 `:feature:feed:impl` build.gradle.kts: add `implementation(project(":feature:moderation:api"))`. Do NOT add `:impl` — only the NavKey is needed from feed
+- [x] 3.4 Unit test in `FeedViewModelTest`: scenario where the user taps `PostOverflowAction.ReportPost` on a specific post. Assert: exactly one `FeedEffect.NavigateTo(Report(...))` effect emitted; payload's URI + CID match the tapped post's; no state field changes
+- [x] 3.5 Instrumentation test under `:feature:feed:impl/src/androidTest/`: render the feed via `createAndroidComposeRule`, long-press a PostCard to open the overflow menu, tap "Report post", assert the test-tag of the report-dialog Subject step is in the composition (use `composeTestRule.onNodeWithTag("report-dialog-subject")`. Add the `run-instrumented` label to the PR
+- [ ] 3.6 If `:feature:postdetail:impl` and `:feature:profile:impl` (Posts tab) also render PostCards with overflow menus, repeat steps 3.1–3.4 in each of those VMs / screens so the Report row works consistently from all three hosts (NOT a hard requirement of `nubecita-oftc.3` if only the feed timeline ships in V1, but flag the gap in the PR description if deferred) — **deferred**: both surfaces still route Report to `ShowComingSoon`; flagged in the PR description for a follow-up child issue under `nubecita-oftc.3`
+- [x] 3.7 Run `./gradlew :feature:feed:impl:assembleDebug :feature:feed:impl:lintDebug` clean before PR
 
 ## 4. PR 4 — Profile-side wiring + stub teardown
 
