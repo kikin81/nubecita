@@ -12,7 +12,7 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.inject.Inject
 
-private const val BLUESKY_SIGNUP_URL = "https://bsky.app/signup"
+internal const val BLUESKY_SIGNUP_URL = "https://bsky.app/signup"
 
 @HiltViewModel
 class LoginViewModel
@@ -37,12 +37,8 @@ class LoginViewModel
                             setState { copy(isLoading = false, errorMessage = null) }
                             sendEffect(LoginEffect.LoginSucceeded)
                         }.onFailure { failure ->
-                            setState {
-                                copy(
-                                    isLoading = false,
-                                    errorMessage = failure.toLoginError(uiState.value.handle.trim()),
-                                )
-                            }
+                            val handle = uiState.value.handle.trim()
+                            setState { copy(isLoading = false, errorMessage = failure.toLoginError(handle)) }
                         }
                 }
             }

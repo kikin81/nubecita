@@ -13,7 +13,7 @@ import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -201,7 +201,7 @@ internal class LoginViewModelTest {
             // LoginError.Generic carries no payload, so the library message can't
             // round-trip through the sum; this assertion is belt-and-braces against
             // a future regression that adds a payload field.
-            assertNotEquals(true, errorMessage.toString().contains(leakySubstring))
+            assertFalse(errorMessage.toString().contains(leakySubstring))
         }
 
     @Test

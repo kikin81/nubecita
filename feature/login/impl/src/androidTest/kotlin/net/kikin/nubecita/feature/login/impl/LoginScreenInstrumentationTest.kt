@@ -142,6 +142,5 @@ class LoginScreenInstrumentationTest {
     private companion object {
         const val VALID_HANDLE = "alice.bsky.social"
         const val INTENT_WAIT_TIMEOUT_MILLIS = 5_000L
-        const val BLUESKY_SIGNUP_URL = "https://bsky.app/signup"
     }
 }
