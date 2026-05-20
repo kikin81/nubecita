@@ -13,13 +13,20 @@ import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.navigation.Navigator
+import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.login.api.Login
+import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -32,6 +39,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var navigator: Navigator
+
+    @Inject
+    lateinit var userPreferences: UserPreferencesRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() must run BEFORE super.onCreate so the splash claims the
@@ -75,20 +85,58 @@ class MainActivity : ComponentActivity() {
         // Reactive routing — every state transition (cold-start resolution, future signOut)
         // calls navigator.replaceTo(...). Idempotent: re-emitting the same state with the
         // same destination already on top of the stack is a Compose no-op.
-        lifecycleScope.launch {
-            sessionStateProvider.state.collect { state ->
-                when (state) {
-                    SessionState.Loading -> Unit
-                    SessionState.SignedOut -> navigator.replaceTo(Login)
-                    // Signed-in users land on the adaptive `Main` shell (nubecita-8m4),
-                    // which hosts NavigationSuiteScaffold + the inner NavDisplay. Feed
-                    // is the start tab inside the shell, not a top-level destination on
-                    // the outer back stack — Feed is now @MainShell-qualified and isn't
-                    // installed in the outer NavDisplay's entry provider.
-                    is SessionState.SignedIn -> navigator.replaceTo(Main)
+        //
+        // First-launch detection: a returning user (signed-in, or signed-out with the
+        // flag persisted) goes to Main or Login as before. A fresh install sees Onboarding
+        // first. Signed-in users implicitly count as "already onboarded" — if a session
+        // exists but the flag was never set (e.g. upgrading from a pre-onboarding build),
+        // we set it opportunistically so a future sign-out lands on Login, not Onboarding.
+        //
+        // Side-effects live in `onEach`, not `collect`, so a throw inside the
+        // routing logic is observed by the downstream `.catch` rather than
+        // tearing the coroutine down silently. The `.catch` itself is a
+        // last-resort backstop — by the time it fires, both flows already
+        // absorb their expected failure modes (preferences swallow IOException
+        // upstream; the inner try/catch wraps the opportunistic write). If
+        // catch ever lands, the activity loses reactive routing for the rest
+        // of its lifecycle, which is the correct degraded behavior: the user
+        // is on *some* screen and we'd rather they see "stuck" than crash.
+        combine(
+            sessionStateProvider.state,
+            userPreferences.hasSeenOnboarding,
+        ) { session, seen -> session to seen }
+            .distinctUntilChanged()
+            .onEach { (session, seen) ->
+                try {
+                    when (session) {
+                        SessionState.Loading -> Unit
+                        SessionState.SignedOut ->
+                            navigator.replaceTo(if (seen) Login else Onboarding)
+                        // Signed-in users land on the adaptive `Main` shell (nubecita-8m4),
+                        // which hosts NavigationSuiteScaffold + the inner NavDisplay. Feed
+                        // is the start tab inside the shell, not a top-level destination on
+                        // the outer back stack — Feed is now @MainShell-qualified and isn't
+                        // installed in the outer NavDisplay's entry provider.
+                        is SessionState.SignedIn -> {
+                            // Don't let a transient preferences write failure cancel the
+                            // routing of THIS emission — the user can re-see onboarding
+                            // once on the next launch in the worst case; that's strictly
+                            // better than failing to route to Main right now.
+                            if (!seen) {
+                                try {
+                                    userPreferences.markOnboardingSeen()
+                                } catch (error: Exception) {
+                                    Timber.w(error, "Failed to persist hasSeenOnboarding=true for signed-in user")
+                                }
+                            }
+                            navigator.replaceTo(Main)
+                        }
+                    }
+                } catch (error: Exception) {
+                    Timber.e(error, "Routing side-effect threw for ($session, seen=$seen)")
                 }
-            }
-        }
+            }.catch { error -> Timber.e(error, "Bootstrap routing flow threw upstream; navigation will not react to further state changes") }
+            .launchIn(lifecycleScope)
     }
 
     override fun onNewIntent(intent: Intent) {

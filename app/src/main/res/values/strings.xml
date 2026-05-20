@@ -4,4 +4,12 @@
     <string name="main_shell_tab_search">Search</string>
     <string name="main_shell_tab_chats">Chats</string>
     <string name="main_shell_tab_you">You</string>
+    <!--
+      Placeholder onboarding copy. Replaced when :feature:onboarding:impl
+      (nubecita-lo3f.3) lands the real screen and moves these strings to its
+      own resource bundle.
+    -->
+    <string name="onboarding_placeholder_title">Welcome to Nubecita</string>
+    <string name="onboarding_placeholder_body">Onboarding flow coming soon.</string>
+    <string name="onboarding_placeholder_cta">Continue to sign in</string>
 </resources>
