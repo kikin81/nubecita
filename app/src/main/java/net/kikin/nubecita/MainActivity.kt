@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -23,6 +24,7 @@ import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.login.api.Login
+import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -93,6 +95,12 @@ class MainActivity : ComponentActivity() {
                 userPreferences.hasSeenOnboarding,
             ) { session, seen -> session to seen }
                 .distinctUntilChanged()
+                // Defense in depth: `hasSeenOnboarding` already absorbs IOException
+                // upstream (defaults to `false`), but a non-IO crash inside the
+                // collector would cancel `lifecycleScope.launch` and stop ALL future
+                // reactive routing — including reacting to sign-out. Log and continue
+                // rather than letting the bootstrap path die silently.
+                .catch { error -> Timber.e(error, "Bootstrap routing flow threw; navigation will not react to further state changes") }
                 .collect { (session, seen) ->
                     when (session) {
                         SessionState.Loading -> Unit
@@ -104,7 +112,17 @@ class MainActivity : ComponentActivity() {
                         // the outer back stack — Feed is now @MainShell-qualified and isn't
                         // installed in the outer NavDisplay's entry provider.
                         is SessionState.SignedIn -> {
-                            if (!seen) userPreferences.markOnboardingSeen()
+                            // Don't let a transient preferences write failure cancel the
+                            // collector — the user can re-see onboarding once on the next
+                            // launch in the worst case; that's strictly better than losing
+                            // future sign-in/out routing for this whole session.
+                            if (!seen) {
+                                try {
+                                    userPreferences.markOnboardingSeen()
+                                } catch (error: Exception) {
+                                    Timber.w(error, "Failed to persist hasSeenOnboarding=true for signed-in user")
+                                }
+                            }
                             navigator.replaceTo(Main)
                         }
                     }

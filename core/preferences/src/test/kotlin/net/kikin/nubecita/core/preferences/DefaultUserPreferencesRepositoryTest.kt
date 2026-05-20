@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.Preferences
 import app.cash.turbine.test
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -52,10 +51,14 @@ internal class DefaultUserPreferencesRepositoryTest {
     @TempDir
     var tempDir: File = File("")
 
+    // DataStore needs its own coroutine scope for its writer actor. Use the
+    // test's `backgroundScope` so work is auto-cancelled at the end of
+    // `runTest` — a standalone `TestScope` would outlive the test and could
+    // mask coroutine leaks across tests.
     private fun newDataStore(scope: TestScope): DataStore<Preferences> {
         val file = tempDir.resolve("user_prefs_${System.nanoTime()}.preferences_pb")
         return PreferenceDataStoreFactory.create(
-            scope = TestScope(StandardTestDispatcher(scope.testScheduler)),
+            scope = scope.backgroundScope,
             produceFile = { file },
         )
     }
