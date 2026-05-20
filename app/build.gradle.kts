@@ -215,6 +215,8 @@ dependencies {
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
     implementation(project(":feature:mediaviewer:impl"))
+    implementation(project(":feature:onboarding:api"))
+    implementation(project(":feature:onboarding:impl"))
     implementation(project(":feature:postdetail:api"))
     implementation(project(":feature:postdetail:impl"))
     implementation(project(":feature:profile:api"))

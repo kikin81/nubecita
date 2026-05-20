@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 
 /**
  * Screenshot baselines for [LoginScreen]'s state matrix. Each preview
@@ -20,6 +21,22 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Preview(name = "empty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenEmptyScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        LoginScreen(state = LoginState(), onEvent = {})
+    }
+}
+
+/**
+ * Multi-breakpoint adaptive baseline — pins that the login form column
+ * is capped at the form max-width and centers horizontally on Medium /
+ * Expanded width-class devices instead of stretching edge-to-edge. The
+ * empty state is sufficient as the canonical fixture; per-error /
+ * per-state coverage stays on the Compact baselines above.
+ */
+@PreviewTest
+@PreviewNubecitaScreenPreviews
+@Composable
+private fun LoginScreenEmptyAdaptivePreviews() {
     NubecitaTheme(dynamicColor = false) {
         LoginScreen(state = LoginState(), onEvent = {})
     }

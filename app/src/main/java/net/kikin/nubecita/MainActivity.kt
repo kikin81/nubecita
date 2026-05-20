@@ -26,6 +26,7 @@ import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.login.api.Login
+import net.kikin.nubecita.feature.onboarding.api.Onboarding
 import timber.log.Timber
 import javax.inject.Inject
 

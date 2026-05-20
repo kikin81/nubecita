@@ -1,0 +1,32 @@
+<resources>
+    <!--
+      Onboarding flow copy (nubecita-lo3f.4).
+
+      Page count: 2. The prototype's "Your timeline, your way" page is dropped
+      because we don't support multi-feed pinning, and "No ads. No algorithm."
+      is dropped because committing to "no ads, ever" in onboarding paints the
+      product into a corner if monetization changes post-launch. The two
+      retained pages cover brand identity + the platform-native value
+      proposition without making promises we can't honor.
+
+      Title strings carry hard \n line breaks so they render as the same
+      stack the design prototype uses — Compose Text renders embedded
+      newlines as line breaks without further configuration. Keep them
+      intentional; line breaks here drive the per-page title layout.
+    -->
+
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_back_content_description">Back</string>
+    <string name="onboarding_next_content_description">Next</string>
+    <string name="onboarding_get_started">Get started</string>
+
+    <!-- Page 1 — Welcome -->
+    <string name="onboarding_page_welcome_eyebrow">Welcome</string>
+    <string name="onboarding_page_welcome_title">Welcome to\nNubecita</string>
+    <string name="onboarding_page_welcome_body">A calmer way to read your sky.\nBuilt for Bluesky, made for Android.</string>
+
+    <!-- Page 2 — Made for Android -->
+    <string name="onboarding_page_android_eyebrow">One more thing</string>
+    <string name="onboarding_page_android_title">Made for\nAndroid.</string>
+    <string name="onboarding_page_android_body">Adaptive on phone, tablet, and foldable.\nMaterial 3 Expressive. Fast and springy.</string>
+</resources>

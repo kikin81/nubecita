@@ -55,6 +55,32 @@ class DefaultNavigatorTest {
 
         assertEquals(listOf<NavKey>(TestStart), navigator.backStack.toList())
     }
+
+    @Test
+    fun `replaceTo is idempotent when the same key is already the sole entry`() {
+        val navigator = DefaultNavigator(start = TestStart)
+        navigator.replaceTo(TestProfile)
+        val firstReference = navigator.backStack.toList()
+
+        navigator.replaceTo(TestProfile)
+
+        // Same key; the no-op guard prevents the clear+re-add cycle so any
+        // destination-scoped state (rememberSaveable, ViewModel) is preserved.
+        assertEquals(firstReference, navigator.backStack.toList())
+    }
+
+    @Test
+    fun `replaceTo with a different key still clears even if the previous top matches`() {
+        val navigator = DefaultNavigator(start = TestStart)
+        navigator.goTo(TestProfile) // stack: [TestStart, TestProfile]
+
+        navigator.replaceTo(TestStart)
+
+        // The guard only fires when the back stack is a SINGLE entry equal to
+        // the target — a multi-entry stack with the target on top must still
+        // reset down to a single entry. Verifies the guard isn't over-eager.
+        assertEquals(listOf<NavKey>(TestStart), navigator.backStack.toList())
+    }
 }
 
 private data object TestStart : NavKey

@@ -7,7 +7,6 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
-import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 
 /**
  * Hilt entry point that exposes the `EntryProviderInstaller` multibindings
@@ -36,16 +35,4 @@ interface NavigationEntryPoint {
 
     @MainShell
     fun mainShellEntryProviderInstallers(): Set<@JvmSuppressWildcards EntryProviderInstaller>
-
-    /**
-     * Exposed so the outer `Navigation` Composable's inline `Onboarding`
-     * placeholder entry can read / write the `hasSeenOnboarding` flag.
-     * Composables can't use constructor injection — same rationale as the
-     * installer sets above. `MainActivity` itself takes the repository via
-     * direct `@Inject lateinit var`, not through this accessor; this
-     * surface only exists for the placeholder Composable and dies when
-     * `nubecita-lo3f.2`'s feature-module installer replaces the inline
-     * entry.
-     */
-    fun userPreferencesRepository(): UserPreferencesRepository
 }
