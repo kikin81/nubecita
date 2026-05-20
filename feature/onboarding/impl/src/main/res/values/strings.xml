@@ -10,8 +10,9 @@
       proposition without making promises we can't honor.
 
       Title strings carry hard \n line breaks so they render as the same
-      stack the design prototype uses. Keep line breaks intentional —
-      `whiteSpace: pre-line` on the Text caller respects them.
+      stack the design prototype uses — Compose Text renders embedded
+      newlines as line breaks without further configuration. Keep them
+      intentional; line breaks here drive the per-page title layout.
     -->
 
     <string name="onboarding_skip">Skip</string>

@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,25 +46,27 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
-import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaLogomark
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.designsystem.spacing
-import net.kikin.nubecita.feature.login.api.Login
 
 /**
  * Root composable for the onboarding flow. Wires the Hilt-injected
- * [OnboardingViewModel] to the stateless [OnboardingScreen] overload and
- * collects [OnboardingEffect.NavigateToLogin] onto the outer Navigator.
+ * [OnboardingViewModel] to the stateless [OnboardingScreen] overload.
  *
- * Per the project's outer-nav convention, the screen does not navigate
- * itself — it sends an effect and the screen-side `LaunchedEffect`
- * dispatches `replaceTo(Login)`. `MainActivity`'s combine collector also
- * sees the flag flip and re-fires the same `replaceTo(Login)`, which is
- * idempotent.
+ * Per the project's outer-nav convention, the screen does NOT navigate
+ * itself — the VM persists `hasSeenOnboarding=true` (Skip / Get started),
+ * and `MainActivity`'s combine collector observes the flag flip and
+ * fires `navigator.replaceTo(Login)`. A single source of truth for
+ * post-onboarding navigation avoids the double-`replaceTo` race that
+ * would otherwise clear+re-add the Login entry and drop any
+ * `rememberSaveable` state. The `OnboardingEffect.NavigateToLogin`
+ * effect is collected here but intentionally a no-op for now; it stays
+ * in the contract so analytics / one-shot UI work (toast, animation
+ * trigger) can hook into it without re-shaping the VM.
  */
 @Composable
 fun OnboardingScreen(
@@ -75,12 +78,13 @@ fun OnboardingScreen(
     // observable state, the screen already has the wiring.
     @Suppress("UNUSED_VARIABLE")
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val navigator = LocalAppNavigator.current
 
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                OnboardingEffect.NavigateToLogin -> navigator.replaceTo(Login)
+                // Intentionally no-op — MainActivity's bootstrap collector
+                // drives the actual replaceTo(Login). See the KDoc above.
+                OnboardingEffect.NavigateToLogin -> Unit
             }
         }
     }
@@ -160,6 +164,12 @@ private fun OnboardingTopBar(
 ) {
     TopAppBar(
         title = {},
+        // The outer Column already consumes the horizontal portion of
+        // safeDrawing. TopAppBar's default windowInsets adds horizontal
+        // again, which double-pads on devices with non-zero side insets
+        // (notch / curved edges / cutouts). Scope to top only — that's
+        // the only inset bucket the outer Column doesn't already handle.
+        windowInsets = TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Top),
         actions = {
             // AnimatedVisibility keeps the slot stable while Skip fades
             // out on the last page — the content under the bar doesn't
@@ -206,18 +216,18 @@ private fun OnboardingBottomBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s3),
     ) {
-        IconButton(
-            onClick = {
-                if (currentPage > 0) {
+        // Conditional rendering keeps the IconButton out of the
+        // composition (and the a11y semantics tree) on page 0 — a
+        // disabled IconButton with hidden content would otherwise leak
+        // as an unlabeled button to TalkBack. The Spacer reserves the
+        // same 48dp slot so the row layout doesn't reflow between
+        // pages 0 and 1+.
+        if (currentPage > 0) {
+            IconButton(
+                modifier = Modifier.size(48.dp),
+                onClick = {
                     scope.launch { pagerState.animateScrollToPage(currentPage - 1) }
-                }
-            },
-            enabled = currentPage > 0,
-        ) {
-            AnimatedVisibility(
-                visible = currentPage > 0,
-                enter = fadeIn(animationSpec = tween(durationMillis = 200)),
-                exit = fadeOut(animationSpec = tween(durationMillis = 200)),
+                },
             ) {
                 NubecitaIcon(
                     name = NubecitaIconName.ArrowBack,
@@ -225,6 +235,8 @@ private fun OnboardingBottomBar(
                     modifier = Modifier.mirror(),
                 )
             }
+        } else {
+            Spacer(modifier = Modifier.size(48.dp))
         }
 
         LinearWavyProgressIndicator(

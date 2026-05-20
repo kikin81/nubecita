@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.onboarding.impl
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
@@ -31,6 +32,12 @@ class OnboardingViewModel
             viewModelScope.launch {
                 try {
                     userPreferences.markOnboardingSeen()
+                } catch (cancellation: CancellationException) {
+                    // Don't log or swallow — structured concurrency requires re-throwing
+                    // CancellationException so the parent scope's teardown propagates
+                    // correctly. The catch-Exception block below would otherwise hide
+                    // legitimate ViewModel-clear cancellation.
+                    throw cancellation
                 } catch (error: Exception) {
                     Timber.w(error, "Failed to persist hasSeenOnboarding=true on onboarding completion")
                 }
