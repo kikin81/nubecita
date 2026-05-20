@@ -10,13 +10,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -168,11 +171,21 @@ private fun OnboardingBottomBar(
     // visually — first page is one segment filled, last page fully filled.
     val progress: () -> Float = { (currentPage + 1f) / pageCount }
 
+    // Scaffold's `bottomBar` slot does NOT auto-apply safeDrawing insets to
+    // its contents — the Material `BottomAppBar` self-manages insets but a
+    // raw `Row` does not (per the edge-to-edge skill). Without the explicit
+    // inset padding the progress bar + Next FAB draw under the gesture-bar
+    // region. Apply only the horizontal + bottom edges; the top edge of
+    // this row is already inside the screen so no top inset is needed.
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                    ),
+                ).padding(
                     horizontal = MaterialTheme.spacing.s4,
                     vertical = MaterialTheme.spacing.s3,
                 ),
