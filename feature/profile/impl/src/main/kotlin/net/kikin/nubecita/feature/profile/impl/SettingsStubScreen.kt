@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -26,8 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -85,6 +89,7 @@ internal fun SettingsStubScreen(
         SettingsStubContent(
             state = state,
             onEvent = viewModel::handleEvent,
+            versionLabel = rememberAppVersionLabel(),
             modifier = Modifier.padding(padding),
         )
     }
@@ -94,6 +99,7 @@ internal fun SettingsStubScreen(
 internal fun SettingsStubContent(
     state: SettingsStubViewState,
     onEvent: (SettingsStubEvent) -> Unit,
+    versionLabel: String,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -110,6 +116,11 @@ internal fun SettingsStubContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = stringResource(R.string.profile_settings_version_label, versionLabel),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Button(
             onClick = { onEvent(SettingsStubEvent.SignOutTapped) },
             enabled = state.status !is SettingsStubStatus.SigningOut,
@@ -129,6 +140,36 @@ internal fun SettingsStubContent(
             onConfirm = { onEvent(SettingsStubEvent.ConfirmSignOut) },
             onDismiss = { onEvent(SettingsStubEvent.DismissDialog) },
         )
+    }
+}
+
+// Runtime-read versionName + versionCode via PackageManager so :feature:profile:impl
+// doesn't need its own BuildConfig. The (String, Int) overload is deprecated on
+// API 33+ in favor of (String, PackageInfoFlags); SDK-gate so compileSdk 37 doesn't
+// surface a deprecation warning on every build, while still working on minSdk 24.
+// PackageInfoCompat covers the deprecated-on-API-28 versionCode getter.
+@Composable
+private fun rememberAppVersionLabel(): String {
+    val context = LocalContext.current
+    val unknown = stringResource(R.string.profile_settings_version_unknown)
+    return remember(context, unknown) {
+        try {
+            val info =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(
+                        context.packageName,
+                        PackageManager.PackageInfoFlags.of(0L),
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                }
+            val name = info.versionName ?: unknown
+            val code = PackageInfoCompat.getLongVersionCode(info)
+            "$name ($code)"
+        } catch (_: PackageManager.NameNotFoundException) {
+            unknown
+        }
     }
 }
 

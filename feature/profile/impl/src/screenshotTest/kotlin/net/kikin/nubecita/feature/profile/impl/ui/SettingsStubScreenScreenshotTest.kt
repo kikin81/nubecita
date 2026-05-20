@@ -29,7 +29,11 @@ import net.kikin.nubecita.feature.profile.impl.SettingsStubViewState
 @Composable
 private fun SettingsStubIdleScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        SettingsStubContent(state = SettingsStubViewState(), onEvent = {})
+        SettingsStubContent(
+            state = SettingsStubViewState(),
+            onEvent = {},
+            versionLabel = FIXTURE_VERSION_LABEL,
+        )
     }
 }
 
@@ -47,6 +51,7 @@ private fun SettingsStubConfirmOpenScreenshot() {
         SettingsStubContent(
             state = SettingsStubViewState(confirmDialogOpen = true),
             onEvent = {},
+            versionLabel = FIXTURE_VERSION_LABEL,
         )
     }
 }
@@ -69,6 +74,11 @@ private fun SettingsStubSigningOutScreenshot() {
                     status = SettingsStubStatus.SigningOut,
                 ),
             onEvent = {},
+            versionLabel = FIXTURE_VERSION_LABEL,
         )
     }
 }
+
+// Stable string so screenshot baselines aren't tied to whatever
+// semantic-release happens to have bumped to at fixture-capture time.
+private const val FIXTURE_VERSION_LABEL = "1.104.0 (1104000)"
