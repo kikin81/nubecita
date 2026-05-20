@@ -24,13 +24,6 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.inject.Inject
 
-// The unauthenticated bsky.app SPA shows "Create account" + "Sign in" buttons
-// directly; `bsky.app/signup` is NOT a real path (it 404s as of 2026-05-20).
-// When nubecita-lq9t.3.5 ships the OAuth `prompt=create` flow, this static URL
-// goes away in favor of a PAR'd authorization URL the user comes back from
-// already signed in.
-internal const val BLUESKY_SIGNUP_URL = "https://bsky.app/"
-
 @HiltViewModel
 class LoginViewModel
     @Inject
@@ -96,11 +89,31 @@ class LoginViewModel
                 is LoginEvent.HandleChanged -> setState { copy(handle = event.handle, errorMessage = null) }
                 LoginEvent.ClearError -> setState { copy(errorMessage = null) }
                 LoginEvent.SubmitLogin -> submitLogin()
-                LoginEvent.OpenSignup -> sendEffect(LoginEffect.LaunchCustomTab(BLUESKY_SIGNUP_URL))
+                LoginEvent.OpenSignup -> openSignup()
                 // No browser handled the VIEW intent — surface a recoverable error
                 // instead of letting ActivityNotFoundException crash the app.
                 LoginEvent.CustomTabLaunchFailed ->
                     setState { copy(isLoading = false, errorMessage = LoginError.BrowserUnavailable) }
+            }
+        }
+
+        private fun openSignup() {
+            setState { copy(isLoading = true, errorMessage = null) }
+            viewModelScope.launch {
+                authRepository
+                    .beginSignup()
+                    .onSuccess { url ->
+                        setState { copy(isLoading = false) }
+                        sendEffect(LoginEffect.LaunchCustomTab(url))
+                    }.onFailure { failure ->
+                        // No handle exists yet for a signup flow; pass an empty
+                        // string. HandleNotFound is unreachable from the
+                        // beginSignup path (it doesn't resolve a handle), so the
+                        // empty-string handle never surfaces to the UI. Classify
+                        // then map, matching the submitLogin failure path.
+                        val error = failure.classifyLoginFailure().toLoginError(handle = "")
+                        setState { copy(isLoading = false, errorMessage = error) }
+                    }
             }
         }
 
