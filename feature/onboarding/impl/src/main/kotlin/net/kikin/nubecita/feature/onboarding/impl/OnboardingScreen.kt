@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,7 +27,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -103,34 +101,37 @@ internal fun OnboardingScreen(
         rememberPagerState(initialPage = initialPage) { pages.size }
     val isOnLastPage = pagerState.currentPage == pages.lastIndex
 
-    Scaffold(
-        modifier = modifier,
-        contentWindowInsets = WindowInsets.safeDrawing,
-        topBar = {
-            OnboardingTopBar(
-                showSkip = !isOnLastPage,
-                onSkip = { onEvent(OnboardingEvent.Skip) },
-            )
-        },
-        bottomBar = {
-            OnboardingBottomBar(
-                pagerState = pagerState,
-                pageCount = pages.size,
-                isOnLastPage = isOnLastPage,
-                onComplete = { onEvent(OnboardingEvent.CompleteOnboarding) },
-            )
-        },
-    ) { innerPadding ->
+    // Use a Column layout instead of Scaffold's topBar/bottomBar slots.
+    // M3 1.5.0-alpha20's Scaffold + HorizontalPager combination drives a
+    // double-render glitch where the bottomBar slot's content gets re-drawn
+    // inside the pager content area. Bisecting (no-pager → no ghost) and
+    // (no-bottomBar → no ghost) confirmed the interaction. Column avoids
+    // the slot-based subcomposition path entirely. Insets are applied
+    // manually to the top + bottom siblings.
+    Column(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
+                ),
+    ) {
+        OnboardingTopBar(
+            showSkip = !isOnLastPage,
+            onSkip = { onEvent(OnboardingEvent.Skip) },
+        )
         HorizontalPager(
             state = pagerState,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .consumeWindowInsets(innerPadding),
+            modifier = Modifier.weight(1f),
         ) { pageIndex ->
             OnboardingPageContent(page = pages[pageIndex])
         }
+        OnboardingBottomBar(
+            pagerState = pagerState,
+            pageCount = pages.size,
+            isOnLastPage = isOnLastPage,
+            onComplete = { onEvent(OnboardingEvent.CompleteOnboarding) },
+        )
     }
 }
 
@@ -171,20 +172,15 @@ private fun OnboardingBottomBar(
     // visually — first page is one segment filled, last page fully filled.
     val progress: () -> Float = { (currentPage + 1f) / pageCount }
 
-    // Scaffold's `bottomBar` slot does NOT auto-apply safeDrawing insets to
-    // its contents — the Material `BottomAppBar` self-manages insets but a
-    // raw `Row` does not (per the edge-to-edge skill). Without the explicit
-    // inset padding the progress bar + Next FAB draw under the gesture-bar
-    // region. Apply only the horizontal + bottom edges; the top edge of
-    // this row is already inside the screen so no top inset is needed.
+    // Bottom-edge safeDrawing inset only — horizontal insets are consumed
+    // at the outer Column. The parent Column also handles its own top inset
+    // via the TopAppBar's self-management, so no top inset is needed here.
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                    ),
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom),
                 ).padding(
                     horizontal = MaterialTheme.spacing.s4,
                     vertical = MaterialTheme.spacing.s3,
