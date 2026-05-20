@@ -38,6 +38,7 @@ private fun OtherUserActionsRowFollowScreenshot() {
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
+            onReport = {},
         )
     }
 }
@@ -61,6 +62,7 @@ private fun OtherUserActionsRowFollowPendingScreenshot() {
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
+            onReport = {},
         )
     }
 }
@@ -85,6 +87,7 @@ private fun OtherUserActionsRowFollowingScreenshot() {
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
+            onReport = {},
         )
     }
 }
@@ -112,6 +115,7 @@ private fun OtherUserActionsRowFollowingPendingScreenshot() {
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
+            onReport = {},
         )
     }
 }
@@ -137,6 +141,7 @@ private fun OtherUserActionsRowNotMessageableScreenshot() {
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
+            onReport = {},
         )
     }
 }

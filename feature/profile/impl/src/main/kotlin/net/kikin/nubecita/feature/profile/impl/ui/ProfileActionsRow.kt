@@ -12,11 +12,12 @@ import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
  * The unified callback surface here lets `ProfileHero` stay
  * variant-ignorant: it forwards the full set, and only the picked
  * variant uses the relevant subset. [onEdit] / [onSettings] are
- * own-profile only; [onFollow] / [onMessage] / [onOverflowAction]
- * are other-user only.
+ * own-profile only; [onFollow] / [onMessage] / [onOverflowAction] /
+ * [onReport] are other-user only.
  *
- * Real Follow / Edit / Message / Block / Mute / Report writes ship
- * under separate follow-up bd issues (7.3 / 7.4 / 7.5 / 7.7).
+ * [onReport] dispatches the graduated Report row (oftc.3) — the other
+ * `StubbedAction`s still flow through [onOverflowAction] until their
+ * moderation children land (oftc.4 / oftc.5).
  */
 @Composable
 internal fun ProfileActionsRow(
@@ -27,6 +28,7 @@ internal fun ProfileActionsRow(
     onFollow: () -> Unit,
     onMessage: () -> Unit,
     onOverflowAction: (StubbedAction) -> Unit,
+    onReport: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -39,6 +41,7 @@ internal fun ProfileActionsRow(
             onFollow = onFollow,
             onMessage = onMessage,
             onOverflowAction = onOverflowAction,
+            onReport = onReport,
             modifier = modifier,
         )
     }

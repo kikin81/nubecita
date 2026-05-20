@@ -16,11 +16,12 @@
     <string name="profile_action_mute">Mute</string>
     <string name="profile_action_report">Report</string>
 
-    <!-- Snackbar copy for stubbed actions (ShowComingSoon) -->
+    <!-- Snackbar copy for stubbed actions (ShowComingSoon). Report
+         graduated out of this list in oftc.3; Block / Mute follow in
+         oftc.4 / oftc.5. -->
     <string name="profile_snackbar_edit_coming_soon">Edit profile — coming soon</string>
     <string name="profile_snackbar_block_coming_soon">Block — coming soon</string>
     <string name="profile_snackbar_mute_coming_soon">Mute — coming soon</string>
-    <string name="profile_snackbar_report_coming_soon">Report — coming soon</string>
 
     <!-- PostCard overflow-menu "coming soon" snackbars (oftc.2). Distinct
          from the profile-level Block / Mute / Report stubs above — these

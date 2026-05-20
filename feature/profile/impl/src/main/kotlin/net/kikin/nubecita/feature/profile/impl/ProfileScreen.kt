@@ -11,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.designsystem.component.PostCallbacks
@@ -36,6 +37,21 @@ internal fun ProfileScreen(
     onNavigateToMessage: (String) -> Unit,
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit,
     onNavigateToVideoPlayer: (postUri: String) -> Unit,
+    /**
+     * Generic tab-internal sub-route push callback. The host
+     * (`ProfileNavigationModule`) wires it to
+     * `LocalMainShellNavState.current.add(key)`. The screen stays
+     * host-agnostic — the callback shape matches the equivalent slot
+     * on `FeedScreen` (see `FeedNavigationModule` for the canonical
+     * recipe).
+     *
+     * Today's only emission is `Report(...)` from the ProfileHero
+     * overflow "Report account" row (`nubecita-oftc.3`). Future
+     * moderation children (`oftc.4` Block / `oftc.5` Mute confirmation
+     * sheets) will travel the same callback with their own NavKey
+     * types — no per-feature callback proliferation needed.
+     */
+    onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -79,7 +95,6 @@ internal fun ProfileScreen(
     val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
     val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
     val comingSoonMute = stringResource(R.string.profile_snackbar_mute_coming_soon)
-    val comingSoonReport = stringResource(R.string.profile_snackbar_report_coming_soon)
     // PostCard overflow-menu "coming soon" copy (oftc.2). Pre-resolved
     // via stringResource() at composition time so locale changes
     // participate in recomposition.
@@ -109,6 +124,7 @@ internal fun ProfileScreen(
     val currentOnNavigateToMessage by rememberUpdatedState(onNavigateToMessage)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
+    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -134,7 +150,6 @@ internal fun ProfileScreen(
                             StubbedAction.Edit -> comingSoonEdit
                             StubbedAction.Block -> comingSoonBlock
                             StubbedAction.Mute -> comingSoonMute
-                            StubbedAction.Report -> comingSoonReport
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = msg)
@@ -163,6 +178,7 @@ internal fun ProfileScreen(
                     currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
                 is ProfileEffect.NavigateToVideoPlayer ->
                     currentOnNavigateToVideoPlayer(effect.postUri)
+                is ProfileEffect.NavigateTo -> currentOnNavigateTo(effect.key)
             }
         }
     }

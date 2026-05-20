@@ -20,6 +20,8 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.moderation.api.ReportSubject
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
@@ -123,6 +125,7 @@ internal class ProfileViewModel
                 ProfileEvent.MessageTapped -> onMessageTapped()
                 is ProfileEvent.StubActionTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))
+                ProfileEvent.OnReportAccountRequested -> onReportAccountRequested()
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
                 is ProfileEvent.OnLikeClicked -> {
                     setState { copy(lastLikeTapPostUri = event.post.id) }
@@ -230,6 +233,20 @@ internal class ProfileViewModel
             val currentHandle = uiState.value.header?.handle ?: route.handle
             if (handle == currentHandle) return
             sendEffect(ProfileEffect.NavigateToProfile(handle))
+        }
+
+        /**
+         * Resolve the loaded profile's DID and emit a navigation effect
+         * targeting the report-account sub-route. Silent no-op when the
+         * header hasn't loaded yet — the overflow menu is only visible
+         * on a loaded other-user header (see `ProfileHero` /
+         * `OtherUserActionsRow`), so under normal UI flow `header` is
+         * non-null. Guards defensively against synthetic events (tests,
+         * SavedStateHandle replays) — same shape as [onMessageTapped].
+         */
+        private fun onReportAccountRequested() {
+            val did = uiState.value.header?.did ?: return
+            sendEffect(ProfileEffect.NavigateTo(Report(subject = ReportSubject.Account(did = did))))
         }
 
         private fun onMessageTapped() {

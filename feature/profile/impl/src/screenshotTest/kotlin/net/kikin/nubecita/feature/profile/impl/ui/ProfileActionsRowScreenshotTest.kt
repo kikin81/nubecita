@@ -29,6 +29,7 @@ private fun ProfileActionsRowOwnScreenshot() {
             onFollow = {},
             onMessage = {},
             onOverflowAction = {},
+            onReport = {},
             onSettings = {},
         )
     }

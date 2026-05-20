@@ -62,6 +62,7 @@ internal fun ProfileHero(
     onFollowTap: () -> Unit,
     onMessageTap: () -> Unit,
     onOverflowAction: (StubbedAction) -> Unit,
+    onReportTap: () -> Unit,
     onSettingsTap: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
@@ -76,6 +77,7 @@ internal fun ProfileHero(
                 onFollowTap = onFollowTap,
                 onMessageTap = onMessageTap,
                 onOverflowAction = onOverflowAction,
+                onReportTap = onReportTap,
                 onSettingsTap = onSettingsTap,
                 modifier = modifier,
                 topInset = topInset,
@@ -100,6 +102,7 @@ private fun ProfileHeroLoaded(
     onFollowTap: () -> Unit,
     onMessageTap: () -> Unit,
     onOverflowAction: (StubbedAction) -> Unit,
+    onReportTap: () -> Unit,
     onSettingsTap: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
@@ -197,6 +200,7 @@ private fun ProfileHeroLoaded(
             onFollow = onFollowTap,
             onMessage = onMessageTap,
             onOverflowAction = onOverflowAction,
+            onReport = onReportTap,
             onSettings = onSettingsTap,
         )
     }

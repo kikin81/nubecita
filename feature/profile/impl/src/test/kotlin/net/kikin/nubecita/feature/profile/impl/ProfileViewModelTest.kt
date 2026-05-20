@@ -625,7 +625,13 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `StubActionTapped emits ShowComingSoon with the same action value, never touches the repo`() =
+    fun `StubActionTapped(Edit, Block, Mute) still emits ShowComingSoon, never touches the repo`() =
+        // Regression guard: only Report graduated out of ShowComingSoon
+        // in oftc.3 (it now flows through OnReportAccountRequested →
+        // NavigateTo(Report)). Edit / Block / Mute remain stubbed until
+        // their own moderation-epic children land (oftc.4 / oftc.5).
+        // This test pins the still-stubbed rows so a future migration
+        // doesn't silently graduate them without an explicit test diff.
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
@@ -639,12 +645,12 @@ internal class ProfileViewModelTest {
             val priorPostsCalls = repo.tabCalls[ProfileTab.Posts]!!.get()
 
             vm.effects.test {
+                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Edit))
+                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Edit), awaitItem())
                 vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Block))
                 assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Block), awaitItem())
                 vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Mute))
                 assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Mute), awaitItem())
-                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Report))
-                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Report), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
 
@@ -657,6 +663,68 @@ internal class ProfileViewModelTest {
                 priorPostsCalls,
                 repo.tabCalls[ProfileTab.Posts]!!.get(),
                 "StubActionTapped MUST NOT issue a tab fetch",
+            )
+        }
+
+    @Test
+    fun `OnReportAccountRequested emits NavigateTo with a Report Account NavKey`() =
+        // Pin: oftc.3 graduates the ProfileHero overflow "Report account"
+        // row out of the ShowComingSoon stub. The VM emits exactly one
+        // ProfileEffect.NavigateTo carrying a Report(ReportSubject.Account(did))
+        // whose DID matches the loaded header's. The screen's effect
+        // collector pushes the NavKey via its onNavigateTo callback,
+        // which the host (ProfileNavigationModule) wires to
+        // LocalMainShellNavState.current.add(...). No ShowComingSoon
+        // for this event; no state field changes; no repository calls.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+            val priorHeaderCalls = repo.headerCalls.get()
+            val priorPostsCalls = repo.tabCalls[ProfileTab.Posts]!!.get()
+            val stateBefore = vm.uiState.value
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnReportAccountRequested)
+                val effect = awaitItem()
+                assertTrue(
+                    effect is ProfileEffect.NavigateTo,
+                    "expected NavigateTo, got $effect",
+                )
+                val key = (effect as ProfileEffect.NavigateTo).key
+                assertTrue(
+                    key is net.kikin.nubecita.feature.moderation.api.Report,
+                    "expected Report NavKey, got $key",
+                )
+                val subject = (key as net.kikin.nubecita.feature.moderation.api.Report).subject
+                assertTrue(
+                    subject is net.kikin.nubecita.feature.moderation.api.ReportSubject.Account,
+                    "expected ReportSubject.Account, got $subject",
+                )
+                assertEquals(
+                    SAMPLE_HEADER.did,
+                    (subject as net.kikin.nubecita.feature.moderation.api.ReportSubject.Account).did,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            // No state mutation (sticky reference equality — the VM
+            // never called setState during the reduction).
+            assertEquals(stateBefore, vm.uiState.value)
+            assertEquals(
+                priorHeaderCalls,
+                repo.headerCalls.get(),
+                "OnReportAccountRequested MUST NOT issue a repository call",
+            )
+            assertEquals(
+                priorPostsCalls,
+                repo.tabCalls[ProfileTab.Posts]!!.get(),
+                "OnReportAccountRequested MUST NOT issue a tab fetch",
             )
         }
 

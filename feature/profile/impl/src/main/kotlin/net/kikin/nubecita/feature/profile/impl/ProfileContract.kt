@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.runtime.Immutable
+import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
@@ -368,14 +369,28 @@ sealed interface ProfileEvent : UiEvent {
     data object MessageTapped : ProfileEvent
 
     /**
-     * User tapped one of the stubbed overflow entries (Block / Mute / Report)
-     * on the other-user actions row. Consolidates the three into a single
-     * parameterized event — mirrors the [ProfileEffect.ShowComingSoon] shape
-     * on the effect side, keeping the VM dispatch a one-liner.
+     * User tapped one of the still-stubbed overflow entries (Block / Mute)
+     * on the other-user actions row. Mirrors the
+     * [ProfileEffect.ShowComingSoon] shape on the effect side — VM
+     * dispatch stays a one-liner. The Report row graduated out of this
+     * event in `oftc.3` and now flows through
+     * [OnReportAccountRequested].
      */
     data class StubActionTapped(
         val action: StubbedAction,
     ) : ProfileEvent
+
+    /**
+     * User tapped the "Report account" overflow entry on the other-user
+     * actions row. The VM reduces this to a
+     * [ProfileEffect.NavigateTo] carrying a
+     * `Report(subject = ReportSubject.Account(did))` NavKey — the
+     * screen's effect collector pushes the key onto MainShell's inner
+     * back stack, where the `:feature:moderation:impl` `@MainShell`
+     * entry provider resolves it to a Modal Bottom Sheet hosting the
+     * report dialog.
+     */
+    data object OnReportAccountRequested : ProfileEvent
 
     /** User tapped an overflow-menu entry that pushes the Settings sub-route. */
     data object SettingsTapped : ProfileEvent
@@ -479,12 +494,26 @@ sealed interface ProfileEffect : UiEffect {
     /**
      * Surface a "coming soon" snackbar for a PostCard overflow-menu
      * action (oftc.2). Distinct from [ShowComingSoon] which fires for
-     * profile-level Edit / Block / Mute / Report stubs — that event
-     * tracks per-author stubs; this one tracks per-post moderation. The
-     * two stay separate so neither's copy depends on the other.
+     * profile-level Edit / Block / Mute stubs — that event tracks
+     * per-author stubs; this one tracks per-post moderation. The two
+     * stay separate so neither's copy depends on the other.
      */
     data class ShowPostOverflowComingSoon(
         val action: PostOverflowAction,
+    ) : ProfileEffect
+
+    /**
+     * Push a sub-route NavKey onto `MainShell`'s inner back stack via
+     * the screen's `onNavigateTo` callback (which the host wires to
+     * `LocalMainShellNavState.current.add(key)`). The VM never reads
+     * the navigation state holder — that lives in `CompositionLocal`,
+     * which is unreachable from a ViewModel. Currently emitted only
+     * for the Report dialog sub-route (`Report` NavKey from
+     * `:feature:moderation:api`); future moderation children
+     * (Block / Mute confirmation sub-routes) travel the same effect.
+     */
+    data class NavigateTo(
+        val key: NavKey,
     ) : ProfileEffect
 }
 
@@ -493,10 +522,12 @@ sealed interface ProfileEffect : UiEffect {
  * Lets the screen pick per-action copy (`Edit profile coming soon` vs
  * `Block — coming soon`) without coupling the VM to UI strings.
  *
- * Bead F adds Block / Mute / Report to cover the other-user overflow-menu
- * stubs. The real moderation writes ship under follow-up bd 7.7. The
- * Follow stub was removed in nubecita-39l once `app.bsky.graph.follow`
- * writes landed; `Message` was removed in nubecita-a7a once real
- * cross-tab routing into the Chats thread landed.
+ * `Report` graduated out of this enum in `oftc.3` once the report
+ * dialog landed — Report taps now flow through
+ * [ProfileEvent.OnReportAccountRequested] → [ProfileEffect.NavigateTo]
+ * with a `Report(...)` NavKey from `:feature:moderation:api`.
+ * `Block` and `Mute` remain stubbed until their own moderation-epic
+ * children land (`oftc.4` / `oftc.5`); `Edit` ships in a separate
+ * profile-edit bd issue.
  */
-enum class StubbedAction { Edit, Block, Mute, Report }
+enum class StubbedAction { Edit, Block, Mute }

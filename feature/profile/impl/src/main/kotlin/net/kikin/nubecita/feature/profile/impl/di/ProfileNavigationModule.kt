@@ -88,6 +88,16 @@ internal object ProfileNavigationModule {
                     onNavigateToVideoPlayer = { uri ->
                         appNavigator.goTo(VideoPlayerRoute(postUri = uri))
                     },
+                    // Generic tab-internal sub-route push — pushed onto
+                    // MainShell's inner back stack so the @MainShell
+                    // entry provider for the key resolves it (e.g. the
+                    // Report dialog provider from :feature:moderation:impl).
+                    // Keeping the host-side callback shape ((NavKey) -> Unit)
+                    // means the screen doesn't directly read
+                    // LocalMainShellNavState — mirrors the canonical
+                    // Nav3 modular-hilt recipe and matches FeedScreen /
+                    // FeedNavigationModule (PR3 of oftc.3).
+                    onNavigateTo = { key -> navState.add(key) },
                 )
             }
         }
