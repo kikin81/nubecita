@@ -5,15 +5,16 @@ import io.github.kikin81.atproto.oauth.OAuthSession
 internal fun sampleSession(
     accessToken: String = "access-token-abc123",
     refreshToken: String = "refresh-token-xyz789",
-    did: String = "did:plc:samplesubject",
-    handle: String = "example.bsky.social",
+    did: String? = "did:plc:samplesubject",
+    handle: String? = "example.bsky.social",
+    pdsUrl: String? = "https://pds.example",
 ): OAuthSession =
     OAuthSession(
         accessToken = accessToken,
         refreshToken = refreshToken,
         did = did,
         handle = handle,
-        pdsUrl = "https://pds.example",
+        pdsUrl = pdsUrl,
         tokenEndpoint = "https://auth.example/token",
         revocationEndpoint = "https://auth.example/revoke",
         clientId = "https://client.example/metadata.json",

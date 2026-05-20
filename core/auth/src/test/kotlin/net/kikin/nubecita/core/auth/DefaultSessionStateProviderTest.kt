@@ -38,6 +38,31 @@ class DefaultSessionStateProviderTest {
         }
 
     @Test
+    fun `refresh with session whose handle is null stays in Loading`() =
+        runTest {
+            // atproto-kotlin v8 allows OAuthSession.handle / did to be transiently null
+            // during a signup whose post-token DID resolution hasn't completed. Treat
+            // that as Loading rather than emitting SignedIn with placeholder identity.
+            val session = sampleSession(handle = null, did = "did:plc:alice")
+            val provider = DefaultSessionStateProvider(SeededSessionStore(session))
+
+            provider.refresh()
+
+            assertEquals(SessionState.Loading, provider.state.value)
+        }
+
+    @Test
+    fun `refresh with session whose did is null stays in Loading`() =
+        runTest {
+            val session = sampleSession(handle = "alice.bsky.social", did = null)
+            val provider = DefaultSessionStateProvider(SeededSessionStore(session))
+
+            provider.refresh()
+
+            assertEquals(SessionState.Loading, provider.state.value)
+        }
+
+    @Test
     fun `subsequent refresh after sign-in transitions to SignedOut when store clears`() =
         runTest {
             val store = MutableSessionStore(sampleSession(handle = "alice.bsky.social"))
