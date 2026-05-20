@@ -864,21 +864,19 @@ internal class FeedViewModelTest {
     // ---------- oftc.2 overflow-menu tests ----------
 
     @Test
-    fun `OnOverflowAction emits ShowComingSoon carrying the action verbatim`() =
+    fun `OnOverflowAction emits ShowComingSoon for every action except ReportPost`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
             val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
             advanceUntilIdle()
             val post = samplePost("at://did:plc:fake/app.bsky.feed.post/over1")
 
-            // Drive every variant through the same VM and assert the
-            // effect surface mirrors each one byte-for-byte. Locks the
-            // "VM is a pass-through in oftc.2" contract so oftc.3 / .4 / .5
-            // can safely swap individual variants for real RPC dispatch
-            // without touching the other variants' flows.
+            // The remaining stubbed overflow variants still pass through
+            // as ShowComingSoon. ReportPost graduated in oftc.3 (covered
+            // by the next test); MuteAuthor / BlockAuthor / etc. follow
+            // in oftc.4 / .5 / .6.
             val variants =
                 listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
@@ -899,6 +897,61 @@ internal class FeedViewModelTest {
                     assertEquals(action, (effect as FeedEffect.ShowComingSoon).action)
                 }
             }
+        }
+
+    @Test
+    fun `OnOverflowAction(ReportPost) emits NavigateTo with a Report Post NavKey`() =
+        // Pin: oftc.3 graduates the Report overflow row out of the
+        // ShowComingSoon stub. The VM emits exactly one
+        // FeedEffect.NavigateTo carrying a Report(ReportSubject.Post(...))
+        // whose uri + cid match the tapped post — the screen-side
+        // collector pushes the NavKey onto LocalMainShellNavState. No
+        // state field changes (the post list, cursor, and load status
+        // are untouched), and no ShowComingSoon / ShowError races into
+        // the channel.
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+            advanceUntilIdle()
+            val post =
+                samplePost(
+                    id = "at://did:plc:author/app.bsky.feed.post/rprt1",
+                    cid = "bafyreitestreportcid",
+                )
+
+            val stateBefore = vm.uiState.value
+            vm.effects.test {
+                vm.handleEvent(
+                    FeedEvent.OnOverflowAction(
+                        post = post,
+                        action = net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
+                    ),
+                )
+
+                val effect = awaitItem()
+                assertTrue(
+                    effect is FeedEffect.NavigateTo,
+                    "expected NavigateTo, got $effect",
+                )
+                val key = (effect as FeedEffect.NavigateTo).key
+                assertTrue(
+                    key is net.kikin.nubecita.feature.moderation.api.Report,
+                    "expected Report NavKey, got $key",
+                )
+                val subject = (key as net.kikin.nubecita.feature.moderation.api.Report).subject
+                assertTrue(
+                    subject is net.kikin.nubecita.feature.moderation.api.ReportSubject.Post,
+                    "expected ReportSubject.Post, got $subject",
+                )
+                assertEquals(
+                    post.id,
+                    (subject as net.kikin.nubecita.feature.moderation.api.ReportSubject.Post).uri,
+                )
+                assertEquals(post.cid, subject.cid)
+            }
+            // Sticky state must not have moved — no spurious feedItems /
+            // cursor / loadStatus mutation as a side effect.
+            assertSame(stateBefore, vm.uiState.value)
         }
 
     @Test

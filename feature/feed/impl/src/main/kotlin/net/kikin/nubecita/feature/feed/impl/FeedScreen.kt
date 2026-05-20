@@ -44,6 +44,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -107,6 +108,20 @@ internal fun FeedScreen(
     onNavigateToAuthor: (String) -> Unit = {},
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onNavigateToVideoPlayer: (postUri: String) -> Unit = {},
+    /**
+     * Generic tab-internal sub-route push callback. The host
+     * (`FeedNavigationModule`) wires it to
+     * `LocalMainShellNavState.current.add(key)`. The screen stays
+     * host-agnostic so previews and instrumentation tests that don't
+     * stand up `MainShell` can render `FeedScreen()` unchanged.
+     *
+     * Today's only emission is `Report(...)` from the PostCard overflow
+     * Report row (`nubecita-oftc.3`). Future moderation children
+     * (`oftc.4` Block / `oftc.5` Mute confirmation sheets) will travel
+     * the same callback with their own NavKey types — no per-feature
+     * callback proliferation needed.
+     */
+    onNavigateTo: (NavKey) -> Unit = {},
     onComposeClick: () -> Unit = {},
     onReplyClick: (String) -> Unit = {},
     viewModel: FeedViewModel = hiltViewModel(),
@@ -213,6 +228,7 @@ internal fun FeedScreen(
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
+    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
     // Per-PostCard image tap dispatcher. The PostCard.onImageClick slot
     // is `(Int) -> Unit` (index only); we close over each PostCard's
     // own `post` at the call site to form a `(PostUi, Int) -> Unit`
@@ -352,6 +368,7 @@ internal fun FeedScreen(
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)
                 }
+                is FeedEffect.NavigateTo -> currentOnNavigateTo(effect.key)
             }
         }
     }

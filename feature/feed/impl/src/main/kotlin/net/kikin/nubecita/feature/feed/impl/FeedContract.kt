@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import androidx.compose.runtime.Immutable
+import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
@@ -291,5 +292,19 @@ sealed interface FeedEffect : UiEffect {
     @Immutable
     data class ShowComingSoon(
         val action: PostOverflowAction,
+    ) : FeedEffect
+
+    /**
+     * Push a sub-route NavKey onto `MainShell`'s inner back stack via
+     * `LocalMainShellNavState`. The screen collector resolves the
+     * `CompositionLocal` (which the ViewModel can't see) and calls
+     * `add(key)`. Currently emitted only for the Report-dialog sub-route
+     * (`Report` NavKey from `:feature:moderation:api`); future moderation
+     * children (Block / Mute confirmation sub-routes) will travel the
+     * same effect.
+     */
+    @Immutable
+    data class NavigateTo(
+        val key: NavKey,
     ) : FeedEffect
 }
