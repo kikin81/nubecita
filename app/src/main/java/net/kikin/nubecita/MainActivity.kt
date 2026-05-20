@@ -13,11 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.navigation.Navigator
+import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.login.api.Login
 import javax.inject.Inject
@@ -32,6 +35,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var navigator: Navigator
+
+    @Inject
+    lateinit var userPreferences: UserPreferencesRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() must run BEFORE super.onCreate so the splash claims the
@@ -75,19 +81,34 @@ class MainActivity : ComponentActivity() {
         // Reactive routing — every state transition (cold-start resolution, future signOut)
         // calls navigator.replaceTo(...). Idempotent: re-emitting the same state with the
         // same destination already on top of the stack is a Compose no-op.
+        //
+        // First-launch detection: a returning user (signed-in, or signed-out with the
+        // flag persisted) goes to Main or Login as before. A fresh install sees Onboarding
+        // first. Signed-in users implicitly count as "already onboarded" — if a session
+        // exists but the flag was never set (e.g. upgrading from a pre-onboarding build),
+        // we set it opportunistically so a future sign-out lands on Login, not Onboarding.
         lifecycleScope.launch {
-            sessionStateProvider.state.collect { state ->
-                when (state) {
-                    SessionState.Loading -> Unit
-                    SessionState.SignedOut -> navigator.replaceTo(Login)
-                    // Signed-in users land on the adaptive `Main` shell (nubecita-8m4),
-                    // which hosts NavigationSuiteScaffold + the inner NavDisplay. Feed
-                    // is the start tab inside the shell, not a top-level destination on
-                    // the outer back stack — Feed is now @MainShell-qualified and isn't
-                    // installed in the outer NavDisplay's entry provider.
-                    is SessionState.SignedIn -> navigator.replaceTo(Main)
+            combine(
+                sessionStateProvider.state,
+                userPreferences.hasSeenOnboarding,
+            ) { session, seen -> session to seen }
+                .distinctUntilChanged()
+                .collect { (session, seen) ->
+                    when (session) {
+                        SessionState.Loading -> Unit
+                        SessionState.SignedOut ->
+                            navigator.replaceTo(if (seen) Login else Onboarding)
+                        // Signed-in users land on the adaptive `Main` shell (nubecita-8m4),
+                        // which hosts NavigationSuiteScaffold + the inner NavDisplay. Feed
+                        // is the start tab inside the shell, not a top-level destination on
+                        // the outer back stack — Feed is now @MainShell-qualified and isn't
+                        // installed in the outer NavDisplay's entry provider.
+                        is SessionState.SignedIn -> {
+                            if (!seen) userPreferences.markOnboardingSeen()
+                            navigator.replaceTo(Main)
+                        }
+                    }
                 }
-            }
         }
     }
 

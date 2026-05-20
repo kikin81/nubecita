@@ -1,22 +1,32 @@
 package net.kikin.nubecita
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.designsystem.component.NubecitaLogomark
+import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.navigation.NavigationEntryPoint
 import net.kikin.nubecita.shell.MainShell
 
@@ -29,6 +39,7 @@ fun MainNavigation(modifier: Modifier = Modifier) {
         }
     val navigator = remember(entryPoint) { entryPoint.navigator() }
     val outerInstallers = remember(entryPoint) { entryPoint.outerEntryProviderInstallers() }
+    val userPreferences = remember(entryPoint) { entryPoint.userPreferencesRepository() }
 
     CompositionLocalProvider(LocalAppNavigator provides navigator) {
         NavDisplay(
@@ -63,6 +74,45 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                             contentAlignment = Alignment.Center,
                         ) {
                             NubecitaLogomark(modifier = Modifier.size(96.dp))
+                        }
+                    }
+                    // Placeholder for the first-launch onboarding flow. The real screen
+                    // lands in `:feature:onboarding:impl` (filed as `nubecita-lo3f.3`)
+                    // and will replace this inline entry via an `@OuterShell`
+                    // `EntryProviderInstaller` once that module exists. For now we
+                    // render a minimal "skip" affordance so the flag-flip + navigation
+                    // contract is exercisable end-to-end against the bootstrap routing
+                    // in `MainActivity`.
+                    entry<Onboarding> {
+                        val scope = rememberCoroutineScope()
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(24.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                NubecitaLogomark(modifier = Modifier.size(96.dp))
+                                Text(
+                                    text = stringResource(R.string.onboarding_placeholder_title),
+                                    style = MaterialTheme.typography.headlineSmall,
+                                )
+                                Text(
+                                    text = stringResource(R.string.onboarding_placeholder_body),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            userPreferences.markOnboardingSeen()
+                                            navigator.replaceTo(Login)
+                                        }
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.onboarding_placeholder_cta))
+                                }
+                            }
                         }
                     }
                     entry<Main> {
