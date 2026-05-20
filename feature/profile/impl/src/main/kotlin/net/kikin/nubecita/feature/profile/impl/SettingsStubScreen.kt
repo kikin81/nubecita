@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -143,15 +144,26 @@ internal fun SettingsStubContent(
 }
 
 // Runtime-read versionName + versionCode via PackageManager so :feature:profile:impl
-// doesn't need its own BuildConfig. PackageInfoCompat covers the deprecated-on-API-28
-// versionCode getter across minSdk 24 → compileSdk 37.
+// doesn't need its own BuildConfig. The (String, Int) overload is deprecated on
+// API 33+ in favor of (String, PackageInfoFlags); SDK-gate so compileSdk 37 doesn't
+// surface a deprecation warning on every build, while still working on minSdk 24.
+// PackageInfoCompat covers the deprecated-on-API-28 versionCode getter.
 @Composable
 private fun rememberAppVersionLabel(): String {
     val context = LocalContext.current
     val unknown = stringResource(R.string.profile_settings_version_unknown)
     return remember(context, unknown) {
         try {
-            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            val info =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(
+                        context.packageName,
+                        PackageManager.PackageInfoFlags.of(0L),
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                }
             val name = info.versionName ?: unknown
             val code = PackageInfoCompat.getLongVersionCode(info)
             "$name ($code)"
