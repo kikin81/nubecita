@@ -25,7 +25,6 @@ import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import net.kikin.nubecita.feature.feed.impl.data.linksToWire
 import net.kikin.nubecita.feature.moderation.api.Report
-import net.kikin.nubecita.feature.moderation.api.ReportSubject
 import java.io.IOException
 import javax.inject.Inject
 
@@ -86,17 +85,7 @@ internal class FeedViewModel
                 is FeedEvent.OnOverflowAction ->
                     when (event.action) {
                         PostOverflowAction.ReportPost ->
-                            sendEffect(
-                                FeedEffect.NavigateTo(
-                                    Report(
-                                        subject =
-                                            ReportSubject.Post(
-                                                uri = event.post.id,
-                                                cid = event.post.cid,
-                                            ),
-                                    ),
-                                ),
-                            )
+                            sendEffect(FeedEffect.NavigateTo(Report.forPost(event.post)))
                         PostOverflowAction.MuteAuthor,
                         PostOverflowAction.UnmuteAuthor,
                         PostOverflowAction.BlockAuthor,

@@ -20,8 +20,8 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.moderation.api.Report
-import net.kikin.nubecita.feature.moderation.api.ReportSubject
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
@@ -144,7 +144,18 @@ internal class ProfileViewModel
                     }
                 }
                 is ProfileEvent.OnPostOverflowAction ->
-                    sendEffect(ProfileEffect.ShowPostOverflowComingSoon(event.action))
+                    when (event.action) {
+                        PostOverflowAction.ReportPost ->
+                            sendEffect(ProfileEffect.NavigateTo(Report.forPost(event.post)))
+                        PostOverflowAction.MuteAuthor,
+                        PostOverflowAction.UnmuteAuthor,
+                        PostOverflowAction.BlockAuthor,
+                        PostOverflowAction.UnblockAuthor,
+                        PostOverflowAction.MuteThread,
+                        PostOverflowAction.UnmuteThread,
+                        PostOverflowAction.CopyPostText,
+                        -> sendEffect(ProfileEffect.ShowPostOverflowComingSoon(event.action))
+                    }
             }
         }
 
@@ -246,7 +257,7 @@ internal class ProfileViewModel
          */
         private fun onReportAccountRequested() {
             val did = uiState.value.header?.did ?: return
-            sendEffect(ProfileEffect.NavigateTo(Report(subject = ReportSubject.Account(did = did))))
+            sendEffect(ProfileEffect.NavigateTo(Report.forAccount(did)))
         }
 
         private fun onMessageTapped() {

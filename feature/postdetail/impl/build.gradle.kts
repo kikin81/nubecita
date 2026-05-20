@@ -14,6 +14,11 @@ dependencies {
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
     implementation(project(":feature:mediaviewer:api"))
+    // Report NavKey + Report.forPost factory — pushed onto the inner
+    // back stack from the PostCard overflow "Report post" row inside
+    // the thread (oftc.3.1). `:api` only — `:feature:moderation:impl`
+    // owns the dialog, VM, and repository.
+    implementation(project(":feature:moderation:api"))
     // Profile NavKey — pushed onto the back stack when an author handle
     // is tapped inside a thread post. Imports `:api` only; never `:impl`.
     implementation(project(":feature:profile:api"))

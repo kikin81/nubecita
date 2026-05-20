@@ -45,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
@@ -97,6 +98,7 @@ import kotlin.time.Instant
 @Composable
 internal fun PostDetailScreen(
     viewModel: PostDetailViewModel,
+    onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
@@ -168,6 +170,7 @@ internal fun PostDetailScreen(
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
+    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
 
     // Pre-resolve snackbar copy at composition time so locale changes
     // participate in recomposition (lint: LocalContextGetResourceValueCall).
@@ -237,6 +240,13 @@ internal fun PostDetailScreen(
                 is PostDetailEffect.ShowComingSoon -> {
                     val message =
                         when (effect.action) {
+                            // ReportPost graduated out of the coming-soon stub in
+                            // oftc.3.1; it now flows through NavigateTo(Report(...)).
+                            // The VM never emits ShowComingSoon for ReportPost, so
+                            // this branch should be unreachable — but exhaustive
+                            // `when` over a sealed enum needs the case. Surface the
+                            // generic copy as a defensive fallback rather than
+                            // crashing if something dispatches ReportPost here.
                             PostOverflowAction.ReportPost -> overflowReportComingSoon
                             PostOverflowAction.MuteAuthor -> overflowMuteComingSoon
                             PostOverflowAction.UnmuteAuthor -> overflowUnmuteComingSoon
@@ -259,6 +269,7 @@ internal fun PostDetailScreen(
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = linkCopiedMessage)
                 }
+                is PostDetailEffect.NavigateTo -> currentOnNavigateTo(effect.key)
             }
         }
     }

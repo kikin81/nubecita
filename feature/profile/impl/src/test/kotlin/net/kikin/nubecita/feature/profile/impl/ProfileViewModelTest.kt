@@ -741,9 +741,10 @@ internal class ProfileViewModelTest {
             advanceUntilIdle()
 
             val post = samplePostUi("at://did:plc:fake/app.bsky.feed.post/x")
-            val variants =
+            // ReportPost graduated in oftc.3.1 — covered separately below.
+            // The remaining seven variants still surface ShowPostOverflowComingSoon.
+            val stubbedVariants =
                 listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
@@ -753,13 +754,63 @@ internal class ProfileViewModelTest {
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
                 )
             vm.effects.test {
-                for (action in variants) {
+                for (action in stubbedVariants) {
                     vm.handleEvent(ProfileEvent.OnPostOverflowAction(post = post, action = action))
                     assertEquals(
                         ProfileEffect.ShowPostOverflowComingSoon(action),
                         awaitItem(),
                     )
                 }
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `OnPostOverflowAction(ReportPost) emits NavigateTo with a Report Post NavKey`() =
+        // Pin: oftc.3.1 graduates the PostCard overflow Report row on the
+        // Profile Posts / Replies tab out of ShowPostOverflowComingSoon.
+        // VM now emits ProfileEffect.NavigateTo(Report.forPost(post)) —
+        // the screen's effect collector pushes it via onNavigateTo onto
+        // LocalMainShellNavState. URI + CID match the tapped post; no
+        // ShowPostOverflowComingSoon for this variant; no state mutation.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            val post = samplePostUi(id = "at://did:plc:author/app.bsky.feed.post/rprt1", cid = "bafyreitestreportcid")
+            vm.effects.test {
+                vm.handleEvent(
+                    ProfileEvent.OnPostOverflowAction(
+                        post = post,
+                        action = net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
+                    ),
+                )
+                val effect = awaitItem()
+                assertTrue(
+                    effect is ProfileEffect.NavigateTo,
+                    "expected NavigateTo, got $effect",
+                )
+                val key = (effect as ProfileEffect.NavigateTo).key
+                assertTrue(
+                    key is net.kikin.nubecita.feature.moderation.api.Report,
+                    "expected Report NavKey, got $key",
+                )
+                val subject = (key as net.kikin.nubecita.feature.moderation.api.Report).subject
+                assertTrue(
+                    subject is net.kikin.nubecita.feature.moderation.api.ReportSubject.Post,
+                    "expected ReportSubject.Post, got $subject",
+                )
+                assertEquals(
+                    post.id,
+                    (subject as net.kikin.nubecita.feature.moderation.api.ReportSubject.Post).uri,
+                )
+                assertEquals(post.cid, subject.cid)
                 cancelAndIgnoreRemainingEvents()
             }
         }

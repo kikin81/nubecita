@@ -84,6 +84,18 @@ internal object PostDetailNavigationModule {
                     // post reply taps (PostCallbacks.onReply skips the VM
                     // and calls this directly, same as Feed).
                     onReplyClick = { uri -> launchComposer(uri) },
+                    // Generic tab-internal sub-route push — pushed onto
+                    // MainShell's inner back stack so the @MainShell
+                    // entry provider for the key resolves it (e.g. the
+                    // Report dialog provider from :feature:moderation:impl).
+                    // The host-callback shape keeps Report-NavKey pushes
+                    // out of the screen body; the screen still reads
+                    // LocalMainShellNavState for back-handler wiring,
+                    // which is fine (back handling is host-policy at the
+                    // shell seam). Matches FeedScreen / FeedNavigationModule
+                    // (PR 3 of oftc.3) and ProfileScreen / ProfileNavigationModule
+                    // (PR 4 of oftc.3).
+                    onNavigateTo = { key -> navState.add(key) },
                     viewModel = viewModel,
                 )
             }

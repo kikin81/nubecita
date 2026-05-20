@@ -97,9 +97,9 @@ internal fun ProfileScreen(
     val comingSoonMute = stringResource(R.string.profile_snackbar_mute_coming_soon)
     // PostCard overflow-menu "coming soon" copy (oftc.2). Pre-resolved
     // via stringResource() at composition time so locale changes
-    // participate in recomposition.
-    val postOverflowReport =
-        stringResource(R.string.profile_snackbar_post_overflow_report_coming_soon)
+    // participate in recomposition. ReportPost graduated in oftc.3.1
+    // and no longer flows through this effect — see the `when` arm
+    // below for the unreachable-defensive branch.
     val postOverflowMute =
         stringResource(R.string.profile_snackbar_post_overflow_mute_coming_soon)
     val postOverflowUnmute =
@@ -155,9 +155,15 @@ internal fun ProfileScreen(
                     snackbarHostState.showSnackbar(message = msg)
                 }
                 is ProfileEffect.ShowPostOverflowComingSoon -> {
-                    val msg =
+                    // ReportPost graduated out of this effect in oftc.3.1
+                    // — the VM now emits `NavigateTo(Report.forPost(...))`
+                    // for that variant instead. The `null` branch is
+                    // unreachable in production; if it ever fires (a
+                    // SavedStateHandle replay or test-synthesized event),
+                    // skip the snackbar rather than crash the collector.
+                    val msg: String? =
                         when (effect.action) {
-                            PostOverflowAction.ReportPost -> postOverflowReport
+                            PostOverflowAction.ReportPost -> null
                             PostOverflowAction.MuteAuthor -> postOverflowMute
                             PostOverflowAction.UnmuteAuthor -> postOverflowUnmute
                             PostOverflowAction.BlockAuthor -> postOverflowBlock
@@ -166,8 +172,10 @@ internal fun ProfileScreen(
                             PostOverflowAction.UnmuteThread -> postOverflowUnmuteThread
                             PostOverflowAction.CopyPostText -> postOverflowCopyText
                         }
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = msg)
+                    if (msg != null) {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(message = msg)
+                    }
                 }
                 is ProfileEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is ProfileEffect.NavigateToProfile -> currentOnNavigateToProfile(effect.handle)
