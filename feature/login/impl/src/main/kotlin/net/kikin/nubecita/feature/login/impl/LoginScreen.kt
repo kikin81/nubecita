@@ -3,15 +3,18 @@ package net.kikin.nubecita.feature.login.impl
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +34,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -88,91 +92,105 @@ internal fun LoginScreen(
         modifier = modifier,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { innerPadding ->
-        Column(
+        // Cap the form column to a comfortable single-column width on
+        // tablets / unfolded foldables — without this, the OutlinedTextField
+        // and primary CTA stretch edge-to-edge on Expanded width-class
+        // devices and the form reads like an oversized banner. 480dp is the
+        // canonical max-form-column width.
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .consumeWindowInsets(innerPadding)
-                    .padding(
-                        horizontal = MaterialTheme.spacing.s6,
-                        vertical = MaterialTheme.spacing.s8,
-                    ),
-            verticalArrangement =
-                Arrangement.spacedBy(
-                    MaterialTheme.spacing.s4,
-                    Alignment.CenterVertically,
-                ),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                    .consumeWindowInsets(innerPadding),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Text(
-                text = stringResource(R.string.login_title),
-                style = MaterialTheme.typography.headlineLarge,
-            )
-            Text(
-                text = stringResource(R.string.login_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(MaterialTheme.spacing.s2))
-
-            OutlinedTextField(
-                value = state.handle,
-                onValueChange = { onEvent(LoginEvent.HandleChanged(it)) },
-                label = { Text(stringResource(R.string.login_handle_label)) },
-                placeholder = { Text(stringResource(R.string.login_handle_placeholder)) },
-                singleLine = true,
-                enabled = !state.isLoading,
-                isError = errorText != null,
-                shape = MaterialTheme.shapes.medium,
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        capitalization = KeyboardCapitalization.None,
-                        autoCorrectEnabled = false,
-                        imeAction = ImeAction.Go,
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxHeight()
+                        .widthIn(max = 480.dp)
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = MaterialTheme.spacing.s6,
+                            vertical = MaterialTheme.spacing.s8,
+                        ),
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        MaterialTheme.spacing.s4,
+                        Alignment.CenterVertically,
                     ),
-                keyboardActions =
-                    KeyboardActions(
-                        onGo = {
-                            focusManager.clearFocus()
-                            onEvent(LoginEvent.SubmitLogin)
-                        },
-                    ),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            AnimatedVisibility(visible = errorText != null) {
-                errorText?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-
-            NubecitaPrimaryButton(
-                onClick = { onEvent(LoginEvent.SubmitLogin) },
-                text = stringResource(R.string.login_submit),
-                isLoading = state.isLoading,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(MaterialTheme.spacing.s2))
-
-            Text(
-                text = stringResource(R.string.login_signup_cta_supporting),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            TextButton(
-                onClick = { onEvent(LoginEvent.OpenSignup) },
-                enabled = !state.isLoading,
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(stringResource(R.string.login_signup_cta_label))
+                Text(
+                    text = stringResource(R.string.login_title),
+                    style = MaterialTheme.typography.headlineLarge,
+                )
+                Text(
+                    text = stringResource(R.string.login_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(MaterialTheme.spacing.s2))
+
+                OutlinedTextField(
+                    value = state.handle,
+                    onValueChange = { onEvent(LoginEvent.HandleChanged(it)) },
+                    label = { Text(stringResource(R.string.login_handle_label)) },
+                    placeholder = { Text(stringResource(R.string.login_handle_placeholder)) },
+                    singleLine = true,
+                    enabled = !state.isLoading,
+                    isError = errorText != null,
+                    shape = MaterialTheme.shapes.medium,
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            capitalization = KeyboardCapitalization.None,
+                            autoCorrectEnabled = false,
+                            imeAction = ImeAction.Go,
+                        ),
+                    keyboardActions =
+                        KeyboardActions(
+                            onGo = {
+                                focusManager.clearFocus()
+                                onEvent(LoginEvent.SubmitLogin)
+                            },
+                        ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                AnimatedVisibility(visible = errorText != null) {
+                    errorText?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
+                NubecitaPrimaryButton(
+                    onClick = { onEvent(LoginEvent.SubmitLogin) },
+                    text = stringResource(R.string.login_submit),
+                    isLoading = state.isLoading,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(Modifier.height(MaterialTheme.spacing.s2))
+
+                Text(
+                    text = stringResource(R.string.login_signup_cta_supporting),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(
+                    onClick = { onEvent(LoginEvent.OpenSignup) },
+                    enabled = !state.isLoading,
+                ) {
+                    Text(stringResource(R.string.login_signup_cta_label))
+                }
             }
         }
     }

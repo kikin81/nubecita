@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
@@ -120,18 +121,35 @@ internal fun OnboardingScreen(
             showSkip = !isOnLastPage,
             onSkip = { onEvent(OnboardingEvent.Skip) },
         )
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.weight(1f),
-        ) { pageIndex ->
-            OnboardingPageContent(page = pages[pageIndex])
+        // Adaptive width-cap: on tablets / unfolded foldables the pager
+        // and bottom bar would otherwise stretch edge-to-edge and the
+        // FAB would be visually divorced from the page copy. Capping at
+        // 600dp centers the content with a backdrop on Expanded widths,
+        // giving a modal-like read; on Compact widths the cap is a
+        // no-op so phones render full-width as before. The TopAppBar
+        // stays edge-to-edge — Skip is chrome and reads better aligned
+        // with the right edge of the device.
+        Column(
+            modifier =
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .widthIn(max = 600.dp)
+                    .fillMaxWidth()
+                    .weight(1f),
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f),
+            ) { pageIndex ->
+                OnboardingPageContent(page = pages[pageIndex])
+            }
+            OnboardingBottomBar(
+                pagerState = pagerState,
+                pageCount = pages.size,
+                isOnLastPage = isOnLastPage,
+                onComplete = { onEvent(OnboardingEvent.CompleteOnboarding) },
+            )
         }
-        OnboardingBottomBar(
-            pagerState = pagerState,
-            pageCount = pages.size,
-            isOnLastPage = isOnLastPage,
-            onComplete = { onEvent(OnboardingEvent.CompleteOnboarding) },
-        )
     }
 }
 
