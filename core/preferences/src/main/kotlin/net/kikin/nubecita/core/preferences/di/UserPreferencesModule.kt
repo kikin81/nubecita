@@ -2,8 +2,10 @@ package net.kikin.nubecita.core.preferences.di
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import dagger.Binds
 import dagger.Module
@@ -13,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.preferences.DefaultUserPreferencesRepository
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
+import timber.log.Timber
 import javax.inject.Singleton
 
 @Module
@@ -26,6 +29,17 @@ internal object UserPreferencesDataStoreModule {
         @ApplicationContext context: Context,
     ): DataStore<Preferences> =
         PreferenceDataStoreFactory.create(
+            // `DefaultUserPreferencesRepository.hasSeenOnboarding` absorbs transient
+            // IOException via `.catch`, but a genuinely corrupted on-disk file
+            // throws `CorruptionException` on every read — `.catch` would loop
+            // forever. The corruption handler replaces the file with empty
+            // preferences once, healing the store so future reads / writes
+            // (including the next onboarding flag flip) proceed normally.
+            corruptionHandler =
+                ReplaceFileCorruptionHandler {
+                    Timber.w(it, "User preferences file corrupted; replacing with empty store")
+                    emptyPreferences()
+                },
             produceFile = { context.preferencesDataStoreFile(PREFERENCES_FILE_NAME) },
         )
 }

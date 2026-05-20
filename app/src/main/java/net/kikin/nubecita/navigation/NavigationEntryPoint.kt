@@ -38,11 +38,14 @@ interface NavigationEntryPoint {
     fun mainShellEntryProviderInstallers(): Set<@JvmSuppressWildcards EntryProviderInstaller>
 
     /**
-     * Exposed so the outer `Navigation` Composable's `Onboarding`
-     * placeholder entry (and, transitionally, `MainActivity`'s bootstrap
-     * routing) can read / write the `hasSeenOnboarding` flag. Composables
-     * can't use constructor injection — same rationale as the installer
-     * sets above.
+     * Exposed so the outer `Navigation` Composable's inline `Onboarding`
+     * placeholder entry can read / write the `hasSeenOnboarding` flag.
+     * Composables can't use constructor injection — same rationale as the
+     * installer sets above. `MainActivity` itself takes the repository via
+     * direct `@Inject lateinit var`, not through this accessor; this
+     * surface only exists for the placeholder Composable and dies when
+     * `nubecita-lo3f.2`'s feature-module installer replaces the inline
+     * entry.
      */
     fun userPreferencesRepository(): UserPreferencesRepository
 }

@@ -16,6 +16,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.auth.SessionState
@@ -89,19 +91,23 @@ class MainActivity : ComponentActivity() {
         // first. Signed-in users implicitly count as "already onboarded" — if a session
         // exists but the flag was never set (e.g. upgrading from a pre-onboarding build),
         // we set it opportunistically so a future sign-out lands on Login, not Onboarding.
-        lifecycleScope.launch {
-            combine(
-                sessionStateProvider.state,
-                userPreferences.hasSeenOnboarding,
-            ) { session, seen -> session to seen }
-                .distinctUntilChanged()
-                // Defense in depth: `hasSeenOnboarding` already absorbs IOException
-                // upstream (defaults to `false`), but a non-IO crash inside the
-                // collector would cancel `lifecycleScope.launch` and stop ALL future
-                // reactive routing — including reacting to sign-out. Log and continue
-                // rather than letting the bootstrap path die silently.
-                .catch { error -> Timber.e(error, "Bootstrap routing flow threw; navigation will not react to further state changes") }
-                .collect { (session, seen) ->
+        //
+        // Side-effects live in `onEach`, not `collect`, so a throw inside the
+        // routing logic is observed by the downstream `.catch` rather than
+        // tearing the coroutine down silently. The `.catch` itself is a
+        // last-resort backstop — by the time it fires, both flows already
+        // absorb their expected failure modes (preferences swallow IOException
+        // upstream; the inner try/catch wraps the opportunistic write). If
+        // catch ever lands, the activity loses reactive routing for the rest
+        // of its lifecycle, which is the correct degraded behavior: the user
+        // is on *some* screen and we'd rather they see "stuck" than crash.
+        combine(
+            sessionStateProvider.state,
+            userPreferences.hasSeenOnboarding,
+        ) { session, seen -> session to seen }
+            .distinctUntilChanged()
+            .onEach { (session, seen) ->
+                try {
                     when (session) {
                         SessionState.Loading -> Unit
                         SessionState.SignedOut ->
@@ -113,9 +119,9 @@ class MainActivity : ComponentActivity() {
                         // installed in the outer NavDisplay's entry provider.
                         is SessionState.SignedIn -> {
                             // Don't let a transient preferences write failure cancel the
-                            // collector — the user can re-see onboarding once on the next
-                            // launch in the worst case; that's strictly better than losing
-                            // future sign-in/out routing for this whole session.
+                            // routing of THIS emission — the user can re-see onboarding
+                            // once on the next launch in the worst case; that's strictly
+                            // better than failing to route to Main right now.
                             if (!seen) {
                                 try {
                                     userPreferences.markOnboardingSeen()
@@ -126,8 +132,11 @@ class MainActivity : ComponentActivity() {
                             navigator.replaceTo(Main)
                         }
                     }
+                } catch (error: Exception) {
+                    Timber.e(error, "Routing side-effect threw for ($session, seen=$seen)")
                 }
-        }
+            }.catch { error -> Timber.e(error, "Bootstrap routing flow threw upstream; navigation will not react to further state changes") }
+            .launchIn(lifecycleScope)
     }
 
     override fun onNewIntent(intent: Intent) {

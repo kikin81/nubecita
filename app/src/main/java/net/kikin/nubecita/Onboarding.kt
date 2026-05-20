@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:standard:filename")
-
 package net.kikin.nubecita
 
 import androidx.navigation3.runtime.NavKey
