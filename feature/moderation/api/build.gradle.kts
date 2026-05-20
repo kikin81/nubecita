@@ -14,7 +14,10 @@ dependencies {
     // PostUi — referenced by the `Report.forPost(post: PostUi)`
     // companion factory so call sites in feature host VMs (Feed,
     // PostDetail, Profile) collapse from the verbose 4-arg construction
-    // to one line. Mirrors `:core:post-interactions`'s `:data:models`
-    // dependency for the `PostUi.toShareIntent()` extension precedent.
-    implementation(project(":data:models"))
+    // to one line. Exposed via `api(...)` (not `implementation`)
+    // because `PostUi` appears in this module's public API surface;
+    // consumers of `:feature:moderation:api` need it on their
+    // compile/runtime classpath transitively. Same-shape `api`
+    // exposure as `:core:feed-mapping`'s `:data:models` dependency.
+    api(project(":data:models"))
 }
