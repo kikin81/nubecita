@@ -12,7 +12,12 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.inject.Inject
 
-internal const val BLUESKY_SIGNUP_URL = "https://bsky.app/signup"
+// The unauthenticated bsky.app SPA shows "Create account" + "Sign in" buttons
+// directly; `bsky.app/signup` is NOT a real path (it 404s as of 2026-05-20).
+// When nubecita-lq9t.3.5 ships the OAuth `prompt=create` flow, this static URL
+// goes away in favor of a PAR'd authorization URL the user comes back from
+// already signed in.
+internal const val BLUESKY_SIGNUP_URL = "https://bsky.app/"
 
 @HiltViewModel
 class LoginViewModel

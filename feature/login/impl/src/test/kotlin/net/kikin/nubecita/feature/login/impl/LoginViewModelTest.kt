@@ -216,7 +216,7 @@ internal class LoginViewModelTest {
 
             val effect = vm.effects.first()
             assertTrue(effect is LoginEffect.LaunchCustomTab)
-            assertEquals("https://bsky.app/signup", (effect as LoginEffect.LaunchCustomTab).url)
+            assertEquals("https://bsky.app/", (effect as LoginEffect.LaunchCustomTab).url)
 
             // state is untouched: same handle, not loading, no error.
             assertEquals(before, vm.uiState.value)
