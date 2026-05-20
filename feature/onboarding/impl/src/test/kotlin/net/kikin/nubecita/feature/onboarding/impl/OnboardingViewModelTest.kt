@@ -49,11 +49,20 @@ internal class OnboardingViewModelTest {
         }
 
     @Test
-    fun `persistence failure still emits NavigateToLogin so the user isn't stranded`() =
+    fun `persistence failure still emits NavigateToLogin so the screen failsafe path can fire`() =
         runTest(mainDispatcher.dispatcher) {
             val prefs = FailingPreferences()
             val vm = OnboardingViewModel(prefs)
 
+            // The "isn't stranded" guarantee is split across two layers:
+            // (1) the VM emits NavigateToLogin even when the persist throws
+            //     — verified here; and
+            // (2) the screen Composable's LaunchedEffect translates that
+            //     effect into `navigator.replaceTo(Login)` so the user is
+            //     actually moved off Onboarding — verified by the screen-
+            //     side instrumentation tests in nubecita-lo3f.5.
+            // Without step 1 the failsafe in step 2 would never fire, so
+            // this test pins the contract.
             vm.effects.test {
                 vm.handleEvent(OnboardingEvent.Skip)
 

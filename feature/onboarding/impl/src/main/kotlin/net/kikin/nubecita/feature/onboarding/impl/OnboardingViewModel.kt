@@ -24,11 +24,14 @@ class OnboardingViewModel
         }
 
         private fun finishOnboarding() {
-            // Persist first, navigate second — if persistence throws, the
-            // collector in MainActivity would otherwise route the user back to
-            // Onboarding on the next state emission. We log the write failure
-            // but still emit the navigation effect so the user isn't stranded;
-            // worst case they re-see onboarding once on the next cold start.
+            // Persist first, navigate second. If persistence throws, the
+            // `hasSeenOnboarding` flow never emits `true`, so `MainActivity`'s
+            // combine collector wouldn't re-route on its own — the user
+            // would be stranded on Onboarding for the rest of the session.
+            // We emit `NavigateToLogin` regardless of the persist outcome so
+            // the screen-side `LaunchedEffect` calls `replaceTo(Login)` as a
+            // failsafe; worst case the user re-sees onboarding once on the
+            // next cold start.
             viewModelScope.launch {
                 try {
                     userPreferences.markOnboardingSeen()

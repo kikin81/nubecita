@@ -34,16 +34,19 @@ sealed interface OnboardingEvent : UiEvent {
 
 sealed interface OnboardingEffect : UiEffect {
     /**
-     * Onboarding is done. Emitted AFTER the VM persists
-     * `hasSeenOnboarding=true`. `MainActivity`'s combine collector
-     * observes the flag flip and drives the actual
-     * `navigator.replaceTo(Login)`; the screen Composable does NOT
-     * navigate itself (a screen-driven `replaceTo` would race with the
-     * collector and clear+re-add the Login entry).
+     * Onboarding is done. Emitted by the VM AFTER it attempts to
+     * persist `hasSeenOnboarding=true` — whether or not the persist
+     * succeeded. The screen's `LaunchedEffect` translates this into
+     * `navigator.replaceTo(Login)` as the failsafe path: even if the
+     * write throws, the user is moved off Onboarding (worst case they
+     * re-see onboarding once on the next cold start instead of being
+     * stranded mid-session).
      *
-     * The effect is retained as a contract surface so future
-     * one-shot UI work (a Snackbar, an analytics ping, a celebration
-     * animation) can hook in without re-shaping the VM.
+     * `MainActivity`'s combine collector ALSO routes to `Login` on the
+     * flag flip — both layers are intentional. `DefaultNavigator.replaceTo`
+     * is idempotent on a single-entry stack with the same target key,
+     * so the race is safe: whichever lands first does real work and the
+     * second is a no-op.
      */
     data object NavigateToLogin : OnboardingEffect
 }

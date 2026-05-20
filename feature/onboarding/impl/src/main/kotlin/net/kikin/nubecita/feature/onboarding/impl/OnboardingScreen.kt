@@ -46,27 +46,40 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaLogomark
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.designsystem.spacing
+import net.kikin.nubecita.feature.login.api.Login
 
 /**
  * Root composable for the onboarding flow. Wires the Hilt-injected
- * [OnboardingViewModel] to the stateless [OnboardingScreen] overload.
+ * [OnboardingViewModel] to the stateless [OnboardingScreen] overload
+ * and collects [OnboardingEffect.NavigateToLogin] onto the outer
+ * navigator.
  *
- * Per the project's outer-nav convention, the screen does NOT navigate
- * itself — the VM persists `hasSeenOnboarding=true` (Skip / Get started),
- * and `MainActivity`'s combine collector observes the flag flip and
- * fires `navigator.replaceTo(Login)`. A single source of truth for
- * post-onboarding navigation avoids the double-`replaceTo` race that
- * would otherwise clear+re-add the Login entry and drop any
- * `rememberSaveable` state. The `OnboardingEffect.NavigateToLogin`
- * effect is collected here but intentionally a no-op for now; it stays
- * in the contract so analytics / one-shot UI work (toast, animation
- * trigger) can hook into it without re-shaping the VM.
+ * Two layers drive the post-onboarding navigation, on purpose:
+ *
+ * 1. **Screen-side (failsafe)** — when the VM emits `NavigateToLogin`
+ *    (always, regardless of whether the persist succeeded), this
+ *    `LaunchedEffect` calls `navigator.replaceTo(Login)`. Critical when
+ *    `markOnboardingSeen()` throws and the flag stays `false`: the
+ *    `MainActivity` collector would never see a change and the user
+ *    would be stranded on Onboarding without this fallback.
+ * 2. **MainActivity collector (normal path)** — after a successful
+ *    persist the flag flips, the `combine(sessionState,
+ *    hasSeenOnboarding)` collector observes it and also calls
+ *    `replaceTo(Login)`. This is the canonical "react to state" path
+ *    that handles future signOut → Login routing too.
+ *
+ * Both layers calling `replaceTo(Login)` would race and drop any
+ * `rememberSaveable` state on the Login entry if `replaceTo` were
+ * unconditional clear+add. `DefaultNavigator.replaceTo` is idempotent
+ * when the back stack is already a single entry on the target key —
+ * whichever layer lands first does real work, the second is a no-op.
  */
 @Composable
 fun OnboardingScreen(
@@ -78,13 +91,12 @@ fun OnboardingScreen(
     // observable state, the screen already has the wiring.
     @Suppress("UNUSED_VARIABLE")
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val navigator = LocalAppNavigator.current
 
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                // Intentionally no-op — MainActivity's bootstrap collector
-                // drives the actual replaceTo(Login). See the KDoc above.
-                OnboardingEffect.NavigateToLogin -> Unit
+                OnboardingEffect.NavigateToLogin -> navigator.replaceTo(Login)
             }
         }
     }
