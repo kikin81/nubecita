@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.login.impl
 
+import io.github.kikin81.atproto.oauth.OAuthDiscoveryException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -12,10 +13,14 @@ import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class LoginViewModelTest {
@@ -83,25 +88,138 @@ internal class LoginViewModelTest {
         }
 
     @Test
-    fun `failed beginLogin emits Failure error carrying the cause message`() =
+    fun `OAuthDiscoveryException 'Failed to resolve handle' maps to HandleNotFound carrying the handle`() =
         runTest(mainDispatcher.dispatcher) {
+            // Pin the upstream message: this prefix is what DiscoveryChain.resolveHandle
+            // throws when neither DNS-over-HTTPS nor the HTTP fallback returns a DID.
+            // If atproto-kotlin grows a typed HandleNotFoundException, replace both the
+            // VM mapping and this test together.
             val vm =
                 newViewModel(
                     authRepository =
                         FakeAuthRepository(
-                            beginLoginResult = Result.failure(IllegalStateException("Handle could not be resolved")),
+                            beginLoginResult =
+                                Result.failure(
+                                    OAuthDiscoveryException(
+                                        "Failed to resolve handle 'alise.bsky.social': " +
+                                            "neither DNS TXT record (_atproto.alise.bsky.social) " +
+                                            "nor HTTP (https://alise.bsky.social/.well-known/atproto-did) " +
+                                            "returned a valid DID",
+                                    ),
+                                ),
                         ),
                 )
-            vm.handleEvent(LoginEvent.HandleChanged("nope.bsky.social"))
+            vm.handleEvent(LoginEvent.HandleChanged("alise.bsky.social"))
             vm.handleEvent(LoginEvent.SubmitLogin)
             advanceUntilIdle()
 
             val state = vm.uiState.value
             assertEquals(false, state.isLoading)
-            assertEquals(LoginError.Failure("Handle could not be resolved"), state.errorMessage)
+            assertEquals(LoginError.HandleNotFound("alise.bsky.social"), state.errorMessage)
 
             val effect = withTimeoutOrNull(timeMillis = 50) { vm.effects.first() }
             assertNull(effect)
+        }
+
+    @Test
+    fun `direct IOException maps to Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newViewModel(
+                    authRepository =
+                        FakeAuthRepository(beginLoginResult = Result.failure(IOException("no network"))),
+                )
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `UnknownHostException maps to Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newViewModel(
+                    authRepository =
+                        FakeAuthRepository(beginLoginResult = Result.failure(UnknownHostException("no such host"))),
+                )
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `SocketTimeoutException maps to Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newViewModel(
+                    authRepository =
+                        FakeAuthRepository(beginLoginResult = Result.failure(SocketTimeoutException("timed out"))),
+                )
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `OAuthDiscoveryException wrapping IOException maps to Network via cause-walk`() =
+        runTest(mainDispatcher.dispatcher) {
+            val wrapped =
+                OAuthDiscoveryException(
+                    "Failed to fetch resource server metadata from https://example.com",
+                    IOException("connect timed out"),
+                )
+            val vm =
+                newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `unknown Throwable maps to Generic and does not leak the library message`() =
+        runTest(mainDispatcher.dispatcher) {
+            val leakySubstring = "authorization_endpoint missing from auth server metadata"
+            val vm =
+                newViewModel(
+                    authRepository =
+                        FakeAuthRepository(beginLoginResult = Result.failure(IllegalStateException(leakySubstring))),
+                )
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            val errorMessage = vm.uiState.value.errorMessage
+            assertEquals(LoginError.Generic, errorMessage)
+            // LoginError.Generic carries no payload, so the library message can't
+            // round-trip through the sum; this assertion is belt-and-braces against
+            // a future regression that adds a payload field.
+            assertFalse(errorMessage.toString().contains(leakySubstring))
+        }
+
+    @Test
+    fun `OpenSignup emits LaunchCustomTab(bsky_app_signup) without mutating state`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newViewModel()
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            val before = vm.uiState.value
+
+            vm.handleEvent(LoginEvent.OpenSignup)
+            advanceUntilIdle()
+
+            val effect = vm.effects.first()
+            assertTrue(effect is LoginEffect.LaunchCustomTab)
+            assertEquals("https://bsky.app/signup", (effect as LoginEffect.LaunchCustomTab).url)
+
+            // state is untouched: same handle, not loading, no error.
+            assertEquals(before, vm.uiState.value)
         }
 
     @Test
@@ -132,7 +250,7 @@ internal class LoginViewModelTest {
         }
 
     @Test
-    fun `broker emission with failure populates errorMessage and emits no effect`() =
+    fun `broker emission with generic failure populates errorMessage as Generic and emits no effect`() =
         runTest(mainDispatcher.dispatcher) {
             val broker = FakeOAuthRedirectBroker()
             val auth =
@@ -145,11 +263,25 @@ internal class LoginViewModelTest {
             broker.emit("net.kikin.nubecita:/oauth-redirect?code=bad")
             advanceUntilIdle()
 
-            assertEquals(LoginError.Failure("invalid code"), vm.uiState.value.errorMessage)
+            assertEquals(LoginError.Generic, vm.uiState.value.errorMessage)
             assertEquals(false, vm.uiState.value.isLoading)
 
             val effect = withTimeoutOrNull(timeMillis = 50) { vm.effects.first() }
             assertNull(effect)
+        }
+
+    @Test
+    fun `broker emission with network failure populates errorMessage as Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginResult = Result.failure(IOException("connect failed")))
+            val vm = newViewModel(authRepository = auth, broker = broker)
+            advanceUntilIdle()
+
+            broker.emit("net.kikin.nubecita:/oauth-redirect?code=bad")
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
         }
 }
 

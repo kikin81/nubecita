@@ -65,17 +65,43 @@ private fun LoginScreenBlankErrorScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "failure-error-light", showBackground = true)
-@Preview(name = "failure-error-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "handle-not-found-light", showBackground = true)
+@Preview(name = "handle-not-found-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun LoginScreenFailureErrorScreenshot() {
+private fun LoginScreenHandleNotFoundScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         LoginScreen(
             state =
                 LoginState(
-                    handle = "alice",
-                    errorMessage = LoginError.Failure("Handle could not be resolved."),
+                    handle = "alise.bsky.social",
+                    errorMessage = LoginError.HandleNotFound("alise.bsky.social"),
                 ),
+            onEvent = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "network-error-light", showBackground = true)
+@Preview(name = "network-error-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LoginScreenNetworkErrorScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        LoginScreen(
+            state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.Network),
+            onEvent = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "generic-error-light", showBackground = true)
+@Preview(name = "generic-error-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LoginScreenGenericErrorScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        LoginScreen(
+            state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.Generic),
             onEvent = {},
         )
     }
