@@ -12,12 +12,18 @@ import net.kikin.nubecita.core.common.navigation.Navigator
  * (the production navigator is also reachable via Hilt but using a
  * recorder gives the test cheap call-history assertions without
  * coupling to the real implementation's idempotency guard).
+ *
+ * [replaceToCalls] is a [SnapshotStateList] so it is safe to read
+ * from the test thread while the Compose UI thread writes to it —
+ * combined with the test reading inside `composeTestRule.runOnIdle { }`,
+ * this avoids the visibility / ordering races a plain `MutableList`
+ * would invite.
  */
 internal class RecordingNavigator(
     start: NavKey,
 ) : Navigator {
     override val backStack: SnapshotStateList<NavKey> = mutableStateListOf(start)
-    val replaceToCalls: MutableList<NavKey> = mutableListOf()
+    val replaceToCalls: SnapshotStateList<NavKey> = mutableStateListOf()
 
     override fun goTo(key: NavKey) {
         backStack.add(key)
@@ -28,7 +34,7 @@ internal class RecordingNavigator(
     }
 
     override fun replaceTo(key: NavKey) {
-        replaceToCalls += key
+        replaceToCalls.add(key)
         backStack.clear()
         backStack.add(key)
     }

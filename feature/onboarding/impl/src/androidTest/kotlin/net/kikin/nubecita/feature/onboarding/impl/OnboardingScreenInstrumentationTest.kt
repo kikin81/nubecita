@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.onboarding.impl
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -71,11 +70,14 @@ class OnboardingScreenInstrumentationTest {
 
         composeTestRule.onNodeWithText(skipLabel()).assertIsDisplayed()
         composeTestRule.onNodeWithText(welcomeEyebrowUppercase()).assertIsDisplayed()
-        // The Next FAB exists; the Get-Started ExtendedFAB does not on page 0.
+        // The Next FAB exists; the Get-Started ExtendedFAB is conditionally
+        // composed on page 0, so the text node doesn't exist at all —
+        // `assertDoesNotExist()` is the correct matcher (assertIsNotDisplayed
+        // throws "no matching nodes found" on missing nodes).
         composeTestRule
             .onNodeWithContentDescription(nextContentDescription())
             .assertIsDisplayed()
-        composeTestRule.onNodeWithText(getStartedLabel(), useUnmergedTree = true).assertIsNotDisplayed()
+        composeTestRule.onNodeWithText(getStartedLabel(), useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -91,7 +93,11 @@ class OnboardingScreenInstrumentationTest {
         // reports no pending work.
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText(skipLabel()).assertIsNotDisplayed()
+        // Skip lives inside AnimatedVisibility; after the exit animation
+        // completes, the TextButton is removed from composition entirely.
+        // `assertDoesNotExist` matches that final state without racing on
+        // the in-flight fade.
+        composeTestRule.onNodeWithText(skipLabel()).assertDoesNotExist()
         composeTestRule.onNodeWithText(getStartedLabel(), useUnmergedTree = true).assertIsDisplayed()
         // Back arrow is now part of the composition (was a Spacer on page 0).
         composeTestRule
@@ -110,9 +116,13 @@ class OnboardingScreenInstrumentationTest {
         composeTestRule.onNodeWithText(getStartedLabel(), useUnmergedTree = true).performClick()
 
         composeTestRule.waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
-            navigator.replaceToCalls.isNotEmpty()
+            composeTestRule.runOnIdle { navigator.replaceToCalls.isNotEmpty() }
         }
-        assertEquals(listOf<Any>(Login), navigator.replaceToCalls)
+        // Snapshot the list on the UI thread so the read is ordered after
+        // any pending Compose work — avoids the cross-thread visibility
+        // race a direct read from the test thread would invite.
+        val recordedReplaces = composeTestRule.runOnIdle { navigator.replaceToCalls.toList() }
+        assertEquals(listOf<Any>(Login), recordedReplaces)
         val fake = preferences as FakeUserPreferencesRepository
         assertTrue(
             "Expected markOnboardingSeen() to be called at least once",
@@ -127,9 +137,13 @@ class OnboardingScreenInstrumentationTest {
         composeTestRule.onNodeWithText(skipLabel()).performClick()
 
         composeTestRule.waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
-            navigator.replaceToCalls.isNotEmpty()
+            composeTestRule.runOnIdle { navigator.replaceToCalls.isNotEmpty() }
         }
-        assertEquals(listOf<Any>(Login), navigator.replaceToCalls)
+        // Snapshot the list on the UI thread so the read is ordered after
+        // any pending Compose work — avoids the cross-thread visibility
+        // race a direct read from the test thread would invite.
+        val recordedReplaces = composeTestRule.runOnIdle { navigator.replaceToCalls.toList() }
+        assertEquals(listOf<Any>(Login), recordedReplaces)
         val fake = preferences as FakeUserPreferencesRepository
         assertTrue(fake.markCalls > 0)
     }
@@ -148,9 +162,13 @@ class OnboardingScreenInstrumentationTest {
         // collector would never observe a flag flip and the user would
         // be stranded on Onboarding.
         composeTestRule.waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
-            navigator.replaceToCalls.isNotEmpty()
+            composeTestRule.runOnIdle { navigator.replaceToCalls.isNotEmpty() }
         }
-        assertEquals(listOf<Any>(Login), navigator.replaceToCalls)
+        // Snapshot the list on the UI thread so the read is ordered after
+        // any pending Compose work — avoids the cross-thread visibility
+        // race a direct read from the test thread would invite.
+        val recordedReplaces = composeTestRule.runOnIdle { navigator.replaceToCalls.toList() }
+        assertEquals(listOf<Any>(Login), recordedReplaces)
         assertTrue(fake.markCalls > 0)
     }
 
