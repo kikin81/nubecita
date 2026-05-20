@@ -26,7 +26,6 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.designsystem.component.NubecitaLogomark
-import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.navigation.NavigationEntryPoint
 import net.kikin.nubecita.shell.MainShell
 
@@ -104,10 +103,16 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                                 )
                                 Button(
                                     onClick = {
-                                        scope.launch {
-                                            userPreferences.markOnboardingSeen()
-                                            navigator.replaceTo(Login)
-                                        }
+                                        // Flag-flip only. `MainActivity`'s
+                                        // combine(sessionState, hasSeenOnboarding)
+                                        // collector sees the upstream change and
+                                        // drives the replaceTo(Login) itself —
+                                        // single source of truth for post-
+                                        // onboarding navigation. Calling
+                                        // replaceTo here as well would clear+add
+                                        // the Login entry twice and drop any
+                                        // future rememberSaveable state on it.
+                                        scope.launch { userPreferences.markOnboardingSeen() }
                                     },
                                 ) {
                                     Text(stringResource(R.string.onboarding_placeholder_cta))
