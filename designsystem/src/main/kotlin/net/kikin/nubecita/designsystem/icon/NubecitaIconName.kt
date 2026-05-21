@@ -60,6 +60,7 @@ enum class NubecitaIconName(
     Repeat("\uE040"),
     Reply("\uE15E"),
     Search("\uE8B6"),
+    Settings("\uE8B8"),
     VolumeOff("\uE04F"),
     VolumeUp("\uE050"),
     WifiOff("\uE648"),

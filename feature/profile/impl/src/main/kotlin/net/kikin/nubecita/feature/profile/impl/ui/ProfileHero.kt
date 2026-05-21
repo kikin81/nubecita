@@ -4,13 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -18,52 +20,37 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.extendedTypography
-import net.kikin.nubecita.designsystem.hero.BoldHeroGradient
 import net.kikin.nubecita.feature.profile.impl.ProfileError
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.R
-import net.kikin.nubecita.feature.profile.impl.StubbedAction
-import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 
-private val AvatarSize = 88.dp
+private val AvatarSize = 96.dp
 private val AvatarRingWidth = 4.dp
+private val BannerHeight = 200.dp
+private val AvatarOverlap = 48.dp
+private val BannerCornerRadius = 28.dp
 
 /**
- * Hero card orchestrator. Three header lifecycle branches:
+ * Hero card orchestrator. Updated to Material 3 Expressive "overlapping" design.
  *
- * 1. `header != null` → full hero (gradient backdrop + avatar + name +
- *    handle + bio + stats + meta + actions). Note: a non-null
- *    `headerError` does NOT change this rendering — `headerError` is
- *    a sticky-flat-state flag whose user-visible signal is the
- *    snackbar at the screen level. The hero stays put.
- * 2. `header == null && headerError == null` → loading skeleton.
- * 3. `header == null && headerError != null` → inline error with Retry.
- *
- * `BoldHeroGradient` from :designsystem owns the Palette extraction,
- * caching, and contrast guard. We pass the banner URL and the
- * deterministic avatarHue fallback; the gradient swaps in once the
- * Palette extraction completes (which is synchronous on cache hit).
+ * Renders the actual banner image edge-to-edge at the top, with the
+ * circular avatar overlapping the banner's bottom edge. Displays
+ * name, handle, bio, stats, and meta below.
  */
 @Composable
 internal fun ProfileHero(
     header: ProfileHeaderUi?,
     headerError: ProfileError?,
-    ownProfile: Boolean,
-    viewerRelationship: ViewerRelationship,
     onRetryHeader: () -> Unit,
-    onEditTap: () -> Unit,
-    onFollowTap: () -> Unit,
-    onMessageTap: () -> Unit,
-    onOverflowAction: (StubbedAction) -> Unit,
-    onReportTap: () -> Unit,
-    onSettingsTap: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
 ) {
@@ -71,14 +58,6 @@ internal fun ProfileHero(
         header != null ->
             ProfileHeroLoaded(
                 header = header,
-                ownProfile = ownProfile,
-                viewerRelationship = viewerRelationship,
-                onEditTap = onEditTap,
-                onFollowTap = onFollowTap,
-                onMessageTap = onMessageTap,
-                onOverflowAction = onOverflowAction,
-                onReportTap = onReportTap,
-                onSettingsTap = onSettingsTap,
                 modifier = modifier,
                 topInset = topInset,
             )
@@ -96,113 +75,121 @@ internal fun ProfileHero(
 @Composable
 private fun ProfileHeroLoaded(
     header: ProfileHeaderUi,
-    ownProfile: Boolean,
-    viewerRelationship: ViewerRelationship,
-    onEditTap: () -> Unit,
-    onFollowTap: () -> Unit,
-    onMessageTap: () -> Unit,
-    onOverflowAction: (StubbedAction) -> Unit,
-    onReportTap: () -> Unit,
-    onSettingsTap: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
 ) {
+    val bannerShape =
+        RoundedCornerShape(
+            topStart = BannerCornerRadius,
+            topEnd = BannerCornerRadius,
+        )
     Column(modifier = modifier.fillMaxWidth()) {
-        BoldHeroGradient(
-            banner = header.bannerUrl,
-            avatarHue = header.avatarHue,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            // [topInset] reserves space at the top of the gradient's content for
-            // the status-bar + bar's reserved height — when the host's bd-1tc
-            // layout shifts the entire hero up by [topInset]px, this padding
-            // shifts the avatar back down so it sits below the camera cutout.
-            // The gradient itself still extends edge-to-edge from screen top.
-            // We use [topInset] alone (no extra 16dp on top) because the
-            // bar's reserved height already provides ample breathing room
-            // between the cutout and the avatar — adding 16dp on top of
-            // that read as ~128dp of empty gradient space before any
-            // content appeared.
-            Column(
+        // Parent Box intentionally has NO clip — the avatar below overlaps the
+        // banner's bottom edge via offset, and a parent clip would crop its
+        // bottom half. Instead, the rounded-corner clip is applied to the
+        // banner image and the scrim individually.
+        Box(modifier = Modifier.fillMaxWidth().height(BannerHeight + topInset)) {
+            // 1. Actual Banner Image
+            NubecitaAsyncImage(
+                model = header.bannerUrl,
+                contentDescription = null,
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clip(bannerShape),
+                contentScale = ContentScale.Crop,
+            )
+
+            // 2. Top Scrim (for status bar legibility)
+            Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(PaddingValues(start = 16.dp, top = topInset, end = 16.dp, bottom = 16.dp)),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .height(topInset + 32.dp)
+                        .clip(bannerShape)
+                        .background(
+                            Brush.verticalGradient(
+                                colors =
+                                    listOf(
+                                        Color.Black.copy(alpha = 0.4f),
+                                        Color.Transparent,
+                                    ),
+                            ),
+                        ),
+            )
+
+            // 3. Overlapping Avatar
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset(y = AvatarOverlap)
+                        .size(AvatarSize + AvatarRingWidth * 2)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center,
             ) {
-                // Avatar with surface ring — the inner Box paints the
-                // ring (MaterialTheme.colorScheme.surface) so the avatar
-                // detaches visually from the gradient backdrop.
-                Box(
+                NubecitaAsyncImage(
+                    model = header.avatarUrl,
+                    contentDescription =
+                        stringResource(
+                            R.string.profile_avatar_content_description,
+                            header.displayName ?: header.handle,
+                        ),
                     modifier =
                         Modifier
-                            .size(AvatarSize + AvatarRingWidth * 2)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    NubecitaAsyncImage(
-                        model = header.avatarUrl,
-                        contentDescription =
-                            stringResource(
-                                R.string.profile_avatar_content_description,
-                                header.displayName ?: header.handle,
-                            ),
-                        modifier =
-                            Modifier
-                                .size(AvatarSize)
-                                .clip(CircleShape),
-                    )
-                }
-                // White text overlays. The bottom stop of the gradient
-                // is contrast-guarded (WCAG AA 4.5:1) against white by
-                // BoldHeroGradient.enforceContrastAgainstWhite, so
-                // hardcoded Color.White here is safe by construction.
-                Text(
-                    text = header.displayName ?: header.handle,
-                    style = MaterialTheme.extendedTypography.displayName,
-                    color = Color.White,
-                )
-                Text(
-                    text = "@${header.handle}",
-                    style = MaterialTheme.extendedTypography.handle,
-                    color = Color.White,
+                            .size(AvatarSize)
+                            .clip(CircleShape),
+                    contentScale = ContentScale.Crop,
                 )
             }
         }
-        if (header.bio != null) {
-            Spacer(Modifier.height(8.dp))
+
+        Spacer(Modifier.height(AvatarOverlap + 8.dp))
+
+        // Info Column
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(
-                text = header.bio,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                text = header.displayName ?: header.handle,
+                style = MaterialTheme.extendedTypography.displayName,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "@${header.handle}",
+                style = MaterialTheme.extendedTypography.handle,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            if (header.bio != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = header.bio,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            ProfileStatsRow(
+                postsCount = header.postsCount,
+                followersCount = header.followersCount,
+                followsCount = header.followsCount,
+            )
+            ProfileMetaRow(
+                website = header.website,
+                location = header.location,
+                joinedDisplay = header.joinedDisplay,
             )
         }
-        ProfileStatsRow(
-            postsCount = header.postsCount,
-            followersCount = header.followersCount,
-            followsCount = header.followsCount,
-        )
-        ProfileMetaRow(
-            website = header.website,
-            location = header.location,
-            joinedDisplay = header.joinedDisplay,
-        )
-        ProfileActionsRow(
-            ownProfile = ownProfile,
-            viewerRelationship = viewerRelationship,
-            canMessage = header.canMessage,
-            onEdit = onEditTap,
-            onFollow = onFollowTap,
-            onMessage = onMessageTap,
-            onOverflowAction = onOverflowAction,
-            onReport = onReportTap,
-            onSettings = onSettingsTap,
-        )
     }
 }
 
@@ -212,26 +199,51 @@ private fun ProfileHeroLoading(
     topInset: Dp = 0.dp,
 ) {
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(PaddingValues(start = 16.dp, top = topInset, end = 16.dp, bottom = 16.dp)),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(AvatarSize)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-        )
+        val loadingBannerShape =
+            RoundedCornerShape(
+                topStart = BannerCornerRadius,
+                topEnd = BannerCornerRadius,
+            )
+        Box(modifier = Modifier.fillMaxWidth().height(BannerHeight + topInset)) {
+            // Banner placeholder — clip+background applied locally so the
+            // overlapping avatar below isn't cropped by a parent clip.
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clip(loadingBannerShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset(y = AvatarOverlap)
+                        .size(AvatarSize + AvatarRingWidth * 2)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(AvatarSize)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                )
+            }
+        }
+        Spacer(Modifier.height(AvatarOverlap + 8.dp))
         Box(
             modifier =
                 Modifier
                     .size(width = 160.dp, height = 24.dp)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
         )
+        Spacer(Modifier.height(8.dp))
         Box(
             modifier =
                 Modifier
@@ -257,7 +269,8 @@ private fun ProfileHeroError(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(PaddingValues(start = 24.dp, top = topInset, end = 24.dp, bottom = 24.dp)),
+                .padding(top = topInset)
+                .padding(horizontal = 16.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

@@ -80,7 +80,8 @@ public fun <T> ProfilePillTabs(
         // The 3 profile tabs always fit; the overflow slot is required
         // by the API surface but is unreachable in this configuration.
         overflowIndicator = {},
-        modifier = modifier.padding(horizontal = ButtonGroupHorizontalPadding),
+        expandedRatio = 0.025f,
+        modifier = modifier.padding(horizontal = 8.dp),
     ) {
         tabs.forEach { tab ->
             val isSelected = tab.value == selectedValue
@@ -106,5 +107,3 @@ public fun <T> ProfilePillTabs(
         }
     }
 }
-
-private val ButtonGroupHorizontalPadding = 16.dp

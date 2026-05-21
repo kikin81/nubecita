@@ -11,10 +11,10 @@ import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
  * Screenshot baselines for [ProfileTopBar]. Four α stops × two themes
  * = 8 baselines:
  *
- * - α = 0.0, no nav icon (transparent inset reservation)
- * - α = 0.5, no nav icon (mid cross-fade)
- * - α = 1.0, no nav icon (own-profile root, fully visible)
- * - α = 1.0, with nav icon (other-user pushed, fully visible)
+ * - α = 0.0, own-profile (settings gear, no back, transparent)
+ * - α = 0.5, own-profile (mid cross-fade)
+ * - α = 1.0, own-profile (settings gear, fully visible)
+ * - α = 1.0, other-profile (back arrow, no settings, fully visible)
  *
  * Uses the alpha-driven internal overload so Layoutlib doesn't need
  * to run a LazyColumn host to drive the scroll-derived alpha.
@@ -42,7 +42,13 @@ private val SAMPLE_HEADER =
 @Composable
 private fun ProfileTopBarAlphaZeroScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        ProfileTopBar(header = SAMPLE_HEADER, alpha = 0f, onBack = null)
+        ProfileTopBar(
+            header = SAMPLE_HEADER,
+            alpha = 0f,
+            ownProfile = true,
+            onBack = null,
+            onSettings = {},
+        )
     }
 }
 
@@ -52,7 +58,13 @@ private fun ProfileTopBarAlphaZeroScreenshot() {
 @Composable
 private fun ProfileTopBarAlphaHalfScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        ProfileTopBar(header = SAMPLE_HEADER, alpha = 0.5f, onBack = null)
+        ProfileTopBar(
+            header = SAMPLE_HEADER,
+            alpha = 0.5f,
+            ownProfile = true,
+            onBack = null,
+            onSettings = {},
+        )
     }
 }
 
@@ -62,7 +74,13 @@ private fun ProfileTopBarAlphaHalfScreenshot() {
 @Composable
 private fun ProfileTopBarAlphaOneScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        ProfileTopBar(header = SAMPLE_HEADER, alpha = 1f, onBack = null)
+        ProfileTopBar(
+            header = SAMPLE_HEADER,
+            alpha = 1f,
+            ownProfile = true,
+            onBack = null,
+            onSettings = {},
+        )
     }
 }
 
@@ -72,6 +90,12 @@ private fun ProfileTopBarAlphaOneScreenshot() {
 @Composable
 private fun ProfileTopBarAlphaOneWithBackScreenshot() {
     NubecitaTheme(dynamicColor = false) {
-        ProfileTopBar(header = SAMPLE_HEADER, alpha = 1f, onBack = {})
+        ProfileTopBar(
+            header = SAMPLE_HEADER,
+            alpha = 1f,
+            ownProfile = false,
+            onBack = {},
+            onSettings = null,
+        )
     }
 }
