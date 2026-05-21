@@ -3,11 +3,19 @@ package net.kikin.nubecita.feature.profile.impl
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -24,12 +32,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
+import net.kikin.nubecita.feature.profile.impl.ui.ProfileVerbsRow
 import net.kikin.nubecita.feature.profile.impl.ui.profileFeedTabBody
 import net.kikin.nubecita.feature.profile.impl.ui.profileMediaTabBody
 
@@ -37,18 +46,15 @@ private const val PREFETCH_DISTANCE = 5
 
 /**
  * Stateless screen body. Takes the canonical
- * [ProfileScreenViewState] from Bead C plus the small set of
- * callbacks the host wires to VM events. Previews and screenshot
- * tests invoke this directly with fixture inputs — no ViewModel, no
- * Hilt graph, no live network.
+ * [ProfileScreenViewState] plus the small set of
+ * callbacks the host wires to VM events.
  *
- * Renders one LazyColumn for the whole screen: hero as the first
- * item, sticky pill tabs as a stickyHeader, and the active tab body
- * contributed via LazyListScope extensions — [profileFeedTabBody]
- * for Posts and Replies, [profileMediaTabBody] for the row-packed
- * 3-column media grid.
+ * Updated to Material 3 Expressive design:
+ * - TopAppBar manually overlayed for total Z-order control.
+ * - Coordinated sticky header: docks exactly below the TopAppBar.
+ * - Hero draws edge-to-edge behind the transparent bar.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ProfileScreenContent(
     state: ProfileScreenViewState,
@@ -61,180 +67,137 @@ internal fun ProfileScreenContent(
 ) {
     val pillTabs = rememberProfilePillTabs()
     val activeTabIsRefreshing = state.activeTabIsRefreshing()
-    // Hoist the video-tap dispatcher once so both Posts and Replies tab
-    // bodies share the same lambda identity across recompositions —
-    // [profileFeedTabBody] keys its per-PostCard slot `remember` on
-    // (postUri, onVideoTap), and an unstable lambda here would defeat
-    // the cross-recomposition caching the keying is designed for. The
-    // FeedScreen pattern uses `remember(viewModel)` for the same reason;
-    // here [onEvent] is the screen's stable boundary (a method reference
-    // from `viewModel::handleEvent`).
     val onVideoTap =
         remember(onEvent) {
             { uri: String -> onEvent(ProfileEvent.OnVideoTapped(uri)) }
         }
-    Scaffold(
-        modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = { ProfileTopBar(header = state.header, listState = listState, onBack = onBack) },
-    ) { padding ->
-        // Layout strategy: the LazyColumn fills the FULL Scaffold area
-        // (extending behind the topBar). The bar's top inset flows through
-        // `contentPadding.top` — so the sticky pill row docks just below
-        // the bar — and the hero item (item 0) uses `Modifier.layout` to
-        // shrink its slot by `topInsetPx` while pulling its drawn position
-        // up by the same amount. Net: the hero's gradient draws edge-to-
-        // edge from the very top of the screen (under the alpha-modulated
-        // bar), no empty band on landing; the pills still dock cleanly
-        // below the bar; and `PullToRefreshBox`'s indicator anchors at the
-        // bar's bottom edge (its bounds are also full-screen now, but the
-        // contentPadding flows through the LazyColumn's drag offset).
-        // Hoist the refresh state so we can wire it to a custom indicator.
-        // Default PullToRefreshBox positions its indicator at the box's
-        // top edge (= screen top here, since the box bounds extend to
-        // screen top to let the hero gradient draw behind the bar). That
-        // anchors the spinner under the status bar / camera cutout. We
-        // offset the indicator down by the bar's reserved height so it
-        // appears just below the bar instead.
-        val pullState = rememberPullToRefreshState()
-        PullToRefreshBox(
-            isRefreshing = activeTabIsRefreshing,
-            onRefresh = { onEvent(ProfileEvent.Refresh) },
-            state = pullState,
-            modifier = Modifier.fillMaxSize(),
-            indicator = {
-                PullToRefreshDefaults.Indicator(
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopCenter)
-                            .offset(y = padding.calculateTopPadding()),
-                    isRefreshing = activeTabIsRefreshing,
-                    state = pullState,
-                )
-            },
-        ) {
-            LazyColumn(
-                state = listState,
+
+    // Top Bar height = Status Bars + 64dp (Material 3 standard)
+    val statusBarsPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val topBarHeight = statusBarsPadding + 64.dp
+    val navBarsPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {},
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        ) { padding ->
+            val pullState = rememberPullToRefreshState()
+
+            PullToRefreshBox(
+                isRefreshing = activeTabIsRefreshing,
+                onRefresh = { onEvent(ProfileEvent.Refresh) },
+                state = pullState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = padding,
-            ) {
-                item(key = "hero", contentType = "hero") {
-                    val density = LocalDensity.current
-                    val topInsetDp = padding.calculateTopPadding()
-                    val topInsetPx = with(density) { topInsetDp.roundToPx() }
-                    ProfileHero(
-                        header = state.header,
-                        headerError = state.headerError,
-                        ownProfile = state.ownProfile,
-                        viewerRelationship = state.viewerRelationship,
-                        onRetryHeader = { onEvent(ProfileEvent.Refresh) },
-                        onEditTap = { onEvent(ProfileEvent.EditTapped) },
-                        onFollowTap = { onEvent(ProfileEvent.FollowTapped) },
-                        onMessageTap = { onEvent(ProfileEvent.MessageTapped) },
-                        onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
-                        onReportTap = { onEvent(ProfileEvent.OnReportAccountRequested) },
-                        onSettingsTap = { onEvent(ProfileEvent.SettingsTapped) },
-                        // [topInset] reserves space inside the hero's content for
-                        // the bar's vertical reservation. Combined with the
-                        // [Modifier.layout] shift below, the gradient backdrop
-                        // extends edge-to-edge from screen top while the avatar
-                        // / display-name / handle / loading skeleton / error
-                        // body sit at the post-bar position they'd occupy in a
-                        // no-bar layout — keeping the avatar clear of the
-                        // camera cutout.
-                        topInset = topInsetDp,
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
                         modifier =
-                            Modifier.layout { measurable, constraints ->
-                                // Measure the hero at its natural (now larger by
-                                // topInsetPx, because the inner content reserves
-                                // that vertical space) size, then shrink its
-                                // layout slot by `topInsetPx` (so the next item —
-                                // the pills stickyHeader — starts at the hero's
-                                // visible bottom, not `topInsetPx` below it) and
-                                // pull its placed position up by `topInsetPx`
-                                // (so it draws from the LazyColumn's bounds top,
-                                // which is the screen top behind the transparent
-                                // bar).
-                                val placeable = measurable.measure(constraints)
-                                val slotHeight =
-                                    (placeable.height - topInsetPx).coerceAtLeast(0)
-                                layout(placeable.width, slotHeight) {
-                                    placeable.place(0, -topInsetPx)
-                                }
-                            },
+                            Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = topBarHeight),
+                        isRefreshing = activeTabIsRefreshing,
+                        state = pullState,
                     )
-                }
-                stickyHeader(key = "tabs", contentType = "tabs") {
-                    // Solid surface backdrop matches the bar above it once
-                    // the user has scrolled past the hero — bar + pills read
-                    // as one continuous header surface when stuck. While the
-                    // hero is in view, the pills sit on the same surface
-                    // tone the bar will fade to, which is intentionally NOT
-                    // the gradient color (an earlier iteration sampled the
-                    // hero gradient here, but contrast against the pill
-                    // chips' content was unworkable on saturated banners).
-                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                        ProfilePillTabs(
-                            tabs = pillTabs,
-                            selectedValue = state.selectedTab,
-                            onSelect = { tab -> onEvent(ProfileEvent.TabSelected(tab)) },
+                },
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    // Using top contentPadding ensures stickyHeader pins below the TopAppBar.
+                    contentPadding = PaddingValues(top = topBarHeight, bottom = navBarsPadding),
+                ) {
+                    item(key = "hero", contentType = "hero") {
+                        ProfileHero(
+                            header = state.header,
+                            headerError = state.headerError,
+                            onRetryHeader = { onEvent(ProfileEvent.Refresh) },
+                            topInset = statusBarsPadding,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .layout { measurable, constraints ->
+                                        val placeable = measurable.measure(constraints)
+                                        val topBarHeightPx = topBarHeight.roundToPx()
+                                        // Pull the Hero up by topBarHeightPx to cancel the LazyColumn's
+                                        // contentPadding, making it draw behind the TopAppBar.
+                                        layout(placeable.width, placeable.height - topBarHeightPx) {
+                                            placeable.place(0, -topBarHeightPx)
+                                        }
+                                    },
                         )
                     }
-                }
-                when (state.selectedTab) {
-                    ProfileTab.Posts ->
-                        profileFeedTabBody(
-                            tab = ProfileTab.Posts,
-                            status = state.postsStatus,
-                            callbacks = postCallbacks,
-                            onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
-                            onVideoTap = onVideoTap,
-                            onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Posts)) },
-                            lastLikeTapPostUri = state.lastLikeTapPostUri,
-                            lastRepostTapPostUri = state.lastRepostTapPostUri,
-                        )
-                    ProfileTab.Replies ->
-                        profileFeedTabBody(
-                            tab = ProfileTab.Replies,
-                            status = state.repliesStatus,
-                            callbacks = postCallbacks,
-                            onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
-                            onVideoTap = onVideoTap,
-                            onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Replies)) },
-                            lastLikeTapPostUri = state.lastLikeTapPostUri,
-                            lastRepostTapPostUri = state.lastRepostTapPostUri,
-                        )
-                    ProfileTab.Media ->
-                        profileMediaTabBody(
-                            status = state.mediaStatus,
-                            // Media cell tap routes directly to MediaViewer
-                            // for images or the fullscreen video player for
-                            // video posts (the VM branches on cell.isVideo).
-                            // Neither path goes through PostDetail so the
-                            // user lands on the right surface for the thumb
-                            // they tapped.
-                            onMediaTap = { cell ->
-                                onEvent(
-                                    ProfileEvent.OnMediaCellTapped(
-                                        postUri = cell.postUri,
-                                        isVideo = cell.isVideo,
-                                    ),
-                                )
-                            },
-                            onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Media)) },
-                        )
+                    stickyHeader(key = "sticky_controls", contentType = "sticky_controls") {
+                        Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                            ProfileVerbsRow(
+                                ownProfile = state.ownProfile,
+                                viewerRelationship = state.viewerRelationship,
+                                canMessage = state.header?.canMessage ?: true,
+                                onEdit = { onEvent(ProfileEvent.EditTapped) },
+                                onFollow = { onEvent(ProfileEvent.FollowTapped) },
+                                onMessage = { onEvent(ProfileEvent.MessageTapped) },
+                                onReport = { onEvent(ProfileEvent.OnReportAccountRequested) },
+                                onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            ProfilePillTabs(
+                                tabs = pillTabs,
+                                selectedValue = state.selectedTab,
+                                onSelect = { tab -> onEvent(ProfileEvent.TabSelected(tab)) },
+                            )
+                        }
+                    }
+                    when (state.selectedTab) {
+                        ProfileTab.Posts ->
+                            profileFeedTabBody(
+                                tab = ProfileTab.Posts,
+                                status = state.postsStatus,
+                                callbacks = postCallbacks,
+                                onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
+                                onVideoTap = onVideoTap,
+                                onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Posts)) },
+                                lastLikeTapPostUri = state.lastLikeTapPostUri,
+                                lastRepostTapPostUri = state.lastRepostTapPostUri,
+                            )
+                        ProfileTab.Replies ->
+                            profileFeedTabBody(
+                                tab = ProfileTab.Replies,
+                                status = state.repliesStatus,
+                                callbacks = postCallbacks,
+                                onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
+                                onVideoTap = onVideoTap,
+                                onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Replies)) },
+                                lastLikeTapPostUri = state.lastLikeTapPostUri,
+                                lastRepostTapPostUri = state.lastRepostTapPostUri,
+                            )
+                        ProfileTab.Media ->
+                            profileMediaTabBody(
+                                status = state.mediaStatus,
+                                onMediaTap = { cell ->
+                                    onEvent(
+                                        ProfileEvent.OnMediaCellTapped(
+                                            postUri = cell.postUri,
+                                            isVideo = cell.isVideo,
+                                        ),
+                                    )
+                                },
+                                onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Media)) },
+                            )
+                    }
                 }
             }
         }
+        ProfileTopBar(
+            header = state.header,
+            listState = listState,
+            ownProfile = state.ownProfile,
+            onBack = onBack,
+            onSettings = { onEvent(ProfileEvent.SettingsTapped) },
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
     }
 
-    // Pagination: fire LoadMore for whichever tab is currently active when
-    // the LazyColumn's last-visible item passes the prefetch threshold and
-    // the active tab's status is `Loaded` with `hasMore && !isAppending`.
-    // All values captured by the LaunchedEffect (keyed only on [listState])
-    // are funneled through [rememberUpdatedState] so a re-bound
-    // onEvent / selectedTab / activeTabStatus is observed by the
-    // still-running effect without restarting it.
+    // Pagination
     val currentSelectedTab by rememberUpdatedState(state.selectedTab)
     val currentActiveTabStatus by rememberUpdatedState(state.activeTabStatus())
     val currentOnEvent by rememberUpdatedState(onEvent)
@@ -261,12 +224,6 @@ internal fun ProfileScreenContent(
     }
 }
 
-/**
- * Returns the [TabLoadStatus] of the currently-selected tab. Used by
- * the pagination gate to evaluate `Loaded && hasMore && !isAppending`
- * for whichever tab is active — Bead E generalized this from Bead D's
- * Posts-only hardcoded gate.
- */
 private fun ProfileScreenViewState.activeTabStatus(): TabLoadStatus =
     when (selectedTab) {
         ProfileTab.Posts -> postsStatus
@@ -274,11 +231,6 @@ private fun ProfileScreenViewState.activeTabStatus(): TabLoadStatus =
         ProfileTab.Media -> mediaStatus
     }
 
-/**
- * Returns true when the currently-selected tab is in a `Loaded`
- * status with `isRefreshing = true`. PullToRefreshBox uses this to
- * drive its spinner.
- */
 private fun ProfileScreenViewState.activeTabIsRefreshing(): Boolean {
     val status = activeTabStatus()
     return status is TabLoadStatus.Loaded && status.isRefreshing
