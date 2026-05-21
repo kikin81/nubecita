@@ -3,10 +3,10 @@ package net.kikin.nubecita.designsystem.tabs
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -81,7 +81,7 @@ public fun <T> ProfilePillTabs(
         // by the API surface but is unreachable in this configuration.
         overflowIndicator = {},
         expandedRatio = 0.025f,
-        modifier = modifier.padding(horizontal = ToggleButtonDefaults.IconSpacing),
+        modifier = modifier.padding(horizontal = 8.dp),
     ) {
         tabs.forEach { tab ->
             val isSelected = tab.value == selectedValue

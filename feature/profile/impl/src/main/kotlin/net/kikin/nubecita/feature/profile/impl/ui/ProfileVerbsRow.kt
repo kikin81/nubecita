@@ -28,8 +28,10 @@ import net.kikin.nubecita.feature.profile.impl.StubbedAction
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 
 /**
- * Sticky "Verbs" row for the profile — primary actions docked just
- * below the top bar.
+ * Primary "Verbs" action row for the profile. Sits below the hero
+ * in the normal scroll flow (NOT sticky — see
+ * `openspec/changes/refactor-profile-expressive-design/design.md`
+ * Decision 5).
  *
  * - Own profile: a single tonal "Edit profile" pill (Settings lives
  *   in the top bar).

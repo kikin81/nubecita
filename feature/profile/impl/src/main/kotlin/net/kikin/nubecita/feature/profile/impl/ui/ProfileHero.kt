@@ -269,7 +269,8 @@ private fun ProfileHeroError(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(top = topInset),
+                .padding(top = topInset)
+                .padding(horizontal = 16.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

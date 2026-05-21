@@ -123,7 +123,7 @@ internal fun ProfileScreenContent(
                         ProfileVerbsRow(
                             ownProfile = state.ownProfile,
                             viewerRelationship = state.viewerRelationship,
-                            canMessage = state.header?.canMessage ?: true,
+                            canMessage = state.header?.canMessage == true,
                             onEdit = { onEvent(ProfileEvent.EditTapped) },
                             onFollow = { onEvent(ProfileEvent.FollowTapped) },
                             onMessage = { onEvent(ProfileEvent.MessageTapped) },
