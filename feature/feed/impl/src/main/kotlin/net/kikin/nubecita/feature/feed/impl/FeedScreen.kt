@@ -21,10 +21,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -41,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -468,13 +470,34 @@ internal fun FeedScreenContent(
                         )
                     }
                 } else {
-                    LargeFloatingActionButton(onClick = onComposeClick) {
-                        NubecitaIcon(
-                            name = NubecitaIconName.Edit,
-                            contentDescription = stringResource(R.string.feed_compose_new_post),
-                            filled = true,
-                        )
-                    }
+                    // Small Extended FAB on tablets: 56dp container height
+                    // (same as the compact FAB) plus a "Compose" pill label
+                    // — discoverable on tablet width without the visual
+                    // heft of the 96dp Large or 80dp Medium variants.
+                    //
+                    // Accessibility split: the icon carries the longer
+                    // "Compose new post" description (same as the compact
+                    // variant), and the visible "Compose" label is
+                    // cleared from the semantics tree via
+                    // `clearAndSetSemantics {}` so TalkBack reads the full
+                    // action description once, not "Compose new post,
+                    // Compose, button".
+                    SmallExtendedFloatingActionButton(
+                        onClick = onComposeClick,
+                        text = {
+                            Text(
+                                text = stringResource(R.string.feed_compose_fab_label),
+                                modifier = Modifier.clearAndSetSemantics {},
+                            )
+                        },
+                        icon = {
+                            NubecitaIcon(
+                                name = NubecitaIconName.Edit,
+                                contentDescription = stringResource(R.string.feed_compose_new_post),
+                                filled = true,
+                            )
+                        },
+                    )
                 }
             }
         },

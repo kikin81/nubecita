@@ -41,12 +41,18 @@
     <string name="postcard_video_unmute">Unmute video</string>
     <string name="postcard_video_resume">Tap to resume</string>
 
-    <!-- Compose-new-post FAB content description. wtq.9 swaps the prior
-         "scroll to top" FAB content for the composer entry point. The home-
-         tab retap path that the old FAB shared with this screen still works
-         via LocalTabReTapSignal — the visible affordance is just the
-         compose icon now. -->
+    <!-- Compose-new-post FAB accessibility content description. wtq.9
+         swaps the prior "scroll to top" FAB content for the composer entry
+         point. The home-tab retap path that the old FAB shared with this
+         screen still works via LocalTabReTapSignal — the visible affordance
+         is the compose icon (compact) or icon + "Compose" pill (tablet),
+         and this longer string is what TalkBack announces in both. -->
     <string name="feed_compose_new_post">Compose new post</string>
+
+    <!-- Visible label on the tablet extended FAB pill. Kept short for
+         pill width; the longer "Compose new post" is the a11y description
+         (see [feed_compose_new_post] above). -->
+    <string name="feed_compose_fab_label">Compose</string>
 
     <!-- PostCard overflow-menu "coming soon" snackbars. oftc.2 wires every
          menu entry to one of these acknowledgements; oftc.3 / .4 / .5
