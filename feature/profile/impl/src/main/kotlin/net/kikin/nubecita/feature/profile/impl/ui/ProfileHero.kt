@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -36,6 +37,7 @@ private val AvatarSize = 96.dp
 private val AvatarRingWidth = 4.dp
 private val BannerHeight = 200.dp
 private val AvatarOverlap = 48.dp
+private val BannerCornerRadius = 28.dp
 
 /**
  * Hero card orchestrator. Updated to Material 3 Expressive "overlapping" design.
@@ -76,13 +78,25 @@ private fun ProfileHeroLoaded(
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
 ) {
+    val bannerShape =
+        RoundedCornerShape(
+            topStart = BannerCornerRadius,
+            topEnd = BannerCornerRadius,
+        )
     Column(modifier = modifier.fillMaxWidth()) {
+        // Parent Box intentionally has NO clip — the avatar below overlaps the
+        // banner's bottom edge via offset, and a parent clip would crop its
+        // bottom half. Instead, the rounded-corner clip is applied to the
+        // banner image and the scrim individually.
         Box(modifier = Modifier.fillMaxWidth().height(BannerHeight + topInset)) {
             // 1. Actual Banner Image
             NubecitaAsyncImage(
                 model = header.bannerUrl,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clip(bannerShape),
                 contentScale = ContentScale.Crop,
             )
 
@@ -92,6 +106,7 @@ private fun ProfileHeroLoaded(
                     Modifier
                         .fillMaxWidth()
                         .height(topInset + 32.dp)
+                        .clip(bannerShape)
                         .background(
                             Brush.verticalGradient(
                                 colors =
@@ -125,6 +140,7 @@ private fun ProfileHeroLoaded(
                         Modifier
                             .size(AvatarSize)
                             .clip(CircleShape),
+                    contentScale = ContentScale.Crop,
                 )
             }
         }
@@ -183,33 +199,51 @@ private fun ProfileHeroLoading(
     topInset: Dp = 0.dp,
 ) {
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(BannerHeight + topInset)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-        )
-        Spacer(Modifier.height(8.dp))
-        Box(
-            modifier =
-                Modifier
-                    .size(AvatarSize)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-        )
-        Spacer(Modifier.height(8.dp))
+        val loadingBannerShape =
+            RoundedCornerShape(
+                topStart = BannerCornerRadius,
+                topEnd = BannerCornerRadius,
+            )
+        Box(modifier = Modifier.fillMaxWidth().height(BannerHeight + topInset)) {
+            // Banner placeholder — clip+background applied locally so the
+            // overlapping avatar below isn't cropped by a parent clip.
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clip(loadingBannerShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset(y = AvatarOverlap)
+                        .size(AvatarSize + AvatarRingWidth * 2)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(AvatarSize)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                )
+            }
+        }
+        Spacer(Modifier.height(AvatarOverlap + 8.dp))
         Box(
             modifier =
                 Modifier
                     .size(width = 160.dp, height = 24.dp)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
         )
+        Spacer(Modifier.height(8.dp))
         Box(
             modifier =
                 Modifier

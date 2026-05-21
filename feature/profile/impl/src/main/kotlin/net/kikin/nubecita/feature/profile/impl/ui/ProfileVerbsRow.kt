@@ -1,18 +1,23 @@
 package net.kikin.nubecita.feature.profile.impl.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -23,15 +28,20 @@ import net.kikin.nubecita.feature.profile.impl.StubbedAction
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 
 /**
- * Sticky action buttons ("Verbs") for the profile screen.
+ * Sticky "Verbs" row for the profile — primary actions docked just
+ * below the top bar.
  *
- * Uses Material 3 Expressive [ButtonGroup] to provide a unified
- * set of primary actions.
+ * - Own profile: a single tonal "Edit profile" pill (Settings lives
+ *   in the top bar).
+ * - Other profile: a primary "Follow" / tonal "Following" pill, an
+ *   optional tonal "Message" pill (when DM-reachable), and an
+ *   overflow [IconButton] anchoring the moderation menu.
  *
- * - Own Profile: Edit (Primary)
- * - Other Profile: Follow/Following (Primary/Tonal), Message (Tonal), Overflow (Icon)
+ * Plain [Row] + pill [Button]s on purpose: M3 Expressive's
+ * [androidx.compose.material3.ButtonGroup] is a segmented-selection
+ * primitive and its `toggleableItem` carries selection state — these
+ * are one-shot verbs, not toggles.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ProfileVerbsRow(
     ownProfile: Boolean,
@@ -44,92 +54,106 @@ internal fun ProfileVerbsRow(
     onOverflowAction: (StubbedAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val editLabel = stringResource(R.string.profile_action_edit)
-    val followLabel =
-        if (viewerRelationship is ViewerRelationship.Following) {
-            stringResource(R.string.profile_action_following)
-        } else {
-            stringResource(R.string.profile_action_follow)
-        }
-    val messageLabel = stringResource(R.string.profile_action_message)
-    val overflowLabel = stringResource(R.string.profile_action_overflow)
-    val blockLabel = stringResource(R.string.profile_action_block)
-    val muteLabel = stringResource(R.string.profile_action_mute)
-    val reportLabel = stringResource(R.string.profile_action_report)
-
-    var overflowExpanded by remember { mutableStateOf(false) }
-
-    ButtonGroup(
+    Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-        overflowIndicator = {},
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         if (ownProfile) {
-            toggleableItem(
-                checked = false,
-                onCheckedChange = { if (it) onEdit() },
-                label = editLabel,
-                weight = 1f,
-            )
-        } else {
-            val isFollowing = viewerRelationship is ViewerRelationship.Following
-
-            toggleableItem(
-                checked = isFollowing,
-                onCheckedChange = { if (it || isFollowing) onFollow() },
-                label = followLabel,
-                weight = 1f,
-                enabled = !viewerRelationship.isPending,
-            )
-
-            if (canMessage) {
-                toggleableItem(
-                    checked = false,
-                    onCheckedChange = { if (it) onMessage() },
-                    label = messageLabel,
-                    weight = 1f,
-                )
+            FilledTonalButton(
+                onClick = onEdit,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.profile_action_edit))
             }
+        } else {
+            FollowVerbButton(
+                viewerRelationship = viewerRelationship,
+                onFollow = onFollow,
+                modifier = Modifier.weight(1f),
+            )
+            if (canMessage) {
+                FilledTonalButton(
+                    onClick = onMessage,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.profile_action_message))
+                }
+            }
+            ProfileOverflowMenuButton(
+                onReport = onReport,
+                onOverflowAction = onOverflowAction,
+            )
+        }
+    }
+}
 
-            toggleableItem(
-                checked = false,
-                onCheckedChange = { if (it) overflowExpanded = true },
-                label = overflowLabel,
-                icon = {
-                    Box {
-                        NubecitaIcon(
-                            name = NubecitaIconName.MoreVert,
-                            contentDescription = overflowLabel,
-                        )
-                        DropdownMenu(
-                            expanded = overflowExpanded,
-                            onDismissRequest = { overflowExpanded = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(blockLabel) },
-                                onClick = {
-                                    overflowExpanded = false
-                                    onOverflowAction(StubbedAction.Block)
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(muteLabel) },
-                                onClick = {
-                                    overflowExpanded = false
-                                    onOverflowAction(StubbedAction.Mute)
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(reportLabel) },
-                                onClick = {
-                                    overflowExpanded = false
-                                    onReport()
-                                },
-                            )
-                        }
-                    }
+@Composable
+private fun RowScope.FollowVerbButton(
+    viewerRelationship: ViewerRelationship,
+    onFollow: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isFollowing = viewerRelationship is ViewerRelationship.Following
+    val enabled = !viewerRelationship.isPending
+    if (isFollowing) {
+        FilledTonalButton(
+            onClick = onFollow,
+            enabled = enabled,
+            modifier = modifier,
+        ) {
+            Text(stringResource(R.string.profile_action_following))
+        }
+    } else {
+        Button(
+            onClick = onFollow,
+            enabled = enabled,
+            modifier = modifier,
+        ) {
+            Text(stringResource(R.string.profile_action_follow))
+        }
+    }
+}
+
+@Composable
+private fun ProfileOverflowMenuButton(
+    onReport: () -> Unit,
+    onOverflowAction: (StubbedAction) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            NubecitaIcon(
+                name = NubecitaIconName.MoreVert,
+                contentDescription = stringResource(R.string.profile_action_overflow),
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.profile_action_block)) },
+                onClick = {
+                    expanded = false
+                    onOverflowAction(StubbedAction.Block)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.profile_action_mute)) },
+                onClick = {
+                    expanded = false
+                    onOverflowAction(StubbedAction.Mute)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.profile_action_report)) },
+                onClick = {
+                    expanded = false
+                    onReport()
                 },
             )
         }
