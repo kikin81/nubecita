@@ -1,9 +1,12 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import android.content.res.Configuration
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
@@ -13,11 +16,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import androidx.window.core.layout.WindowSizeClass
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.time.LocalClock
@@ -389,9 +395,38 @@ private fun ProfileScreenScrolledAwayScreenshot() {
 private fun ProfileScreenMediumTwoPaneEmptyScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         val backStack = remember { mutableStateListOf<NavKey>(Profile(handle = null)) }
+        // Mirrors the production wiring in `MainShell.kt` — kept in sync
+        // manually until a shared helper lives in a module both can reach.
+        // Override `defaultPanePreferredWidth` so the list-pane chrome
+        // (Profile verb row + pill tabs) doesn't wrap, and wire the
+        // `paneExpansionDragHandle` so the divider is user-resizable.
+        val adaptiveInfo = currentWindowAdaptiveInfoV2()
+        val baseDirective = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo)
+        val widthClass = adaptiveInfo.windowSizeClass
+        val directive =
+            baseDirective.copy(
+                defaultPanePreferredWidth =
+                    when {
+                        widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> 440.dp
+                        widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> 412.dp
+                        else -> baseDirective.defaultPanePreferredWidth
+                    },
+            )
         val sceneStrategy =
             rememberListDetailSceneStrategy<NavKey>(
-                directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(currentWindowAdaptiveInfoV2()),
+                directive = directive,
+                paneExpansionDragHandle = { state ->
+                    val interactionSource = remember { MutableInteractionSource() }
+                    VerticalDragHandle(
+                        modifier =
+                            Modifier.paneExpansionDraggable(
+                                state = state,
+                                minTouchTargetSize = LocalMinimumInteractiveComponentSize.current,
+                                interactionSource = interactionSource,
+                            ),
+                        interactionSource = interactionSource,
+                    )
+                },
             )
         NavDisplay(
             backStack = backStack,
