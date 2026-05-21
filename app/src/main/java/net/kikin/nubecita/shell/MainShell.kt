@@ -1,7 +1,10 @@
 package net.kikin.nubecita.shell
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
@@ -16,11 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import androidx.window.core.layout.WindowSizeClass
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -159,9 +164,43 @@ fun MainShell(modifier: Modifier = Modifier) {
     // and what design.md predicts — is two-pane at Medium widths (≥600dp,
     // i.e. tablet portrait) too, so use the explicit
     // `…WithTwoPanesOnMediumWidth` directive variant.
+    //
+    // Override `defaultPanePreferredWidth`: the M3 default of 360dp is too
+    // narrow on tablets — the Profile screen's pill-tabs row wraps
+    // "Replies" to two lines. 412dp at Medium and 440dp at Expanded gives
+    // the list-pane chrome room to breathe while leaving sensible room
+    // for the detail pane.
+    val baseDirective = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo)
+    val widthClass = adaptiveInfo.windowSizeClass
+    val listDetailDirective =
+        baseDirective.copy(
+            defaultPanePreferredWidth =
+                when {
+                    widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> 440.dp
+                    widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> 412.dp
+                    else -> baseDirective.defaultPanePreferredWidth
+                },
+        )
     val sceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(
-            directive = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo),
+            directive = listDetailDirective,
+            // User-draggable divider between list and detail panes.
+            // `paneExpansionState = null` lets the scene strategy create a
+            // default expansion state internally. Visual handle follows the
+            // M3 sample: a `VerticalDragHandle` with `paneExpansionDraggable`
+            // wiring the touch target to the expansion state.
+            paneExpansionDragHandle = { state ->
+                val interactionSource = remember { MutableInteractionSource() }
+                VerticalDragHandle(
+                    modifier =
+                        Modifier.paneExpansionDraggable(
+                            state = state,
+                            minTouchTargetSize = LocalMinimumInteractiveComponentSize.current,
+                            interactionSource = interactionSource,
+                        ),
+                    interactionSource = interactionSource,
+                )
+            },
         )
 
     // Default `calculateFromAdaptiveInfo` returns:
