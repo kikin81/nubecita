@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
  * at the call site by which local you reach for. The convention is
  * that only the two composer hosts emit.
  *
- * Mirrors the producer/consumer split of [LocalScrollToTopSignal] —
+ * Mirrors the producer/consumer split of [LocalTabReTapSignal] —
  * in that case `MainShell` is the sole producer and holds the
  * [kotlinx.coroutines.flow.MutableSharedFlow] locally, but here the
  * producers live in different modules from `MainShell`, so the emit

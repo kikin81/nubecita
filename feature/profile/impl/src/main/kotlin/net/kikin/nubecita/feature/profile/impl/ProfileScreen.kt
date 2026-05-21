@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
@@ -57,6 +58,15 @@ internal fun ProfileScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Profile-tab re-tap: scroll the list back to position 0. Same shape
+    // as FeedScreen's collector — see `LocalTabReTapSignal` KDoc for the
+    // signal contract. The default empty SharedFlow (no provider in
+    // previews / screenshot tests) never emits.
+    val tabReTapSignal = LocalTabReTapSignal.current
+    LaunchedEffect(tabReTapSignal, listState) {
+        tabReTapSignal.collect { listState.animateScrollToItem(0) }
+    }
 
     val haptics = rememberPostHaptics()
     val callbacks =

@@ -598,11 +598,11 @@ The `@MainShell`-qualified `EntryProviderInstaller` provided by `:feature:feed:i
 - **WHEN** the source of `FeedDetailPlaceholder` is inspected
 - **THEN** the contained `Icon` Composable SHALL pass `contentDescription = null`
 
-### Requirement: `FeedScreen` consumes `LocalScrollToTopSignal` and hosts the compose FAB
+### Requirement: `FeedScreen` consumes `LocalTabReTapSignal` and hosts the compose FAB
 
-`FeedScreen` SHALL opt into the `core-common-navigation` scroll-to-top contract AND host the compose-new-post entry point in its Scaffold's `floatingActionButton` slot. Two coordinated behaviors:
+`FeedScreen` SHALL opt into the `core-common-navigation` tab-re-tap contract (renamed from the prior `ScrollToTopSignal` after sibling tabs adopted the same signal for non-scroll actions) AND host the compose-new-post entry point in its Scaffold's `floatingActionButton` slot. Two coordinated behaviors:
 
-1. **Signal collector.** A `LaunchedEffect` keyed on `(LocalScrollToTopSignal.current, listState)` collects the flow and calls `listState.animateScrollToItem(0)` on each emission. Both keys are required so the collector restarts cleanly if either reference changes (e.g., a new MainShell composition or a fresh `LazyListState` from `rememberSaveable` after process death). This behavior is preserved verbatim from the prior scroll-to-top change.
+1. **Signal collector.** A `LaunchedEffect` keyed on `(LocalTabReTapSignal.current, listState)` collects the flow and calls `listState.animateScrollToItem(0)` on each emission. Both keys are required so the collector restarts cleanly if either reference changes (e.g., a new MainShell composition or a fresh `LazyListState` from `rememberSaveable` after process death). This behavior is preserved verbatim from the prior scroll-to-top change.
 2. **Compose FAB.** A badge-wrappable, icon-only FAB (`FloatingActionButton`, `LargeFloatingActionButton`, or `SmallFloatingActionButton` — NOT `ExtendedFloatingActionButton`, which the `:core:drafts` follow-up cannot cleanly badge) rendered in the existing `Scaffold.floatingActionButton` slot whenever the feed view-state is `FeedScreenViewState.Loaded`. The FAB size SHALL adapt to width class: `FloatingActionButton` (56dp) at Compact width, `LargeFloatingActionButton` (96dp) at Medium and Expanded widths per the M3 expressive guidance. The FAB MUST NOT be gated on scroll position — it is visible at `firstVisibleItemIndex == 0` and at any deeper position. Its content is an `Icon(Icons.Default.Edit, ...)` (or M3's expressive create-equivalent) with a localized content description (`R.string.feed_compose_new_post`). Its `onClick` invokes a width-class-conditional launcher: at Compact width it pushes `ComposerRoute()` onto `LocalMainShellNavState.current`; at Medium/Expanded widths it transitions the `MainShell`-scoped composer-launcher state holder to `Open(replyToUri = null)`. The FAB MUST NOT appear over `InitialLoading`, `Empty`, or `InitialError` view-states.
 
 The `FeedViewModel` is unchanged. No new state field, no new event, no new effect. Both the compose FAB onClick and the signal collector run at the screen Composable layer; they don't cross the VM boundary (per the `mvi-foundation` capability's "VMs don't see CompositionLocals" rule).
@@ -650,7 +650,7 @@ The `FeedViewModel` is unchanged. No new state field, no new event, no new effec
 #### Scenario: Re-tapping the active bottom-nav tab still scrolls Feed to top
 
 - **WHEN** the user is on the Feed tab with `firstVisibleItemIndex > 0` and re-taps the Feed tab
-- **THEN** MainShell emits `Unit` via `LocalScrollToTopSignal`, the `FeedScreen` `LaunchedEffect` collector receives the emission, and `listState.animateScrollToItem(0)` runs
+- **THEN** MainShell emits `Unit` via `LocalTabReTapSignal`, the `FeedScreen` `LaunchedEffect` collector receives the emission, and `listState.animateScrollToItem(0)` runs
 
 #### Scenario: VM is unchanged
 

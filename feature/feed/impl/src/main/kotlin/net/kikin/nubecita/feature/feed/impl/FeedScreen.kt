@@ -54,7 +54,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
-import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
+import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
 import net.kikin.nubecita.data.models.AuthorUi
@@ -417,9 +417,9 @@ internal fun FeedScreenContent(
     // contexts is a runtime no-op. Keyed on (signal, listState) so the
     // collector restarts cleanly across recompositions that re-create
     // either reference.
-    val scrollToTopSignal = LocalScrollToTopSignal.current
-    LaunchedEffect(scrollToTopSignal, listState) {
-        scrollToTopSignal.collect { listState.animateScrollToItem(0) }
+    val tabReTapSignal = LocalTabReTapSignal.current
+    LaunchedEffect(tabReTapSignal, listState) {
+        tabReTapSignal.collect { listState.animateScrollToItem(0) }
     }
     // FAB is the composer entry point. wtq.9 swapped the prior scroll-
     // to-top FAB content for `NubecitaIcon(NubecitaIconName.Edit)`. The action itself
@@ -430,7 +430,7 @@ internal fun FeedScreenContent(
     // PostDetailNavigationModule) wires nav callbacks at the
     // EntryProvider, not inside the screen Composable. The home-tab
     // retap path that the old FAB shared with this screen still works
-    // via the `LocalScrollToTopSignal` collector above.
+    // via the `LocalTabReTapSignal` collector above.
     //
     // Visibility gate: only Loaded. InitialLoading / Empty / InitialError
     // hide the FAB so the user isn't tempted to compose into a feed
