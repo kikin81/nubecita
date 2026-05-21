@@ -11,7 +11,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -37,13 +40,24 @@ internal fun SearchInputRow(
     isQueryBlank: Boolean,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Optional focus requester hoisted from the parent so callers can
+     * programmatically request focus on the search field — used by the
+     * `SearchScreen` collector of `LocalTabReTapSignal` to focus the
+     * field when the user re-taps the Search bottom-nav item
+     * (#267 / nubecita-vrba.13). Defaults to a fresh requester
+     * `remember`-ed inside the composable so previews / screenshot tests
+     * can render the row without threading one through.
+     */
+    focusRequester: FocusRequester = remember { FocusRequester() },
 ) {
     OutlinedTextField(
         state = textFieldState,
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .focusRequester(focusRequester),
         placeholder = { Text(stringResource(R.string.search_input_hint)) },
         leadingIcon = {
             NubecitaIcon(

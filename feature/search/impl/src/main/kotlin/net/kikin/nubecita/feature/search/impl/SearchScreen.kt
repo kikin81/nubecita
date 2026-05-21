@@ -17,15 +17,19 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 import net.kikin.nubecita.feature.search.impl.ui.SearchInputRow
@@ -115,6 +119,21 @@ internal fun SearchScreenContent(
 
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
     val tabScope = rememberCoroutineScope()
+
+    // Search-tab re-tap: focus the SearchInputRow's TextField and pop the
+    // soft keyboard. MainShell emits on `LocalTabReTapSignal` whenever
+    // the user taps the active bottom-nav item; the default empty signal
+    // (no provider in previews / screenshot tests) never emits so this
+    // is a runtime no-op in those contexts. Issue #267 / nubecita-vrba.13.
+    val searchFieldFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val tabReTapSignal = LocalTabReTapSignal.current
+    LaunchedEffect(tabReTapSignal, searchFieldFocusRequester, keyboardController) {
+        tabReTapSignal.collect {
+            searchFieldFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
 
     // Pre-resolve all nine append-error strings via stringResource() so
     // the snackbar lambdas can pick by variant without calling
@@ -252,6 +271,7 @@ internal fun SearchScreenContent(
                 textFieldState = textFieldState,
                 isQueryBlank = isQueryBlank,
                 onSubmit = onSubmit,
+                focusRequester = searchFieldFocusRequester,
             )
             when (phase) {
                 SearchPhase.Discover ->

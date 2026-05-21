@@ -7,10 +7,30 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * Tap-to-top signal. Emitted by `MainShell` when the user re-taps the
- * currently-active bottom-nav tab. Feature screens that opt into the
- * gesture collect this flow inside a `LaunchedEffect` and call
- * `LazyListState.animateScrollToItem(0)`.
+ * Bottom-nav tab RE-TAP signal. Emitted by `MainShell` whenever the
+ * user taps the bottom-nav item for the currently-active tab. Each
+ * top-level destination interprets the re-tap differently:
+ *
+ *  - **Feed** — scroll the feed list back to position 0
+ *    (`LazyListState.animateScrollToItem(0)`).
+ *  - **Search** — focus the search `TextField` + open the soft
+ *    keyboard. Matches the Play Store / Twitter / Bluesky convention
+ *    for re-tapping a search tab.
+ *  - **Profile** — scroll the profile feed list back to position 0
+ *    (same shape as Feed).
+ *  - **Chats** — not wired today; the bus emits regardless so adding a
+ *    consumer is a Composable-only change.
+ *
+ * # Why one signal, no payload
+ *
+ * The signal is `Unit` rather than carrying the re-tapped [androidx.navigation3.runtime.NavKey].
+ * Nav3 with per-tab back-stacks only composes the active tab's
+ * content, so any subscriber sees emissions only while ITS tab is on
+ * screen — the active-tab identity is implicit. Adding a `NavKey`
+ * payload would push a filter (`.filter { it == myTabKey }`) into
+ * every consumer for zero practical benefit today. Revisit only if
+ * the architecture ever composes inactive tabs (preview surfaces,
+ * pre-warming).
  *
  * # Contract
  *
@@ -19,16 +39,16 @@ import kotlinx.coroutines.flow.asSharedFlow
  * `BufferOverflow.DROP_OLDEST`). The buffer choice is deliberate:
  *
  * - **No replay** — late subscribers don't see prior emissions. A tab
- *   that just became visible doesn't auto-scroll on entry.
+ *   that just became visible doesn't auto-fire its consumer on entry.
  * - **Single-slot buffer + DROP_OLDEST** — [MutableSharedFlow.tryEmit]
  *   always succeeds. If the consumer's `collect { ... }` body is
  *   mid-suspend (e.g. running an `animateScrollToItem` from a prior
  *   emission, or restarting between recompositions), the new emission
  *   buffers and is delivered as soon as the body returns. Rapid
- *   double-taps collapse into a single scroll-to-top (DROP_OLDEST
- *   discards the buffered older one). Pure rendezvous semantics
- *   (`buffer = 0`) silently drop emissions during these windows, which
- *   manifests as "the tap registered but nothing happened."
+ *   double-taps collapse into a single action (DROP_OLDEST discards
+ *   the buffered older one). Pure rendezvous semantics (`buffer = 0`)
+ *   silently drop emissions during these windows, which manifests as
+ *   "the tap registered but nothing happened."
  * - Producers should still call [MutableSharedFlow.tryEmit] (not
  *   `emit`) so the producer never suspends.
  *
@@ -57,24 +77,39 @@ import kotlinx.coroutines.flow.asSharedFlow
  * the same pattern used by [LocalMainShellNavState] for tab-internal
  * navigation.
  *
- * # Consumer pattern
+ * # Consumer pattern (scroll-to-top — Feed / Profile)
  *
  * ```kotlin
  * @Composable
- * fun MyScreen(...) {
+ * fun FeedScreen(...) {
  *     val listState = rememberLazyListState()
- *     val scrollToTopSignal = LocalScrollToTopSignal.current
- *     LaunchedEffect(scrollToTopSignal, listState) {
- *         scrollToTopSignal.collect { listState.animateScrollToItem(0) }
+ *     val tabReTapSignal = LocalTabReTapSignal.current
+ *     LaunchedEffect(tabReTapSignal, listState) {
+ *         tabReTapSignal.collect { listState.animateScrollToItem(0) }
  *     }
  *     // ... rest of screen
  * }
  * ```
  *
+ * # Consumer pattern (focus + IME — Search)
+ *
+ * ```kotlin
+ * val focusRequester = remember { FocusRequester() }
+ * val keyboard = LocalSoftwareKeyboardController.current
+ * val tabReTapSignal = LocalTabReTapSignal.current
+ * LaunchedEffect(tabReTapSignal, focusRequester, keyboard) {
+ *     tabReTapSignal.collect {
+ *         focusRequester.requestFocus()
+ *         keyboard?.show()
+ *     }
+ * }
+ * // Apply `Modifier.focusRequester(focusRequester)` to the TextField.
+ * ```
+ *
  * # Producer pattern (`MainShell`)
  *
  * ```kotlin
- * val scrollToTopSignal = remember {
+ * val tabReTapSignal = remember {
  *     MutableSharedFlow<Unit>(
  *         replay = 0,
  *         extraBufferCapacity = 1,
@@ -82,13 +117,13 @@ import kotlinx.coroutines.flow.asSharedFlow
  *     )
  * }
  * // Stable read-only view so the CompositionLocal value doesn't churn:
- * val readOnlyScrollToTopSignal = remember(scrollToTopSignal) {
- *     scrollToTopSignal.asSharedFlow()
+ * val readOnlyTabReTapSignal = remember(tabReTapSignal) {
+ *     tabReTapSignal.asSharedFlow()
  * }
  * // tab tap handler:
- * if (tapped == activeTab) scrollToTopSignal.tryEmit(Unit) else navigateToTab(tapped)
+ * if (tapped == activeTab) tabReTapSignal.tryEmit(Unit) else navigateToTab(tapped)
  *
- * CompositionLocalProvider(LocalScrollToTopSignal provides readOnlyScrollToTopSignal) {
+ * CompositionLocalProvider(LocalTabReTapSignal provides readOnlyTabReTapSignal) {
  *     // ... NavDisplay etc.
  * }
  * ```
@@ -97,13 +132,14 @@ import kotlinx.coroutines.flow.asSharedFlow
  * so ktlint's `compose:compositionlocal-allowlist` rule lets it through,
  * matching the convention used by `LocalClock` and `LocalMainShellNavState`.
  */
-val LocalScrollToTopSignal: ProvidableCompositionLocal<SharedFlow<Unit>> =
-    compositionLocalOf { EmptyScrollToTopSignal }
+@Suppress("ktlint:compose:compositionlocal-allowlist")
+val LocalTabReTapSignal: ProvidableCompositionLocal<SharedFlow<Unit>> =
+    compositionLocalOf { EmptyTabReTapSignal }
 
 /**
- * The default value of [LocalScrollToTopSignal] — a silent
+ * The default value of [LocalTabReTapSignal] — a silent
  * [SharedFlow] that never emits. Held as a singleton so previews don't
  * pay an allocation per composition.
  */
-private val EmptyScrollToTopSignal: SharedFlow<Unit> =
+private val EmptyTabReTapSignal: SharedFlow<Unit> =
     MutableSharedFlow<Unit>(replay = 0).asSharedFlow()

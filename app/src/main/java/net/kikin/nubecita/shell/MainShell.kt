@@ -31,7 +31,7 @@ import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
-import net.kikin.nubecita.core.common.navigation.LocalScrollToTopSignal
+import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -96,15 +96,16 @@ fun MainShell(modifier: Modifier = Modifier) {
             topLevelRoutes = TopLevelDestinations.map { it.key },
         )
 
-    // Hot SharedFlow that fires `Unit` on bottom-nav tab RE-TAP. Feature
-    // screens that opt in (today: FeedScreen) collect this in a
-    // LaunchedEffect and call animateScrollToItem(0).
+    // Hot SharedFlow that fires `Unit` on bottom-nav tab RE-TAP. Each
+    // active tab's screen interprets the re-tap differently (Feed →
+    // scroll to top, Search → focus + IME, Profile → scroll to top —
+    // see `TabReTapSignal.kt` KDoc for the full consumer list).
     //
     // `extraBufferCapacity = 1` + `BufferOverflow.DROP_OLDEST` means
     // `tryEmit` always succeeds (no rendezvous semantics): if a tap fires
     // while the collector's lambda is mid-suspend (e.g. running an
     // animateScrollToItem from a previous emission), the new emission
-    // buffers; rapid double-taps collapse into a single scroll-to-top
+    // buffers; rapid double-taps collapse into a single action
     // (DROP_OLDEST keeps the most recent). With pure replay=0+buffer=0
     // (rendezvous), `tryEmit` returns false during the brief
     // LaunchedEffect-restart window and the user's tap is silently
@@ -113,7 +114,7 @@ fun MainShell(modifier: Modifier = Modifier) {
     // The asSharedFlow() wrapper is `remember`-d so the CompositionLocal
     // value is stable across recompositions and feature LaunchedEffects
     // keyed on the SharedFlow don't restart unnecessarily.
-    val scrollToTopSignal =
+    val tabReTapSignal =
         remember {
             MutableSharedFlow<Unit>(
                 replay = 0,
@@ -121,7 +122,7 @@ fun MainShell(modifier: Modifier = Modifier) {
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
         }
-    val readOnlyScrollToTopSignal = remember(scrollToTopSignal) { scrollToTopSignal.asSharedFlow() }
+    val readOnlyTabReTapSignal = remember(tabReTapSignal) { tabReTapSignal.asSharedFlow() }
 
     // MainShell-scoped composer submit-events bus. Emitted by both
     // composer hosts (the Compact NavDisplay route registered by
@@ -183,7 +184,7 @@ fun MainShell(modifier: Modifier = Modifier) {
 
     CompositionLocalProvider(
         LocalMainShellNavState provides mainShellNavState,
-        LocalScrollToTopSignal provides readOnlyScrollToTopSignal,
+        LocalTabReTapSignal provides readOnlyTabReTapSignal,
         LocalComposerLauncher provides composerLauncher,
         LocalComposerSubmitEvents provides composerSubmitEvents.events,
         LocalComposerSubmitEventsEmitter provides composerSubmitEvents.emitter,
@@ -191,17 +192,18 @@ fun MainShell(modifier: Modifier = Modifier) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
             onTabClick = { tapped ->
-                // Re-tap on the active tab fires the scroll-to-top signal
-                // (any feature screen collecting LocalScrollToTopSignal
-                // scrolls its list back to position 0). Switching tabs
-                // navigates as before — the destination tab restores its
-                // last scroll position via Nav3's per-tab back-stack.
-                // `mainShellNavState.topLevelKey` resolves the post-mutation
-                // active tab so a rapid double-tap during a tab switch
-                // animation behaves correctly (per the change's design
-                // Decision 3).
+                // Re-tap on the active tab fires the generic tab-re-tap
+                // signal. Each tab's screen interprets it: Feed/Profile
+                // scroll their list to top, Search focuses the EditText
+                // and opens the IME. Switching tabs navigates as before
+                // — the destination tab restores its last scroll position
+                // via Nav3's per-tab back-stack.
+                // `mainShellNavState.topLevelKey` resolves the post-
+                // mutation active tab so a rapid double-tap during a tab
+                // switch animation behaves correctly (per the change's
+                // design Decision 3).
                 if (tapped == mainShellNavState.topLevelKey) {
-                    scrollToTopSignal.tryEmit(Unit)
+                    tabReTapSignal.tryEmit(Unit)
                 } else {
                     mainShellNavState.addTopLevel(tapped)
                 }
