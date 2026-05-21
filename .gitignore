@@ -12,6 +12,10 @@ app/release/
 *.iml
 .vscode/
 .kotlin/
+# IntelliJ/Eclipse output dir for Kotlin/Java modules. Gradle uses
+# `build/` (already ignored); `bin/` is emitted by the IDE's own
+# compile-on-save path — load-bearing for the IDE, never for git.
+**/bin/
 
 # Local environment
 local.properties
