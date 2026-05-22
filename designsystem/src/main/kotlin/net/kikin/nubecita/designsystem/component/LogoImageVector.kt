@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.NubecitaPalette
 
 val LogoImageVector: ImageVector
     get() {
@@ -202,7 +203,7 @@ val LogoImageVector: ImageVector
                         close()
                     }
                     path(
-                        stroke = SolidColor(Color(0xFF0A7AFF)),
+                        stroke = SolidColor(NubecitaPalette.Sky50),
                         strokeLineWidth = 12f,
                         strokeLineCap = StrokeCap.Round,
                     ) {
@@ -210,7 +211,7 @@ val LogoImageVector: ImageVector
                         curveTo(338.67f, 475.33f, 357.33f, 475.33f, 376f, 494f)
                     }
                     path(
-                        stroke = SolidColor(Color(0xFF0A7AFF)),
+                        stroke = SolidColor(NubecitaPalette.Sky50),
                         strokeLineWidth = 12f,
                         strokeLineCap = StrokeCap.Round,
                     ) {
