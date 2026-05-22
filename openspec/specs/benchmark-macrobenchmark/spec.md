@@ -66,7 +66,7 @@ Production `release` is untouched. The plugin operates by adding new variants al
 #### Scenario: Benchmark runs locally and produces JSON
 
 - **WHEN** a developer runs `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` against a connected device/emulator
-- **THEN** the task completes successfully and writes a JSON results file under `benchmark/build/outputs/connected_android_test_additional_output/benchmark/connected/<device>/net.kikin.nubecita.benchmark.test-benchmarkData.json` containing entries for all three startup modes with `timeToInitialDisplayMs` and `timeToFullDisplayMs` fields populated.
+- **THEN** the task completes successfully and writes a JSON results file under `benchmark/build/outputs/connected_android_test_additional_output/<variant>/connected/<device>/net.kikin.nubecita.benchmark.test-benchmarkData.json` (where `<variant>` is the AGP variant the task name resolves to — `benchmarkRelease` for `connectedBenchmarkReleaseAndroidTest`) containing entries for all three startup modes with `timeToInitialDisplayMs` and `timeToFullDisplayMs` fields populated.
 
 #### Scenario: COLD startup is measured against a freshly-killed process
 
