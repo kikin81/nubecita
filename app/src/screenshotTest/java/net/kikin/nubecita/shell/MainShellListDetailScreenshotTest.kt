@@ -14,6 +14,7 @@ import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -26,6 +27,8 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -148,6 +151,16 @@ private fun MainShellListDetailExpandedWithDetail() {
  * Substitutes fakes only for the per-pane content, since the real
  * `FeedScreen` and `PostDetailPaneEmptyState` belong to other modules and
  * their visual correctness is covered by tests in those modules.
+ *
+ * Wrapped in a [LocalNavigationEventDispatcherOwner] provider because
+ * `NavDisplay` (nav3-ui 1.2.0-alpha03+) registers a back-handler via
+ * `NavigationBackHandler`, which throws `IllegalStateException` when no
+ * dispatcher owner is in the composition. Production
+ * `MainNavigation` / `MainShell` inherit the owner from
+ * `MainActivity`'s `setContent`; the screenshot harness composes
+ * `NavDisplay` outside an Activity, so we install a root dispatcher
+ * (`parent = null`) here. The dispatcher receives no real events in
+ * the preview — just satisfies the back-handler's check.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
@@ -170,20 +183,24 @@ private fun FakeListDetailNavDisplay() {
         }
     }
 
-    NavDisplay(
-        backStack = backStack,
-        onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
-        sceneStrategies = listOf(sceneStrategy),
-        entryDecorators =
-            listOf(
-                rememberSaveableStateHolderNavEntryDecorator(),
-                rememberViewModelStoreNavEntryDecorator(),
-            ),
-        entryProvider =
-            entryProvider {
-                fakeFeedInstaller()
-            },
-    )
+    CompositionLocalProvider(
+        LocalNavigationEventDispatcherOwner provides rememberNavigationEventDispatcherOwner(parent = null),
+    ) {
+        NavDisplay(
+            backStack = backStack,
+            onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
+            sceneStrategies = listOf(sceneStrategy),
+            entryDecorators =
+                listOf(
+                    rememberSaveableStateHolderNavEntryDecorator(),
+                    rememberViewModelStoreNavEntryDecorator(),
+                ),
+            entryProvider =
+                entryProvider {
+                    fakeFeedInstaller()
+                },
+        )
+    }
 }
 
 /**
@@ -230,21 +247,25 @@ private fun FakeListDetailNavDisplayWithDetail() {
         }
     }
 
-    NavDisplay(
-        backStack = backStack,
-        onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
-        sceneStrategies = listOf(sceneStrategy),
-        entryDecorators =
-            listOf(
-                rememberSaveableStateHolderNavEntryDecorator(),
-                rememberViewModelStoreNavEntryDecorator(),
-            ),
-        entryProvider =
-            entryProvider {
-                fakeFeedInstaller()
-                fakePostDetailInstaller()
-            },
-    )
+    CompositionLocalProvider(
+        LocalNavigationEventDispatcherOwner provides rememberNavigationEventDispatcherOwner(parent = null),
+    ) {
+        NavDisplay(
+            backStack = backStack,
+            onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
+            sceneStrategies = listOf(sceneStrategy),
+            entryDecorators =
+                listOf(
+                    rememberSaveableStateHolderNavEntryDecorator(),
+                    rememberViewModelStoreNavEntryDecorator(),
+                ),
+            entryProvider =
+                entryProvider {
+                    fakeFeedInstaller()
+                    fakePostDetailInstaller()
+                },
+        )
+    }
 }
 
 @Composable

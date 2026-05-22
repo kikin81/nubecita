@@ -41,13 +41,13 @@ interface NavigationEntryPoint {
     /**
      * Hilt-multibound deep-link matchers, contributed by `:feature:*:impl`
      * modules via `@Provides @IntoSet`. `MainActivity.handleIntent`
-     * iterates this set on each incoming `Intent`; the first non-null
-     * match is published to the [DeepLinkRouter] for `MainShell` to
-     * push onto the inner back stack. Matchers MUST be registered in
-     * declaration order from most-specific to least-specific so the
-     * `pathSegments.size` gate in `UriDeepLinkMatcher.matchUri` cleanly
-     * short-circuits the wrong matcher before regex evaluation
-     * (decision: nubecita-kf6k.4).
+     * sorts this set by `NavKeyDeepLinkMatcher.patternSpecificity`
+     * descending (path-segment count, derived automatically by the
+     * `uriDeepLinkMatcher(...)` factory) and scans for the first
+     * non-null match. Registration order is therefore irrelevant —
+     * specificity ordering is data on each matcher, not on the
+     * `@Provides` declaration. See decision nubecita-kf6k.4 for the
+     * source-level rationale.
      */
     fun deepLinkMatchers(): Set<@JvmSuppressWildcards NavKeyDeepLinkMatcher>
 

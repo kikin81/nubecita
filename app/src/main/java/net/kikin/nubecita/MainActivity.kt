@@ -174,22 +174,23 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Deep-link branch: the Hilt-multibound matcher set is iterated in
-        // declaration order; the first non-null match is published to the
-        // DeepLinkRouter for `MainShell` to push onto the inner back stack.
-        // The set is empty in this spike PR — children kf6k.2 / kf6k.3 add
-        // the profile and post matchers via `@Provides @IntoSet`. Plumbing
-        // ships here so those children only need to register matchers.
-        //
-        // Declaration order matters: register more-specific matchers (more
-        // path segments) before less-specific ones. The
-        // `pathSegments.size` gate in `UriDeepLinkMatcher.matchUri` cleanly
-        // short-circuits the wrong matcher before regex evaluation, so
-        // first-match-wins iteration is correct as long as the set is
-        // ordered. See decision nubecita-kf6k.4 for the rationale and the
-        // source citations.
+        // Deep-link branch: matchers are sorted by `patternSpecificity`
+        // descending (path-segment count from the URI pattern) so the
+        // first non-null match in the scan is deterministically the
+        // most-specific shape. Hilt's `Set<T>` iteration order is not a
+        // contract, so we cannot rely on Provides-declaration order to
+        // break ties between e.g. `/profile/{h}/post/{r}` (4 segments)
+        // and `/profile/{h}` (2 segments) — sorting first makes the
+        // outcome stable. The matcher set is empty in this spike PR —
+        // children kf6k.2 / kf6k.3 add the profile and post matchers
+        // via `@Provides @IntoSet`. Plumbing ships here so those
+        // children only need to register matchers. See decision
+        // nubecita-kf6k.4 for the rationale and the source citations.
         val request = DeepLinkRequest.fromIntent(intent)
-        val matched = deepLinkMatchers.firstNotNullOfOrNull { it.match(request) }
+        val matched =
+            deepLinkMatchers
+                .sortedByDescending { it.patternSpecificity }
+                .firstNotNullOfOrNull { it.match(request) }
         if (matched != null) {
             lifecycleScope.launch { deepLinkRouter.publish(matched) }
             // Consume the data so a configuration change doesn't re-fire
