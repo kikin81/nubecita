@@ -202,10 +202,30 @@ class MainActivity : ComponentActivity() {
             // misconfigured filter or a path shape we forgot to register
             // — surface in Crashlytics breadcrumbs without spamming the
             // issue inbox. Logged at debug level on purpose (kf6k.5
-            // §"Observability"). The chosen NavKey class is never logged
-            // here (the match returned null), so this can never leak
-            // post-decode user content.
-            Timber.d("Deep link did not match any registered matcher: $uri")
+            // §"Observability").
+            //
+            // The URI is redacted before logging: any `did:<method>:<id>`
+            // path segment is truncated to its first 8 identifier chars
+            // (see `String.redactDid()` for the project's PII-grade DID
+            // convention). Query and fragment are dropped — they're not
+            // useful for diagnosing a missing matcher and could carry
+            // arbitrary content. Scheme + host + path-shape are preserved
+            // because they're exactly what we need to spot the
+            // configuration drift.
+            Timber.d("Deep link did not match any registered matcher: ${uri.redactForLog()}")
+            // Mirror the matched branch: consume the URI so a
+            // configuration change (rotation, theme switch) doesn't
+            // re-fire `handleIntent` on the rebuild and double-log the
+            // same unmatched URI.
+            intent.data = null
         }
     }
+}
+
+private fun android.net.Uri.redactForLog(): String {
+    val scheme = scheme.orEmpty()
+    val authority = authority.orEmpty()
+    val redactedPath = redactDidsInPath(path.orEmpty())
+    val authoritySeparator = if (authority.isNotEmpty()) "//" else ""
+    return "$scheme:$authoritySeparator$authority$redactedPath"
 }

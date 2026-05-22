@@ -103,10 +103,11 @@
                 bsky.app filter below remains the chooser fallback for URLs
                 shared into Nubecita from anywhere else.
 
-                pathPrefix="/profile" (narrow) keeps the verified scope tight
-                and covers kf6k.3's /post suffix too — handleIntent's matcher
-                set discriminates path shapes in-process. Same pattern as
-                bsky.app's filter.
+                pathPrefix="/profile/" (with trailing slash — narrow enough
+                to exclude `/profiles`, `/profile-deprecated`, etc) keeps the
+                verified scope tight and covers kf6k.3's /post suffix too.
+                handleIntent's matcher set discriminates path shapes
+                in-process. Same pattern as bsky.app's filter.
 
                 Web fallback: a non-installed user clicking the URL in a
                 browser hits nubecita.app, which 302s to the equivalent
@@ -119,7 +120,7 @@
                 <data
                     android:scheme="https"
                     android:host="nubecita.app"
-                    android:pathPrefix="/profile" />
+                    android:pathPrefix="/profile/" />
             </intent-filter>
             <!--
                 bsky.app deep-link entry. Tapping a /profile/{handle} or
@@ -133,7 +134,7 @@
                 false). We register as a chooser candidate, never the default
                 handler. (kf6k.5 §"Manifest").
 
-                Single intent-filter block with android:pathPrefix="/profile"
+                Single intent-filter block with android:pathPrefix="/profile/"
                 covers both the profile (kf6k.2) and the /profile/{h}/post/{r}
                 (kf6k.3) shapes. handleIntent's matcher set disambiguates the
                 two — keeping the filter coarse avoids chooser pollution from
@@ -154,7 +155,7 @@
                 <data
                     android:scheme="https"
                     android:host="bsky.app"
-                    android:pathPrefix="/profile" />
+                    android:pathPrefix="/profile/" />
             </intent-filter>
             <!--
                 Custom-scheme counterpart to the bsky.app filter above.
