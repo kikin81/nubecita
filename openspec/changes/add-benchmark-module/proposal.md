@@ -56,8 +56,8 @@ None — this is a brand-new capability surface. `:feature:feed:impl` does gain 
 - **New deps in `gradle/libs.versions.toml`**:
   - `androidx.benchmark:benchmark-macro-junit4` (Macrobenchmark JUnit4 runner)
   - `androidx.test.uiautomator:uiautomator` (gesture driving + waitForObject)
-  - `androidx.baselineprofile` Gradle plugin alias (producer wiring)
-  - `androidx.benchmark.macro` Gradle plugin alias (consumer wiring on `:benchmark`)
+  - `androidx.baselineprofile` Gradle plugin alias (producer wiring on both `:benchmark` and `:app`)
+  - `androidx.benchmark` Gradle plugin alias (catalog entry only; `:benchmark` does not currently apply it — see design.md Decision 1, the convention plugin relies on `com.android.test` + `androidx.baselineprofile`)
 - **CI workflow**: NOT touched in this change. CI macrobench (and the `run-bench` label) are deferred to the follow-up epic so they can be tackled with the fake-network-layer prerequisite.
 - **Backwards compatibility**: additive. No existing module's classpath, ABI, or test runner changes. Existing CI jobs are untouched.
 - **Deviation from defaults**: none. Macrobenchmark is the AndroidX-recommended (and only AndroidX-blessed) path for these measurements; we're not introducing any non-standard perf-measurement framework.

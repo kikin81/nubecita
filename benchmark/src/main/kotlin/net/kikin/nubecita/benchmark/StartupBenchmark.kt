@@ -56,10 +56,17 @@ class StartupBenchmark(
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
         fun startupModes(): List<Array<Any>> =
+            // Explicit `arrayOf<Any>(...)` — Kotlin arrays are
+            // invariant, so the unannotated `arrayOf(StartupMode.COLD)`
+            // would infer as `Array<StartupMode>` (and `Array<StartupMode>`
+            // is NOT a subtype of `Array<Any>`). The expected return type
+            // currently coaxes inference to the right shape, but spelling
+            // the upcast out keeps the variance trap from biting a future
+            // edit that adds a second parameter.
             listOf(
-                arrayOf(StartupMode.COLD),
-                arrayOf(StartupMode.WARM),
-                arrayOf(StartupMode.HOT),
+                arrayOf<Any>(StartupMode.COLD),
+                arrayOf<Any>(StartupMode.WARM),
+                arrayOf<Any>(StartupMode.HOT),
             )
     }
 }
