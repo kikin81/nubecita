@@ -120,6 +120,24 @@ A baseline run on Pixel 10 Pro XL (Android 16, SDK 36) under `:app:benchmarkRele
 
 These numbers go in a comment on the `nubecita-crmi` epic so `crmi.2`/`crmi.3`/`crmi.5` have a documented starting point. No PR comment automation here — that's part of the CI deferral.
 
+### Decision 7 — `testTagsAsResourceId = true` is enabled UNCONDITIONALLY at the MainActivity root, NOT gated to a benchmark-only build
+
+The flag is set in `MainActivity.setContent { ... }`'s root `Surface` semantics for every variant the app ships. We do **not** gate it behind a `BuildConfig` field, a source-set substitution, or an injected `AppConfiguration` flag.
+
+**Why:**
+
+- It's metadata-only. The flag maps Compose `Modifier.testTag(...)` values into `AccessibilityNodeInfo.viewIdResourceName` — the same field View-based apps populate from `android:id` XML attributes. TalkBack does **not** announce that field. The flag is invisible to real users.
+- View-based Android apps have always exposed their `android:id` strings to any service that can read the accessibility tree. Compose without the flag is strictly *less* exposed than legacy View code; enabling it brings parity, not a new privacy surface.
+- AndroidX explicitly endorses leaving it on in production. The Now-in-Android sample, the Macrobenchmark docs, and Google's perf cookbook all do it the same way.
+- Gating via `BuildConfig` would introduce real build-cost pain. `BuildConfig.java` is regenerated whenever any field on it changes, and incremental compilation invalidates every Kotlin compile unit that reads it — over the 40+-module shape of this repo, a build-flag tweak would turn a 2-second incremental into a 45-second rebuild. That's a permanent perf tax to gate a metadata flag that has zero user-visible effect.
+- Gating via source-set substitution (`src/production/.../BenchmarkSemantics.kt` no-op vs. `src/benchmark/.../BenchmarkSemantics.kt` setting the flag) would be the cleaner architecture if we needed to gate. But we don't need to, so we don't introduce the indirection. If a future audit decides the flag should be benchmark-only after all, the source-set pathway is the right home for it — owned by the `crmi.6` flavor work, not by this change.
+
+**Alternatives considered:**
+
+- `BuildConfig.IS_BENCHMARK` field on `:app` gating the modifier. Rejected on build-cost grounds (above).
+- Per-flavor source-set substitution. Rejected because there are no flavors yet (`crmi.6`'s scope) and adding one solely for this would be premature.
+- Injected `AppConfiguration` value via Hilt that returns the flag. Rejected — runtime indirection for a static, build-time-known value.
+
 ## Risks / Trade-offs
 
 - **Risk:** The Feed bench's UIAutomator selector breaks if `FeedScreen` is restructured so the `LazyColumn`'s testTag ends up on a different node. → **Mitigation:** The `FeedTestTags` constant becomes part of the `feature-feed` capability's testable contract (covered in the spec). PRs that move the tag should update the bench in the same change. `FeedTestTagsTest` pins the string value as a unit-test guard.
