@@ -89,6 +89,98 @@
                     android:scheme="app.nubecita"
                     android:path="/oauth-redirect" />
             </intent-filter>
+            <!--
+                Verified Android App Link for our OWN profile deep-link
+                surface. We control nubecita.app and its assetlinks.json
+                already lists the app's signing-cert fingerprints (verified
+                by the OAuth-redirect filter above which has been live for
+                some time). The OS treats nubecita.app as a verified handler
+                for this app, so https://nubecita.app/profile/... URLs
+                bypass the chooser dialog and open Nubecita directly.
+
+                Used today by surfaces WE control — push notifications,
+                email links, future share sheet upgrades. The Bluesky-shaped
+                bsky.app filter below remains the chooser fallback for URLs
+                shared into Nubecita from anywhere else.
+
+                pathPrefix="/profile/" (with trailing slash — narrow enough
+                to exclude `/profiles`, `/profile-deprecated`, etc) keeps the
+                verified scope tight and covers kf6k.3's /post suffix too.
+                handleIntent's matcher set discriminates path shapes
+                in-process. Same pattern as bsky.app's filter.
+
+                Web fallback: a non-installed user clicking the URL in a
+                browser hits nubecita.app, which 302s to the equivalent
+                bsky.app URL — tracked separately (see kf6k.2 PR body).
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="nubecita.app"
+                    android:pathPrefix="/profile/" />
+            </intent-filter>
+            <!--
+                bsky.app deep-link entry. Tapping a /profile/{handle} or
+                /profile/{handle}/post/{rkey} URL from any app on the device
+                surfaces Nubecita as an "Open with" chooser candidate.
+
+                NOT autoVerified: we don't control bsky.app's assetlinks.json,
+                so verified-handler status isn't available — declaring
+                android:autoVerify="true" would silently fail verification and
+                degrade to chooser anyway, so we omit the attribute (default
+                false). We register as a chooser candidate, never the default
+                handler. (kf6k.5 §"Manifest").
+
+                Single intent-filter block with android:pathPrefix="/profile/"
+                covers both the profile (kf6k.2) and the /profile/{h}/post/{r}
+                (kf6k.3) shapes. handleIntent's matcher set disambiguates the
+                two — keeping the filter coarse avoids chooser pollution from
+                per-shape filter splits.
+
+                Belt-and-suspenders defenses live downstream:
+                - IntentActionFilter on each NavKeyDeepLinkMatcher rejects
+                  non-VIEW actions at the matcher boundary.
+                - isValidActor (and the future kf6k.3 rkey validator) reject
+                  malformed placeholders before any XRPC call.
+                - Unmatched URIs fall through to the Timber.d log in
+                  MainActivity.handleIntent; no destructive side effects.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="bsky.app"
+                    android:pathPrefix="/profile/" />
+            </intent-filter>
+            <!--
+                Custom-scheme counterpart to the bsky.app filter above.
+                Useful for push notifications, widgets, and a future share
+                extension that can construct an unambiguous nubecita://
+                target without depending on bsky.app's link ownership.
+
+                Constrained to host="profile" so the OS only routes
+                nubecita://profile/... URIs to MainActivity — a bare
+                `<data android:scheme="nubecita" />` would also match
+                nubecita://settings, nubecita://anything-else and surface
+                the app for arbitrary URIs that no matcher claims. Path
+                discrimination (nubecita://profile/{handle} vs
+                nubecita://profile/{handle}/post/{rkey}) stays in-process
+                via the matcher set. Future surfaces (e.g. a hypothetical
+                nubecita://compose) get their own scheme+host filters.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="nubecita"
+                    android:host="profile" />
+            </intent-filter>
         </activity>
     </application>
 
