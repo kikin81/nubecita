@@ -16,6 +16,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.EntryPointAccessors
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
+import net.kikin.nubecita.designsystem.NubecitaPalette
 import net.kikin.nubecita.designsystem.component.NubecitaLogomark
 import net.kikin.nubecita.navigation.NavigationEntryPoint
 import net.kikin.nubecita.shell.MainShell
@@ -63,7 +64,10 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center,
                         ) {
-                            NubecitaLogomark(modifier = Modifier.size(96.dp))
+                            NubecitaLogomark(
+                                modifier = Modifier.size(96.dp),
+                                tint = NubecitaPalette.Sky50,
+                            )
                         }
                     }
                     entry<Main> {
