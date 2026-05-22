@@ -23,6 +23,8 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import androidx.window.core.layout.WindowSizeClass
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
@@ -428,31 +430,40 @@ private fun ProfileScreenMediumTwoPaneEmptyScreenshot() {
                     )
                 },
             )
-        NavDisplay(
-            backStack = backStack,
-            onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
-            sceneStrategies = listOf(sceneStrategy),
-            entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
-            entryProvider =
-                entryProvider {
-                    entry<Profile>(
-                        metadata =
-                            ListDetailSceneStrategy.listPane(
-                                detailPlaceholder = { PostDetailPaneEmptyState() },
-                            ),
-                    ) {
-                        CompositionLocalProvider(LocalClock provides FixtureClock) {
-                            ProfileScreenContent(
-                                state = sampleLoadedState(),
-                                listState = rememberLazyListState(),
-                                snackbarHostState = remember { SnackbarHostState() },
-                                postCallbacks = PostCallbacks.None,
-                                onEvent = {},
-                                onBack = null,
-                            )
+        // alpha03 NavDisplay registers a back-handler via NavigationBackHandler,
+        // which crashes without LocalNavigationEventDispatcherOwner. Production
+        // inherits the owner from MainActivity's setContent; the screenshot
+        // harness composes NavDisplay outside an Activity, so install a root
+        // dispatcher (`parent = null`) here just to satisfy the check.
+        CompositionLocalProvider(
+            LocalNavigationEventDispatcherOwner provides rememberNavigationEventDispatcherOwner(parent = null),
+        ) {
+            NavDisplay(
+                backStack = backStack,
+                onBack = { if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex) },
+                sceneStrategies = listOf(sceneStrategy),
+                entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
+                entryProvider =
+                    entryProvider {
+                        entry<Profile>(
+                            metadata =
+                                ListDetailSceneStrategy.listPane(
+                                    detailPlaceholder = { PostDetailPaneEmptyState() },
+                                ),
+                        ) {
+                            CompositionLocalProvider(LocalClock provides FixtureClock) {
+                                ProfileScreenContent(
+                                    state = sampleLoadedState(),
+                                    listState = rememberLazyListState(),
+                                    snackbarHostState = remember { SnackbarHostState() },
+                                    postCallbacks = PostCallbacks.None,
+                                    onEvent = {},
+                                    onBack = null,
+                                )
+                            }
                         }
-                    }
-                },
-        )
+                    },
+            )
+        }
     }
 }

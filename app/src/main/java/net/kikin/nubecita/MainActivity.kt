@@ -12,6 +12,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation3.runtime.deeplink.DeepLinkRequest
+import androidx.navigation3.runtime.deeplink.fromIntent
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -22,6 +24,8 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.common.navigation.DeepLinkRouter
+import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -43,6 +47,12 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var userPreferences: UserPreferencesRepository
+
+    @Inject
+    lateinit var deepLinkMatchers: Set<@JvmSuppressWildcards NavKeyDeepLinkMatcher>
+
+    @Inject
+    lateinit var deepLinkRouter: DeepLinkRouter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() must run BEFORE super.onCreate so the splash claims the
@@ -160,6 +170,31 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch { oauthRedirectBroker.publish(redirectUri) }
             // Consume so configuration changes (rotation, theme switch, dark-mode flip)
             // don't re-fire the redirect handler and double-invoke completeLogin.
+            intent.data = null
+            return
+        }
+
+        // Deep-link branch: matchers are sorted by `patternSpecificity`
+        // descending (path-segment count from the URI pattern) so the
+        // first non-null match in the scan is deterministically the
+        // most-specific shape. Hilt's `Set<T>` iteration order is not a
+        // contract, so we cannot rely on Provides-declaration order to
+        // break ties between e.g. `/profile/{h}/post/{r}` (4 segments)
+        // and `/profile/{h}` (2 segments) — sorting first makes the
+        // outcome stable. The matcher set is empty in this spike PR —
+        // children kf6k.2 / kf6k.3 add the profile and post matchers
+        // via `@Provides @IntoSet`. Plumbing ships here so those
+        // children only need to register matchers. See decision
+        // nubecita-kf6k.4 for the rationale and the source citations.
+        val request = DeepLinkRequest.fromIntent(intent)
+        val matched =
+            deepLinkMatchers
+                .sortedByDescending { it.patternSpecificity }
+                .firstNotNullOfOrNull { it.match(request) }
+        if (matched != null) {
+            lifecycleScope.launch { deepLinkRouter.publish(matched) }
+            // Consume the data so a configuration change doesn't re-fire
+            // the same deep link on the rebuilt MainShell.
             intent.data = null
         }
     }
