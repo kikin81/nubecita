@@ -80,9 +80,13 @@ jobs:
         # Runs on every PR (incl. forks): commitlint, gitleaks,
         # actionlint, end-of-file-fixer, spotless, openspec-validate.
 
+      # The App token is only consumed by `Release notes preview` below,
+      # which itself only runs on same-repo PRs. Gate the token-generation
+      # step on the same condition so we don't exercise the bot secrets on
+      # `push` / `workflow_dispatch` events that have no consumer.
       - name: Generate bot App token
         id: app-token
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
