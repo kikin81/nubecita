@@ -52,12 +52,32 @@ jobs:
             echo "repo=$DEFAULT_REPO" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Generate bot App token
+        # Authenticate the baseline-regen push as the dedicated bot App
+        # (same pattern release.yaml uses for semantic-release's version-
+        # bump push) instead of the built-in GITHUB_TOKEN. Pushes made
+        # with GITHUB_TOKEN are blocked from firing downstream workflow
+        # events as a recursion safeguard, so a baseline-regen commit
+        # would land silently and CI would not re-run against the new
+        # commit — leaving the PR stuck at "no checks reported" until a
+        # human nudged it with close+reopen or an empty push. App
+        # installation tokens are exempt from the recursion block, so the
+        # auto-commit kicks off a `pull_request: synchronize` event and
+        # CI re-runs without manual intervention. Context: nubecita-61iu.
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.ref.outputs.ref }}
           repository: ${{ steps.ref.outputs.repo }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # actions/checkout persists this token in `.git/config`'s
+          # extraheader so the subsequent `git push` inherits it.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Set up JDK
         uses: actions/setup-java@v5
