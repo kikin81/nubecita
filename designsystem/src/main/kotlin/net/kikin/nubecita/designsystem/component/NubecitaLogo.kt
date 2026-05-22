@@ -17,7 +17,7 @@ import net.kikin.nubecita.designsystem.R
  * logomark. The vector carries its own colors, so callers do not pass a tint.
  *
  * Caller controls absolute size via [modifier] (`Modifier.size(...)` or
- * layout-driven).
+ * layout-driven). The intrinsic size is 72dp × 72dp.
  */
 @Composable
 fun NubecitaLogomark(modifier: Modifier = Modifier) {

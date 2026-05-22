@@ -16,8 +16,8 @@ val LogoImageVector: ImageVector
             ImageVector
                 .Builder(
                     name = "LogoImageVector",
-                    defaultWidth = 864.dp,
-                    defaultHeight = 864.dp,
+                    defaultWidth = 72.dp,
+                    defaultHeight = 72.dp,
                     viewportWidth = 864f,
                     viewportHeight = 864f,
                 ).apply {
