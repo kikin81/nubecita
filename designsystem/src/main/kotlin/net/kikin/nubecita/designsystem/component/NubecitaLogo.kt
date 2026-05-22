@@ -1,9 +1,11 @@
 package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -32,7 +34,7 @@ fun NubecitaLogomark(modifier: Modifier = Modifier) {
 @Composable
 private fun NubecitaLogomarkPreview() {
     NubecitaTheme(dynamicColor = false) {
-        NubecitaLogomark(modifier = Modifier.size(96.dp))
+        NubecitaLogomark(modifier = Modifier.size(96.dp).background(Color(0xFF0A7AFF)))
     }
 }
 
@@ -40,6 +42,6 @@ private fun NubecitaLogomarkPreview() {
 @Composable
 private fun NubecitaLogomarkDarkPreview() {
     NubecitaTheme(darkTheme = true, dynamicColor = false) {
-        NubecitaLogomark(modifier = Modifier.size(96.dp))
+        NubecitaLogomark(modifier = Modifier.size(96.dp).background(Color(0xFF0A7AFF)))
     }
 }
