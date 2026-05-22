@@ -22,15 +22,16 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    # `open-turo/actions-jvm/lint@v2` runs a semantic-release dry-run
-    # and posts the projected release notes as a PR comment. That's why
-    # both write scopes are required:
+    # The Release-notes-preview step (open-turo/actions-release/
+    # lint-release-notes@v5) runs a semantic-release dry-run and posts
+    # the projected release notes as a PR comment. That's why both
+    # write scopes are required:
     #   - `pull-requests: write` — for the dry-run comment.
     #   - `contents: write` — semantic-release's analyze/notes plugins
     #     stage tag/changelog updates against the working tree as part
     #     of the dry-run, which the action treats as a write-class
     #     operation.
-    # SHA-pinning the action (tracked as the medium-priority follow-up
+    # SHA-pinning the actions (tracked as the medium-priority follow-up
     # in `docs/superpowers/specs/2026-05-17-main-branch-hardening.md`)
     # is the real mitigation here — narrowing the scopes any further
     # breaks the dry-run comment that reviewers rely on.
@@ -38,28 +39,24 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Generate bot App token
-        # Dry-run-only test of the dedicated GitHub App we provisioned
-        # for semantic-release (see
-        # `docs/superpowers/specs/2026-05-17-main-branch-hardening.md`).
-        # The lint job already runs semantic-release in dry-run mode
-        # and posts the projected notes as a PR comment; swapping the
-        # `github-token` from `GITHUB_TOKEN` to the App's installation
-        # token here proves the App identity can do the read +
-        # PR-comment work end-to-end. If the dry-run comment lands
-        # under the App's `[bot]` identity on this PR, the same token
-        # will work for the real release path in `release.yaml`.
-        id: app-token
-        uses: actions/create-github-app-token@v3
+      # The open-turo `actions-jvm/lint@v2` composite bundles
+      # checkout + setup-tools + setup-gradle + pre-commit +
+      # release-notes-preview. Only the last step needs the App
+      # token (to post a PR comment as the bot). Fork PRs can't see
+      # the `BOT_APP_ID` / `BOT_PRIVATE_KEY` secrets, so we inline
+      # the composite's steps here and gate just the App-token +
+      # release-notes-preview on same-repo PRs. Pre-commit (which
+      # enforces commitlint / gitleaks / actionlint / EOF-fixer)
+      # runs on every PR including forks — otherwise a fork PR with
+      # a non-Conventional commit would slip through CI and fail
+      # the post-merge semantic-release.
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
-          app-id: ${{ secrets.BOT_APP_ID }}
-          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+          fetch-depth: 0
 
-      - name: Action lint
-        uses: open-turo/actions-jvm/lint@v2
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          checkout-repo: true
+      - name: Setup tools
+        uses: open-turo/action-setup-tools@v3
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -75,6 +72,28 @@ jobs:
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
+
+      - name: Pre-commit
+        uses: open-turo/action-pre-commit@v3
+        # No `github-token` — the input is only used to clone
+        # private repos referenced by hooks, which we don't have.
+        # Runs on every PR (incl. forks): commitlint, gitleaks,
+        # actionlint, end-of-file-fixer, spotless, openspec-validate.
+
+      - name: Generate bot App token
+        id: app-token
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+      - name: Release notes preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: open-turo/actions-release/lint-release-notes@v5
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          checkout-repo: false
 
       - name: Spotless + Android Lint + Sort Dependencies
         run: ./gradlew spotlessCheck lint :app:checkSortDependencies
