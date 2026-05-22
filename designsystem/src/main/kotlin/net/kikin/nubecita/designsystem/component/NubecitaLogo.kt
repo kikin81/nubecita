@@ -16,14 +16,16 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
 
 /**
- * Brand cloud-only mark. Square aspect (1:1).
+ * Brand cloud mark with bow. Square aspect (1:1).
  *
  * Backed by [LogoImageVector], a Compose `ImageVector` port of the brand
- * logomark — white fill with sky-blue strokes. Use the default multi-color
- * rendering on surfaces with a contrasting (typically darker or branded)
- * background. For low-contrast surfaces like the near-white `Sky99` theme
- * background, pass a [tint] (e.g. `NubecitaPalette.Sky50`) to collapse the
- * mark to a single legible color via `ColorFilter.tint(...)`.
+ * logomark — white cloud body, a pink bow on top (`#F7AAC9` / `#E36DA0`),
+ * and two sky-blue stroke accents (`NubecitaPalette.Sky50`). Use the
+ * default multi-color rendering on surfaces with a contrasting (typically
+ * darker or branded) background. For low-contrast surfaces like the
+ * near-white `Sky99` theme background, pass a [tint] (e.g.
+ * `NubecitaPalette.Sky50`) to collapse the mark to a single legible color
+ * via `ColorFilter.tint(...)`.
  *
  * Caller controls absolute size via [modifier] (`Modifier.size(...)` or
  * layout-driven). The intrinsic size is 72dp × 72dp.
