@@ -163,17 +163,23 @@
                 extension that can construct an unambiguous nubecita://
                 target without depending on bsky.app's link ownership.
 
-                No host/path constraint — the matcher set discriminates
-                in-process (nubecita://profile/{handle},
-                nubecita://profile/{handle}/post/{rkey}, etc). Anything
-                that arrives but doesn't match a registered matcher falls
-                through to the unmatched-link log.
+                Constrained to host="profile" so the OS only routes
+                nubecita://profile/... URIs to MainActivity — a bare
+                `<data android:scheme="nubecita" />` would also match
+                nubecita://settings, nubecita://anything-else and surface
+                the app for arbitrary URIs that no matcher claims. Path
+                discrimination (nubecita://profile/{handle} vs
+                nubecita://profile/{handle}/post/{rkey}) stays in-process
+                via the matcher set. Future surfaces (e.g. a hypothetical
+                nubecita://compose) get their own scheme+host filters.
             -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="nubecita" />
+                <data
+                    android:scheme="nubecita"
+                    android:host="profile" />
             </intent-filter>
         </activity>
     </application>

@@ -197,21 +197,20 @@ class MainActivity : ComponentActivity() {
             // the same deep link on the rebuilt MainShell.
             intent.data = null
         } else {
-            // A URI passed the OAuth gate AND matched a manifest intent
-            // filter but no registered NavKey matcher claimed it. Likely a
-            // misconfigured filter or a path shape we forgot to register
-            // — surface in Crashlytics breadcrumbs without spamming the
-            // issue inbox. Logged at debug level on purpose (kf6k.5
-            // §"Observability").
+            // A URI passed the OAuth gate but no registered NavKey matcher
+            // claimed it. Likely a misconfigured filter or a path shape we
+            // forgot to register — surface in Crashlytics breadcrumbs
+            // without spamming the issue inbox. Logged at debug level on
+            // purpose (kf6k.5 §"Observability").
             //
             // The URI is redacted before logging: any `did:<method>:<id>`
             // path segment is truncated to its first 8 identifier chars
             // (see `String.redactDid()` for the project's PII-grade DID
-            // convention). Query and fragment are dropped — they're not
-            // useful for diagnosing a missing matcher and could carry
-            // arbitrary content. Scheme + host + path-shape are preserved
-            // because they're exactly what we need to spot the
-            // configuration drift.
+            // convention), and userinfo / query / fragment are dropped —
+            // they're not useful for diagnosing a missing matcher and
+            // could carry arbitrary attacker-controlled content. Scheme +
+            // host + port + path-shape are preserved because they're
+            // exactly what we need to spot the configuration drift.
             Timber.d("Deep link did not match any registered matcher: ${uri.redactForLog()}")
             // Mirror the matched branch: consume the URI so a
             // configuration change (rotation, theme switch) doesn't
@@ -224,8 +223,13 @@ class MainActivity : ComponentActivity() {
 
 private fun android.net.Uri.redactForLog(): String {
     val scheme = scheme.orEmpty()
-    val authority = authority.orEmpty()
+    // Use host (not authority) — authority is `[userinfo@]host[:port]` and
+    // userinfo is attacker-controlled on an inbound VIEW intent. An incoming
+    // `https://attacker:secret@bsky.app/profile/x` would otherwise commit
+    // the userinfo to the log. Reconstruct from host + port instead.
+    val host = host.orEmpty()
+    val portSuffix = if (port >= 0) ":$port" else ""
     val redactedPath = redactDidsInPath(path.orEmpty())
-    val authoritySeparator = if (authority.isNotEmpty()) "//" else ""
-    return "$scheme:$authoritySeparator$authority$redactedPath"
+    val authoritySeparator = if (host.isNotEmpty()) "//" else ""
+    return "$scheme:$authoritySeparator$host$portSuffix$redactedPath"
 }

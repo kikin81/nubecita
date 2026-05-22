@@ -18,10 +18,9 @@ import org.junit.runner.RunWith
  * Why instrumented and not JVM: the alpha03
  * [androidx.navigation3.runtime.deeplink.UriDeepLinkMatcher] resolves
  * its URI patterns through `android.net.Uri.parse` and matches with
- * `Uri.getScheme()` / `Uri.getPathSegments()`. Those need the Android
- * runtime; the project deliberately avoids Robolectric per the
- * convention at `core/auth/EncryptedOAuthSessionStoreTest:61`, so
- * verification of the matcher contract lives here (kf6k.4 §"Trade-offs
+ * `Uri.getScheme()` / `Uri.getPathSegments()`. Those APIs need the
+ * Android runtime, so the matcher contract is verified on a real
+ * Android image rather than via JVM unit tests (kf6k.4 §"Trade-offs
  * accepted"). The validator logic and other JVM-friendly pieces are
  * unit-tested separately in [ActorValidationTest].
  */
