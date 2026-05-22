@@ -13,8 +13,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Feed-scroll frame-timing benchmark. Cold-launches the app, waits
- * for the loaded feed `LazyColumn` to appear (selected via the
+ * Feed-scroll frame-timing benchmark. Brings the app to the
+ * foreground (warm launch — process is alive between iterations),
+ * waits for the loaded feed `LazyColumn` to appear (selected via the
  * `feed_list` testTag that `:feature:feed:impl` exposes), then
  * performs a deterministic scroll gesture under measurement.
  *
@@ -79,15 +80,20 @@ class FeedScrollBenchmark {
                         "testTagsAsResourceId root semantics flag is enabled.",
                 )
 
-            // Deterministic gesture profile: five upward swipes at 80%
-            // of the list's vertical extent, each with a fixed
-            // step-count -> velocity. Velocity is set via gesture-margin
-            // (smaller margin => longer travel => higher velocity);
-            // the default ~ 250ms-per-swipe is the AndroidX-canonical
-            // value for feed-scroll benchmarks.
+            // Deterministic gesture profile: five `UiObject2.fling`
+            // calls, each scrolling content downward (Direction.UP =
+            // finger moves up = content scrolls down into the feed,
+            // away from the pull-to-refresh affordance at the top).
+            // `fling` is preferred over `swipe(steps)` here because
+            // it more faithfully reproduces the high-velocity flicks
+            // that drive 120 Hz frame-rate stress in real use; we
+            // explicitly do not need swipe's fine duration control.
+            // `setGestureMargin` shrinks the active swipe area away
+            // from the edges so a fling doesn't accidentally trigger
+            // a system gesture.
             feedList.setGestureMargin(feedList.visibleBounds.width() / GESTURE_MARGIN_DIVISOR)
             repeat(SCROLL_ITERATIONS) {
-                feedList.fling(Direction.DOWN)
+                feedList.fling(Direction.UP)
                 device.waitForIdle()
             }
         }

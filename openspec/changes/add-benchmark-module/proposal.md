@@ -10,10 +10,10 @@ There is also an external forcing function: the planned Play in-app-updates inte
 
 ### New module: `:benchmark`
 
-- New `:benchmark` module applying `androidx.baselineprofile` + `androidx.benchmark.macro.junit4`, registered in `settings.gradle.kts` and built off a new `nubecita.android.benchmark` convention plugin so the configuration stays consistent with the rest of the build-logic roster.
+- New `:benchmark` module using `androidx.benchmark:benchmark-macro-junit4` (the Macrobenchmark library) under the `com.android.test` module shape, registered in `settings.gradle.kts` and built off a new `nubecita.android.benchmark` convention plugin so the configuration stays consistent with the rest of the build-logic roster.
 - A `targetProjectPath = ":app"` link so `:benchmark` exercises the real release APK (the only configuration where R8 / startup-profile / baseline-profile effects show up).
 - `:app` adds the reciprocal `androidx.baselineprofile` plugin so `:benchmark` is wired as a baseline-profile producer for the next ticket in the epic (`nubecita-crmi.2`). No profile is generated or shipped in this change — `:benchmark`'s role as a producer is just declared.
-- A `benchmark` build type on `:app` that inherits from `release` but enables `isDebuggable = true` + `isProfileable = true` so macrobench can attach without breaking R8/proguard semantics, plus a matching `benchmark` build type on `:benchmark` with `matchingFallbacks = listOf("release")`.
+- **No hand-rolled `benchmark` build type** on either `:app` or `:benchmark`. The `androidx.baselineprofile` plugin auto-generates `benchmarkRelease` (R8-minified, profileable — the actual macrobench target) and `nonMinifiedRelease` (used by a future profile generator) variants off `:app`'s `release` build type; mutating `release` or adding a duplicate build type would collide with the plugin's naming. Production `release` stays untouched (non-profileable, non-debuggable).
 
 ### Initial benchmark suite
 
@@ -43,7 +43,7 @@ These numbers will be posted as a comment on `nubecita-crmi` so follow-up ticket
 
 ### New Capabilities
 
-- `benchmark-macrobenchmark`: defines the existence of a `:benchmark` Macrobenchmark module, the StartupBenchmark + FeedScrollBenchmark suite, the `benchmark` build-type contract on `:app`, the baseline-profile producer relationship, the screen-side `testTag` contract `FeedScreen` exposes for the scroll bench, and the `run-bench` CI label gating.
+- `benchmark-macrobenchmark`: defines the existence of a `:benchmark` Macrobenchmark module, the StartupBenchmark + FeedScrollBenchmark suite, the `androidx.baselineprofile`-plugin-driven variant contract on `:app` (`benchmarkRelease` + `nonMinifiedRelease` auto-generated, no hand-rolled build type), the baseline-profile producer relationship, and the screen-side `testTag` contract `FeedScreen` exposes for the scroll bench. CI integration is intentionally NOT in scope — deferred to a follow-up epic.
 
 ### Modified Capabilities
 
@@ -52,7 +52,7 @@ None — this is a brand-new capability surface. `:feature:feed:impl` does gain 
 ## Impact
 
 - **New modules**: `:benchmark` (added to `settings.gradle.kts`); new `nubecita.android.benchmark` convention plugin in `build-logic/convention`.
-- **Affected modules**: `:app` (new `benchmark` build type + `androidx.baselineprofile` plugin), `:feature:feed:impl` (one new `testTag` constant on `FeedScreen`'s `LazyColumn`).
+- **Affected modules**: `:app` (applies `androidx.baselineprofile`; the plugin auto-adds `benchmarkRelease` + `nonMinifiedRelease` variants off `release` — no hand-rolled build type), `:feature:feed:impl` (one new `testTag` constant on `FeedScreen`'s `LazyColumn`).
 - **New deps in `gradle/libs.versions.toml`**:
   - `androidx.benchmark:benchmark-macro-junit4` (Macrobenchmark JUnit4 runner)
   - `androidx.test.uiautomator:uiautomator` (gesture driving + waitForObject)

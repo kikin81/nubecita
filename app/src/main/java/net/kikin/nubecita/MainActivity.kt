@@ -88,9 +88,12 @@ class MainActivity : ComponentActivity() {
                 // testTagsAsResourceId surfaces Compose `Modifier.testTag(...)`
                 // values to UIAutomator as Android resource ids — required so
                 // the :benchmark Macrobenchmark module can locate Compose
-                // nodes via `By.res(packageName, "<tag>")`. The flag belongs
-                // at the topmost composable so every descendant's testTag
-                // participates, regardless of which feature module declared it.
+                // nodes via the single-arg `By.res("<tag>")`. Compose tags
+                // surface as bare `resource-id` values (no package qualifier),
+                // so the two-arg `By.res(packageName, id)` form silently never
+                // matches. The flag belongs at the topmost composable so
+                // every descendant's testTag participates, regardless of
+                // which feature module declared it.
                 Surface(
                     modifier =
                         Modifier

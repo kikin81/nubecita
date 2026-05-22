@@ -2,7 +2,7 @@
 
 ### Requirement: `:benchmark` module exists as an AndroidX Macrobenchmark suite
 
-The repository SHALL contain a top-level Gradle module at `:benchmark` that applies the `androidx.benchmark.macro.junit4` plugin (via a new `nubecita.android.benchmark` convention plugin in `build-logic/convention`) and is registered in `settings.gradle.kts`. The module:
+The repository SHALL contain a top-level Gradle module at `:benchmark` that is an AndroidX Macrobenchmark suite (`com.android.test` shape, depending on the `androidx.benchmark:benchmark-macro-junit4` library — a runtime artifact, not a Gradle plugin) configured via a new `nubecita.android.benchmark` convention plugin in `build-logic/convention`, and is registered in `settings.gradle.kts`. The module:
 
 - MUST set `targetProjectPath = ":app"` so the macrobench tests exercise the real `:app` APK and not a stub.
 - MUST declare `experimentalProperties["android.experimental.self-instrumenting"] = true` per Macrobenchmark's required configuration for AGP 9.
@@ -22,7 +22,7 @@ The repository SHALL contain a top-level Gradle module at `:benchmark` that appl
 #### Scenario: Convention plugin centralizes configuration
 
 - **WHEN** a developer inspects `:benchmark/build.gradle.kts`
-- **THEN** the file applies exactly one alias (`alias(libs.plugins.nubecita.android.benchmark)`) for the convention; per-module overrides are limited to namespace + module-specific deps. The convention plugin lives at `build-logic/convention/src/main/kotlin/AndroidBenchmarkConventionPlugin.kt` and is registered alongside the existing seven plugins.
+- **THEN** the file applies exactly one alias (`alias(libs.plugins.nubecita.android.benchmark)`) for the convention; per-module overrides are limited to namespace + module-specific deps. The convention plugin lives at `build-logic/convention/src/main/kotlin/AndroidBenchmarkConventionPlugin.kt` and is registered alongside the existing seven plugins (bringing the roster to eight after this change).
 
 ### Requirement: `:app` applies the baselineprofile plugin and exposes plugin-generated benchmarking variants
 
@@ -80,7 +80,7 @@ Production `release` is untouched. The plugin operates by adding new variants al
 `:benchmark` SHALL contain a `FeedScrollBenchmark` test class that:
 
 - Launches the app to the `Feed` tab (default landing) and waits for the Feed list to be present.
-- Locates the list via `UiDevice.findObject(By.res(packageName, "feed_list"))` — the resource id surfaced by the Compose `testTag` on `FeedScreen`'s top-level `LazyColumn`.
+- Locates the list via the **single-arg** `UiDevice.findObject(By.res("feed_list"))` — Compose's `testTagsAsResourceId` surfaces the tag on `FeedScreen`'s top-level `LazyColumn` as a bare `resource-id` with no package qualifier, so the two-arg `By.res(packageName, id)` form silently never matches.
 - Performs a fixed scroll gesture (e.g. five `UiObject2.swipe(Direction.UP, percent = 0.8f)` operations with a deterministic gesture duration).
 - Reports `FrameTimingMetric`, producing `frameDurationCpuMs` and `frameOverrunMs` distributions (p50 / p95 / p99) for the captured trace.
 - Uses `CompilationMode.None` (matching `StartupBenchmark`) for this change.
@@ -88,7 +88,7 @@ Production `release` is untouched. The plugin operates by adding new variants al
 
 #### Scenario: Bench locates the Feed list by testTag-derived resource id
 
-- **WHEN** the bench's setup phase calls `device.findObject(By.res(packageName, "feed_list"))`
+- **WHEN** the bench's setup phase calls `device.findObject(By.res("feed_list"))` (single-arg — Compose tags surface without a package qualifier)
 - **THEN** a non-null `UiObject2` representing `FeedScreen`'s `LazyColumn` is returned within the default `Until.findObject` timeout (10s). If `null` is returned, the bench fails fast with a message identifying the missing testTag rather than silently producing a zero-frame trace.
 
 #### Scenario: Frame metrics are emitted
@@ -111,7 +111,7 @@ object FeedTestTags {
 }
 ```
 
-`FeedScreen` SHALL apply `Modifier.testTag(FeedTestTags.LIST)` to its top-level `LazyColumn`. The host composable's root semantics modifier SHALL enable `testTagsAsResourceId = true` so UIAutomator can select via `By.res(packageName, "feed_list")`.
+`FeedScreen` SHALL apply `Modifier.testTag(FeedTestTags.LIST)` to its top-level `LazyColumn`. The host composable's root semantics modifier SHALL enable `testTagsAsResourceId = true` so UIAutomator can select the node via the **single-arg** `By.res("feed_list")` (Compose surfaces the tag as a bare `resource-id` with no package qualifier; the two-arg form silently never matches).
 
 The constant's name and value are part of the testable contract: changing either is a coordinated change spanning `:feature:feed:impl` and `:benchmark`.
 

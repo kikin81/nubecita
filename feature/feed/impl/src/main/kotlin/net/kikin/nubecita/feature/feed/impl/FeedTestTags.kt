@@ -13,9 +13,11 @@ package net.kikin.nubecita.feature.feed.impl
  *
  * The host that wraps `FeedScreen` must enable
  * `testTagsAsResourceId = true` somewhere up the tree so UIAutomator
- * can select tagged nodes via `By.res(packageName, "<tag value>")`.
- * In nubecita, that flag is enabled in `MainActivity`'s `setContent`
- * root semantics modifier.
+ * can select tagged nodes via the **single-arg** `By.res("<tag value>")`.
+ * Compose surfaces tags as bare `resource-id` values (no package
+ * qualifier), so the two-arg `By.res(packageName, id)` form silently
+ * never matches. In nubecita, the flag is enabled in `MainActivity`'s
+ * `setContent` root semantics modifier.
  */
 object FeedTestTags {
     /**

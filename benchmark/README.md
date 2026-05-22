@@ -20,8 +20,9 @@ profile's impact is measurable.
 
 ## Run locally
 
-A connected emulator or device (API 24+, Pixel 6 or equivalent
-recommended) is required. From the repo root:
+A connected emulator or device (API 28+, Pixel 6 or equivalent
+recommended — the project's `minSdk` is 28) is required. From the
+repo root:
 
 ```bash
 ./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest
@@ -66,9 +67,15 @@ for *generating* baseline profiles (a follow-up ticket). Production
 
 ## Selectors
 
-The Feed scroll benchmark uses `By.res(packageName, "feed_list")` to
-locate the loaded feed's `LazyColumn`. The string `"feed_list"` is the
-contract between `:benchmark` and `:feature:feed:impl` —
-intentionally hardcoded (the macrobench module doesn't depend on the
-production module). `:feature:feed:impl/FeedTestTagsTest` pins the
-matching constant and surfaces silent renames in unit-test runs.
+The Feed scroll benchmark uses the **single-argument**
+`By.res("feed_list")` to locate the loaded feed's `LazyColumn`.
+Compose's `testTagsAsResourceId = true` (enabled at the root of
+`MainActivity`'s composition) surfaces Compose tags as bare
+`resource-id` values with no package qualifier — so the two-arg
+`By.res(packageName, id)` form (which builds
+`packageName:id/<id>`) silently never matches and is **not** used.
+The string `"feed_list"` is the contract between `:benchmark` and
+`:feature:feed:impl` — intentionally hardcoded (the macrobench
+module doesn't depend on the production module).
+`:feature:feed:impl/FeedTestTagsTest` pins the matching constant
+and surfaces silent renames in unit-test runs.

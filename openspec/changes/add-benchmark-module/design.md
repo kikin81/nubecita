@@ -69,38 +69,29 @@ Local runs on physical hardware (Pixel 10 Pro XL, etc.) remain the source of abs
 - Gradle Managed Devices. Doesn't fix the auth-state or variance problems, just changes the emulator image.
 - Self-hosted runner with a real Pixel. Best signal/noise, but adds physical-hardware operational surface that's hard to justify before we have a single regression caught by CI.
 
-### Decision 3 — Add a `benchmark` build type on `:app`, do not mutate `release`
+### Decision 3 — Let `androidx.baselineprofile` generate the benchmark variants; do NOT hand-roll a `benchmark` build type
 
-`:app` gets a new build type:
+`:app` applies the `androidx.baselineprofile` plugin (alongside `nubecita.android.application`). The plugin auto-generates two variants off the existing `release` build type:
 
-```kotlin
-buildTypes {
-    create("benchmark") {
-        initWith(getByName("release"))
-        signingConfig = signingConfigs.getByName("debug")
-        matchingFallbacks += listOf("release")
-        isDebuggable = false
-        isMinifyEnabled = true
-        // profileable so Macrobenchmark can attach via tracing
-        // (AGP 9 exposes this via the buildType DSL directly, no manifest merger needed)
-    }
-}
-```
+- `benchmarkRelease` — R8-minified, profileable, debug-signed. The actual Macrobenchmark target.
+- `nonMinifiedRelease` — non-R8-minified, profileable, debug-signed. Used by a future `BaselineProfileGenerator` test (filed as `nubecita-crmi.2`).
 
-`:benchmark` gets a corresponding `benchmark` build type with `matchingFallbacks = listOf("release")` so `targetProjectPath = ":app"` resolves the `:app` variant correctly.
+`:benchmark` declares no build types of its own — the matching producer-side variants flow through automatically when `targetProjectPath = ":app"` is set.
 
-**Why:** Macrobenchmark requires the target APK to be `profileable` so the macrobench test process can read system tracing data. We can't enable `profileable` on the `release` build type — that would ship the production APK with profileability enabled, which Macrobench's own docs warn against (negligible perf impact in practice, but unnecessary attack surface). The separate `benchmark` build type isolates the change.
+**Why:** This is the AndroidX-canonical setup. A hand-rolled `benchmark` build type would either duplicate the plugin's `benchmarkRelease` (and collide with the plugin's naming, producing awkward `assembleBenchmarkBenchmark`-style task names verified during local bring-up) or sit unused. Production `release` stays untouched (non-profileable, non-debuggable) — the plugin operates by *adding* variants alongside it, not by mutating its flags.
 
-**Why NOT a flavor:** Flavors multiply the entire variant matrix (`debug × prod`, `release × prod`, `benchmark × prod`, …). For a single new measurement variant we only ever build via `./gradlew :benchmark:connectedBenchmarkAndroidTest`, a flavor is overkill. A build type adds one variant; we accept the marginal AGP configuration cost.
+**Why NOT a flavor:** Flavors multiply the entire variant matrix (`debug × prod`, `release × prod`, …). The auto-generated build-type variants are strictly cheaper. Flavors stay reserved for the eventual `benchmark` *environment* flavor that the CI follow-up (`nubecita-crmi.6`) introduces to swap real network for fake repositories — orthogonal to this decision.
 
 **Alternatives considered:**
 
-- Enable `isProfileable = true` on `release`. Rejected per above — Macrobench docs explicitly say "create a separate buildType" and not to ship profileable production APKs.
-- Use AGP's `release` build type with a `-PenableProfileable=true` Gradle property gating `isProfileable`. Works, but obscures the variant identity in CI logs and IDE pickers. The explicit `benchmark` variant is easier to grep.
+- Hand-roll a `benchmark` build type with `initWith(getByName("release"))` + `isProfileable = true`. Tried during local bring-up; collides with the plugin's auto-generated `benchmarkRelease` variant and produces task names like `assembleBenchmarkBenchmark`. Dropped.
+- Enable `isProfileable = true` on `release` directly. Rejected — ships the production APK with profileability enabled, which Macrobench's own docs warn against (negligible perf impact in practice, but unnecessary attack surface).
+- Gate `isProfileable` via a `-PenableProfileable=true` Gradle property on `release`. Works, but obscures the variant identity in IDE pickers and Logcat. The plugin-generated `benchmarkRelease` is easier to grep and matches AndroidX templates.
+- Use a product flavor with `applicationIdSuffix = ".benchmark"` so the bench install never collides with a Play install on dev devices. Considered after hitting the signing-collision issue on a Pixel Fold; rolled forward instead because the auto-generated `benchmarkRelease` is debug-signed already and the flavor-with-suffix work belongs in the CI epic (it'll need the suffix for the fake-network variant anyway).
 
 ### Decision 4 — Stable `testTag` on `FeedScreen`'s `LazyColumn`
 
-`:feature:feed:impl/FeedScreen` gains a `Modifier.testTag(FeedTestTags.LIST)` (constant `"feed_list"`) on its top-level `LazyColumn`, and a small public-API object `FeedTestTags` exposing the constants. The `FeedScrollBenchmark` uses `device.findObject(By.res("net.kikin.nubecita:id/feed_list"))` — Compose `testTag`s surface to UIAutomator as the resource-id under the app package when `testTagsAsResourceId = true` is set on the root semantics modifier.
+`:feature:feed:impl/FeedScreen` gains a `Modifier.testTag(FeedTestTags.LIST)` (constant `"feed_list"`) on its top-level `LazyColumn`, and a small public-API object `FeedTestTags` exposing the constants. The `FeedScrollBenchmark` uses the **single-arg** `device.findObject(By.res("feed_list"))` — Compose's `testTagsAsResourceId = true` (set on `MainActivity`'s root semantics modifier) surfaces tags as **bare** `resource-id` values with no package qualifier, so the two-arg `By.res(packageName, id)` form (which builds `packageName:id/<id>`) silently never matches.
 
 **Why this seam, not "scroll the whole window":** Macrobenchmark's `device.swipe(...)` against raw screen coordinates is order-dependent on layout and breaks on any future top-bar / sticky-header change. A testTag-anchored UIAutomator selector survives refactors that move the list under different scaffolding.
 
