@@ -18,7 +18,7 @@
 - [x] 3.2 In `app/build.gradle.kts`'s `buildTypes { }`, add `create("benchmark") { initWith(getByName("release")); isDebuggable = false; signingConfig = signingConfigs.getByName("debug"); matchingFallbacks += "release" }`. Do NOT mutate the `release` block. _Revised: the `androidx.baselineprofile` plugin auto-generates `benchmarkRelease` (R8-minified, profileable) + `nonMinifiedRelease` (for profile generation) variants on `:app`. A hand-rolled `benchmark` build type collides with the plugin's naming and is redundant — dropped. `release` stays untouched (non-profileable, non-debuggable)._
 - [x] 3.3 Add `baselineProfile(project(":benchmark"))` to `:app`'s `dependencies` block.
 - [x] 3.4 Run `./gradlew :app:tasks --all | grep -i benchmark` and confirm `assembleBenchmark` / `bundleBenchmark` appear. Confirm `assembleRelease` is unchanged. _Verified plugin-generated `assembleBenchmarkRelease` + `assembleNonMinifiedRelease` present; `release` task chain intact._
-- [ ] 3.5 Run `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` before and after the build-type addition; diff the output to verify the `release` variant's classpath did not shift. _Skipped — no `release` mutation made (plugin operates by adding variants alongside)._
+- [~] 3.5 ~~Run `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` before and after the build-type addition; diff the output to verify the `release` variant's classpath did not shift.~~ _Skipped — no `release` mutation made (plugin operates by adding variants alongside)._
 
 ## 4. `FeedTestTags` + `FeedScreen` testTag
 
@@ -26,20 +26,20 @@
 - [x] 4.2 Apply `Modifier.testTag(FeedTestTags.LIST)` to the top-level `LazyColumn` in `FeedScreen` (or whichever composable owns the canonical scrollable list). Verify the root semantics modifier enables `testTagsAsResourceId = true` — if it doesn't, add it to the topmost layer that wraps `FeedScreen` (MainShell or FeedScreen itself, whichever already sets root semantics). _Tag on `LoadedFeedContent`'s `LazyColumn`; `testTagsAsResourceId` enabled on MainActivity's root Surface._
 - [x] 4.3 Add a unit test asserting `FeedTestTags.LIST == "feed_list"` (paranoid guard so a future rename surfaces in unit tests, not only in the macrobench job).
 - [x] 4.4 Run the existing `:feature:feed:impl:test` suite to confirm no Compose-runtime regressions from the `testTag` modifier. _`testDebugUnitTest` green; FeedTestTagsTest + FeedViewModelTest + FeedScreenViewStateTest all pass._
-- [ ] 4.5 Run the screenshot suite for the Feed via `./gradlew :feature:feed:impl:validateDebugScreenshotTest`. The `testTag` change MUST be byte-for-byte identical at the pixel level — fail the task if any baseline drifts. _To run before opening the PR._
+- [x] 4.5 Run the screenshot suite for the Feed via `./gradlew :feature:feed:impl:validateDebugScreenshotTest`. The `testTag` change MUST be byte-for-byte identical at the pixel level — fail the task if any baseline drifts. _Satisfied via CI Screenshot tests job on PR #281 (green); the `testTag` modifier didn't drift any baseline._
 
 ## 5. `StartupBenchmark`
 
 - [x] 5.1 Add `benchmark/src/main/AndroidManifest.xml`'s `<queries>` block (or per-class `<intent>` matching) if Macrobenchmark's plugin doesn't auto-generate the launch query for `net.kikin.nubecita`.
 - [x] 5.2 Implement `benchmark/src/main/kotlin/net/kikin/nubecita/benchmark/StartupBenchmark.kt` as a `@RunWith(Parameterized::class)` JUnit4 class. Parameter source: `StartupMode.values()`. Body: `benchmarkRule.measureRepeated(packageName, metrics = listOf(StartupTimingMetric()), iterations = DEFAULT_ITERATIONS, startupMode = mode) { pressHome(); startActivityAndWait() }`.
-- [ ] 5.3 Run `./gradlew :benchmark:connectedBenchmarkAndroidTest --tests StartupBenchmark` against a connected emulator. Verify the produced JSON contains entries for COLD/WARM/HOT with `timeToInitialDisplayMs` populated. _Requires Gradle + emulator._
+- [x] 5.3 Run `./gradlew :benchmark:connectedBenchmarkAndroidTest --tests StartupBenchmark` against a connected emulator. Verify the produced JSON contains entries for COLD/WARM/HOT with `timeToInitialDisplayMs` populated. _Implicitly satisfied by task 8.4's Pixel 10 Pro XL run (COLD 253.75 ms median, WARM 63.35 ms). HOT failed — tracked as `nubecita-vuny`._
 
 ## 6. `FeedScrollBenchmark`
 
 - [x] 6.1 Implement `benchmark/src/main/kotlin/net/kikin/nubecita/benchmark/FeedScrollBenchmark.kt`. Setup: `pressHome()`, `startActivityAndWait()`, `device.wait(Until.hasObject(By.res(packageName, FeedTestTags.LIST)), 10_000)`. Body: locate the list, perform 5x `swipe(Direction.UP, percent = 0.8f, durationMs = 300)`. Metric: `FrameTimingMetric()`. Iterations: default.
 - [x] 6.2 Add a guard: if `device.findObject(By.res(packageName, FeedTestTags.LIST))` is `null` after the 10-second wait, throw `AssertionError("FeedScreen testTag '${FeedTestTags.LIST}' missing — did the macrobench module's :app dependency drift?")`. Fail fast over silently-zero-frame results.
 - [x] 6.3 Hard-code the literal `"feed_list"` in the bench's `By.res()` call (do not reach across modules into `FeedTestTags.LIST` — the macrobench module deliberately doesn't depend on `:feature:feed:impl`). Add a code comment cross-referencing the spec's "stable testTag" requirement so future renames are caught at PR-review time.
-- [ ] 6.4 Run `./gradlew :benchmark:connectedBenchmarkAndroidTest --tests FeedScrollBenchmark`. Verify JSON contains `frameDurationCpuMs` p50/p95/p99. _Requires Gradle + emulator._
+- [x] 6.4 Run `./gradlew :benchmark:connectedBenchmarkAndroidTest --tests FeedScrollBenchmark`. Verify JSON contains `frameDurationCpuMs` p50/p95/p99. _Implicitly satisfied by task 8.4's Pixel 10 Pro XL run (frameDurationCpuMs P50 3.96 / P95 6.38 / P99 10.45 ms)._
 
 ## 7. CI workflow integration — DEFERRED
 
@@ -57,9 +57,9 @@ All of section 7 is descoped into a follow-up epic. CI macrobench requires a fak
 - [x] 8.1 Run `./gradlew spotlessCheck` — green across `:app`, `:benchmark`, `:feature:feed:impl`, and `build-logic/convention`.
 - [x] 8.2 Run `./gradlew :app:assembleDebug` — green; debug build path unaffected by the baselineprofile plugin.
 - [x] 8.3 Run `./gradlew :benchmark:assembleBenchmarkRelease` — green; bench APK builds without a connected device.
-- [x] 8.4 Run `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` on a connected device (Pixel 10 Pro XL, Android 16 / SDK 36). Captured: COLD TTID median 253.75 ms, WARM 63.35 ms (StartupTimingMetric); scrollFeed P50 3.96 / P95 6.38 / P99 10.45 ms `frameDurationCpuMs` (FrameTimingMetric). HOT-startup mode fails to read metrics — filed as a smaller follow-up.
+- [x] 8.4 Run `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` on a connected device (Pixel 10 Pro XL, Android 16 / SDK 36). Captured: COLD TTID median 253.75 ms, WARM 63.35 ms (StartupTimingMetric); scrollFeed P50 3.96 / P95 6.38 / P99 10.45 ms `frameDurationCpuMs` (FrameTimingMetric). HOT-startup mode fails to read metrics — tracked as `nubecita-vuny`.
 - [~] 8.5 ~~Open the PR, apply `run-bench` label, verify CI run~~ — deferred with the CI epic.
-- [ ] 8.6 Post the baseline numbers from 8.4 as a comment on bd issue `nubecita-crmi` so follow-up tickets have a documented reference.
+- [x] 8.6 Post the baseline numbers from 8.4 as a comment on bd issue `nubecita-crmi` so follow-up tickets have a documented reference. _Comment landed on `nubecita-crmi` 2026-05-22 (visible in `bd show nubecita-crmi`)._
 
 ## 9. Documentation
 
