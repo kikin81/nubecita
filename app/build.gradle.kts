@@ -204,10 +204,6 @@ android {
 dependencies {
     implementation(platform(libs.coil.bom))
     implementation(platform(libs.firebase.bom))
-    // Baseline profile producer wiring — :benchmark generates a profile
-    // (in a follow-up ticket; this change just declares the relationship)
-    // and the androidx.baselineprofile plugin picks it up at assemble time.
-    "baselineProfile"(project(":benchmark"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     // :core:posting types (ComposerError, ComposerAttachment) surface in
@@ -273,6 +269,11 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.espresso.intents)
     androidTestImplementation(libs.androidx.test.ext.junit)
+
+    // Baseline profile producer wiring — :benchmark generates a profile
+    // (in a follow-up ticket; this change just declares the relationship)
+    // and the androidx.baselineprofile plugin picks it up at assemble time.
+    "baselineProfile"(project(":benchmark"))
 
     kspAndroidTest(libs.hilt.android.compiler)
 }
