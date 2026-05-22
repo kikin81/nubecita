@@ -15,6 +15,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -94,12 +95,28 @@ fun MainShell(modifier: Modifier = Modifier) {
             )
         }
     val installers = remember(entryPoint) { entryPoint.mainShellEntryProviderInstallers() }
+    val deepLinkRouter = remember(entryPoint) { entryPoint.deepLinkRouter() }
 
     val mainShellNavState =
         rememberMainShellNavState(
             startRoute = Feed,
             topLevelRoutes = TopLevelDestinations.map { it.key },
         )
+
+    // Drain deep-link targets resolved by `MainActivity.handleIntent` onto
+    // the inner back stack. The router is a Hilt singleton with a buffered
+    // Channel, so a cold-start intent published before MainShell entered
+    // composition is held until this collector subscribes — same shape as
+    // `OAuthRedirectBroker` for the login path. ViewModels cannot reach
+    // the nav state holder (per the MVI conventions in CLAUDE.md), so the
+    // Activity-to-shell handoff goes through this router rather than a
+    // direct `add(...)` call from `MainActivity`. See nubecita-kf6k.4 for
+    // the design decision.
+    LaunchedEffect(deepLinkRouter, mainShellNavState) {
+        deepLinkRouter.pendingDeepLinks.collect { target ->
+            mainShellNavState.add(target)
+        }
+    }
 
     // Hot SharedFlow that fires `Unit` on bottom-nav tab RE-TAP. Each
     // active tab's screen interprets the re-tap differently (Feed →

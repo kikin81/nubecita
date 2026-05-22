@@ -3,8 +3,10 @@ package net.kikin.nubecita.navigation
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.common.navigation.DeepLinkRouter
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
 
@@ -35,4 +37,19 @@ interface NavigationEntryPoint {
 
     @MainShell
     fun mainShellEntryProviderInstallers(): Set<@JvmSuppressWildcards EntryProviderInstaller>
+
+    /**
+     * Hilt-multibound deep-link matchers, contributed by `:feature:*:impl`
+     * modules via `@Provides @IntoSet`. `MainActivity.handleIntent`
+     * iterates this set on each incoming `Intent`; the first non-null
+     * match is published to the [DeepLinkRouter] for `MainShell` to
+     * push onto the inner back stack. Matchers MUST be registered in
+     * declaration order from most-specific to least-specific so the
+     * `pathSegments.size` gate in `UriDeepLinkMatcher.matchUri` cleanly
+     * short-circuits the wrong matcher before regex evaluation
+     * (decision: nubecita-kf6k.4).
+     */
+    fun deepLinkMatchers(): Set<@JvmSuppressWildcards NavKeyDeepLinkMatcher>
+
+    fun deepLinkRouter(): DeepLinkRouter
 }
