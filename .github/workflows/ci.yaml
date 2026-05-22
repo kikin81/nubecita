@@ -183,14 +183,14 @@ jobs:
 
       - name: Validate screenshot tests
         id: validate
-        run: ./gradlew :app:validateDebugScreenshotTest
+        run: ./gradlew validateDebugScreenshotTest
 
       - name: Upload diff report on failure
         if: failure() && steps.validate.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: screenshot-diff-report
-          path: app/build/reports/screenshotTest/preview/debug/
+          path: "**/build/reports/screenshotTest/preview/debug/"
           if-no-files-found: ignore
           retention-days: 14
 

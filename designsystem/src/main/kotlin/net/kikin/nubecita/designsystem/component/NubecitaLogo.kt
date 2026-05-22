@@ -1,41 +1,44 @@
 package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.NubecitaPalette
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
 
 /**
- * Brand cloud-only mark. Square aspect (1:1).
+ * Brand cloud mark with bow. Square aspect (1:1).
  *
- * Backed by `nubecita_logomark.xml`, a 4-shape vector port of
- * `openspec/references/design-system/assets/logomark-mono.svg`. The vector
- * uses `#FFFFFFFF` fills throughout; [tint] is applied via
- * `ColorFilter.tint(...)` at render time, so the mark color follows whatever
- * the caller passes (default: `MaterialTheme.colorScheme.primary`, which
- * resolves to brand sky `#0A7AFF` under the static palette).
+ * Backed by [LogoImageVector], a Compose `ImageVector` port of the brand
+ * logomark — white cloud body, a pink bow on top (`#F7AAC9` / `#E36DA0`),
+ * and two sky-blue stroke accents (`NubecitaPalette.Sky50`). Use the
+ * default multi-color rendering on surfaces with a contrasting (typically
+ * darker or branded) background. For low-contrast surfaces like the
+ * near-white `Sky99` theme background, pass a [tint] (e.g.
+ * `NubecitaPalette.Sky50`) to collapse the mark to a single legible color
+ * via `ColorFilter.tint(...)`.
  *
  * Caller controls absolute size via [modifier] (`Modifier.size(...)` or
- * layout-driven). The intrinsic size is the vector's 72dp × 72dp.
+ * layout-driven). The intrinsic size is 72dp × 72dp.
  */
 @Composable
 fun NubecitaLogomark(
     modifier: Modifier = Modifier,
-    tint: Color = MaterialTheme.colorScheme.primary,
+    tint: Color = Color.Unspecified,
 ) {
     Image(
-        painter = painterResource(R.drawable.nubecita_logomark),
+        imageVector = LogoImageVector,
         contentDescription = stringResource(R.string.logomark_content_description),
-        colorFilter = ColorFilter.tint(tint),
+        colorFilter = if (tint.isSpecified) ColorFilter.tint(tint) else null,
         modifier = modifier,
     )
 }
@@ -44,7 +47,7 @@ fun NubecitaLogomark(
 @Composable
 private fun NubecitaLogomarkPreview() {
     NubecitaTheme(dynamicColor = false) {
-        NubecitaLogomark(modifier = Modifier.size(96.dp))
+        NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky50))
     }
 }
 
@@ -52,17 +55,17 @@ private fun NubecitaLogomarkPreview() {
 @Composable
 private fun NubecitaLogomarkDarkPreview() {
     NubecitaTheme(darkTheme = true, dynamicColor = false) {
-        NubecitaLogomark(modifier = Modifier.size(96.dp))
+        NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky50))
     }
 }
 
-@Preview(name = "Logomark · custom tint", showBackground = true)
+@Preview(name = "Logomark · tinted on light surface", showBackground = true)
 @Composable
-private fun NubecitaLogomarkCustomTintPreview() {
+private fun NubecitaLogomarkTintedPreview() {
     NubecitaTheme(dynamicColor = false) {
         NubecitaLogomark(
-            modifier = Modifier.size(96.dp),
-            tint = Color(0xFF0A7AFF),
+            modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky99),
+            tint = NubecitaPalette.Sky50,
         )
     }
 }
