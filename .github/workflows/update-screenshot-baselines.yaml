@@ -72,13 +72,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Regenerate baselines
-        run: ./gradlew :app:updateDebugScreenshotTest
+        run: ./gradlew updateDebugScreenshotTest
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/screenshotTestDebug/reference
+          # Stage baselines for every module that has a screenshot test source
+          # set. Globbing here keeps the workflow agnostic to which modules
+          # contribute screenshot tests.
+          git add '**/src/screenshotTestDebug/reference'
           if git diff --cached --quiet; then
             echo "No baseline changes to commit."
             exit 0
