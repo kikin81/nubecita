@@ -78,10 +78,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Stage baselines for every module that has a screenshot test source
-          # set. Globbing here keeps the workflow agnostic to which modules
-          # contribute screenshot tests.
-          git add '**/src/screenshotTestDebug/reference'
+          # Stage baselines for every module that has a screenshot test
+          # reference dir. `find -exec git add {} +` is portable and avoids
+          # the `**` glob trap (git's default pathspec treats `**` literally
+          # without the `:(glob)` magic prefix, and quoting suppresses shell
+          # expansion either way).
+          find . -type d \
+            -path '*/src/screenshotTestDebug/reference' \
+            -exec git add {} +
           if git diff --cached --quiet; then
             echo "No baseline changes to commit."
             exit 0
