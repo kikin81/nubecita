@@ -1,5 +1,7 @@
 [versions]
 androidGradlePlugin = "9.2.1"
+androidxBenchmark = "1.5.0-alpha06"
+androidxUiAutomator = "2.3.0"
 atproto = "8.1.0"
 androidxCore = "1.18.0"
 androidxLifecycle = "2.10.0"
@@ -48,6 +50,10 @@ timber = "5.0.1"
 
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradlePlugin" }
+androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "androidxBenchmark" }
+androidx-benchmark-gradlePlugin = { group = "androidx.benchmark", name = "benchmark-gradle-plugin", version.ref = "androidxBenchmark" }
+androidx-baselineprofile-gradlePlugin = { group = "androidx.baselineprofile", name = "androidx.baselineprofile.gradle.plugin", version.ref = "androidxBenchmark" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidxUiAutomator" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "androidxCoreSplashscreen" }
 androidx-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
@@ -140,6 +146,9 @@ telephoto-zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-c
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
+android-test = { id = "com.android.test", version.ref = "androidGradlePlugin" }
+androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "androidxBenchmark" }
+androidx-benchmark = { id = "androidx.benchmark", version.ref = "androidxBenchmark" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose-screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }
@@ -156,4 +165,5 @@ nubecita-android-hilt = { id = "nubecita.android.hilt", version = "unspecified" 
 nubecita-android-jacoco = { id = "nubecita.android.jacoco", version = "unspecified" }
 nubecita-android-feature = { id = "nubecita.android.feature", version = "unspecified" }
 nubecita-android-application = { id = "nubecita.android.application", version = "unspecified" }
+nubecita-android-benchmark = { id = "nubecita.android.benchmark", version = "unspecified" }
 nubecita-android-room = { id = "nubecita.android.room", version = "unspecified" }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Macrobenchmark requires the test process to be allowed to query
+    the target package via <queries>. AGP's `com.android.test` module
+    type (plus the androidx.baselineprofile plugin) injects the
+    <instrumentation> tag automatically; we only declare the queries
+    block here so the bench can resolve net.kikin.nubecita's launcher
+    activity on API 30+.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <package android:name="net.kikin.nubecita" />
+    </queries>
+</manifest>

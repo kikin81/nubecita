@@ -41,6 +41,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -575,7 +576,14 @@ private fun LoadedFeedContent(
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    // Stable selector for the :benchmark Macrobenchmark
+                    // module's FeedScrollBenchmark. Surfaces as a UIAutomator
+                    // resource-id via the testTagsAsResourceId flag set on
+                    // MainActivity's root semantics modifier.
+                    .testTag(FeedTestTags.LIST),
             // contentPadding (NOT Modifier.padding on the parent) — keeps the
             // LazyColumn surface extending behind translucent system bars
             // while pushing the first/last items into the safe area. The
