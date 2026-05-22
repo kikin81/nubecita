@@ -33,6 +33,8 @@ import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
+import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
+import net.kikin.nubecita.feature.postdetail.api.toPostDetailRoute
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -211,7 +213,20 @@ class MainActivity : ComponentActivity() {
                 .sortedByDescending { it.patternSpecificity }
                 .firstNotNullOfOrNull { it.match(request) }
         if (matched != null) {
-            lifecycleScope.launch { deepLinkRouter.publish(matched) }
+            // `PostDeepLinkKey` is a pure transport key — the alpha03
+            // UriDeepLinkMatcher needs a NavKey whose serializable
+            // fields exactly mirror the URI placeholders
+            // (`{handle}`, `{rkey}`), but the back-stack-eligible
+            // destination is `PostDetailRoute(postUri = "at://...")`.
+            // Convert here so the router and MainShell never see the
+            // intermediate shape. See `PostDeepLinkKey` kdoc for the
+            // rationale. Any other matched NavKey publishes as-is.
+            val target =
+                when (matched) {
+                    is PostDeepLinkKey -> matched.toPostDetailRoute()
+                    else -> matched
+                }
+            lifecycleScope.launch { deepLinkRouter.publish(target) }
             // Consume the data so a configuration change doesn't re-fire
             // the same deep link on the rebuilt MainShell.
             intent.data = null

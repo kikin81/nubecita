@@ -67,6 +67,37 @@ private fun isValidDid(value: String): Boolean {
     return DID_REGEX.matches(value)
 }
 
+/**
+ * Boundary validation for AT Protocol record keys (TID grammar) arriving
+ * from untrusted sources — today, the `{rkey}` placeholder extracted by
+ * the post-detail deep-link matcher (see `ProfileDeepLinkModule`).
+ *
+ * `app.bsky.feed.post` records use the TID record-key format
+ * (https://atproto.com/specs/tid):
+ *
+ * - 13 ASCII characters.
+ * - Alphabet: base32-sortable, `[2-7a-z]` (digits 0/1/8/9 and
+ *   uppercase letters are excluded by spec).
+ *
+ * Per the kf6k.5 security checklist, every rkey coming through the
+ * matcher MUST pass [isValidRkey] before the NavKey is published.
+ * Failed validation returns null from the matcher (via the `accept`
+ * lambda) and `MainActivity.handleIntent` logs the unmatched URI at
+ * `Timber.d`.
+ *
+ * The grammar is purely syntactic: a syntactically-valid TID that
+ * doesn't resolve to a post surfaces downstream as a `getPostThread`
+ * `NotFound`, which the existing `PostDetail` error UX handles. The
+ * spec's "first-character high-bit-clear" sub-constraint
+ * (`[234567a-h]` for the first char) is intentionally NOT enforced —
+ * the appview ignores that bit at URL parse time, and we don't want to
+ * reject otherwise-valid third-party TIDs over an over-precise check.
+ */
+internal fun isValidRkey(value: String?): Boolean {
+    if (value == null) return false
+    return RKEY_TID_REGEX.matches(value)
+}
+
 private const val MIN_HANDLE_LENGTH = 3
 private const val MAX_HANDLE_LENGTH = 253
 private const val MIN_DID_LENGTH = 7
@@ -79,3 +110,5 @@ private val HANDLE_REGEX =
     )
 
 private val DID_REGEX = Regex("^did:[a-z0-9]+:[a-zA-Z0-9._:-]+$")
+
+private val RKEY_TID_REGEX = Regex("^[2-7a-z]{13}$")

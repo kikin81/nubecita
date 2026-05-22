@@ -5,8 +5,14 @@
 [extend]
 useDefault = true
 
-[allowlist]
+[[allowlists]]
 description = "Firebase google-services.json — the API key inside is package-name + SHA-1-fingerprint scoped, so a fork cannot authenticate as our app without our signing keystore. This is the standard Android+Firebase pattern even for public repos. See: https://firebase.google.com/support/troubleshooter/oauth-and-api-keys"
 paths = [
     '''app/google-services\.json''',
+]
+
+[[allowlists]]
+description = "AT Protocol TID record keys — 13-char base32-sortable strings ([2-7a-z]) used as the rkey segment in every app.bsky.feed.post URL (https://atproto.com/specs/tid). They are PUBLIC record identifiers, not secrets, but their alphabet + length put them above gitleaks' generic-api-key entropy threshold. Test fixtures and inline docstrings throughout the repo legitimately quote synthetic TID-shaped values."
+regexes = [
+    '''^[2-7a-z]{13}$''',
 ]
