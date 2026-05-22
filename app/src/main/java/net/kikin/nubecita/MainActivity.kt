@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
@@ -82,7 +84,21 @@ class MainActivity : ComponentActivity() {
             window.isNavigationBarContrastEnforced = false
         }
         setContent {
-            NubecitaTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+            NubecitaTheme {
+                // testTagsAsResourceId surfaces Compose `Modifier.testTag(...)`
+                // values to UIAutomator as Android resource ids — required so
+                // the :benchmark Macrobenchmark module can locate Compose
+                // nodes via `By.res(packageName, "<tag>")`. The flag belongs
+                // at the topmost composable so every descendant's testTag
+                // participates, regardless of which feature module declared it.
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .semantics { testTagsAsResourceId = true },
+                    color = MaterialTheme.colorScheme.background,
+                ) { MainNavigation() }
+            }
         }
         // Cold-start case: the OAuth redirect arrived while the app was dead and Android
         // launched MainActivity with the redirect intent. The broker buffers until

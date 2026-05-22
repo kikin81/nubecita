@@ -15,6 +15,14 @@ kotlin {
 
 dependencies {
     compileOnly(libs.android.gradlePlugin)
+    // implementation (not compileOnly) for baselineprofile + benchmark
+    // plugins so the plugin descriptors travel onto the buildscript
+    // classpath at runtime — pluginManager.apply("androidx.baselineprofile")
+    // inside the convention plugin needs the descriptor metadata
+    // resolvable. The other Android plugins (hilt/kotlin/compose) come
+    // bundled with AGP 9 and don't need the runtime hop.
+    implementation(libs.androidx.baselineprofile.gradlePlugin)
+    implementation(libs.androidx.benchmark.gradlePlugin)
     compileOnly(libs.compose.gradlePlugin)
     compileOnly(libs.hilt.gradlePlugin)
     compileOnly(libs.kotlin.gradlePlugin)
@@ -49,6 +57,10 @@ gradlePlugin {
         register("androidApplication") {
             id = "nubecita.android.application"
             implementationClass = "net.kikin.nubecita.buildlogic.AndroidApplicationConventionPlugin"
+        }
+        register("androidBenchmark") {
+            id = "nubecita.android.benchmark"
+            implementationClass = "net.kikin.nubecita.buildlogic.AndroidBenchmarkConventionPlugin"
         }
         register("androidRoom") {
             id = "nubecita.android.room"

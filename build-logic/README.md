@@ -1,6 +1,6 @@
 # `build-logic/` — Gradle convention plugins
 
-Composite build pulled into the root via `pluginManagement { includeBuild("build-logic") }` in `settings.gradle.kts`. Hosts seven class-based `Plugin<Project>` implementations that centralize the SDK versions, JVM toolchain, Compose wiring, and Hilt wiring shared across every Android module in the repo.
+Composite build pulled into the root via `pluginManagement { includeBuild("build-logic") }` in `settings.gradle.kts`. Hosts eight class-based `Plugin<Project>` implementations that centralize the SDK versions, JVM toolchain, Compose wiring, and Hilt wiring shared across every Android module in the repo.
 
 ## The plugins
 
@@ -12,6 +12,7 @@ Composite build pulled into the root via `pluginManagement { includeBuild("build
 | `nubecita.android.jacoco` | `jacoco`, pinned tool version, JaCoCo agent on every Test task, per-module `jacocoTestReport` over the `debug` variant | Applied transitively by `nubecita.android.library` and `nubecita.android.application` — every Android module gets it |
 | `nubecita.android.feature` | Meta: `library` + `library.compose` + `hilt`, plus `:designsystem` project dep + `lifecycle-viewmodel-compose` + `lifecycle-runtime-compose` + `hilt-navigation-compose` + `navigation3-runtime` + `navigation3-ui` + `kotlinx-collections-immutable` | `:feature:*:impl` modules (none yet — created by the upcoming `add-feature-login` change) |
 | `nubecita.android.application` | `com.android.application`, `sort-dependencies`, Compose + Hilt + KSP plugins, `compileSdk/minSdk/targetSdk`, JVM 17 toolchain, `buildFeatures.buildConfig = true; compose = true`, default release build type, base Compose + Hilt + `hilt-navigation-compose` deps | `:app` |
+| `nubecita.android.benchmark` | `com.android.test`, `org.jetbrains.kotlin.android`, `androidx.baselineprofile` (producer side), `sort-dependencies`, `compileSdk = 37`, `minSdk = 28`, JVM 17 toolchain, `targetProjectPath = ":app"`, `benchmark` build type with `matchingFallbacks = listOf("release")`, `android.experimental.self-instrumenting` flag, `benchmark-macro-junit4` + `uiautomator` deps | `:benchmark` |
 | `nubecita.android.room` | `androidx.room` Gradle plugin + `com.google.devtools.ksp`, `RoomExtension.schemaDirectory("$projectDir/schemas")`, `ksp { arg("room.generateKotlin", "true") }`, Room runtime + ktx + Room KSP compiler | `:core:database` |
 
 ## Adding a new module

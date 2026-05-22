@@ -13,6 +13,7 @@ Pending: Room (persistence), Coil (images), `atproto-kotlin` (networking) — li
 ./gradlew testDebugUnitTest
 ./gradlew spotlessCheck lint
 ./gradlew jacocoTestReportAggregated
+./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest  # Macrobenchmark, needs connected device/emulator
 
 pre-commit run --all-files
 ```
