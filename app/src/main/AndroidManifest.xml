@@ -90,6 +90,38 @@
                     android:path="/oauth-redirect" />
             </intent-filter>
             <!--
+                Verified Android App Link for our OWN profile deep-link
+                surface. We control nubecita.app and its assetlinks.json
+                already lists the app's signing-cert fingerprints (verified
+                by the OAuth-redirect filter above which has been live for
+                some time). The OS treats nubecita.app as a verified handler
+                for this app, so https://nubecita.app/profile/... URLs
+                bypass the chooser dialog and open Nubecita directly.
+
+                Used today by surfaces WE control — push notifications,
+                email links, future share sheet upgrades. The Bluesky-shaped
+                bsky.app filter below remains the chooser fallback for URLs
+                shared into Nubecita from anywhere else.
+
+                pathPrefix="/profile" (narrow) keeps the verified scope tight
+                and covers kf6k.3's /post suffix too — handleIntent's matcher
+                set discriminates path shapes in-process. Same pattern as
+                bsky.app's filter.
+
+                Web fallback: a non-installed user clicking the URL in a
+                browser hits nubecita.app, which 302s to the equivalent
+                bsky.app URL — tracked separately (see kf6k.2 PR body).
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="nubecita.app"
+                    android:pathPrefix="/profile" />
+            </intent-filter>
+            <!--
                 bsky.app deep-link entry. Tapping a /profile/{handle} or
                 /profile/{handle}/post/{rkey} URL from any app on the device
                 surfaces Nubecita as an "Open with" chooser candidate.

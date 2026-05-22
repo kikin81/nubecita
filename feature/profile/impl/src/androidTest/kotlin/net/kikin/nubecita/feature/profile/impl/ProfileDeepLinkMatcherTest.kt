@@ -27,12 +27,28 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ProfileDeepLinkMatcherTest {
+    private val nubecitaAppMatcher = ProfileDeepLinkModule.provideNubecitaAppProfileDeepLinkMatcher()
     private val httpsMatcher = ProfileDeepLinkModule.provideHttpsProfileDeepLinkMatcher()
     private val nubecitaMatcher = ProfileDeepLinkModule.provideNubecitaProfileDeepLinkMatcher()
 
     private fun viewRequest(uri: String): DeepLinkRequest = DeepLinkRequest.fromUriString(uri, null, Intent.ACTION_VIEW)
 
-    // -- HTTPS scheme — accept cases --------------------------------------
+    // -- HTTPS verified App Link (nubecita.app) — accept cases ------------
+
+    @Test
+    fun https_nubecitaAppProfileHandle_matchesProfileWithHandle() {
+        val matched = nubecitaAppMatcher.match(viewRequest("https://nubecita.app/profile/alice.bsky.social"))
+        assertEquals(Profile(handle = "alice.bsky.social"), matched)
+    }
+
+    @Test
+    fun https_nubecitaAppProfileDid_matchesProfileWithDid() {
+        val matched =
+            nubecitaAppMatcher.match(viewRequest("https://nubecita.app/profile/did:plc:abcdefghijklmnopqrstuvwx"))
+        assertEquals(Profile(handle = "did:plc:abcdefghijklmnopqrstuvwx"), matched)
+    }
+
+    // -- HTTPS chooser (bsky.app) — accept cases --------------------------
 
     @Test
     fun https_bskyAppProfileHandle_matchesProfileWithHandle() {
@@ -53,6 +69,20 @@ class ProfileDeepLinkMatcherTest {
     fun nubecita_profileHandle_matchesProfileWithHandle() {
         val matched = nubecitaMatcher.match(viewRequest("nubecita://profile/alice.bsky.social"))
         assertEquals(Profile(handle = "alice.bsky.social"), matched)
+    }
+
+    // -- Cross-host rejection — each matcher claims only its host ---------
+
+    @Test
+    fun nubecitaAppMatcher_doesNotClaim_bskyAppUri() {
+        val matched = nubecitaAppMatcher.match(viewRequest("https://bsky.app/profile/alice.bsky.social"))
+        assertNull(matched)
+    }
+
+    @Test
+    fun bskyAppMatcher_doesNotClaim_nubecitaAppUri() {
+        val matched = httpsMatcher.match(viewRequest("https://nubecita.app/profile/alice.bsky.social"))
+        assertNull(matched)
     }
 
     // -- Reject cases — wrong shape for *this* matcher --------------------

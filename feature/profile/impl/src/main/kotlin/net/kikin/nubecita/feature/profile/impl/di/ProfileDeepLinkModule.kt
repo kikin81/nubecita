@@ -13,16 +13,27 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.isValidActor
 
 /**
- * Registers the deep-link matchers that translate `bsky.app/profile/...`
- * and `nubecita://profile/...` URIs into [Profile] NavKeys.
+ * Registers the deep-link matchers that translate `nubecita.app/profile/...`,
+ * `bsky.app/profile/...`, and `nubecita://profile/...` URIs into [Profile]
+ * NavKeys.
  *
- * Two matchers — one per scheme — both target the same NavKey shape.
- * The alpha03 [androidx.navigation3.runtime.deeplink.UriDeepLinkMatcher]
- * requires an exact scheme compare (see kf6k.4), so a single matcher
- * cannot cover both `https://` and `nubecita://` and each scheme gets
- * its own provider.
+ * Three matchers — one per scheme/host pair — all target the same
+ * NavKey shape. The alpha03
+ * [androidx.navigation3.runtime.deeplink.UriDeepLinkMatcher] requires
+ * exact scheme + authority matching (see kf6k.4), so a single matcher
+ * cannot cover all three.
  *
- * Both matchers:
+ * - `https://nubecita.app/profile/{handle}` is the verified App Link
+ *   (autoVerify=true in the manifest). The OS routes these URLs to
+ *   Nubecita without a chooser; used by surfaces WE control (push
+ *   notifications, email links, etc).
+ * - `https://bsky.app/profile/{handle}` is the chooser-only path. We
+ *   don't control bsky.app's assetlinks.json so verification isn't
+ *   available; Nubecita registers as a candidate, never the default.
+ * - `nubecita://profile/{handle}` is the unambiguous custom scheme
+ *   for in-app links / widgets / future share extensions.
+ *
+ * All three matchers:
  * - Filter on `Intent.ACTION_VIEW` at the request boundary — non-VIEW
  *   actions fall through to the unmatched-link log. (kf6k.5 §"Matcher
  *   filters").
@@ -35,6 +46,16 @@ import net.kikin.nubecita.feature.profile.impl.isValidActor
 @Module
 @InstallIn(SingletonComponent::class)
 internal object ProfileDeepLinkModule {
+    @Provides
+    @IntoSet
+    fun provideNubecitaAppProfileDeepLinkMatcher(): NavKeyDeepLinkMatcher =
+        uriDeepLinkMatcher(
+            uriPattern = "https://nubecita.app/profile/{handle}",
+            serializer = Profile.serializer(),
+            filters = listOf(IntentActionFilter(Intent.ACTION_VIEW)),
+            accept = { profile -> isValidActor(profile.handle) },
+        )
+
     @Provides
     @IntoSet
     fun provideHttpsProfileDeepLinkMatcher(): NavKeyDeepLinkMatcher =
