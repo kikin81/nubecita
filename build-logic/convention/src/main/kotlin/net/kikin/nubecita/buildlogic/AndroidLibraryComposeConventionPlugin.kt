@@ -3,8 +3,10 @@ package net.kikin.nubecita.buildlogic
 import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.withType
 
 class AndroidLibraryComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -23,6 +25,20 @@ class AndroidLibraryComposeConventionPlugin : Plugin<Project> {
 
                 @Suppress("UnstableApiUsage")
                 experimentalProperties["android.experimental.enableScreenshotTest"] = true
+            }
+
+            // Gradle's Test task defaults to failing when no tests are discovered.
+            // Compose-using libs that don't (yet) ship a @PreviewTest legitimately
+            // have an empty screenshotTest source set; let those modules pass for
+            // both the validate and update tasks so the root-level
+            // `validateDebugScreenshotTest` / `updateDebugScreenshotTest` stay
+            // usable across the whole build.
+            tasks.withType<Test>().configureEach {
+                if (name == "validateDebugScreenshotTest" ||
+                    name == "updateDebugScreenshotTest"
+                ) {
+                    failOnNoDiscoveredTests.set(false)
+                }
             }
 
             configureComposeCompilerReports()
