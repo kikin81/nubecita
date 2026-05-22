@@ -71,6 +71,8 @@ class NavKeyDeepLinkMatcher
  *     uriDeepLinkMatcher(
  *         uriPattern = "https://bsky.app/profile/{handle}",
  *         serializer = serializer<Profile>(),
+ *         filters = listOf(IntentActionFilter(Intent.ACTION_VIEW)),
+ *         accept = { profile -> isValidActor(profile.handle) },
  *     )
  * ```
  *
@@ -82,15 +84,50 @@ class NavKeyDeepLinkMatcher
  * @param uriPattern The pattern to match (e.g. `"https://bsky.app/profile/{handle}"`).
  * @param serializer The `@Serializable` NavKey's KSerializer.
  * @param filters Optional alpha03 filters (mimeType, action). Empty by default.
+ * @param accept Optional post-decode predicate run against the decoded
+ *   [NavKey] before publishing. Returning `false` rejects the match
+ *   (the matcher returns `null` for that request). Used to enforce
+ *   feature-side input validation — e.g. rejecting malformed handles
+ *   extracted from a `{handle}` placeholder — without leaking the
+ *   regex into the URI pattern. Default accepts everything.
  */
 fun <T : NavKey> uriDeepLinkMatcher(
     uriPattern: String,
     serializer: KSerializer<T>,
     filters: List<DeepLinkMatcher.Filter<Any>> = emptyList(),
+    accept: (T) -> Boolean = { true },
 ): NavKeyDeepLinkMatcher {
     val parsedPattern = uriPattern.toUri()
     val matcher = UriDeepLinkMatcher(parsedPattern, serializer, filters)
     return NavKeyDeepLinkMatcher(
         patternSpecificity = parsedPattern.pathSegments.size,
-    ) { request -> matcher.match(request)?.key }
+    ) { request -> matcher.match(request)?.key?.takeIf(accept) }
+}
+
+/**
+ * Filter that restricts a [UriDeepLinkMatcher] to requests whose
+ * intent action matches [expectedAction] (typically
+ * `Intent.ACTION_VIEW`).
+ *
+ * The intent filter declared in `AndroidManifest.xml` already
+ * constrains the OS to deliver only `VIEW` actions, but the matcher
+ * is fed a [DeepLinkRequest] constructed from arbitrary intents
+ * (including ones forwarded in-process or built by tests). This
+ * filter is the defence-in-depth re-check: a `Intent.ACTION_SEND`
+ * (or any non-VIEW action) at the matcher boundary returns no match
+ * and falls through to the unmatched-link `Timber.d` log in
+ * `MainActivity.handleIntent`.
+ *
+ * Listed in the kf6k.5 security checklist as the "Constrain
+ * `intent.action`" requirement.
+ *
+ * Construct with:
+ * ```
+ * filters = listOf(IntentActionFilter(Intent.ACTION_VIEW))
+ * ```
+ */
+class IntentActionFilter(
+    private val expectedAction: String,
+) : DeepLinkMatcher.Filter<Any>(expectedAction) {
+    override fun filterRequest(request: DeepLinkRequest): Boolean = request.action == expectedAction
 }

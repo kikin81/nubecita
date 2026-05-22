@@ -16,11 +16,18 @@ import kotlinx.serialization.Serializable
  *   tapping an author handle in a Feed post) per the design's cross-tab
  *   navigation rule (see openspec/changes/add-adaptive-navigation-shell/design.md D7).
  *
+ * The [handle] field is named for the common case but accepts either an
+ * AT Protocol handle (`alice.bsky.social`) or a DID (`did:plc:abc...`).
+ * `ProfileViewModel.resolveActor` passes it opaquely to
+ * `ProfileRepository.fetchHeader(actor)`, which delegates to the
+ * `getProfile` XRPC — that endpoint accepts either form. The
+ * deep-link handler likewise emits `Profile(handle = ...)` for both
+ * shapes without translating between them (see nubecita-kf6k.2 for
+ * the matcher contract).
+ *
  * Lives in `:feature:profile:api` so cross-feature modules that need to
  * push `Profile` onto the back stack can depend on `:feature:profile:api`
- * alone — never on `:feature:profile:impl` (which does not exist yet;
- * until the profile feature epic lands, `:app` registers a placeholder
- * Composable for this key).
+ * alone — never on `:feature:profile:impl`.
  */
 @Serializable
 data class Profile(

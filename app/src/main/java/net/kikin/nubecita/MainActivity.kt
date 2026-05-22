@@ -196,6 +196,16 @@ class MainActivity : ComponentActivity() {
             // Consume the data so a configuration change doesn't re-fire
             // the same deep link on the rebuilt MainShell.
             intent.data = null
+        } else {
+            // A URI passed the OAuth gate AND matched a manifest intent
+            // filter but no registered NavKey matcher claimed it. Likely a
+            // misconfigured filter or a path shape we forgot to register
+            // — surface in Crashlytics breadcrumbs without spamming the
+            // issue inbox. Logged at debug level on purpose (kf6k.5
+            // §"Observability"). The chosen NavKey class is never logged
+            // here (the match returned null), so this can never leak
+            // post-decode user content.
+            Timber.d("Deep link did not match any registered matcher: $uri")
         }
     }
 }
