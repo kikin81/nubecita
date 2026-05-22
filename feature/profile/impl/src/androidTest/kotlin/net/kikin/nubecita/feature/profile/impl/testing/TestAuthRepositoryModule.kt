@@ -67,6 +67,8 @@ internal class FakeAuthRepository : AuthRepository {
 
     override suspend fun beginLogin(handle: String): Result<String> = Result.failure(UnsupportedOperationException("Login not exercised in this test"))
 
+    override suspend fun beginSignup(): Result<String> = Result.failure(UnsupportedOperationException("Signup not exercised in this test"))
+
     override suspend fun completeLogin(redirectUri: String): Result<Unit> = Result.failure(UnsupportedOperationException("Login not exercised in this test"))
 
     override suspend fun signOut(): Result<Unit> {

@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.login.impl
 
 import io.github.kikin81.atproto.oauth.OAuthDiscoveryException
+import io.github.kikin81.atproto.oauth.OAuthSignupNotSupportedException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -205,21 +206,67 @@ internal class LoginViewModelTest {
         }
 
     @Test
-    fun `OpenSignup emits LaunchCustomTab(bsky_app_signup) without mutating state`() =
+    fun `OpenSignup successful delegates to beginSignup and emits LaunchCustomTab with the returned URL`() =
         runTest(mainDispatcher.dispatcher) {
-            val vm = newViewModel()
+            val authorizeUrl = "https://bsky.social/oauth/authorize?client_id=test&request_uri=urn:test"
+            val vm =
+                newViewModel(
+                    authRepository = FakeAuthRepository(beginSignupResult = Result.success(authorizeUrl)),
+                )
             vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
-            val before = vm.uiState.value
 
             vm.handleEvent(LoginEvent.OpenSignup)
             advanceUntilIdle()
 
             val effect = vm.effects.first()
             assertTrue(effect is LoginEffect.LaunchCustomTab)
-            assertEquals("https://bsky.app/", (effect as LoginEffect.LaunchCustomTab).url)
+            assertEquals(authorizeUrl, (effect as LoginEffect.LaunchCustomTab).url)
 
-            // state is untouched: same handle, not loading, no error.
-            assertEquals(before, vm.uiState.value)
+            val state = vm.uiState.value
+            assertEquals(false, state.isLoading)
+            assertNull(state.errorMessage)
+            // The typed handle is preserved across the signup flow — only isLoading / errorMessage move.
+            assertEquals("alice.bsky.social", state.handle)
+        }
+
+    @Test
+    fun `OpenSignup IOException maps to LoginError_Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newViewModel(
+                    authRepository = FakeAuthRepository(beginSignupResult = Result.failure(IOException("offline"))),
+                )
+
+            vm.handleEvent(LoginEvent.OpenSignup)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+            assertEquals(false, vm.uiState.value.isLoading)
+
+            val effect = withTimeoutOrNull(timeMillis = 50) { vm.effects.first() }
+            assertNull(effect)
+        }
+
+    @Test
+    fun `OpenSignup OAuthSignupNotSupportedException maps to LoginError_Generic`() =
+        runTest(mainDispatcher.dispatcher) {
+            val notSupported =
+                OAuthSignupNotSupportedException(
+                    authServerUrl = "https://example.com",
+                    advertisedPromptValues = listOf("login"),
+                )
+            val vm =
+                newViewModel(
+                    authRepository = FakeAuthRepository(beginSignupResult = Result.failure(notSupported)),
+                )
+
+            vm.handleEvent(LoginEvent.OpenSignup)
+            advanceUntilIdle()
+
+            val errorMessage = vm.uiState.value.errorMessage
+            assertEquals(LoginError.Generic, errorMessage)
+            // No library text round-trips through the typed sum.
+            assertFalse(errorMessage.toString().contains("example.com"))
         }
 
     @Test
@@ -293,6 +340,7 @@ private fun newViewModel(
 private class FakeAuthRepository(
     private val beginLoginResult: Result<String> = Result.success("ignored"),
     private val completeLoginResult: Result<Unit> = Result.success(Unit),
+    private val beginSignupResult: Result<String> = Result.success("https://bsky.social/oauth/authorize?default"),
 ) : AuthRepository {
     var beginLoginInvocations: Int = 0
         private set
@@ -308,6 +356,8 @@ private class FakeAuthRepository(
         completeLoginInvocations++
         return completeLoginResult
     }
+
+    override suspend fun beginSignup(): Result<String> = beginSignupResult
 
     override suspend fun signOut(): Result<Unit> = Result.success(Unit)
 }

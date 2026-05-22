@@ -16,6 +16,10 @@ internal class DefaultAuthRepository
             runCatching { atOAuth.beginLogin(handle) }
                 .onFailure { Timber.tag(TAG).e(it, "beginLogin('%s') failed", handle) }
 
+        override suspend fun beginSignup(): Result<String> =
+            runCatching { atOAuth.beginSignup() }
+                .onFailure { Timber.tag(TAG).e(it, "beginSignup() failed") }
+
         override suspend fun completeLogin(redirectUri: String): Result<Unit> =
             runCatching {
                 atOAuth.completeLogin(redirectUri)
