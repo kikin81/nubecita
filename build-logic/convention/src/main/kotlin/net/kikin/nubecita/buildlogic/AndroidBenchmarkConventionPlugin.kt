@@ -1,7 +1,6 @@
 package net.kikin.nubecita.buildlogic
 
 import com.android.build.api.dsl.TestExtension
-import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
@@ -51,17 +50,24 @@ class AndroidBenchmarkConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.squareup.sort-dependencies")
 
             extensions.configure<TestExtension> {
-                compileSdk = 37
+                // Shared helper sets compileSdk = 37, minSdk = 28,
+                // Java 17 source/target, and the JVM 17 Kotlin
+                // toolchain — same wiring every other Android module
+                // in the repo gets. The fact that AGP 9 provides
+                // built-in Kotlin support for `com.android.test`
+                // doesn't remove the `KotlinAndroidProjectExtension`;
+                // it just removes the need to apply the standalone
+                // `org.jetbrains.kotlin.android` plugin.
+                configureKotlinAndroid(this)
+
                 defaultConfig {
-                    minSdk = 28
-                    // Macrobenchmark requires API 23+ at runtime; matching
-                    // :app's compileSdk for `targetSdk` keeps the variant
-                    // resolver happy when targeting :app:benchmark.
+                    // Macrobenchmark requires API 23+ at runtime;
+                    // matching :app's compileSdk for `targetSdk` keeps
+                    // the variant resolver happy when targeting
+                    // :app:benchmarkRelease.
                     targetSdk = 37
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
                 }
-                compileOptions.sourceCompatibility = JavaVersion.VERSION_17
-                compileOptions.targetCompatibility = JavaVersion.VERSION_17
 
                 @Suppress("UnstableApiUsage")
                 experimentalProperties["android.experimental.self-instrumenting"] = true

@@ -73,7 +73,7 @@ class FeedScrollBenchmark {
                 device.wait(
                     Until.findObject(By.res(FEED_LIST_RES_ID)),
                     FEED_LIST_WAIT_MS,
-                ) ?: error(
+                ) ?: throw AssertionError(
                     "FeedScreen's LazyColumn (res id '$FEED_LIST_RES_ID') was not " +
                         "found within ${FEED_LIST_WAIT_MS}ms — verify FeedTestTags.LIST is " +
                         "still applied to the loaded-feed LazyColumn and that the " +
