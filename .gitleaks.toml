@@ -12,7 +12,13 @@ paths = [
 ]
 
 [[allowlists]]
-description = "AT Protocol TID record keys — 13-char base32-sortable strings ([2-7a-z]) used as the rkey segment in every app.bsky.feed.post URL (https://atproto.com/specs/tid). They are PUBLIC record identifiers, not secrets, but their alphabet + length put them above gitleaks' generic-api-key entropy threshold. Test fixtures and inline docstrings throughout the repo legitimately quote synthetic TID-shaped values."
+description = "AT Protocol TID record keys — 13-char base32-sortable strings ([2-7a-z]) used as the rkey segment in every app.bsky.feed.post URL (https://atproto.com/specs/tid). They are PUBLIC record identifiers, not secrets, but their alphabet + length put them above gitleaks' generic-api-key entropy threshold. Scoped to test source sets only — production code that happens to ship a 13-char [2-7a-z] string is almost certainly NOT a TID and should still be flagged. AND semantics: BOTH the path and the regex must match for suppression."
+condition = "AND"
+paths = [
+    '''.*/src/test/.*''',
+    '''.*/src/androidTest/.*''',
+    '''.*/src/screenshotTest/.*''',
+]
 regexes = [
     '''^[2-7a-z]{13}$''',
 ]
