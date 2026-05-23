@@ -14,18 +14,25 @@ gating all build on this module.
 | `FeedScrollBenchmark` | UIAutomator-driven fling on the loaded feed `LazyColumn` | `FrameTimingMetric` (`frameDurationCpuMs`, `frameOverrunMs` — p50/p95/p99) |
 | `BaselineProfileGenerator` | Drives Splash → MainShell → first Feed frame for the `BaselineProfileRule` collector | Emits `startup-prof.txt` (R8 DEX layout) + `baseline-prof.txt` (ART AOT) into `:app:src/release/generated/baselineProfiles/` |
 
-`StartupBenchmark` reports a `None` and a `Partial(Require)` cell per
-startup mode so the bundled baseline profile's effect is directly
-visible in one bench run. The `None` cell runs `cmd package compile
---reset` before each iteration, neutralizing whatever ART has cached
-— this is the "no profile" baseline. The `Partial(Require)` cell
-installs the APK-bundled profile via `profileinstaller` and warms
-ART against it with `cmd package compile -m speed-profile`. Compare
-the same `StartupMode` across the two cells for the profile's effect.
+`StartupBenchmark` reports two cells per startup mode so the bundled
+baseline profile's effect is directly visible in one bench run:
 
-`Require` fails the test if the APK doesn't ship a profile, which
-doubles as an assertion that `:app`'s producer wiring (the
-`baselineProfile(project(":benchmark"))` configuration) is intact.
+- `None` (label: `None`) — runs `cmd package compile --reset` before
+  each iteration, neutralizing whatever ART has cached. The "no profile"
+  baseline.
+- `CompilationMode.Partial(BaselineProfileMode.Require)` (label:
+  `BaselineProfile`) — installs the APK-bundled profile via
+  `profileinstaller` and warms ART with `cmd package compile -m
+  speed-profile`. Fails the test if the APK doesn't ship a profile,
+  doubling as an assertion that `:app`'s producer wiring is intact.
+
+**Test-name label.** The parameterized name comes from
+`CompilationMode.toString()`. `None.toString()` returns `None`;
+`Partial(BaselineProfileMode.Require).toString()` returns
+`BaselineProfile` (not `Partial` — the Require discriminator
+resolves to the more descriptive label). So the emitted cells are
+`startup[COLD-None]`, `startup[COLD-BaselineProfile]`, etc. Compare
+the same `StartupMode` across the two labels for the profile's effect.
 
 `FeedScrollBenchmark` is still single-`CompilationMode.None`; the
 post-startup baseline profile lands in `nubecita-crmi.3` and that
@@ -44,7 +51,7 @@ repo root:
 Results are written to:
 
 ```
-benchmark/build/outputs/connected_android_test_additional_output/<variant>/connected/<device>/net.kikin.nubecita.benchmark.test-benchmarkData.json
+benchmark/build/outputs/connected_android_test_additional_output/<variant>/connected/<device>/net.kikin.nubecita.benchmark-benchmarkData.json
 ```
 
 ## Run in CI

@@ -80,9 +80,13 @@ class StartupBenchmark(
             // biting silently.
             //
             // CompilationMode labels: the parameterized test name uses
-            // the mode's `toString()` — `None` and `Partial`. The
-            // `Require` discriminator on Partial isn't in the label;
-            // see `compilationMode` field for the exact configuration.
+            // the mode's `toString()`. `CompilationMode.None` prints as
+            // `None`; `CompilationMode.Partial(BaselineProfileMode.Require)`
+            // prints as `BaselineProfile` (not `Partial` — the toString
+            // resolves the Require discriminator into a more descriptive
+            // label). So the emitted test names are
+            // `startup[COLD-None]`, `startup[COLD-BaselineProfile]`, etc.
+            // Keep README cell names in sync with this exact label.
             listOf(StartupMode.COLD, StartupMode.WARM, StartupMode.HOT).flatMap { startup ->
                 listOf(
                     CompilationMode.None(),

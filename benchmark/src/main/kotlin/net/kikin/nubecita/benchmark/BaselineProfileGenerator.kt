@@ -103,7 +103,6 @@ class BaselineProfileGenerator {
         }
 
     private companion object {
-        const val FEED_LIST_RES_ID: String = "feed_list"
         const val FEED_LIST_WAIT_MS: Long = 15_000
     }
 }
