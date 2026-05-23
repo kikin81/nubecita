@@ -35,7 +35,7 @@ Now is the right time because (a) the deep-link epic just landed `autoVerify=fal
 - **New module**: `:feature:settings:api` (NavKey only) + `:feature:settings:impl` (screen + ViewModels + section composables + Hilt modules). Created during `nubecita-77l`; the shell ships into `:feature:profile:impl` first.
 - **Possible new module**: `:core:preferences` — DataStore-backed user-preferences store. If a similar capability already exists in `:core:auth` or another module, prefer extending it; otherwise file as part of the Display task and let it generalize as more sections need persistence.
 - **Cross-feature dependencies** (called out but NOT in scope for this change):
-  - `atproto-kotlin` notification lexicon is stale (per memory `reference_atproto_kotlin_notification_lexicon_gap`); `app.bsky.notification.putPreferences` is likely missing. Notifications-section task should file an upstream issue against `kikin81/atproto-kotlin` before scoping.
+  - `atproto-kotlin` notification lexicon is incomplete as of this change — the SDK exposes `getUnreadCount`, `listNotifications`, and `updateSeen` but `app.bsky.notification.putPreferences` is missing. The Notifications-section task should verify against the SDK's generated sources and file an upstream issue at `kikin81/atproto-kotlin` before scoping.
   - Sign-out-from-all-devices needs a PDS-side OAuth-session revocation helper that may also need atproto-kotlin work.
   - Coil is not yet wired; the image-quality row in Data usage ships UI-only until then.
 - **Permissions / system**: OS deep-link rows fire `Intent` actions (`ACTION_APP_NOTIFICATION_SETTINGS`, `ACTION_APP_OPEN_BY_DEFAULT_SETTINGS`, `ACTION_APPLICATION_DETAILS_SETTINGS`). No new manifest declarations required.

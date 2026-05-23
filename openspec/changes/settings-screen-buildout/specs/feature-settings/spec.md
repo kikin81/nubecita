@@ -34,20 +34,20 @@ Until `nubecita-77l` ships, this provider lives in `:feature:profile:impl` regis
 
 ### Requirement: Settings screen adapts shape to window size class
 
-The Settings screen MUST render as a full-screen route on Compact widths and as a centered modal with scrim on Medium / Expanded widths, driven by `WindowSizeClass` evaluated at the screen root. Both shapes MUST render the same identity-header + section-roster content tree below the wrapper; only the wrapping container differs.
+The Settings screen MUST render as a full-screen route below the Medium width breakpoint and as a centered modal with scrim at or above the Medium width breakpoint, driven by `currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)` evaluated at the screen root (the project-wide adaptive pattern; `WindowSizeClass` from `androidx.window.core.layout`). Both shapes MUST render the same identity-header + section-roster content tree below the wrapper; only the wrapping container differs.
 
-The Compact (phone) shape uses a `Scaffold` with a `TopAppBar` displaying the screen title and a back-arrow navigation icon. The Medium / Expanded (tablet, foldable, desktop) shape uses a modal `Surface` (or `Dialog`) centered over a scrim, with a maximum width of approximately 640dp, a maximum height of approximately 80% of the window height (so the modal never reaches the system bars on tall tablets), rounded corners on all four sides, and an `IconButton(X)` in the top-trailing slot as the close affordance.
+The phone shape (below the Medium breakpoint) uses a `Scaffold` with a `TopAppBar` displaying the screen title and a back-arrow navigation icon. The tablet / foldable / desktop shape (at or above the Medium breakpoint) uses a modal `Surface` (or `Dialog`) centered over a scrim, with a maximum width of approximately 640dp, a maximum height of approximately 80% of the window height (so the modal never reaches the system bars on tall tablets), rounded corners on all four sides, and an `IconButton(X)` in the top-trailing slot as the close affordance.
 
 The section column inside the screen MUST wrap in `Modifier.verticalScroll(rememberScrollState())` (or be implemented as a `LazyColumn`) on both shapes, so the section list scrolls inside the wrapper rather than clipping. This is mandatory for the tablet modal — a Pixel Tablet in landscape with all seven sections exceeds the 80% height budget — and harmless on phone, where the existing scroll behavior is preserved.
 
 #### Scenario: Phone width renders full-screen route
 
-- **WHEN** the device's `widthSizeClass` resolves to `WindowSizeClass.WidthSizeClass.COMPACT` and the user navigates to Settings
+- **WHEN** `currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)` returns `false` (the device is below the Medium breakpoint, i.e. a typical phone) and the user navigates to Settings
 - **THEN** the screen fills the available space inside `MainShell`, the back-arrow appears in the top-leading `TopAppBar` slot, and no scrim is visible
 
 #### Scenario: Tablet width renders modal with scrim and bounded height
 
-- **WHEN** the device's `widthSizeClass` resolves to `WindowSizeClass.WidthSizeClass.MEDIUM` or `EXPANDED` and the user navigates to Settings
+- **WHEN** `currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)` returns `true` (the device is at or above the Medium breakpoint — tablet, foldable, desktop, or large-screen ChromeOS) and the user navigates to Settings
 - **THEN** the screen renders as a centered modal at ≤ 640dp width and ≤ 80% window height, with rounded corners and a scrim behind it; an X-close affordance appears in the top-trailing slot
 
 #### Scenario: Section list scrolls inside the modal when it exceeds available height
@@ -57,7 +57,7 @@ The section column inside the screen MUST wrap in `Modifier.verticalScroll(remem
 
 #### Scenario: Resize across size-class boundary preserves state
 
-- **WHEN** the user opens Settings on a foldable in folded (Compact) mode, scrolls partway through the section list, then unfolds the device into Medium mode
+- **WHEN** the user opens Settings on a foldable in folded mode (below the Medium breakpoint), scrolls partway through the section list, then unfolds the device crossing the Medium breakpoint
 - **THEN** the wrapper switches from full-screen to modal, and the section-list scroll position, header state, and any partially-open picker dialog are preserved (state survives because it's hoisted into `SettingsViewModel`)
 
 ### Requirement: Identity header renders signed-in user's profile and a Manage-Account CTA
@@ -193,7 +193,7 @@ Writing these preferences MUST follow the optimistic-update pattern:
 3. The XRPC `putPreferences` call fires; on success, the pending-write slot clears and the local DataStore read-cache writes the confirmed value.
 4. On failure (network error, lexicon-missing, server reject), the ViewModel reverts `UiState` to the snapshot and emits `UiEffect.ShowError(...)` so a snackbar surfaces explaining the failure. The local read-cache is NOT written.
 
-Where the atproto-kotlin lexicon is incomplete (per memory `reference_atproto_kotlin_notification_lexicon_gap`), the affected section tasks MUST file upstream issues at `kikin81/atproto-kotlin` before implementation; the row UI MAY ship first with a snackbar "Coming soon" effect on tap if the lexicon work hasn't merged.
+Where the atproto-kotlin lexicon is incomplete (as of this change, the notification lexicon exposes only `getUnreadCount`, `listNotifications`, and `updateSeen`; `putPreferences` is missing), the affected section tasks MUST file upstream issues at `kikin81/atproto-kotlin` before implementation; the row UI MAY ship first with a snackbar "Coming soon" effect on tap if the lexicon work hasn't merged.
 
 #### Scenario: Content-warning default reflects across devices
 
