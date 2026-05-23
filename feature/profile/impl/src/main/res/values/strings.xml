@@ -102,6 +102,12 @@
          resolve the package — should never fire in practice. -->
     <string name="profile_settings_version_label">Version %1$s</string>
     <string name="profile_settings_version_unknown">unknown</string>
+    <!-- About-section version row: label is plain "Version"; the version
+         value (e.g. "1.104.0 (1104000)") rides in the row's
+         supportingText slot below the label. Distinct from the legacy
+         profile_settings_version_label format, which concatenated label
+         and value into a single string for the pre-shell Settings stub. -->
+    <string name="profile_settings_version_row_label">Version</string>
 
     <!-- Settings home identity header (Google Play-style sheet). Greeting
          receives the signed-in user's displayName; no_name variant fires
