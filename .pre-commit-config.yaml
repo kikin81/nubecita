@@ -21,6 +21,14 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: ["--maxkb=500"]
+        # AndroidX baseline profile dumps (startup-prof.txt + baseline-prof.txt)
+        # are generated artifacts the androidx.baselineprofile plugin writes
+        # into `src/<variant>/generated/baselineProfiles/` for committing
+        # (the plugin defaults to `saveInSrc = true`). They run several MB
+        # for an app of any size — fingerprint-style content where the size
+        # is inherent, not a smell. Excluding them here keeps the 500 KB
+        # budget intact for everything else.
+        exclude: '^.+/src/.+/generated/baselineProfiles/.+-prof\.txt$'
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: mixed-line-ending

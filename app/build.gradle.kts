@@ -181,11 +181,12 @@ android {
         // Macrobenchmark variant matrix is owned by the
         // androidx.baselineprofile plugin (applied above). It auto-generates
         // `benchmarkRelease` (R8-minified + profileable — used for actual
-        // benchmarks) and `nonMinifiedRelease` (used for collecting baseline
-        // profiles in a future ticket). Hand-rolling a `benchmark` build
-        // type here would only add a duplicate (the plugin's variant is
-        // already what we want) and collides with the plugin's naming.
-        // Production `release` stays non-profileable, non-debuggable.
+        // benchmarks) and `nonMinifiedRelease` (used by
+        // `:benchmark/BaselineProfileGenerator` to capture the startup
+        // profile). Hand-rolling a `benchmark` build type here would only
+        // add a duplicate (the plugin's variant is already what we want)
+        // and collides with the plugin's naming. Production `release`
+        // stays non-profileable, non-debuggable.
     }
 
     packaging {
@@ -270,9 +271,12 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso.intents)
     androidTestImplementation(libs.androidx.test.ext.junit)
 
-    // Baseline profile producer wiring — :benchmark generates a profile
-    // (in a follow-up ticket; this change just declares the relationship)
-    // and the androidx.baselineprofile plugin picks it up at assemble time.
+    // Baseline profile producer wiring — :benchmark's
+    // `BaselineProfileGenerator` writes startup-prof.txt + baseline-prof.txt
+    // into `app/src/release/generated/baselineProfiles/` (plugin default
+    // `saveInSrc = true`) and the androidx.baselineprofile plugin picks
+    // them up automatically at release assembly. Regen is manual — see
+    // benchmark/README.md for cadence.
     "baselineProfile"(project(":benchmark"))
 
     kspAndroidTest(libs.hilt.android.compiler)

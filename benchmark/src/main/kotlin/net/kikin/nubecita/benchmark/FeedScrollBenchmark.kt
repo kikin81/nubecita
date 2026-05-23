@@ -24,10 +24,11 @@ import org.junit.runner.RunWith
  * The 95th is the practical regression target — single-digit
  * outliers are inevitable on emulated hardware.
  *
- * Compilation mode is fixed to `None` (matches StartupBenchmark) for
- * now. The follow-up ticket that lands a baseline profile
- * (`nubecita-crmi.2`) extends both benches to parameterize over
- * `CompilationMode.Partial`.
+ * Compilation mode is fixed to `None` (matches StartupBenchmark).
+ * Once the post-startup baseline profile lands (`nubecita-crmi.3`
+ * extends `baseline-prof.txt` to cover Feed scroll), this bench picks
+ * up the AOT-warmed methods automatically against a release build
+ * that bundles the regenerated profile — no parameterization needed.
  *
  * Resource-id selector: macrobench is a separate APK from `:app`,
  * and the macrobench module deliberately doesn't depend on
