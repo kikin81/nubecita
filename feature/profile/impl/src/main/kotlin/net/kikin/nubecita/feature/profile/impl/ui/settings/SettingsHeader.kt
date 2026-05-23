@@ -1,10 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl.ui.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -15,13 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
-import net.kikin.nubecita.designsystem.icon.NubecitaIcon
-import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.profile.impl.R
 
 /**
@@ -71,9 +64,14 @@ internal fun SettingsHeader(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        AvatarWithCameraBadge(
-            avatarUrl = avatarUrl,
+        SettingsAvatar(
             handle = handle,
+            displayName = displayName,
+            avatarUrl = avatarUrl,
+            modifier = Modifier.size(88.dp),
+            contentDescription =
+                stringResource(R.string.profile_settings_header_avatar_content_description),
+            initialTextStyle = MaterialTheme.typography.displaySmall,
         )
         Text(
             text = greeting,
@@ -91,45 +89,4 @@ internal fun SettingsHeader(
             )
         }
     }
-}
-
-@Composable
-private fun AvatarWithCameraBadge(
-    avatarUrl: String?,
-    handle: String,
-) {
-    Box(modifier = Modifier.size(88.dp)) {
-        NubecitaAsyncImage(
-            model = avatarUrl,
-            contentDescription = stringResource(R.string.profile_settings_header_avatar_content_description),
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(end = 4.dp, bottom = 4.dp)
-                    .clip(CircleShape),
-        )
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-            contentAlignment = Alignment.Center,
-        ) {
-            NubecitaIcon(
-                name = NubecitaIconName.AddPhotoAlternate,
-                contentDescription =
-                    stringResource(R.string.profile_settings_header_edit_avatar_content_description),
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-    // handle is unused in this internal helper but kept on the signature
-    // so callers can swap in a name-initials fallback when the async-image
-    // load fails — follow-on work once Coil is wired and we have load-state
-    // callbacks. For now NubecitaAsyncImage's ColorPainter handles fallback.
-    @Suppress("UNUSED_EXPRESSION")
-    handle
 }

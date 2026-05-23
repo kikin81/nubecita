@@ -149,6 +149,8 @@ internal fun SettingsStubContent(
             },
         )
         SwitchAccountRow(
+            handle = handle,
+            displayName = displayName,
             avatarUrl = avatarUrl,
             onTap = {
                 // Wires to a "Coming soon" snackbar effect in 2.8.

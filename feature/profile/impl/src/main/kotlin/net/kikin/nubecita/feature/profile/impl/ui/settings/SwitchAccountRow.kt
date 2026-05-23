@@ -1,7 +1,6 @@
 package net.kikin.nubecita.feature.profile.impl.ui.settings
 
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -9,10 +8,8 @@ import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.profile.impl.R
@@ -38,6 +35,8 @@ import net.kikin.nubecita.feature.profile.impl.R
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SwitchAccountRow(
+    handle: String,
+    displayName: String?,
     avatarUrl: String?,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
@@ -50,14 +49,14 @@ internal fun SwitchAccountRow(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
         leadingContent = {
-            NubecitaAsyncImage(
-                model = avatarUrl,
+            SettingsAvatar(
+                handle = handle,
+                displayName = displayName,
+                avatarUrl = avatarUrl,
+                modifier = Modifier.size(32.dp),
                 contentDescription =
                     stringResource(R.string.profile_settings_switch_account_avatar_content_description),
-                modifier =
-                    Modifier
-                        .size(32.dp)
-                        .clip(CircleShape),
+                initialTextStyle = MaterialTheme.typography.labelMedium,
             )
         },
         trailingContent = {
