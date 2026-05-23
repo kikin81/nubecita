@@ -108,6 +108,124 @@ epic comment thread alongside the prior baseline so the historical
 trend is recoverable. The pre-profile baseline on Pixel 10 Pro XL
 (crmi.1, 2026-05-22) is COLD TTID 253.75 ms median.
 
+## Running benches and comparing results
+
+`StartupBenchmark`'s `(StartupMode, CompilationMode)` cross-product
+is built to answer two distinct questions in one bench run:
+
+| Question | What to compare |
+|----------|-----------------|
+| "Does the bundled startup profile actually help?" | Same `StartupMode`, `None` cell vs `BaselineProfile` cell, *within the same run*. The delta is the profile's effect. |
+| "Did anything regress since the last regen?" | Same `StartupMode-CompilationMode` cell, today's number vs the last number posted to the `nubecita-crmi` epic comment thread. Apples-to-apples across runs. |
+
+Never compare `None` from run A to `BaselineProfile` from run B —
+device thermal state, ART cache warmth, and OS background work all
+drift across runs, so cross-run comparisons need the same cell.
+
+### Pre-flight
+
+Run these checks once before any bench session — they prevent the
+two failure modes that ate hours during `nubecita-crmi.2`:
+
+1. **Stay-awake on USB.** `:benchmark`'s install + iterate cycle can
+   run 5–10 min; the device sleeping mid-run drops ADB and burns the
+   whole run.
+   ```bash
+   adb -s <serial> shell settings put global stay_on_while_plugged_in 7
+   ```
+2. **Exactly one device connected.** A second device showing up
+   mid-run (e.g. a Pixel Tablet auto-connecting over Wi-Fi ADB) makes
+   gradle's device picker bail with "No connected devices!" on the
+   *next* test. List with `adb devices -l`; disconnect TCP devices
+   via `adb disconnect <ip:port>` if needed.
+3. **USB cable, not hub.** The Pixel 10 Pro XL drops more often
+   through unpowered hubs than direct host ports.
+4. **Use serial filter to be specific.**
+   ```
+   -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.targetDeviceSerial=<serial>
+   ```
+
+### Run
+
+Full cross-product (6 cells, ~10 min wall-clock — risk of USB drop):
+
+```bash
+./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=net.kikin.nubecita.benchmark.StartupBenchmark
+```
+
+Single mode only (e.g. COLD, both compilation modes — ~3 min, almost
+never drops):
+
+```bash
+./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=net.kikin.nubecita.benchmark.StartupBenchmark \
+  -Pandroid.testInstrumentationRunnerArguments.tests_regex='startup.COLD.*'
+```
+
+The single-mode form is the recommended default when iterating —
+under the USB-drop threshold and exercises the two cells you most
+care about.
+
+### Read the output
+
+Per-run JSON lands at:
+
+```
+benchmark/build/outputs/connected_android_test_additional_output/
+  benchmarkRelease/connected/<device-name>/
+  net.kikin.nubecita.benchmark-benchmarkData.json
+```
+
+Extract the cells with a one-line `python3` reader (no extra deps):
+
+```bash
+python3 -c "
+import json, sys
+data = json.load(open(sys.argv[1]))
+for b in data['benchmarks']:
+    if b['className'].endswith('StartupBenchmark'):
+        m = b['metrics'].get('timeToInitialDisplayMs')
+        if m:
+            print(f\"{b['name']:32s} TTID median={m['median']:7.2f} ms  CoV={m['coefficientOfVariation']*100:.1f}%\")
+" "benchmark/build/outputs/connected_android_test_additional_output/benchmarkRelease/connected/Pixel 10 Pro XL - 16/net.kikin.nubecita.benchmark-benchmarkData.json"
+```
+
+The reported `median` is the per-cell metric of record. `CoV` (coefficient
+of variation) gauges confidence — anything ≥ 15 % means the median is
+noisy enough that small deltas can't be trusted; rerun on a cooler device
+before drawing conclusions.
+
+### Post to the epic thread
+
+Append a single comment to the `nubecita-crmi` epic with:
+
+```
+<YYYY-MM-DD> Pixel 10 Pro XL — :app:benchmarkRelease
+
+COLD-None             median XXX.XX ms  (CoV X.X%)
+COLD-BaselineProfile  median XXX.XX ms  (CoV X.X%)
+WARM-None             median XXX.XX ms  (CoV X.X%)
+WARM-BaselineProfile  median XXX.XX ms  (CoV X.X%)
+
+Context: <what changed since the last entry — feature merges, dependency
+bumps, regen of the startup profile, etc.>
+```
+
+This is the historical-trend log; it's the only way to detect slow
+drift across releases.
+
+### Known failure modes
+
+- **HOT cell fails with "Unable to read any metrics"** — preexisting
+  issue tracked as `nubecita-vuny`, unrelated to the profile workflow.
+  Filter HOT out with a `tests_regex` of `startup.(COLD|WARM).*`.
+- **Install cycle wipes app data** — the plugin uninstalls + reinstalls
+  the target APK at the start of every test run, so any in-app state
+  (OAuth session, preferences) is wiped. The bench measures *un*authenticated
+  cold start. Don't sign in expecting it to persist across runs.
+- **"No connected devices!"** mid-run — see pre-flight item 2.
+
 ## Verifying the bundled profile
 
 After regenerating, build and install the release variant and ask
