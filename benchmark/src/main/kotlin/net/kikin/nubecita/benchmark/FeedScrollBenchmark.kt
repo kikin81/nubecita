@@ -24,10 +24,14 @@ import org.junit.runner.RunWith
  * The 95th is the practical regression target — single-digit
  * outliers are inevitable on emulated hardware.
  *
- * Compilation mode is fixed to `None` (matches StartupBenchmark) for
- * now. The follow-up ticket that lands a baseline profile
- * (`nubecita-crmi.2`) extends both benches to parameterize over
- * `CompilationMode.Partial`.
+ * Compilation mode is fixed to `None`. Same caveat as
+ * `StartupBenchmark` pre-crmi.2: `CompilationMode.None` runs
+ * `cmd package compile --reset` before each iteration and neutralizes
+ * whatever ART has cached from the bundled profile. The follow-up
+ * (`nubecita-crmi.3`) extends `baseline-prof.txt` with the post-startup
+ * journeys AND adds the `Partial(BaselineProfileMode.Require)` axis
+ * here — mirroring the StartupBenchmark shape — so the profile's
+ * effect on Feed scroll is directly measurable.
  *
  * Resource-id selector: macrobench is a separate APK from `:app`,
  * and the macrobench module deliberately doesn't depend on
@@ -99,7 +103,6 @@ class FeedScrollBenchmark {
         }
 
     private companion object {
-        const val FEED_LIST_RES_ID: String = "feed_list"
         const val FEED_LIST_WAIT_MS: Long = 10_000
         const val SCROLL_ITERATIONS: Int = 5
         const val GESTURE_MARGIN_DIVISOR: Int = 5
