@@ -35,7 +35,7 @@ import org.junit.runner.RunWith
  * Splash → Login instead, the `feed_list` UIAutomator selector never
  * appears, and the test fails fast with a pointer back to this
  * requirement. Sign in once on the bench device before running
- * `./gradlew :app:generateBaselineProfile`. The OAuth session is
+ * `./gradlew :app:generateReleaseBaselineProfile`. The OAuth session is
  * stored in the app's `EncryptedSharedPreferences` (inside the app
  * data dir), so it survives `nonMinifiedRelease` reinstalls as long
  * as the new APK is signed by the same certificate as the currently-
@@ -76,13 +76,17 @@ class BaselineProfileGenerator {
             // values with no package qualifier, so the two-arg form
             // silently never matches.
             //
-            // A null result here means the cold-start path did NOT
-            // reach the signed-in feed surface. Most likely cause: no
-            // OAuth session on the bench device, so `Splash` routed to
-            // `Login` instead of `Main`. Fail fast with a message that
-            // points at the sign-in pre-requisite (see KDoc above) so
-            // the operator doesn't burn a 5-minute generation run and
-            // then puzzle over an "empty profile" result.
+            // A `false` return from `device.wait(Until.hasObject(...))`
+            // means the cold-start path did NOT reach the signed-in feed
+            // surface within the timeout. (The `hasObject` condition
+            // returns Boolean, not nullable — that's why we route through
+            // `check(found)` below rather than `?: throw`.) Most likely
+            // cause: no OAuth session on the bench device, so `Splash`
+            // routed to `Login` instead of `Main`. Fail fast with a
+            // message that points at the sign-in pre-requisite (see
+            // KDoc above) so the operator doesn't burn a 5-minute
+            // generation run and then puzzle over an "empty profile"
+            // result.
             device
                 .wait(
                     Until.hasObject(By.res(FEED_LIST_RES_ID)),
@@ -93,7 +97,7 @@ class BaselineProfileGenerator {
                             "within ${FEED_LIST_WAIT_MS}ms. The bench device is not signed in, so " +
                             "the cold-start path routed Splash → Login instead of Splash → MainShell → " +
                             "Feed. Sign in once on the device, then re-run " +
-                            "`./gradlew :app:generateBaselineProfile`."
+                            "`./gradlew :app:generateReleaseBaselineProfile`."
                     }
                 }
         }

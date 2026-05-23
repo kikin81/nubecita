@@ -103,10 +103,16 @@ signed-in OAuth session this generator depends on; CI integration is
 deferred to `nubecita-crmi.6`).
 
 After regeneration, re-run `StartupBenchmark` on the same device and
-post COLD / WARM / HOT TTID + TTFD numbers to the `nubecita-crmi`
-epic comment thread alongside the prior baseline so the historical
-trend is recoverable. The pre-profile baseline on Pixel 10 Pro XL
-(crmi.1, 2026-05-22) is COLD TTID 253.75 ms median.
+post the new cell medians to the `nubecita-crmi` epic comment thread
+alongside the prior numbers so the historical trend is recoverable.
+
+The pre-profile reference number on Pixel 10 Pro XL (`crmi.1`,
+2026-05-22) is **COLD TTID 253.75 ms median, `CompilationMode.None`,
+`:app:benchmarkRelease`, fresh-install / signed-out cold start
+(Splash → Login first frame)**. The current bench bundles a profile,
+so the comparable today cell is `COLD-BaselineProfile`, not
+`COLD-None`. Compare only same-cell to same-cell — see the
+"Comparing results" section below for the discipline.
 
 ## Running benches and comparing results
 
