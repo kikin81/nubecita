@@ -39,6 +39,7 @@ enum class NubecitaIconName(
     Bookmark("\uE8E7"),
     ChatBubble("\uE0CB"),
     Check("\uE5CA"),
+    ChevronRight("\uE5CC"),
     Close("\uE5CD"),
     Edit("\uF097"),
     Error("\uF8B6"),

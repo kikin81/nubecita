@@ -62,7 +62,7 @@ internal fun SwitchAccountRow(
         },
         trailingContent = {
             NubecitaIcon(
-                name = NubecitaIconName.ArrowForward,
+                name = NubecitaIconName.ChevronRight,
                 contentDescription =
                     stringResource(R.string.profile_settings_switch_account_chevron_content_description),
                 modifier = Modifier.size(20.dp),
