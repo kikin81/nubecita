@@ -102,4 +102,14 @@
          resolve the package — should never fire in practice. -->
     <string name="profile_settings_version_label">Version %1$s</string>
     <string name="profile_settings_version_unknown">unknown</string>
+
+    <!-- Settings home identity header (Google Play-style sheet). Greeting
+         receives the signed-in user's displayName; no_name variant fires
+         when displayName is absent or blank. Manage-Account pill opens
+         https://bsky.app/settings via the screen's LaunchUri effect. -->
+    <string name="profile_settings_header_greeting_with_name">Hi, %1$s!</string>
+    <string name="profile_settings_header_greeting_no_name">Hi!</string>
+    <string name="profile_settings_header_manage_account_cta">Manage your Bluesky account</string>
+    <string name="profile_settings_header_avatar_content_description">Profile photo</string>
+    <string name="profile_settings_header_edit_avatar_content_description">Change profile photo</string>
 </resources>
