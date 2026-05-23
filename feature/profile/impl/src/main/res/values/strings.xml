@@ -89,6 +89,10 @@
     <!-- Settings stub screen + sign-out flow (Bead F) -->
     <string name="profile_settings_title">Settings</string>
     <string name="profile_settings_back_content_description">Back</string>
+    <!-- X-close affordance on the tablet/foldable Settings modal (replaces
+         the phone-shape back-arrow when the screen renders as a centered
+         modal sheet — at-or-above the Medium width breakpoint). -->
+    <string name="profile_settings_close_content_description">Close</string>
     <string name="profile_settings_coming_soon">Settings — coming soon. Sign out below.</string>
     <string name="profile_settings_signout">Sign out</string>
     <string name="profile_settings_signout_dialog_title">Sign out?</string>
