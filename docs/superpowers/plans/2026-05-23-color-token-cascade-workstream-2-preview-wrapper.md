@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `NubecitaCanvasPreviewTheme` — a screenshot/preview-only theme wrapper that paints the screen-canvas role — and migrate every `*ScreenshotTest.kt` fixture in the repo to use it. After this lands, dark-mode baselines that previously fractured (white canvas under transparent components) finally show the expected dark canvas.
+**Goal:** Add `NubecitaCanvasPreviewTheme` — a screenshot/preview-only theme wrapper that paints the screen-canvas role — and migrate every **screen-level** `*ScreenshotTest.kt` fixture to use it. Component-level fixtures (atoms like avatars, buttons, single rows, post cards) stay on `NubecitaTheme(dynamicColor = false)` because the wrapper's `Modifier.fillMaxSize()` would balloon atoms with intrinsic-fill behavior. After this lands, dark-mode baselines for screen-level fixtures (that previously fractured into transparent components over a white canvas) finally show the expected dark canvas.
 
-**Architecture:** The wrapper composes `NubecitaTheme(darkTheme, dynamicColor = false)` + `Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface)`. `dynamicColor = false` keeps Layoutlib's baseline rendering deterministic across emulator setups. `fillMaxSize()` guarantees full canvas coverage so components using custom `LayoutModifier` or edge-to-edge drawing can't leave a transparent gutter that the IDE paints white. Production composables and androidTest interaction tests stay on `NubecitaTheme` — only `*ScreenshotTest.kt` fixtures migrate.
+**Architecture:** The wrapper composes `NubecitaTheme(darkTheme, dynamicColor = false)` + `Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface)`. `dynamicColor = false` keeps Layoutlib's baseline rendering deterministic across emulator setups. `fillMaxSize()` guarantees full canvas coverage on screen-level fixtures so a component using custom `LayoutModifier` or edge-to-edge drawing can't leave a transparent gutter that the IDE paints white. Production composables and androidTest interaction tests stay on `NubecitaTheme` — only **screen-level** `*ScreenshotTest.kt` fixtures migrate to the wrapper.
 
 **Tech Stack:** Jetpack Compose Material 3, AGP screenshot testing (`com.android.tools.screenshot.PreviewTest`), Kotlin.
 
@@ -12,7 +12,9 @@
 
 **Reference page:** `docs/design-system/surface-roles.md`
 
-**bd:** Create a new bd issue `nubecita-XXXX` of type `feature`, title "Add NubecitaCanvasPreviewTheme and migrate every screenshot test fixture". Branch off `main` as `feat/nubecita-XXXX-<slug>` via the `bd-workflow` skill's start flow.
+**bd:** Create a new bd issue `nubecita-XXXX` of type `feature`, title "Add NubecitaCanvasPreviewTheme and migrate screen-level screenshot test fixtures". Branch off `main` as `feat/nubecita-XXXX-<slug>` via the `bd-workflow` skill's start flow.
+
+**Screen-level vs component-level — the test:** A fixture is *screen-level* if its intent is to render against a full-bleed canvas — screens, full-screen states, dialogs, panes. A fixture is *component-level* if it tests a single atom or molecule that should render at its natural bounds — avatars, buttons, single rows, chips, post cards, message bubbles. Painting a full canvas under a component-level fixture causes intrinsic-fill atoms (`NubecitaAvatar` placeholder, shimmer, image placeholders) to balloon to the preview viewport.
 
 ---
 
@@ -22,25 +24,37 @@
 |---|---|---|
 | `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaCanvasPreviewTheme.kt` | Create | The wrapper composable. Public; lives next to other preview helpers. |
 | `designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaCanvasPreviewThemeScreenshotTest.kt` | Create | Self-test: light + dark fixtures that demonstrate the canvas paint, so regression in the wrapper itself shows up as a baseline change. |
-| 74 × `*ScreenshotTest.kt` | Modify (mechanical) | Swap import + call site. Identical recipe per file (see Task 5). |
+| 21 × screen-level `*ScreenshotTest.kt` | Modify (mechanical) | Swap import + call site. Identical recipe per file (see Task 4). |
 
-**Survey of fixtures to migrate** (74 total):
+**Screen-level fixtures to migrate** (21 total — explicit list):
 
-- `app/src/screenshotTest/java/net/kikin/nubecita/shell/...` — 3 files
-- `designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/...` — 27 files
-- `feature/chats/impl/src/screenshotTest/...` — 5 files
-- `feature/composer/impl/src/screenshotTest/...` — 4 files
-- `feature/feed/impl/src/screenshotTest/...` — 7 files
-- `feature/login/impl/src/screenshotTest/...` — 1 file
-- `feature/mediaviewer/impl/src/screenshotTest/...` — 1 file
-- `feature/moderation/impl/src/screenshotTest/...` — 1 file
-- `feature/onboarding/impl/src/screenshotTest/...` — 1 file
-- `feature/postdetail/impl/src/screenshotTest/...` — 1 file
-- `feature/profile/impl/src/screenshotTest/...` — 5 files
-- `feature/search/impl/src/screenshotTest/...` — 17 files
-- `feature/videoplayer/impl/src/screenshotTest/...` — 1 file
+```
+app/src/screenshotTest/java/net/kikin/nubecita/shell/composer/ComposerOverlayScreenshotTest.kt
+app/src/screenshotTest/java/net/kikin/nubecita/shell/MainShellChromeScreenshotTest.kt
+app/src/screenshotTest/java/net/kikin/nubecita/shell/MainShellListDetailScreenshotTest.kt
+feature/chats/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/chats/impl/ChatScreenContentScreenshotTest.kt
+feature/chats/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/chats/impl/ChatsScreenContentScreenshotTest.kt
+feature/composer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/composer/impl/ComposerDiscardDialogScreenshotTest.kt
+feature/composer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/composer/impl/ComposerScreenScreenshotTest.kt
+feature/composer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/composer/impl/LanguagePickerScreenshotTest.kt
+feature/feed/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/feed/impl/FeedScreenScreenshotTest.kt
+feature/feed/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/feed/impl/ui/FeedEmptyStateScreenshotTest.kt
+feature/feed/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/feed/impl/ui/FeedErrorStateScreenshotTest.kt
+feature/login/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/login/impl/LoginScreenScreenshotTest.kt
+feature/mediaviewer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/mediaviewer/impl/MediaViewerScreenScreenshotTest.kt
+feature/moderation/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/moderation/impl/ReportDialogScreenshotTest.kt
+feature/onboarding/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/onboarding/impl/OnboardingScreenScreenshotTest.kt
+feature/postdetail/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/postdetail/impl/PostDetailScreenScreenshotTest.kt
+feature/profile/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/profile/impl/ProfileScreenContentScreenshotTest.kt
+feature/profile/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/profile/impl/ui/SettingsStubScreenScreenshotTest.kt
+feature/search/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/search/impl/SearchScreenScreenshotTest.kt
+feature/search/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/search/impl/SearchTypeaheadContentScreenshotTest.kt
+feature/videoplayer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/videoplayer/impl/ui/VideoPlayerContentScreenshotTest.kt
+```
 
-Every file uses the same call shape `NubecitaTheme(dynamicColor = false) {` — confirmed by `grep -rh "NubecitaTheme(" --include="*ScreenshotTest.kt"` returning exactly one distinct line. One file (`PostCardVideoEmbedScreenshotTest.kt`) has a KDoc mention of "NubecitaTheme" in prose that also gets updated.
+Each migrates from `NubecitaTheme(dynamicColor = false) {` to `NubecitaCanvasPreviewTheme {` plus an import swap (see Task 4 for the exact recipe).
+
+**Stays on `NubecitaTheme(dynamicColor = false)`** — every other `*ScreenshotTest.kt` file (~53 component-level fixtures): all `:designsystem/src/screenshotTest/kotlin/.../component/*ScreenshotTest.kt` (PostCard, PostCardExternalEmbed, NubecitaAvatar, NubecitaLogo, NubecitaPrimaryButton, BlockedPostCard, NotFoundPostCard, Shimmer, ThreadConnector, etc.), `tabs/ProfilePillTabs`, `icon/NubecitaIconShowcase`, `hero/BoldHeroGradient`, `TypographyScale`, plus all the per-feature UI atoms (`MessageBubble`, `ConvoListItem`, `DaySeparatorChip`, `ProfileTopBar`, `ProfileStatsRow`, `ProfileMetaRow`, `ProfileMediaTabBody`, all `:feature:search:impl/ui/*ScreenshotTest.kt`, `FeedAppendingIndicator`, `PostCardVideoEmbed`, `PostCardQuotedPostWithVideo`, `PostCardRecordWithMediaEmbedWithVideo`, `ComposerScreenLanguageChip`). Painting a full canvas under these would balloon any intrinsic-fill child.
 
 **Out of scope** (production code keeps `NubecitaTheme`):
 
@@ -79,10 +93,11 @@ Spec: docs/superpowers/specs/2026-05-23-color-token-cascade-design.md
 Plan: docs/superpowers/plans/2026-05-23-color-token-cascade-workstream-2-preview-wrapper.md
 Reference: docs/design-system/surface-roles.md
 
-74 fixtures migrate; PR carries the `update-baselines` label so CI
-regenerates the dark-mode reference images.
+21 screen-level fixtures migrate; component-level fixtures stay on
+NubecitaTheme. PR carries the `update-baselines` label so CI regenerates
+the dark-mode reference images for the migrated fixtures.
 EOF
-bd create "Add NubecitaCanvasPreviewTheme and migrate every screenshot test fixture" \
+bd create "Add NubecitaCanvasPreviewTheme and migrate screen-level screenshot test fixtures" \
   --type feature --priority 2 \
   --body-file /tmp/bd-screen-preview-theme-desc.md \
   --json | jq -r '.id'
@@ -266,71 +281,89 @@ COMMIT
 
 ---
 
-## Task 4: Bulk-migrate every screenshot test fixture
+## Task 4: Migrate the 21 screen-level screenshot test fixtures
 
-**Files:** 74 × `*ScreenshotTest.kt` across `:app`, `:designsystem`, and 9 feature modules. Exact list in the "File Structure" table above.
+**Files:** the 21 screen-level `*ScreenshotTest.kt` files listed in the "Screen-level fixtures to migrate" section above. Component-level fixtures (everything else) stay on `NubecitaTheme(dynamicColor = false)`.
 
-The migration is two literal find-and-replace operations plus one KDoc text fix. No semantic changes.
+The migration is two literal find-and-replace operations applied to the explicit screen-fixture list. No semantic changes.
 
-- [ ] **Step 1: Inspect the current call-shape uniformity (sanity check)**
+- [ ] **Step 1: Write the screen-fixture list to a file**
 
 ```bash
-grep -rh "NubecitaTheme(" --include="*ScreenshotTest.kt" . 2>/dev/null | sort -u
+cat > /tmp/screen-fixtures.txt <<'EOF'
+app/src/screenshotTest/java/net/kikin/nubecita/shell/composer/ComposerOverlayScreenshotTest.kt
+app/src/screenshotTest/java/net/kikin/nubecita/shell/MainShellChromeScreenshotTest.kt
+app/src/screenshotTest/java/net/kikin/nubecita/shell/MainShellListDetailScreenshotTest.kt
+feature/chats/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/chats/impl/ChatScreenContentScreenshotTest.kt
+feature/chats/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/chats/impl/ChatsScreenContentScreenshotTest.kt
+feature/composer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/composer/impl/ComposerDiscardDialogScreenshotTest.kt
+feature/composer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/composer/impl/ComposerScreenScreenshotTest.kt
+feature/composer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/composer/impl/LanguagePickerScreenshotTest.kt
+feature/feed/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/feed/impl/FeedScreenScreenshotTest.kt
+feature/feed/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/feed/impl/ui/FeedEmptyStateScreenshotTest.kt
+feature/feed/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/feed/impl/ui/FeedErrorStateScreenshotTest.kt
+feature/login/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/login/impl/LoginScreenScreenshotTest.kt
+feature/mediaviewer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/mediaviewer/impl/MediaViewerScreenScreenshotTest.kt
+feature/moderation/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/moderation/impl/ReportDialogScreenshotTest.kt
+feature/onboarding/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/onboarding/impl/OnboardingScreenScreenshotTest.kt
+feature/postdetail/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/postdetail/impl/PostDetailScreenScreenshotTest.kt
+feature/profile/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/profile/impl/ProfileScreenContentScreenshotTest.kt
+feature/profile/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/profile/impl/ui/SettingsStubScreenScreenshotTest.kt
+feature/search/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/search/impl/SearchScreenScreenshotTest.kt
+feature/search/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/search/impl/SearchTypeaheadContentScreenshotTest.kt
+feature/videoplayer/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/videoplayer/impl/ui/VideoPlayerContentScreenshotTest.kt
+EOF
+wc -l /tmp/screen-fixtures.txt
+```
+Expected: prints `21`. Verify every path exists with `while IFS= read -r p; do test -f "$p" || echo "MISSING: $p"; done < /tmp/screen-fixtures.txt` (no output = all present).
+
+- [ ] **Step 2: Inspect the current call-shape uniformity (sanity check)**
+
+```bash
+while IFS= read -r p; do grep -h "NubecitaTheme(" "$p"; done < /tmp/screen-fixtures.txt | sort -u
 ```
 Expected output: exactly one line — `        NubecitaTheme(dynamicColor = false) {`. If more shapes appear, **stop** and re-evaluate per-call edits before continuing.
 
-- [ ] **Step 2: Apply the import replacement across all fixtures**
+- [ ] **Step 3: Apply the import + call-site replacement to each screen fixture**
 
 ```bash
-find . -name "*ScreenshotTest.kt" -not -path "*/build/*" -type f -print0 \
-  | xargs -0 sed -i '' 's|^import net\.kikin\.nubecita\.designsystem\.NubecitaTheme$|import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme|'
+while IFS= read -r p; do
+  sed -i '' 's|^import net\.kikin\.nubecita\.designsystem\.NubecitaTheme$|import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme|' "$p"
+  sed -i '' 's|NubecitaTheme(dynamicColor = false) {|NubecitaCanvasPreviewTheme {|g' "$p"
+done < /tmp/screen-fixtures.txt
 ```
-Expected: silent. Verify with `git diff --stat` — should show 74 files modified with the same line change.
-
-- [ ] **Step 3: Apply the call-site replacement across all fixtures**
-
-```bash
-find . -name "*ScreenshotTest.kt" -not -path "*/build/*" -type f -print0 \
-  | xargs -0 sed -i '' 's|NubecitaTheme(dynamicColor = false) {|NubecitaCanvasPreviewTheme {|g'
-```
-Expected: silent. Verify with `git diff --stat` — file count is still 74 (no new files modified beyond those touched in step 2).
+Expected: silent. Verify with `git diff --stat /tmp/screen-fixtures.txt` shows exactly 21 files modified.
 
 - [ ] **Step 4: Sanity-check the diff**
 
 ```bash
-# Confirm no remaining NubecitaTheme(...) calls in *ScreenshotTest.kt files
-grep -rn "NubecitaTheme(" --include="*ScreenshotTest.kt" . 2>/dev/null | grep -v "/build/"
+# Confirm no remaining NubecitaTheme(...) calls in the screen fixtures
+while IFS= read -r p; do grep -n "NubecitaTheme(" "$p" 2>/dev/null; done < /tmp/screen-fixtures.txt
 ```
 Expected: no output. If any lines print, those are unmigrated call sites — investigate by hand.
 
 ```bash
-# Confirm the import migration succeeded everywhere
-grep -rl "^import net.kikin.nubecita.designsystem.NubecitaTheme$" --include="*ScreenshotTest.kt" . 2>/dev/null | grep -v "/build/"
+# Confirm component-level fixtures still use NubecitaTheme
+component_count=$(grep -rl "NubecitaTheme(dynamicColor = false) {" --include="*ScreenshotTest.kt" . 2>/dev/null | grep -v "/build/" | wc -l)
+echo "component fixtures still on NubecitaTheme: $component_count"
 ```
-Expected: no output (every old import replaced).
+Expected: ~53 (every `*ScreenshotTest.kt` that is NOT in `/tmp/screen-fixtures.txt`).
 
-- [ ] **Step 5: Fix the one KDoc prose mention**
-
-Use the `Edit` tool on `feature/feed/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature/feed/impl/ui/PostCardVideoEmbedScreenshotTest.kt`:
-
-`old_string`:
+```bash
+# Confirm screen fixtures are now on the wrapper
+wrapper_count=$(grep -rl "NubecitaCanvasPreviewTheme {" --include="*ScreenshotTest.kt" . 2>/dev/null | grep -v "/build/" | wc -l)
+echo "fixtures using the wrapper: $wrapper_count"
 ```
- * `NubecitaTheme` (matches the rest of the screenshot suite).
-```
+Expected: `22` (21 screen fixtures + the wrapper's self-test).
 
-`new_string`:
-```
- * `NubecitaCanvasPreviewTheme` (matches the rest of the screenshot suite).
-```
-
-- [ ] **Step 6: Verify spotless across every affected module**
+- [ ] **Step 5: Verify spotless across every affected module**
 
 ```bash
 ./gradlew spotlessKotlinCheck
 ```
 Expected: `BUILD SUCCESSFUL`. If any module reports formatting, **inspect first** — sed can leave whitespace if the source had trailing whitespace. Apply `./gradlew spotlessApply` to auto-fix, then re-verify with `spotlessKotlinCheck`.
 
-- [ ] **Step 7: Verify screenshot test compilation across every affected module**
+- [ ] **Step 6: Verify screenshot test compilation across every affected module**
 
 ```bash
 ./gradlew :app:compileDebugScreenshotTestKotlin \
@@ -349,22 +382,25 @@ Expected: `BUILD SUCCESSFUL`. If any module reports formatting, **inspect first*
 ```
 Expected: `BUILD SUCCESSFUL`. Compilation failures here mean an unmigrated call site exists somewhere — go back to step 4's sanity grep.
 
-- [ ] **Step 8: Commit the migration**
+- [ ] **Step 7: Commit the migration**
 
 ```bash
 git add -A
 git commit -m "$(cat <<'COMMIT'
-refactor(screenshot-tests): migrate all fixtures to NubecitaCanvasPreviewTheme
+refactor(screenshot-tests): migrate screen-level fixtures to NubecitaCanvasPreviewTheme
 
-Mechanical sweep across 74 *ScreenshotTest.kt files in :app, :designsystem,
-and all 9 feature modules. Two replacements per file:
+Targeted sweep across 21 screen-level *ScreenshotTest.kt files in :app,
+:designsystem (none in v1; designsystem is all components), and 9 feature
+modules. Two replacements per file:
 
 - `import net.kikin.nubecita.designsystem.NubecitaTheme`
   → `import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme`
 - `NubecitaTheme(dynamicColor = false) {`
   → `NubecitaCanvasPreviewTheme {`
 
-Plus one KDoc prose update in PostCardVideoEmbedScreenshotTest.
+Component-level fixtures (~53 atoms across designsystem + feature ui/
+folders) stay on NubecitaTheme(dynamicColor = false) — the wrapper's
+fillMaxSize would balloon intrinsic-fill atoms.
 
 Production composables and androidTest interaction tests stay on
 NubecitaTheme; only screenshot fixtures migrate.
@@ -390,7 +426,7 @@ COMMIT
 git log --oneline main..HEAD
 ```
 Expected: three commits in order (newest first):
-1. `refactor(screenshot-tests): migrate all fixtures to NubecitaCanvasPreviewTheme`
+1. `refactor(screenshot-tests): migrate screen-level fixtures to NubecitaCanvasPreviewTheme`
 2. `test(designsystem): add screenshot self-test for NubecitaCanvasPreviewTheme`
 3. `feat(designsystem): add NubecitaCanvasPreviewTheme wrapper`
 
@@ -399,7 +435,7 @@ Expected: three commits in order (newest first):
 ```bash
 git diff --stat main...HEAD | tail -5
 ```
-Expected: ~76 files changed (1 wrapper, 1 self-test, 74 migrations). If far fewer or far more, **stop** and investigate.
+Expected: ~23 files changed (1 wrapper, 1 self-test, 21 screen-fixture migrations). If far fewer or far more, **stop** and investigate.
 
 - [ ] **Step 3: App graph still links**
 
@@ -505,6 +541,6 @@ Summarize: how many fixtures regenerated, whether dark canvases look right, any 
 ## Risks specific to this plan
 
 - **A `*ScreenshotTest.kt` file accidentally uses `NubecitaTheme(dynamicColor = true)` or no args at all** — the sed in step 3 only matches the exact `(dynamicColor = false)` form. The sanity-check grep in Task 4 Step 1 surfaces this before edits; the post-edit grep in Step 4 surfaces any remaining call sites. Mitigation: read the grep output before sed, and after.
-- **Spotless reformatting changes more than the migration** — if any of the 74 files had latent spotless issues, `spotlessApply` would fold those in too. Mitigation: run `spotlessKotlinCheck` (not `spotlessApply`) first; if it fails, inspect the failure and decide whether to fix in this PR or a precursor. If you `spotlessApply`, eyeball the diff to confirm only intended changes.
+- **Spotless reformatting changes more than the migration** — if any of the 21 migrated files had latent spotless issues, `spotlessApply` would fold those in too. Mitigation: run `spotlessKotlinCheck` (not `spotlessApply`) first; if it fails, inspect the failure and decide whether to fix in this PR or a precursor. If you `spotlessApply`, eyeball the diff to confirm only intended changes.
 - **CI baseline-regen workflow doesn't exist or has been renamed** — the `update-baselines` label may be wired up to a different workflow than the memory recalls. Mitigation: verify the workflow runs after the label is added by watching the PR's "Checks" tab once (or asking the user). If nothing fires, capture baselines locally per module (`./gradlew :<module>:updateDebugScreenshotTest`) and commit them.
 - **macOS vs Linux `sed` `-i` flag** — `sed -i ''` is BSD/macOS; GNU sed wants `sed -i ''` to be `sed -i ""` or just `sed -i`. The plan assumes macOS (the project is darwin-only for development). If running on Linux, adjust to `sed -i 's|...|...|g'` without the `''` argument.
