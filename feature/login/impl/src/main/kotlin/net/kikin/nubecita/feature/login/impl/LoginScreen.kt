@@ -90,6 +90,7 @@ internal fun LoginScreen(
     // prevents a future nested scrollable from double-insetting.
     Scaffold(
         modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { innerPadding ->
         // Cap the form column to a comfortable single-column width on

@@ -3,6 +3,7 @@ package net.kikin.nubecita.shell
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
@@ -334,6 +335,7 @@ internal fun MainShellChrome(
     // the visually-rendered bar (creating a ~32dp gap).
     NavigationSuiteScaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.surface,
         navigationSuiteType = layoutType,
         navigationItems = {
             TopLevelDestinations.forEach { destination ->
