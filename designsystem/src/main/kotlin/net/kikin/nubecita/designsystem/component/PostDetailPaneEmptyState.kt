@@ -42,7 +42,7 @@ fun PostDetailPaneEmptyState(modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(
                     horizontal = MaterialTheme.spacing.s6,
                     vertical = MaterialTheme.spacing.s8,
