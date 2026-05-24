@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,6 +82,9 @@ internal fun SettingsStubScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val signOutErrorMsg = stringResource(R.string.profile_settings_signout_error)
+    val switchAccountComingSoonMsg =
+        stringResource(R.string.profile_settings_switch_account_coming_soon)
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -87,6 +92,21 @@ internal fun SettingsStubScreen(
                 SettingsStubEffect.ShowSignOutError -> {
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(signOutErrorMsg)
+                }
+                SettingsStubEffect.ShowSwitchAccountComingSoon -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(switchAccountComingSoonMsg)
+                }
+                is SettingsStubEffect.LaunchUri -> {
+                    // ACTION_VIEW lets the OS route to the user's preferred
+                    // handler — Chrome Custom Tabs when installed, system
+                    // browser otherwise. FLAG_ACTIVITY_NEW_TASK is required
+                    // because we're starting the intent from a non-Activity
+                    // Context (the Compose application context).
+                    val intent =
+                        Intent(Intent.ACTION_VIEW, Uri.parse(effect.uri))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
                 }
             }
         }
@@ -224,13 +244,17 @@ internal fun SettingsStubContent(
     versionLabel: String,
     modifier: Modifier = Modifier,
 ) {
-    // Header data is hardcoded for v1 of the shell — real values flow
-    // from the session repo through SettingsStubViewModel under task 2.8.
-    // The composable shape stays final so 2.8 is a state-wiring change
-    // only, no further layout churn.
-    val handle = "kikin.bsky.social"
-    val displayName: String? = null
-    val avatarUrl: String? = null
+    // Header values are session-derived in SettingsStubViewModel.init: the
+    // handle lands synchronously from SessionStateProvider; displayName +
+    // avatarUrl arrive after a ProfileRepository.fetchHeader round-trip
+    // (silent failure → null → header falls back to "Hi!" + initials disc).
+    // The handle should always be non-null inside MainShell since the
+    // outer Navigator gates entry on SignedIn; the empty-string fallback
+    // is defensive and would only render if the session state went stale
+    // mid-composition.
+    val handle = state.handle.orEmpty()
+    val displayName = state.displayName
+    val avatarUrl = state.avatarUrl
 
     val accountRows =
         persistentListOf(
@@ -263,17 +287,13 @@ internal fun SettingsStubContent(
             handle = handle,
             displayName = displayName,
             avatarUrl = avatarUrl,
-            onManageAccountClick = {
-                // Wires to a LaunchUri("https://bsky.app/settings") effect in 2.8.
-            },
+            onManageAccountClick = { onEvent(SettingsStubEvent.ManageAccountTapped) },
         )
         SwitchAccountRow(
             handle = handle,
             displayName = displayName,
             avatarUrl = avatarUrl,
-            onTap = {
-                // Wires to a "Coming soon" snackbar effect in 2.8.
-            },
+            onTap = { onEvent(SettingsStubEvent.SwitchAccountTapped) },
         )
         // Canonical section roster (spec: feature-settings — "Settings
         // screen renders sections in a canonical fixed order"). Sections

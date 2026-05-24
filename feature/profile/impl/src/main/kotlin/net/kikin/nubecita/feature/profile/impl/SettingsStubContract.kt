@@ -7,6 +7,13 @@ import net.kikin.nubecita.core.common.mvi.UiState
 /**
  * MVI state for the Settings stub screen.
  *
+ * Identity-header fields ([handle], [displayName], [avatarUrl]) are
+ * session-derived and populated by the VM on init. `handle` lands
+ * synchronously from `SessionStateProvider.state.value`; `displayName`
+ * and `avatarUrl` arrive after a `ProfileRepository.fetchHeader` round-
+ * trip and stay null on fetch failure (header still renders — greeting
+ * falls back to "Hi!", avatar to the initials disc).
+ *
  * `confirmDialogOpen` is **flat** because dialog visibility is
  * independent of the sign-out status (a dialog can be open while idle
  * OR while signing out — the latter shows a spinner inside the dialog).
@@ -15,6 +22,9 @@ import net.kikin.nubecita.core.common.mvi.UiState
  * exclusive — at any given moment exactly one is true.
  */
 data class SettingsStubViewState(
+    val handle: String? = null,
+    val displayName: String? = null,
+    val avatarUrl: String? = null,
     val confirmDialogOpen: Boolean = false,
     val status: SettingsStubStatus = SettingsStubStatus.Idle,
 ) : UiState
@@ -35,7 +45,7 @@ sealed interface SettingsStubStatus {
  * Events the screen sends to the ViewModel.
  */
 sealed interface SettingsStubEvent : UiEvent {
-    /** User tapped the Sign Out button. Opens the confirmation dialog. */
+    /** User tapped the Sign Out row. Opens the confirmation dialog. */
     data object SignOutTapped : SettingsStubEvent
 
     /** User tapped Confirm inside the dialog. Kicks off the sign-out request. */
@@ -43,14 +53,44 @@ sealed interface SettingsStubEvent : UiEvent {
 
     /** User tapped Cancel inside the dialog or tapped outside (scrim). */
     data object DismissDialog : SettingsStubEvent
+
+    /**
+     * User tapped the header's "Manage your Bluesky account" pill.
+     * VM responds with a [SettingsStubEffect.LaunchUri] pointing at the
+     * hosted web settings page.
+     */
+    data object ManageAccountTapped : SettingsStubEvent
+
+    /**
+     * User tapped the Switch-account placeholder row. Multi-account auth
+     * is out of scope for this epic; VM responds with a coming-soon
+     * snackbar effect. When multi-account ships, swap the effect for the
+     * real account-picker NavKey push.
+     */
+    data object SwitchAccountTapped : SettingsStubEvent
 }
 
 /**
- * One-shot effects. There is exactly one — error surfacing on
- * sign-out failure. Success has no effect: the screen unmounts when
- * the outer Navigator replaces to Login.
+ * One-shot effects collected by the screen.
  */
 sealed interface SettingsStubEffect : UiEffect {
     /** Sign-out failed. Surface a snackbar; copy is resolved at render time. */
     data object ShowSignOutError : SettingsStubEffect
+
+    /**
+     * Open an external URL (via the system's preferred handler — Chrome
+     * Custom Tab when installed, system browser otherwise). Used for
+     * the Manage-Account pill and the future web-forwarding rows
+     * (Muted words / Blocked accounts / Terms / Privacy).
+     */
+    data class LaunchUri(
+        val uri: String,
+    ) : SettingsStubEffect
+
+    /**
+     * Surface the "Multi-account coming soon" snackbar. Distinct from
+     * a generic snackbar effect so the screen can resolve the localized
+     * string at render time (same pattern as [ShowSignOutError]).
+     */
+    data object ShowSwitchAccountComingSoon : SettingsStubEffect
 }

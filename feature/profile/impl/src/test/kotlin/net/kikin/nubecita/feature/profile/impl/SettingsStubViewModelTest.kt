@@ -3,12 +3,17 @@ package net.kikin.nubecita.feature.profile.impl
 import app.cash.turbine.test
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.AuthRepository
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,11 +26,30 @@ internal class SettingsStubViewModelTest {
     @RegisterExtension
     val mainDispatcher = MainDispatcherExtension()
 
+    /**
+     * Default session + profile mocks for tests that only exercise the
+     * sign-out flow. Session returns SignedOut so the VM's init block
+     * skips the profile-fetch path; profile mock stays unused. Tests
+     * that need to assert on header state can override either.
+     */
+    private fun createVm(
+        auth: AuthRepository,
+        session: SessionStateProvider =
+            mockk(relaxed = true) {
+                every { state } returns MutableStateFlow(SessionState.SignedOut)
+            },
+        profile: ProfileRepository = mockk(relaxed = true),
+    ) = SettingsStubViewModel(
+        authRepository = auth,
+        sessionStateProvider = session,
+        profileRepository = profile,
+    )
+
     @Test
     fun `SignOutTapped opens the confirmation dialog`() =
         runTest(mainDispatcher.dispatcher) {
             val auth = mockk<AuthRepository>(relaxed = true)
-            val vm = SettingsStubViewModel(authRepository = auth)
+            val vm = createVm(auth = auth)
 
             vm.handleEvent(SettingsStubEvent.SignOutTapped)
 
@@ -37,7 +61,7 @@ internal class SettingsStubViewModelTest {
     fun `DismissDialog closes the confirmation dialog`() =
         runTest(mainDispatcher.dispatcher) {
             val auth = mockk<AuthRepository>(relaxed = true)
-            val vm = SettingsStubViewModel(authRepository = auth)
+            val vm = createVm(auth = auth)
             vm.handleEvent(SettingsStubEvent.SignOutTapped)
             assertTrue(vm.uiState.value.confirmDialogOpen)
 
@@ -53,7 +77,7 @@ internal class SettingsStubViewModelTest {
                 mockk<AuthRepository> {
                     coEvery { signOut() } returns Result.success(Unit)
                 }
-            val vm = SettingsStubViewModel(authRepository = auth)
+            val vm = createVm(auth = auth)
             vm.handleEvent(SettingsStubEvent.SignOutTapped)
 
             vm.handleEvent(SettingsStubEvent.ConfirmSignOut)
@@ -70,7 +94,7 @@ internal class SettingsStubViewModelTest {
                 mockk<AuthRepository> {
                     coEvery { signOut() } returns Result.failure(IOException("net down"))
                 }
-            val vm = SettingsStubViewModel(authRepository = auth)
+            val vm = createVm(auth = auth)
             vm.handleEvent(SettingsStubEvent.SignOutTapped)
 
             vm.effects.test {
@@ -93,7 +117,7 @@ internal class SettingsStubViewModelTest {
                         Result.success(Unit)
                     }
                 }
-            val vm = SettingsStubViewModel(authRepository = auth)
+            val vm = createVm(auth = auth)
             vm.handleEvent(SettingsStubEvent.SignOutTapped)
 
             vm.handleEvent(SettingsStubEvent.ConfirmSignOut)
