@@ -35,6 +35,12 @@ dependencies {
     // dialog, VM, and repository and stays opt-in via Hilt multibinding.
     implementation(project(":feature:moderation:api"))
     implementation(project(":feature:postdetail:api"))
+    // Settings NavKey — pushed onto MainShell's inner back stack from
+    // the Profile entry's `onNavigateToSettings` callback when the user
+    // taps Settings in the actions row. The Settings screen itself lives
+    // in :feature:settings:impl (graduated in nubecita-77l) and is
+    // contributed to the @MainShell multibinding by its own nav module.
+    implementation(project(":feature:settings:api"))
     // VideoPlayerRoute NavKey — pushed onto the outer back stack when
     // a video media-grid cell is tapped (the MediaViewer can't render
     // video embeds, so the route here splits image vs video taps).
@@ -66,8 +72,9 @@ dependencies {
     // activity launch).
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
-    // mockk-android needed for TestAuthRepositoryModule (relaxed mocks of
-    // auth interfaces in the Hilt test graph — SettingsStubInstrumentationTest).
+    // mockk-android needed for the relaxed mocks of session / cache
+    // collaborators in ProfileScreenOverflowReportInstrumentationTest and
+    // ProfileScreenPostsTabOverflowReportInstrumentationTest.
     androidTestImplementation(libs.mockk.android)
 
     kspAndroidTest(libs.hilt.android.compiler)

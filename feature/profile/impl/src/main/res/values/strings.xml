@@ -86,40 +86,4 @@
     <string name="profile_header_error_title">Couldn\'t load profile</string>
     <string name="profile_header_error_retry">Try again</string>
 
-    <!-- Settings shell screen + sign-out flow -->
-    <string name="profile_settings_title">Settings</string>
-    <string name="profile_settings_back_content_description">Back</string>
-    <!-- X-close affordance on the tablet/foldable Settings modal (replaces
-         the phone-shape back-arrow when the screen renders as a centered
-         modal sheet — at-or-above the Medium width breakpoint). -->
-    <string name="profile_settings_close_content_description">Close</string>
-    <string name="profile_settings_signout">Sign out</string>
-    <string name="profile_settings_signout_dialog_title">Sign out?</string>
-    <string name="profile_settings_signout_dialog_body">You\'ll need to sign in again to use Nubecita.</string>
-    <string name="profile_settings_signout_dialog_confirm">Sign out</string>
-    <string name="profile_settings_signout_dialog_cancel">Cancel</string>
-    <string name="profile_settings_signout_error">Couldn\'t sign out. Check your network and try again.</string>
-
-    <!-- About-section version row. Label is plain "Version"; the version
-         value (e.g. "1.104.0 (1104000)") rides in the row's
-         supportingText slot below the label. _unknown is the fallback
-         when PackageManager can't resolve the package — should never
-         fire in practice. -->
-    <string name="profile_settings_version_row_label">Version</string>
-    <string name="profile_settings_version_unknown">unknown</string>
-
-    <!-- Settings home identity header (Google Play-style sheet). Greeting
-         receives the signed-in user's displayName; no_name variant fires
-         when displayName is absent or blank. Manage-Account pill opens
-         https://bsky.app/settings via the screen's LaunchUri effect. -->
-    <string name="profile_settings_header_greeting_with_name">Hi, %1$s!</string>
-    <string name="profile_settings_header_greeting_no_name">Hi!</string>
-    <string name="profile_settings_header_manage_account_cta">Manage your Bluesky account</string>
-    <string name="profile_settings_header_avatar_content_description">Profile photo</string>
-
-    <!-- "Switch account" placeholder row (multi-account picker arrives in a
-         later epic; v1 row is inert and fires a Coming-soon snackbar). -->
-    <string name="profile_settings_switch_account_label">Switch account</string>
-    <string name="profile_settings_switch_account_coming_soon">Multi-account — coming soon</string>
-    <string name="profile_settings_switch_account_avatar_content_description">Current account</string>
 </resources>
