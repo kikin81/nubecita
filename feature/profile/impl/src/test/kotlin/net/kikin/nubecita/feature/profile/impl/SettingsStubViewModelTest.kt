@@ -13,9 +13,11 @@ import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -125,5 +127,115 @@ internal class SettingsStubViewModelTest {
             advanceUntilIdle()
 
             coVerify(exactly = 1) { auth.signOut() }
+        }
+
+    @Test
+    fun `ManageAccountTapped emits LaunchUri pointing at the hosted web settings`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+
+            vm.effects.test {
+                vm.handleEvent(SettingsStubEvent.ManageAccountTapped)
+                advanceUntilIdle()
+                assertEquals(
+                    SettingsStubEffect.LaunchUri(uri = "https://bsky.app/settings"),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `SwitchAccountTapped emits ShowSwitchAccountComingSoon`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+
+            vm.effects.test {
+                vm.handleEvent(SettingsStubEvent.SwitchAccountTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsStubEffect.ShowSwitchAccountComingSoon, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `init with SignedIn populates handle synchronously and fetches header`() =
+        runTest(mainDispatcher.dispatcher) {
+            val signedIn = SessionState.SignedIn(handle = "alice.bsky.social", did = "did:plc:alice")
+            val session =
+                mockk<SessionStateProvider>(relaxed = true) {
+                    every { state } returns MutableStateFlow(signedIn)
+                }
+            val profile =
+                mockk<ProfileRepository> {
+                    coEvery { fetchHeader("did:plc:alice") } returns
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                header =
+                                    ProfileHeaderUi(
+                                        did = "did:plc:alice",
+                                        handle = "alice.bsky.social",
+                                        displayName = "Alice Anderson",
+                                        avatarUrl = "https://cdn.example/alice.jpg",
+                                        bannerUrl = null,
+                                        avatarHue = 217,
+                                        bio = null,
+                                        location = null,
+                                        website = null,
+                                        joinedDisplay = null,
+                                        postsCount = 0L,
+                                        followersCount = 0L,
+                                        followsCount = 0L,
+                                    ),
+                                viewerRelationship = ViewerRelationship.Self,
+                            ),
+                        )
+                }
+            val vm = createVm(auth = mockk(relaxed = true), session = session, profile = profile)
+
+            // Handle lands synchronously from the SignedIn read in init.
+            assertEquals("alice.bsky.social", vm.uiState.value.handle)
+            // displayName + avatarUrl arrive once the fetch coroutine resolves.
+            advanceUntilIdle()
+            assertEquals("Alice Anderson", vm.uiState.value.displayName)
+            assertEquals("https://cdn.example/alice.jpg", vm.uiState.value.avatarUrl)
+            coVerify(exactly = 1) { profile.fetchHeader("did:plc:alice") }
+        }
+
+    @Test
+    fun `init with SignedIn keeps displayName and avatarUrl null on fetch failure`() =
+        runTest(mainDispatcher.dispatcher) {
+            val signedIn = SessionState.SignedIn(handle = "bob.bsky.social", did = "did:plc:bob")
+            val session =
+                mockk<SessionStateProvider>(relaxed = true) {
+                    every { state } returns MutableStateFlow(signedIn)
+                }
+            val profile =
+                mockk<ProfileRepository> {
+                    coEvery { fetchHeader("did:plc:bob") } returns
+                        Result.failure(IOException("net down"))
+                }
+            val vm = createVm(auth = mockk(relaxed = true), session = session, profile = profile)
+
+            // Handle still lands synchronously.
+            assertEquals("bob.bsky.social", vm.uiState.value.handle)
+            advanceUntilIdle()
+            // Silent failure: header renders without displayName / avatar; no effect emitted.
+            assertNull(vm.uiState.value.displayName)
+            assertNull(vm.uiState.value.avatarUrl)
+        }
+
+    @Test
+    fun `init with SignedOut skips fetchHeader entirely`() =
+        runTest(mainDispatcher.dispatcher) {
+            // The default createVm helper provides a SessionState.SignedOut mock.
+            val profile = mockk<ProfileRepository>(relaxed = true)
+            val vm = createVm(auth = mockk(relaxed = true), profile = profile)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.handle)
+            assertNull(vm.uiState.value.displayName)
+            assertNull(vm.uiState.value.avatarUrl)
+            coVerify(exactly = 0) { profile.fetchHeader(any()) }
         }
 }
