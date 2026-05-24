@@ -23,19 +23,23 @@ import net.kikin.nubecita.feature.profile.impl.R
  *
  * - Handle (e.g. `kikin.bsky.social`) as the topmost text in the
  *   centered column.
- * - Large circular avatar (80dp) with a small camera-icon badge in
- *   the bottom-trailing slot. The badge is a non-interactive overlay
- *   in v1; tappable avatar editing is deferred to a follow-on task.
+ * - Large circular avatar (88dp) rendered via [SettingsAvatar] —
+ *   loads the async-image when [avatarUrl] is non-null, otherwise
+ *   shows the deterministic initials-disc fallback derived from
+ *   [displayName] / [handle]. An earlier draft overlaid a camera-
+ *   icon edit badge here; it was dropped when the badge had no tap
+ *   behavior in v1 and rendering it inside an otherwise-empty
+ *   avatar made the header read as unfinished. Restore the overlay
+ *   inside whichever follow-on task wires avatar upload.
  * - Display-name greeting ("Hi, $name!" when a display name is
  *   present, "Hi!" when absent or blank).
  * - "Manage your Bluesky account" pill-shaped [OutlinedButton] —
  *   tapping invokes [onManageAccountClick], which the screen
  *   translates into a `LaunchUri("https://bsky.app/settings")`
- *   effect.
+ *   effect that opens a Chrome Custom Tab.
  *
- * Stateless: callers pass the projected profile values. Header data
- * is hoisted into `SettingsViewModel` and flows down via
- * `SettingsViewState` (wiring tracked under task 2.8).
+ * Stateless: callers pass the projected profile values from
+ * `SettingsStubViewState`.
  */
 @Composable
 internal fun SettingsHeader(

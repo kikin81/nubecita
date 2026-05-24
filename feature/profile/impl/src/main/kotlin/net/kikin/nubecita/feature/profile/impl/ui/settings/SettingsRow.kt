@@ -21,6 +21,10 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
  *   (web settings, OS settings deep-link). Section tasks layer in a
  *   trailing "open in new" badge once that icon is added to
  *   [NubecitaIconName].
+ * - [Info] — non-interactive informational row (e.g. Version row in
+ *   About). Renders the same shape + tone as the other variants but
+ *   has no click handler, no ripple, and no clickable semantics —
+ *   screen readers announce it as text, not a disabled button.
  *
  * Equality is structural on the value fields. Lambdas (`onClick`,
  * `onCheckedChange`) participate in equality — callers should
@@ -66,5 +70,12 @@ sealed interface SettingsRow {
         override val label: String,
         override val supportingText: String? = null,
         val onClick: () -> Unit,
+    ) : SettingsRow
+
+    @Immutable
+    data class Info(
+        override val icon: NubecitaIconName?,
+        override val label: String,
+        override val supportingText: String? = null,
     ) : SettingsRow
 }

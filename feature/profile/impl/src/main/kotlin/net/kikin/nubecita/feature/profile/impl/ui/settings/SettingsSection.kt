@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -177,6 +179,26 @@ private fun SettingsRowRender(
                 modifier = modifier,
             ) {
                 Text(text = row.label, style = MaterialTheme.typography.bodyLarge)
+            }
+        is SettingsRow.Info ->
+            // Non-interactive row — Surface(shape, surfaceContainer) wrapping a
+            // non-clickable ListItem. Screen readers announce it as text, not a
+            // disabled button. Uses ListItemShapes.shape from segmentedShapes
+            // so position-aware corners (first/middle/last/single) match the
+            // surrounding interactive rows pixel-for-pixel.
+            Surface(
+                shape = shapes.shape,
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = modifier,
+            ) {
+                ListItem(
+                    headlineContent = {
+                        Text(text = row.label, style = MaterialTheme.typography.bodyLarge)
+                    },
+                    supportingContent = supportingContent,
+                    leadingContent = leadingContent,
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
             }
     }
 }

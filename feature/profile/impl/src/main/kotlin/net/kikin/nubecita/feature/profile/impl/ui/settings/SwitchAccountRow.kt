@@ -60,10 +60,12 @@ internal fun SwitchAccountRow(
             )
         },
         trailingContent = {
+            // Decorative: the row itself carries the "Switch account" label.
+            // contentDescription = null avoids screen readers announcing
+            // the chevron as additional text on top of the row label.
             NubecitaIcon(
                 name = NubecitaIconName.ChevronRight,
-                contentDescription =
-                    stringResource(R.string.profile_settings_switch_account_chevron_content_description),
+                contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -127,5 +127,4 @@
     <string name="profile_settings_switch_account_label">Switch account</string>
     <string name="profile_settings_switch_account_coming_soon">Multi-account — coming soon</string>
     <string name="profile_settings_switch_account_avatar_content_description">Current account</string>
-    <string name="profile_settings_switch_account_chevron_content_description">Switch account</string>
 </resources>

@@ -1,9 +1,10 @@
 package net.kikin.nubecita.feature.profile.impl
 
-import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,15 +99,24 @@ internal fun SettingsStubScreen(
                     snackbarHostState.showSnackbar(switchAccountComingSoonMsg)
                 }
                 is SettingsStubEffect.LaunchUri -> {
-                    // ACTION_VIEW lets the OS route to the user's preferred
-                    // handler — Chrome Custom Tabs when installed, system
-                    // browser otherwise. FLAG_ACTIVITY_NEW_TASK is required
-                    // because we're starting the intent from a non-Activity
-                    // Context (the Compose application context).
-                    val intent =
-                        Intent(Intent.ACTION_VIEW, Uri.parse(effect.uri))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    context.startActivity(intent)
+                    // Match the project-wide pattern from
+                    // :feature:feed:impl/FeedScreen.kt onExternalEmbedTap:
+                    // CustomTabsIntent pins to a Chrome Custom Tab when
+                    // available (better UX than the system browser handing
+                    // back via cold-start), and the narrowed catch swallows
+                    // ONLY the documented "no CCT-capable browser installed"
+                    // case. Other launch failures propagate so genuine bugs
+                    // surface in logcat instead of being hidden by a
+                    // blanket catch.
+                    try {
+                        CustomTabsIntent
+                            .Builder()
+                            .setShowTitle(true)
+                            .build()
+                            .launchUrl(context, Uri.parse(effect.uri))
+                    } catch (_: ActivityNotFoundException) {
+                        // No browser available — silent no-op.
+                    }
                 }
             }
         }
@@ -267,11 +277,14 @@ internal fun SettingsStubContent(
         )
     val aboutRows =
         persistentListOf(
-            SettingsRow.Action(
+            // Non-interactive: the version is informational. Info renders
+            // the same visual rhythm (Surface tone + segmented shape) as
+            // the surrounding action rows but has no click handler, no
+            // ripple, and announces as text to screen readers.
+            SettingsRow.Info(
                 icon = null,
                 label = stringResource(R.string.profile_settings_version_row_label),
                 supportingText = versionLabel,
-                onClick = {},
             ),
         )
 
