@@ -46,6 +46,7 @@ internal fun SettingsHeader(
     handle: String,
     displayName: String?,
     avatarUrl: String?,
+    avatarHue: Int,
     onManageAccountClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -69,8 +70,8 @@ internal fun SettingsHeader(
             overflow = TextOverflow.Ellipsis,
         )
         SettingsAvatar(
-            handle = handle,
-            displayName = displayName,
+            hue = avatarHue,
+            initialSeed = displayName?.takeIf { it.isNotBlank() } ?: handle,
             avatarUrl = avatarUrl,
             modifier = Modifier.size(88.dp),
             contentDescription =

@@ -15,14 +15,14 @@ import net.kikin.nubecita.feature.profile.impl.SettingsStubViewState
  *
  * Four fixtures × Light/Dark = 8 baselines:
  *
- * - **signed-in** — handle + display name + avatarUrl all populated.
- *   Header renders "Hi, <displayName>!" with the async-image avatar;
- *   SwitchAccountRow mirrors the avatar at 32dp. The Account +
- *   About section cards show the canonical Sign Out + Version rows.
+ * - **signed-in** — handle + display name populated; `avatarUrl =
+ *   null` so the deterministic initials-disc fallback renders
+ *   (with the displayName-derived initial). The async-image branch
+ *   exercises at runtime; the screenshot pins the fallback path so
+ *   baselines aren't dependent on Coil / network state.
  * - **missing-display-name** — handle only. Header falls back to
- *   "Hi!" (no name) and the avatar renders as the deterministic
- *   initials-disc fallback (`SettingsAvatar` when `avatarUrl ==
- *   null`).
+ *   "Hi!" (no name) and the avatar renders as the initials disc
+ *   seeded from the handle's first letter.
  * - **confirm-dialog-open** — dialog overlay above the signed-in
  *   body, idle status, Confirm enabled.
  * - **signing-out** — dialog overlay, SigningOut status, Confirm
@@ -53,7 +53,8 @@ private fun SettingsSignedInScreenshot() {
                 SettingsStubViewState(
                     handle = FIXTURE_HANDLE,
                     displayName = FIXTURE_DISPLAY_NAME,
-                    avatarUrl = null, // null → initials-disc fallback in screenshots; avatarUrl loads at runtime
+                    avatarUrl = null, // pins the initials-disc fallback path so baselines aren't network-dependent
+                    avatarHue = FIXTURE_AVATAR_HUE,
                 ),
             onEvent = {},
             versionLabel = FIXTURE_VERSION_LABEL,
@@ -78,6 +79,7 @@ private fun SettingsMissingDisplayNameScreenshot() {
                     handle = FIXTURE_HANDLE,
                     displayName = null,
                     avatarUrl = null,
+                    avatarHue = FIXTURE_AVATAR_HUE,
                 ),
             onEvent = {},
             versionLabel = FIXTURE_VERSION_LABEL,
@@ -101,6 +103,7 @@ private fun SettingsConfirmDialogScreenshot() {
                 SettingsStubViewState(
                     handle = FIXTURE_HANDLE,
                     displayName = FIXTURE_DISPLAY_NAME,
+                    avatarHue = FIXTURE_AVATAR_HUE,
                     confirmDialogOpen = true,
                 ),
             onEvent = {},
@@ -125,6 +128,7 @@ private fun SettingsSigningOutScreenshot() {
                 SettingsStubViewState(
                     handle = FIXTURE_HANDLE,
                     displayName = FIXTURE_DISPLAY_NAME,
+                    avatarHue = FIXTURE_AVATAR_HUE,
                     confirmDialogOpen = true,
                     status = SettingsStubStatus.SigningOut,
                 ),
@@ -136,6 +140,12 @@ private fun SettingsSigningOutScreenshot() {
 
 private const val FIXTURE_HANDLE = "alice.bsky.social"
 private const val FIXTURE_DISPLAY_NAME = "Alice Anderson"
+
+// Stable hue for the deterministic-initials avatar disc — matches the
+// canonical Alice fixture used across ProfileTopBarScreenshotTest etc.
+// Keeps the baseline color identical across runs without computing
+// avatarHueFor(did, handle) at fixture time.
+private const val FIXTURE_AVATAR_HUE = 217
 
 // Stable string so screenshot baselines aren't tied to whatever
 // semantic-release happens to have bumped to at fixture-capture time.

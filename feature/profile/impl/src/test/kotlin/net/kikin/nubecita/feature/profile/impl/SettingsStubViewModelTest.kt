@@ -193,11 +193,20 @@ internal class SettingsStubViewModelTest {
                 }
             val vm = createVm(auth = mockk(relaxed = true), session = session, profile = profile)
 
-            // Handle + header now arrive via the filterIsInstance flow on
-            // viewModelScope — both surface after the first dispatcher
-            // turn. advanceUntilIdle drains the queued emissions.
+            // Handle + avatarHue (computed via AuthorProfileMapper.avatarHueFor
+            // from did + handle) lands first from the flow's emission.
+            // displayName + avatarUrl arrive after fetchHeader resolves.
+            // advanceUntilIdle drains both turns.
             advanceUntilIdle()
             assertEquals("alice.bsky.social", vm.uiState.value.handle)
+            // avatarHue is the deterministic 0–359 value for this (did, handle)
+            // pair — same helper used by AuthorProfileMapper/ConvoMapper, so
+            // the same user paints identically across Settings/Profile/Chats.
+            assertEquals(
+                net.kikin.nubecita.feature.profile.impl.data
+                    .avatarHueFor(did = "did:plc:alice", handle = "alice.bsky.social"),
+                vm.uiState.value.avatarHue,
+            )
             assertEquals("Alice Anderson", vm.uiState.value.displayName)
             assertEquals("https://cdn.example/alice.jpg", vm.uiState.value.avatarUrl)
             coVerify(exactly = 1) { profile.fetchHeader("did:plc:alice") }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,37 +21,43 @@ import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
  * (or while loading / on error — `NubecitaAsyncImage` handles that
  * via its placeholder painter).
  *
- * Mirrors the pattern in `:feature:chats:impl/ui/ConvoListItem.kt`'s
- * private `Avatar` composable: a hue-derived background derived
- * deterministically from a stable seed (preferring [displayName] over
- * [handle]) + the seed's first letter-or-digit. Caller supplies size
- * via [modifier] (e.g. `Modifier.size(88.dp)`) and the text style
- * that fits that size via [initialTextStyle].
+ * [hue] is a precomputed 0–359 value supplied by the caller (the
+ * SettingsViewModel derives it via
+ * `feature/profile/impl/data/AuthorProfileMapper.avatarHueFor(did,
+ * handle)` so it stays identical to the same user's Profile / Chats
+ * avatar). Computing it locally from displayName / handle would
+ * drift from the DID-keyed convention used by sibling surfaces AND
+ * would visibly re-paint the disc when the display name fetch
+ * resolves after the initial render — both surfaced as Copilot
+ * review feedback on PR #287.
  *
- * The camera-icon edit badge that previously overlaid the header
- * avatar was dropped — it had no tap behavior in v1, and rendering
- * it inside an otherwise-empty placeholder avatar was the entire
- * thing the user saw on a not-yet-loaded profile. When avatar
- * editing actually ships, restore the overlay there.
+ * [initialSeed] is the string the first letter-or-digit is taken
+ * from for the fallback initial. Callers typically pass
+ * `displayName ?: handle` so the letter reflects the user's
+ * preferred display once the profile fetch lands, while [hue]
+ * stays stable.
+ *
+ * Caller supplies size via [modifier] (e.g.
+ * `Modifier.size(88.dp)`) and the text style that fits that size
+ * via [initialTextStyle].
  */
 @Composable
 internal fun SettingsAvatar(
-    handle: String,
-    displayName: String?,
+    hue: Int,
+    initialSeed: String,
     avatarUrl: String?,
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
     initialTextStyle: TextStyle = MaterialTheme.typography.titleSmall,
 ) {
-    val seed = displayName?.takeIf { it.isNotBlank() } ?: handle
-    val hue =
-        remember(seed) {
-            // hashCode().rem(360) can be negative; normalize to [0, 360).
-            ((seed.hashCode().rem(360) + 360).rem(360)).toFloat()
-        }
-    val hueColor = Color.hsv(hue = hue, saturation = 0.5f, value = 0.55f)
+    val hueColor =
+        Color.hsv(
+            hue = hue.toFloat().coerceIn(0f, 360f),
+            saturation = 0.5f,
+            value = 0.55f,
+        )
     val initial =
-        seed
+        initialSeed
             .firstOrNull { it.isLetterOrDigit() }
             ?.uppercaseChar()
             ?: '?'

@@ -11,13 +11,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -226,6 +228,15 @@ private fun SettingsModalWrapper(
     snackbarHostState: SnackbarHostState,
     content: @Composable () -> Unit,
 ) {
+    // 80% is a CAP, not a fixed height. heightIn(max) lets the Surface
+    // shrink to natural content height when the section roster is
+    // short — important on wide tablet windows where forcing 80%
+    // would leave a large empty modal. When content exceeds the cap,
+    // the inner verticalScroll inside SettingsStubContent provides
+    // scrolling within the bound.
+    val configuration = LocalConfiguration.current
+    val maxHeightDp = (configuration.screenHeightDp * 0.80f).dp
+
     Dialog(
         onDismissRequest = { if (isDismissEnabled) onClose() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -237,31 +248,32 @@ private fun SettingsModalWrapper(
                 Modifier
                     .widthIn(max = 640.dp)
                     .fillMaxWidth(fraction = 0.92f)
-                    .fillMaxHeight(fraction = 0.80f),
+                    .heightIn(max = maxHeightDp)
+                    .wrapContentHeight(),
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp, end = 8.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    IconButton(onClick = onClose, enabled = isDismissEnabled) {
-                        NubecitaIcon(
-                            name = NubecitaIconName.Close,
-                            contentDescription =
-                                stringResource(R.string.profile_settings_close_content_description),
-                        )
+            Box {
+                Column {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, end = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        IconButton(onClick = onClose, enabled = isDismissEnabled) {
+                            NubecitaIcon(
+                                name = NubecitaIconName.Close,
+                                contentDescription =
+                                    stringResource(R.string.profile_settings_close_content_description),
+                            )
+                        }
                     }
-                }
-                Box(modifier = Modifier.weight(1f)) {
                     content()
-                    SnackbarHost(
-                        hostState = snackbarHostState,
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                    )
                 }
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
         }
     }
@@ -336,12 +348,14 @@ internal fun SettingsStubContent(
             handle = handle,
             displayName = displayName,
             avatarUrl = avatarUrl,
+            avatarHue = state.avatarHue,
             onManageAccountClick = { onEvent(SettingsStubEvent.ManageAccountTapped) },
         )
         SwitchAccountRow(
             handle = handle,
             displayName = displayName,
             avatarUrl = avatarUrl,
+            avatarHue = state.avatarHue,
             onTap = { onEvent(SettingsStubEvent.SwitchAccountTapped) },
         )
         // Canonical section roster (spec: feature-settings — "Settings

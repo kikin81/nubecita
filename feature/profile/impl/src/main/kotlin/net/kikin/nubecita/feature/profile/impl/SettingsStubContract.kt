@@ -7,12 +7,24 @@ import net.kikin.nubecita.core.common.mvi.UiState
 /**
  * MVI state for the Settings stub screen.
  *
- * Identity-header fields ([handle], [displayName], [avatarUrl]) are
- * session-derived and populated by the VM on init. `handle` lands
- * synchronously from `SessionStateProvider.state.value`; `displayName`
- * and `avatarUrl` arrive after a `ProfileRepository.fetchHeader` round-
- * trip and stay null on fetch failure (header still renders — greeting
- * falls back to "Hi!", avatar to the initials disc).
+ * Identity-header fields ([handle], [avatarHue], [displayName],
+ * [avatarUrl]) are session-derived and populated by the VM. The VM
+ * observes `SessionStateProvider.state` via
+ * `filterIsInstance<SignedIn>().take(1).launchIn(viewModelScope)` —
+ * meaning the first SignedIn emission (typically immediate, since
+ * the StateFlow is hot and resolved by the time Settings is
+ * reachable) populates [handle] AND [avatarHue] together (the latter
+ * computed via `feature/profile/impl/data/AuthorProfileMapper.
+ * avatarHueFor(did, handle)` so it matches the same user's Profile /
+ * Chats avatar). [displayName] and [avatarUrl] arrive separately
+ * after a `ProfileRepository.fetchHeader` round-trip and stay null
+ * on fetch failure (header still renders — greeting falls back to
+ * "Hi!", avatar to the initials disc).
+ *
+ * Because the flow-based init queues onto the coroutine dispatcher,
+ * the very first composition may briefly render with `handle = null`
+ * (one-frame window). The composable's empty-string fallback handles
+ * this defensively.
  *
  * `confirmDialogOpen` is **flat** because dialog visibility is
  * independent of the sign-out status (a dialog can be open while idle
@@ -25,6 +37,7 @@ data class SettingsStubViewState(
     val handle: String? = null,
     val displayName: String? = null,
     val avatarUrl: String? = null,
+    val avatarHue: Int = 0,
     val confirmDialogOpen: Boolean = false,
     val status: SettingsStubStatus = SettingsStubStatus.Idle,
 ) : UiState

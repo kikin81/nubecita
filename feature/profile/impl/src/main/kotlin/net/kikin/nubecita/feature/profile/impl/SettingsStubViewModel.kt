@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
+import net.kikin.nubecita.feature.profile.impl.data.avatarHueFor
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -61,7 +62,18 @@ internal class SettingsStubViewModel
                 .filterIsInstance<SessionState.SignedIn>()
                 .take(1)
                 .onEach { signedIn ->
-                    setState { copy(handle = signedIn.handle) }
+                    // Hue derived from (did, handle) via the same helper
+                    // AuthorProfileMapper / ConvoMapper use, so the same
+                    // user's avatar paints identically across Settings,
+                    // Profile, and Chats. Crucially, hue is fixed by the
+                    // session-stable identity — it doesn't re-shift when
+                    // the displayName later arrives via fetchHeader.
+                    setState {
+                        copy(
+                            handle = signedIn.handle,
+                            avatarHue = avatarHueFor(did = signedIn.did, handle = signedIn.handle),
+                        )
+                    }
                     fetchHeader(signedIn.did)
                 }.launchIn(viewModelScope)
         }

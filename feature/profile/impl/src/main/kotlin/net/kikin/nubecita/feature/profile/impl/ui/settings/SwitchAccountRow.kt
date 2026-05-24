@@ -38,6 +38,7 @@ internal fun SwitchAccountRow(
     handle: String,
     displayName: String?,
     avatarUrl: String?,
+    avatarHue: Int,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -50,8 +51,8 @@ internal fun SwitchAccountRow(
             ),
         leadingContent = {
             SettingsAvatar(
-                handle = handle,
-                displayName = displayName,
+                hue = avatarHue,
+                initialSeed = displayName?.takeIf { it.isNotBlank() } ?: handle,
                 avatarUrl = avatarUrl,
                 modifier = Modifier.size(32.dp),
                 contentDescription =
