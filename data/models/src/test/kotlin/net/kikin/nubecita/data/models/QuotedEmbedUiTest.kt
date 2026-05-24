@@ -38,7 +38,8 @@ internal class QuotedEmbedUiTest {
                     thumbUrl = null,
                 ),
                 QuotedEmbedUi.QuotedThreadChip,
-                QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia"),
+                QuotedEmbedUi.RecordWithMedia(media = QuotedEmbedUi.Images(items = persistentListOf())),
+                QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.somethingNew"),
             )
         val labels =
             variants.map { embed ->
@@ -48,13 +49,52 @@ internal class QuotedEmbedUiTest {
                     is QuotedEmbedUi.Video -> "video"
                     is QuotedEmbedUi.External -> "external"
                     QuotedEmbedUi.QuotedThreadChip -> "thread-chip"
+                    is QuotedEmbedUi.RecordWithMedia -> "record-with-media"
                     is QuotedEmbedUi.Unsupported -> "unsupported"
                 }
             }
         assertEquals(
-            listOf("empty", "images", "video", "external", "thread-chip", "unsupported"),
+            listOf("empty", "images", "video", "external", "thread-chip", "record-with-media", "unsupported"),
             labels,
         )
+    }
+
+    /**
+     * The [QuotedEmbedUi.MediaEmbed] marker constrains the
+     * [QuotedEmbedUi.RecordWithMedia.media] slot to exactly three
+     * variants. The exhaustive `when` below — with no `else` arm —
+     * fails to compile if a future variant joins the marker without
+     * an arm here, or if a variant is removed from the marker.
+     */
+    @Test
+    fun `MediaEmbed marker has exactly three implementers`() {
+        val variants: List<QuotedEmbedUi.MediaEmbed> =
+            listOf(
+                QuotedEmbedUi.Images(items = persistentListOf()),
+                QuotedEmbedUi.Video(
+                    posterUrl = null,
+                    playlistUrl = "https://example/v.m3u8",
+                    aspectRatio = 16f / 9f,
+                    durationSeconds = null,
+                    altText = null,
+                ),
+                QuotedEmbedUi.External(
+                    uri = "https://example.com/article",
+                    domain = "example.com",
+                    title = "Article",
+                    description = "",
+                    thumbUrl = null,
+                ),
+            )
+        val labels =
+            variants.map { media ->
+                when (media) {
+                    is QuotedEmbedUi.Images -> "images"
+                    is QuotedEmbedUi.Video -> "video"
+                    is QuotedEmbedUi.External -> "external"
+                }
+            }
+        assertEquals(listOf("images", "video", "external"), labels)
     }
 
     @Test
@@ -67,6 +107,14 @@ internal class QuotedEmbedUiTest {
     fun `Images payload is a value-equal data class`() {
         val a = QuotedEmbedUi.Images(items = persistentListOf())
         val b = QuotedEmbedUi.Images(items = persistentListOf())
+        assertEquals(a, b)
+        assertEquals(a.hashCode(), b.hashCode())
+    }
+
+    @Test
+    fun `RecordWithMedia is a value-equal data class`() {
+        val a = QuotedEmbedUi.RecordWithMedia(media = QuotedEmbedUi.Images(items = persistentListOf()))
+        val b = QuotedEmbedUi.RecordWithMedia(media = QuotedEmbedUi.Images(items = persistentListOf()))
         assertEquals(a, b)
         assertEquals(a.hashCode(), b.hashCode())
     }

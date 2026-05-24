@@ -196,10 +196,70 @@ private fun QuotedEmbedSlot(
             Spacer(Modifier.height(8.dp))
             QuotedThreadChip()
         }
+        is QuotedEmbedUi.RecordWithMedia -> {
+            Spacer(Modifier.height(8.dp))
+            QuotedRecordWithMediaSlot(
+                media = embed.media,
+                quotedVideoEmbedSlot = quotedVideoEmbedSlot,
+            )
+        }
         is QuotedEmbedUi.Unsupported -> {
             Spacer(Modifier.height(8.dp))
             PostCardUnsupportedEmbed(typeUri = embed.typeUri)
         }
+    }
+}
+
+/**
+ * Renders the inner-quote `recordWithMedia` composition: media leaf
+ * on top, then a one-level [QuotedThreadChip] standing in for the
+ * doubly-quoted sub-quote (the recursion bound — see [QuotedEmbedUi]).
+ *
+ * Mirrors [PostCardRecordWithMediaEmbed] at the outer level, minus the
+ * record/unavailable branch (collapsed to the chip here) and minus the
+ * outer-tap plumbing (the host [PostCardQuotedPost]'s `onTap` already
+ * owns the whole quoted region's click target). The media's Video
+ * branch routes through [quotedVideoEmbedSlot] for the same Media3-free
+ * `:designsystem` reason that [PostCardQuotedPost] does.
+ *
+ * Exhaustive `when` over [QuotedEmbedUi.MediaEmbed] — no `else` branch.
+ */
+@Composable
+private fun QuotedRecordWithMediaSlot(
+    media: QuotedEmbedUi.MediaEmbed,
+    quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)?,
+) {
+    Column {
+        val mediaRendered: Boolean =
+            when (media) {
+                is QuotedEmbedUi.Images -> {
+                    PostCardImageEmbed(items = media.items)
+                    true
+                }
+                is QuotedEmbedUi.External -> {
+                    PostCardExternalEmbed(
+                        uri = media.uri,
+                        domain = media.domain,
+                        title = media.title,
+                        description = media.description,
+                        thumbUrl = media.thumbUrl,
+                        // Null onTap mirrors the plain-record QuotedEmbedSlot's
+                        // External branch: the host PostCardQuotedPost's outer
+                        // onTap owns the whole quoted region's click target.
+                        onTap = null,
+                    )
+                    true
+                }
+                is QuotedEmbedUi.Video ->
+                    if (quotedVideoEmbedSlot != null) {
+                        quotedVideoEmbedSlot(media)
+                        true
+                    } else {
+                        false
+                    }
+            }
+        if (mediaRendered) Spacer(Modifier.height(8.dp))
+        QuotedThreadChip()
     }
 }
 
@@ -324,6 +384,54 @@ private fun PostCardQuotedPostUnsupportedPreview() {
     NubecitaTheme {
         PostCardQuotedPost(
             quotedPost = previewQuoted(QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")),
+        )
+    }
+}
+
+@Preview(name = "QuotedPost — recordWithMedia images", showBackground = true)
+@Composable
+private fun PostCardQuotedPostRecordWithMediaImagesPreview() {
+    NubecitaTheme {
+        PostCardQuotedPost(
+            quotedPost =
+                previewQuoted(
+                    QuotedEmbedUi.RecordWithMedia(
+                        media =
+                            QuotedEmbedUi.Images(
+                                items =
+                                    persistentListOf(
+                                        ImageUi(
+                                            fullsizeUrl = "https://example.com/preview.jpg",
+                                            thumbUrl = "https://example.com/preview.jpg",
+                                            altText = null,
+                                            aspectRatio = 16f / 9f,
+                                        ),
+                                    ),
+                            ),
+                    ),
+                ),
+        )
+    }
+}
+
+@Preview(name = "QuotedPost — recordWithMedia external", showBackground = true)
+@Composable
+private fun PostCardQuotedPostRecordWithMediaExternalPreview() {
+    NubecitaTheme {
+        PostCardQuotedPost(
+            quotedPost =
+                previewQuoted(
+                    QuotedEmbedUi.RecordWithMedia(
+                        media =
+                            QuotedEmbedUi.External(
+                                uri = "https://www.theverge.com/article",
+                                domain = "theverge.com",
+                                title = "Headline goes here",
+                                description = "Short description.",
+                                thumbUrl = null,
+                            ),
+                    ),
+                ),
         )
     }
 }

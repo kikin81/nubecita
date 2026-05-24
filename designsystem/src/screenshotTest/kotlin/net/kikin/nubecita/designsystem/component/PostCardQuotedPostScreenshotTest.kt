@@ -136,3 +136,60 @@ private fun PostCardQuotedPostTappableScreenshot() {
         )
     }
 }
+
+// recordWithMedia inside a quoted post: media leaf on top of a
+// "View thread" chip. Two baselines below (images, external); the
+// video case is omitted for the same reason as the with-video baseline
+// at the top of this file — it requires a host-supplied
+// quotedVideoEmbedSlot lambda that lives in :feature:feed:impl.
+@PreviewTest
+@Preview(name = "record-with-media-images-light", showBackground = true)
+@Preview(name = "record-with-media-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardQuotedPostRecordWithMediaImagesScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardQuotedPost(
+            quotedPost =
+                fixedQuoted(
+                    QuotedEmbedUi.RecordWithMedia(
+                        media =
+                            QuotedEmbedUi.Images(
+                                items =
+                                    persistentListOf(
+                                        ImageUi(
+                                            fullsizeUrl = "https://example.com/preview.jpg",
+                                            thumbUrl = "https://example.com/preview.jpg",
+                                            altText = null,
+                                            aspectRatio = 16f / 9f,
+                                        ),
+                                    ),
+                            ),
+                    ),
+                ),
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "record-with-media-external-light", showBackground = true)
+@Preview(name = "record-with-media-external-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardQuotedPostRecordWithMediaExternalScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardQuotedPost(
+            quotedPost =
+                fixedQuoted(
+                    QuotedEmbedUi.RecordWithMedia(
+                        media =
+                            QuotedEmbedUi.External(
+                                uri = "https://www.theverge.com/article",
+                                domain = "theverge.com",
+                                title = "An article headline goes here",
+                                description = "Short description copy for the link card.",
+                                thumbUrl = null,
+                            ),
+                    ),
+                ),
+        )
+    }
+}
