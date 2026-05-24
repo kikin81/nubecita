@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState
+import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
@@ -89,27 +90,6 @@ private fun ProfileViewDetailed.canViewerMessage(): Boolean =
 
 private const val ALLOW_INCOMING_NONE = "none"
 private const val ALLOW_INCOMING_FOLLOWING = "following"
-
-/**
- * Deterministic hue in `0..359` derived from `did + first char of
- * handle`. Used as the fallback gradient input by
- * [net.kikin.nubecita.designsystem.hero.BoldHeroGradient] when no
- * banner is set (and as the synchronous initial gradient while
- * Palette extraction is in flight for users who DO have a banner).
- *
- * Hashing `did` alone would mean two users with similar DIDs map to
- * the same hue; mixing in `handle.first()` spreads the hash across
- * the alphabet too. `Math.floorMod` is used (not `abs % 360`) because
- * `abs(Int.MIN_VALUE)` is still `Int.MIN_VALUE` — `floorMod` returns
- * a non-negative result for every input.
- */
-internal fun avatarHueFor(
-    did: String,
-    handle: String,
-): Int {
-    val seed = did + (handle.firstOrNull()?.toString() ?: "")
-    return Math.floorMod(seed.hashCode(), 360)
-}
 
 /**
  * Render the wire `createdAt` (an RFC3339 timestamp string) into the

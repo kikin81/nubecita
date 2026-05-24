@@ -12,10 +12,10 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.profile.ActorProfile
+import net.kikin.nubecita.core.profile.ActorProfileRepository
+import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
-import net.kikin.nubecita.feature.settings.impl.data.SettingsAccountHeader
-import net.kikin.nubecita.feature.settings.impl.data.SettingsAccountRepository
-import net.kikin.nubecita.feature.settings.impl.data.avatarHueFor
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -30,10 +30,10 @@ internal class SettingsViewModelTest {
     val mainDispatcher = MainDispatcherExtension()
 
     /**
-     * Default session + account-repository mocks for tests that only
-     * exercise the sign-out flow. Session returns SignedOut so the
-     * VM's init block skips the profile-fetch path; account-repo mock
-     * stays unused. Tests that need to assert on header state can
+     * Default session + actor-profile-repository mocks for tests that
+     * only exercise the sign-out flow. Session returns SignedOut so the
+     * VM's init block skips the profile-fetch path; the actor-profile
+     * mock stays unused. Tests that need to assert on header state can
      * override either.
      */
     private fun createVm(
@@ -42,11 +42,11 @@ internal class SettingsViewModelTest {
             mockk(relaxed = true) {
                 every { state } returns MutableStateFlow(SessionState.SignedOut)
             },
-        account: SettingsAccountRepository = mockk(relaxed = true),
+        actorProfile: ActorProfileRepository = mockk(relaxed = true),
     ) = SettingsViewModel(
         authRepository = auth,
         sessionStateProvider = session,
-        accountRepository = account,
+        actorProfileRepository = actorProfile,
     )
 
     @Test
@@ -168,21 +168,24 @@ internal class SettingsViewModelTest {
                 mockk<SessionStateProvider>(relaxed = true) {
                     every { state } returns MutableStateFlow(signedIn)
                 }
-            val account =
-                mockk<SettingsAccountRepository> {
-                    coEvery { fetchHeader("did:plc:alice") } returns
+            val actorProfile =
+                mockk<ActorProfileRepository> {
+                    coEvery { fetchProfile("did:plc:alice") } returns
                         Result.success(
-                            SettingsAccountHeader(
+                            ActorProfile(
+                                did = "did:plc:alice",
+                                handle = "alice.bsky.social",
                                 displayName = "Alice Anderson",
                                 avatarUrl = "https://cdn.example/alice.jpg",
                             ),
                         )
                 }
-            val vm = createVm(auth = mockk(relaxed = true), session = session, account = account)
+            val vm =
+                createVm(auth = mockk(relaxed = true), session = session, actorProfile = actorProfile)
 
             // Handle + avatarHue (computed via avatarHueFor from did + handle)
             // lands first from the flow's emission. displayName + avatarUrl
-            // arrive after fetchHeader resolves. advanceUntilIdle drains
+            // arrive after fetchProfile resolves. advanceUntilIdle drains
             // both turns.
             advanceUntilIdle()
             assertEquals("alice.bsky.social", vm.uiState.value.handle)
@@ -195,7 +198,7 @@ internal class SettingsViewModelTest {
             )
             assertEquals("Alice Anderson", vm.uiState.value.displayName)
             assertEquals("https://cdn.example/alice.jpg", vm.uiState.value.avatarUrl)
-            coVerify(exactly = 1) { account.fetchHeader("did:plc:alice") }
+            coVerify(exactly = 1) { actorProfile.fetchProfile("did:plc:alice") }
         }
 
     @Test
@@ -206,12 +209,13 @@ internal class SettingsViewModelTest {
                 mockk<SessionStateProvider>(relaxed = true) {
                     every { state } returns MutableStateFlow(signedIn)
                 }
-            val account =
-                mockk<SettingsAccountRepository> {
-                    coEvery { fetchHeader("did:plc:bob") } returns
+            val actorProfile =
+                mockk<ActorProfileRepository> {
+                    coEvery { fetchProfile("did:plc:bob") } returns
                         Result.failure(IOException("net down"))
                 }
-            val vm = createVm(auth = mockk(relaxed = true), session = session, account = account)
+            val vm =
+                createVm(auth = mockk(relaxed = true), session = session, actorProfile = actorProfile)
 
             advanceUntilIdle()
             // Handle is populated by the flow's first emission.
@@ -224,16 +228,16 @@ internal class SettingsViewModelTest {
         }
 
     @Test
-    fun `init with SignedOut skips fetchHeader entirely`() =
+    fun `init with SignedOut skips fetchProfile entirely`() =
         runTest(mainDispatcher.dispatcher) {
             // The default createVm helper provides a SessionState.SignedOut mock.
-            val account = mockk<SettingsAccountRepository>(relaxed = true)
-            val vm = createVm(auth = mockk(relaxed = true), account = account)
+            val actorProfile = mockk<ActorProfileRepository>(relaxed = true)
+            val vm = createVm(auth = mockk(relaxed = true), actorProfile = actorProfile)
             advanceUntilIdle()
 
             assertNull(vm.uiState.value.handle)
             assertNull(vm.uiState.value.displayName)
             assertNull(vm.uiState.value.avatarUrl)
-            coVerify(exactly = 0) { account.fetchHeader(any()) }
+            coVerify(exactly = 0) { actorProfile.fetchProfile(any()) }
         }
 }

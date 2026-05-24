@@ -14,10 +14,10 @@ import net.kikin.nubecita.core.common.mvi.UiState
  * meaning the first SignedIn emission (typically immediate, since
  * the StateFlow is hot and resolved by the time Settings is
  * reachable) populates [handle] AND [avatarHue] together (the latter
- * computed via [net.kikin.nubecita.feature.settings.impl.data.avatarHueFor]
- * so it matches the same user's Profile / Chats avatar). [displayName]
- * and [avatarUrl] arrive separately after a
- * `SettingsAccountRepository.fetchHeader` round-trip and stay null on
+ * computed via [net.kikin.nubecita.core.profile.avatarHueFor] so it
+ * matches the same user's Profile / Chats avatar). [displayName] and
+ * [avatarUrl] arrive separately after an
+ * `ActorProfileRepository.fetchProfile` round-trip and stay null on
  * fetch failure (header still renders — greeting falls back to "Hi!",
  * avatar to the initials disc).
  *
