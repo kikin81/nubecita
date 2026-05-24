@@ -79,6 +79,32 @@ class SettingsStubInstrumentationTest {
     }
 
     @Test
+    fun switchAccount_tap_surfacesComingSoonSnackbar() {
+        val switchAccountLabel =
+            composeTestRule.activity.getString(R.string.profile_settings_switch_account_label)
+        val comingSoonText =
+            composeTestRule.activity.getString(R.string.profile_settings_switch_account_coming_soon)
+
+        composeTestRule.setContent {
+            NubecitaTheme(dynamicColor = false) {
+                SettingsStubScreen(onBack = {})
+            }
+        }
+
+        composeTestRule.onNodeWithText(switchAccountLabel).performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule
+                .onAllNodesWithText(comingSoonText)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeTestRule
+            .onNodeWithText(comingSoonText)
+            .assertIsDisplayed()
+    }
+
+    @Test
     fun signOut_failure_surfacesErrorSnackbar() {
         FakeAuthRepository.shared.nextSignOutResult = Result.failure(IOException("net down"))
         val signOutLabel = composeTestRule.activity.getString(R.string.profile_settings_signout)
