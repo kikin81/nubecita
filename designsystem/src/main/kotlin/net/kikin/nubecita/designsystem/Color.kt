@@ -74,6 +74,25 @@ object NubecitaPalette {
     val Warning80 = Color(0xFFFFCC80)
 }
 
+/**
+ * The M3 `surface*` tokens in these color schemes are assigned to depth
+ * roles — pick the role first, then the token follows from the table.
+ * Full contract: `docs/design-system/surface-roles.md`.
+ *
+ * Role → token at a glance:
+ *
+ * - **Screen canvas** → `surface` (Scaffold/modal root)
+ * - **Item card** → `surfaceContainer` (post card, settings section, convo row)
+ * - **Recessed inset** → `surfaceContainerLow` (anything nested inside an item card)
+ * - **Raised affordance** → `surfaceContainerHigh` (message bubble, day chip)
+ * - **Strong fill** → `surfaceContainerHighest` (thumbnails, shimmer, placeholders)
+ *
+ * `surfaceDim`, `surfaceBright`, and `surfaceContainerLowest` are reserved and
+ * rejected by the detekt rule outside design-system internals.
+ *
+ * `background` is set equal to `surface` and is treated as a synonym; new code
+ * should reference `surface` (the detekt rule enforces this).
+ */
 internal fun nubecitaLightColorScheme() =
     lightColorScheme(
         primary = NubecitaPalette.Sky50,
