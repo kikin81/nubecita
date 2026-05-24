@@ -64,7 +64,7 @@ fun PostCardExternalEmbed(
             modifier.fillMaxWidth().clickable { onTap(uri) }
         }
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(16.dp),
         modifier = surfaceModifier,
     ) {
