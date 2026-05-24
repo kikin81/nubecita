@@ -43,6 +43,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
@@ -456,6 +458,16 @@ internal fun FeedScreenContent(
         !currentWindowAdaptiveInfoV2()
             .windowSizeClass
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+
+    // Hoist the per-card Surface tokens above the LazyColumn so each
+    // visible item doesn't re-subscribe to LocalColorScheme /
+    // LocalShapes individually. Per Compose perf docs: "CompositionLocal
+    // lookups can cause unnecessary recompositions if used inside a lazy
+    // list item." One subscription for the screen vs. one per visible
+    // post on theme change. Passed into Surface wraps below and into
+    // ThreadCluster's new color/shape params.
+    val cardColor = MaterialTheme.colorScheme.surfaceContainer
+    val cardShape = MaterialTheme.shapes.medium
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -523,8 +535,8 @@ internal fun FeedScreenContent(
                 ) {
                     items(count = SHIMMER_PREVIEW_COUNT, key = { "shimmer-$it" }) { index ->
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            shape = MaterialTheme.shapes.medium,
+                            color = cardColor,
+                            shape = cardShape,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             PostCardShimmer(showImagePlaceholder = index % 2 == 0)
@@ -554,6 +566,8 @@ internal fun FeedScreenContent(
                     onRefresh = onRefresh,
                     onLoadMore = onLoadMore,
                     onImageTap = onImageTap,
+                    cardColor = cardColor,
+                    cardShape = cardShape,
                     contentPadding = padding,
                     lastLikeTapPostUri = viewState.lastLikeTapPostUri,
                     lastRepostTapPostUri = viewState.lastRepostTapPostUri,
@@ -575,6 +589,12 @@ private fun LoadedFeedContent(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit,
+    // Per-card Surface tokens, hoisted at FeedScreenContent so the
+    // LazyColumn items lambda doesn't re-subscribe to LocalColorScheme /
+    // LocalShapes per visible item. See FeedScreenContent's `cardColor`
+    // / `cardShape` declarations for the rationale.
+    cardColor: Color,
+    cardShape: Shape,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
     lastLikeTapPostUri: String? = null,
@@ -734,8 +754,8 @@ private fun LoadedFeedContent(
                         error("Tombstone variants returned early; render unreachable")
                     is FeedItemUi.Single ->
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            shape = MaterialTheme.shapes.medium,
+                            color = cardColor,
+                            shape = cardShape,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             PostCard(
@@ -755,6 +775,8 @@ private fun LoadedFeedContent(
                             leaf = item.leaf,
                             callbacks = callbacks,
                             hasEllipsis = item.hasEllipsis,
+                            color = cardColor,
+                            shape = cardShape,
                             leafVideoEmbedSlot = videoSlot,
                             leafQuotedVideoEmbedSlot = quotedVideoSlot,
                             // Tapping "View full thread" routes to the cluster's
@@ -786,8 +808,8 @@ private fun LoadedFeedContent(
                         // PostCard's videoEmbedSlot KDoc.
                         val chainLastIndex = item.posts.lastIndex
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            shape = MaterialTheme.shapes.medium,
+                            color = cardColor,
+                            shape = cardShape,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Column {
