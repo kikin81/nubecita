@@ -44,13 +44,16 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  *
  * Full role contract: `docs/design-system/surface-roles.md`.
  *
- * `ktlint:compose:modifier-missing-check` is suppressed deliberately: this
- * wrapper paints the full preview canvas via `Modifier.fillMaxSize()` and
- * that's the contract. Allowing callers to override the `Surface` modifier
- * would defeat the purpose (a caller-supplied `.size(...)` would shrink
- * the canvas and reintroduce the IDE-white-gutter regression we're fixing).
+ * `ktlint:compose:modifier-missing-check` (ktlint) + `ComposeModifierMissing`
+ * (Android Lint) are suppressed deliberately: this wrapper paints the full
+ * preview canvas via `Modifier.fillMaxSize()` and that's the contract.
+ * Allowing callers to override the `Surface` modifier would defeat the
+ * purpose (a caller-supplied `.size(...)` would shrink the canvas and
+ * reintroduce the IDE-white-gutter regression we're fixing). Both rules
+ * come from `com.slack.lint.compose:compose-lints` but register through
+ * different toolchains, so both keys are needed.
  */
-@Suppress("ktlint:compose:modifier-missing-check")
+@Suppress("ktlint:compose:modifier-missing-check", "ComposeModifierMissing")
 @Composable
 fun NubecitaCanvasPreviewTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
