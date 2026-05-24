@@ -46,7 +46,7 @@ New helper in `:designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/pre
 
 ```kotlin
 @Composable
-fun NubecitaScreenPreviewTheme(
+fun NubecitaCanvasPreviewTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
@@ -65,10 +65,10 @@ fun NubecitaScreenPreviewTheme(
 
 Usage rules:
 
-- All `*ScreenshotTest.kt` fixtures use `NubecitaScreenPreviewTheme` instead of `NubecitaTheme` directly. The wrapper paints the screen-canvas role, fixing the dark-mode fracture without per-fixture juggling.
+- **Screen-level** `*ScreenshotTest.kt` fixtures (screens, full-screen states, dialogs, panes — anything whose intent is to render against a full-bleed canvas) use `NubecitaCanvasPreviewTheme`. The wrapper paints the screen-canvas role, fixing the dark-mode fracture without per-fixture juggling. **Component-level** fixtures (atoms like avatars, buttons, single rows, post cards, message bubbles) stay on `NubecitaTheme(dynamicColor = false)` — the wrapper's `Modifier.fillMaxSize()` would cause atoms with intrinsic-fill behavior to balloon to the preview viewport instead of rendering at natural bounds.
 - `dynamicColor = false` keeps screenshot baselines deterministic — Layoutlib's dynamic-color fallback varies across emulator configurations.
 - Production composables stay untouched. `NubecitaTheme` remains a colorScheme provider only; canvas paint is the preview/test concern, paid for in production by `Scaffold` or the modal `Surface`. A production screen that "forgets" its Scaffold shows up as broken in its own screenshot, not silently fixed.
-- `*Content` slices do NOT paint their own `Surface(color = surface)`. The wrapper (Scaffold in production, modal Surface in production tablet mode, `NubecitaScreenPreviewTheme` in tests) is the canonical paint owner. Painting `surface` from a content slice would clobber a tablet-modal Surface that wants to be `surface` (or an explicitly-typed wrapper).
+- `*Content` slices do NOT paint their own `Surface(color = surface)`. The wrapper (Scaffold in production, modal Surface in production tablet mode, `NubecitaCanvasPreviewTheme` in tests) is the canonical paint owner. Painting `surface` from a content slice would clobber a tablet-modal Surface that wants to be `surface` (or an explicitly-typed wrapper).
 
 ### 2. The call-site migration
 
@@ -83,7 +83,7 @@ Concrete delta:
 - **`PostCardQuotedPost`** outer Surface + inner thumbnail: no change. Outer already at `surfaceContainerLow`; inner thumbnail at `surfaceContainerHighest` (strong-fill role for the placeholder rectangle).
 - **`PostDetailPaneEmptyState`**: `surfaceContainerLow` → `surface` (it's a pane canvas, not a recessed inset).
 - **`ComposerScreen.kt:412` inner `Surface(color = surface)`**: investigate intent — likely a redundant paint that drops. Worst case it stays as documented "explicit canvas for the IME-pinned bottom bar."
-- **`SettingsStubContent`**: no change to the body. The previous fracture is fixed by routing screenshot fixtures through `NubecitaScreenPreviewTheme`.
+- **`SettingsStubContent`**: no change to the body. The previous fracture is fixed by routing screenshot fixtures through `NubecitaCanvasPreviewTheme`.
 
 Items that already conform and stay put: `SettingsSection` (×2 sites), `SwitchAccountRow`, `ConvoListItem`, `BlockedPostCard`, `NotFoundPostCard`, `MessageBubble`, `DaySeparatorChip`, `NubecitaAsyncImage`, `Shimmer`, `VideoPosterEmbed`, `PostCardVideoEmbed`, `ComposerCharacterCounter`, `ComposerAttachmentChip`, `ComposerReplyParentSection`, `FeedsLoadingBody`, `PeopleLoadingBody`, `ProfileHero` ring.
 
@@ -102,7 +102,7 @@ Intentionally narrow. It doesn't try to enforce the *nesting* rule (would need d
 Each workstream is one bd-issue-plus-PR. The ordering is load-bearing because each step depends on the previous one being green.
 
 1. **Workstream 1 — Docs.** KDoc on `Color.kt` documenting the role contract + a `docs/design-system/surface-roles.md` reference page. Pure docs PR; no code; no baseline churn.
-2. **Workstream 2 — Preview wrapper.** Land `NubecitaScreenPreviewTheme` in `:designsystem/preview/`. Migrate every `*ScreenshotTest.kt` fixture to use it. Regenerates every previously-broken dark-mode baseline (they finally show the dark canvas). PR carries the `update-baselines` label.
+2. **Workstream 2 — Preview wrapper.** Land `NubecitaCanvasPreviewTheme` in `:designsystem/preview/`. Migrate **screen-level** `*ScreenshotTest.kt` fixtures (screens, full-screen states, dialogs, panes) to use it. Component-level fixtures (atoms — avatars, buttons, single rows, post cards, message bubbles) stay on `NubecitaTheme(dynamicColor = false)` because the wrapper's `Modifier.fillMaxSize()` would balloon intrinsic-fill atoms. Regenerates the screen-fixture dark-mode baselines (they finally show the dark canvas). PR carries the `update-baselines` label.
 3. **Workstream 3 — Call-site migration.** Refactor per surface, one PR each, in this order:
    - 3a. PostCard + feed (`PostCard.kt`, `PostCardExternalEmbed`, `PostCardRecordUnavailable`, `PostCardUnsupportedEmbed`, `FeedScreen` LazyColumn arrangement, Scaffold `containerColor`)
    - 3b. PostDetail (`PostDetailScreen` Scaffold `containerColor`, `PostDetailPaneEmptyState`)
@@ -121,7 +121,7 @@ Lint-rule-first would explode CI on every WIP branch. Migration-first means each
 - **Screenshot baselines** regenerate per workstream-3 PR under the `update-baselines` label. The diff is one feature surface per PR (feed, post-detail, composer, chats, search, profile, login/onboarding).
 - **`NubecitaThemeTest`** extends with role-mapping assertions: each role resolves to the expected M3 token in both light and dark schemes.
 - **`ColorSchemeTest`** extends with a depth-ordering invariant: in dark mode, `surfaceContainerLow.luminance() < surfaceContainer.luminance() < surfaceContainerHigh.luminance() < surfaceContainerHighest.luminance()` (using Compose's built-in `Color.luminance()` extension, see "Implementation notes" below). In light mode, the inverse. Catches palette drift.
-- **`NubecitaScreenPreviewTheme`** ships with its own screenshot test demonstrating canvas paint in both modes.
+- **`NubecitaCanvasPreviewTheme`** ships with its own screenshot test demonstrating canvas paint in both modes.
 - **Rollback unit**: each workstream PR is independently revertible. Workstream 2 (preview wrapper) can't be partially reverted without breaking tests but has no production-render impact.
 
 ## Risks & mitigations

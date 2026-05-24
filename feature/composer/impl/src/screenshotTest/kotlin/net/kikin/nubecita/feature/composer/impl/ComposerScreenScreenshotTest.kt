@@ -14,7 +14,7 @@ import io.github.kikin81.atproto.runtime.Cid
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.data.models.ActorUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
@@ -63,7 +63,7 @@ import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 @Preview(name = "empty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ComposerScreenEmptyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ComposerScreenContent(
             state = ComposerState(),
             textFieldState = remember { TextFieldState() },
@@ -85,7 +85,7 @@ private fun ComposerScreenEmptyScreenshot() {
 @Preview(name = "near-limit-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ComposerScreenNearLimitScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ComposerScreenContent(
             state =
                 ComposerState(
@@ -112,7 +112,7 @@ private fun ComposerScreenNearLimitScreenshot() {
 @Preview(name = "submitting-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ComposerScreenSubmittingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ComposerScreenContent(
             state =
                 ComposerState(
@@ -143,7 +143,7 @@ private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
     // dropdown visible. Avatar URLs are null so each row falls back
     // to NubecitaAsyncImage's placeholder ColorPainter — same
     // deterministic render the design-system fixture uses.
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ComposerScreenContent(
             state =
                 ComposerState(
@@ -199,7 +199,7 @@ private fun ComposerScreenReplyModeLoadedScreenshot() {
     // doesn't surface that distinction visually but matches what
     // production renders for a top-level reply target.
     val parentRef = StrongRef(uri = AtUri("at://did:plc:alice/app.bsky.feed.post/abc"), cid = Cid("bafabc"))
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ComposerScreenContent(
             state =
                 ComposerState(
@@ -234,7 +234,7 @@ private fun ComposerScreenReplyModeLoadedScreenshot() {
 @Preview(name = "with-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ComposerScreenWithImagesScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ComposerScreenContent(
             state =
                 ComposerState(

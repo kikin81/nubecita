@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -28,7 +28,7 @@ import kotlin.time.Instant
 @Preview(name = "subject-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SubjectStepScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(state = previewSubjectState(), onEvent = {})
     }
 }
@@ -42,7 +42,7 @@ private fun SubjectStepScreenshot() {
 )
 @Composable
 private fun SubjectStepResolvingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(state = previewSubjectState(preview = null), onEvent = {})
     }
 }
@@ -54,7 +54,7 @@ private fun SubjectStepResolvingScreenshot() {
 @Preview(name = "category-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun CategoryStepScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(state = previewCategoryState(), onEvent = {})
     }
 }
@@ -70,7 +70,7 @@ private fun CategoryStepScreenshot() {
 )
 @Composable
 private fun SubReasonViolenceScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(
             state = previewSubReasonState(ReportCategory.Violence),
             onEvent = {},
@@ -85,7 +85,7 @@ private fun SubReasonViolenceScreenshot() {
 @Preview(name = "details-other-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun DetailsStepOtherScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(state = previewDetailsStateOther(), onEvent = {})
     }
 }
@@ -99,7 +99,7 @@ private fun DetailsStepOtherScreenshot() {
 )
 @Composable
 private fun DetailsStepNonOtherScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(state = previewDetailsStateNonOther(), onEvent = {})
     }
 }
@@ -117,7 +117,7 @@ private fun DetailsStepNonOtherScreenshot() {
 )
 @Composable
 private fun DetailsSpamFastpathScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(state = previewDetailsStateNonOther(), onEvent = {})
     }
 }
@@ -131,7 +131,7 @@ private fun DetailsSpamFastpathScreenshot() {
 )
 @Composable
 private fun DetailsSubmittingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(
             state = previewDetailsStateNonOther().copy(submission = SubmissionStatus.Submitting),
             onEvent = {},
@@ -144,7 +144,7 @@ private fun DetailsSubmittingScreenshot() {
 @Preview(name = "details-failure-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun DetailsFailureScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(
             state =
                 previewDetailsStateNonOther().copy(
@@ -167,7 +167,7 @@ private val SCREENSHOT_SENT_AT = Instant.parse("2026-05-19T12:00:00Z")
 @Preview(name = "success-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SuccessCardScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         ReportDialogContent(
             state =
                 previewDetailsStateNonOther().copy(

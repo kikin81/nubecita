@@ -38,4 +38,4 @@ Every `Scaffold(` call must set `containerColor = MaterialTheme.colorScheme.surf
 - **Source of truth (this page)**: `docs/design-system/surface-roles.md`
 - **Design spec (decisions and rationale)**: `docs/superpowers/specs/2026-05-23-color-token-cascade-design.md`
 - **In code**: KDoc on `nubecitaLightColorScheme()` / `nubecitaDarkColorScheme()` in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/Color.kt` points back here.
-- **Preview / screenshot wrapper**: `NubecitaScreenPreviewTheme` in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/` paints the screen-canvas role for previews and screenshot fixtures (workstream 2).
+- **Preview / screenshot wrapper**: `NubecitaCanvasPreviewTheme` in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/` paints the screen-canvas role for previews and screenshot fixtures (workstream 2).

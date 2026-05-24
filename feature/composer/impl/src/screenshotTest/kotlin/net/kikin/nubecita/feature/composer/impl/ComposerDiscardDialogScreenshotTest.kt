@@ -14,7 +14,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDialogAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDiscardDialogContent
 
@@ -94,7 +94,7 @@ private fun discardDialogActions(): kotlinx.collections.immutable.ImmutableList<
 )
 @Composable
 private fun ComposerDiscardDialogCompactScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
             ComposerDiscardDialogContent(actions = discardDialogActions())
         }
@@ -117,7 +117,7 @@ private fun ComposerDiscardDialogCompactScreenshot() {
 )
 @Composable
 private fun ComposerDiscardDialogExpandedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             // Narrow the dialog explicitly so the Expanded fixture
             // doesn't stretch the card to the full canvas — production
@@ -147,7 +147,7 @@ private fun ComposerDiscardDialogExpandedScreenshot() {
 )
 @Composable
 private fun ComposerDiscardDialogOverComposerExpandedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         Box(
             modifier =
                 Modifier

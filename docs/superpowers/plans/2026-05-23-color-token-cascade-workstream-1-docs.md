@@ -129,7 +129,7 @@ Every `Scaffold(` call sets `containerColor = MaterialTheme.colorScheme.surface`
 - **Source of truth (this page)**: `docs/design-system/surface-roles.md`
 - **Design spec (decisions and rationale)**: `docs/superpowers/specs/2026-05-23-color-token-cascade-design.md`
 - **In code**: KDoc on `nubecitaLightColorScheme()` / `nubecitaDarkColorScheme()` in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/Color.kt` points back here.
-- **Preview / screenshot wrapper**: `NubecitaScreenPreviewTheme` in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/` paints the screen-canvas role for previews and screenshot fixtures (workstream 2).
+- **Preview / screenshot wrapper**: `NubecitaCanvasPreviewTheme` in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/` paints the screen-canvas role for previews and screenshot fixtures (workstream 2).
 ````
 
 - [ ] **Step 2: Verify the file exists and is well-formed**
@@ -312,7 +312,7 @@ After the PR opens, report the URL to the user and note: "`bd <BD_ID>` stays ope
 
 Each item below is a separate workstream with its own plan; this plan covers docs only.
 
-- **Workstream 2** — `NubecitaScreenPreviewTheme` wrapper + screenshot fixture migration. Plan to be written after this lands.
+- **Workstream 2** — `NubecitaCanvasPreviewTheme` wrapper + screenshot fixture migration. Plan to be written after this lands.
 - **Workstream 3 (a–g)** — call-site migration across feed, post-detail, composer, chats, search, profile, login/onboarding. Seven separate PRs; plans to be written per surface as they come up.
 - **Workstream 4** — custom detekt rule in `build-logic/detekt-rules/`. Plan to be written last, after all call sites conform.
 

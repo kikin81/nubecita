@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.posting.BLUESKY_LANGUAGE_TAGS
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 import net.kikin.nubecita.feature.composer.impl.internal.LanguagePickerContent
 
@@ -24,7 +24,7 @@ import net.kikin.nubecita.feature.composer.impl.internal.LanguagePickerContent
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun LanguagePickerInitialPreviews() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         LanguagePickerContent(
             allTags = BLUESKY_LANGUAGE_TAGS,
             draftSelection = persistentListOf("en"),
@@ -40,7 +40,7 @@ private fun LanguagePickerInitialPreviews() {
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun LanguagePickerCapReachedPreviews() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         LanguagePickerContent(
             allTags = BLUESKY_LANGUAGE_TAGS,
             draftSelection = persistentListOf("en", "ja", "es"),
