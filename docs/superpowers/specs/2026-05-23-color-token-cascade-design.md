@@ -9,15 +9,15 @@
 1. Fix the screenshot canvas: dark-mode baselines for stateless `*Content` slices show the expected dark canvas without per-fixture workarounds.
 2. Define a canonical token-cascade contract that assigns one *role* to each M3 surface token, so future code can pick a token by reasoning about depth rather than guessing.
 3. Migrate every existing call site to conform to the contract; regenerate the affected screenshot baselines per surface.
-4. ~~Enforce the most mechanizable parts of the contract with a custom detekt rule, so future drift fails CI rather than slipping in.~~ **Deferred indefinitely** per the [`nubecita-zw4k`](#workstream-4--detekt-rule) decision — the project doesn't have detekt set up, the cascade is now fully in place, and code review is sufficient enforcement until drift becomes a real problem.
+4. ~~Enforce the most mechanizable parts of the contract with a custom detekt rule, so future drift fails CI rather than slipping in.~~ **Deferred indefinitely** per the `nubecita-zw4k` decision (see "Enforcement (resolved)" below) — the project doesn't have detekt set up, the cascade is now fully in place, and code review is sufficient enforcement until drift becomes a real problem.
 
 ## Non-goals
 
 - Not redesigning Material 3 color theory or the brand palette (`NubecitaPalette` stays as-is).
 - Not introducing a `LocalAppTheme` light/dark switcher — that lives in the Settings Display section change (`nubecita-37to.3`).
-- Not building a semantic `nubecitaSurface(role)` alias layer (rejected during brainstorm in favor of doc + lint).
+- Not building a semantic `nubecitaSurface(role)` alias layer (rejected during brainstorm in favor of doc + review).
 - Not branding "me" vs "them" chat bubbles with different containers — that's a separate visual decision worth its own brainstorm.
-- Not assigning roles to `surfaceDim` / `surfaceBright` / `surfaceContainerLowest`; they're reserved and lint forbids usage outside the design system internals.
+- Not assigning roles to `surfaceDim` / `surfaceBright` / `surfaceContainerLowest`; they're reserved and code review enforces no usage outside the design system internals.
 
 ## The token-cascade contract
 
@@ -30,11 +30,11 @@ Each role names one M3 token. Reading order top→bottom is back→front in the 
 | Recessed inset | `surfaceContainerLow` | Anything nested *inside* an item card: quoted posts, external link embeds, "record unavailable" / "unsupported embed" placeholders inside a post body. *In dark mode this token is darker than `surfaceContainer`, producing the carved-in feel.* |
 | Raised affordance | `surfaceContainerHigh` | Things sitting on top of an item card: chat message bubbles, day-separator chips, video-poster top gradient stop. |
 | Strong fill | `surfaceContainerHighest` | Thumbnail placeholders, shimmer base, image-load placeholders, character-counter track, disabled fills. Independent of nesting depth — a thumbnail placeholder inside a recessed inset still maps here. |
-| Reserved | `surfaceDim`, `surfaceBright`, `surfaceContainerLowest` | Documented unused in v1; lint rejects external usage. |
+| Reserved | `surfaceDim`, `surfaceBright`, `surfaceContainerLowest` | Documented unused in v1; code review rejects external usage. |
 
 The simple structural rule: **the recessed-inset role applies uniformly to anything nested directly inside an item card** (excluding strong-fill placeholders, which sit at the strong-fill role regardless of nesting).
 
-`background` is treated as a synonym for `surface` — values are equal in both light and dark schemes today, and the contract picks `surface`. Lint forbids `colorScheme.background` outside design-system internals.
+`background` is treated as a synonym for `surface` — values are equal in both light and dark schemes today, and the contract picks `surface`. Code review enforces this; `colorScheme.background` should not appear in new code outside design-system internals.
 
 ## Architecture
 
@@ -94,7 +94,7 @@ The original spec called for a custom detekt rule under `build-logic/detekt-rule
 - Reject `MaterialTheme.colorScheme.{surfaceDim, surfaceBright, surfaceContainerLowest, background}` outside an allowlist (`:designsystem` internals, `MainShell`).
 - Reject `Scaffold(` without a `containerColor =` argument.
 
-**This was deferred indefinitely** per the [`nubecita-zw4k`](https://github.com/kikin81/nubecita) decision. The project doesn't have detekt set up; integrating it for one rule is more cost than benefit when the cascade is already fully in place and review discipline is the working enforcement mechanism. If drift becomes a real problem in practice, the rule gets authored as an **Android Lint** check (reusing the existing `lintDebug` pipeline) rather than introducing detekt — the precedent is the Slack `compose-lints` rules the project already consumes.
+**This was deferred indefinitely** per the `nubecita-zw4k` decision. The project doesn't have detekt set up; integrating it for one rule is more cost than benefit when the cascade is already fully in place and review discipline is the working enforcement mechanism. If drift becomes a real problem in practice, the rule gets authored as an **Android Lint** check (reusing the existing `lintDebug` pipeline) rather than introducing detekt — the precedent is the Slack `compose-lints` rules the project already consumes.
 
 ## Sequencing
 
@@ -137,15 +137,17 @@ Lint-rule-first would have exploded CI on every WIP branch. Migration-first mean
 
 The three deferred questions resolved as follows; the plan-writing step assumes these answers.
 
-### Detekt custom-rule location
+### ~~Detekt custom-rule location~~ (superseded by nubecita-zw4k)
 
-New dedicated Kotlin library module: `build-logic/detekt-rules/`. The rule class extends Detekt's `Rule` and registers via a custom `RuleSetProvider` declared through a `META-INF/services/io.gitlab.arturbosch.detekt.api.RuleSetProvider` entry. Wired from the root project as:
+**Superseded.** The plan-time answer below was based on the assumption that detekt would be integrated and the rule authored. Per the `nubecita-zw4k` decision the workstream is skipped; this section is preserved as historical context only.
 
-```kotlin
-detektPlugins(project(":build-logic:detekt-rules"))
-```
-
-This keeps the rule source out of feature modules (no accidental classpath pollution), compiles before static analysis runs, and matches the existing `build-logic/` composite-build pattern.
+> ~~New dedicated Kotlin library module: `build-logic/detekt-rules/`. The rule class extends Detekt's `Rule` and registers via a custom `RuleSetProvider` declared through a `META-INF/services/io.gitlab.arturbosch.detekt.api.RuleSetProvider` entry. Wired from the root project as:~~
+>
+> ```kotlin
+> detektPlugins(project(":build-logic:detekt-rules"))
+> ```
+>
+> ~~This keeps the rule source out of feature modules (no accidental classpath pollution), compiles before static analysis runs, and matches the existing `build-logic/` composite-build pattern.~~
 
 ### `ColorSchemeTest` luminance ordering
 

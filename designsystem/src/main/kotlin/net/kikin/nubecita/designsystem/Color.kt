@@ -93,7 +93,8 @@ object NubecitaPalette {
  * considered and deferred indefinitely).
  *
  * `background` is set equal to `surface` and treated as a synonym; new code
- * should reference `surface`. Code review enforces.
+ * should reference `colorScheme.surface` rather than `colorScheme.background`
+ * outside design-system internals. Code review enforces this convention.
  */
 internal fun nubecitaLightColorScheme() =
     lightColorScheme(
