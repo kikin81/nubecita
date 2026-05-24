@@ -159,7 +159,7 @@ internal class SettingsStubViewModelTest {
         }
 
     @Test
-    fun `init with SignedIn populates handle synchronously and fetches header`() =
+    fun `init observes session flow and populates handle plus header on SignedIn`() =
         runTest(mainDispatcher.dispatcher) {
             val signedIn = SessionState.SignedIn(handle = "alice.bsky.social", did = "did:plc:alice")
             val session =
@@ -193,10 +193,11 @@ internal class SettingsStubViewModelTest {
                 }
             val vm = createVm(auth = mockk(relaxed = true), session = session, profile = profile)
 
-            // Handle lands synchronously from the SignedIn read in init.
-            assertEquals("alice.bsky.social", vm.uiState.value.handle)
-            // displayName + avatarUrl arrive once the fetch coroutine resolves.
+            // Handle + header now arrive via the filterIsInstance flow on
+            // viewModelScope — both surface after the first dispatcher
+            // turn. advanceUntilIdle drains the queued emissions.
             advanceUntilIdle()
+            assertEquals("alice.bsky.social", vm.uiState.value.handle)
             assertEquals("Alice Anderson", vm.uiState.value.displayName)
             assertEquals("https://cdn.example/alice.jpg", vm.uiState.value.avatarUrl)
             coVerify(exactly = 1) { profile.fetchHeader("did:plc:alice") }
@@ -217,10 +218,12 @@ internal class SettingsStubViewModelTest {
                 }
             val vm = createVm(auth = mockk(relaxed = true), session = session, profile = profile)
 
-            // Handle still lands synchronously.
-            assertEquals("bob.bsky.social", vm.uiState.value.handle)
             advanceUntilIdle()
-            // Silent failure: header renders without displayName / avatar; no effect emitted.
+            // Handle is populated by the flow's first emission.
+            assertEquals("bob.bsky.social", vm.uiState.value.handle)
+            // Silent failure on the header fetch: displayName / avatarUrl
+            // stay null and no effect is emitted (the header still
+            // renders, with "Hi!" + initials disc).
             assertNull(vm.uiState.value.displayName)
             assertNull(vm.uiState.value.avatarUrl)
         }

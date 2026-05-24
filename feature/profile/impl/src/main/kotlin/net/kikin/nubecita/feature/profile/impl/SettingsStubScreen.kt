@@ -49,6 +49,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.profile.impl.ui.settings.SettingsHeader
@@ -88,16 +89,27 @@ internal fun SettingsStubScreen(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
+        // Capture the LaunchedEffect's CoroutineScope so each snackbar
+        // show runs in its own child job. If we awaited
+        // `snackbarHostState.showSnackbar(...)` inline inside the
+        // collector, a `currentSnackbarData?.dismiss()` interrupting
+        // the suspended showSnackbar would throw CancellationException,
+        // propagate out of the `collect { }` lambda, and tear down the
+        // entire effects coroutine — every subsequent LaunchUri /
+        // snackbar effect would silently never reach the user.
+        val effectScope = this
         viewModel.effects.collect { effect ->
             when (effect) {
-                SettingsStubEffect.ShowSignOutError -> {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(signOutErrorMsg)
-                }
-                SettingsStubEffect.ShowSwitchAccountComingSoon -> {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(switchAccountComingSoonMsg)
-                }
+                SettingsStubEffect.ShowSignOutError ->
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(signOutErrorMsg)
+                    }
+                SettingsStubEffect.ShowSwitchAccountComingSoon ->
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(switchAccountComingSoonMsg)
+                    }
                 is SettingsStubEffect.LaunchUri -> {
                     // Match the project-wide pattern from
                     // :feature:feed:impl/FeedScreen.kt onExternalEmbedTap:
@@ -131,6 +143,12 @@ internal fun SettingsStubScreen(
     if (isAtLeastMedium) {
         SettingsModalWrapper(
             onClose = onBack,
+            // Gate dismissal during in-flight sign-out so the outer modal
+            // matches the inner AlertDialog's guard. Without this, a
+            // scrim tap or Back press mid-sign-out tears down the screen,
+            // viewModelScope cancels, and a queued ShowSignOutError
+            // never reaches the (now-gone) snackbar host.
+            isDismissEnabled = state.status !is SettingsStubStatus.SigningOut,
             snackbarHostState = snackbarHostState,
         ) {
             SettingsStubContent(
@@ -203,11 +221,12 @@ private fun SettingsScaffoldWrapper(
 @Composable
 private fun SettingsModalWrapper(
     onClose: () -> Unit,
+    isDismissEnabled: Boolean,
     snackbarHostState: SnackbarHostState,
     content: @Composable () -> Unit,
 ) {
     Dialog(
-        onDismissRequest = onClose,
+        onDismissRequest = { if (isDismissEnabled) onClose() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
@@ -227,7 +246,7 @@ private fun SettingsModalWrapper(
                             .padding(top = 8.dp, end = 8.dp),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    IconButton(onClick = onClose) {
+                    IconButton(onClick = onClose, enabled = isDismissEnabled) {
                         NubecitaIcon(
                             name = NubecitaIconName.Close,
                             contentDescription =

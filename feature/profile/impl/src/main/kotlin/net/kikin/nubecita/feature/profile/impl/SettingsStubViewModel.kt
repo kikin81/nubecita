@@ -2,6 +2,10 @@ package net.kikin.nubecita.feature.profile.impl
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.SessionState
@@ -41,17 +45,25 @@ internal class SettingsStubViewModel
             SettingsStubViewState(),
         ) {
         init {
-            // SessionStateProvider's StateFlow is hot and already in a
-            // resolved state by the time Settings is reachable (Login
-            // gates entry into MainShell). One-shot read is sufficient
-            // — we don't observe transitions because sign-out unmounts
-            // the screen via the outer Navigator before any state
-            // change here could matter.
-            val signedIn = sessionStateProvider.state.value as? SessionState.SignedIn
-            if (signedIn != null) {
-                setState { copy(handle = signedIn.handle) }
-                fetchHeader(signedIn.did)
-            }
+            // Observe the first SignedIn emission instead of snapshotting
+            // .state.value at init time. The earlier snapshot was correct
+            // for the typical Login → MainShell handoff (state is already
+            // SignedIn by then) but silently left the header empty if the
+            // VM was constructed during any window where state is still
+            // Loading / SignedOut — process-death restore where MainShell
+            // restores Settings on the back stack before the session has
+            // rehydrated, future deep-link paths, etc. take(1) makes this
+            // a one-shot read once SignedIn arrives; sign-out still
+            // unmounts the screen via the outer Navigator before any
+            // SignedIn → SignedOut transition matters, so we don't need
+            // to keep observing.
+            sessionStateProvider.state
+                .filterIsInstance<SessionState.SignedIn>()
+                .take(1)
+                .onEach { signedIn ->
+                    setState { copy(handle = signedIn.handle) }
+                    fetchHeader(signedIn.did)
+                }.launchIn(viewModelScope)
         }
 
         override fun handleEvent(event: SettingsStubEvent) {
