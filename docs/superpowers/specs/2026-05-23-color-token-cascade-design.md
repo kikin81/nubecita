@@ -65,7 +65,7 @@ fun NubecitaCanvasPreviewTheme(
 
 Usage rules:
 
-- All `*ScreenshotTest.kt` fixtures use `NubecitaCanvasPreviewTheme` instead of `NubecitaTheme` directly. The wrapper paints the screen-canvas role, fixing the dark-mode fracture without per-fixture juggling.
+- **Screen-level** `*ScreenshotTest.kt` fixtures (screens, full-screen states, dialogs, panes — anything whose intent is to render against a full-bleed canvas) use `NubecitaCanvasPreviewTheme`. The wrapper paints the screen-canvas role, fixing the dark-mode fracture without per-fixture juggling. **Component-level** fixtures (atoms like avatars, buttons, single rows, post cards, message bubbles) stay on `NubecitaTheme(dynamicColor = false)` — the wrapper's `Modifier.fillMaxSize()` would cause atoms with intrinsic-fill behavior to balloon to the preview viewport instead of rendering at natural bounds.
 - `dynamicColor = false` keeps screenshot baselines deterministic — Layoutlib's dynamic-color fallback varies across emulator configurations.
 - Production composables stay untouched. `NubecitaTheme` remains a colorScheme provider only; canvas paint is the preview/test concern, paid for in production by `Scaffold` or the modal `Surface`. A production screen that "forgets" its Scaffold shows up as broken in its own screenshot, not silently fixed.
 - `*Content` slices do NOT paint their own `Surface(color = surface)`. The wrapper (Scaffold in production, modal Surface in production tablet mode, `NubecitaCanvasPreviewTheme` in tests) is the canonical paint owner. Painting `surface` from a content slice would clobber a tablet-modal Surface that wants to be `surface` (or an explicitly-typed wrapper).

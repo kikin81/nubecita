@@ -275,14 +275,14 @@ The migration is two literal find-and-replace operations plus one KDoc text fix.
 - [ ] **Step 1: Inspect the current call-shape uniformity (sanity check)**
 
 ```bash
-grep -rh "NubecitaTheme(" --include="*ScreenshotTest.kt" /Users/velazquez/code/nubecita 2>/dev/null | sort -u
+grep -rh "NubecitaTheme(" --include="*ScreenshotTest.kt" . 2>/dev/null | sort -u
 ```
 Expected output: exactly one line — `        NubecitaTheme(dynamicColor = false) {`. If more shapes appear, **stop** and re-evaluate per-call edits before continuing.
 
 - [ ] **Step 2: Apply the import replacement across all fixtures**
 
 ```bash
-find /Users/velazquez/code/nubecita -name "*ScreenshotTest.kt" -not -path "*/build/*" -type f -print0 \
+find . -name "*ScreenshotTest.kt" -not -path "*/build/*" -type f -print0 \
   | xargs -0 sed -i '' 's|^import net\.kikin\.nubecita\.designsystem\.NubecitaTheme$|import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme|'
 ```
 Expected: silent. Verify with `git diff --stat` — should show 74 files modified with the same line change.
@@ -290,7 +290,7 @@ Expected: silent. Verify with `git diff --stat` — should show 74 files modifie
 - [ ] **Step 3: Apply the call-site replacement across all fixtures**
 
 ```bash
-find /Users/velazquez/code/nubecita -name "*ScreenshotTest.kt" -not -path "*/build/*" -type f -print0 \
+find . -name "*ScreenshotTest.kt" -not -path "*/build/*" -type f -print0 \
   | xargs -0 sed -i '' 's|NubecitaTheme(dynamicColor = false) {|NubecitaCanvasPreviewTheme {|g'
 ```
 Expected: silent. Verify with `git diff --stat` — file count is still 74 (no new files modified beyond those touched in step 2).
@@ -299,13 +299,13 @@ Expected: silent. Verify with `git diff --stat` — file count is still 74 (no n
 
 ```bash
 # Confirm no remaining NubecitaTheme(...) calls in *ScreenshotTest.kt files
-grep -rn "NubecitaTheme(" --include="*ScreenshotTest.kt" /Users/velazquez/code/nubecita 2>/dev/null | grep -v "/build/"
+grep -rn "NubecitaTheme(" --include="*ScreenshotTest.kt" . 2>/dev/null | grep -v "/build/"
 ```
 Expected: no output. If any lines print, those are unmigrated call sites — investigate by hand.
 
 ```bash
 # Confirm the import migration succeeded everywhere
-grep -rl "^import net.kikin.nubecita.designsystem.NubecitaTheme$" --include="*ScreenshotTest.kt" /Users/velazquez/code/nubecita 2>/dev/null | grep -v "/build/"
+grep -rl "^import net.kikin.nubecita.designsystem.NubecitaTheme$" --include="*ScreenshotTest.kt" . 2>/dev/null | grep -v "/build/"
 ```
 Expected: no output (every old import replaced).
 
