@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":core:post-interactions"))
+    implementation(project(":core:profile"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))

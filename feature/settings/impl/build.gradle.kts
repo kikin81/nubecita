@@ -18,11 +18,10 @@ dependencies {
 
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    implementation(project(":core:profile"))
     implementation(project(":designsystem"))
     implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
-    implementation(libs.atproto.models)
-    implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.timber)
 

@@ -11,8 +11,8 @@ import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.feature.settings.impl.data.SettingsAccountRepository
-import net.kikin.nubecita.feature.settings.impl.data.avatarHueFor
+import net.kikin.nubecita.core.profile.ActorProfileRepository
+import net.kikin.nubecita.core.profile.avatarHueFor
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -25,7 +25,7 @@ import javax.inject.Inject
  *   Login) OR failure (error snackbar).
  * - The identity-header state. On init, populates [SettingsViewState.handle]
  *   synchronously from [SessionStateProvider.state] and fires a
- *   [SettingsAccountRepository.fetchHeader] coroutine to fill in
+ *   [ActorProfileRepository.fetchProfile] coroutine to fill in
  *   displayName + avatarUrl. Fetch failures are silent — the header
  *   still renders (greeting → "Hi!"; avatar → initials disc derived
  *   from the handle).
@@ -42,7 +42,7 @@ internal class SettingsViewModel
     constructor(
         private val authRepository: AuthRepository,
         sessionStateProvider: SessionStateProvider,
-        private val accountRepository: SettingsAccountRepository,
+        private val actorProfileRepository: ActorProfileRepository,
     ) : MviViewModel<SettingsViewState, SettingsEvent, SettingsEffect>(
             SettingsViewState(),
         ) {
@@ -96,13 +96,13 @@ internal class SettingsViewModel
 
         private fun fetchHeader(actor: String) {
             viewModelScope.launch {
-                accountRepository
-                    .fetchHeader(actor)
-                    .onSuccess { header ->
+                actorProfileRepository
+                    .fetchProfile(actor)
+                    .onSuccess { profile ->
                         setState {
                             copy(
-                                displayName = header.displayName,
-                                avatarUrl = header.avatarUrl,
+                                displayName = profile.displayName,
+                                avatarUrl = profile.avatarUrl,
                             )
                         }
                     }.onFailure { error ->

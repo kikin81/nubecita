@@ -26,6 +26,7 @@ dependencies {
     // `app.bsky.embed.record#view`; we reuse the existing helpers rather
     // than duplicate the JsonObject decode + recursion-bound logic.
     implementation(project(":core:feed-mapping"))
+    implementation(project(":core:profile"))
     implementation(project(":data:models"))
     // Tap-to-open the quoted-post embed inside a message bubble pushes a
     // PostDetailRoute onto the MainShell back stack. The api module ships

@@ -4,6 +4,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.ConvoView
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoViewLastMessageUnion
 import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
+import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import kotlin.time.Instant
 
@@ -55,29 +56,6 @@ internal fun ConvoView.toConvoListItemUi(viewerDid: String): ConvoListItemUi {
         lastMessageIsAttachment = lastMessage.isAttachmentOnly(),
         sentAt = lastMessage?.sentAt(),
     )
-}
-
-/**
- * Deterministic hue in `0..359` derived from `did + first char of
- * handle`. Used as the fallback gradient input when no avatar is set.
- *
- * Inline copy of the helper currently living in
- * `:feature:profile:impl/data/AuthorProfileMapper.kt`.
- * Per the spec's YAGNI clause we keep the duplicate copy until a third
- * consumer warrants extraction to `:designsystem`. The two copies MUST
- * stay byte-identical until extraction — diverging would re-paint
- * avatars differently for the same DID.
- *
- * `Math.floorMod` is used (not `abs % 360`) because
- * `abs(Int.MIN_VALUE)` is still `Int.MIN_VALUE` — `floorMod` returns
- * a non-negative result for every input.
- */
-internal fun avatarHueFor(
-    did: String,
-    handle: String,
-): Int {
-    val seed = did + (handle.firstOrNull()?.toString() ?: "")
-    return Math.floorMod(seed.hashCode(), 360)
 }
 
 private fun ConvoViewLastMessageUnion.snippet(): String? =

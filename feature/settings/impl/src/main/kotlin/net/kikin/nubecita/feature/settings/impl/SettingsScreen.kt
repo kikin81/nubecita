@@ -290,7 +290,7 @@ internal fun SettingsContent(
     // Header values are session-derived in SettingsViewModel.init: the
     // handle arrives via filterIsInstance<SignedIn>().take(1) on the
     // session flow; displayName + avatarUrl arrive after a
-    // SettingsAccountRepository.fetchHeader round-trip (silent failure
+    // ActorProfileRepository.fetchProfile round-trip (silent failure
     // → null → header falls back to "Hi!" + initials disc). The handle
     // should always become non-null inside MainShell since the outer
     // Navigator gates entry on SignedIn; the empty-string fallback is
