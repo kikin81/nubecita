@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -274,38 +275,54 @@ internal fun SettingsStubContent(
     modifier: Modifier = Modifier,
 ) {
     // Header values are session-derived in SettingsStubViewModel.init: the
-    // handle lands synchronously from SessionStateProvider; displayName +
-    // avatarUrl arrive after a ProfileRepository.fetchHeader round-trip
-    // (silent failure → null → header falls back to "Hi!" + initials disc).
-    // The handle should always be non-null inside MainShell since the
-    // outer Navigator gates entry on SignedIn; the empty-string fallback
-    // is defensive and would only render if the session state went stale
-    // mid-composition.
+    // handle arrives via filterIsInstance<SignedIn>().take(1) on the
+    // session flow; displayName + avatarUrl arrive after a
+    // ProfileRepository.fetchHeader round-trip (silent failure → null →
+    // header falls back to "Hi!" + initials disc). The handle should
+    // always become non-null inside MainShell since the outer Navigator
+    // gates entry on SignedIn; the empty-string fallback is defensive
+    // and would only render in the one-frame window before the flow's
+    // first emission lands.
     val handle = state.handle.orEmpty()
     val displayName = state.displayName
     val avatarUrl = state.avatarUrl
 
+    // Stabilize onEvent across recompositions — SettingsRow data classes
+    // capture the onClick lambda in their structural equality, so a
+    // fresh `{ onEvent(...) }` per recomp would defeat @Immutable
+    // skipping and force SegmentedListItem to redraw on every state
+    // change (per SettingsRow.kt's KDoc warning about caller-side
+    // remembering). rememberUpdatedState gives us a stable State<T>
+    // reference whose .value always points at the current onEvent.
+    val currentOnEvent by rememberUpdatedState(onEvent)
+    val signOutLabel = stringResource(R.string.profile_settings_signout)
+    val versionRowLabel = stringResource(R.string.profile_settings_version_row_label)
+
     val accountRows =
-        persistentListOf(
-            SettingsRow.Action(
-                icon = null,
-                label = stringResource(R.string.profile_settings_signout),
-                isDestructive = true,
-                onClick = { onEvent(SettingsStubEvent.SignOutTapped) },
-            ),
-        )
+        remember(signOutLabel) {
+            persistentListOf(
+                SettingsRow.Action(
+                    icon = null,
+                    label = signOutLabel,
+                    isDestructive = true,
+                    onClick = { currentOnEvent(SettingsStubEvent.SignOutTapped) },
+                ),
+            )
+        }
     val aboutRows =
-        persistentListOf(
-            // Non-interactive: the version is informational. Info renders
-            // the same visual rhythm (Surface tone + segmented shape) as
-            // the surrounding action rows but has no click handler, no
-            // ripple, and announces as text to screen readers.
-            SettingsRow.Info(
-                icon = null,
-                label = stringResource(R.string.profile_settings_version_row_label),
-                supportingText = versionLabel,
-            ),
-        )
+        remember(versionRowLabel, versionLabel) {
+            persistentListOf(
+                // Non-interactive: the version is informational. Info renders
+                // the same visual rhythm (Surface tone + segmented shape) as
+                // the surrounding action rows but has no click handler, no
+                // ripple, and announces as text to screen readers.
+                SettingsRow.Info(
+                    icon = null,
+                    label = versionRowLabel,
+                    supportingText = versionLabel,
+                ),
+            )
+        }
 
     Column(
         modifier =
