@@ -28,7 +28,7 @@ The `docs/design-system/` directory does not exist yet — `docs/` today only ho
 
 ## Preconditions
 
-1. PR #288 (the spec commit on branch `docs/nubecita-kkla-color-token-cascade-contract-and-screenshot-canvas`) is merged to `main`. Verify with `gh pr view 288 --json mergedAt --jq .mergedAt` — non-null means merged. If still open, wait or merge first; this plan references the spec by path and the path must exist on `main`.
+1. The design spec exists on `main`. Verify with `git fetch origin main && git show origin/main:docs/superpowers/specs/2026-05-23-color-token-cascade-design.md > /dev/null` — a non-zero exit means the spec hasn't landed yet, so the spec PR (originally opened as #288 on branch `docs/nubecita-kkla-...`, but the durable check is the file path, not the PR number) must merge first. This plan references the spec by path and the path must resolve on `main`.
 2. Working tree is clean (`git status` shows no tracked changes). Untracked is fine.
 3. Current branch is `main` and up to date (`git pull --ff-only`).
 
