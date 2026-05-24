@@ -18,7 +18,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -362,6 +361,7 @@ fun ComposerScreenContent(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
                 title = {},
@@ -409,89 +409,85 @@ fun ComposerScreenContent(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
-        Surface(
+        // Canvas paint is owned by the Scaffold's containerColor = surface.
+        // Apply the Scaffold's inset padding here, then the content's
+        // own 16dp/8dp gutter on top.
+        Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding),
-            color = MaterialTheme.colorScheme.surface,
+                    .padding(padding)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.Start,
         ) {
-            Column(
+            // Reply-mode parent context — renders nothing in
+            // new-post mode (replyParentLoad == null), a
+            // skeleton while Loading, the parent-post card
+            // when Loaded, and an inline retry tile when
+            // Failed.
+            ComposerReplyParentSection(
+                status = state.replyParentLoad,
+                onRetryClick = onRetryParentLoad,
+            )
+            OutlinedTextField(
+                state = textFieldState,
                 modifier =
                     Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.Top,
-                horizontalAlignment = Alignment.Start,
-            ) {
-                // Reply-mode parent context — renders nothing in
-                // new-post mode (replyParentLoad == null), a
-                // skeleton while Loading, the parent-post card
-                // when Loaded, and an inline retry tile when
-                // Failed.
-                ComposerReplyParentSection(
-                    status = state.replyParentLoad,
-                    onRetryClick = onRetryParentLoad,
-                )
-                OutlinedTextField(
-                    state = textFieldState,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester),
-                    placeholder = { Text(text = stringResource(R.string.composer_text_field_placeholder)) },
-                    label = { Text(text = stringResource(R.string.composer_text_field_label)) },
-                    isError = state.isOverLimit,
-                    enabled = state.submitStatus !is ComposerSubmitStatus.Submitting,
-                    keyboardOptions =
-                        KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Sentences,
-                            imeAction = ImeAction.Default,
-                        ),
-                )
-                // `@`-mention typeahead surface — renders only on
-                // Suggestions / NoResults, hidden in Idle / Querying.
-                // Sits between the text field and the attachment row
-                // so the IME's inset push naturally keeps it visible
-                // above the keyboard without explicit anchoring.
-                //
-                // Hidden entirely while submitting: the VM gates
-                // TypeaheadResultClicked on submitInFlight, so a
-                // tap during submit is a no-op. Rendering the rows
-                // would be a visible control that does nothing —
-                // hide them to match the actual behavior.
-                if (state.submitStatus !is ComposerSubmitStatus.Submitting) {
-                    ComposerSuggestionList(
-                        typeahead = state.typeahead,
-                        onSuggestionClick = onSuggestionClick,
-                    )
-                }
-                // Composer-options chip row. Hosts the language chip
-                // in V1; visibility / threadgate / drafts chips land
-                // in the same row in follow-up PRs without further
-                // chrome changes. When `nubecita-86m`'s
-                // HorizontalFloatingToolbar lands, this row migrates
-                // wholesale into the toolbar's content slot.
-                ComposerOptionsChipRow {
-                    ComposerLanguageChip(
-                        selectedLangs = state.selectedLangs,
-                        deviceLocaleTag = deviceLocaleTag,
-                        onClick = onLanguageChipClick,
-                    )
-                }
-                // Composer attachment action row. Hosts the leading
-                // "Add image" affordance and a horizontally-scrolling
-                // chip strip of the picked attachments (each chip with
-                // a Coil-loaded thumbnail + remove button). Both
-                // wtq.5.1 (picker) and wtq.5.2 (chips + remove) are
-                // wired in this PR.
-                ComposerAttachmentRow(
-                    attachments = state.attachments,
-                    isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting,
-                    onAddImageClick = onAddImageClick,
-                    onRemoveAttachment = onRemoveAttachment,
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                placeholder = { Text(text = stringResource(R.string.composer_text_field_placeholder)) },
+                label = { Text(text = stringResource(R.string.composer_text_field_label)) },
+                isError = state.isOverLimit,
+                enabled = state.submitStatus !is ComposerSubmitStatus.Submitting,
+                keyboardOptions =
+                    KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Default,
+                    ),
+            )
+            // `@`-mention typeahead surface — renders only on
+            // Suggestions / NoResults, hidden in Idle / Querying.
+            // Sits between the text field and the attachment row
+            // so the IME's inset push naturally keeps it visible
+            // above the keyboard without explicit anchoring.
+            //
+            // Hidden entirely while submitting: the VM gates
+            // TypeaheadResultClicked on submitInFlight, so a
+            // tap during submit is a no-op. Rendering the rows
+            // would be a visible control that does nothing —
+            // hide them to match the actual behavior.
+            if (state.submitStatus !is ComposerSubmitStatus.Submitting) {
+                ComposerSuggestionList(
+                    typeahead = state.typeahead,
+                    onSuggestionClick = onSuggestionClick,
                 )
             }
+            // Composer-options chip row. Hosts the language chip
+            // in V1; visibility / threadgate / drafts chips land
+            // in the same row in follow-up PRs without further
+            // chrome changes. When `nubecita-86m`'s
+            // HorizontalFloatingToolbar lands, this row migrates
+            // wholesale into the toolbar's content slot.
+            ComposerOptionsChipRow {
+                ComposerLanguageChip(
+                    selectedLangs = state.selectedLangs,
+                    deviceLocaleTag = deviceLocaleTag,
+                    onClick = onLanguageChipClick,
+                )
+            }
+            // Composer attachment action row. Hosts the leading
+            // "Add image" affordance and a horizontally-scrolling
+            // chip strip of the picked attachments (each chip with
+            // a Coil-loaded thumbnail + remove button). Both
+            // wtq.5.1 (picker) and wtq.5.2 (chips + remove) are
+            // wired in this PR.
+            ComposerAttachmentRow(
+                attachments = state.attachments,
+                isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting,
+                onAddImageClick = onAddImageClick,
+                onRemoveAttachment = onRemoveAttachment,
+            )
         }
     }
 }
