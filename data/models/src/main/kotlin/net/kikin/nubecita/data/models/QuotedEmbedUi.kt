@@ -22,13 +22,22 @@ import kotlinx.collections.immutable.ImmutableList
  */
 @Immutable
 public sealed interface QuotedEmbedUi {
+    /**
+     * Marker sealed interface — the set of variants that can occupy
+     * [RecordWithMedia]'s `media` slot. Implemented by [Images],
+     * [Video], and [External] only; matches the lexicon's
+     * `RecordWithMediaViewMediaUnion` known members exactly.
+     * Mirrors [EmbedUi.MediaEmbed]'s role at the outer level.
+     */
+    public sealed interface MediaEmbed : QuotedEmbedUi
+
     /** The quoted post has no embed. */
     public data object Empty : QuotedEmbedUi
 
     /** 1–4 images. Same payload as [EmbedUi.Images]. */
     public data class Images(
         val items: ImmutableList<ImageUi>,
-    ) : QuotedEmbedUi
+    ) : MediaEmbed
 
     /**
      * Bluesky `app.bsky.embed.video#view` inside a quoted post.
@@ -41,7 +50,7 @@ public sealed interface QuotedEmbedUi {
         val aspectRatio: Float,
         val durationSeconds: Int?,
         val altText: String?,
-    ) : QuotedEmbedUi
+    ) : MediaEmbed
 
     /**
      * Bluesky `app.bsky.embed.external#view` inside a quoted post.
@@ -54,7 +63,7 @@ public sealed interface QuotedEmbedUi {
         val title: String,
         val description: String,
         val thumbUrl: String?,
-    ) : QuotedEmbedUi
+    ) : MediaEmbed
 
     /**
      * Recursion-bound sentinel — the quoted post itself quotes
@@ -65,11 +74,26 @@ public sealed interface QuotedEmbedUi {
     public data object QuotedThreadChip : QuotedEmbedUi
 
     /**
-     * Embed type not supported inside a quoted post (e.g.
-     * `app.bsky.embed.recordWithMedia` while `nubecita-umn` is
-     * open). The lexicon URI is carried for debug labeling; the
-     * render layer reuses `PostCardUnsupportedEmbed` and its
-     * friendly-name mapping.
+     * Bluesky `app.bsky.embed.recordWithMedia#view` inside a quoted
+     * post. Recursion-bounded: the inner sub-quote is dropped
+     * (collapsed to a "View thread" chip at render time) and only
+     * the media slot is carried through — same one-level bound as
+     * [QuotedThreadChip]. Carrying the full sub-quote would require
+     * recursing back into a `QuotedEmbedUi.Record` variant, which is
+     * deliberately absent from this sealed interface.
+     *
+     * [media] is constrained to [MediaEmbed], mirroring how
+     * [EmbedUi.RecordWithMedia]'s media slot is constrained to
+     * [EmbedUi.MediaEmbed] at the outer level.
+     */
+    public data class RecordWithMedia(
+        val media: MediaEmbed,
+    ) : QuotedEmbedUi
+
+    /**
+     * Embed type not supported inside a quoted post. The lexicon
+     * URI is carried for debug labeling; the render layer reuses
+     * `PostCardUnsupportedEmbed` and its friendly-name mapping.
      */
     public data class Unsupported(
         val typeUri: String,

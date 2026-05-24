@@ -758,9 +758,11 @@ internal class FeedViewPostMapperTest {
     }
 
     @Test
-    fun `record viewRecord with inner RecordWithMedia maps quotedPost_embed to QuotedEmbedUi_Unsupported`() {
-        // Synthetic minimal recordWithMedia view — inner shape doesn't matter
-        // for the dispatch test, only the top-level $type does.
+    fun `record viewRecord with inner RecordWithMedia + Images maps to QuotedEmbedUi_RecordWithMedia`() {
+        // The doubly-quoted sub-quote (record slot of the inner
+        // recordWithMedia) is dropped at the type system; render layer
+        // collapses to a "View thread" chip. Only the media slot is
+        // carried through. See QuotedEmbedUi.RecordWithMedia's KDoc.
         val innerRwmJson =
             wrapAsTimelineJson(
                 """
@@ -790,7 +792,14 @@ internal class FeedViewPostMapperTest {
                         },
                         "media": {
                           "${'$'}type": "app.bsky.embed.images#view",
-                          "images": []
+                          "images": [
+                            {
+                              "thumb": "https://cdn.bsky.app/img/thumb/x.jpg",
+                              "fullsize": "https://cdn.bsky.app/img/full/x.jpg",
+                              "alt": "alt",
+                              "aspectRatio": { "width": 16, "height": 9 }
+                            }
+                          ]
                         }
                       }
                     ]
@@ -800,8 +809,109 @@ internal class FeedViewPostMapperTest {
             )
         val mapped = decodeAndMapSingle(innerRwmJson)
         val quoted = (mapped.embed as EmbedUi.Record).quotedPost
-        assertInstanceOf(QuotedEmbedUi.Unsupported::class.java, quoted.embed)
-        assertEquals("app.bsky.embed.recordWithMedia", (quoted.embed as QuotedEmbedUi.Unsupported).typeUri)
+        val rwm = assertInstanceOf(QuotedEmbedUi.RecordWithMedia::class.java, quoted.embed)
+        val images = assertInstanceOf(QuotedEmbedUi.Images::class.java, rwm.media)
+        assertEquals(1, images.items.size)
+        assertEquals("https://cdn.bsky.app/img/full/x.jpg", images.items[0].fullsizeUrl)
+    }
+
+    @Test
+    fun `record viewRecord with inner RecordWithMedia + External preserves precomputed display domain`() {
+        val innerRwmExternalJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "quoted text",
+                      "createdAt": "2026-04-26T12:00:00Z"
+                    },
+                    "embeds": [
+                      {
+                        "${'$'}type": "app.bsky.embed.recordWithMedia#view",
+                        "record": {
+                          "${'$'}type": "app.bsky.embed.record#view",
+                          "record": {
+                            "${'$'}type": "app.bsky.embed.record#viewNotFound",
+                            "uri": "at://did:plc:fake/app.bsky.feed.post/inner",
+                            "notFound": true
+                          }
+                        },
+                        "media": {
+                          "${'$'}type": "app.bsky.embed.external#view",
+                          "external": {
+                            "uri": "https://www.example.com/article",
+                            "title": "Example title",
+                            "description": "Example description"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(innerRwmExternalJson)
+        val quoted = (mapped.embed as EmbedUi.Record).quotedPost
+        val rwm = assertInstanceOf(QuotedEmbedUi.RecordWithMedia::class.java, quoted.embed)
+        val external = assertInstanceOf(QuotedEmbedUi.External::class.java, rwm.media)
+        assertEquals("https://www.example.com/article", external.uri)
+        assertEquals("example.com", external.domain)
+    }
+
+    @Test
+    fun `record viewRecord with inner RecordWithMedia + malformed media falls through to QuotedEmbedUi_Unsupported`() {
+        // Empty playlist on the inner video → toVideoPayload returns null
+        // → media side is null → whole composition falls through. Same
+        // asymmetry as the outer-level RecordWithMedia mapper.
+        val innerRwmBlankPlaylistJson =
+            wrapAsTimelineJson(
+                """
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.record#view",
+                  "record": {
+                    "${'$'}type": "app.bsky.embed.record#viewRecord",
+                    "uri": "at://did:plc:fake/app.bsky.feed.post/quoted",
+                    "cid": "bafyreifakequotedcid000000000000000000000000000",
+                    "author": { "did": "did:plc:fake", "handle": "fake.bsky.social" },
+                    "indexedAt": "2026-04-26T12:00:00Z",
+                    "value": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "quoted text",
+                      "createdAt": "2026-04-26T12:00:00Z"
+                    },
+                    "embeds": [
+                      {
+                        "${'$'}type": "app.bsky.embed.recordWithMedia#view",
+                        "record": {
+                          "${'$'}type": "app.bsky.embed.record#view",
+                          "record": {
+                            "${'$'}type": "app.bsky.embed.record#viewNotFound",
+                            "uri": "at://did:plc:fake/app.bsky.feed.post/inner",
+                            "notFound": true
+                          }
+                        },
+                        "media": {
+                          "${'$'}type": "app.bsky.embed.video#view",
+                          "cid": "bafkreifakevidcid0000000000000000000000000000",
+                          "playlist": ""
+                        }
+                      }
+                    ]
+                  }
+                }
+                """.trimIndent(),
+            )
+        val mapped = decodeAndMapSingle(innerRwmBlankPlaylistJson)
+        val quoted = (mapped.embed as EmbedUi.Record).quotedPost
+        assertEquals(QuotedEmbedUi.Unsupported("app.bsky.embed.recordWithMedia"), quoted.embed)
     }
 
     @Test

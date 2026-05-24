@@ -299,6 +299,52 @@ private fun RecordWithMediaViewMediaUnion.toMediaEmbed(): EmbedUi.MediaEmbed? =
     }
 
 /**
+ * Inner-quote analogue of [toEmbedUiRecordWithMedia]: the doubly-quoted
+ * sub-quote is dropped at the type system (see [QuotedEmbedUi]'s
+ * deliberate absence of a `Record` variant) and the render layer
+ * surfaces a "View thread" chip below the media. Falls the whole
+ * composition through to [QuotedEmbedUi.Unsupported] when the media
+ * side is malformed (empty video playlist, unknown lexicon variant) —
+ * same asymmetry rationale as [toEmbedUiRecordWithMedia].
+ */
+private fun RecordWithMediaView.toQuotedEmbedUiRecordWithMedia(): QuotedEmbedUi {
+    val mediaPart =
+        media.toQuotedMediaEmbed()
+            ?: return QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
+    return QuotedEmbedUi.RecordWithMedia(media = mediaPart)
+}
+
+/**
+ * Maps a [RecordWithMediaViewMediaUnion] to [QuotedEmbedUi.MediaEmbed].
+ * Mirrors [toMediaEmbed] (the outer-level variant) and reuses the same
+ * payload helpers ([toImageUiList], [toVideoPayload], [displayDomainOf])
+ * so the wrapper-construction logic stays one source of truth.
+ */
+private fun RecordWithMediaViewMediaUnion.toQuotedMediaEmbed(): QuotedEmbedUi.MediaEmbed? =
+    when (this) {
+        is ImagesView -> QuotedEmbedUi.Images(items = toImageUiList())
+        is VideoView ->
+            toVideoPayload()?.let { p ->
+                QuotedEmbedUi.Video(
+                    posterUrl = p.posterUrl,
+                    playlistUrl = p.playlistUrl,
+                    aspectRatio = p.aspectRatio,
+                    durationSeconds = p.durationSeconds,
+                    altText = p.altText,
+                )
+            }
+        is ExternalView ->
+            QuotedEmbedUi.External(
+                uri = external.uri.raw,
+                domain = displayDomainOf(external.uri.raw),
+                title = external.title,
+                description = external.description,
+                thumbUrl = external.thumb?.raw,
+            )
+        else -> null
+    }
+
+/**
  * Maps a quoted post's inner embed (the first element of the lexicon's
  * `embeds` list — multiples are theoretically allowed but practically
  * 0–1) to [QuotedEmbedUi]. The recursion bound is enforced here: a
@@ -328,7 +374,7 @@ private fun RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi =
                 thumbUrl = external.thumb?.raw,
             )
         is RecordView -> QuotedEmbedUi.QuotedThreadChip
-        is RecordWithMediaView -> QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.recordWithMedia")
+        is RecordWithMediaView -> toQuotedEmbedUiRecordWithMedia()
         is RecordViewRecordEmbedsUnion.Unknown -> QuotedEmbedUi.Unsupported(typeUri = type)
         // Open-union fallback — see toEmbedUi's same-shaped comment.
         else -> QuotedEmbedUi.Unsupported(typeUri = (this as? UnknownOpenUnionMember)?.type ?: "unknown")
