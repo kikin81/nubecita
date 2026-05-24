@@ -102,7 +102,7 @@ Intentionally narrow. It doesn't try to enforce the *nesting* rule (would need d
 Each workstream is one bd-issue-plus-PR. The ordering is load-bearing because each step depends on the previous one being green.
 
 1. **Workstream 1 — Docs.** KDoc on `Color.kt` documenting the role contract + a `docs/design-system/surface-roles.md` reference page. Pure docs PR; no code; no baseline churn.
-2. **Workstream 2 — Preview wrapper.** Land `NubecitaCanvasPreviewTheme` in `:designsystem/preview/`. Migrate every `*ScreenshotTest.kt` fixture to use it. Regenerates every previously-broken dark-mode baseline (they finally show the dark canvas). PR carries the `update-baselines` label.
+2. **Workstream 2 — Preview wrapper.** Land `NubecitaCanvasPreviewTheme` in `:designsystem/preview/`. Migrate **screen-level** `*ScreenshotTest.kt` fixtures (screens, full-screen states, dialogs, panes) to use it. Component-level fixtures (atoms — avatars, buttons, single rows, post cards, message bubbles) stay on `NubecitaTheme(dynamicColor = false)` because the wrapper's `Modifier.fillMaxSize()` would balloon intrinsic-fill atoms. Regenerates the screen-fixture dark-mode baselines (they finally show the dark canvas). PR carries the `update-baselines` label.
 3. **Workstream 3 — Call-site migration.** Refactor per surface, one PR each, in this order:
    - 3a. PostCard + feed (`PostCard.kt`, `PostCardExternalEmbed`, `PostCardRecordUnavailable`, `PostCardUnsupportedEmbed`, `FeedScreen` LazyColumn arrangement, Scaffold `containerColor`)
    - 3b. PostDetail (`PostDetailScreen` Scaffold `containerColor`, `PostDetailPaneEmptyState`)
