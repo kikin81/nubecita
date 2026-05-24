@@ -199,13 +199,11 @@ package net.kikin.nubecita.designsystem.preview
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 
 /**
@@ -216,9 +214,9 @@ import com.android.tools.screenshot.PreviewTest
  * one or both of these baselines will diff and CI will catch it.
  */
 @PreviewTest
-@Preview(name = "screen-preview-theme-light", showBackground = true)
+@Preview(name = "canvas-preview-theme-light", showBackground = true)
 @Preview(
-    name = "screen-preview-theme-dark",
+    name = "canvas-preview-theme-dark",
     showBackground = true,
     uiMode = Configuration.UI_MODE_NIGHT_YES,
 )
@@ -226,7 +224,7 @@ import com.android.tools.screenshot.PreviewTest
 private fun NubecitaCanvasPreviewThemeCanvasScreenshot() {
     NubecitaCanvasPreviewTheme {
         Box(
-            modifier = Modifier.fillMaxSize().size(200.dp),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
             Text("canvas")
