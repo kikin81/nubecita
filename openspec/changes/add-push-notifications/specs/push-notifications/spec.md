@@ -200,20 +200,29 @@ The application SHALL set `setGroup("nubecita:${reason}")` on every individual p
 - **THEN** a summary notification with `setGroupSummary(true)` and notify-ID `("nubecita-summary:" + reason).hashCode()` exists
 - **AND** the inbox-style template lists up to N actor display names
 
-### Requirement: Tap deep-links via existing AT-URI handlers
+### Requirement: Tap deep-links via translated `nubecita://` URIs through existing handlers
 
-The application SHALL set the notification's content intent to launch `MainActivity` with `data` derived from `payload.subject ?: payload.uri`. The application SHALL translate the AT-URI to a deep-linkable `nubecita://` URI (or equivalent) so the existing manifest `intent-filter`s route the tap to the post detail screen (for post URIs) or the profile screen (for actor URIs). No new deep-link intent filter SHALL be introduced for this purpose.
+The application SHALL set the notification's content intent (`PendingIntent`) to launch `MainActivity` with `data` derived from translating the AT-URI in `payload.subject ?: payload.uri`. The translation SHALL produce a `nubecita://profile/{didOrHandle}[/post/{rkey}]` URI that matches the existing manifest `<data android:scheme="nubecita" android:host="profile" />` `<intent-filter>`. The application SHALL NOT set an `at://` URI on the Intent — Android does not register `at` as a URI scheme and no manifest `<intent-filter>` matches it. No new manifest `<intent-filter>` SHALL be introduced for this purpose.
 
 #### Scenario: Tap on a post-shaped notification opens post detail
-- **GIVEN** a push of reason `like` with `subject = at://did:plc:alice/app.bsky.feed.post/abc`
+- **GIVEN** a push of reason `like` with `subject = "at://did:plc:alice/app.bsky.feed.post/abc"`
 - **WHEN** the user taps the notification
-- **THEN** `MainActivity` receives an intent whose `data` resolves through the existing `bsky.app/post` or `nubecita://profile/.../post/...` deep-link handler
+- **THEN** the AT-URI is translated to `nubecita://profile/did:plc:alice/post/abc` and set as the Intent's `data`
+- **AND** `MainActivity` receives the intent and `DeepLinkRouter` resolves it to the `PostDeepLinkKey` matcher
 - **AND** the post detail screen is opened
 
 #### Scenario: Tap on a follow-shaped notification opens the actor's profile
-- **GIVEN** a push of reason `follow` with `uri = at://did:plc:bob/app.bsky.graph.follow/xyz` and no `subject`
+- **GIVEN** a push of reason `follow` with `uri = "at://did:plc:bob/app.bsky.graph.follow/xyz"` and no `subject`
 - **WHEN** the user taps the notification
-- **THEN** `MainActivity` receives an intent whose `data` resolves through the existing profile deep-link handler with the follower DID
+- **THEN** the AT-URI is translated to `nubecita://profile/did:plc:bob` (the DID is extracted from the AT-URI's authority component; the `app.bsky.graph.follow/xyz` collection + rkey are discarded for the tap target)
+- **AND** `MainActivity` receives the intent and `DeepLinkRouter` resolves it to the `Profile` matcher
+- **AND** Bob's profile screen is opened
+
+#### Scenario: Tap on a verification-shaped notification opens the recipient's profile
+- **GIVEN** a push of reason `verified` with `uri = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.graph.verification/xyz"` and `recipientDid = "did:plc:alice"`
+- **WHEN** the user taps the notification
+- **THEN** the translation uses `recipientDid`, NOT the verifier DID from the AT-URI authority, and produces `nubecita://profile/did:plc:alice`
+- **AND** the application opens Alice's profile (the user whose verification status changed), not the verifier's profile
 
 ### Requirement: Settings exposes a system-notifications entry point
 

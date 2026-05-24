@@ -2,7 +2,7 @@
 
 A self-hosted push gateway built from DracoBlue/atproto-push-gateway v1.2.0 is deployed at `https://push.nubecita.app` (Fly.io, iad region). Its public DID is `did:web:push.nubecita.app`. The gateway:
 
-- Listens to Jetstream for the seven social-event types nubecita cares about: `like`, `repost`, `reply`, `mention`, `quote`, `follow`, `verified`/`unverified` (the latter from `app.bsky.graph.verification` records), plus the `*-via-repost` variants for like/repost.
+- Listens to Jetstream for ten reasons nubecita cares about: `like`, `like-via-repost`, `repost`, `repost-via-repost`, `reply`, `mention`, `quote`, `follow`, `verified`, `unverified` (the verified/unverified split is sourced from `app.bsky.graph.verification` records; the `*-via-repost` variants distinguish "your repost was liked/reposted" from a direct interaction with your post).
 - Forwards via FCM (Android), APNs (iOS), and Expo.
 - Filters server-side: blocks ARE applied; mutes are NOT (mutes aren't published to Jetstream).
 - Auto-prunes stale FCM tokens on `UNREGISTERED` errors.
@@ -10,8 +10,8 @@ A self-hosted push gateway built from DracoBlue/atproto-push-gateway v1.2.0 is d
 The Android client side is greenfield: `firebase-messaging` isn't on the classpath, no `:core:push` module exists, no FCM service class exists, no `registerPush` call site exists. The pieces that ARE present:
 
 - `add-firebase-integration` shipped Firebase Analytics + App Check + App Distribution, established the `firebase-bom` pin, and committed `app/google-services.json` for project `nubecita-2a4c1`.
-- atproto-kotlin `6.5.1` (current pin) generates `NotificationService.registerPush(request)` and `unregisterPush(request)` — the stale memory `reference_atproto_kotlin_notification_lexicon_gap.md` says otherwise but the jar contradicts it.
-- The manifest has `intent-filter`s for `bsky.app/profile`, `bsky.app/post`, and the `nubecita://` scheme. Deep-link handling is centralized at `MainActivity`.
+- atproto-kotlin `8.1.0` (current pin in `gradle/libs.versions.toml`) generates `NotificationService.registerPush(request)` and `unregisterPush(request)` — the stale memory `reference_atproto_kotlin_notification_lexicon_gap.md` says otherwise but the generated source (read from the local Gradle cache) contradicts it. The generated methods still do NOT accept a `proxy: String?` parameter; that's the remaining gap, addressed by the design decision below.
+- The manifest has `intent-filter`s for the verified `https://nubecita.app/profile/`, the chooser-candidate `https://bsky.app/profile/`, and the custom `nubecita://profile` scheme — the last of which the manifest comment explicitly designates "useful for push notifications, widgets, and a future share extension." Deep-link handling is centralized at `MainActivity` via `DeepLinkRouter` + a Hilt-bound `Set<NavKeyDeepLinkMatcher>`. `at://` is NOT a registered URI scheme on Android and no intent-filter matches it.
 - No mute infrastructure exists on-device beyond per-post `ViewerStateUi.isAuthorMutedByViewer` propagation. The mute-write feature (`nubecita-oftc.5`) is open but not shipped.
 - Single-account today; multi-account planned. Session-end is observable from `:core:auth` (signal shape to be verified during implementation).
 
@@ -20,7 +20,7 @@ The gateway contract for register: POST `app.bsky.notification.registerPush` aga
 ## Goals / Non-Goals
 
 **Goals:**
-- Receive native Android push notifications for the seven social events within seconds of the underlying record being committed to a PDS.
+- Receive native Android push notifications for the ten gateway reasons (like, like-via-repost, repost, repost-via-repost, reply, mention, quote, follow, verified, unverified) within seconds of the underlying record being committed to a PDS.
 - Register the device's FCM token against the user's PDS on login; re-register on token rotation; unregister on logout.
 - Filter pushes the gateway cannot (mutes; spoofed verifications) before display.
 - Tap-to-deep-link via existing `MainActivity` handlers (no new deep-link surface).
@@ -52,7 +52,7 @@ The future in-app notifications list (the one that calls `listNotifications` / `
 
 ### Decision: `XrpcClient.procedure(...)` directly, not through `NotificationService.registerPush`
 
-The generated `NotificationService.registerPush(request)` in atproto-kotlin `6.5.1` does NOT expose a `proxy: String?` parameter — it hardcodes `proxy = null` when it calls `client.procedure(...)`. The gateway contract REQUIRES `atproto-proxy: did:web:push.nubecita.app#bsky_notif`. So we bypass the service wrapper and call `XrpcClient.procedure(nsid = "app.bsky.notification.registerPush", proxy = "did:web:push.nubecita.app#bsky_notif", params = NoXrpcParams, paramsSerializer = NoXrpcParams.serializer(), input = RegisterPushRequest(...), inputSerializer = RegisterPushRequest.serializer(), responseSerializer = UnitResponseSerializer)` directly. The typed DTOs are the same ones the library already ships.
+The generated `NotificationService.registerPush(request)` in atproto-kotlin `8.1.0` (the version currently pinned in `gradle/libs.versions.toml`) does NOT expose a `proxy: String?` parameter — it hardcodes the call to `client.procedure(...)` without a `proxy` argument. Verified by reading the generated source in the local Gradle cache. The gateway contract REQUIRES `atproto-proxy: did:web:push.nubecita.app#bsky_notif`. So we bypass the service wrapper and call `XrpcClient.procedure(nsid = "app.bsky.notification.registerPush", proxy = "did:web:push.nubecita.app#bsky_notif", params = NoXrpcParams, paramsSerializer = NoXrpcParams.serializer(), input = RegisterPushRequest(...), inputSerializer = RegisterPushRequest.serializer(), responseSerializer = UnitResponseSerializer)` directly. The typed DTOs are the same ones the library already ships.
 
 This is a localized divergence — one call site for `register`, one for `unregister`. The upstream improvement (add a `proxy` parameter to `NotificationService.registerPush`) is filed as a follow-on `kikin81/atproto-kotlin` issue; when it lands we swap to the generated path.
 
@@ -144,15 +144,26 @@ Without the summary, Android stacks individual notifications in the shade withou
 
 **Alternative considered:** Use `setGroup` only without a summary. Rejected — Android's auto-summary text is generic ("X notifications") and not customizable for inbox content.
 
-### Decision: Tap intent reuses `MainActivity` deep-link handlers via AT-URI
+### Decision: Tap intent reuses the existing `nubecita://profile` deep-link handler via a translated URI
 
-`PushNotificationBuilder.buildTapIntent(payload)` constructs an `Intent` targeting `MainActivity` with `data = Uri.parse(payload.subject ?: payload.uri)`. The existing manifest's `<intent-filter>` for `bsky.app/profile/{handle}/post/{rkey}` and the `nubecita://` scheme handlers resolve the AT-URI (which is `at://did:plc:.../app.bsky.feed.post/<rkey>`) → the post detail screen.
+`at://` is not a URI scheme Android recognizes — no manifest `<intent-filter>` matches `at://anything`. The push tap intent therefore can't carry an AT-URI verbatim. The push-tap path translates the payload's AT-URI to a `nubecita://profile/{didOrHandle}[/post/{rkey}]` URI before setting it on the `PendingIntent`'s `Intent.data`. The manifest's `<data android:scheme="nubecita" android:host="profile" />` filter (explicitly designated by its inline comment as "useful for push notifications, widgets, and a future share extension") matches, MainActivity receives the intent, `DeepLinkRouter` iterates the Hilt-bound `Set<NavKeyDeepLinkMatcher>`, and the matching `Profile` / `PostDeepLinkKey` matcher resolves to the right NavKey.
 
-AT-URIs are NOT what the manifest filters match against natively. We translate: `at://did/collection/rkey` → `nubecita://profile/{did}/post/{rkey}` (or `bsky.app/profile/{did}/post/{rkey}`) via a small helper. The helper lives in `:core:push` for the push-tap path only; the canonical AT-URI ↔ HTTPS-URI translation belongs in `:core:common` (file a follow-up to extract if a second caller needs it).
+Why a self-constructed `nubecita://` URI rather than a verified `https://nubecita.app/...` App Link: App Link verification is what makes an EXTERNAL app's tap on `https://nubecita.app/profile/...` route to us directly (skipping the chooser). For our own push notification, we're constructing the Intent ourselves — the verification ceremony is irrelevant; any matching intent-filter routes our self-targeted Intent to MainActivity. The `nubecita://` scheme is private to us, doesn't depend on internet at install time (no Digital Asset Links fetch), and the manifest comment already calls out push as the intended user. Self-using the verified `https://nubecita.app/...` URI would work too but adds no value and reads as if external-link verification were on the push path's critical chain.
 
-Subject-first: when the push is `like` or `reply`, the user wants to land on the post they were liked/replied-to, not on the like record itself. `subject` is the post URI in those reasons; `uri` is the action URI. Falling back to `uri` covers `follow` (no subject; tap should land on the actor's profile — handled by the same translation).
+Translation rules carried out by the `AtUriToDeepLink` helper in `:core:push`:
+
+- **Post-shaped AT-URI** (`at://{did}/app.bsky.feed.post/{rkey}`, from `subject` on like / repost / reply / quote / *-via-repost reasons) → `nubecita://profile/{did}/post/{rkey}`. The `{handle}` slot in the existing matcher's pattern accepts a DID — `isValidActor` documents "AT Protocol handle / DID grammar" and `PostDeepLinkKey`'s KDoc confirms "or a DID (`did:plc:abc...`) — same forms accepted by `PostDetailRoute`." No matcher updates needed.
+- **Follow-record AT-URI** (`at://{did}/app.bsky.graph.follow/{rkey}`, from `uri` on the follow reason) → `nubecita://profile/{did}`. The follow rkey is discarded for the tap target — we route to the follower's profile, not to the follow record itself.
+- **Verification-record AT-URI** (`at://{trusted-verifier-did}/app.bsky.graph.verification/{rkey}`, from `uri` on verified/unverified) → `nubecita://profile/{recipientDid}` (the user whose status changed, not the verifier). The push payload's `recipientDid` field is the canonical target here.
+- **Malformed AT-URI** → no tap-intent on the notification (the notification still posts; tapping is a no-op). Defensive against gateway emitting an unexpected shape.
+
+Subject-first selection: when the push is `like` or `reply`, the user wants to land on the post they were liked/replied-to, not on the like record itself. `subject` is the post URI in those reasons; `uri` is the action URI. Falling back to `uri` covers `follow` and verifications (no `subject`).
 
 **Alternative considered:** Synthesize a custom `nubecita://push/<encoded payload>` scheme that re-parses inside `MainActivity`. Rejected — duplicates routing logic that already exists in the deep-link handlers.
+
+**Alternative considered:** Use `Intent(context, MainActivity::class.java).putExtra("…", …)` — a component-direct intent with no URI. Rejected — splits the routing surface: deep-link router would handle external taps but a parallel "extras parser" in MainActivity would handle push taps. Reusing the `nubecita://` matcher keeps one router.
+
+**Alternative considered:** Use a verified `https://nubecita.app/profile/...` App Link URI on the PendingIntent. Rejected (above) — App Link verification is for inbound external taps; using it for self-constructed intents adds no value and obscures the "self-routing" nature of the push tap path.
 
 ### Decision: `PushRegistrationCoordinator` collects the existing `SessionStateProvider.state` flow
 
