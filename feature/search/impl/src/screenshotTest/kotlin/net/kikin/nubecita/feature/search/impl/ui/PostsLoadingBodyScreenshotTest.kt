@@ -5,14 +5,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 @PreviewTest
 @Preview(name = "posts-loading-light", showBackground = true)
 @Preview(name = "posts-loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsLoadingBodyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             PostsLoadingBody()
         }

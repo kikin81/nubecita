@@ -19,7 +19,7 @@ import com.android.tools.screenshot.PreviewTest
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.feature.composer.impl.ComposerScreenContent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
@@ -62,7 +62,7 @@ private const val EXPANDED_HEIGHT_DP: Int = 1024
 )
 @Composable
 private fun ComposerOverlayEmptyExpandedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Box(
             modifier =
                 Modifier
@@ -138,7 +138,7 @@ private fun ComposerOverlayEmptyExpandedScreenshot() {
 private fun ComposerOverlayReplyLoadedExpandedScreenshot() {
     val parentRef =
         StrongRef(uri = AtUri("at://did:plc:alice/app.bsky.feed.post/abc"), cid = Cid("bafabc"))
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Box(
             modifier =
                 Modifier

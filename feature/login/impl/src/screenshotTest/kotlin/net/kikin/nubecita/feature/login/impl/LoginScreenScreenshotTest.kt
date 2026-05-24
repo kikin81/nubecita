@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 
 /**
@@ -21,7 +21,7 @@ import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 @Preview(name = "empty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenEmptyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LoginScreen(state = LoginState(), onEvent = {})
     }
 }
@@ -37,7 +37,7 @@ private fun LoginScreenEmptyScreenshot() {
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun LoginScreenEmptyAdaptivePreviews() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LoginScreen(state = LoginState(), onEvent = {})
     }
 }
@@ -47,7 +47,7 @@ private fun LoginScreenEmptyAdaptivePreviews() {
 @Preview(name = "typed-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenTypedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LoginScreen(
             state = LoginState(handle = "alice.bsky.social"),
             onEvent = {},
@@ -60,7 +60,7 @@ private fun LoginScreenTypedScreenshot() {
 @Preview(name = "loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenLoadingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LoginScreen(
             state = LoginState(handle = "alice.bsky.social", isLoading = true),
             onEvent = {},
@@ -73,7 +73,7 @@ private fun LoginScreenLoadingScreenshot() {
 @Preview(name = "blank-error-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenBlankErrorScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LoginScreen(
             state = LoginState(handle = "", errorMessage = LoginError.BlankHandle),
             onEvent = {},
@@ -86,7 +86,7 @@ private fun LoginScreenBlankErrorScreenshot() {
 @Preview(name = "handle-not-found-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenHandleNotFoundScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LoginScreen(
             state =
                 LoginState(
@@ -103,7 +103,7 @@ private fun LoginScreenHandleNotFoundScreenshot() {
 @Preview(name = "network-error-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenNetworkErrorScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LoginScreen(
             state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.Network),
             onEvent = {},
@@ -116,7 +116,7 @@ private fun LoginScreenNetworkErrorScreenshot() {
 @Preview(name = "generic-error-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenGenericErrorScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LoginScreen(
             state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.Generic),
             onEvent = {},

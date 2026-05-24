@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baselines for [ProfileStatsRow]. Covers the typical
@@ -18,7 +18,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Preview(name = "stats-typical-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileStatsRowTypicalScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ProfileStatsRow(postsCount = 412, followersCount = 2_142, followsCount = 342)
     }
 }
@@ -28,7 +28,7 @@ private fun ProfileStatsRowTypicalScreenshot() {
 @Preview(name = "stats-large-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileStatsRowLargeScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ProfileStatsRow(postsCount = 1_412, followersCount = 1_400_000, followsCount = 12_345)
     }
 }

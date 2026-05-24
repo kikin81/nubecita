@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baseline for [FeedAppendingIndicator]. Single matrix
@@ -17,7 +17,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Preview(name = "appending-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedAppendingIndicatorScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         FeedAppendingIndicator()
     }
 }

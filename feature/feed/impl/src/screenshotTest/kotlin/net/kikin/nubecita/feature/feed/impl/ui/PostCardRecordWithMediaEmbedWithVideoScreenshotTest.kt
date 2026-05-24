@@ -9,8 +9,8 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCardRecordWithMediaEmbed
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import kotlin.time.Instant
 
 /**
@@ -65,7 +65,7 @@ private val FIXED_VIDEO_MEDIA: EmbedUi.Video =
 @Preview(name = "with-video-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardRecordWithMediaWithVideoScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardRecordWithMediaEmbed(
             record = EmbedUi.Record(quotedPost = FIXED_QUOTED),
             media = FIXED_VIDEO_MEDIA,

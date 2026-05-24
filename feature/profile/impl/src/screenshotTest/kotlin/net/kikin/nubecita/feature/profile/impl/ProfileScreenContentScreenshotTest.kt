@@ -34,9 +34,9 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.feature.profile.api.Profile
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -139,7 +139,7 @@ private fun ProfileScreenContentHost(
     state: ProfileScreenViewState,
     listStateSeed: LazyListState? = null,
 ) {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         CompositionLocalProvider(LocalClock provides FixtureClock) {
             val listState = listStateSeed ?: rememberLazyListState()
             ProfileScreenContent(
@@ -395,7 +395,7 @@ private fun ProfileScreenScrolledAwayScreenshot() {
 )
 @Composable
 private fun ProfileScreenMediumTwoPaneEmptyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         val backStack = remember { mutableStateListOf<NavKey>(Profile(handle = null)) }
         // Mirrors the production wiring in `MainShell.kt` — kept in sync
         // manually until a shared helper lives in a module both can reach.

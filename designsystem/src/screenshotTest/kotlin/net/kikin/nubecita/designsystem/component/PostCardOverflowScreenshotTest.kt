@@ -10,7 +10,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import kotlin.time.Instant
 
 /**
@@ -74,7 +74,7 @@ private fun overflowScreenshotPost(viewer: ViewerStateUi = BASE_VIEWER): PostUi 
 @Preview(name = "overflow-icon-absent-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardOverflowIconAbsentScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         // PostCallbacks.None has onOverflowAction = null — locks the
         // 4-cell action-row shape used by preview / placeholder hosts.
         PostCard(post = overflowScreenshotPost(), callbacks = PostCallbacks.None)
@@ -86,7 +86,7 @@ private fun PostCardOverflowIconAbsentScreenshot() {
 @Preview(name = "overflow-icon-present-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardOverflowIconPresentScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post = overflowScreenshotPost(),
             callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),
@@ -107,7 +107,7 @@ private fun PostCardOverflowViewerMutedAuthorScreenshot() {
     // state still flows through to the closed-state row. The fixture is
     // an explicit "muted-author" snapshot so any future visual cue
     // (e.g. a badge on the overflow icon) lands here for review.
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post = overflowScreenshotPost(viewer = BASE_VIEWER.copy(isAuthorMutedByViewer = true)),
             callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),
@@ -124,7 +124,7 @@ private fun PostCardOverflowViewerMutedAuthorScreenshot() {
 )
 @Composable
 private fun PostCardOverflowViewerBlockedAuthorScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post = overflowScreenshotPost(viewer = BASE_VIEWER.copy(isAuthorBlockedByViewer = true)),
             callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),
@@ -141,7 +141,7 @@ private fun PostCardOverflowViewerBlockedAuthorScreenshot() {
 )
 @Composable
 private fun PostCardOverflowViewerNeutralScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post = overflowScreenshotPost(viewer = BASE_VIEWER),
             callbacks = PostCallbacks(onOverflowAction = { _, _ -> }),

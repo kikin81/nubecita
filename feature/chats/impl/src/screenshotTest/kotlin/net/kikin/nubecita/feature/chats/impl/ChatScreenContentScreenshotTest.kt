@@ -11,7 +11,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -249,7 +249,7 @@ private val NOT_ENROLLED_STATE =
 @Preview(name = "chat-loaded-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatScreenLoadedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ChatScreenContent(state = LOADED_STATE, onEvent = {})
     }
 }
@@ -260,7 +260,7 @@ private fun ChatScreenLoadedScreenshot() {
 @Composable
 private fun ChatScreenLoadedWithEmbedsScreenshot() {
     CompositionLocalProvider(LocalClock provides ThreadFixtureClock) {
-        NubecitaTheme(dynamicColor = false) {
+        NubecitaScreenPreviewTheme {
             ChatScreenContent(state = LOADED_WITH_EMBEDS_STATE, onEvent = {})
         }
     }
@@ -271,7 +271,7 @@ private fun ChatScreenLoadedWithEmbedsScreenshot() {
 @Preview(name = "chat-empty-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatScreenEmptyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ChatScreenContent(state = EMPTY_STATE, onEvent = {})
     }
 }
@@ -281,7 +281,7 @@ private fun ChatScreenEmptyScreenshot() {
 @Preview(name = "chat-loading-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatScreenLoadingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ChatScreenContent(state = LOADING_STATE, onEvent = {})
     }
 }
@@ -291,7 +291,7 @@ private fun ChatScreenLoadingScreenshot() {
 @Preview(name = "chat-network-error-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatScreenNetworkErrorScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ChatScreenContent(state = NETWORK_ERROR_STATE, onEvent = {})
     }
 }
@@ -301,7 +301,7 @@ private fun ChatScreenNetworkErrorScreenshot() {
 @Preview(name = "chat-not-enrolled-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatScreenNotEnrolledScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ChatScreenContent(state = NOT_ENROLLED_STATE, onEvent = {})
     }
 }

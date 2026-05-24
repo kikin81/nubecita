@@ -9,7 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baselines for [MainShellChrome] covering:
@@ -39,7 +39,7 @@ private const val EXPANDED_WIDTH_DP: Int = 840
 @Preview(name = "compact-bar-feed-selected", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
 @Composable
 private fun MainShellChromeCompactBarFeedSelected() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
@@ -54,7 +54,7 @@ private fun MainShellChromeCompactBarFeedSelected() {
 @Preview(name = "compact-bar-search-selected", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
 @Composable
 private fun MainShellChromeCompactBarSearchSelected() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[1].key,
             onTabClick = {},
@@ -69,7 +69,7 @@ private fun MainShellChromeCompactBarSearchSelected() {
 @Preview(name = "compact-bar-chats-selected", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
 @Composable
 private fun MainShellChromeCompactBarChatsSelected() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[2].key,
             onTabClick = {},
@@ -84,7 +84,7 @@ private fun MainShellChromeCompactBarChatsSelected() {
 @Preview(name = "compact-bar-you-selected", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
 @Composable
 private fun MainShellChromeCompactBarYouSelected() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[3].key,
             onTabClick = {},
@@ -99,7 +99,7 @@ private fun MainShellChromeCompactBarYouSelected() {
 @Preview(name = "medium-rail-feed-selected", widthDp = MEDIUM_WIDTH_DP, heightDp = 800)
 @Composable
 private fun MainShellChromeMediumRailFeedSelected() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
@@ -114,7 +114,7 @@ private fun MainShellChromeMediumRailFeedSelected() {
 @Preview(name = "expanded-rail-feed-selected", widthDp = EXPANDED_WIDTH_DP, heightDp = 800)
 @Composable
 private fun MainShellChromeExpandedRailFeedSelected() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
@@ -129,7 +129,7 @@ private fun MainShellChromeExpandedRailFeedSelected() {
 @Preview(name = "compact-bar-feed-selected-dark", widthDp = COMPACT_WIDTH_DP, heightDp = 640, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun MainShellChromeCompactBarFeedSelectedDark() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},

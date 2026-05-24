@@ -18,7 +18,7 @@ import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import kotlin.time.Instant
 
 /**
@@ -71,7 +71,7 @@ private val SCREENSHOT_CREATED_AT: Instant = Instant.parse("2025-10-15T12:00:00Z
 @Preview(name = "empty-body-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardEmptyBodyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost(
@@ -88,7 +88,7 @@ private fun PostCardEmptyBodyScreenshot() {
 @Preview(name = "typical-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardTypicalScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(post = screenshotPost())
     }
 }
@@ -98,7 +98,7 @@ private fun PostCardTypicalScreenshot() {
 @Preview(name = "with-image-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardWithImageScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost(
@@ -139,7 +139,7 @@ private fun PostCardWithImageScreenshot() {
 @Preview(name = "with-3-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardWith3ImagesScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost(
@@ -177,7 +177,7 @@ private fun PostCardWith3ImagesScreenshot() {
 @Preview(name = "with-3-images-mixed-aspect-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardWith3ImagesMixedAspectScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost(
@@ -215,7 +215,7 @@ private fun PostCardWith3ImagesMixedAspectScreenshot() {
 @Preview(name = "unsupported-embed-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardUnsupportedEmbedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post = screenshotPost(embed = EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")),
         )
@@ -227,7 +227,7 @@ private fun PostCardUnsupportedEmbedScreenshot() {
 @Preview(name = "reposted-by-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardRepostedByScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(post = screenshotPost(repostedBy = "Alice Chen"))
     }
 }
@@ -240,7 +240,7 @@ private fun PostCardLongHandleShortNameScreenshot() {
     // Locks the AuthorLine truncation contract: a 30+ char handle MUST shrink
     // with ellipsis on a short display name, while the timestamp stays
     // right-pinned. Pre-fix, the timestamp wrapped to a second visual line.
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost().copy(
@@ -264,7 +264,7 @@ private fun PostCardLongNameAndHandleScreenshot() {
     // Both displayName and handle are long. Handle shrinks first (weighted),
     // displayName takes its intrinsic width up to remaining space, timestamp
     // stays right-pinned by the absorbing Spacer.
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost().copy(
@@ -291,7 +291,7 @@ private fun PostCardThreadClusterParentScreenshot() {
     // to size.height. Geometry overrides (gutterX=40, avatarTop=14,
     // avatarBottom=54) compensate for PostCard's actual 40dp avatar with
     // 14dp vertical padding (the threadConnector defaults assume 44dp/12dp).
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(post = screenshotPost(), connectAbove = true, connectBelow = true)
     }
 }
@@ -301,7 +301,7 @@ private fun PostCardThreadClusterParentScreenshot() {
 @Preview(name = "with-facets-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardWithFacetsScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         val text = "Hello @alice.bsky.social, check out https://nubecita.app"
         val mention =
             Facet(
@@ -330,7 +330,7 @@ private fun PostCardWithFacetsScreenshot() {
 @Preview(name = "viewer-neutral-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardViewerNeutralScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost(
@@ -346,7 +346,7 @@ private fun PostCardViewerNeutralScreenshot() {
 @Preview(name = "viewer-liked-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardViewerLikedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost(
@@ -362,7 +362,7 @@ private fun PostCardViewerLikedScreenshot() {
 @Preview(name = "viewer-reposted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardViewerRepostedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost(
@@ -378,7 +378,7 @@ private fun PostCardViewerRepostedScreenshot() {
 @Preview(name = "viewer-liked-and-reposted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardViewerLikedAndRepostedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCard(
             post =
                 screenshotPost(

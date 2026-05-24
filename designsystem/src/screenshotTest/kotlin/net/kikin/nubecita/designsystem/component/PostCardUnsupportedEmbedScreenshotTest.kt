@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baselines for [PostCardUnsupportedEmbed]'s friendly-name
@@ -17,7 +17,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Preview(name = "video-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardUnsupportedEmbedVideoScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardUnsupportedEmbed(typeUri = "app.bsky.embed.video")
     }
 }
@@ -27,7 +27,7 @@ private fun PostCardUnsupportedEmbedVideoScreenshot() {
 @Preview(name = "quoted-post-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardUnsupportedEmbedQuotedPostScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardUnsupportedEmbed(typeUri = "app.bsky.embed.record")
     }
 }
@@ -37,7 +37,7 @@ private fun PostCardUnsupportedEmbedQuotedPostScreenshot() {
 @Preview(name = "unknown-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardUnsupportedEmbedUnknownScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardUnsupportedEmbed(typeUri = "app.bsky.embed.somethingNew")
     }
 }

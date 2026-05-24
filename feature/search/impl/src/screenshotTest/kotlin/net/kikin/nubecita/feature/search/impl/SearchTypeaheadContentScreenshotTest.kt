@@ -7,7 +7,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.ActorUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 private fun previewActor(
     did: String,
@@ -26,7 +26,7 @@ private fun previewActor(
 @Preview(name = "typeahead-loading-dark", showBackground = true, heightDp = 400, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SearchTypeaheadLoadingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchTypeaheadContent(
                 query = "alice",
@@ -48,7 +48,7 @@ private fun SearchTypeaheadLoadingScreenshot() {
 )
 @Composable
 private fun SearchTypeaheadSuggestionsTopOnlyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchTypeaheadContent(
                 query = "alice",
@@ -75,7 +75,7 @@ private fun SearchTypeaheadSuggestionsTopOnlyScreenshot() {
 )
 @Composable
 private fun SearchTypeaheadSuggestionsTopAndPeopleScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchTypeaheadContent(
                 query = "al",
@@ -102,7 +102,7 @@ private fun SearchTypeaheadSuggestionsTopAndPeopleScreenshot() {
 @Preview(name = "typeahead-no-results-dark", showBackground = true, heightDp = 400, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SearchTypeaheadNoResultsScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchTypeaheadContent(
                 query = "zxyqq",

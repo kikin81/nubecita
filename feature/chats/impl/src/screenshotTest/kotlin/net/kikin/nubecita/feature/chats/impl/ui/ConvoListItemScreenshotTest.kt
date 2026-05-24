@@ -7,7 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.core.common.time.LocalClock
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
 import kotlin.time.Clock
@@ -80,7 +80,7 @@ private val SAMPLE_LONG_SNIPPET =
 @Composable
 private fun ConvoListItemWithAvatarScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
-        NubecitaTheme(dynamicColor = false) {
+        NubecitaScreenPreviewTheme {
             Surface { ConvoListItem(item = SAMPLE_WITH_AVATAR, index = 0, count = 1, onTap = {}) }
         }
     }
@@ -92,7 +92,7 @@ private fun ConvoListItemWithAvatarScreenshot() {
 @Composable
 private fun ConvoListItemFallbackLetterScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
-        NubecitaTheme(dynamicColor = false) {
+        NubecitaScreenPreviewTheme {
             Surface { ConvoListItem(item = SAMPLE_FALLBACK_LETTER, index = 0, count = 1, onTap = {}) }
         }
     }
@@ -104,7 +104,7 @@ private fun ConvoListItemFallbackLetterScreenshot() {
 @Composable
 private fun ConvoListItemYouPrefixScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
-        NubecitaTheme(dynamicColor = false) {
+        NubecitaScreenPreviewTheme {
             Surface { ConvoListItem(item = SAMPLE_YOU_PREFIX, index = 0, count = 1, onTap = {}) }
         }
     }
@@ -116,7 +116,7 @@ private fun ConvoListItemYouPrefixScreenshot() {
 @Composable
 private fun ConvoListItemDeletedScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
-        NubecitaTheme(dynamicColor = false) {
+        NubecitaScreenPreviewTheme {
             Surface { ConvoListItem(item = SAMPLE_DELETED, index = 0, count = 1, onTap = {}) }
         }
     }
@@ -128,7 +128,7 @@ private fun ConvoListItemDeletedScreenshot() {
 @Composable
 private fun ConvoListItemLongSnippetScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
-        NubecitaTheme(dynamicColor = false) {
+        NubecitaScreenPreviewTheme {
             Surface { ConvoListItem(item = SAMPLE_LONG_SNIPPET, index = 0, count = 1, onTap = {}) }
         }
     }

@@ -5,14 +5,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 @PreviewTest
 @Preview(name = "day-sep-today-light", showBackground = true)
 @Preview(name = "day-sep-today-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun Today() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface { DaySeparatorChip("Today") }
     }
 }
@@ -22,7 +22,7 @@ private fun Today() {
 @Preview(name = "day-sep-yesterday-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun Yesterday() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface { DaySeparatorChip("Yesterday") }
     }
 }
@@ -32,7 +32,7 @@ private fun Yesterday() {
 @Preview(name = "day-sep-weekday-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun Weekday() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface { DaySeparatorChip("Mon") }
     }
 }
@@ -42,7 +42,7 @@ private fun Weekday() {
 @Preview(name = "day-sep-monthday-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun MonthDay() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface { DaySeparatorChip("Apr 25") }
     }
 }

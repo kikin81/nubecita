@@ -5,7 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.data.models.EmbedUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baselines for [PostCardRecordUnavailable]. v1 renders
@@ -39,7 +39,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Preview(name = "dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardRecordUnavailableScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardRecordUnavailable(reason = EmbedUi.RecordUnavailable.Reason.NotFound)
     }
 }

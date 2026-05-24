@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.feature.search.impl.SearchFeedsError
 import net.kikin.nubecita.feature.search.impl.SearchFeedsLoadStatus
 import net.kikin.nubecita.feature.search.impl.SearchFeedsState
@@ -17,7 +17,7 @@ import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
 @Preview(name = "feeds-tab-initial-loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedsTabContentInitialLoadingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             FeedsTabContent(
                 state =
@@ -36,7 +36,7 @@ private fun FeedsTabContentInitialLoadingScreenshot() {
 @Preview(name = "feeds-tab-empty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedsTabContentEmptyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             FeedsTabContent(
                 state =
@@ -55,7 +55,7 @@ private fun FeedsTabContentEmptyScreenshot() {
 @Preview(name = "feeds-tab-loaded-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedsTabContentLoadedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             FeedsTabContent(
                 state =
@@ -99,7 +99,7 @@ private fun FeedsTabContentLoadedScreenshot() {
 @Preview(name = "feeds-tab-loaded-appending-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedsTabContentLoadedAppendingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             FeedsTabContent(
                 state =
@@ -135,7 +135,7 @@ private fun FeedsTabContentLoadedAppendingScreenshot() {
 @Preview(name = "feeds-tab-initial-error-network-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedsTabContentInitialErrorNetworkScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             FeedsTabContent(
                 state =

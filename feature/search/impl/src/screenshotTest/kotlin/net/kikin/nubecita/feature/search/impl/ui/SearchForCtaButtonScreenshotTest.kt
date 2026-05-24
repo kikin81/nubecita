@@ -5,14 +5,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 @PreviewTest
 @Preview(name = "search-cta-short-light", showBackground = true)
 @Preview(name = "search-cta-short-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SearchForCtaButtonShortScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchForCtaButton(query = "alice", onClick = {})
         }
@@ -24,7 +24,7 @@ private fun SearchForCtaButtonShortScreenshot() {
 @Preview(name = "search-cta-long-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SearchForCtaButtonLongScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchForCtaButton(
                 query = "a really long search query that should ellipsize",

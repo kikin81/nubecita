@@ -5,7 +5,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot coverage for the tab strip extracted from
@@ -26,7 +26,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 )
 @Composable
 private fun SearchResultsTabBarPostsActiveScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchResultsTabBar(selectedTabIndex = 0, onSelectTab = {})
         }
@@ -42,7 +42,7 @@ private fun SearchResultsTabBarPostsActiveScreenshot() {
 )
 @Composable
 private fun SearchResultsTabBarPeopleActiveScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchResultsTabBar(selectedTabIndex = 1, onSelectTab = {})
         }
@@ -58,7 +58,7 @@ private fun SearchResultsTabBarPeopleActiveScreenshot() {
 )
 @Composable
 private fun SearchResultsTabBarFeedsActiveScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchResultsTabBar(selectedTabIndex = 2, onSelectTab = {})
         }

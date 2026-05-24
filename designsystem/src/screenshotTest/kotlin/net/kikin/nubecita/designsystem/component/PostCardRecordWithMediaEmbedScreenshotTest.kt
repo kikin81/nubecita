@@ -10,7 +10,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import kotlin.time.Instant
 
 /**
@@ -75,7 +75,7 @@ private fun fixedExternalMedia(): EmbedUi.External =
 @Preview(name = "resolved-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardRecordWithMediaResolvedImagesScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardRecordWithMediaEmbed(
             record = EmbedUi.Record(quotedPost = fixedQuotedPost()),
             media = fixedImagesMedia(),
@@ -88,7 +88,7 @@ private fun PostCardRecordWithMediaResolvedImagesScreenshot() {
 @Preview(name = "resolved-external-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardRecordWithMediaResolvedExternalScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardRecordWithMediaEmbed(
             record = EmbedUi.Record(quotedPost = fixedQuotedPost()),
             media = fixedExternalMedia(),
@@ -102,7 +102,7 @@ private fun PostCardRecordWithMediaResolvedExternalScreenshot() {
 @Preview(name = "unavailable-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardRecordWithMediaUnavailableImagesScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardRecordWithMediaEmbed(
             record = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
             media = fixedImagesMedia(),
@@ -115,7 +115,7 @@ private fun PostCardRecordWithMediaUnavailableImagesScreenshot() {
 @Preview(name = "unavailable-external-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardRecordWithMediaUnavailableExternalScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardRecordWithMediaEmbed(
             record = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Blocked),
             media = fixedExternalMedia(),
@@ -138,7 +138,7 @@ private fun PostCardRecordWithMediaUnavailableExternalScreenshot() {
 )
 @Composable
 private fun PostCardRecordWithMediaTappableResolvedImagesScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardRecordWithMediaEmbed(
             record = EmbedUi.Record(quotedPost = fixedQuotedPost()),
             media = fixedImagesMedia(),

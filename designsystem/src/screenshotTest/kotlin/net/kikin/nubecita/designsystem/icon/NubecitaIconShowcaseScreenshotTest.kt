@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 
 /**
@@ -32,7 +32,7 @@ import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun NubecitaIconShowcasePreviews() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 96.dp),
             contentPadding = PaddingValues(16.dp),

@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baselines for [PostCardVideoEmbed]'s phase-B variants.
@@ -23,7 +23,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  *   when duration is wired in.
  *
  * Each variant runs in light + dark mode for the dynamic-color-disabled
- * `NubecitaTheme` (matches the rest of the screenshot suite).
+ * `NubecitaScreenPreviewTheme` (matches the rest of the screenshot suite).
  */
 
 @PreviewTest
@@ -31,7 +31,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Preview(name = "with-poster-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardVideoEmbedWithPosterScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardVideoEmbed(video = previewVideo())
     }
 }
@@ -41,7 +41,7 @@ private fun PostCardVideoEmbedWithPosterScreenshot() {
 @Preview(name = "no-poster-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardVideoEmbedNoPosterScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardVideoEmbed(video = previewVideo(posterUrl = null))
     }
 }
@@ -51,7 +51,7 @@ private fun PostCardVideoEmbedNoPosterScreenshot() {
 @Preview(name = "short-duration-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardVideoEmbedShortDurationScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardVideoEmbed(video = previewVideo(durationSeconds = 32))
     }
 }
@@ -61,7 +61,7 @@ private fun PostCardVideoEmbedShortDurationScreenshot() {
 @Preview(name = "long-duration-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardVideoEmbedLongDurationScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardVideoEmbed(video = previewVideo(durationSeconds = 3600 + 23 * 60 + 45))
     }
 }

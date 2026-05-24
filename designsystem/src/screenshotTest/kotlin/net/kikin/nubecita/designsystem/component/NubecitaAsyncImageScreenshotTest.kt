@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baseline for [NubecitaAsyncImage] with no model — exercises
@@ -20,7 +20,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Preview(name = "placeholder-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun NubecitaAsyncImagePlaceholderScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         NubecitaAsyncImage(
             model = null,
             contentDescription = null,

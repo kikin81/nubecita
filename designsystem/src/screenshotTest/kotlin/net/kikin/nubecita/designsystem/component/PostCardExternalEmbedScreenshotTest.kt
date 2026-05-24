@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baselines for [PostCardExternalEmbed] covering the two
@@ -21,7 +21,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @Preview(name = "with-thumb-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardExternalEmbedWithThumbScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardExternalEmbed(
             uri = PREVIEW_URI,
             domain = PREVIEW_DOMAIN,
@@ -38,7 +38,7 @@ private fun PostCardExternalEmbedWithThumbScreenshot() {
 @Preview(name = "no-thumb-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardExternalEmbedNoThumbScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostCardExternalEmbed(
             uri = PREVIEW_URI,
             domain = PREVIEW_DOMAIN,

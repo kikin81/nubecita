@@ -17,7 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 /**
  * Screenshot baselines for [Modifier.threadConnector] across the three
@@ -75,7 +75,7 @@ private fun ConnectorPreviewSurface(
 @Preview(name = "above-light", widthDp = WIDTH_DP, heightDp = HEIGHT_DP)
 @Composable
 private fun ThreadConnectorAboveLight() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ConnectorPreviewSurface(connectAbove = true, connectBelow = false)
     }
 }
@@ -84,7 +84,7 @@ private fun ThreadConnectorAboveLight() {
 @Preview(name = "above-dark", widthDp = WIDTH_DP, heightDp = HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ThreadConnectorAboveDark() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ConnectorPreviewSurface(connectAbove = true, connectBelow = false)
     }
 }
@@ -93,7 +93,7 @@ private fun ThreadConnectorAboveDark() {
 @Preview(name = "below-light", widthDp = WIDTH_DP, heightDp = HEIGHT_DP)
 @Composable
 private fun ThreadConnectorBelowLight() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ConnectorPreviewSurface(connectAbove = false, connectBelow = true)
     }
 }
@@ -102,7 +102,7 @@ private fun ThreadConnectorBelowLight() {
 @Preview(name = "below-dark", widthDp = WIDTH_DP, heightDp = HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ThreadConnectorBelowDark() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ConnectorPreviewSurface(connectAbove = false, connectBelow = true)
     }
 }
@@ -111,7 +111,7 @@ private fun ThreadConnectorBelowDark() {
 @Preview(name = "both-light", widthDp = WIDTH_DP, heightDp = HEIGHT_DP)
 @Composable
 private fun ThreadConnectorBothLight() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ConnectorPreviewSurface(connectAbove = true, connectBelow = true)
     }
 }
@@ -120,7 +120,7 @@ private fun ThreadConnectorBothLight() {
 @Preview(name = "both-dark", widthDp = WIDTH_DP, heightDp = HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ThreadConnectorBothDark() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ConnectorPreviewSurface(connectAbove = true, connectBelow = true)
     }
 }

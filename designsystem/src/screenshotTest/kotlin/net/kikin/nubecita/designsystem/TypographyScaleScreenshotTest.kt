@@ -3,6 +3,7 @@ package net.kikin.nubecita.designsystem
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import com.android.tools.screenshot.PreviewTest
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 import net.kikin.nubecita.designsystem.preview.TypographyScale
 
@@ -23,7 +24,7 @@ import net.kikin.nubecita.designsystem.preview.TypographyScale
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun TypographyScaleScreenshotPreview() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             TypographyScale()
         }

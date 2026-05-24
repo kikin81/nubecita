@@ -6,14 +6,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 
 @PreviewTest
 @Preview(name = "search-input-blank-light", showBackground = true)
 @Preview(name = "search-input-blank-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SearchInputRowBlankScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchInputRow(
                 textFieldState = rememberTextFieldState(),
@@ -29,7 +29,7 @@ private fun SearchInputRowBlankScreenshot() {
 @Preview(name = "search-input-typed-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SearchInputRowTypedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Surface {
             SearchInputRow(
                 textFieldState = rememberTextFieldState(initialText = "kotlin"),

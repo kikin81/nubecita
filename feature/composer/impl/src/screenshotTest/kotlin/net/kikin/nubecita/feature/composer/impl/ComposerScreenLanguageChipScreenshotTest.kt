@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerLanguageChip
 
@@ -24,7 +24,7 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerLanguageChip
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun LanguageChipNullSelectionPreviews() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Box(modifier = Modifier.padding(16.dp)) {
             ComposerLanguageChip(
                 selectedLangs = null,
@@ -39,7 +39,7 @@ private fun LanguageChipNullSelectionPreviews() {
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun LanguageChipSingleSelectionPreviews() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Box(modifier = Modifier.padding(16.dp)) {
             ComposerLanguageChip(
                 selectedLangs = listOf("ja-JP"),
@@ -57,7 +57,7 @@ private fun LanguageChipEmptySelectionPreviews() {
     // Explicit empty list — distinct from null. Locks the visual for
     // the "user said no language" state, surfaced as the localized
     // "No language" string from R.string.composer_language_chip_none.
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Box(modifier = Modifier.padding(16.dp)) {
             ComposerLanguageChip(
                 selectedLangs = emptyList(),
@@ -72,7 +72,7 @@ private fun LanguageChipEmptySelectionPreviews() {
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun LanguageChipMultiSelectionPreviews() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         Box(modifier = Modifier.padding(16.dp)) {
             ComposerLanguageChip(
                 selectedLangs = listOf("en-US", "ja-JP", "es-MX"),

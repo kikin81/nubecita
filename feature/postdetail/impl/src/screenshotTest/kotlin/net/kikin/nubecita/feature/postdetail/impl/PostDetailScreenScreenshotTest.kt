@@ -15,8 +15,8 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -35,7 +35,7 @@ import kotlin.time.Instant
 @Preview(name = "initial-loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostDetailScreenInitialLoadingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state = PostDetailState(loadStatus = PostDetailLoadStatus.InitialLoading),
         )
@@ -47,7 +47,7 @@ private fun PostDetailScreenInitialLoadingScreenshot() {
 @Preview(name = "initial-error-network-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostDetailScreenInitialErrorNetworkScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state =
                 PostDetailState(
@@ -62,7 +62,7 @@ private fun PostDetailScreenInitialErrorNetworkScreenshot() {
 @Preview(name = "initial-error-notfound-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostDetailScreenInitialErrorNotFoundScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state =
                 PostDetailState(
@@ -77,7 +77,7 @@ private fun PostDetailScreenInitialErrorNotFoundScreenshot() {
 @Preview(name = "initial-error-unauth-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostDetailScreenInitialErrorUnauthScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state =
                 PostDetailState(
@@ -92,7 +92,7 @@ private fun PostDetailScreenInitialErrorUnauthScreenshot() {
 @Preview(name = "loaded-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostDetailScreenLoadedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state = PostDetailState(items = fixtureThread(), loadStatus = PostDetailLoadStatus.Idle),
         )
@@ -104,7 +104,7 @@ private fun PostDetailScreenLoadedScreenshot() {
 @Preview(name = "loaded-refreshing-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostDetailScreenLoadedRefreshingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state = PostDetailState(items = fixtureThread(), loadStatus = PostDetailLoadStatus.Refreshing),
         )
@@ -128,7 +128,7 @@ private fun PostDetailScreenLoadedRefreshingScreenshot() {
 @Preview(name = "container-hierarchy-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostDetailScreenContainerHierarchyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state = PostDetailState(items = containerHierarchyThread(), loadStatus = PostDetailLoadStatus.Idle),
         )
@@ -145,7 +145,7 @@ private fun PostDetailScreenContainerHierarchyScreenshot() {
 @Preview(name = "single-post-light", showBackground = true)
 @Composable
 private fun PostDetailScreenSinglePostScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state =
                 PostDetailState(
@@ -170,7 +170,7 @@ private fun PostDetailScreenSinglePostScreenshot() {
 @Preview(name = "blocked-root-light", showBackground = true)
 @Composable
 private fun PostDetailScreenBlockedRootScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state =
                 PostDetailState(
@@ -199,7 +199,7 @@ private fun PostDetailScreenBlockedRootScreenshot() {
 @Preview(name = "multi-image-carousel-at-focus-light", showBackground = true)
 @Composable
 private fun PostDetailScreenMultiImageCarouselAtFocusScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         PostDetailScreenScreenshotHost(
             state =
                 PostDetailState(

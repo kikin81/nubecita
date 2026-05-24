@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 
 /**
@@ -41,7 +41,7 @@ private val SAMPLE_HEADER =
 @Preview(name = "topbar-alpha0-dark", showBackground = true, heightDp = 80, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileTopBarAlphaZeroScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ProfileTopBar(
             header = SAMPLE_HEADER,
             alpha = 0f,
@@ -57,7 +57,7 @@ private fun ProfileTopBarAlphaZeroScreenshot() {
 @Preview(name = "topbar-alpha-half-dark", showBackground = true, heightDp = 80, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileTopBarAlphaHalfScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ProfileTopBar(
             header = SAMPLE_HEADER,
             alpha = 0.5f,
@@ -73,7 +73,7 @@ private fun ProfileTopBarAlphaHalfScreenshot() {
 @Preview(name = "topbar-alpha1-dark", showBackground = true, heightDp = 80, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileTopBarAlphaOneScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ProfileTopBar(
             header = SAMPLE_HEADER,
             alpha = 1f,
@@ -89,7 +89,7 @@ private fun ProfileTopBarAlphaOneScreenshot() {
 @Preview(name = "topbar-alpha1-back-dark", showBackground = true, heightDp = 80, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileTopBarAlphaOneWithBackScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         ProfileTopBar(
             header = SAMPLE_HEADER,
             alpha = 1f,

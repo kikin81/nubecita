@@ -31,7 +31,7 @@ import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
@@ -73,7 +73,7 @@ private const val EXPANDED_WIDTH_DP: Int = 840
 @Preview(name = "list-detail-compact", widthDp = COMPACT_WIDTH_DP, heightDp = 800)
 @Composable
 private fun MainShellListDetailCompact() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
@@ -88,7 +88,7 @@ private fun MainShellListDetailCompact() {
 @Preview(name = "list-detail-medium", widthDp = MEDIUM_WIDTH_DP, heightDp = 800)
 @Composable
 private fun MainShellListDetailMedium() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
@@ -103,7 +103,7 @@ private fun MainShellListDetailMedium() {
 @Preview(name = "list-detail-expanded", widthDp = EXPANDED_WIDTH_DP, heightDp = 800)
 @Composable
 private fun MainShellListDetailExpanded() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
@@ -118,7 +118,7 @@ private fun MainShellListDetailExpanded() {
 @Preview(name = "list-detail-medium-with-detail", widthDp = MEDIUM_WIDTH_DP, heightDp = 800)
 @Composable
 private fun MainShellListDetailMediumWithDetail() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
@@ -133,7 +133,7 @@ private fun MainShellListDetailMediumWithDetail() {
 @Preview(name = "list-detail-expanded-with-detail", widthDp = EXPANDED_WIDTH_DP, heightDp = 800)
 @Composable
 private fun MainShellListDetailExpandedWithDetail() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaScreenPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
             onTabClick = {},
