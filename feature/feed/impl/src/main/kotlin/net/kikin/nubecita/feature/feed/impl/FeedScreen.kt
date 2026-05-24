@@ -12,19 +12,23 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -45,6 +49,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -453,6 +458,7 @@ internal fun FeedScreenContent(
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     Scaffold(
         modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             // AnimatedVisibility wraps the FAB so the appearance / dismissal
@@ -513,9 +519,16 @@ internal fun FeedScreenContent(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = padding,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(count = SHIMMER_PREVIEW_COUNT, key = { "shimmer-$it" }) { index ->
-                        PostCardShimmer(showImagePlaceholder = index % 2 == 0)
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            PostCardShimmer(showImagePlaceholder = index % 2 == 0)
+                        }
                     }
                 }
             FeedScreenViewState.Empty ->
@@ -590,6 +603,7 @@ private fun LoadedFeedContent(
             // pagination snapshotFlow's visibleItemsInfo already accounts
             // for contentPadding so the prefetch threshold is unaffected.
             contentPadding = contentPadding,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(
                 items = feedItems,
@@ -719,15 +733,21 @@ private fun LoadedFeedContent(
                     is FeedItemUi.Blocked, is FeedItemUi.NotFound ->
                         error("Tombstone variants returned early; render unreachable")
                     is FeedItemUi.Single ->
-                        PostCard(
-                            post = item.post,
-                            callbacks = callbacks,
-                            videoEmbedSlot = videoSlot,
-                            quotedVideoEmbedSlot = quotedVideoSlot,
-                            onImageClick = { idx -> onImageTap(item.post, idx) },
-                            animateLikeTap = item.post.id == lastLikeTapPostUri,
-                            animateRepostTap = item.post.id == lastRepostTapPostUri,
-                        )
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            PostCard(
+                                post = item.post,
+                                callbacks = callbacks,
+                                videoEmbedSlot = videoSlot,
+                                quotedVideoEmbedSlot = quotedVideoSlot,
+                                onImageClick = { idx -> onImageTap(item.post, idx) },
+                                animateLikeTap = item.post.id == lastLikeTapPostUri,
+                                animateRepostTap = item.post.id == lastRepostTapPostUri,
+                            )
+                        }
                     is FeedItemUi.ReplyCluster ->
                         ThreadCluster(
                             root = item.root,
@@ -765,20 +785,26 @@ private fun LoadedFeedContent(
                         // those positions collapses cleanly per
                         // PostCard's videoEmbedSlot KDoc.
                         val chainLastIndex = item.posts.lastIndex
-                        Column {
-                            item.posts.forEachIndexed { index, chainPost ->
-                                val isLeaf = index == chainLastIndex
-                                PostCard(
-                                    post = chainPost,
-                                    callbacks = callbacks,
-                                    connectAbove = index > 0,
-                                    connectBelow = index < chainLastIndex,
-                                    videoEmbedSlot = if (isLeaf) videoSlot else null,
-                                    quotedVideoEmbedSlot = if (isLeaf) quotedVideoSlot else null,
-                                    onImageClick = { idx -> onImageTap(chainPost, idx) },
-                                    animateLikeTap = chainPost.id == lastLikeTapPostUri,
-                                    animateRepostTap = chainPost.id == lastRepostTapPostUri,
-                                )
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column {
+                                item.posts.forEachIndexed { index, chainPost ->
+                                    val isLeaf = index == chainLastIndex
+                                    PostCard(
+                                        post = chainPost,
+                                        callbacks = callbacks,
+                                        connectAbove = index > 0,
+                                        connectBelow = index < chainLastIndex,
+                                        videoEmbedSlot = if (isLeaf) videoSlot else null,
+                                        quotedVideoEmbedSlot = if (isLeaf) quotedVideoSlot else null,
+                                        onImageClick = { idx -> onImageTap(chainPost, idx) },
+                                        animateLikeTap = chainPost.id == lastLikeTapPostUri,
+                                        animateRepostTap = chainPost.id == lastRepostTapPostUri,
+                                    )
+                                }
                             }
                         }
                     }

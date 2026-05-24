@@ -1,6 +1,9 @@
 package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -78,41 +81,50 @@ fun ThreadCluster(
     // populated; this composable owns the dedup so the data shape stays
     // simple (no Optional<parent>).
     val parentEqualsRoot = parent.id == root.id
-    Column(modifier = modifier) {
-        PostCard(
-            post = root,
-            callbacks = callbacks,
-            connectAbove = false,
-            connectBelow = true,
-            onImageClick = onImageClick?.let { handler -> { idx -> handler(root, idx) } },
-            animateLikeTap = root.id == lastLikeTapPostUri,
-            animateRepostTap = root.id == lastRepostTapPostUri,
-        )
-        if (hasEllipsis) {
-            ThreadFold(gutterX = 40.dp, onClick = onFoldTap)
-        }
-        if (!parentEqualsRoot) {
+    // Wrap the whole cluster as ONE item card (surface-role contract):
+    // a thread is one logical unit. Inner PostCards stack tight inside
+    // so connector lines remain continuous across the chain.
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column {
             PostCard(
-                post = parent,
+                post = root,
+                callbacks = callbacks,
+                connectAbove = false,
+                connectBelow = true,
+                onImageClick = onImageClick?.let { handler -> { idx -> handler(root, idx) } },
+                animateLikeTap = root.id == lastLikeTapPostUri,
+                animateRepostTap = root.id == lastRepostTapPostUri,
+            )
+            if (hasEllipsis) {
+                ThreadFold(gutterX = 40.dp, onClick = onFoldTap)
+            }
+            if (!parentEqualsRoot) {
+                PostCard(
+                    post = parent,
+                    callbacks = callbacks,
+                    connectAbove = true,
+                    connectBelow = true,
+                    onImageClick = onImageClick?.let { handler -> { idx -> handler(parent, idx) } },
+                    animateLikeTap = parent.id == lastLikeTapPostUri,
+                    animateRepostTap = parent.id == lastRepostTapPostUri,
+                )
+            }
+            PostCard(
+                post = leaf,
                 callbacks = callbacks,
                 connectAbove = true,
-                connectBelow = true,
-                onImageClick = onImageClick?.let { handler -> { idx -> handler(parent, idx) } },
-                animateLikeTap = parent.id == lastLikeTapPostUri,
-                animateRepostTap = parent.id == lastRepostTapPostUri,
+                connectBelow = false,
+                videoEmbedSlot = leafVideoEmbedSlot,
+                quotedVideoEmbedSlot = leafQuotedVideoEmbedSlot,
+                onImageClick = onImageClick?.let { handler -> { idx -> handler(leaf, idx) } },
+                animateLikeTap = leaf.id == lastLikeTapPostUri,
+                animateRepostTap = leaf.id == lastRepostTapPostUri,
             )
         }
-        PostCard(
-            post = leaf,
-            callbacks = callbacks,
-            connectAbove = true,
-            connectBelow = false,
-            videoEmbedSlot = leafVideoEmbedSlot,
-            quotedVideoEmbedSlot = leafQuotedVideoEmbedSlot,
-            onImageClick = onImageClick?.let { handler -> { idx -> handler(leaf, idx) } },
-            animateLikeTap = leaf.id == lastLikeTapPostUri,
-            animateRepostTap = leaf.id == lastRepostTapPostUri,
-        )
     }
 }
 

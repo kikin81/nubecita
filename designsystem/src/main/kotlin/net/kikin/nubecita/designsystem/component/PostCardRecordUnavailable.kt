@@ -30,7 +30,8 @@ import net.kikin.nubecita.designsystem.R
  * and for telemetry / debug consumers.
  *
  * Visual treatment mirrors [PostCardUnsupportedEmbed] —
- * `surfaceContainerHighest` background, `onSurfaceVariant` text — so
+ * `surfaceContainerLow` background (recessed-inset role inside a post
+ * card, per the surface-role contract), `onSurfaceVariant` text — so
  * the user reads "this region is intentionally a small note, not the
  * primary post content" through the same visual cue as the
  * unsupported-embed chip. NOT error-styled.
@@ -47,7 +48,7 @@ public fun PostCardRecordUnavailable(
         modifier =
             modifier
                 .clip(CHIP_SHAPE)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
     )
 }

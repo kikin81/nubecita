@@ -21,7 +21,8 @@ import net.kikin.nubecita.designsystem.R
  *
  * Visual treatment is intentionally NOT error-styled — this is "we know
  * what this is, we just don't render it yet," not "something went wrong."
- * `surfaceContainerHighest` background, `onSurfaceVariant` text. The label
+ * `surfaceContainerLow` background (recessed-inset role inside a post
+ * card, per the surface-role contract), `onSurfaceVariant` text. The label
  * names the embed kind in friendly form (`"video"`, `"link card"`, etc.)
  * mapped from the lexicon URI so users see a readable hint rather than a
  * developer string. Localized via `R.string.postcard_embed_label_*`.
@@ -38,7 +39,7 @@ fun PostCardUnsupportedEmbed(
         modifier =
             modifier
                 .clip(CHIP_SHAPE)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
     )
 }
