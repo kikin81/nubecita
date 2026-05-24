@@ -3,8 +3,9 @@ package net.kikin.nubecita.designsystem.component
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewWrapper
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
 
 /**
  * Screenshot baselines for [NubecitaPrimaryButton]. Each preview function
@@ -18,29 +19,26 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 @PreviewTest
 @Preview(name = "idle-light", showBackground = true)
 @Preview(name = "idle-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun NubecitaPrimaryButtonIdleScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        NubecitaPrimaryButton(onClick = {}, text = "Continue")
-    }
+    NubecitaPrimaryButton(onClick = {}, text = "Continue")
 }
 
 @PreviewTest
 @Preview(name = "loading-light", showBackground = true)
 @Preview(name = "loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun NubecitaPrimaryButtonLoadingScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        NubecitaPrimaryButton(onClick = {}, text = "Continue", isLoading = true)
-    }
+    NubecitaPrimaryButton(onClick = {}, text = "Continue", isLoading = true)
 }
 
 @PreviewTest
 @Preview(name = "disabled-light", showBackground = true)
 @Preview(name = "disabled-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun NubecitaPrimaryButtonDisabledScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        NubecitaPrimaryButton(onClick = {}, text = "Continue", enabled = false)
-    }
+    NubecitaPrimaryButton(onClick = {}, text = "Continue", enabled = false)
 }
