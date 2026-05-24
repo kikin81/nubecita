@@ -5,10 +5,13 @@ import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.auth.di.AuthBindingsModule
@@ -46,7 +49,17 @@ internal object TestAuthRepositoryModule {
 
     @Singleton
     @Provides
-    fun provideSessionStateProvider(): SessionStateProvider = mockk(relaxed = true)
+    fun provideSessionStateProvider(): SessionStateProvider =
+        // Explicit state stub rather than relying on MockK relaxed-mode
+        // to synthesize a sealed SessionState through nested proxies.
+        // SettingsStubViewModel.init observes the flow with filterIsInstance
+        // <SignedIn>().take(1); with SignedOut the filter never matches and
+        // the VM stays at the default empty header — perfect for tests that
+        // exercise the sign-out / switch-account flows without needing a
+        // populated identity.
+        mockk(relaxed = true) {
+            every { state } returns MutableStateFlow(SessionState.SignedOut)
+        }
 
     @Singleton
     @Provides

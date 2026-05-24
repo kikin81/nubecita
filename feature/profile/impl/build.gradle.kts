@@ -39,6 +39,7 @@ dependencies {
     // a video media-grid cell is tapped (the MediaViewer can't render
     // video embeds, so the route here splits image vs video taps).
     implementation(project(":feature:videoplayer:api"))
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
