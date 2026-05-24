@@ -9,7 +9,7 @@
 1. Fix the screenshot canvas: dark-mode baselines for stateless `*Content` slices show the expected dark canvas without per-fixture workarounds.
 2. Define a canonical token-cascade contract that assigns one *role* to each M3 surface token, so future code can pick a token by reasoning about depth rather than guessing.
 3. Migrate every existing call site to conform to the contract; regenerate the affected screenshot baselines per surface.
-4. Enforce the most mechanizable parts of the contract with a custom detekt rule, so future drift fails CI rather than slipping in.
+4. ~~Enforce the most mechanizable parts of the contract with a custom detekt rule, so future drift fails CI rather than slipping in.~~ **Deferred indefinitely** per the [`nubecita-zw4k`](#workstream-4--detekt-rule) decision — the project doesn't have detekt set up, the cascade is now fully in place, and code review is sufficient enforcement until drift becomes a real problem.
 
 ## Non-goals
 
@@ -87,15 +87,14 @@ Concrete delta:
 
 Items that already conform and stay put: `SettingsSection` (×2 sites), `SwitchAccountRow`, `ConvoListItem`, `BlockedPostCard`, `NotFoundPostCard`, `MessageBubble`, `DaySeparatorChip`, `NubecitaAsyncImage`, `Shimmer`, `VideoPosterEmbed`, `PostCardVideoEmbed`, `ComposerCharacterCounter`, `ComposerAttachmentChip`, `ComposerReplyParentSection`, `FeedsLoadingBody`, `PeopleLoadingBody`, `ProfileHero` ring.
 
-### 3. The detekt rule
+### 3. ~~The detekt rule~~ Enforcement (resolved)
 
-Custom rule lives under `build-logic/detekt-rules/`:
+The original spec called for a custom detekt rule under `build-logic/detekt-rules/` enforcing:
 
-- Allows: `MaterialTheme.colorScheme.{surface, surfaceContainerLow, surfaceContainer, surfaceContainerHigh, surfaceContainerHighest}` anywhere.
-- Forbids: `MaterialTheme.colorScheme.{surfaceDim, surfaceBright, surfaceContainerLowest, background}` outside an allowlist (`:designsystem` internals, `MainShell`).
-- Forbids: `Scaffold(` without a `containerColor =` argument — every Scaffold must declare its canvas paint role.
+- Reject `MaterialTheme.colorScheme.{surfaceDim, surfaceBright, surfaceContainerLowest, background}` outside an allowlist (`:designsystem` internals, `MainShell`).
+- Reject `Scaffold(` without a `containerColor =` argument.
 
-Intentionally narrow. It doesn't try to enforce the *nesting* rule (would need data-flow analysis); that stays a doc convention enforced by review.
+**This was deferred indefinitely** per the [`nubecita-zw4k`](https://github.com/kikin81/nubecita) decision. The project doesn't have detekt set up; integrating it for one rule is more cost than benefit when the cascade is already fully in place and review discipline is the working enforcement mechanism. If drift becomes a real problem in practice, the rule gets authored as an **Android Lint** check (reusing the existing `lintDebug` pipeline) rather than introducing detekt — the precedent is the Slack `compose-lints` rules the project already consumes.
 
 ## Sequencing
 
@@ -112,9 +111,9 @@ Each workstream is one bd-issue-plus-PR. The ordering is load-bearing because ea
    - 3f. Profile / Settings stub (Scaffold `containerColor`, verify ProfileScreen)
    - 3g. Login / Onboarding (Scaffold `containerColor`)
    Each PR is small enough to review the screenshot diffs sanely.
-4. **Workstream 4 — Detekt rule.** Land once all call sites conform. Rule passes immediately; future drift fails CI.
+4. ~~**Workstream 4 — Detekt rule.** Land once all call sites conform.~~ **Deferred indefinitely** (`nubecita-zw4k`). Code review enforces the contract; if drift becomes a real problem an Android Lint rule is the path of least resistance, not detekt.
 
-Lint-rule-first would explode CI on every WIP branch. Migration-first means each refactor PR has a focused screenshot review and the rule lands as a one-line clean addition.
+Lint-rule-first would have exploded CI on every WIP branch. Migration-first meant each refactor PR had a focused screenshot review. The decision to skip workstream 4 entirely came after workstreams 1–3 landed and the project was found to not have detekt configured.
 
 ## Testing & rollback
 
