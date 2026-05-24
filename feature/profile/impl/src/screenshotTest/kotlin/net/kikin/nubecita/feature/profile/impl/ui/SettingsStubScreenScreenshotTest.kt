@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.profile.impl.SettingsStubContent
 import net.kikin.nubecita.feature.profile.impl.SettingsStubStatus
 import net.kikin.nubecita.feature.profile.impl.SettingsStubViewState
@@ -47,7 +47,7 @@ import net.kikin.nubecita.feature.profile.impl.SettingsStubViewState
 )
 @Composable
 private fun SettingsSignedInScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         SettingsStubContent(
             state =
                 SettingsStubViewState(
@@ -72,7 +72,7 @@ private fun SettingsSignedInScreenshot() {
 )
 @Composable
 private fun SettingsMissingDisplayNameScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         SettingsStubContent(
             state =
                 SettingsStubViewState(
@@ -97,7 +97,7 @@ private fun SettingsMissingDisplayNameScreenshot() {
 )
 @Composable
 private fun SettingsConfirmDialogScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         SettingsStubContent(
             state =
                 SettingsStubViewState(
@@ -122,7 +122,7 @@ private fun SettingsConfirmDialogScreenshot() {
 )
 @Composable
 private fun SettingsSigningOutScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         SettingsStubContent(
             state =
                 SettingsStubViewState(

@@ -9,16 +9,29 @@ import androidx.compose.ui.Modifier
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
- * Screenshot + preview theme wrapper. Paints the screen-canvas role
+ * Screenshot + preview theme wrapper that paints the screen-canvas role
  * (`MaterialTheme.colorScheme.surface`) at full size so dark-mode `@Preview`
  * fixtures stop fracturing into transparent components over the IDE's
  * default white canvas.
  *
- * Use this in every `*ScreenshotTest.kt` fixture instead of [NubecitaTheme]
- * directly. Production composables and androidTest interaction tests stay
- * on [NubecitaTheme] — the production `Scaffold` / modal `Surface` paints
- * the canvas in real app code; this wrapper exists only to substitute for
- * that paint in headless preview/screenshot rendering.
+ * Use this for **screen-level**, dialog, or pane-level fixtures — anything
+ * whose intent is to render against a full-bleed canvas. Component-level
+ * fixtures (atoms like avatars, buttons, single rows) should stay on
+ * [NubecitaTheme] directly; the wrapper's `Modifier.fillMaxSize()` would
+ * cause atoms with intrinsic-fill behavior to balloon to the preview
+ * viewport instead of rendering at their natural bounds.
+ *
+ * Production composables and androidTest interaction tests stay on
+ * [NubecitaTheme]. In real app code the canvas paint is owned by the
+ * `Scaffold` / modal `Surface`; this wrapper exists only to substitute
+ * for that paint in headless preview/screenshot rendering.
+ *
+ * Naming: this wrapper is paired with — but distinct from — the
+ * `@PreviewNubecitaScreenPreviews` multi-preview annotation. The annotation
+ * sweeps a *device-screen-size* matrix (Phone/Foldable/Tablet × Light/Dark);
+ * this wrapper paints a *screen-canvas* (the backdrop). The "Canvas" in
+ * the wrapper name vs "Screen" in the annotation name makes the boundary
+ * explicit.
  *
  * Two pinned defaults:
  *
@@ -39,7 +52,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  */
 @Suppress("ktlint:compose:modifier-missing-check")
 @Composable
-fun NubecitaScreenPreviewTheme(
+fun NubecitaCanvasPreviewTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {

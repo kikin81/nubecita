@@ -9,7 +9,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.time.LocalClock
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -81,7 +81,7 @@ private val LOADING_STATE = ChatsScreenViewState(status = ChatsLoadStatus.Loadin
 @Composable
 private fun ChatsScreenLoadedScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
-        NubecitaScreenPreviewTheme {
+        NubecitaCanvasPreviewTheme {
             ChatsScreenContent(state = LOADED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
         }
     }
@@ -93,7 +93,7 @@ private fun ChatsScreenLoadedScreenshot() {
 @Composable
 private fun ChatsScreenLoadedRefreshingScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
-        NubecitaScreenPreviewTheme {
+        NubecitaCanvasPreviewTheme {
             ChatsScreenContent(state = LOADED_REFRESHING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
         }
     }
@@ -104,7 +104,7 @@ private fun ChatsScreenLoadedRefreshingScreenshot() {
 @Preview(name = "chats-empty-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatsScreenEmptyScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         ChatsScreenContent(state = EMPTY_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
     }
 }
@@ -114,7 +114,7 @@ private fun ChatsScreenEmptyScreenshot() {
 @Preview(name = "chats-loading-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatsScreenLoadingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         ChatsScreenContent(state = LOADING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
     }
 }
@@ -124,7 +124,7 @@ private fun ChatsScreenLoadingScreenshot() {
 @Preview(name = "chats-network-error-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatsScreenNetworkErrorScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         ChatsScreenContent(state = NETWORK_ERROR_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
     }
 }
@@ -134,7 +134,7 @@ private fun ChatsScreenNetworkErrorScreenshot() {
 @Preview(name = "chats-not-enrolled-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ChatsScreenNotEnrolledScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         ChatsScreenContent(state = NOT_ENROLLED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
     }
 }

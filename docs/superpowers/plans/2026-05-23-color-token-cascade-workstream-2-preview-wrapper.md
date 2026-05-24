@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `NubecitaScreenPreviewTheme` — a screenshot/preview-only theme wrapper that paints the screen-canvas role — and migrate every `*ScreenshotTest.kt` fixture in the repo to use it. After this lands, dark-mode baselines that previously fractured (white canvas under transparent components) finally show the expected dark canvas.
+**Goal:** Add `NubecitaCanvasPreviewTheme` — a screenshot/preview-only theme wrapper that paints the screen-canvas role — and migrate every `*ScreenshotTest.kt` fixture in the repo to use it. After this lands, dark-mode baselines that previously fractured (white canvas under transparent components) finally show the expected dark canvas.
 
 **Architecture:** The wrapper composes `NubecitaTheme(darkTheme, dynamicColor = false)` + `Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface)`. `dynamicColor = false` keeps Layoutlib's baseline rendering deterministic across emulator setups. `fillMaxSize()` guarantees full canvas coverage so components using custom `LayoutModifier` or edge-to-edge drawing can't leave a transparent gutter that the IDE paints white. Production composables and androidTest interaction tests stay on `NubecitaTheme` — only `*ScreenshotTest.kt` fixtures migrate.
 
@@ -12,7 +12,7 @@
 
 **Reference page:** `docs/design-system/surface-roles.md`
 
-**bd:** Create a new bd issue `nubecita-XXXX` of type `feature`, title "Add NubecitaScreenPreviewTheme and migrate every screenshot test fixture". Branch off `main` as `feat/nubecita-XXXX-<slug>` via the `bd-workflow` skill's start flow.
+**bd:** Create a new bd issue `nubecita-XXXX` of type `feature`, title "Add NubecitaCanvasPreviewTheme and migrate every screenshot test fixture". Branch off `main` as `feat/nubecita-XXXX-<slug>` via the `bd-workflow` skill's start flow.
 
 ---
 
@@ -20,8 +20,8 @@
 
 | File | Action | Responsibility |
 |---|---|---|
-| `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaScreenPreviewTheme.kt` | Create | The wrapper composable. Public; lives next to other preview helpers. |
-| `designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaScreenPreviewThemeScreenshotTest.kt` | Create | Self-test: light + dark fixtures that demonstrate the canvas paint, so regression in the wrapper itself shows up as a baseline change. |
+| `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaCanvasPreviewTheme.kt` | Create | The wrapper composable. Public; lives next to other preview helpers. |
+| `designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaCanvasPreviewThemeScreenshotTest.kt` | Create | Self-test: light + dark fixtures that demonstrate the canvas paint, so regression in the wrapper itself shows up as a baseline change. |
 | 74 × `*ScreenshotTest.kt` | Modify (mechanical) | Swap import + call site. Identical recipe per file (see Task 5). |
 
 **Survey of fixtures to migrate** (74 total):
@@ -70,7 +70,7 @@ Every file uses the same call shape `NubecitaTheme(dynamicColor = false) {` — 
 ```bash
 cat > /tmp/bd-screen-preview-theme-desc.md <<'EOF'
 Materializes workstream 2 of the color-token-cascade spec (nubecita-kkla):
-add NubecitaScreenPreviewTheme wrapper + migrate every *ScreenshotTest.kt
+add NubecitaCanvasPreviewTheme wrapper + migrate every *ScreenshotTest.kt
 fixture to use it. After this lands, dark-mode baselines that previously
 fractured (white canvas under transparent components) finally show the
 expected dark canvas.
@@ -82,7 +82,7 @@ Reference: docs/design-system/surface-roles.md
 74 fixtures migrate; PR carries the `update-baselines` label so CI
 regenerates the dark-mode reference images.
 EOF
-bd create "Add NubecitaScreenPreviewTheme and migrate every screenshot test fixture" \
+bd create "Add NubecitaCanvasPreviewTheme and migrate every screenshot test fixture" \
   --type feature --priority 2 \
   --body-file /tmp/bd-screen-preview-theme-desc.md \
   --json | jq -r '.id'
@@ -98,7 +98,7 @@ Invoke `bd-workflow` skill: "start `<BD_ID>`". Verifies tree-clean + on main; cr
 ## Task 2: Write the wrapper
 
 **Files:**
-- Create: `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaScreenPreviewTheme.kt`
+- Create: `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaCanvasPreviewTheme.kt`
 
 - [ ] **Step 1: Write the file**
 
@@ -139,7 +139,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * Full role contract: `docs/design-system/surface-roles.md`.
  */
 @Composable
-fun NubecitaScreenPreviewTheme(
+fun NubecitaCanvasPreviewTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
@@ -164,9 +164,9 @@ Expected: `BUILD SUCCESSFUL`. Fix any ktlint flag and rerun; never bypass with `
 - [ ] **Step 3: Commit**
 
 ```bash
-git add designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaScreenPreviewTheme.kt
+git add designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaCanvasPreviewTheme.kt
 git commit -m "$(cat <<'COMMIT'
-feat(designsystem): add NubecitaScreenPreviewTheme wrapper
+feat(designsystem): add NubecitaCanvasPreviewTheme wrapper
 
 Screenshot + preview theme wrapper that paints the screen-canvas role
 (MaterialTheme.colorScheme.surface) at full size. Pinned to dynamicColor
@@ -189,7 +189,7 @@ COMMIT
 ## Task 3: Write the wrapper self-test
 
 **Files:**
-- Create: `designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaScreenPreviewThemeScreenshotTest.kt`
+- Create: `designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaCanvasPreviewThemeScreenshotTest.kt`
 
 - [ ] **Step 1: Write the test file**
 
@@ -209,7 +209,7 @@ import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 
 /**
- * Pins the canvas paint produced by [NubecitaScreenPreviewTheme] in both
+ * Pins the canvas paint produced by [NubecitaCanvasPreviewTheme] in both
  * light and dark mode. A transparent content slice (`Text` only) on top
  * of the wrapper proves the wrapper itself owns the canvas — if the
  * wrapper regresses (loses `fillMaxSize()`, drops the `Surface`, etc.),
@@ -223,8 +223,8 @@ import com.android.tools.screenshot.PreviewTest
     uiMode = Configuration.UI_MODE_NIGHT_YES,
 )
 @Composable
-private fun NubecitaScreenPreviewThemeCanvasScreenshot() {
-    NubecitaScreenPreviewTheme {
+private fun NubecitaCanvasPreviewThemeCanvasScreenshot() {
+    NubecitaCanvasPreviewTheme {
         Box(
             modifier = Modifier.fillMaxSize().size(200.dp),
             contentAlignment = Alignment.Center,
@@ -252,9 +252,9 @@ Expected: `BUILD SUCCESSFUL`. The test compiles even though the baseline images 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaScreenPreviewThemeScreenshotTest.kt
+git add designsystem/src/screenshotTest/kotlin/net/kikin/nubecita/designsystem/preview/NubecitaCanvasPreviewThemeScreenshotTest.kt
 git commit -m "$(cat <<'COMMIT'
-test(designsystem): add screenshot self-test for NubecitaScreenPreviewTheme
+test(designsystem): add screenshot self-test for NubecitaCanvasPreviewTheme
 
 Pins the canvas paint produced by the wrapper in light + dark. A
 transparent content slice (Text only) proves the wrapper itself owns
@@ -285,7 +285,7 @@ Expected output: exactly one line — `        NubecitaTheme(dynamicColor = fals
 
 ```bash
 find /Users/velazquez/code/nubecita -name "*ScreenshotTest.kt" -not -path "*/build/*" -type f -print0 \
-  | xargs -0 sed -i '' 's|^import net\.kikin\.nubecita\.designsystem\.NubecitaTheme$|import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme|'
+  | xargs -0 sed -i '' 's|^import net\.kikin\.nubecita\.designsystem\.NubecitaTheme$|import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme|'
 ```
 Expected: silent. Verify with `git diff --stat` — should show 74 files modified with the same line change.
 
@@ -293,7 +293,7 @@ Expected: silent. Verify with `git diff --stat` — should show 74 files modifie
 
 ```bash
 find /Users/velazquez/code/nubecita -name "*ScreenshotTest.kt" -not -path "*/build/*" -type f -print0 \
-  | xargs -0 sed -i '' 's|NubecitaTheme(dynamicColor = false) {|NubecitaScreenPreviewTheme {|g'
+  | xargs -0 sed -i '' 's|NubecitaTheme(dynamicColor = false) {|NubecitaCanvasPreviewTheme {|g'
 ```
 Expected: silent. Verify with `git diff --stat` — file count is still 74 (no new files modified beyond those touched in step 2).
 
@@ -322,7 +322,7 @@ Use the `Edit` tool on `feature/feed/impl/src/screenshotTest/kotlin/net/kikin/nu
 
 `new_string`:
 ```
- * `NubecitaScreenPreviewTheme` (matches the rest of the screenshot suite).
+ * `NubecitaCanvasPreviewTheme` (matches the rest of the screenshot suite).
 ```
 
 - [ ] **Step 6: Verify spotless across every affected module**
@@ -356,15 +356,15 @@ Expected: `BUILD SUCCESSFUL`. Compilation failures here mean an unmigrated call 
 ```bash
 git add -A
 git commit -m "$(cat <<'COMMIT'
-refactor(screenshot-tests): migrate all fixtures to NubecitaScreenPreviewTheme
+refactor(screenshot-tests): migrate all fixtures to NubecitaCanvasPreviewTheme
 
 Mechanical sweep across 74 *ScreenshotTest.kt files in :app, :designsystem,
 and all 9 feature modules. Two replacements per file:
 
 - `import net.kikin.nubecita.designsystem.NubecitaTheme`
-  → `import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme`
+  → `import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme`
 - `NubecitaTheme(dynamicColor = false) {`
-  → `NubecitaScreenPreviewTheme {`
+  → `NubecitaCanvasPreviewTheme {`
 
 Plus one KDoc prose update in PostCardVideoEmbedScreenshotTest.
 
@@ -392,9 +392,9 @@ COMMIT
 git log --oneline main..HEAD
 ```
 Expected: three commits in order (newest first):
-1. `refactor(screenshot-tests): migrate all fixtures to NubecitaScreenPreviewTheme`
-2. `test(designsystem): add screenshot self-test for NubecitaScreenPreviewTheme`
-3. `feat(designsystem): add NubecitaScreenPreviewTheme wrapper`
+1. `refactor(screenshot-tests): migrate all fixtures to NubecitaCanvasPreviewTheme`
+2. `test(designsystem): add screenshot self-test for NubecitaCanvasPreviewTheme`
+3. `feat(designsystem): add NubecitaCanvasPreviewTheme wrapper`
 
 - [ ] **Step 2: Verify the diff scope**
 
@@ -502,7 +502,7 @@ Summarize: how many fixtures regenerated, whether dark canvases look right, any 
 
 - **Workstream 3 (a–g)** — call-site migration in production code (Scaffold `containerColor`, PostCard-as-card wrap, embed-token shifts). Seven separate PRs; plans to be written per surface as they come up.
 - **Workstream 4** — custom detekt rule in `build-logic/detekt-rules/`. Plan to be written last, after all call sites conform.
-- Updating production composables to use `NubecitaScreenPreviewTheme`. That would be wrong — production owns its canvas paint via Scaffold/modal Surface.
+- Updating production composables to use `NubecitaCanvasPreviewTheme`. That would be wrong — production owns its canvas paint via Scaffold/modal Surface.
 
 ## Risks specific to this plan
 

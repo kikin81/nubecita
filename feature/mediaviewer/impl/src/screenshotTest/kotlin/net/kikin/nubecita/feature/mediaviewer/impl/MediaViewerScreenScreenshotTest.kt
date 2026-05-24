@@ -6,7 +6,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.ImageUi
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 
 /**
  * Screenshot baselines for `MediaViewerScreen`'s view-mode matrix:
@@ -28,7 +28,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 @Preview(name = "loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun MediaViewerLoadingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         MediaViewerScreenContent(
             state = MediaViewerState(loadStatus = MediaViewerLoadStatus.Loading),
             onRetry = {},
@@ -47,7 +47,7 @@ private fun MediaViewerLoadingScreenshot() {
 @Preview(name = "error-network-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun MediaViewerErrorNetworkScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         MediaViewerScreenContent(
             state = MediaViewerState(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.Network)),
             onRetry = {},
@@ -66,7 +66,7 @@ private fun MediaViewerErrorNetworkScreenshot() {
 @Preview(name = "error-not-found-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun MediaViewerErrorNotFoundScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         MediaViewerScreenContent(
             state = MediaViewerState(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.NotFound)),
             onRetry = {},
@@ -85,7 +85,7 @@ private fun MediaViewerErrorNotFoundScreenshot() {
 @Preview(name = "error-no-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun MediaViewerErrorNoImagesScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         MediaViewerScreenContent(
             state = MediaViewerState(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.NoImages)),
             onRetry = {},
@@ -104,7 +104,7 @@ private fun MediaViewerErrorNoImagesScreenshot() {
 @Preview(name = "loaded-single-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun MediaViewerLoadedSingleScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         MediaViewerScreenContent(
             state =
                 MediaViewerState(
@@ -134,7 +134,7 @@ private fun MediaViewerLoadedSingleScreenshot() {
 private fun MediaViewerLoadedMultiScreenshot() {
     // Three images with chrome visible: page indicator should read "1 / 3"
     // and the ALT badge should render (current image has alt text).
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         MediaViewerScreenContent(
             state =
                 MediaViewerState(
@@ -170,7 +170,7 @@ private fun MediaViewerLoadedMultiNoAltScreenshot() {
     // Verifies the ALT badge does NOT render when the current image has
     // no alt text (the centered page indicator should stay perfectly
     // centered with the close button on the left).
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         MediaViewerScreenContent(
             state =
                 MediaViewerState(

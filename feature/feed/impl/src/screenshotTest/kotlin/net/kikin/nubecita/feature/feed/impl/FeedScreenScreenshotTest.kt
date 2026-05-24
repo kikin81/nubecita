@@ -20,7 +20,7 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -39,7 +39,7 @@ import kotlin.time.Instant
 @Preview(name = "empty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedScreenEmptyScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(viewState = FeedScreenViewState.Empty)
     }
 }
@@ -49,7 +49,7 @@ private fun FeedScreenEmptyScreenshot() {
 @Preview(name = "initial-loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedScreenInitialLoadingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(viewState = FeedScreenViewState.InitialLoading)
     }
 }
@@ -59,7 +59,7 @@ private fun FeedScreenInitialLoadingScreenshot() {
 @Preview(name = "initial-error-network-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedScreenInitialErrorNetworkScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState = FeedScreenViewState.InitialError(FeedError.Network),
         )
@@ -71,7 +71,7 @@ private fun FeedScreenInitialErrorNetworkScreenshot() {
 @Preview(name = "initial-error-unauth-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedScreenInitialErrorUnauthScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState = FeedScreenViewState.InitialError(FeedError.Unauthenticated),
         )
@@ -83,7 +83,7 @@ private fun FeedScreenInitialErrorUnauthScreenshot() {
 @Preview(name = "initial-error-unknown-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedScreenInitialErrorUnknownScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState = FeedScreenViewState.InitialError(FeedError.Unknown(cause = null)),
         )
@@ -95,7 +95,7 @@ private fun FeedScreenInitialErrorUnknownScreenshot() {
 @Preview(name = "loaded-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedScreenLoadedScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
@@ -112,7 +112,7 @@ private fun FeedScreenLoadedScreenshot() {
 @Preview(name = "loaded-refreshing-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedScreenLoadedRefreshingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
@@ -133,7 +133,7 @@ private fun FeedScreenLoadedWithClusterScreenshot() {
     // verify the cluster renders correctly within the feed and visually
     // contrasts with neighboring singles. Locks the cross-author thread
     // cluster integration end-to-end.
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
@@ -153,7 +153,7 @@ private fun FeedScreenLoadedWithSelfThreadChainScreenshot() {
     // standalone post. Locks the m28.4 contract — the chain renders as
     // ONE LazyColumn item (a Column of 3 PostCards) joined by a
     // continuous avatar-gutter connector line via Modifier.threadConnector.
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
@@ -175,7 +175,7 @@ private fun FeedScreenSelfThreadChainQuoteMiddleScreenshot() {
     // colliding with the avatar-gutter connector line. PostCard's
     // body/gutter geometry keeps the two surfaces apart by
     // construction; this fixture is the regression contract.
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
@@ -192,7 +192,7 @@ private fun FeedScreenSelfThreadChainQuoteMiddleScreenshot() {
 @Preview(name = "loaded-appending-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FeedScreenLoadedAppendingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(
@@ -222,7 +222,7 @@ private fun FeedScreenLoadedWithComposeFabScreenshot() {
     // expressive guidance (da8). Driven by `@PreviewNubecitaScreenPreviews`
     // sweeping Phone (411dp) / Foldable (673dp) / Tablet (1280dp) ×
     // Light / Dark — six fixtures, one annotation.
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
             viewState =
                 FeedScreenViewState.Loaded(

@@ -2,7 +2,7 @@ package net.kikin.nubecita.feature.onboarding.impl
 
 import androidx.compose.runtime.Composable
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 
 /**
@@ -21,7 +21,7 @@ import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun OnboardingScreenFirstPagePreviews() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         OnboardingScreen(onEvent = {}, initialPage = 0)
     }
 }
@@ -30,7 +30,7 @@ private fun OnboardingScreenFirstPagePreviews() {
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun OnboardingScreenLastPagePreviews() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         OnboardingScreen(onEvent = {}, initialPage = OnboardingPage.entries.lastIndex)
     }
 }

@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 
 // vrba.8 note: the integrated [SearchPhase.Results] variant (TabRow +
 // HorizontalPager mounting SearchPostsScreen / SearchActorsScreen) is
@@ -29,7 +29,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 @Preview(name = "search-screen-empty-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SearchScreenEmptyScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         Surface {
             SearchScreenContent(
                 textFieldState = TextFieldState(),
@@ -49,7 +49,7 @@ private fun SearchScreenEmptyScreenshot() {
 @Preview(name = "search-screen-with-chips-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SearchScreenWithChipsScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaCanvasPreviewTheme {
         Surface {
             SearchScreenContent(
                 textFieldState = TextFieldState(),
