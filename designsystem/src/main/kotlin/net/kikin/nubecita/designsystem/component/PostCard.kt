@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -166,15 +165,6 @@ fun PostCard(
                     )
                 }
             }
-        }
-        // Suppress the divider when this PostCard sits inside a thread cluster
-        // and is followed by another cluster post (i.e., connectBelow=true).
-        // The thread connector line crossing through a horizontal divider
-        // creates visual noise; the cluster's bottom card (leaf, with
-        // connectBelow=false) keeps its divider so the cluster boundary is
-        // still visible against the next feed item.
-        if (!connectBelow) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }
