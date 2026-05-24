@@ -9,7 +9,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.profile.impl.ProfileError
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import net.kikin.nubecita.feature.profile.impl.TabLoadStatus
@@ -37,7 +37,7 @@ private fun sampleCells(count: Int): List<TabItemUi> =
 
 @Composable
 private fun MediaBodyHost(status: TabLoadStatus) {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             profileMediaTabBody(
                 status = status,

@@ -9,7 +9,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.NubecitaPalette
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [NubecitaLogomark]. The default-variant case
@@ -26,7 +26,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 @Preview(name = "logomark-default-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun NubecitaLogomarkDefaultScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky50))
     }
 }
@@ -35,7 +35,7 @@ private fun NubecitaLogomarkDefaultScreenshot() {
 @Preview(name = "logomark-tinted-light", showBackground = true)
 @Composable
 private fun NubecitaLogomarkTintedScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         NubecitaLogomark(
             modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky99),
             tint = NubecitaPalette.Sky50,

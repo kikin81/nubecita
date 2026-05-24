@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import kotlin.time.Instant
 
@@ -36,7 +36,7 @@ private fun mu(
 @Preview(name = "bubble-incoming-single-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun IncomingSingle() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -53,7 +53,7 @@ private fun IncomingSingle() {
 @Preview(name = "bubble-outgoing-single-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun OutgoingSingle() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -71,7 +71,7 @@ private fun OutgoingSingle() {
 @Preview(name = "bubble-incoming-run3-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun IncomingRunOfThree() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -90,7 +90,7 @@ private fun IncomingRunOfThree() {
 @Preview(name = "bubble-outgoing-run3-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun OutgoingRunOfThree() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
@@ -110,7 +110,7 @@ private fun OutgoingRunOfThree() {
 @Preview(name = "bubble-deleted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun DeletedBubble() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),

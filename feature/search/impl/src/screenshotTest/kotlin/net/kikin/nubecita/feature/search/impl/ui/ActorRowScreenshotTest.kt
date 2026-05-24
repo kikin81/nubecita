@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.data.models.ActorUi
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 @PreviewTest
 @Preview(name = "actor-row-with-displayname-no-match-light", showBackground = true)
@@ -17,7 +17,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 )
 @Composable
 private fun ActorRowWithDisplayNameNoMatchScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             ActorRow(
                 actor =
@@ -39,7 +39,7 @@ private fun ActorRowWithDisplayNameNoMatchScreenshot() {
 @Preview(name = "actor-row-with-match-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ActorRowWithMatchScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             ActorRow(
                 actor =
@@ -61,7 +61,7 @@ private fun ActorRowWithMatchScreenshot() {
 @Preview(name = "actor-row-no-displayname-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ActorRowNoDisplayNameScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             ActorRow(
                 actor =

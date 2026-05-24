@@ -5,7 +5,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.search.impl.SearchPostsError
 
 @PreviewTest
@@ -13,7 +13,7 @@ import net.kikin.nubecita.feature.search.impl.SearchPostsError
 @Preview(name = "posts-error-network-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsInitialErrorBodyNetworkScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsInitialErrorBody(error = SearchPostsError.Network, onRetry = {})
         }
@@ -25,7 +25,7 @@ private fun PostsInitialErrorBodyNetworkScreenshot() {
 @Preview(name = "posts-error-rate-limited-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsInitialErrorBodyRateLimitedScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsInitialErrorBody(error = SearchPostsError.RateLimited, onRetry = {})
         }
@@ -37,7 +37,7 @@ private fun PostsInitialErrorBodyRateLimitedScreenshot() {
 @Preview(name = "posts-error-unknown-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsInitialErrorBodyUnknownScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsInitialErrorBody(
                 error = SearchPostsError.Unknown(cause = "decode failure"),

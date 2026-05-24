@@ -3,8 +3,8 @@ package net.kikin.nubecita.designsystem.hero
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import com.android.tools.screenshot.PreviewTest
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.preview.BoldHeroGradientCatalog
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 
 /**
@@ -19,7 +19,7 @@ import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun BoldHeroGradientScreenshotPreview() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             BoldHeroGradientCatalog()
         }

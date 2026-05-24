@@ -12,7 +12,7 @@ import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.search.impl.SearchPostsError
 import net.kikin.nubecita.feature.search.impl.SearchPostsLoadStatus
 import net.kikin.nubecita.feature.search.impl.SearchPostsState
@@ -23,7 +23,7 @@ import kotlin.time.Instant
 @Preview(name = "posts-tab-initial-loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsTabContentInitialLoadingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsTabContent(
                 state =
@@ -42,7 +42,7 @@ private fun PostsTabContentInitialLoadingScreenshot() {
 @Preview(name = "posts-tab-empty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsTabContentEmptyScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsTabContent(
                 state =
@@ -61,7 +61,7 @@ private fun PostsTabContentEmptyScreenshot() {
 @Preview(name = "posts-tab-loaded-highlight-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsTabContentLoadedScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsTabContent(
                 state =
@@ -89,7 +89,7 @@ private fun PostsTabContentLoadedScreenshot() {
 @Preview(name = "posts-tab-loaded-appending-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsTabContentLoadedAppendingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsTabContent(
                 state =
@@ -117,7 +117,7 @@ private fun PostsTabContentLoadedAppendingScreenshot() {
 @Preview(name = "posts-tab-initial-error-network-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsTabContentInitialErrorNetworkScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsTabContent(
                 state =
@@ -137,7 +137,7 @@ private fun PostsTabContentInitialErrorNetworkScreenshot() {
 @Preview(name = "posts-tab-initial-error-rate-limited-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostsTabContentInitialErrorRateLimitedScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PostsTabContent(
                 state =

@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [NubecitaPrimaryButton]. Each preview function
@@ -20,7 +20,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 @Preview(name = "idle-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun NubecitaPrimaryButtonIdleScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         NubecitaPrimaryButton(onClick = {}, text = "Continue")
     }
 }
@@ -30,7 +30,7 @@ private fun NubecitaPrimaryButtonIdleScreenshot() {
 @Preview(name = "loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun NubecitaPrimaryButtonLoadingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         NubecitaPrimaryButton(onClick = {}, text = "Continue", isLoading = true)
     }
 }
@@ -40,7 +40,7 @@ private fun NubecitaPrimaryButtonLoadingScreenshot() {
 @Preview(name = "disabled-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun NubecitaPrimaryButtonDisabledScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         NubecitaPrimaryButton(onClick = {}, text = "Continue", enabled = false)
     }
 }

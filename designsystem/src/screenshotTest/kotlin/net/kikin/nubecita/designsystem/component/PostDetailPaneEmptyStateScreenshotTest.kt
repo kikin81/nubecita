@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [PostDetailPaneEmptyState]. Two themes,
@@ -23,7 +23,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 )
 @Composable
 private fun PostDetailPaneEmptyStateScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostDetailPaneEmptyState()
     }
 }

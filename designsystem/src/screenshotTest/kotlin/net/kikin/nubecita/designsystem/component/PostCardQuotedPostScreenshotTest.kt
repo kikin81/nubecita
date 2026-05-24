@@ -9,7 +9,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import kotlin.time.Instant
 
 /**
@@ -57,7 +57,7 @@ private fun fixedQuoted(embed: QuotedEmbedUi): QuotedPostUi =
 @Preview(name = "text-only-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardQuotedPostTextOnlyScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardQuotedPost(quotedPost = fixedQuoted(QuotedEmbedUi.Empty))
     }
 }
@@ -67,7 +67,7 @@ private fun PostCardQuotedPostTextOnlyScreenshot() {
 @Preview(name = "with-image-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardQuotedPostWithImageScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardQuotedPost(
             quotedPost =
                 fixedQuoted(
@@ -92,7 +92,7 @@ private fun PostCardQuotedPostWithImageScreenshot() {
 @Preview(name = "with-external-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardQuotedPostWithExternalScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardQuotedPost(
             quotedPost =
                 fixedQuoted(
@@ -113,7 +113,7 @@ private fun PostCardQuotedPostWithExternalScreenshot() {
 @Preview(name = "view-thread-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardQuotedPostViewThreadScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardQuotedPost(quotedPost = fixedQuoted(QuotedEmbedUi.QuotedThreadChip))
     }
 }
@@ -129,7 +129,7 @@ private fun PostCardQuotedPostViewThreadScreenshot() {
 @Preview(name = "tappable-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardQuotedPostTappableScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardQuotedPost(
             quotedPost = fixedQuoted(QuotedEmbedUi.Empty),
             onTap = {},

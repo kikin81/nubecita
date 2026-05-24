@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [VideoPosterEmbed]:
@@ -27,7 +27,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 @Preview(name = "with-poster-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun VideoPosterEmbedWithPosterScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         VideoPosterEmbed(
             posterUrl = "https://example.com/poster.jpg",
             aspectRatio = 16f / 9f,
@@ -42,7 +42,7 @@ private fun VideoPosterEmbedWithPosterScreenshot() {
 @Preview(name = "no-poster-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun VideoPosterEmbedNoPosterScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         VideoPosterEmbed(
             posterUrl = null,
             aspectRatio = 16f / 9f,
@@ -57,7 +57,7 @@ private fun VideoPosterEmbedNoPosterScreenshot() {
 @Preview(name = "portrait-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun VideoPosterEmbedPortraitScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         VideoPosterEmbed(
             posterUrl = null,
             aspectRatio = 9f / 16f,
@@ -79,7 +79,7 @@ private fun VideoPosterEmbedPortraitScreenshot() {
 @Preview(name = "long-alttext-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun VideoPosterEmbedLongAltTextScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         VideoPosterEmbed(
             posterUrl = "https://example.com/poster.jpg",
             aspectRatio = 16f / 9f,

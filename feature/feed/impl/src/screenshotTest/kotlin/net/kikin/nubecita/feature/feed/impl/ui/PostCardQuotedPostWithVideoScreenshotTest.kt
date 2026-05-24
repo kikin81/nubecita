@@ -8,8 +8,8 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCardQuotedPost
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 import kotlin.time.Instant
 
 /**
@@ -63,7 +63,7 @@ private val FIXED_QUOTED: QuotedPostUi =
 @Preview(name = "with-video-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardQuotedPostWithVideoScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardQuotedPost(
             quotedPost = FIXED_QUOTED,
             quotedVideoEmbedSlot = { qVideo -> PostCardVideoEmbed(quotedVideo = qVideo) },

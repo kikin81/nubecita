@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [BlockedPostCard].
@@ -31,7 +31,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 )
 @Composable
 private fun BlockedPostCardWithUnblockScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         BlockedPostCard(onUnblock = {})
     }
 }
@@ -45,7 +45,7 @@ private fun BlockedPostCardWithUnblockScreenshot() {
 )
 @Composable
 private fun BlockedPostCardTextOnlyScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         BlockedPostCard(onUnblock = null)
     }
 }

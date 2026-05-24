@@ -6,7 +6,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [ThreadFold] in light + dark themes, with
@@ -30,7 +30,7 @@ private fun FoldPreviewSurface(content: @Composable () -> Unit) {
 @Preview(name = "no-count-light", widthDp = WIDTH_DP)
 @Composable
 private fun ThreadFoldNoCountLight() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         FoldPreviewSurface {
             ThreadFold(count = 0)
         }
@@ -41,7 +41,7 @@ private fun ThreadFoldNoCountLight() {
 @Preview(name = "no-count-dark", widthDp = WIDTH_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ThreadFoldNoCountDark() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         FoldPreviewSurface {
             ThreadFold(count = 0)
         }
@@ -52,7 +52,7 @@ private fun ThreadFoldNoCountDark() {
 @Preview(name = "with-count-light", widthDp = WIDTH_DP)
 @Composable
 private fun ThreadFoldWithCountLight() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         FoldPreviewSurface {
             ThreadFold(count = 5)
         }
@@ -63,7 +63,7 @@ private fun ThreadFoldWithCountLight() {
 @Preview(name = "with-count-dark", widthDp = WIDTH_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ThreadFoldWithCountDark() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         FoldPreviewSurface {
             ThreadFold(count = 5)
         }

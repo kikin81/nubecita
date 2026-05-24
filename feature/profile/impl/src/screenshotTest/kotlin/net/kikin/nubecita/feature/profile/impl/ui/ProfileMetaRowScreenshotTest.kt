@@ -4,7 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [ProfileMetaRow]. The "all" variant pins the
@@ -20,7 +20,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 @Preview(name = "meta-all-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ProfileMetaRowAllScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         ProfileMetaRow(
             website = "alice.example.com",
             location = "Lima, Peru",
@@ -38,7 +38,7 @@ private fun ProfileMetaRowAllScreenshot() {
 )
 @Composable
 private fun ProfileMetaRowJoinedOnlyScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         ProfileMetaRow(
             website = null,
             location = null,

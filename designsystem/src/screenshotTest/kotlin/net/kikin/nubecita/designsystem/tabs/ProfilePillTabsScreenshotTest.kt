@@ -3,7 +3,7 @@ package net.kikin.nubecita.designsystem.tabs
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 import net.kikin.nubecita.designsystem.preview.ProfilePillTabsCatalog
 
@@ -18,7 +18,7 @@ import net.kikin.nubecita.designsystem.preview.ProfilePillTabsCatalog
 @PreviewNubecitaScreenPreviews
 @Composable
 private fun ProfilePillTabsScreenshotPreview() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             ProfilePillTabsCatalog()
         }

@@ -7,7 +7,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.ActorUi
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.search.impl.SearchActorsError
 import net.kikin.nubecita.feature.search.impl.SearchActorsLoadStatus
 import net.kikin.nubecita.feature.search.impl.SearchActorsState
@@ -17,7 +17,7 @@ import net.kikin.nubecita.feature.search.impl.SearchActorsState
 @Preview(name = "people-tab-initial-loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PeopleTabContentInitialLoadingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PeopleTabContent(
                 state =
@@ -36,7 +36,7 @@ private fun PeopleTabContentInitialLoadingScreenshot() {
 @Preview(name = "people-tab-empty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PeopleTabContentEmptyScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PeopleTabContent(
                 state =
@@ -55,7 +55,7 @@ private fun PeopleTabContentEmptyScreenshot() {
 @Preview(name = "people-tab-loaded-highlight-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PeopleTabContentLoadedScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PeopleTabContent(
                 state =
@@ -93,7 +93,7 @@ private fun PeopleTabContentLoadedScreenshot() {
 @Preview(name = "people-tab-loaded-appending-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PeopleTabContentLoadedAppendingScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PeopleTabContent(
                 state =
@@ -126,7 +126,7 @@ private fun PeopleTabContentLoadedAppendingScreenshot() {
 @Preview(name = "people-tab-initial-error-network-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PeopleTabContentInitialErrorNetworkScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PeopleTabContent(
                 state =

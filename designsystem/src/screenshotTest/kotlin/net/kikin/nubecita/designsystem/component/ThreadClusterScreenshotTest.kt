@@ -10,7 +10,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import kotlin.time.Instant
 
 /**
@@ -92,7 +92,7 @@ private fun leaf(): PostUi =
 @Preview(name = "without-ellipsis-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ThreadClusterWithoutEllipsisScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         ThreadCluster(root = root(), parent = parent(), leaf = leaf(), hasEllipsis = false)
     }
 }
@@ -102,7 +102,7 @@ private fun ThreadClusterWithoutEllipsisScreenshot() {
 @Preview(name = "with-ellipsis-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ThreadClusterWithEllipsisScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         ThreadCluster(root = root(), parent = parent(), leaf = leaf(), hasEllipsis = true)
     }
 }
@@ -116,7 +116,7 @@ private fun ThreadClusterDirectReplyToRootScreenshot() {
     // replyRef.root.uri), the cluster collapses to root + leaf — no
     // duplicate parent slot. Common case: a self-reply where the user
     // continues a thought, or any direct reply to the OP.
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         // Pass the same post as both root and parent — simulates the
         // direct-reply-to-root wire shape after the mapper runs.
         ThreadCluster(root = root(), parent = root(), leaf = leaf(), hasEllipsis = false)

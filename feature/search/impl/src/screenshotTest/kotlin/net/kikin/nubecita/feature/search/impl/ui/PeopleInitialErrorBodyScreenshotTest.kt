@@ -5,7 +5,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.search.impl.SearchActorsError
 
 @PreviewTest
@@ -13,7 +13,7 @@ import net.kikin.nubecita.feature.search.impl.SearchActorsError
 @Preview(name = "people-error-network-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PeopleInitialErrorBodyNetworkScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PeopleInitialErrorBody(error = SearchActorsError.Network, onRetry = {})
         }
@@ -25,7 +25,7 @@ private fun PeopleInitialErrorBodyNetworkScreenshot() {
 @Preview(name = "people-error-rate-limited-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PeopleInitialErrorBodyRateLimitedScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PeopleInitialErrorBody(error = SearchActorsError.RateLimited, onRetry = {})
         }
@@ -37,7 +37,7 @@ private fun PeopleInitialErrorBodyRateLimitedScreenshot() {
 @Preview(name = "people-error-unknown-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PeopleInitialErrorBodyUnknownScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             PeopleInitialErrorBody(
                 error = SearchActorsError.Unknown(cause = "Decode failure"),

@@ -6,7 +6,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.ImageUi
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [PostCardImageEmbed]'s 1/2/3/4-image grid
@@ -20,7 +20,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 @Preview(name = "single-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardImageEmbedSingleScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardImageEmbed(items = persistentListOf(previewImage(0)))
     }
 }
@@ -30,7 +30,7 @@ private fun PostCardImageEmbedSingleScreenshot() {
 @Preview(name = "two-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardImageEmbedTwoScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardImageEmbed(items = persistentListOf(previewImage(0), previewImage(1)))
     }
 }
@@ -40,7 +40,7 @@ private fun PostCardImageEmbedTwoScreenshot() {
 @Preview(name = "three-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardImageEmbedThreeScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardImageEmbed(
             items = persistentListOf(previewImage(0), previewImage(1), previewImage(2)),
         )
@@ -52,7 +52,7 @@ private fun PostCardImageEmbedThreeScreenshot() {
 @Preview(name = "four-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardImageEmbedFourScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardImageEmbed(
             items =
                 persistentListOf(
@@ -76,7 +76,7 @@ private fun PostCardImageEmbedFourScreenshot() {
 @Preview(name = "single-portrait-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardImageEmbedSinglePortraitScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardImageEmbed(items = persistentListOf(previewImage(0, aspectRatio = 4f / 5f)))
     }
 }
@@ -91,7 +91,7 @@ private fun PostCardImageEmbedSinglePortraitScreenshot() {
 @Preview(name = "single-ultra-tall-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun PostCardImageEmbedSingleUltraTallScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         PostCardImageEmbed(items = persistentListOf(previewImage(0, aspectRatio = 9f / 16f)))
     }
 }

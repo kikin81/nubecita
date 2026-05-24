@@ -5,7 +5,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
  * Screenshot baselines for [HighlightedText] covering the three
@@ -18,7 +18,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaScreenPreviewTheme
 @Preview(name = "highlighted-no-match-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun HighlightedTextNoMatchScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             HighlightedText(
                 text = "The quick brown fox jumps over the lazy dog",
@@ -33,7 +33,7 @@ private fun HighlightedTextNoMatchScreenshot() {
 @Preview(name = "highlighted-single-match-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun HighlightedTextSingleMatchScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             HighlightedText(
                 text = "The quick brown fox jumps over the lazy dog",
@@ -48,7 +48,7 @@ private fun HighlightedTextSingleMatchScreenshot() {
 @Preview(name = "highlighted-multi-match-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun HighlightedTextMultiMatchScreenshot() {
-    NubecitaScreenPreviewTheme {
+    NubecitaTheme(dynamicColor = false) {
         Surface {
             HighlightedText(
                 text = "Kotlin and KOTLIN and kotlin — same word, three cases",
