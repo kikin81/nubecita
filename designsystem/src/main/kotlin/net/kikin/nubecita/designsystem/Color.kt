@@ -87,11 +87,13 @@ object NubecitaPalette {
  * - **Raised affordance** → `surfaceContainerHigh` (message bubble, day chip)
  * - **Strong fill** → `surfaceContainerHighest` (thumbnails, shimmer, placeholders)
  *
- * `surfaceDim`, `surfaceBright`, and `surfaceContainerLowest` are reserved and
- * rejected by the detekt rule outside design-system internals.
+ * `surfaceDim`, `surfaceBright`, and `surfaceContainerLowest` are reserved.
+ * Workstream 4 adds a custom detekt rule that rejects them outside
+ * design-system internals; until then, code review enforces.
  *
- * `background` is set equal to `surface` and is treated as a synonym; new code
- * should reference `surface` (the detekt rule enforces this).
+ * `background` is set equal to `surface` and treated as a synonym; new code
+ * should reference `surface`. The workstream-4 detekt rule will enforce this;
+ * existing `background` call sites get migrated as part of workstream 3.
  */
 internal fun nubecitaLightColorScheme() =
     lightColorScheme(
