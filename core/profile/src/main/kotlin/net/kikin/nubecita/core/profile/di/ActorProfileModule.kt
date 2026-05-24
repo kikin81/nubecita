@@ -8,10 +8,17 @@ import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.core.profile.DefaultActorProfileRepository
 import javax.inject.Singleton
 
+// NOT `internal`: downstream instrumentation tests reach this class
+// via `@TestInstallIn(replaces = [ActorProfileModule::class])`, which
+// requires the module type to be addressable from outside `:core:profile`.
+// The `@Binds` method itself stays `internal` because Hilt's generated
+// factory lives in the same module — no caller needs the bind function
+// directly. Mirrors `core/auth/.../AuthBindingsModule` and
+// `core/preferences/.../UserPreferencesBindingsModule`.
 @Module
 @InstallIn(SingletonComponent::class)
-internal abstract class ActorProfileModule {
+abstract class ActorProfileModule {
     @Binds
     @Singleton
-    abstract fun bindActorProfileRepository(impl: DefaultActorProfileRepository): ActorProfileRepository
+    internal abstract fun bindActorProfileRepository(impl: DefaultActorProfileRepository): ActorProfileRepository
 }

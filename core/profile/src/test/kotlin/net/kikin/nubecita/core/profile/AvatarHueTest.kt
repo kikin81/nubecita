@@ -9,10 +9,12 @@ import org.junit.jupiter.api.Test
  * any drift in the seed shape, hashing, or modulo bounds surfaces in
  * the test suite rather than silently re-painting every avatar in the
  * app. Values captured by running
- * `Math.floorMod((did + handle.firstOrNull()).hashCode(), 360)` on
- * Java 17; `String.hashCode` is defined by the JVM spec
+ * `Math.floorMod((did + (handle.firstOrNull()?.toString() ?: "")).hashCode(), 360)`
+ * on Java 17; `String.hashCode` is defined by the JVM spec
  * (sum of `s[i] * 31^(n-1-i)`) so the numbers are stable across JVM
- * vendors and versions.
+ * vendors and versions. The `?: ""` branch matters for empty handles:
+ * without it, `firstOrNull().toString()` would emit the literal string
+ * `"null"` and the empty-handle hue would land on a different value.
  *
  * The same `(did, handle) → hue` pairs lock the cross-screen
  * "same user paints identically everywhere" contract that Profile,

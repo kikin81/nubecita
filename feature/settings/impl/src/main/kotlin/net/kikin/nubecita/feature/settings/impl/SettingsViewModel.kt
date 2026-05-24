@@ -75,7 +75,7 @@ internal class SettingsViewModel
                             avatarHue = avatarHueFor(did = signedIn.did, handle = signedIn.handle),
                         )
                     }
-                    fetchHeader(signedIn.did)
+                    fetchProfile(signedIn.did)
                 }.launchIn(viewModelScope)
         }
 
@@ -94,7 +94,7 @@ internal class SettingsViewModel
             }
         }
 
-        private fun fetchHeader(actor: String) {
+        private fun fetchProfile(actor: String) {
             viewModelScope.launch {
                 actorProfileRepository
                     .fetchProfile(actor)
