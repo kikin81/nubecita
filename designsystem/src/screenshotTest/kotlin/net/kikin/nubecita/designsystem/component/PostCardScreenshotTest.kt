@@ -3,6 +3,7 @@ package net.kikin.nubecita.designsystem.component
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewWrapper
 import com.android.tools.screenshot.PreviewTest
 import io.github.kikin81.atproto.app.bsky.richtext.Facet
 import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
@@ -18,7 +19,7 @@ import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
 import kotlin.time.Instant
 
 /**
@@ -69,54 +70,51 @@ private val SCREENSHOT_CREATED_AT: Instant = Instant.parse("2025-10-15T12:00:00Z
 @PreviewTest
 @Preview(name = "empty-body-light", showBackground = true)
 @Preview(name = "empty-body-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardEmptyBodyScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost(
-                    text = "",
-                    stats = PostStatsUi(),
-                    viewer = ViewerStateUi(),
-                ),
-        )
-    }
+    PostCard(
+        post =
+            screenshotPost(
+                text = "",
+                stats = PostStatsUi(),
+                viewer = ViewerStateUi(),
+            ),
+    )
 }
 
 @PreviewTest
 @Preview(name = "typical-light", showBackground = true)
 @Preview(name = "typical-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardTypicalScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(post = screenshotPost())
-    }
+    PostCard(post = screenshotPost())
 }
 
 @PreviewTest
 @Preview(name = "with-image-light", showBackground = true)
 @Preview(name = "with-image-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardWithImageScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost(
-                    embed =
-                        EmbedUi.Images(
-                            items =
-                                persistentListOf(
-                                    ImageUi(
-                                        fullsizeUrl = "https://example.com/preview.jpg",
-                                        thumbUrl = "https://example.com/preview.jpg",
-                                        altText = "Preview image",
-                                        aspectRatio = 1.5f,
-                                    ),
+    PostCard(
+        post =
+            screenshotPost(
+                embed =
+                    EmbedUi.Images(
+                        items =
+                            persistentListOf(
+                                ImageUi(
+                                    fullsizeUrl = "https://example.com/preview.jpg",
+                                    thumbUrl = "https://example.com/preview.jpg",
+                                    altText = "Preview image",
+                                    aspectRatio = 1.5f,
                                 ),
-                        ),
-                ),
-        )
-    }
+                            ),
+                    ),
+            ),
+    )
 }
 
 // Multi-image carousel coverage. Two fixtures lock the carousel branch
@@ -137,152 +135,147 @@ private fun PostCardWithImageScreenshot() {
 @PreviewTest
 @Preview(name = "with-3-images-light", showBackground = true)
 @Preview(name = "with-3-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardWith3ImagesScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost(
-                    embed =
-                        EmbedUi.Images(
-                            items =
-                                persistentListOf(
-                                    ImageUi(
-                                        fullsizeUrl = "https://example.com/preview-0.jpg",
-                                        thumbUrl = "https://example.com/preview-0.jpg",
-                                        altText = "Preview image 0",
-                                        aspectRatio = 1.5f,
-                                    ),
-                                    ImageUi(
-                                        fullsizeUrl = "https://example.com/preview-1.jpg",
-                                        thumbUrl = "https://example.com/preview-1.jpg",
-                                        altText = "Preview image 1",
-                                        aspectRatio = 1.5f,
-                                    ),
-                                    ImageUi(
-                                        fullsizeUrl = "https://example.com/preview-2.jpg",
-                                        thumbUrl = "https://example.com/preview-2.jpg",
-                                        altText = "Preview image 2",
-                                        aspectRatio = 1.5f,
-                                    ),
+    PostCard(
+        post =
+            screenshotPost(
+                embed =
+                    EmbedUi.Images(
+                        items =
+                            persistentListOf(
+                                ImageUi(
+                                    fullsizeUrl = "https://example.com/preview-0.jpg",
+                                    thumbUrl = "https://example.com/preview-0.jpg",
+                                    altText = "Preview image 0",
+                                    aspectRatio = 1.5f,
                                 ),
-                        ),
-                ),
-        )
-    }
+                                ImageUi(
+                                    fullsizeUrl = "https://example.com/preview-1.jpg",
+                                    thumbUrl = "https://example.com/preview-1.jpg",
+                                    altText = "Preview image 1",
+                                    aspectRatio = 1.5f,
+                                ),
+                                ImageUi(
+                                    fullsizeUrl = "https://example.com/preview-2.jpg",
+                                    thumbUrl = "https://example.com/preview-2.jpg",
+                                    altText = "Preview image 2",
+                                    aspectRatio = 1.5f,
+                                ),
+                            ),
+                    ),
+            ),
+    )
 }
 
 @PreviewTest
 @Preview(name = "with-3-images-mixed-aspect-light", showBackground = true)
 @Preview(name = "with-3-images-mixed-aspect-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardWith3ImagesMixedAspectScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost(
-                    embed =
-                        EmbedUi.Images(
-                            items =
-                                persistentListOf(
-                                    ImageUi(
-                                        fullsizeUrl = "https://example.com/preview-portrait.jpg",
-                                        thumbUrl = "https://example.com/preview-portrait.jpg",
-                                        altText = "Portrait image",
-                                        aspectRatio = 0.5f,
-                                    ),
-                                    ImageUi(
-                                        fullsizeUrl = "https://example.com/preview-landscape-0.jpg",
-                                        thumbUrl = "https://example.com/preview-landscape-0.jpg",
-                                        altText = "Landscape image 0",
-                                        aspectRatio = 16f / 9f,
-                                    ),
-                                    ImageUi(
-                                        fullsizeUrl = "https://example.com/preview-landscape-1.jpg",
-                                        thumbUrl = "https://example.com/preview-landscape-1.jpg",
-                                        altText = "Landscape image 1",
-                                        aspectRatio = 16f / 9f,
-                                    ),
+    PostCard(
+        post =
+            screenshotPost(
+                embed =
+                    EmbedUi.Images(
+                        items =
+                            persistentListOf(
+                                ImageUi(
+                                    fullsizeUrl = "https://example.com/preview-portrait.jpg",
+                                    thumbUrl = "https://example.com/preview-portrait.jpg",
+                                    altText = "Portrait image",
+                                    aspectRatio = 0.5f,
                                 ),
-                        ),
-                ),
-        )
-    }
+                                ImageUi(
+                                    fullsizeUrl = "https://example.com/preview-landscape-0.jpg",
+                                    thumbUrl = "https://example.com/preview-landscape-0.jpg",
+                                    altText = "Landscape image 0",
+                                    aspectRatio = 16f / 9f,
+                                ),
+                                ImageUi(
+                                    fullsizeUrl = "https://example.com/preview-landscape-1.jpg",
+                                    thumbUrl = "https://example.com/preview-landscape-1.jpg",
+                                    altText = "Landscape image 1",
+                                    aspectRatio = 16f / 9f,
+                                ),
+                            ),
+                    ),
+            ),
+    )
 }
 
 @PreviewTest
 @Preview(name = "unsupported-embed-light", showBackground = true)
 @Preview(name = "unsupported-embed-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardUnsupportedEmbedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post = screenshotPost(embed = EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")),
-        )
-    }
+    PostCard(
+        post = screenshotPost(embed = EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")),
+    )
 }
 
 @PreviewTest
 @Preview(name = "reposted-by-light", showBackground = true)
 @Preview(name = "reposted-by-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardRepostedByScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(post = screenshotPost(repostedBy = "Alice Chen"))
-    }
+    PostCard(post = screenshotPost(repostedBy = "Alice Chen"))
 }
 
 @PreviewTest
 @Preview(name = "long-handle-short-name-light", showBackground = true)
 @Preview(name = "long-handle-short-name-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardLongHandleShortNameScreenshot() {
     // Locks the AuthorLine truncation contract: a 30+ char handle MUST shrink
     // with ellipsis on a short display name, while the timestamp stays
     // right-pinned. Pre-fix, the timestamp wrapped to a second visual line.
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost().copy(
-                    author =
-                        AuthorUi(
-                            did = "did:plc:fakedid000000000000000",
-                            handle = "someverylonghandle.bsky.social",
-                            displayName = "Bob",
-                            avatarUrl = null,
-                        ),
-                ),
-        )
-    }
+    PostCard(
+        post =
+            screenshotPost().copy(
+                author =
+                    AuthorUi(
+                        did = "did:plc:fakedid000000000000000",
+                        handle = "someverylonghandle.bsky.social",
+                        displayName = "Bob",
+                        avatarUrl = null,
+                    ),
+            ),
+    )
 }
 
 @PreviewTest
 @Preview(name = "long-name-and-handle-light", showBackground = true)
 @Preview(name = "long-name-and-handle-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardLongNameAndHandleScreenshot() {
     // Both displayName and handle are long. Handle shrinks first (weighted),
     // displayName takes its intrinsic width up to remaining space, timestamp
     // stays right-pinned by the absorbing Spacer.
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost().copy(
-                    author =
-                        AuthorUi(
-                            did = "did:plc:fakedid000000000000000",
-                            handle = "someverylonghandle.bsky.social",
-                            displayName = "Alexandra Christopherson-Williamson",
-                            avatarUrl = null,
-                        ),
-                ),
-        )
-    }
+    PostCard(
+        post =
+            screenshotPost().copy(
+                author =
+                    AuthorUi(
+                        did = "did:plc:fakedid000000000000000",
+                        handle = "someverylonghandle.bsky.social",
+                        displayName = "Alexandra Christopherson-Williamson",
+                        avatarUrl = null,
+                    ),
+            ),
+    )
 }
 
 @PreviewTest
 @Preview(name = "thread-cluster-parent-light", showBackground = true)
 @Preview(name = "thread-cluster-parent-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardThreadClusterParentScreenshot() {
     // Locks the connector-bearing visual: connectAbove + connectBelow both
@@ -291,32 +284,29 @@ private fun PostCardThreadClusterParentScreenshot() {
     // to size.height. Geometry overrides (gutterX=40, avatarTop=14,
     // avatarBottom=54) compensate for PostCard's actual 40dp avatar with
     // 14dp vertical padding (the threadConnector defaults assume 44dp/12dp).
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(post = screenshotPost(), connectAbove = true, connectBelow = true)
-    }
+    PostCard(post = screenshotPost(), connectAbove = true, connectBelow = true)
 }
 
 @PreviewTest
 @Preview(name = "with-facets-light", showBackground = true)
 @Preview(name = "with-facets-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardWithFacetsScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        val text = "Hello @alice.bsky.social, check out https://nubecita.app"
-        val mention =
-            Facet(
-                features = listOf(FacetMention(did = Did("did:plc:fakedid000000000000000"))),
-                index = FacetByteSlice(byteStart = 6, byteEnd = 24),
-            )
-        val link =
-            Facet(
-                features = listOf(FacetLink(uri = Uri("https://nubecita.app"))),
-                index = FacetByteSlice(byteStart = 36, byteEnd = 56),
-            )
-        PostCard(
-            post = screenshotPost(text = text, facets = persistentListOf(mention, link)),
+    val text = "Hello @alice.bsky.social, check out https://nubecita.app"
+    val mention =
+        Facet(
+            features = listOf(FacetMention(did = Did("did:plc:fakedid000000000000000"))),
+            index = FacetByteSlice(byteStart = 6, byteEnd = 24),
         )
-    }
+    val link =
+        Facet(
+            features = listOf(FacetLink(uri = Uri("https://nubecita.app"))),
+            index = FacetByteSlice(byteStart = 36, byteEnd = 56),
+        )
+    PostCard(
+        post = screenshotPost(text = text, facets = persistentListOf(mention, link)),
+    )
 }
 
 // Like × repost permutation matrix for the action row. Pinned counts
@@ -328,63 +318,59 @@ private fun PostCardWithFacetsScreenshot() {
 @PreviewTest
 @Preview(name = "viewer-neutral-light", showBackground = true)
 @Preview(name = "viewer-neutral-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardViewerNeutralScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost(
-                    stats = PostStatsUi(replyCount = 12, repostCount = 4, likeCount = 86),
-                    viewer = ViewerStateUi(isLikedByViewer = false, isRepostedByViewer = false),
-                ),
-        )
-    }
+    PostCard(
+        post =
+            screenshotPost(
+                stats = PostStatsUi(replyCount = 12, repostCount = 4, likeCount = 86),
+                viewer = ViewerStateUi(isLikedByViewer = false, isRepostedByViewer = false),
+            ),
+    )
 }
 
 @PreviewTest
 @Preview(name = "viewer-liked-light", showBackground = true)
 @Preview(name = "viewer-liked-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardViewerLikedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost(
-                    stats = PostStatsUi(replyCount = 12, repostCount = 4, likeCount = 87),
-                    viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = false),
-                ),
-        )
-    }
+    PostCard(
+        post =
+            screenshotPost(
+                stats = PostStatsUi(replyCount = 12, repostCount = 4, likeCount = 87),
+                viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = false),
+            ),
+    )
 }
 
 @PreviewTest
 @Preview(name = "viewer-reposted-light", showBackground = true)
 @Preview(name = "viewer-reposted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardViewerRepostedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost(
-                    stats = PostStatsUi(replyCount = 12, repostCount = 5, likeCount = 86),
-                    viewer = ViewerStateUi(isLikedByViewer = false, isRepostedByViewer = true),
-                ),
-        )
-    }
+    PostCard(
+        post =
+            screenshotPost(
+                stats = PostStatsUi(replyCount = 12, repostCount = 5, likeCount = 86),
+                viewer = ViewerStateUi(isLikedByViewer = false, isRepostedByViewer = true),
+            ),
+    )
 }
 
 @PreviewTest
 @Preview(name = "viewer-liked-and-reposted-light", showBackground = true)
 @Preview(name = "viewer-liked-and-reposted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun PostCardViewerLikedAndRepostedScreenshot() {
-    NubecitaTheme(dynamicColor = false) {
-        PostCard(
-            post =
-                screenshotPost(
-                    stats = PostStatsUi(replyCount = 12, repostCount = 5, likeCount = 87),
-                    viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = true),
-                ),
-        )
-    }
+    PostCard(
+        post =
+            screenshotPost(
+                stats = PostStatsUi(replyCount = 12, repostCount = 5, likeCount = 87),
+                viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = true),
+            ),
+    )
 }

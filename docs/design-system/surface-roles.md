@@ -38,4 +38,20 @@ Every `Scaffold(` call must set `containerColor = MaterialTheme.colorScheme.surf
 - **Source of truth (this page)**: `docs/design-system/surface-roles.md`
 - **Design spec (decisions and rationale)**: `docs/superpowers/specs/2026-05-23-color-token-cascade-design.md`
 - **In code**: KDoc on `nubecitaLightColorScheme()` / `nubecitaDarkColorScheme()` in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/Color.kt` points back here.
-- **Preview / screenshot wrapper**: `NubecitaCanvasPreviewTheme` in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/` paints the screen-canvas role for previews and screenshot fixtures (workstream 2).
+- **Preview / screenshot wrappers**: see the next section.
+
+## Preview / screenshot wrappers
+
+Three wrappers cover the preview/screenshot space, each pinned to a different depth role + sizing contract. Pick the right one per fixture; never re-implement the theme + Surface boilerplate inline.
+
+| Wrapper | API shape | Surface paint | Sizing | Use case |
+|---|---|---|---|---|
+| `@PreviewNubecitaScreenPreviews` | Multi-preview annotation | (handled by callee) | Phone / Foldable / Tablet × Light / Dark sweep | Full-screen Composables that need device-size coverage. Apply on the stateful screen wrapper's preview fixture. |
+| `NubecitaCanvasPreviewTheme { … }` | Composable wrapper | `surface` (screen canvas) | `Modifier.fillMaxSize()` | Screen-level, dialog, or pane-level fixtures whose intent is to render against a full-bleed canvas. |
+| `@PreviewWrapper(NubecitaComponentPreview::class)` | Annotation on the fixture function (no inline wrapper body) | `surfaceContainer` (item card) | Wraps content's natural bounds (no `fillMaxSize`) | Component-level fixtures: atoms (avatars, buttons), single rows, isolated post cards. Resolves `LocalContentColor` to `onSurface` so dark-mode text doesn't fall back to `Color.Black` against a missing Surface ancestor. |
+
+`NubecitaTheme` directly (no extra wrapper) remains the escape hatch for fixtures that intentionally render without a Surface ancestor — rare, document the reason in a comment if you reach for it.
+
+**Why three:** they map one-to-one to the depth roles a Compose tree expects at render time. Screen-level fixtures want the canvas role; component fixtures want the item-card role; full-screen `Screen.kt` previews want the device-size sweep that the canvas wrapper supplies underneath each preview variant. Sharing a single wrapper across all three would force either the atom-balloon regression (everything stretches to the viewport) or the missing-Surface bug (atoms render without an ancestor, dark-mode text falls back to `Color.Black`).
+
+The `@PreviewWrapper` annotation pattern works under the AGP screenshot test plugin starting Compose BoM `2026.05.01` + plugin `0.0.1-alpha15` — the annotation is reflected at render time and the provider's `Wrap()` Composable surrounds the previewed content. Verified end-to-end in PR #299 (the workstream that introduced `NubecitaComponentPreview`). All three wrapper sources live in `designsystem/src/main/kotlin/net/kikin/nubecita/designsystem/preview/`.
