@@ -6,6 +6,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.persistentListOf
@@ -65,6 +67,12 @@ fun ThreadCluster(
     modifier: Modifier = Modifier,
     callbacks: PostCallbacks = PostCallbacks.None,
     hasEllipsis: Boolean = false,
+    // Surface tokens exposed as params so feed call sites (inside
+    // LazyColumn items) can hoist the CompositionLocal reads ONCE at the
+    // outer scope and pass the cached values per item. Defaults still
+    // read MaterialTheme so previews / standalone callers Just Work.
+    color: Color = MaterialTheme.colorScheme.surfaceContainer,
+    shape: Shape = MaterialTheme.shapes.medium,
     leafVideoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
     leafQuotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
     onFoldTap: () -> Unit = {},
@@ -85,8 +93,8 @@ fun ThreadCluster(
     // a thread is one logical unit. Inner PostCards stack tight inside
     // so connector lines remain continuous across the chain.
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.medium,
+        color = color,
+        shape = shape,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column {
