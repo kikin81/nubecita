@@ -18,10 +18,9 @@ import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
-import net.kikin.nubecita.feature.profile.api.Settings
 import net.kikin.nubecita.feature.profile.impl.ProfileScreen
 import net.kikin.nubecita.feature.profile.impl.ProfileViewModel
-import net.kikin.nubecita.feature.profile.impl.SettingsStubScreen
+import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 
 /**
@@ -31,9 +30,11 @@ import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
  * Bead F territory).
  *
  * `ListDetailSceneStrategy.listPane{}` metadata is applied here so that
- * Medium-width post-taps land in the right pane. The Settings entry now
- * resolves to [SettingsStubScreen] with a back-arrow that pops the inner
- * nav stack.
+ * Medium-width post-taps land in the right pane. The Settings sub-route
+ * graduated to `:feature:settings:impl` in nubecita-77l — Profile still
+ * imports the [Settings] NavKey from `:feature:settings:api` to push it
+ * onto the inner stack, but the screen itself is provided by
+ * `SettingsNavigationModule` over there.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -102,17 +103,6 @@ internal object ProfileNavigationModule {
                     // FeedScreen / FeedNavigationModule (PR3 of oftc.3).
                     onNavigateTo = { key -> navState.add(key) },
                 )
-            }
-        }
-
-    @Provides
-    @IntoSet
-    @MainShell
-    fun provideSettingsEntries(): EntryProviderInstaller =
-        {
-            entry<Settings> {
-                val navState = LocalMainShellNavState.current
-                SettingsStubScreen(onBack = { navState.removeLast() })
             }
         }
 }

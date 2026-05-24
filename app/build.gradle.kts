@@ -233,6 +233,8 @@ dependencies {
     implementation(project(":feature:profile:impl"))
     implementation(project(":feature:search:api"))
     implementation(project(":feature:search:impl"))
+    implementation(project(":feature:settings:api"))
+    implementation(project(":feature:settings:impl"))
     implementation(project(":feature:videoplayer:api"))
     implementation(project(":feature:videoplayer:impl"))
     implementation(libs.androidx.activity.compose)
