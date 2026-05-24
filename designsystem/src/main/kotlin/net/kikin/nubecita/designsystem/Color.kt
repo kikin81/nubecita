@@ -74,6 +74,27 @@ object NubecitaPalette {
     val Warning80 = Color(0xFFFFCC80)
 }
 
+/**
+ * The M3 `surface*` tokens in these color schemes are assigned to depth
+ * roles — pick the role first, then the token follows from the table.
+ * Full contract: `docs/design-system/surface-roles.md`.
+ *
+ * Role → token at a glance:
+ *
+ * - **Screen canvas** → `surface` (Scaffold/modal root)
+ * - **Item card** → `surfaceContainer` (post card, settings section, convo row)
+ * - **Recessed inset** → `surfaceContainerLow` (anything nested inside an item card)
+ * - **Raised affordance** → `surfaceContainerHigh` (message bubble, day chip)
+ * - **Strong fill** → `surfaceContainerHighest` (thumbnails, shimmer, placeholders)
+ *
+ * `surfaceDim`, `surfaceBright`, and `surfaceContainerLowest` are reserved.
+ * Workstream 4 adds a custom detekt rule that rejects them outside
+ * design-system internals; until then, code review enforces.
+ *
+ * `background` is set equal to `surface` and treated as a synonym; new code
+ * should reference `surface`. The workstream-4 detekt rule will enforce this;
+ * existing `background` call sites get migrated as part of workstream 3.
+ */
 internal fun nubecitaLightColorScheme() =
     lightColorScheme(
         primary = NubecitaPalette.Sky50,
