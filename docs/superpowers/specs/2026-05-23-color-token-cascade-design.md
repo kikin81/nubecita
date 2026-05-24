@@ -120,7 +120,7 @@ Lint-rule-first would explode CI on every WIP branch. Migration-first means each
 
 - **Screenshot baselines** regenerate per workstream-3 PR under the `update-baselines` label. The diff is one feature surface per PR (feed, post-detail, composer, chats, search, profile, login/onboarding).
 - **`NubecitaThemeTest`** extends with role-mapping assertions: each role resolves to the expected M3 token in both light and dark schemes.
-- **`ColorSchemeTest`** extends with a depth-ordering invariant: in dark mode, `surfaceContainerLow.luminance < surfaceContainer.luminance < surfaceContainerHigh.luminance < surfaceContainerHighest.luminance`. In light mode, the inverse. Catches palette drift.
+- **`ColorSchemeTest`** extends with a depth-ordering invariant: in dark mode, `surfaceContainerLow.luminance() < surfaceContainer.luminance() < surfaceContainerHigh.luminance() < surfaceContainerHighest.luminance()` (using Compose's built-in `Color.luminance()` extension, see "Implementation notes" below). In light mode, the inverse. Catches palette drift.
 - **`NubecitaScreenPreviewTheme`** ships with its own screenshot test demonstrating canvas paint in both modes.
 - **Rollback unit**: each workstream PR is independently revertible. Workstream 2 (preview wrapper) can't be partially reverted without breaking tests but has no production-render impact.
 
@@ -128,7 +128,7 @@ Lint-rule-first would explode CI on every WIP branch. Migration-first means each
 
 | Risk | Mitigation |
 |---|---|
-| `PostCard`-as-card visual change is too aggressive and the team wants to revert. | Workstream 3a is a single PR — revertable in isolation without touching the contract or the lint rule. |
+| `PostCard`-as-card visual change is too aggressive and the team wants to revert. | Workstream 3a is a single PR — revertible in isolation without touching the contract or the lint rule. |
 | The `Composer` inner Surface (line 412) has a non-obvious reason for being there. | Workstream 3c investigates before deleting; if the paint serves the IME-pinned bottom bar specifically, document and keep. |
 | Detekt rule false positives in `:designsystem` internals. | Rule's allowlist is path-based on `:designsystem/src/main/` and `MainShell.kt`; can extend if needed. |
 | Tablet-modal Settings (in `SettingsModalWrapper`) currently uses a `Surface` with no explicit color → defaults to `surface` + `tonalElevation = 6.dp`. The contract says modals are item cards (`surfaceContainer`). | Treat modal surfaces as "screen canvas in a window" — keep `surface` with tonal elevation. **M3 tonal elevation is allowed only on `surface` tokens representing windowed bounds: Dialog, BottomSheet, modal surfaces.** For in-layout content hierarchy (cards, embeds, rows) tonal elevation is deprecated in favor of explicit `surfaceContainer*` token steps from the role table. Avoids needing a sixth role and removes the ambiguity of "use a container token or use tonal elevation?" |
