@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -64,6 +65,7 @@ class NubecitaFcmServiceInstrumentationTest {
     private lateinit var mutedActorRepository: MutedActorRepository
     private lateinit var sessionStateProvider: FakeSessionStateProvider
     private lateinit var dataStoreScope: CoroutineScope
+    private lateinit var mainScope: CoroutineScope
     private lateinit var dataStoreFile: File
     private lateinit var dataStore: DataStore<Preferences>
 
@@ -95,11 +97,19 @@ class NubecitaFcmServiceInstrumentationTest {
         // directly.
         NotificationChannelInstaller().install(context)
 
+        // SupervisorJob explicitly so a single child failure doesn't tear
+        // down sibling work. Two test-owned scopes — one for DataStore I/O,
+        // one for the Main-dispatched coroutines the coordinator / appScope
+        // launch into. Both held by reference so tearDown can actually
+        // cancel them (inline `CoroutineScope(Dispatchers.X)` without a
+        // captured reference would leak coroutines across tests).
+        dataStoreScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
         // Real MutedActorRepository over a fresh temp DataStore. We never
         // call refresh(), so the snapshot stays empty for the happy-path
         // tests; the muted-actor drop test calls a tiny helper that sets the
         // snapshot directly via a refresh against a stub mute payload.
-        dataStoreScope = CoroutineScope(Dispatchers.IO)
         dataStoreFile = File(context.cacheDir, "muted-${System.nanoTime()}.preferences_pb")
         dataStore =
             PreferenceDataStoreFactory.create(
@@ -142,13 +152,13 @@ class NubecitaFcmServiceInstrumentationTest {
                             object : FcmAutoInit {
                                 override fun enable() = Unit
                             },
-                        scope = CoroutineScope(Dispatchers.Main),
+                        scope = mainScope,
                     )
                 it.dispatcher = PushDispatcher()
                 it.notificationBuilder = PushNotificationBuilder(android.R.drawable.ic_dialog_info)
                 it.mutedActorRepository = mutedActorRepository
                 it.sessionStateProvider = sessionStateProvider
-                it.appScope = CoroutineScope(Dispatchers.Main)
+                it.appScope = mainScope
             }
     }
 
@@ -156,6 +166,7 @@ class NubecitaFcmServiceInstrumentationTest {
     fun tearDown() {
         // Clear any notification the test posted so a re-run starts clean.
         managerCompat.cancelAll()
+        mainScope.cancel()
         dataStoreScope.cancel()
         dataStoreFile.delete()
     }

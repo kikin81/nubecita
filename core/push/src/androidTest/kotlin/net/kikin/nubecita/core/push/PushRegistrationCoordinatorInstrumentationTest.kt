@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import io.ktor.http.encodedPath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -62,8 +63,14 @@ class PushRegistrationCoordinatorInstrumentationTest {
         // the coordinator's scope mid-test without tearing down DataStore
         // before the test's verification reads complete.
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        dataStoreScope = CoroutineScope(Dispatchers.IO)
-        coordinatorScope = CoroutineScope(Dispatchers.Main)
+        // SupervisorJob explicitly so a single child failure (e.g. one
+        // DataStore corruption) doesn't tear down the rest of the scope —
+        // makes test failures fail-by-assertion, not fail-by-cascade.
+        // (`CoroutineScope(dispatcher)` auto-injects a regular Job, but
+        // being explicit about the supervisor shape is clearer for the
+        // next reader.)
+        dataStoreScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        coordinatorScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         dataStoreFile = File(context.cacheDir, "test-${System.nanoTime()}.preferences_pb")
         dataStore =
             PreferenceDataStoreFactory.create(

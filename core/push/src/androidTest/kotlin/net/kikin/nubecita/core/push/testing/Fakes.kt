@@ -15,6 +15,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.push.FcmAutoInit
 import net.kikin.nubecita.core.push.FcmTokenProvider
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -48,10 +49,17 @@ class FakeXrpcClientProvider(
 
 /**
  * Ktor [MockEngine] wrapper that captures every outgoing request and the
- * JSON body (if any) into thread-safe lists. Default response is HTTP 200
- * with body `{}` so the generated `NotificationService.registerPush`
- * deserializer (kotlinx UnitSerializer accepts `{}`) doesn't choke; tests
- * that want a failure path build their own [MockEngine].
+ * JSON body (if any) into thread-safe lists. Ktor's HttpClient can invoke
+ * the engine handler from concurrent dispatchers when the calling code
+ * uses async/await, so the captured-request / captured-body lists are
+ * wrapped in [Collections.synchronizedList] — adds are atomic; iteration
+ * for assertions is single-threaded by convention (tests `await` before
+ * asserting).
+ *
+ * Default response is HTTP 200 with body `{}` so the generated
+ * `NotificationService.registerPush` deserializer (kotlinx UnitSerializer
+ * accepts `{}`) doesn't choke; tests that want a failure path build
+ * their own [MockEngine].
  */
 class RecordingMockEngine private constructor(
     val engine: MockEngine,
@@ -60,8 +68,8 @@ class RecordingMockEngine private constructor(
 ) {
     companion object {
         fun respondingWithEmpty(): RecordingMockEngine {
-            val capturedRequests = mutableListOf<HttpRequestData>()
-            val capturedBodies = mutableListOf<String>()
+            val capturedRequests: MutableList<HttpRequestData> = Collections.synchronizedList(mutableListOf())
+            val capturedBodies: MutableList<String> = Collections.synchronizedList(mutableListOf())
             val engine =
                 MockEngine { request ->
                     capturedRequests += request
