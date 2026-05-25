@@ -25,6 +25,7 @@ import timber.log.Timber
 internal class DefaultPushRegistrationRepository(
     private val xrpcClientProvider: XrpcClientProvider,
     private val appId: String,
+    private val gateway: PushGatewayConfig,
 ) : PushRegistrationRepository {
     override suspend fun register(
         @Suppress("UNUSED_PARAMETER") did: String,
@@ -34,12 +35,12 @@ internal class DefaultPushRegistrationRepository(
             NotificationService(xrpcClientProvider.authenticated()).registerPush(
                 request =
                     RegisterPushRequest(
-                        serviceDid = Did(SERVICE_DID),
+                        serviceDid = Did(gateway.serviceDid),
                         token = fcmToken,
                         platform = PLATFORM_ANDROID,
                         appId = appId,
                     ),
-                proxy = PROXY,
+                proxy = gateway.proxyDid,
             )
         }.onFailure(::logRegistrationFailure)
 
@@ -51,12 +52,12 @@ internal class DefaultPushRegistrationRepository(
             NotificationService(xrpcClientProvider.authenticated()).unregisterPush(
                 request =
                     UnregisterPushRequest(
-                        serviceDid = Did(SERVICE_DID),
+                        serviceDid = Did(gateway.serviceDid),
                         token = fcmToken,
                         platform = PLATFORM_ANDROID,
                         appId = appId,
                     ),
-                proxy = PROXY,
+                proxy = gateway.proxyDid,
             )
         }.onFailure(::logRegistrationFailure)
 
@@ -88,8 +89,11 @@ internal class DefaultPushRegistrationRepository(
     }
 
     companion object {
-        const val PROXY = "did:web:push.nubecita.app#bsky_notif"
-        const val SERVICE_DID = "did:web:push.nubecita.app"
+        // `PLATFORM_ANDROID` is a protocol-level constant required by the
+        // `app.bsky.notification.registerPush` lexicon, not a gateway-level
+        // value — so it stays here rather than moving to [PushGatewayConfig].
+        // Gateway identity (serviceDid + proxyDid) lives in
+        // [PushGatewayConfig.Nubecita] and is injected via Hilt.
         const val PLATFORM_ANDROID = "android"
         private const val TAG = "PushRegistration"
     }

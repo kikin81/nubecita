@@ -117,6 +117,7 @@ class DefaultPushRegistrationRepositoryTest {
                 DefaultPushRegistrationRepository(
                     xrpcClientProvider = ThrowingProvider { throw NoSessionException() },
                     appId = appId,
+                    gateway = PushGatewayConfig.Nubecita,
                 )
 
             val result = repository.register(did = viewerDid, fcmToken = fcmToken)
@@ -132,6 +133,7 @@ class DefaultPushRegistrationRepositoryTest {
         DefaultPushRegistrationRepository(
             xrpcClientProvider = StaticProvider(authenticatedClient(engine)),
             appId = appId,
+            gateway = PushGatewayConfig.Nubecita,
         )
 
     private fun authenticatedClient(engine: MockEngine): XrpcClient =
