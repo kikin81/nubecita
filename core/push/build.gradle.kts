@@ -11,7 +11,10 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.lifecycle.process)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.firebase.messaging)
@@ -26,4 +29,10 @@ dependencies {
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
+
+    androidTestImplementation(libs.androidx.core.ktx)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.junit)
 }

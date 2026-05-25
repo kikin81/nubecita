@@ -191,6 +191,13 @@
                     android:host="profile" />
             </intent-filter>
         </activity>
+        <!--
+            FCM messaging service is registered from `:core:push`'s own
+            AndroidManifest.xml so the manifest entry stays co-located with
+            the implementation class and `:core:push`'s lint sees it (the
+            class isn't on `:app`'s compile classpath because the dep is
+            declared `implementation`, not `api`).
+        -->
     </application>
 
 </manifest>
