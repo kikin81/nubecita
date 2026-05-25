@@ -181,6 +181,8 @@ This guarantees push is torn down regardless of how the session ended — manual
 
 `:core:auth` requires NO modifications for this — the surface is unchanged. The push module is purely a new consumer.
 
+**Verified during Phase 1 (`nubecita-da4n`):** `DefaultSessionStateProvider.refresh()` and `DefaultAuthRepository.{completeLogin, signOut}` were read end-to-end; both auth-mutation paths drive `sessionStateProvider.refresh()`, which emits the `SignedIn` / `SignedOut` transitions the coordinator needs. No refresh-failure-driven auto-logout path exists today, which is acceptable for the coordinator's retry/backoff model — a SignedIn user whose subsequent register calls keep failing rides the in-process backoff (five total attempts: one immediate + four delayed at 5s/30s/2m/8m) and waits for the next state emission, exactly as the design intends.
+
 **Alternative considered:** A `SharedFlow<SessionEvent>` of one-shot events (Established / Ended). Rejected — the existing StateFlow gives "current state on subscribe" semantics the coordinator wants for cold-start, and forking a parallel SharedFlow would split the source of truth.
 
 **Alternative considered:** Push the unregister call into the Settings "Sign out" button's ViewModel directly. Rejected — couples push to a UI surface; misses non-button logout paths (token revocation, multi-account switch).

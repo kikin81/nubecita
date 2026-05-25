@@ -215,6 +215,7 @@ dependencies {
     // :data:models in nubecita-vrba.4 and is now reachable transitively.
     implementation(project(":core:posting"))
     implementation(project(":core:preferences"))
+    implementation(project(":core:push"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
     implementation(project(":feature:chats:impl"))
