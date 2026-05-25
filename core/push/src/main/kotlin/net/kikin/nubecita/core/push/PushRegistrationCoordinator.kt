@@ -98,34 +98,41 @@ class PushRegistrationCoordinator(
             }
     }
 
-    /**
-     * FCM's `onNewToken` callback hands the new token here. The token is
-     * unconditionally re-registered against the currently-signed-in account
-     * (if any) and any in-flight register against the stale token is
-     * cancelled first. Signed-out callers are dropped — a token rotation
-     * for a device with no live session is meaningless to the gateway.
-     */
     suspend fun onTokenRotated(token: String) {
-        val current = sessionStateProvider.state.value
-        if (current is SessionState.SignedIn) {
-            launchRegister { registerWithBackoff(did = current.did, fcmToken = token) }
+        // Fast path: skip the mutex acquire + job-cancel work when there's
+        // no session to register against. The inner re-check below is the
+        // race-defense; this outer check avoids pointless work on the common
+        // signed-out path (e.g. FCM token rotation while the app is logged
+        // out at app launch).
+        if (sessionStateProvider.state.value !is SessionState.SignedIn) return
+        launchRegister {
+            // Re-check inside the launched block: between the outer fast-path
+            // check and here, a SignedOut emission could have raced through
+            // the collector and torn down the local store. If so, skip
+            // silently — registering for a session that no longer exists
+            // would leak a (DID, token) tuple onto the gateway with no
+            // matching client.
+            val current = sessionStateProvider.state.value
+            if (current is SessionState.SignedIn) {
+                registerWithBackoff(did = current.did, fcmToken = token)
+            }
         }
     }
 
     private suspend fun onSessionEstablished(did: String) {
+        val tokenResult = runCatchingExceptCancellation { tokenProvider.current() }
         val token =
-            runCatching { tokenProvider.current() }
-                .getOrElse {
-                    Timber.tag(TAG).e(it, "FcmTokenProvider.current() failed; deferring registration")
-                    stateStore.write(
-                        PushRegistrationState(
-                            accountDid = did,
-                            fcmToken = stateStore.read().fcmToken,
-                            status = PushRegistrationState.Status.Failed,
-                        ),
-                    )
-                    return
-                }
+            tokenResult.getOrElse {
+                Timber.tag(TAG).e(it, "FcmTokenProvider.current() failed; deferring registration")
+                stateStore.write(
+                    PushRegistrationState(
+                        accountDid = did,
+                        fcmToken = stateStore.read().fcmToken,
+                        status = PushRegistrationState.Status.Failed,
+                    ),
+                )
+                return
+            }
         val stored = stateStore.read()
         if (
             stored.status == PushRegistrationState.Status.Succeeded &&

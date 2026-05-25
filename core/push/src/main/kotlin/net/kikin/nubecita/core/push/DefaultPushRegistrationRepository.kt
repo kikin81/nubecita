@@ -33,7 +33,7 @@ internal class DefaultPushRegistrationRepository(
         @Suppress("UNUSED_PARAMETER") did: String,
         fcmToken: String,
     ): Result<Unit> =
-        runCatching {
+        runCatchingExceptCancellation {
             val client = xrpcClientProvider.authenticated()
             client.procedure(
                 nsid = NSID_REGISTER,
@@ -56,7 +56,7 @@ internal class DefaultPushRegistrationRepository(
         @Suppress("UNUSED_PARAMETER") did: String,
         fcmToken: String,
     ): Result<Unit> =
-        runCatching {
+        runCatchingExceptCancellation {
             val client = xrpcClientProvider.authenticated()
             client.procedure(
                 nsid = NSID_UNREGISTER,
