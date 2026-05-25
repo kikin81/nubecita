@@ -50,15 +50,16 @@ The future in-app notifications list (the one that calls `listNotifications` / `
 
 **Alternative considered:** Bundle everything (FCM service + future in-app screen) inside `:feature:notifications:impl`. Rejected — couples an Android `Service` subclass to a Compose-using module, drags Compose deps into the FCM hot path, and confuses the seam between "invisible system surface" and "in-app screen."
 
-### Decision: `XrpcClient.procedure(...)` directly, not through `NotificationService.registerPush`
+### Decision: `NotificationService.{register,unregister}Push(request, proxy = …)` ✅ RESOLVED
 
-The generated `NotificationService.registerPush(request)` in atproto-kotlin `8.1.0` (the version currently pinned in `gradle/libs.versions.toml`) does NOT expose a `proxy: String?` parameter — it hardcodes the call to `client.procedure(...)` without a `proxy` argument. Verified by reading the generated source in the local Gradle cache. The gateway contract REQUIRES `atproto-proxy: did:web:push.nubecita.app#bsky_notif`. So we bypass the service wrapper and call `XrpcClient.procedure(nsid = "app.bsky.notification.registerPush", proxy = "did:web:push.nubecita.app#bsky_notif", params = NoXrpcParams, paramsSerializer = NoXrpcParams.serializer(), input = RegisterPushRequest(...), inputSerializer = RegisterPushRequest.serializer(), responseSerializer = UnitResponseSerializer)` directly. The typed DTOs are the same ones the library already ships.
+**Resolved in atproto-kotlin `9.0.0`** ([kikin81/atproto-kotlin#117](https://github.com/kikin81/atproto-kotlin/issues/117)): every generated `*Service.<method>(...)` now accepts a per-method `proxy: String? = null` argument. nubecita bumped to `9.0.1` in PR #304 and `:core:push`'s `DefaultPushRegistrationRepository` now calls `NotificationService(client).registerPush(request, proxy = "did:web:push.nubecita.app#bsky_notif")` via the generated wrapper — the historical bypass below is no longer in the codebase.
 
-This is a localized divergence — one call site for `register`, one for `unregister`. The upstream improvement (add a `proxy` parameter to `NotificationService.registerPush`) is filed as a follow-on `kikin81/atproto-kotlin` issue; when it lands we swap to the generated path.
+**Historical context (for readers of older commits):** prior to 9.0.0, the generated `NotificationService.registerPush(request)` in atproto-kotlin `8.1.0` did NOT expose a `proxy: String?` parameter — it hardcoded the call to `client.procedure(...)` without one. Because the gateway contract REQUIRES `atproto-proxy: did:web:push.nubecita.app#bsky_notif`, Phase 1 ([nubecita-da4n](https://github.com/kikin81/nubecita/pull/301)) shipped a localized bypass that called `XrpcClient.procedure(nsid = "app.bsky.notification.registerPush", proxy = …, …)` directly with the typed DTOs the library already ships. That divergence was tracked in bd `nubecita-47xg` and removed once the upstream fix landed.
 
-**Alternative considered:** Subclass `NotificationService` and override `registerPush`. Rejected — Kotlin generated classes aren't designed for subclassing; cleaner to call the underlying `XrpcClient` API the generated service is a thin wrapper over.
+**Alternatives considered at the time of the bypass:**
 
-**Alternative considered:** Wrap `XrpcClient` itself with a delegate that injects the proxy header for specific NSIDs. Rejected — overreach for two call sites; couples the runtime client to nubecita-specific routing.
+- Subclass `NotificationService` and override `registerPush`. Rejected — Kotlin generated classes aren't designed for subclassing; the underlying `XrpcClient.procedure` API the wrapper delegated to was the cleaner seam.
+- Wrap `XrpcClient` itself with a delegate that injects the proxy header for specific NSIDs. Rejected — overreach for two call sites; would have coupled the runtime client to nubecita-specific routing.
 
 ### Decision: Cold-start re-register is gated by a dirty flag, not unconditional
 

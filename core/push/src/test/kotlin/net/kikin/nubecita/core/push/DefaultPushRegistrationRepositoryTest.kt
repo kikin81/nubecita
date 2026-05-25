@@ -168,9 +168,13 @@ class DefaultPushRegistrationRepositoryTest {
                         capturedRequests += request
                         capturedBodies += (request.body as? TextContent)?.text.orEmpty()
                         respond(
-                            // UnitResponseSerializer decodes Unit as `{}`. An empty
-                            // body raises JsonDecodingException — the gateway always
-                            // emits a JSON document, so mirror that on the mock.
+                            // atproto-kotlin's UnitResponseSerializer accepts both
+                            // an empty body and `{}` (kikin81/atproto-kotlin#119
+                            // landed the empty-body fix in 9.0.1). The mock still
+                            // emits `{}` to exercise the stricter shape — if a
+                            // future release tightens UnitResponseSerializer back,
+                            // these tests would catch it. The gateway itself
+                            // returns empty body on success in production.
                             content = ByteReadChannel("{}"),
                             status = HttpStatusCode.OK,
                             headers = headersOf("Content-Type", "application/json"),
