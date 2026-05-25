@@ -13,7 +13,7 @@ Stack: Coil 3 (images), Media3 (video), `atproto-kotlin` SDK (networking), DataS
 ./gradlew testDebugUnitTest
 ./gradlew spotlessCheck lint :app:checkSortDependencies
 ./gradlew jacocoTestReportAggregated
-./gradlew :designsystem:validateDebugScreenshotTest     # screenshot baselines
+./gradlew :designsystem:validateDebugScreenshotTest     # validate against committed screenshot baselines
 ./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest  # Macrobenchmark, needs connected device/emulator
 
 # Compose Compiler stability + recomposition reports (perf audits)
@@ -87,7 +87,7 @@ Every Android module's `build.gradle.kts` applies one of the convention plugins 
 | `nubecita.android.application` | `:app` only |
 | `nubecita.android.benchmark` | `:benchmark` only (AGP test variant + baseline profile producer) |
 | `nubecita.android.room` | Add-on for modules that own Room entities/DAOs (`:core:database`) |
-| `nubecita.android.jacoco` | Applied transitively by `library` and `application` — every Android module gets it |
+| `nubecita.android.jacoco` | Applied transitively by `library` and `application` (not `benchmark`) — all library and application modules get it automatically |
 
 #### Feature-module sequencing: `:api`-only stubs
 
@@ -134,7 +134,7 @@ feature/
   onboarding/{api,impl}  onboarding flow
   postdetail/{api,impl}  thread view (ancestors + focus + replies)
   profile/{api,impl}     user profile with hero + Posts/Replies/Media tabs
-  search/{api,impl}      search (api-only stub for now)
+  search/{api,impl}      search with typeahead, posts/people/feeds tabs, and recent search
   settings/{api,impl}    settings screen
   videoplayer/{api,impl} inline video player
 benchmark/               Macrobenchmark + BaselineProfile generator
@@ -259,8 +259,9 @@ Feature modules that ship UI-touching tasks MUST include `@Preview` annotations 
 |---|---|---|
 | `lint` | PR, push to `main` | pre-commit, Spotless, Android Lint, checkSortDependencies, semantic-release dry-run |
 | `test` | PR, push to `main` | `testDebugUnitTest`, JaCoCo coverage, madrapps/jacoco-report comment |
-| `build` | PR, push to `main` | `assembleDebug`, screenshot test validation |
-| `instrumented` | PR with `run-instrumented` label | Connected device tests (runs on `ubuntu-latest` with emulator) |
+| `build` | PR, push to `main` | `assembleDebug` |
+| `screenshot` | PR, push to `main` | `validateDebugScreenshotTest` against committed baselines |
+| `instrumented` | push to `main`, `workflow_dispatch`, PR with `run-instrumented` label | Connected device tests (runs on `ubuntu-latest` with emulator) |
 | Release | push to `main` | semantic-release → GitHub release → Google Play upload |
 
 ## OpenSpec workflow
