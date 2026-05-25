@@ -2,18 +2,23 @@
 
 ## Project overview
 
-Nubecita — a fast, lightweight, native Android client for [Bluesky](https://bsky.app) and the AT Protocol. Kotlin + Jetpack Compose with Material 3 Expressive, MVI on `ViewModel` + `StateFlow`, Hilt for DI. 100% native; 120hz scrolling is a hard requirement.
+Nubecita — a fast, lightweight, native Android client for [Bluesky](https://bsky.app) and the AT Protocol. Kotlin 2.3 + Jetpack Compose with Material 3 Expressive, MVI on `ViewModel` + `StateFlow`, Hilt for DI. 100% native; 120hz scrolling is a hard requirement.
 
-Pending: Room (persistence), Coil (images), `atproto-kotlin` (networking) — listed in the README stack, not yet wired.
+Stack: Coil 3 (images), Media3 (video), `atproto-kotlin` SDK (networking), DataStore + Tink (encrypted OAuth sessions), Room (offline caches — `:core:database` is wired), Navigation 3. Firebase Analytics + Crashlytics + App Check are integrated.
 
 ## Key commands
 
 ```bash
 ./gradlew :app:assembleDebug
 ./gradlew testDebugUnitTest
-./gradlew spotlessCheck lint
+./gradlew spotlessCheck lint :app:checkSortDependencies
 ./gradlew jacocoTestReportAggregated
+./gradlew :designsystem:validateDebugScreenshotTest     # validate against committed screenshot baselines
 ./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest  # Macrobenchmark, needs connected device/emulator
+
+# Compose Compiler stability + recomposition reports (perf audits)
+./gradlew :app:assembleRelease -PcomposeReports=true -PdebugSignedRelease=true
+# reports land at <module>/build/compose_compiler/
 
 pre-commit run --all-files
 ```
@@ -65,20 +70,24 @@ Use `Refs:` on work-in-progress commits. `Closes: <bd-id>` goes in the **PR body
 - Spotless + ktlint 1.4.1 + Compose rules.
 - Conventional Commits enforced by commitlint.
 - `main` is protected; feature branches + PRs only.
+- Add `run-instrumented` label to a PR to trigger the CI instrumented-test job (off by default).
 
 ### Module conventions
 
-Non-UI shared capabilities live under `:core:*` (e.g. `:core:auth`). Feature modules follow the Navigation 3 api/impl split: `:feature:<name>:api` holds `NavKey` types only, `:feature:<name>:impl` holds screens, ViewModels, and Hilt modules that contribute `@IntoSet EntryProviderInstaller` multibindings. `:app` stays a thin shell that aggregates the DI graph, wires `NavDisplay`, and hosts `MainActivity`.
+Non-UI shared capabilities live under `:core:*`. Feature modules follow the Navigation 3 api/impl split: `:feature:<name>:api` holds `NavKey` types only, `:feature:<name>:impl` holds screens, ViewModels, and Hilt modules that contribute `@IntoSet EntryProviderInstaller` multibindings. `:app` stays a thin shell that aggregates the DI graph, wires `NavDisplay`, and hosts `MainActivity`.
 
-Every Android module's `build.gradle.kts` applies one of five convention plugins shipped by the `build-logic/` composite build. The plugins centralize SDK versions, JVM toolchain, Compose wiring, and Hilt wiring. Modules declare only their namespace and module-specific deps. Plugin roster and "how to add a new module" recipe: `build-logic/README.md`.
+Every Android module's `build.gradle.kts` applies one of the convention plugins shipped by the `build-logic/` composite build. The plugins centralize SDK versions, JVM toolchain, Compose wiring, and Hilt wiring. Modules declare only their namespace and module-specific deps. Plugin roster and "how to add a new module" recipe: `build-logic/README.md`.
 
 | Plugin | Module type |
 |--------|-------------|
 | `nubecita.android.library` | Non-UI library (`:core:*` without Compose) |
-| `nubecita.android.library.compose` | Compose-using library (`:designsystem`) |
+| `nubecita.android.library.compose` | Compose-using library (`:designsystem`, `:core:common`) |
 | `nubecita.android.hilt` | Add-on for library modules that use Hilt |
 | `nubecita.android.feature` | `:feature:*:impl` modules (meta: library + compose + hilt + common feature deps) |
 | `nubecita.android.application` | `:app` only |
+| `nubecita.android.benchmark` | `:benchmark` only (AGP test variant + baseline profile producer) |
+| `nubecita.android.room` | Add-on for modules that own Room entities/DAOs (`:core:database`) |
+| `nubecita.android.jacoco` | Applied transitively by `library` and `application` (not `benchmark`) — all library and application modules get it automatically |
 
 #### Feature-module sequencing: `:api`-only stubs
 
@@ -93,9 +102,49 @@ When a feature is named in a navigation surface (e.g. a tab in `MainShell`) befo
 
 Each `:feature:*:impl` module that contributes a `@Provides @IntoSet EntryProviderInstaller` MUST annotate the provider with exactly one of `@OuterShell` or `@MainShell` (defined in `:core:common:navigation`). The qualifier decides which `NavDisplay` collects the entry — an unqualified provider is dropped by both. Login goes on `@OuterShell`; everything tab-related (Feed, Search, Chats, Profile, sub-routes like Settings or PostDetail) goes on `@MainShell`.
 
+### Module map
+
+```
+app/                     thin shell; aggregates DI, hosts NavDisplay + MainActivity
+build-logic/             composite build with eight Gradle convention plugins
+core/
+  auth/                  OAuth session storage + token refresh (Tink-encrypted DataStore)
+  common/                MVI base, navigation qualifiers, coroutine dispatchers, time utils
+  database/              Room database, entities, DAOs, migrations
+  feed-mapping/          atproto wire types → UI model mappers (PostUi, EmbedUi, AuthorUi)
+  post-interactions/     like / repost / follow primitives
+  posting/               post-creation domain (ComposerError, ComposerAttachment)
+  posts/                 post fetching repositories
+  preferences/           DataStore preferences (non-encrypted, user settings)
+  profile/               profile fetching (getProfile XRPC)
+  push/                  FCM token registration + notification handling
+  testing/               JVM test helpers (MainDispatcherExtension)
+  testing-android/       androidTest helpers (HiltTestRunner, HiltTestActivity, MockEngineModule)
+  video/                 Media3 / ExoPlayer coordinator (single-player, HLS)
+data/
+  models/                @Stable UI data classes (PostUi, AuthorUi, EmbedUi, etc.)
+designsystem/            M3 Expressive tokens, components, preview wrappers
+feature/
+  chats/{api,impl}       conversation list + DM thread
+  composer/{api,impl}    post composer (grapheme counter, language picker, mention typeahead)
+  feed/{api,impl}        Following timeline with paginated scroll
+  login/{api,impl}       OAuth login (outer shell)
+  mediaviewer/{api,impl} zoomable image / HLS video lightbox (telephoto)
+  moderation/{api,impl}  moderation actions
+  onboarding/{api,impl}  onboarding flow
+  postdetail/{api,impl}  thread view (ancestors + focus + replies)
+  profile/{api,impl}     user profile with hero + Posts/Replies/Media tabs
+  search/{api,impl}      search with typeahead, posts/people/feeds tabs, and recent search
+  settings/{api,impl}    settings screen
+  videoplayer/{api,impl} inline video player
+benchmark/               Macrobenchmark + BaselineProfile generator
+openspec/                specs/ and changes/ for design decisions
+docs/                    design system docs, OAuth docs
+```
+
 ### MVI conventions
 
-Every screen's presenter extends `net.kikin.nubecita.ui.mvi.MviViewModel<S, E, F>`. Declare a per-screen `data class FooState : UiState`, `sealed interface FooEvent : UiEvent`, and `sealed interface FooEffect : UiEffect`.
+Every screen's presenter extends `net.kikin.nubecita.core.common.mvi.MviViewModel<S, E, F>`. Declare a per-screen `data class FooState : UiState`, `sealed interface FooEvent : UiEvent`, and `sealed interface FooEffect : UiEffect`.
 
 State is **flat** and UI-ready: concrete fields (`isLoading: Boolean`, `items: ImmutableList<T>`, etc.), never a VM-layer sum type like `Async<T>`. Composables read `state.isLoading` / `state.items` directly — no `when` on a remote-data wrapper at the UI boundary. List-typed fields use `ImmutableList` from `kotlinx.collections.immutable` so Compose can treat them as `@Stable` and skip recomposition.
 
@@ -125,3 +174,101 @@ The exception is bounded:
 - Tests that mutate `textFieldState` programmatically MUST drive the snapshot system manually via `Snapshot.sendApplyNotifications()` + `testScheduler.runCurrent()` — there is no recomposer in unit tests.
 
 Reference implementation: `:feature:composer:impl/ComposerViewModel`. Rationale: `openspec/changes/add-composer-mention-typeahead/design.md` (decisions §1 and §2).
+
+### Tab re-tap / scroll-to-top convention
+
+`MainShell` provides `LocalTabReTapSignal` — a `CompositionLocal<SharedFlow<Unit>>`. Any feature screen that wants to respond to a tab re-tap (scroll to top, etc.) reads this local and launches a `collectLatest` in a `LaunchedEffect`. **ViewModels do not observe this signal** — it terminates at the screen Composable only, because scroll state is a Compose runtime concern, not a VM state field.
+
+### Design system conventions
+
+#### Surface token roles
+
+Every `surface*` token maps to exactly one depth role. Pick by role, never by token name:
+
+| Depth role | M3 token | What lives there |
+|---|---|---|
+| Screen canvas | `surface` | `Scaffold` root, modal root, full-screen routes |
+| Item card | `surfaceContainer` | Post cards, settings section cards, chat convo rows |
+| Recessed inset | `surfaceContainerLow` | Quoted posts, external link embeds, unavailable-post placeholders |
+| Raised affordance | `surfaceContainerHigh` | Chat message bubbles, day-separator chips, video-poster gradients |
+| Strong fill | `surfaceContainerHighest` | Thumbnail placeholders, shimmer base, character-counter track |
+| Reserved | `surfaceDim`, `surfaceBright`, `surfaceContainerLowest` | Do not use |
+
+- Every `Scaffold(` call MUST set `containerColor = MaterialTheme.colorScheme.surface` explicitly.
+- Use `colorScheme.surface`, not `colorScheme.background` (`background` and `surface` are identical in the brand scheme; `surface` is canonical).
+- Tonal elevation lift is allowed **only** on windowed surfaces (`Dialog`, `BottomSheet`, modal `Surface`). For in-layout depth, use the explicit `surfaceContainer*` token and skip the elevation knob.
+
+Full contract: `docs/design-system/surface-roles.md`.
+
+#### Preview / screenshot wrappers
+
+Three wrappers in `designsystem/src/main/kotlin/.../designsystem/preview/`:
+
+| Wrapper | Surface paint | Sizing | When to use |
+|---|---|---|---|
+| `@PreviewNubecitaScreenPreviews` | (handled by callee) | Phone / Foldable / Tablet × Light / Dark | Full-screen composables needing device-size sweep |
+| `NubecitaCanvasPreviewTheme { … }` | `surface` | `fillMaxSize()` | Screen-level, dialog, or pane-level fixtures |
+| `@PreviewWrapper(NubecitaComponentPreview::class)` | `surfaceContainer` | Content natural bounds | Component-level fixtures (atoms, rows, isolated cards) |
+
+`NubecitaTheme` directly is the escape hatch for fixtures without a Surface ancestor — rare, add a comment explaining why.
+
+### Database conventions (`:core:database`)
+
+- Reads return `Flow<T>`; writes are `suspend fun`. Multi-statement writes use `@Transaction suspend fun`.
+- Entities are never exposed past the repository layer. Each entity has a same-file `fun FooEntity.asExternalModel(): Foo` extension returning a `:data:models` type. Feature modules depend on their per-domain `:core:<domain>` repositories, **not** on `:core:database` directly.
+- Schema export is on (`exportSchema = true`). Committed schema JSON lives under `core/database/schemas/`. Every schema bump must commit the new `{N}.json` and add an `@AutoMigration` or register a manual `Migration` in `Migrations.kt`.
+- Prefer `@AutoMigration`; hand-write `Migration` only when AutoMigration cannot resolve the diff.
+
+### `:data:models` conventions
+
+- No service abstractions — no `atproto:runtime`, `atproto:oauth`, `atproto:compose` deps.
+- `atproto:models` primitives (`Facet`, `FacetByteSlice`, etc.) ARE allowed directly as field types; they're closer to `String` than to `PostView`.
+- Every type is `@Stable` or `@Immutable`. Collections use `ImmutableList<T>`.
+- The only Compose dependency is `compose-runtime` for stability annotations — never `compose-ui` or `material3`.
+- Provide fixture factories alongside model definitions (mirror `PostUiFixtures.kt`) for use in downstream test and preview code.
+
+### Testing conventions
+
+#### Unit tests (`:core:testing`)
+
+- JUnit Jupiter (`junit.jupiter.api`) is the default test runner for JVM tests.
+- `MainDispatcherExtension` (`@ExtendWith(MainDispatcherExtension::class)`) installs `UnconfinedTestDispatcher` as `Dispatchers.Main` for ViewModel tests.
+- Turbine (`turbine`) for Flow assertions.
+- MockK (`mockk`) for mocking.
+- Coroutines test: `kotlinx.coroutines.test` (always present via `:core:testing`).
+
+#### Android / instrumented tests (`:core:testing-android`)
+
+- `HiltTestRunner` replaces the standard `AndroidJUnitRunner`; needed for `@HiltAndroidTest` tests.
+- `MockEngineModule` (`@TestInstallIn(replaces = [NetworkEngineModule::class])`) swaps in a Ktor `MockEngine` for all network calls in `androidTest`.
+- `FixtureLoader` reads JSON fixtures from `androidTest/assets/`.
+
+#### Screenshot tests
+
+Run via the AGP `com.android.compose.screenshot` plugin. Baseline images are committed under `src/screenshotTest/`. Update baselines with:
+```bash
+./gradlew :designsystem:updateDebugScreenshotTest
+# (or the equivalent :feature:*:impl task)
+```
+
+Feature modules that ship UI-touching tasks MUST include `@Preview` annotations and screenshot tests alongside unit tests. Add `run-instrumented` label to the PR if the task also needs instrumented tests.
+
+### CI jobs
+
+| Job | Trigger | What it runs |
+|---|---|---|
+| `lint` | PR, push to `main` | pre-commit, Spotless, Android Lint, checkSortDependencies, semantic-release dry-run |
+| `test` | PR, push to `main` | `testDebugUnitTest`, JaCoCo coverage, madrapps/jacoco-report comment |
+| `build` | PR, push to `main` | `assembleDebug` |
+| `screenshot` | PR, push to `main` | `validateDebugScreenshotTest` against committed baselines |
+| `instrumented` | push to `main`, `workflow_dispatch`, PR with `run-instrumented` label | Connected device tests (runs on `ubuntu-latest` with emulator) |
+| Release | push to `main` | semantic-release → GitHub release → Google Play upload |
+
+## OpenSpec workflow
+
+Design decisions and in-flight changes live under `openspec/`:
+- `openspec/specs/<capability>/` — canonical requirements for a capability area.
+- `openspec/changes/<change-name>/` — per-change design docs, tasks, and archive.
+- `openspec/references/` — reference code checked in for inspiration; NOT built or linted.
+
+Use the `openspec-propose`, `openspec-explore`, `openspec-apply-change`, and `openspec-archive-change` skills to interact with this workflow.
