@@ -253,6 +253,69 @@ class PushRegistrationCoordinatorTest {
             advanceUntilIdle()
         }
 
+    @Test
+    fun `SignedOut mid-backoff preempts the register loop and runs unregister immediately`() =
+        runTest {
+            // Without collectLatest + cancellable registerJob, SignedOut would queue behind
+            // the in-flight delay(5_000) / delay(30_000) / etc. and the unregister + store
+            // clear wouldn't run until the backoff schedule completed (or hit the cap).
+            val sessionFlow = MutableStateFlow<SessionState>(SessionState.SignedIn(handle = "alice.bsky.social", did = viewerDid))
+            val fixture = newFixture(sessionFlow = sessionFlow)
+            fixture.repository.registerFailures = Int.MAX_VALUE // every attempt fails
+
+            fixture.coordinator.start()
+            runCurrent()
+            // First attempt has fired; the loop is now suspended in delay(5_000).
+            assertEquals(1, fixture.repository.registerCalls.size)
+            assertEquals(PushRegistrationState.Status.Pending, fixture.store.read().status)
+
+            // Sign out partway through the first delay — virtual time hasn't advanced past it.
+            sessionFlow.value = SessionState.SignedOut
+            runCurrent()
+
+            // Register loop must have been cancelled (no second register call) and
+            // the unregister + store clear must have run on the SignedOut path.
+            assertEquals(1, fixture.repository.registerCalls.size, "register loop must be cancelled mid-backoff")
+            assertEquals(1, fixture.repository.unregisterCalls.size)
+            assertEquals(PushRegistrationState.Default, fixture.store.read())
+        }
+
+    @Test
+    fun `onTokenRotated mid-backoff cancels the in-flight register and starts a fresh one with the new token`() =
+        runTest {
+            // Without the single-flight registerJob serialization, the old-token register
+            // would keep running in the background and race with the new-token register
+            // for PushRegistrationStateStore writes.
+            val fixture = newFixture(initialState = SessionState.SignedIn(handle = "alice.bsky.social", did = viewerDid))
+            fixture.repository.registerFailures = Int.MAX_VALUE // old-token attempts all fail; we'll flip this before the new-token call
+
+            fixture.coordinator.start()
+            runCurrent()
+            // First old-token attempt fired; loop now suspended in delay(5_000).
+            assertEquals(listOf(viewerDid to fcmToken), fixture.repository.registerCalls)
+
+            // Rotate the token. The new-token register should succeed immediately.
+            fixture.repository.registerFailures = 0
+            fixture.coordinator.onTokenRotated("fcm-token-rotated")
+            advanceUntilIdle()
+
+            // The old-token loop was cancelled before any further attempts; exactly one
+            // new-token attempt fires and succeeds. No interleaved writes mean the store
+            // settles cleanly on the new token.
+            val newTokenCalls = fixture.repository.registerCalls.count { it == viewerDid to "fcm-token-rotated" }
+            val oldTokenCalls = fixture.repository.registerCalls.count { it == viewerDid to fcmToken }
+            assertEquals(1, oldTokenCalls, "old-token register loop must have been cancelled after the first attempt")
+            assertEquals(1, newTokenCalls, "new-token register should fire exactly once")
+            assertEquals(
+                PushRegistrationState(
+                    accountDid = viewerDid,
+                    fcmToken = "fcm-token-rotated",
+                    status = PushRegistrationState.Status.Succeeded,
+                ),
+                fixture.store.read(),
+            )
+        }
+
     private data class Fixture(
         val coordinator: PushRegistrationCoordinator,
         val repository: FakePushRegistrationRepository,

@@ -2,9 +2,12 @@ package net.kikin.nubecita.core.push
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import timber.log.Timber
@@ -24,11 +27,11 @@ import timber.log.Timber
  *   Skipped (no network) when the store already shows
  *   `(accountDid == did, fcmToken == currentToken, status == Succeeded)`.
  *
- * - [SessionState.SignedOut] → best-effort
- *   [PushRegistrationRepository.unregister] with the previously-stored
- *   credentials, then [PushRegistrationStateStore.clear]. The unregister
- *   call is fire-and-forget — a failure (gateway down, 401) still clears the
- *   local store so a re-login can re-register cleanly.
+ * - [SessionState.SignedOut] → cancel any in-flight register loop, then
+ *   best-effort [PushRegistrationRepository.unregister] with the
+ *   previously-stored credentials, then [PushRegistrationStateStore.clear].
+ *   The unregister call is fire-and-forget — a failure (gateway down, 401)
+ *   still clears the local store so a re-login can re-register cleanly.
  *
  * - [SessionState.Loading] → no-op. The coordinator waits for the resolved
  *   state.
@@ -37,15 +40,30 @@ import timber.log.Timber
  * subscription receives the current value on first collect — no separate
  * cold-start hook is needed.
  *
+ * **Preemption + single-flight register:** the state collector uses
+ * `collectLatest`, and all register entry points (`onSessionEstablished`,
+ * `onTokenRotated`) funnel through [launchRegister], which holds a
+ * [Mutex]-protected reference to the in-flight register job and
+ * `cancelAndJoin`s the prior one before launching the next. This guarantees:
+ *
+ * - A `SignedOut` arriving mid-backoff preempts the loop and the unregister
+ *   handler runs immediately instead of waiting out the 5s/30s/2m/8m
+ *   schedule.
+ * - An `onTokenRotated` arriving mid-backoff cancels the prior (now-stale)
+ *   register and starts a fresh one against the new token — no overlap and
+ *   no racy `PushRegistrationStateStore` writes between two concurrent
+ *   loops.
+ *
  * **Retry / backoff:** a register failure schedules a retry on the same
- * coroutine using the cap-at-five-attempts cadence below. After the cap is
- * reached the store is marked `Failed` and the coordinator waits for the
- * next state emission (or [onTokenRotated]) before trying again.
+ * coroutine using the cap-at-five-attempts cadence below (one immediate +
+ * four delayed). After the cap is reached the store is marked `Failed` and
+ * the coordinator waits for the next state emission (or [onTokenRotated])
+ * before trying again.
  *
  * [scope] must outlive the process's foreground lifetime — typically the
  * application's own `CoroutineScope` injected at `NubecitaApplication`
  * construction. The coordinator does NOT cancel the scope itself; tearing
- * down the scope cancels the collector.
+ * down the scope cancels both the collector and any in-flight register job.
  */
 class PushRegistrationCoordinator(
     private val sessionStateProvider: SessionStateProvider,
@@ -55,6 +73,8 @@ class PushRegistrationCoordinator(
     private val scope: CoroutineScope,
 ) {
     private var collectJob: Job? = null
+    private var registerJob: Job? = null
+    private val registerJobLock = Mutex()
 
     /**
      * Starts collecting the session-state flow. Idempotent — calling twice
@@ -65,10 +85,13 @@ class PushRegistrationCoordinator(
         if (collectJob?.isActive == true) return
         collectJob =
             scope.launch {
-                sessionStateProvider.state.collect { state ->
+                sessionStateProvider.state.collectLatest { state ->
                     when (state) {
                         is SessionState.Loading -> Unit
-                        is SessionState.SignedOut -> onSessionEnded()
+                        is SessionState.SignedOut -> {
+                            cancelInFlightRegister()
+                            onSessionEnded()
+                        }
                         is SessionState.SignedIn -> onSessionEstablished(state.did)
                     }
                 }
@@ -78,13 +101,14 @@ class PushRegistrationCoordinator(
     /**
      * FCM's `onNewToken` callback hands the new token here. The token is
      * unconditionally re-registered against the currently-signed-in account
-     * (if any). Signed-out callers are dropped — a token rotation for a
-     * device with no live session is meaningless to the gateway.
+     * (if any) and any in-flight register against the stale token is
+     * cancelled first. Signed-out callers are dropped — a token rotation
+     * for a device with no live session is meaningless to the gateway.
      */
     suspend fun onTokenRotated(token: String) {
         val current = sessionStateProvider.state.value
         if (current is SessionState.SignedIn) {
-            registerWithBackoff(did = current.did, fcmToken = token)
+            launchRegister { registerWithBackoff(did = current.did, fcmToken = token) }
         }
     }
 
@@ -110,7 +134,7 @@ class PushRegistrationCoordinator(
         ) {
             return
         }
-        registerWithBackoff(did = did, fcmToken = token)
+        launchRegister { registerWithBackoff(did = did, fcmToken = token) }
     }
 
     private suspend fun onSessionEnded() {
@@ -122,6 +146,19 @@ class PushRegistrationCoordinator(
             repository.unregister(did = stored.accountDid, fcmToken = stored.fcmToken)
         }
         stateStore.clear()
+    }
+
+    private suspend fun cancelInFlightRegister() =
+        registerJobLock.withLock {
+            registerJob?.cancelAndJoin()
+            registerJob = null
+        }
+
+    private suspend fun launchRegister(block: suspend () -> Unit) {
+        registerJobLock.withLock {
+            registerJob?.cancelAndJoin()
+            registerJob = scope.launch { block() }
+        }
     }
 
     private suspend fun registerWithBackoff(

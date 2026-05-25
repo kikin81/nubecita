@@ -256,7 +256,6 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.firebase.crashlytics)
-    implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.timber)

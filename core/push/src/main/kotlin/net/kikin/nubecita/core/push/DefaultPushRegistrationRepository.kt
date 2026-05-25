@@ -25,7 +25,7 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
  * [PushRegistrationCoordinator]'s retry / backoff path can branch on
  * success vs. failure without `try`/`catch` plumbing at every call site.
  */
-class DefaultPushRegistrationRepository(
+internal class DefaultPushRegistrationRepository(
     private val xrpcClientProvider: XrpcClientProvider,
     private val appId: String,
 ) : PushRegistrationRepository {
