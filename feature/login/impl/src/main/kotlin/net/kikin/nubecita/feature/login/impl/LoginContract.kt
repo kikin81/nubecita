@@ -85,4 +85,15 @@ sealed interface LoginEffect : UiEffect {
      * `nubecita-30c` will add auth-gated routing decisions on top).
      */
     data object LoginSucceeded : LoginEffect
+
+    /**
+     * The screen should launch its `ActivityResultContracts.RequestPermission`
+     * launcher for `android.permission.POST_NOTIFICATIONS`. Emitted at most
+     * once per install (gated by `NotificationsPromptDecider`), only on
+     * Android 13+ (POST_NOTIFICATIONS is auto-granted below API 33),
+     * and only on a successful login. Always emitted strictly BEFORE
+     * [LoginSucceeded] so the system dialog is requested before MainActivity's
+     * `SessionStateProvider.SignedIn` observer recomposes LoginScreen out.
+     */
+    data object RequestPostNotificationsPermission : LoginEffect
 }

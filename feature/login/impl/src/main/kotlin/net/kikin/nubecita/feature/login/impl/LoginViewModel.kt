@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.push.NotificationsPromptDecider
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -24,12 +25,14 @@ class LoginViewModel
     @Inject
     constructor(
         private val authRepository: AuthRepository,
+        private val notificationsPromptDecider: NotificationsPromptDecider,
         broker: OAuthRedirectBroker,
     ) : MviViewModel<LoginState, LoginEvent, LoginEffect>(LoginState()) {
         init {
             // Long-running collection of redirect URIs published by MainActivity.
             // Cancels automatically when the VM is cleared. Each emission triggers
-            // completeLogin; success → LoginSucceeded effect, failure → state errorMessage.
+            // completeLogin; success → permission prompt (first-login, API 33+) +
+            // LoginSucceeded effect, failure → state errorMessage.
             viewModelScope.launch {
                 broker.redirects.collect { redirectUri ->
                     authRepository
@@ -40,6 +43,17 @@ class LoginViewModel
                             // isLoading true during the Custom Tab roundtrip, the success
                             // handler should still leave a clean slate before navigation.
                             setState { copy(isLoading = false, errorMessage = null) }
+                            if (notificationsPromptDecider.shouldPrompt()) {
+                                // Mark the gate BEFORE emitting the effect: even if the user
+                                // declines the system dialog (or the LaunchedEffect collector
+                                // is torn down mid-dispatch), we've recorded the attempt and
+                                // won't loop-prompt on every subsequent login. If the launch
+                                // ever silently no-ops on this device, the user can re-enable
+                                // notifications from the OS settings; that's preferable to
+                                // the alternative of nagging them on every fresh sign-in.
+                                notificationsPromptDecider.markPrompted()
+                                sendEffect(LoginEffect.RequestPostNotificationsPermission)
+                            }
                             sendEffect(LoginEffect.LoginSucceeded)
                         }.onFailure { failure ->
                             val handle = uiState.value.handle.trim()

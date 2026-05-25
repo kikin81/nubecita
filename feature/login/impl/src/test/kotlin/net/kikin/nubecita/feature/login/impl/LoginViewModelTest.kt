@@ -11,6 +11,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.push.NotificationsPromptDecider
+import net.kikin.nubecita.core.push.NotificationsPromptShownStore
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -288,7 +290,25 @@ internal class LoginViewModelTest {
 private fun newViewModel(
     authRepository: AuthRepository = FakeAuthRepository(),
     broker: OAuthRedirectBroker = FakeOAuthRedirectBroker(),
-): LoginViewModel = LoginViewModel(authRepository = authRepository, broker = broker)
+    notificationsPromptDecider: NotificationsPromptDecider =
+        NotificationsPromptDecider(NoopPromptStore, sdkInt = 0),
+): LoginViewModel =
+    LoginViewModel(
+        authRepository = authRepository,
+        notificationsPromptDecider = notificationsPromptDecider,
+        broker = broker,
+    )
+
+// The base LoginViewModel tests don't exercise the POST_NOTIFICATIONS prompt
+// gating — the dedicated [LoginPostNotificationsPromptTest] covers that. Use
+// a decider built on top of this no-op store + `sdkInt = 0` so `shouldPrompt`
+// returns false (below TIRAMISU) and the broker-success test sees exactly one
+// effect (LoginSucceeded) instead of two.
+private object NoopPromptStore : NotificationsPromptShownStore {
+    override suspend fun read(): Boolean = false
+
+    override suspend fun markShown() = Unit
+}
 
 private class FakeAuthRepository(
     private val beginLoginResult: Result<String> = Result.success("ignored"),

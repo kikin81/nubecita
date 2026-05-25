@@ -31,11 +31,16 @@ internal annotation class PushRegistrationDataStore
 @Retention(AnnotationRetention.BINARY)
 internal annotation class MutedActorDataStore
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+internal annotation class NotificationsPromptDataStore
+
 @Module
 @InstallIn(SingletonComponent::class)
 internal object PushDataStoreModule {
     private const val REGISTRATION_FILE_NAME = "push_registration"
     private const val MUTED_ACTOR_FILE_NAME = "push_muted_actors"
+    private const val NOTIFICATIONS_PROMPT_FILE_NAME = "push_notifications_prompt"
 
     @Provides
     @Singleton
@@ -76,5 +81,24 @@ internal object PushDataStoreModule {
                     emptyPreferences()
                 },
             produceFile = { context.preferencesDataStoreFile(MUTED_ACTOR_FILE_NAME) },
+        )
+
+    @Provides
+    @Singleton
+    @NotificationsPromptDataStore
+    fun provideNotificationsPromptDataStore(
+        @ApplicationContext context: Context,
+    ): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create(
+            // See PushRegistrationDataStore comment. Corruption here would
+            // reset the "have we already prompted" flag and cause a re-prompt
+            // on next login. Annoying for users but recoverable — they can
+            // still grant via system settings if they've denied permanently.
+            corruptionHandler =
+                ReplaceFileCorruptionHandler {
+                    Timber.w(it, "Notifications-prompt DataStore file corrupted; replacing with empty store")
+                    emptyPreferences()
+                },
+            produceFile = { context.preferencesDataStoreFile(NOTIFICATIONS_PROMPT_FILE_NAME) },
         )
 }

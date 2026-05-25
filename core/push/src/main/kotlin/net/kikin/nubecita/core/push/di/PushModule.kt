@@ -12,11 +12,14 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.push.AppLifecycleObserver
+import net.kikin.nubecita.core.push.DataStoreNotificationsPromptShownStore
 import net.kikin.nubecita.core.push.DefaultPushRegistrationRepository
 import net.kikin.nubecita.core.push.FcmAutoInit
 import net.kikin.nubecita.core.push.FcmTokenProvider
 import net.kikin.nubecita.core.push.MutedActorRepository
 import net.kikin.nubecita.core.push.NotificationChannelInstaller
+import net.kikin.nubecita.core.push.NotificationsPromptDecider
+import net.kikin.nubecita.core.push.NotificationsPromptShownStore
 import net.kikin.nubecita.core.push.PushDispatcher
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
@@ -96,6 +99,16 @@ abstract class PushModule {
         fun providePushRegistrationStateStore(
             @PushRegistrationDataStore dataStore: DataStore<Preferences>,
         ): PushRegistrationStateStore = PushRegistrationStateStore(dataStore)
+
+        @Provides
+        @Singleton
+        fun provideNotificationsPromptShownStore(
+            @NotificationsPromptDataStore dataStore: DataStore<Preferences>,
+        ): NotificationsPromptShownStore = DataStoreNotificationsPromptShownStore(dataStore)
+
+        @Provides
+        @Singleton
+        fun provideNotificationsPromptDecider(store: NotificationsPromptShownStore): NotificationsPromptDecider = NotificationsPromptDecider(store = store, sdkInt = android.os.Build.VERSION.SDK_INT)
 
         @Provides
         @Singleton
