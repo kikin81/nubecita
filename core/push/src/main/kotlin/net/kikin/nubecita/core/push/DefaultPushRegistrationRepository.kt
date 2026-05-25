@@ -5,7 +5,9 @@ import io.github.kikin81.atproto.app.bsky.notification.UnregisterPushRequest
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.NoXrpcParams
 import io.github.kikin81.atproto.runtime.UnitResponseSerializer
+import io.github.kikin81.atproto.runtime.XrpcError
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import timber.log.Timber
 
 /**
  * Calls the user's PDS to register / unregister this device's FCM token
@@ -50,7 +52,7 @@ internal class DefaultPushRegistrationRepository(
                 responseSerializer = UnitResponseSerializer,
                 proxy = PROXY,
             )
-        }
+        }.onFailure(::logRegistrationFailure)
 
     override suspend fun unregister(
         @Suppress("UNUSED_PARAMETER") did: String,
@@ -73,7 +75,29 @@ internal class DefaultPushRegistrationRepository(
                 responseSerializer = UnitResponseSerializer,
                 proxy = PROXY,
             )
+        }.onFailure(::logRegistrationFailure)
+
+    // Diagnostic-only logging on every (un)register failure. The
+    // PushRegistrationCoordinator already retries with exponential backoff
+    // and writes Pending/Failed to the store, but neither path surfaces
+    // WHY the call failed. atproto-kotlin's XrpcError carries the parsed
+    // {error, message} JSON body plus the HTTP status, which is exactly
+    // what's needed to disambiguate scope / auth / gateway / PDS-side
+    // rejections without a packet capture.
+    private fun logRegistrationFailure(failure: Throwable) {
+        if (failure is XrpcError) {
+            Timber
+                .tag(TAG)
+                .e(
+                    "(un)register failed: status=%d errorName=%s message=%s",
+                    failure.status,
+                    failure.errorName,
+                    failure.errorMessage,
+                )
+        } else {
+            Timber.tag(TAG).e(failure, "(un)register failed with non-XrpcError")
         }
+    }
 
     companion object {
         const val PROXY = "did:web:push.nubecita.app#bsky_notif"
@@ -81,5 +105,6 @@ internal class DefaultPushRegistrationRepository(
         const val PLATFORM_ANDROID = "android"
         const val NSID_REGISTER = "app.bsky.notification.registerPush"
         const val NSID_UNREGISTER = "app.bsky.notification.unregisterPush"
+        private const val TAG = "PushRegistration"
     }
 }
