@@ -61,6 +61,12 @@ object AtUriToDeepLink {
             COLLECTION_POST -> "nubecita://profile/$authority/post/$rkey"
             COLLECTION_FOLLOW -> "nubecita://profile/$authority"
             COLLECTION_VERIFICATION -> recipientDid?.let { "nubecita://profile/$it" }
+            // TODO(nubecita-8487): once the in-app notifications tab feature
+            // epic ships, fall back to `nubecita://notifications` here so a
+            // tap on an unknown-collection push lands on the notifications
+            // list instead of being a no-op. Scope deliberately excludes
+            // the other null returns above — those are security-relevant
+            // defenses against malformed AT-URIs and should stay null.
             else -> null
         }
     }

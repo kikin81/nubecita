@@ -13,6 +13,7 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.DefaultPushRegistrationRepository
+import net.kikin.nubecita.core.push.FcmAutoInit
 import net.kikin.nubecita.core.push.FcmTokenProvider
 import net.kikin.nubecita.core.push.MutedActorRepository
 import net.kikin.nubecita.core.push.NotificationChannelInstaller
@@ -21,6 +22,7 @@ import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
 import net.kikin.nubecita.core.push.PushRegistrationRepository
 import net.kikin.nubecita.core.push.PushRegistrationStateStore
+import net.kikin.nubecita.core.push.internal.FirebaseFcmAutoInit
 import net.kikin.nubecita.core.push.internal.FirebaseFcmTokenProvider
 import javax.inject.Singleton
 
@@ -36,6 +38,10 @@ internal abstract class PushModule {
     @Binds
     @Singleton
     abstract fun bindFcmTokenProvider(impl: FirebaseFcmTokenProvider): FcmTokenProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindFcmAutoInit(impl: FirebaseFcmAutoInit): FcmAutoInit
 
     companion object {
         @Provides
@@ -63,6 +69,10 @@ internal abstract class PushModule {
 
         @Provides
         @Singleton
+        fun provideFirebaseFcmAutoInit(): FirebaseFcmAutoInit = FirebaseFcmAutoInit()
+
+        @Provides
+        @Singleton
         fun providePushRegistrationStateStore(
             @PushRegistrationDataStore dataStore: DataStore<Preferences>,
         ): PushRegistrationStateStore = PushRegistrationStateStore(dataStore)
@@ -87,6 +97,7 @@ internal abstract class PushModule {
             repository: PushRegistrationRepository,
             stateStore: PushRegistrationStateStore,
             tokenProvider: FcmTokenProvider,
+            fcmAutoInit: FcmAutoInit,
             @ApplicationScope scope: CoroutineScope,
         ): PushRegistrationCoordinator =
             PushRegistrationCoordinator(
@@ -94,6 +105,7 @@ internal abstract class PushModule {
                 repository = repository,
                 stateStore = stateStore,
                 tokenProvider = tokenProvider,
+                fcmAutoInit = fcmAutoInit,
                 scope = scope,
             )
 

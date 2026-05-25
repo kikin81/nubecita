@@ -57,6 +57,12 @@ class NubecitaApplication :
         //    MainActivity's refresh() resolves to (Loading initially).
         notificationChannelInstaller.install(this)
         appLifecycleObserver.start()
+        // Coordinator.start() also opts FCM auto-init back on. The manifest
+        // disables auto-init for instrumented-test safety; reaching this
+        // line implies we're running under the real NubecitaApplication
+        // (not HiltTestApplication) so the SERVICE Hilt component is set
+        // up correctly and it's safe to let Firebase instantiate
+        // NubecitaFcmService.
         pushRegistrationCoordinator.start()
     }
 
