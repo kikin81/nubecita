@@ -26,22 +26,37 @@ import net.kikin.nubecita.core.push.internal.FirebaseFcmAutoInit
 import net.kikin.nubecita.core.push.internal.FirebaseFcmTokenProvider
 import javax.inject.Singleton
 
+/**
+ * Hilt bindings for `:core:push`'s repository / coordinator / FCM-bridge
+ * interfaces, plus singleton provider methods on the companion object.
+ *
+ * The class itself is publicly addressable (rather than `internal`) so
+ * downstream feature modules' instrumentation tests can swap individual
+ * bindings via `@TestInstallIn(replaces = [PushModule::class])`. Kotlin's
+ * `internal` modifier is per-Gradle-module, so an internal binding module
+ * would be invisible to `:core:push/src/androidTest/` and downstream
+ * `:feature:*:impl/src/androidTest/` swap targets wouldn't compile. The
+ * bound implementations remain `internal` — only the module class itself
+ * is addressable. Matches the pattern documented on `:core:auth`'s
+ * `AuthBindingsModule` and `:core:preferences`'s
+ * `UserPreferencesBindingsModule`.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
-internal abstract class PushModule {
+abstract class PushModule {
     @Binds
     @Singleton
-    abstract fun bindPushRegistrationRepository(
+    internal abstract fun bindPushRegistrationRepository(
         impl: DefaultPushRegistrationRepository,
     ): PushRegistrationRepository
 
     @Binds
     @Singleton
-    abstract fun bindFcmTokenProvider(impl: FirebaseFcmTokenProvider): FcmTokenProvider
+    internal abstract fun bindFcmTokenProvider(impl: FirebaseFcmTokenProvider): FcmTokenProvider
 
     @Binds
     @Singleton
-    abstract fun bindFcmAutoInit(impl: FirebaseFcmAutoInit): FcmAutoInit
+    internal abstract fun bindFcmAutoInit(impl: FirebaseFcmAutoInit): FcmAutoInit
 
     companion object {
         @Provides
@@ -52,9 +67,14 @@ internal abstract class PushModule {
         @Singleton
         fun provideNotificationChannelInstaller(): NotificationChannelInstaller = NotificationChannelInstaller()
 
+        // The three @Provides below return `internal` impl classes —
+        // mark the providers `internal` so the now-public PushModule
+        // doesn't expose them. Hilt accepts internal @Provides on a
+        // public module; the bound interface (PushRegistrationRepository,
+        // FcmTokenProvider, FcmAutoInit) is what downstream sees.
         @Provides
         @Singleton
-        fun provideDefaultPushRegistrationRepository(
+        internal fun provideDefaultPushRegistrationRepository(
             xrpcClientProvider: XrpcClientProvider,
             appConfig: PushAppConfig,
         ): DefaultPushRegistrationRepository =
@@ -65,11 +85,11 @@ internal abstract class PushModule {
 
         @Provides
         @Singleton
-        fun provideFirebaseFcmTokenProvider(): FirebaseFcmTokenProvider = FirebaseFcmTokenProvider()
+        internal fun provideFirebaseFcmTokenProvider(): FirebaseFcmTokenProvider = FirebaseFcmTokenProvider()
 
         @Provides
         @Singleton
-        fun provideFirebaseFcmAutoInit(): FirebaseFcmAutoInit = FirebaseFcmAutoInit()
+        internal fun provideFirebaseFcmAutoInit(): FirebaseFcmAutoInit = FirebaseFcmAutoInit()
 
         @Provides
         @Singleton

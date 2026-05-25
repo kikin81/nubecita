@@ -5,6 +5,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -28,17 +29,33 @@ class AppLifecycleObserver(
     private val lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
 ) : DefaultLifecycleObserver {
     /**
+     * Tracks the [start]-launched disk-hydration job so [onStart] can `join`
+     * it before refreshing — guards against the race documented on
+     * [onStart].
+     */
+    private var hydrationJob: Job? = null
+
+    /**
      * Registers the observer with [lifecycle] and triggers the disk-cache
      * hydration. Idempotent — re-registering an already-attached observer
      * is a no-op in [androidx.lifecycle.LifecycleRegistry].
      */
     fun start() {
-        scope.launch { mutedActorRepository.loadFromDisk() }
+        hydrationJob = scope.launch { mutedActorRepository.loadFromDisk() }
         lifecycle.addObserver(this)
     }
 
     override fun onStart(owner: LifecycleOwner) {
         scope.launch {
+            // Wait for the initial disk hydration to finish before kicking
+            // off the foreground refresh. `LifecycleRegistry.addObserver`
+            // synchronously dispatches catch-up events up to the current
+            // state, so if the process is already STARTED when `start()`
+            // runs, this `onStart` fires immediately and can race the
+            // launched `loadFromDisk` — without the join, a fast refresh
+            // could write the fresh network snapshot first and then
+            // `loadFromDisk` could overwrite it with stale disk data.
+            hydrationJob?.join()
             mutedActorRepository
                 .refresh()
                 .onFailure {
