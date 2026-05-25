@@ -21,6 +21,7 @@ import net.kikin.nubecita.core.push.NotificationChannelInstaller
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
 import net.kikin.nubecita.core.push.NotificationsPromptShownStore
 import net.kikin.nubecita.core.push.PushDispatcher
+import net.kikin.nubecita.core.push.PushGatewayConfig
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
 import net.kikin.nubecita.core.push.PushRegistrationRepository
@@ -80,11 +81,22 @@ abstract class PushModule {
         internal fun provideDefaultPushRegistrationRepository(
             xrpcClientProvider: XrpcClientProvider,
             appConfig: PushAppConfig,
+            gateway: PushGatewayConfig,
         ): DefaultPushRegistrationRepository =
             DefaultPushRegistrationRepository(
                 xrpcClientProvider = xrpcClientProvider,
                 appId = appConfig.applicationId,
+                gateway = gateway,
             )
+
+        // Gateway identity defaults to the production self-hosted instance
+        // at `https://push.nubecita.app`. A future forkability epic can swap
+        // this provider (e.g., to read from `local.properties` /
+        // BuildConfig / generated source) without touching
+        // [DefaultPushRegistrationRepository] or its tests.
+        @Provides
+        @Singleton
+        fun providePushGatewayConfig(): PushGatewayConfig = PushGatewayConfig.Nubecita
 
         @Provides
         @Singleton
