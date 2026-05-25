@@ -73,7 +73,7 @@ feature/
   onboarding/{api,impl}  onboarding flow
   postdetail/{api,impl}  thread view (ancestors + focus + replies)
   profile/{api,impl}     user profile with hero + Posts/Replies/Media tabs
-  search/{api,impl}      search (api-only stub for now)
+  search/{api,impl}      search with typeahead, posts/people/feeds tabs, and recent search
   settings/{api,impl}    settings screen
   videoplayer/{api,impl} inline video player
 ```
