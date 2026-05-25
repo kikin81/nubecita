@@ -86,9 +86,14 @@ internal class DefaultPushRegistrationRepository(
     // rejections without a packet capture.
     private fun logRegistrationFailure(failure: Throwable) {
         if (failure is XrpcError) {
+            // Pass the throwable so the stack trace lands in logcat alongside
+            // the parsed XrpcError fields. The parsed fields disambiguate
+            // scope / auth / proxy errors at a glance; the stack tells you
+            // which call site and serializer touched the response.
             Timber
                 .tag(TAG)
                 .e(
+                    failure,
                     "(un)register failed: status=%d errorName=%s message=%s",
                     failure.status,
                     failure.errorName,
