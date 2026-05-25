@@ -23,6 +23,29 @@
         android:supportsRtl="true"
         android:windowSoftInputMode="adjustResize"
         android:theme="@style/Theme.Nubecita">
+        <!--
+            Disable Firebase Messaging auto-init at process load. We re-enable
+            it explicitly from NubecitaApplication.onCreate so that:
+
+            (1) Production: the explicit enable runs every cold start, same
+                net behavior as the default auto-init would have given us.
+
+            (2) Tests: HiltTestApplication runs instead of NubecitaApplication,
+                so the explicit enable never fires. FCM never tries to start
+                NubecitaFcmService, which is critical because the service is
+                @AndroidEntryPoint and HiltTestApplication doesn't have the
+                SERVICE Hilt component wired up — without this guard, every
+                instrumented test that runs in this APK's process crashes
+                inside Hilt_NubecitaFcmService.onCreate with "The component
+                was not created" the moment Firebase pings the service.
+
+            The service-level instrumented tests (deferred to nubecita-ac39)
+            will wire their own Hilt SERVICE-component test plumbing and
+            opt back into auto-init via their own setup.
+        -->
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -191,6 +214,13 @@
                     android:host="profile" />
             </intent-filter>
         </activity>
+        <!--
+            FCM messaging service is registered from `:core:push`'s own
+            AndroidManifest.xml so the manifest entry stays co-located with
+            the implementation class and `:core:push`'s lint sees it (the
+            class isn't on `:app`'s compile classpath because the dep is
+            declared `implementation`, not `api`).
+        -->
     </application>
 
 </manifest>

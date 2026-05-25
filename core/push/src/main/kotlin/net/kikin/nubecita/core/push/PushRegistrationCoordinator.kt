@@ -70,6 +70,7 @@ class PushRegistrationCoordinator(
     private val repository: PushRegistrationRepository,
     private val stateStore: PushRegistrationStateStore,
     private val tokenProvider: FcmTokenProvider,
+    private val fcmAutoInit: FcmAutoInit,
     private val scope: CoroutineScope,
 ) {
     private var collectJob: Job? = null
@@ -83,6 +84,21 @@ class PushRegistrationCoordinator(
      */
     fun start() {
         if (collectJob?.isActive == true) return
+        // Opt FCM auto-init back on. The :app manifest disables auto-init
+        // (firebase_messaging_auto_init_enabled=false) so
+        // FirebaseInitProvider — which runs at process load, before this
+        // code — doesn't start NubecitaFcmService before HiltTestApplication
+        // has a chance to take over in instrumented tests. The opt-in lives
+        // in this coordinator (rather than NubecitaApplication directly)
+        // so :app stays free of a direct firebase-messaging compile dep:
+        // adding that broke the Compose screenshot plugin earlier in
+        // Phase 2 (PreviewAnnotationDescriptor chokes on Firebase classes
+        // on :app's compile classpath; transitive runtime presence via
+        // :core:push is fine). The call goes through the [FcmAutoInit]
+        // seam so pure-JVM unit tests for this coordinator don't trigger
+        // FirebaseMessaging.getInstance() (which calls
+        // android.os.Process.myPid, not mocked under the AGP test stubs).
+        fcmAutoInit.enable()
         collectJob =
             scope.launch {
                 sessionStateProvider.state.collectLatest { state ->

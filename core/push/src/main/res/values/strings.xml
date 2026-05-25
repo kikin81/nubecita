@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Notification channel names + descriptions, surfaced in Android system
+      Settings > Apps > Nubecita > Notifications as the user's per-reason
+      tuning surface (we don't ship in-app channel toggles in v1).
+
+      Channel IDs are the wire-reason strings sent by the push gateway —
+      they're string constants in NotificationChannelInstaller.kt, NOT
+      string resources, because Android's NotificationManager keys
+      channels on the ID across reinstalls.
+    -->
+    <string name="push_channel_like_name">Likes</string>
+    <string name="push_channel_like_description">When someone likes one of your posts.</string>
+    <string name="push_channel_like_via_repost_name">Likes via repost</string>
+    <string name="push_channel_like_via_repost_description">When someone likes a post you reposted.</string>
+    <string name="push_channel_repost_name">Reposts</string>
+    <string name="push_channel_repost_description">When someone reposts one of your posts.</string>
+    <string name="push_channel_repost_via_repost_name">Reposts via repost</string>
+    <string name="push_channel_repost_via_repost_description">When someone reposts a post you reposted.</string>
+    <string name="push_channel_reply_name">Replies</string>
+    <string name="push_channel_reply_description">When someone replies to one of your posts.</string>
+    <string name="push_channel_mention_name">Mentions</string>
+    <string name="push_channel_mention_description">When someone @-mentions you in a post.</string>
+    <string name="push_channel_quote_name">Quote posts</string>
+    <string name="push_channel_quote_description">When someone quotes one of your posts.</string>
+    <string name="push_channel_follow_name">New followers</string>
+    <string name="push_channel_follow_description">When someone starts following you.</string>
+    <string name="push_channel_verified_name">Verifications</string>
+    <string name="push_channel_verified_description">When a trusted verifier confirms your account.</string>
+    <string name="push_channel_unverified_name">Verification removed</string>
+    <string name="push_channel_unverified_description">When a trusted verifier revokes your verification.</string>
+
+    <!--
+      Per-reason notification titles. Positional arg %1$s is the actor's
+      display name (or handle as fallback when displayName is absent).
+      Body strings are omitted for v1 — the title carries the signal and
+      the recipient knows the context. Future epic can add per-reason
+      bodies (e.g. reply snippet) without changing the builder API.
+    -->
+    <string name="push_reason_like">%1$s liked your post</string>
+    <string name="push_reason_like_via_repost">%1$s liked a post you reposted</string>
+    <string name="push_reason_repost">%1$s reposted your post</string>
+    <string name="push_reason_repost_via_repost">%1$s reposted a post you reposted</string>
+    <string name="push_reason_reply">%1$s replied to your post</string>
+    <string name="push_reason_mention">%1$s mentioned you</string>
+    <string name="push_reason_quote">%1$s quoted your post</string>
+    <string name="push_reason_follow">%1$s followed you</string>
+    <string name="push_reason_verified">%1$s verified your account</string>
+    <string name="push_reason_unverified">%1$s removed your verification</string>
+
+    <!--
+      Group-summary inbox titles. Positional arg %1$d is the count of
+      individual notifications currently grouped under the per-reason
+      summary. Android's auto-summary text is generic ("X notifications"),
+      so we provide the per-reason wording explicitly.
+    -->
+    <plurals name="push_summary_like">
+        <item quantity="one">%1$d new like</item>
+        <item quantity="other">%1$d new likes</item>
+    </plurals>
+    <plurals name="push_summary_like_via_repost">
+        <item quantity="one">%1$d new like via repost</item>
+        <item quantity="other">%1$d new likes via repost</item>
+    </plurals>
+    <plurals name="push_summary_repost">
+        <item quantity="one">%1$d new repost</item>
+        <item quantity="other">%1$d new reposts</item>
+    </plurals>
+    <plurals name="push_summary_repost_via_repost">
+        <item quantity="one">%1$d new repost via repost</item>
+        <item quantity="other">%1$d new reposts via repost</item>
+    </plurals>
+    <plurals name="push_summary_reply">
+        <item quantity="one">%1$d new reply</item>
+        <item quantity="other">%1$d new replies</item>
+    </plurals>
+    <plurals name="push_summary_mention">
+        <item quantity="one">%1$d new mention</item>
+        <item quantity="other">%1$d new mentions</item>
+    </plurals>
+    <plurals name="push_summary_quote">
+        <item quantity="one">%1$d new quote</item>
+        <item quantity="other">%1$d new quotes</item>
+    </plurals>
+    <plurals name="push_summary_follow">
+        <item quantity="one">%1$d new follower</item>
+        <item quantity="other">%1$d new followers</item>
+    </plurals>
+    <plurals name="push_summary_verified">
+        <item quantity="one">%1$d new verification</item>
+        <item quantity="other">%1$d new verifications</item>
+    </plurals>
+    <plurals name="push_summary_unverified">
+        <item quantity="one">%1$d verification removed</item>
+        <item quantity="other">%1$d verifications removed</item>
+    </plurals>
+
+    <!--
+      Defensive fallback: used when a gateway payload arrives with a reason
+      we know about but the localized title resource resolution fails (e.g.
+      a stripped resource in a future R8 config). The PushNotificationBuilder
+      falls back to this so a malformed environment still surfaces SOMETHING
+      visible rather than silently dropping the push.
+    -->
+    <string name="push_title_default">New activity on Nubecita</string>
+</resources>

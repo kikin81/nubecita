@@ -340,6 +340,7 @@ class PushRegistrationCoordinatorTest {
                 repository = repository,
                 stateStore = store,
                 tokenProvider = StaticFcmTokenProvider(fcmToken),
+                fcmAutoInit = NoopFcmAutoInit,
                 scope = CoroutineScope(testScheduler + dispatcher),
             )
         return Fixture(coordinator, repository, store)
@@ -357,6 +358,16 @@ class PushRegistrationCoordinatorTest {
         private val token: String,
     ) : FcmTokenProvider {
         override suspend fun current(): String = token
+    }
+
+    private object NoopFcmAutoInit : FcmAutoInit {
+        // Production FirebaseFcmAutoInit calls FirebaseMessaging.getInstance()
+        // which hits android.os.Process.myPid — unavailable under the AGP
+        // unit-test stub framework. Tests substitute this no-op since the
+        // coordinator's contract under test is the session-state collection
+        // + register/unregister behavior, not the manifest-disabled-auto-init
+        // re-enable side effect.
+        override fun enable() = Unit
     }
 
     private class FakePushRegistrationRepository : PushRegistrationRepository {

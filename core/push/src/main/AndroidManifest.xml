@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <!--
+            FCM messaging service. exported=false because only FCM (the
+            Google Play Services framework) ever dispatches
+            MESSAGING_EVENT intents to it — no other app should be able to
+            invoke this service directly. Manifest-merged into the host
+            :app's AndroidManifest at build time.
+
+            tools:ignore="Instantiatable" suppresses a lint false positive:
+            NubecitaFcmService extends FirebaseMessagingService → Service,
+            but Hilt's @AndroidEntryPoint annotation processor rewrites the
+            class's superclass at compile time to a generated Hilt_*
+            wrapper, and lint inspects the manifest before the rewrite has
+            happened. Runtime instantiation works correctly — verified by
+            :app:assembleDebug + Hilt graph compilation.
+        -->
+        <service
+            android:name="net.kikin.nubecita.core.push.NubecitaFcmService"
+            android:exported="false"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
