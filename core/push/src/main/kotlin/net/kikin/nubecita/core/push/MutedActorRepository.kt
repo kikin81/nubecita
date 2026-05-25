@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import timber.log.Timber
 
 /**
  * Cached snapshot of the signed-in user's muted DIDs. [PushDispatcher] reads
@@ -51,23 +52,30 @@ class MutedActorRepository(
     private val _snapshot = MutableStateFlow<Set<String>>(emptySet())
     val snapshot: StateFlow<Set<String>> = _snapshot.asStateFlow()
 
-    /**
-     * Hydrates [snapshot] from the last persisted refresh. Idempotent — safe
-     * to call multiple times, though only once at process start is meaningful.
-     */
     suspend fun loadFromDisk() {
-        val stored = dataStore.data.first()[KEY_MUTED_DIDS]
-        if (stored != null) _snapshot.value = stored.toSet()
+        runCatchingExceptCancellation {
+            val stored = dataStore.data.first()[KEY_MUTED_DIDS]
+            if (stored != null) _snapshot.value = stored.toSet()
+        }.onFailure {
+            // Disk corruption / IO failure — degrade to empty snapshot.
+            // PushDispatcher's mute filter fails-open in that case (we may
+            // surface a notification for a muted actor for the brief window
+            // until the next foreground refresh succeeds), which is the
+            // right trade-off vs. crashing the app at startup. The
+            // launched coroutine in AppLifecycleObserver.start() relies on
+            // this not throwing.
+            Timber.tag(TAG).w(it, "loadFromDisk failed; snapshot stays empty until next refresh")
+        }
     }
 
-    suspend fun refresh(force: Boolean = false): Result<Unit> {
-        if (!force) {
-            val lastRefresh = dataStore.data.first()[KEY_LAST_REFRESH_MS]
-            if (lastRefresh != null && clock() - lastRefresh < REFRESH_INTERVAL_MS) {
-                return Result.success(Unit)
+    suspend fun refresh(force: Boolean = false): Result<Unit> =
+        runCatchingExceptCancellation {
+            if (!force) {
+                val lastRefresh = dataStore.data.first()[KEY_LAST_REFRESH_MS]
+                if (lastRefresh != null && clock() - lastRefresh < REFRESH_INTERVAL_MS) {
+                    return@runCatchingExceptCancellation
+                }
             }
-        }
-        return runCatchingExceptCancellation {
             val client = xrpcClientProvider.authenticated()
             val service = GraphService(client)
             // Manual pagination: atproto-kotlin's `mutesFlow` (which delegates to
@@ -85,13 +93,22 @@ class MutedActorRepository(
                         cursor = response.cursor
                     } while (cursor != null)
                 }
-            _snapshot.value = dids
+            // Persist BEFORE updating the in-memory snapshot. The class KDoc
+            // promises "a failed refresh preserves the existing snapshot" —
+            // if the DataStore write throws (disk full, encryption keystore
+            // unavailable), bubbling the failure up before mutating
+            // `_snapshot.value` keeps that contract intact regardless of
+            // whether the failure originated network-side or persistence-
+            // side. The debounce read at the top is now also inside the
+            // runCatchingExceptCancellation block so a DataStore read failure
+            // returns Result.failure too rather than propagating as an
+            // unhandled exception.
             dataStore.edit { prefs ->
                 prefs[KEY_LAST_REFRESH_MS] = clock()
                 prefs[KEY_MUTED_DIDS] = dids
             }
+            _snapshot.value = dids
         }
-    }
 
     companion object {
         private val KEY_LAST_REFRESH_MS = longPreferencesKey("muted_last_refresh_ms")
@@ -99,5 +116,7 @@ class MutedActorRepository(
 
         // 12 hours. See design.md's "12 hours is conservative" rationale.
         internal const val REFRESH_INTERVAL_MS: Long = 12L * 60 * 60 * 1000
+
+        private const val TAG = "MutedActorRepo"
     }
 }

@@ -52,7 +52,7 @@
     <!--
       Group-summary inbox titles. Positional arg %1$d is the count of
       individual notifications currently grouped under the per-reason
-      summary. Android'1's auto-summary text is generic ("X notifications"),
+      summary. Android's auto-summary text is generic ("X notifications"),
       so we provide the per-reason wording explicitly.
     -->
     <plurals name="push_summary_like">

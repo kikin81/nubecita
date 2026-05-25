@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <!--
+            Strip NubecitaFcmService from the merged test manifest.
+
+            Why: under HiltTestApplication the Hilt SERVICE component isn't
+            initialized the way @AndroidEntryPoint expects, so any path that
+            causes Android (FirebaseInitProvider auto-start, Play Services
+            ping, etc.) to instantiate the service throws
+            IllegalStateException("The component was not created") inside
+            Hilt_NubecitaFcmService.onCreate. The crash is unrelated to
+            whatever test is actually running — MainShellPersistenceTest
+            failed in CI on this PR for exactly that reason once :core:push
+            started contributing the <service> entry via manifest merge.
+
+            The service-level instrumented tests for NubecitaFcmService
+            (deferred to nubecita-ac39) will use their own androidTest
+            manifest + Hilt test plumbing that DOES wire the SERVICE
+            component, so they re-enable the registration locally.
+        -->
+        <service
+            android:name="net.kikin.nubecita.core.push.NubecitaFcmService"
+            tools:node="remove" />
+    </application>
+</manifest>
