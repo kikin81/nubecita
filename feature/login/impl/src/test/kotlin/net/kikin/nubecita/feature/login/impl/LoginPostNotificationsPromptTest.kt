@@ -114,6 +114,46 @@ internal class LoginPostNotificationsPromptTest {
         }
 
     @Test
+    fun `DataStore failure on the prompt gate must not cancel the login coroutine`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Best-effort guard for the markPrompted() call. A DataStore IO
+            // error (transient disk pressure, file lock contention, etc.)
+            // arriving on the prompt-gate path must NOT cancel the
+            // login-success coroutine. The session is already persisted by
+            // the time we reach this branch; worst case the user can re-
+            // enable notifications from system settings later.
+            val store =
+                PromptTestNotificationsPromptShownStore(
+                    initialShown = false,
+                    failOnMarkShown = true,
+                )
+            val decider = NotificationsPromptDecider(store, sdkInt = Build.VERSION_CODES.TIRAMISU)
+            val broker = PromptTestOAuthRedirectBroker()
+            val auth = PromptTestAuthRepository(completeLoginResult = Result.success(Unit))
+            val vm = newViewModel(authRepository = auth, broker = broker, decider = decider)
+            advanceUntilIdle()
+
+            broker.emit("net.kikin.nubecita:/oauth-redirect?code=abc")
+            advanceUntilIdle()
+
+            // VM must STILL emit LoginSucceeded — the screen can't be left
+            // stranded waiting on an effect that never arrives just because
+            // a persistence write failed.
+            val effect = vm.effects.first()
+            assertEquals(
+                LoginEffect.LoginSucceeded(requestPostNotificationsPermission = false),
+                effect,
+                "DataStore failure on the prompt gate must degrade to 'no prompt this login', not crash",
+            )
+
+            // markShown was attempted exactly once; the failure means the
+            // gate stays unset, so the next login (after whatever transient
+            // condition cleared) will get a fresh chance at the prompt.
+            assertEquals(1, store.markShownCalls)
+            assertFalse(store.shown)
+        }
+
+    @Test
     fun `failed completeLogin does NOT emit any LoginSucceeded effect`() =
         runTest(mainDispatcher.dispatcher) {
             // Defensive: the prompt belongs only on the success branch — emitting
@@ -176,6 +216,7 @@ private class PromptTestOAuthRedirectBroker : OAuthRedirectBroker {
 
 private class PromptTestNotificationsPromptShownStore(
     initialShown: Boolean,
+    private val failOnMarkShown: Boolean = false,
 ) : NotificationsPromptShownStore {
     var shown: Boolean = initialShown
         private set
@@ -186,6 +227,11 @@ private class PromptTestNotificationsPromptShownStore(
 
     override suspend fun markShown() {
         markShownCalls++
+        if (failOnMarkShown) {
+            // Mirror the kind of failure DataStore surfaces in production:
+            // a runtime IOException wrapped by Preferences serialization.
+            throw java.io.IOException("simulated DataStore write failure")
+        }
         shown = true
     }
 }

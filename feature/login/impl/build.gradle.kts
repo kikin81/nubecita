@@ -19,6 +19,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:push"))
     implementation(libs.androidx.browser)
+    implementation(libs.timber)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

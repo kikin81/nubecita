@@ -17,11 +17,17 @@ import javax.inject.Qualifier
 import javax.inject.Singleton
 
 /**
- * Hilt qualifiers + providers for `:core:push`'s two Preferences DataStores.
+ * Hilt qualifiers + providers for `:core:push`'s three Preferences DataStores.
  *
- * The two stores live in separate files so a `PushRegistrationStateStore.clear()`
- * triggered by sign-out does not also wipe the cross-session muted-actor
- * cache (mutes outlive any single login session).
+ * Stores live in separate files so a `PushRegistrationStateStore.clear()`
+ * triggered by sign-out can wipe registration state WITHOUT also clearing:
+ *
+ *  - the cross-session muted-actor cache ([MutedActorDataStore]), which
+ *    outlives any single login session and is refreshed on foreground
+ *  - the once-per-install POST_NOTIFICATIONS prompt-shown flag
+ *    ([NotificationsPromptDataStore]), which must NOT reset on sign-out —
+ *    a second login on the same install would re-prompt, looking like an
+ *    OS misfire to the user
  */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
