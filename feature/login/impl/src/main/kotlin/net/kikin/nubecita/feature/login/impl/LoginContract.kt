@@ -80,9 +80,23 @@ sealed interface LoginEffect : UiEffect {
 
     /**
      * The OAuth flow completed successfully and a session is now persisted
-     * in the store. Carries no payload — the screen decides where to
-     * navigate (today: pop the Login destination off the back stack;
-     * `nubecita-30c` will add auth-gated routing decisions on top).
+     * in the store. Post-login navigation is owned by `MainActivity`'s
+     * reactive `SessionStateProvider.SignedIn` observer — once
+     * `completeLogin` succeeds and the state transitions to `SignedIn`,
+     * MainActivity calls `navigator.replaceTo(Main)`. The screen only acts
+     * on this effect to launch the POST_NOTIFICATIONS runtime prompt when
+     * [requestPostNotificationsPermission] is true (Android 13+, first
+     * sign-in on this install, gated by `NotificationsPromptDecider`).
+     *
+     * The prompt decision is packed into this effect rather than emitted
+     * as a separate side-effect because `MviViewModel.sendEffect` launches
+     * a fresh coroutine per call — back-to-back emissions only happen to
+     * be ordered today because viewModelScope runs on
+     * `Dispatchers.Main.immediate`. Folding the prompt into a single
+     * atomic effect removes the dispatcher dependency entirely and keeps
+     * the screen's collector branchless on the order of arrival.
      */
-    data object LoginSucceeded : LoginEffect
+    data class LoginSucceeded(
+        val requestPostNotificationsPermission: Boolean,
+    ) : LoginEffect
 }

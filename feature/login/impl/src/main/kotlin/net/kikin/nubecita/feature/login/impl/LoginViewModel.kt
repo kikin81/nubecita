@@ -3,10 +3,13 @@ package net.kikin.nubecita.feature.login.impl
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.oauth.OAuthDiscoveryException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.push.NotificationsPromptDecider
+import timber.log.Timber
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -24,12 +27,14 @@ class LoginViewModel
     @Inject
     constructor(
         private val authRepository: AuthRepository,
+        private val notificationsPromptDecider: NotificationsPromptDecider,
         broker: OAuthRedirectBroker,
     ) : MviViewModel<LoginState, LoginEvent, LoginEffect>(LoginState()) {
         init {
             // Long-running collection of redirect URIs published by MainActivity.
             // Cancels automatically when the VM is cleared. Each emission triggers
-            // completeLogin; success → LoginSucceeded effect, failure → state errorMessage.
+            // completeLogin; success → single LoginSucceeded effect carrying the
+            // POST_NOTIFICATIONS prompt decision; failure → state errorMessage.
             viewModelScope.launch {
                 broker.redirects.collect { redirectUri ->
                     authRepository
@@ -40,7 +45,11 @@ class LoginViewModel
                             // isLoading true during the Custom Tab roundtrip, the success
                             // handler should still leave a clean slate before navigation.
                             setState { copy(isLoading = false, errorMessage = null) }
-                            sendEffect(LoginEffect.LoginSucceeded)
+                            sendEffect(
+                                LoginEffect.LoginSucceeded(
+                                    requestPostNotificationsPermission = resolvePostNotificationsPrompt(),
+                                ),
+                            )
                         }.onFailure { failure ->
                             val handle = uiState.value.handle.trim()
                             setState { copy(isLoading = false, errorMessage = failure.toLoginError(handle)) }
@@ -57,6 +66,39 @@ class LoginViewModel
                 LoginEvent.OpenSignup -> sendEffect(LoginEffect.LaunchCustomTab(BLUESKY_SIGNUP_URL))
             }
         }
+
+        /**
+         * Best-effort decision on whether the screen should launch the
+         * POST_NOTIFICATIONS system dialog. Returns `false` if either
+         * [NotificationsPromptDecider.shouldPrompt] or
+         * [NotificationsPromptDecider.markPrompted] throws (both
+         * touch DataStore and can fail on transient IO or — pre-corruption-
+         * handler — schema mismatches). A DataStore exception MUST NOT
+         * cancel the login-success coroutine: the session is already
+         * persisted by the time we reach this branch, and worst case the
+         * user can re-enable notifications from system settings. We also
+         * keep `markPrompted()` paired with `shouldPrompt() == true` so a
+         * future read-side failure can't flip the gate without the screen
+         * actually seeing the prompt request.
+         */
+        private suspend fun resolvePostNotificationsPrompt(): Boolean =
+            try {
+                val shouldPrompt = notificationsPromptDecider.shouldPrompt()
+                if (shouldPrompt) {
+                    // Mark the gate BEFORE the screen acts on the effect:
+                    // even if the user declines the system dialog (or the
+                    // LaunchedEffect collector is torn down mid-dispatch),
+                    // we've recorded the attempt and won't loop-prompt on
+                    // every subsequent login.
+                    notificationsPromptDecider.markPrompted()
+                }
+                shouldPrompt
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                Timber.tag(TAG).e(failure, "POST_NOTIFICATIONS prompt gate threw; skipping prompt this login")
+                false
+            }
 
         private fun submitLogin() {
             val handle = uiState.value.handle.trim()
@@ -75,6 +117,12 @@ class LoginViewModel
                         setState { copy(isLoading = false, errorMessage = failure.toLoginError(handle)) }
                     }
             }
+        }
+
+        private companion object {
+            // Logcat tag stays under the 23-char Android Log ceiling so it
+            // shows up unmangled in `adb logcat -s LoginViewModel`.
+            const val TAG = "LoginViewModel"
         }
     }
 

@@ -2,7 +2,7 @@
 androidGradlePlugin = "9.2.1"
 androidxBenchmark = "1.5.0-alpha06"
 androidxUiAutomator = "2.3.0"
-atproto = "8.1.0"
+atproto = "9.0.1"
 androidxCore = "1.18.0"
 androidxLifecycle = "2.10.0"
 androidxActivity = "1.13.0"

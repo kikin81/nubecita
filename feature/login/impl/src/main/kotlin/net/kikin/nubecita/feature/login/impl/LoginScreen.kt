@@ -1,5 +1,8 @@
 package net.kikin.nubecita.feature.login.impl
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +53,13 @@ fun LoginScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    // The result is intentionally ignored: the prompt-shown gate is flipped
+    // by the VM before the launcher fires, so denial doesn't loop the prompt,
+    // and grant is observable system-wide (the FCM service can post on the
+    // next push). No state mutation is needed here.
+    val postNotificationsPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
@@ -61,8 +71,13 @@ fun LoginScreen(
                 // Post-login routing is owned by MainActivity's reactive observer of
                 // SessionStateProvider.state — once completeLogin succeeds and the state
                 // transitions to SignedIn, MainActivity calls navigator.replaceTo(Main).
-                // Branch retained so the `when` stays exhaustive over LoginEffect.
-                LoginEffect.LoginSucceeded -> Unit
+                // The only screen-side action is the POST_NOTIFICATIONS launcher, gated
+                // by the VM's NotificationsPromptDecider (Android 13+, first sign-in on
+                // this install). When the gate is false, this branch is a no-op.
+                is LoginEffect.LoginSucceeded ->
+                    if (effect.requestPostNotificationsPermission) {
+                        postNotificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
             }
         }
     }

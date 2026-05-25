@@ -17,11 +17,17 @@ import javax.inject.Qualifier
 import javax.inject.Singleton
 
 /**
- * Hilt qualifiers + providers for `:core:push`'s two Preferences DataStores.
+ * Hilt qualifiers + providers for `:core:push`'s three Preferences DataStores.
  *
- * The two stores live in separate files so a `PushRegistrationStateStore.clear()`
- * triggered by sign-out does not also wipe the cross-session muted-actor
- * cache (mutes outlive any single login session).
+ * Stores live in separate files so a `PushRegistrationStateStore.clear()`
+ * triggered by sign-out can wipe registration state WITHOUT also clearing:
+ *
+ *  - the cross-session muted-actor cache ([MutedActorDataStore]), which
+ *    outlives any single login session and is refreshed on foreground
+ *  - the once-per-install POST_NOTIFICATIONS prompt-shown flag
+ *    ([NotificationsPromptDataStore]), which must NOT reset on sign-out —
+ *    a second login on the same install would re-prompt, looking like an
+ *    OS misfire to the user
  */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -31,11 +37,16 @@ internal annotation class PushRegistrationDataStore
 @Retention(AnnotationRetention.BINARY)
 internal annotation class MutedActorDataStore
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+internal annotation class NotificationsPromptDataStore
+
 @Module
 @InstallIn(SingletonComponent::class)
 internal object PushDataStoreModule {
     private const val REGISTRATION_FILE_NAME = "push_registration"
     private const val MUTED_ACTOR_FILE_NAME = "push_muted_actors"
+    private const val NOTIFICATIONS_PROMPT_FILE_NAME = "push_notifications_prompt"
 
     @Provides
     @Singleton
@@ -76,5 +87,24 @@ internal object PushDataStoreModule {
                     emptyPreferences()
                 },
             produceFile = { context.preferencesDataStoreFile(MUTED_ACTOR_FILE_NAME) },
+        )
+
+    @Provides
+    @Singleton
+    @NotificationsPromptDataStore
+    fun provideNotificationsPromptDataStore(
+        @ApplicationContext context: Context,
+    ): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create(
+            // See PushRegistrationDataStore comment. Corruption here would
+            // reset the "have we already prompted" flag and cause a re-prompt
+            // on next login. Annoying for users but recoverable — they can
+            // still grant via system settings if they've denied permanently.
+            corruptionHandler =
+                ReplaceFileCorruptionHandler {
+                    Timber.w(it, "Notifications-prompt DataStore file corrupted; replacing with empty store")
+                    emptyPreferences()
+                },
+            produceFile = { context.preferencesDataStoreFile(NOTIFICATIONS_PROMPT_FILE_NAME) },
         )
 }
