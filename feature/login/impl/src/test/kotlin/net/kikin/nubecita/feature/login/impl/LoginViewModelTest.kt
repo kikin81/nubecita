@@ -246,7 +246,10 @@ internal class LoginViewModelTest {
             advanceUntilIdle()
 
             val effect = vm.effects.first()
-            assertEquals(LoginEffect.LoginSucceeded, effect)
+            // The fixture's default decider returns shouldPrompt = false (sdkInt = 0),
+            // so the LoginSucceeded effect carries requestPostNotificationsPermission = false.
+            // The true-branch is exercised separately in LoginPostNotificationsPromptTest.
+            assertEquals(LoginEffect.LoginSucceeded(requestPostNotificationsPermission = false), effect)
             assertEquals(1, auth.completeLoginInvocations)
             assertNull(vm.uiState.value.errorMessage)
         }

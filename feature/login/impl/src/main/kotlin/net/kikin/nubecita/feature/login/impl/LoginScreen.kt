@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.login.impl
 
+import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
@@ -70,10 +71,13 @@ fun LoginScreen(
                 // Post-login routing is owned by MainActivity's reactive observer of
                 // SessionStateProvider.state — once completeLogin succeeds and the state
                 // transitions to SignedIn, MainActivity calls navigator.replaceTo(Main).
-                // Branch retained so the `when` stays exhaustive over LoginEffect.
-                LoginEffect.LoginSucceeded -> Unit
-                LoginEffect.RequestPostNotificationsPermission ->
-                    postNotificationsPermissionLauncher.launch("android.permission.POST_NOTIFICATIONS")
+                // The only screen-side action is the POST_NOTIFICATIONS launcher, gated
+                // by the VM's NotificationsPromptDecider (Android 13+, first sign-in on
+                // this install). When the gate is false, this branch is a no-op.
+                is LoginEffect.LoginSucceeded ->
+                    if (effect.requestPostNotificationsPermission) {
+                        postNotificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
             }
         }
     }

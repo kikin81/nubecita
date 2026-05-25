@@ -28,7 +28,7 @@ internal class LoginPostNotificationsPromptTest {
     val mainDispatcher = MainDispatcherExtension()
 
     @Test
-    fun `first login on API-33 plus emits the permission-prompt effect, then LoginSucceeded, and marks the gate`() =
+    fun `first login on API-33 plus emits LoginSucceeded with prompt flag true and marks the gate`() =
         runTest(mainDispatcher.dispatcher) {
             val store = PromptTestNotificationsPromptShownStore(initialShown = false)
             val decider = NotificationsPromptDecider(store, sdkInt = Build.VERSION_CODES.TIRAMISU)
@@ -40,15 +40,16 @@ internal class LoginPostNotificationsPromptTest {
             broker.emit("net.kikin.nubecita:/oauth-redirect?code=abc")
             advanceUntilIdle()
 
-            // Effect order: the prompt fires FIRST so the system dialog is requested
-            // before MainActivity's SignedIn observer tears down LoginScreen on the
-            // subsequent recomposition. LoginSucceeded follows so the existing
-            // exhaustive-when branch in LoginScreen.kt keeps working.
-            val first = vm.effects.first()
-            assertEquals(LoginEffect.RequestPostNotificationsPermission, first)
-
-            val second = vm.effects.first()
-            assertEquals(LoginEffect.LoginSucceeded, second)
+            // Single atomic effect: LoginSucceeded carries the prompt decision in
+            // its payload. The screen reads `requestPostNotificationsPermission`
+            // and launches the system dialog in the same `when` branch — no
+            // dependency on dispatcher-specific ordering of two emissions.
+            val effect = vm.effects.first()
+            assertEquals(
+                LoginEffect.LoginSucceeded(requestPostNotificationsPermission = true),
+                effect,
+                "first login must signal the screen to launch the system permission dialog",
+            )
 
             // Gate flipped — the next login on this install must NOT re-prompt
             // even if the user denied the system dialog. Re-prompting would
@@ -58,7 +59,7 @@ internal class LoginPostNotificationsPromptTest {
         }
 
     @Test
-    fun `second login on API-33 plus skips the prompt and still emits LoginSucceeded`() =
+    fun `second login on API-33 plus emits LoginSucceeded with prompt flag false`() =
         runTest(mainDispatcher.dispatcher) {
             val store = PromptTestNotificationsPromptShownStore(initialShown = true)
             val decider = NotificationsPromptDecider(store, sdkInt = Build.VERSION_CODES.TIRAMISU)
@@ -70,9 +71,11 @@ internal class LoginPostNotificationsPromptTest {
             broker.emit("net.kikin.nubecita:/oauth-redirect?code=abc")
             advanceUntilIdle()
 
-            // Only LoginSucceeded — no permission-prompt effect this time.
             val effect = vm.effects.first()
-            assertEquals(LoginEffect.LoginSucceeded, effect)
+            assertEquals(
+                LoginEffect.LoginSucceeded(requestPostNotificationsPermission = false),
+                effect,
+            )
 
             // Defensive: confirm there is no buffered second effect lurking.
             val extra = withTimeoutOrNull(timeMillis = 50) { vm.effects.first() }
@@ -83,11 +86,11 @@ internal class LoginPostNotificationsPromptTest {
         }
 
     @Test
-    fun `login on pre-API-33 device skips the prompt and does not flip the gate`() =
+    fun `login on pre-API-33 device emits LoginSucceeded with prompt flag false and does not flip the gate`() =
         runTest(mainDispatcher.dispatcher) {
             // Android 12 (API 32) and earlier auto-grant POST_NOTIFICATIONS at
             // install time. Triggering the runtime prompt is impossible (and a
-            // launch() call would no-op anyway). Skip the effect entirely so
+            // launch() call would no-op anyway). Skip the flag entirely so
             // the gate stays unset — if the user later upgrades to Android 13,
             // they'll get prompted on first post-upgrade login.
             val store = PromptTestNotificationsPromptShownStore(initialShown = false)
@@ -101,22 +104,21 @@ internal class LoginPostNotificationsPromptTest {
             advanceUntilIdle()
 
             val effect = vm.effects.first()
-            assertEquals(LoginEffect.LoginSucceeded, effect)
-
-            val extra = withTimeoutOrNull(timeMillis = 50) { vm.effects.first() }
-            assertNull(extra, "pre-API-33 must not buffer a prompt effect")
+            assertEquals(
+                LoginEffect.LoginSucceeded(requestPostNotificationsPermission = false),
+                effect,
+            )
 
             assertEquals(0, store.markShownCalls)
             assertFalse(store.shown, "the gate must stay false so a future Android upgrade still gets a prompt")
         }
 
     @Test
-    fun `failed completeLogin does NOT emit the permission-prompt effect`() =
+    fun `failed completeLogin does NOT emit any LoginSucceeded effect`() =
         runTest(mainDispatcher.dispatcher) {
             // Defensive: the prompt belongs only on the success branch — emitting
-            // it on a failed login would look like an OS misfire to the user
-            // (they declined to give us a session, why are we asking for
-            // notifications now?).
+            // a LoginSucceeded (with or without the prompt flag) on failed login
+            // would falsely signal a session to the screen.
             val store = PromptTestNotificationsPromptShownStore(initialShown = false)
             val decider = NotificationsPromptDecider(store, sdkInt = Build.VERSION_CODES.TIRAMISU)
             val broker = PromptTestOAuthRedirectBroker()
@@ -131,7 +133,7 @@ internal class LoginPostNotificationsPromptTest {
             advanceUntilIdle()
 
             val extra = withTimeoutOrNull(timeMillis = 50) { vm.effects.first() }
-            assertNull(extra, "failed completeLogin must not emit any effect (including the prompt)")
+            assertNull(extra, "failed completeLogin must not emit any effect")
             assertEquals(0, store.markShownCalls)
             assertFalse(store.shown)
         }
