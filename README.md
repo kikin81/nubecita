@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/kikin81/nubecita?label=release&sort=semver)](https://github.com/kikin81/nubecita/releases/latest)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3_Expressive-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/kikin81?logo=github&label=Sponsor&color=EA4AAA)](https://github.com/sponsors/kikin81)
 
 A fast, lightweight, native Android client for [Bluesky](https://bsky.app) and the AT Protocol. Spanish for "little cloud" — the UI aims to feel weightless to match.
 
@@ -36,7 +37,7 @@ A fast, lightweight, native Android client for [Bluesky](https://bsky.app) and t
 - **Kotlin** + **Jetpack Compose** with **Material 3 Expressive**
 - **MVI** architecture (`UiState` / `UiEvent` / `UiEffect`) on `ViewModel` + `StateFlow`
 - **Jetpack Navigation 3** with `EntryProviderInstaller` multibindings split across an outer shell (Splash → Login → Main) and an inner `MainShell` for tabs + sub-routes
-- **Hilt** for DI, **Coil 3** for images, **Media3** for video, **DataStore + Tink** for encrypted OAuth session storage (Room is on the roadmap for offline caches / composer drafts but not yet wired)
+- **Hilt** for DI, **Coil 3** for images, **Media3** for video, **DataStore + Tink** for encrypted OAuth session storage, **Room** for offline caches
 - **`atproto-kotlin`** SDK for AT Protocol networking
 - 100% native — no web views; 120 Hz scrolling is a hard requirement
 
@@ -45,30 +46,39 @@ A fast, lightweight, native Android client for [Bluesky](https://bsky.app) and t
 
 ```
 app/                     thin shell; aggregates DI, hosts NavDisplay + MainActivity
-build-logic/             composite build with five Gradle convention plugins
+build-logic/             composite build with eight Gradle convention plugins
 core/
-  auth/                  OAuth session storage + token refresh
-  common/                shared utilities (incl. :core:common:navigation qualifiers)
-  feed-mapping/          AT Proto post -> UI model mappers
-  posting/               post-creation domain
-  posts/                 post fetching / repositories
+  auth/                  OAuth session storage + token refresh (Tink-encrypted DataStore)
+  common/                MVI base, navigation qualifiers, coroutine dispatchers, time utils
+  database/              Room database, entities, DAOs, migrations
+  feed-mapping/          AT Proto post → UI model mappers (PostUi, EmbedUi, AuthorUi)
   post-interactions/     like / repost / follow primitives
+  posting/               post-creation domain (ComposerError, ComposerAttachment)
+  posts/                 post fetching repositories
+  preferences/           DataStore preferences (non-encrypted, user settings)
+  profile/               profile fetching (getProfile XRPC)
+  push/                  FCM token registration + notification handling
   testing/               JVM test helpers
-  testing-android/       androidTest helpers (Compose harness, etc.)
-data/models/             shared data models
-designsystem/            Compose-using library; M3 Expressive tokens + components
+  testing-android/       androidTest helpers (HiltTestRunner, HiltTestActivity, MockEngineModule)
+  video/                 Media3 / ExoPlayer coordinator (single-player, HLS)
+data/models/             @Stable UI data classes (PostUi, AuthorUi, EmbedUi, etc.)
+designsystem/            M3 Expressive tokens, components, preview wrappers
 feature/
   chats/{api,impl}       conversation list + DM thread
-  composer/{api,impl}    post composer with mention typeahead
-  feed/{api,impl}        Following timeline
+  composer/{api,impl}    post composer (grapheme counter, language picker, mention typeahead)
+  feed/{api,impl}        Following timeline with paginated scroll
   login/{api,impl}       OAuth login (outer shell)
-  mediaviewer/{api,impl} zoomable image / video lightbox
-  postdetail/{api,impl}  thread view
-  profile/{api,impl}     user profile with tabs
-  search/api             api-only stub; :impl ships later
+  mediaviewer/{api,impl} zoomable image / HLS video lightbox (telephoto)
+  moderation/{api,impl}  moderation actions
+  onboarding/{api,impl}  onboarding flow
+  postdetail/{api,impl}  thread view (ancestors + focus + replies)
+  profile/{api,impl}     user profile with hero + Posts/Replies/Media tabs
+  search/{api,impl}      search (api-only stub for now)
+  settings/{api,impl}    settings screen
+  videoplayer/{api,impl} inline video player
 ```
 
-Every Android module applies one of five convention plugins (`nubecita.android.library` / `.library.compose` / `.feature` / `.application` / `.hilt`). Plugin roster and "how to add a new module" recipe: [`build-logic/README.md`](build-logic/README.md). Per-module conventions and MVI rules live in [`CLAUDE.md`](CLAUDE.md).
+Every Android module applies one of eight convention plugins (`nubecita.android.library` / `.library.compose` / `.feature` / `.application` / `.hilt` / `.benchmark` / `.room` / `.jacoco`). Plugin roster and "how to add a new module" recipe: [`build-logic/README.md`](build-logic/README.md). Per-module conventions and MVI rules live in [`CLAUDE.md`](CLAUDE.md).
 
 Feature modules use the **api / impl** split required by Navigation 3:
 
