@@ -215,6 +215,7 @@ dependencies {
     // :data:models in nubecita-vrba.4 and is now reachable transitively.
     implementation(project(":core:posting"))
     implementation(project(":core:preferences"))
+    implementation(project(":core:push"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
     implementation(project(":feature:chats:impl"))
@@ -255,6 +256,7 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.messaging)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.timber)
