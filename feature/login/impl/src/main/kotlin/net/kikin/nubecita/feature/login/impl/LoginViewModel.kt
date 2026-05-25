@@ -172,8 +172,8 @@ class LoginViewModel
     }
 
 // Prefix-match against the upstream OAuthDiscoveryException message is brittle by
-// design — when atproto-kotlin grows a typed HandleNotFoundException, replace the
-// check here and drop the unit test that pins the literal string.
+// design — when atproto-kotlin grows typed exceptions (HandleNotFound, NetworkReach,
+// etc.), replace the checks here and drop the unit tests that pin the literal strings.
 // Map the UI error to the bucketed analytics reason. BlankHandle returns null
 // (not reported — it's client-side validation and never reaches the failure path).
 private fun LoginError.toAnalyticsReason(): LoginErrorReason? =
@@ -186,11 +186,47 @@ private fun LoginError.toAnalyticsReason(): LoginErrorReason? =
 
 private fun Throwable.toLoginError(handle: String): LoginError =
     when {
-        this is OAuthDiscoveryException &&
-            message?.startsWith("Failed to resolve handle") == true -> LoginError.HandleNotFound(handle)
+        this is OAuthDiscoveryException && isHandleNotFoundDiscoveryMessage() -> LoginError.HandleNotFound(handle)
         isNetworkError() -> LoginError.Network
+        this is OAuthDiscoveryException && isReachabilityDiscoveryMessage() -> LoginError.Network
         else -> LoginError.Generic
     }
+
+private fun OAuthDiscoveryException.isHandleNotFoundDiscoveryMessage(): Boolean = message?.startsWith("Failed to resolve handle") == true
+
+/**
+ * Recognizes [OAuthDiscoveryException] messages that indicate a reachability /
+ * protocol-level failure (captive-portal hijacking, slow network forcing a
+ * timeout that the underlying Ktor exception doesn't surface as an
+ * `IOException` cause, upstream returning a non-2xx status, malformed JSON
+ * from a middlebox returning HTML instead of metadata). These should surface
+ * to the user as `LoginError.Network` ("Trouble connecting, try again") not
+ * `LoginError.Generic` ("Could not start sign-in"), because:
+ *
+ *  - The user can fix it by switching networks / waiting / retrying
+ *  - Telling them it's a config problem when it's actually their WiFi sends
+ *    them down the wrong debugging path (and clutters Crashlytics / support
+ *    with would-be-bug reports)
+ *
+ * Negative cases that stay [LoginError.Generic] (upstream config problems
+ * that retrying won't fix):
+ *  - `authorization_endpoint missing` / `token_endpoint missing` etc.
+ *  - `Unsupported DID method: …`
+ *  - `DID document … has no #atproto_pds service`
+ *  - `Resource server metadata … has empty authorization_servers array`
+ */
+private fun OAuthDiscoveryException.isReachabilityDiscoveryMessage(): Boolean {
+    val m = message ?: return false
+    return m.startsWith("Failed to fetch") ||
+        m.startsWith("Failed to parse") ||
+        REACHABILITY_STATUS_REGEX.containsMatchIn(m)
+}
+
+// "DID document fetch for '…' returned 502 Bad Gateway" / "Auth server metadata
+// at https://… returned 503 Service Unavailable" / etc. Pin to a 3-digit HTTP
+// status after " returned " so unrelated messages with the word "returned"
+// don't get reclassified.
+private val REACHABILITY_STATUS_REGEX = Regex(""" returned \d{3}""")
 
 private fun Throwable.isNetworkError(): Boolean {
     var t: Throwable? = this

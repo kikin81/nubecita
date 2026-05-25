@@ -194,6 +194,109 @@ internal class LoginViewModelTest {
         }
 
     @Test
+    fun `OAuthDiscoveryException 'Failed to fetch' with no cause maps to Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            // atproto-kotlin sometimes throws OAuthDiscoveryException with no
+            // underlying cause — e.g. when a captive-portal middlebox returns
+            // a 200 with HTML, the HTTP call succeeds, body-parsing fails, and
+            // the discovery layer wraps the parse failure in a message-only
+            // exception (line 295 in DiscoveryChain.kt: "Resource server
+            // metadata at $url returned ${response.status}"). The cause-walk
+            // misses these; message-prefix matching catches them.
+            val wrapped =
+                OAuthDiscoveryException(
+                    "Failed to fetch DID document for 'did:plc:abc' from https://example.com",
+                )
+            val vm =
+                newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `OAuthDiscoveryException 'Failed to parse' from a JsonDecodingException maps to Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Slow / hijacking routers commonly return a captive-portal HTML
+            // page instead of JSON; atproto-kotlin's parse step throws
+            // JsonDecodingException, wrapped as OAuthDiscoveryException with
+            // a "Failed to parse" message. The wrapping kotlinx.serialization
+            // exception is NOT an IOException, so a pure cause-walk misses it.
+            val wrapped =
+                OAuthDiscoveryException(
+                    "Failed to parse resource server metadata from https://example.com",
+                    cause = RuntimeException("Unexpected JSON token at offset 0: <!doctype html>"),
+                )
+            val vm =
+                newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `OAuthDiscoveryException with a 'returned' status message maps to Network`() =
+        runTest(mainDispatcher.dispatcher) {
+            // E.g. "Resource server metadata at $url returned 502 Bad Gateway"
+            // — the HTTP call completed but the server (or a middlebox
+            // intercepting the response) returned a non-2xx that's clearly
+            // a reachability concern, not a config bug on the user's side.
+            val wrapped =
+                OAuthDiscoveryException(
+                    "Auth server metadata at https://example.com returned 502 Bad Gateway",
+                )
+            val vm =
+                newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `OAuthDiscoveryException with a 'missing endpoint' config message stays Generic`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Negative test — protects against accidentally widening the
+            // reachability heuristic to swallow real configuration bugs.
+            // "authorization_endpoint missing from auth server metadata"
+            // is an upstream server config problem, not a network problem;
+            // retrying won't help and the user shouldn't be told to check
+            // their connection.
+            val wrapped =
+                OAuthDiscoveryException(
+                    "authorization_endpoint missing from auth server metadata at https://example.com",
+                )
+            val vm =
+                newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Generic, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `OAuthDiscoveryException 'Unsupported DID method' stays Generic`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Another negative — a DID method the lib doesn't support is a
+            // permanent failure for that handle, not a transient network
+            // condition.
+            val wrapped = OAuthDiscoveryException("Unsupported DID method: did:example:foo")
+            val vm =
+                newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Generic, vm.uiState.value.errorMessage)
+        }
+
+    @Test
     fun `unknown Throwable maps to Generic and does not leak the library message`() =
         runTest(mainDispatcher.dispatcher) {
             val leakySubstring = "authorization_endpoint missing from auth server metadata"
