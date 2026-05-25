@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  POST_NOTIFICATIONS is declared on the production :app manifest, but
+  :core:push androidTest is a self-instrumenting library APK with no
+  target app — its merged manifest doesn't inherit :app's declarations.
+  Without this entry, `pm grant` at runtime fails because the permission
+  isn't declared by the test APK.
+
+  Runtime grant happens in @Before via UiAutomation.executeShellCommand
+  so the system actually flips the bit (declared-but-not-granted is the
+  default for runtime permissions on Android 13+).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+</manifest>
