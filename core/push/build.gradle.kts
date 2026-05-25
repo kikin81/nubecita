@@ -5,6 +5,14 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.core.push"
+
+    defaultConfig {
+        // Hilt-aware runner from :core:testing-android so the @HiltAndroidTest
+        // instrumented tests in src/androidTest/ boot HiltTestApplication and
+        // can drive the Hilt component graph (per the canonical pattern at
+        // kb://android/training/dependency-injection/hilt-testing).
+        testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
+    }
 }
 
 dependencies {
@@ -31,8 +39,14 @@ dependencies {
     testImplementation(libs.turbine)
 
     androidTestImplementation(libs.androidx.core.ktx)
+    androidTestImplementation(project(":core:testing-android"))
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.ktor.client.mock)
+
+    kspAndroidTest(libs.hilt.android.compiler)
 }
