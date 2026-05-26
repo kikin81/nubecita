@@ -91,6 +91,8 @@ internal class SettingsViewModel
                     sendEffect(SettingsEffect.LaunchUri(uri = MANAGE_ACCOUNT_URL))
                 SettingsEvent.SwitchAccountTapped ->
                     sendEffect(SettingsEffect.ShowSwitchAccountComingSoon)
+                SettingsEvent.NotificationsTapped ->
+                    sendEffect(SettingsEffect.OpenSystemNotificationSettings)
             }
         }
 

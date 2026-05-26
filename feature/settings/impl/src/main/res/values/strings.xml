@@ -36,4 +36,10 @@
     <string name="settings_switch_account_label">Switch account</string>
     <string name="settings_switch_account_coming_soon">Multi-account — coming soon</string>
     <string name="settings_switch_account_avatar_content_description">Current account</string>
+
+    <!-- Notifications section. v1 row deep-links into the OS app-
+         notification-settings page (per-channel toggles, badge
+         controls, importance overrides). In-app per-reason toggles
+         live in the same section and arrive in a later epic. -->
+    <string name="settings_notifications_row_label">Notifications</string>
 </resources>

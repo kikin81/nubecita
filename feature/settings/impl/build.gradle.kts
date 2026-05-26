@@ -37,6 +37,10 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.espresso.core)
+    // Needed by SettingsNotificationsRowInstrumentationTest to assert the
+    // outgoing Intent shape (action + EXTRA_APP_PACKAGE) when tapping the
+    // Notifications row, without actually launching the OS settings page.
+    androidTestImplementation(libs.androidx.test.espresso.intents)
     androidTestImplementation(libs.androidx.test.ext.junit)
     // mockk-android needed for TestAuthRepositoryModule (relaxed mocks of
     // auth interfaces in the Hilt test graph — SettingsInstrumentationTest).

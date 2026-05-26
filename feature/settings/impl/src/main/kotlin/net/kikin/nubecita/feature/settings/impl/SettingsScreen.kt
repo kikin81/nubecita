@@ -1,9 +1,11 @@
 package net.kikin.nubecita.feature.settings.impl
 
 import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -131,6 +133,22 @@ internal fun SettingsScreen(
                             .launchUrl(context, Uri.parse(effect.uri))
                     } catch (_: ActivityNotFoundException) {
                         // No browser available — silent no-op.
+                    }
+                }
+                SettingsEffect.OpenSystemNotificationSettings -> {
+                    // Deep-link into the per-app, per-channel system
+                    // notification settings. Narrow catch on
+                    // ActivityNotFoundException so a genuinely unsupported
+                    // OEM (no such system activity) becomes a silent no-op
+                    // rather than crashing — other launch failures
+                    // propagate to logcat.
+                    val intent =
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: ActivityNotFoundException) {
+                        // No system activity available — silent no-op.
                     }
                 }
             }
@@ -309,8 +327,24 @@ internal fun SettingsContent(
     // reference whose .value always points at the current onEvent.
     val currentOnEvent by rememberUpdatedState(onEvent)
     val signOutLabel = stringResource(R.string.settings_signout)
+    val notificationsRowLabel = stringResource(R.string.settings_notifications_row_label)
     val versionRowLabel = stringResource(R.string.settings_version_row_label)
 
+    val notificationsRows =
+        remember(notificationsRowLabel) {
+            persistentListOf(
+                // SettingsRow.Link semantically signals "opens an external
+                // destination" — here, the OS app-notification-settings
+                // page. v1 content for the canonical Notifications
+                // section; in-app per-reason toggles arrive in a later
+                // epic and will join this list.
+                SettingsRow.Link(
+                    icon = null,
+                    label = notificationsRowLabel,
+                    onClick = { currentOnEvent(SettingsEvent.NotificationsTapped) },
+                ),
+            )
+        }
     val accountRows =
         remember(signOutLabel) {
             persistentListOf(
@@ -366,11 +400,14 @@ internal fun SettingsContent(
         //
         //   1. Open links & sharing — filled by nubecita-ajty
         //   2. Display              — filled by nubecita-37to.3
-        //   3. Notifications        — filled by nubecita-37to.4
+        //   3. Notifications        — system-settings deep-link today
+        //                              (v1 content); in-app per-reason
+        //                              toggles arrive in a later epic.
         //   4. Content & moderation — filled by nubecita-37to.5
-        //   5. Account              — Sign Out lives here today (this task)
-        //   6. About                — Version row lives here today (this task)
+        //   5. Account              — Sign Out lives here today
+        //   6. About                — Version row lives here today
         //   7. Data usage           — filled by nubecita-37to.8
+        SettingsSection(rows = notificationsRows)
         SettingsSection(rows = accountRows)
         SettingsSection(rows = aboutRows)
     }
