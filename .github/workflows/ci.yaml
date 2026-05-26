@@ -361,7 +361,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version-file: .ruby-version
+          # ruby-version not set — action auto-reads .ruby-version from the repo root.
           bundler-cache: true   # runs `bundle install` and caches the result
 
       - name: Validate Fastlane gem tree
