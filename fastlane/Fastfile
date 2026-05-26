@@ -21,9 +21,35 @@ REQUIRED_KEYSTORE_ENV = %w[KEYSTORE_FILE KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWOR
 PLAY_CHANGELOG_MAX_CHARS = 500
 
 platform :android do
-  desc "Smoke-test: verify the gem tree loads and the Fastfile parses without touching Gradle or Play Console."
+  # Smoke-test that runs in CI on Ruby/gem dependency changes.
+  #
+  # What this catches:
+  #   - `bundle install` failure: a gem doesn't compile or its gemspec
+  #     restricts the Ruby version (caught by ruby/setup-ruby before this lane
+  #     runs, but surfaced here as the explicit gate).
+  #   - Load-time failures: a gem installs but raises when required or when
+  #     its top-level constants are accessed (e.g. removed Ruby core methods
+  #     called during module initialisation).
+  #
+  # What this does NOT catch:
+  #   - Runtime failures inside gem methods that are only exercised during an
+  #     actual upload (e.g. a Ruby 4-incompatible code path deep inside
+  #     googleauth that only runs when credentials are resolved).
+  #   - Play Console API errors, keystore issues, or Gradle failures.
+  #
+  # For full confidence on a Ruby major-version bump, a manual
+  # `bundle exec fastlane internal` against a test track with real credentials
+  # is still required before merging.
+  desc "Smoke-test: verify gem load-time compatibility under the current Ruby version."
   lane :validate do
-    UI.success("Fastlane gem tree is healthy — all dependencies loaded.")
+    # Force-require the gems most likely to have runtime incompatibilities
+    # under a new Ruby major version. A successful `bundle install` proves
+    # compilation; these calls prove the constants are accessible at runtime.
+    require "google/auth"
+    require "googleauth"
+    Google::Auth
+
+    UI.success("Gem load-time check passed — googleauth and google-auth constants are accessible.")
   end
 
   desc "Build a signed release AAB and upload it to the Play Console internal track."
