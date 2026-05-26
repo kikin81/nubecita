@@ -316,6 +316,95 @@ class PushRegistrationCoordinatorTest {
             )
         }
 
+    @Test
+    fun `signOut entry point calls unregister with stored credentials and clears the store`() =
+        runTest {
+            // The explicit-signOut path lives here (not on the SignedOut collector
+            // branch) because the call needs to happen BEFORE atOAuth.logout()
+            // revokes the OAuth tokens — otherwise XrpcClientProvider.authenticated()
+            // throws NoSessionException and the unregister silently fails. Regression
+            // test for nubecita-1fy.8.
+            val fixture = newFixture(initialState = SessionState.SignedIn(handle = "alice.bsky.social", did = viewerDid))
+            fixture.coordinator.start()
+            advanceUntilIdle()
+
+            fixture.coordinator.signOut()
+            advanceUntilIdle()
+
+            assertEquals(listOf(viewerDid to fcmToken), fixture.repository.unregisterCalls)
+            assertEquals(PushRegistrationState.Default, fixture.store.read())
+        }
+
+    @Test
+    fun `signOut with empty store is a safe no-op (no unregister call)`() =
+        runTest {
+            // Defensive: a sign-out invoked when nothing is registered (e.g.
+            // a sign-out attempt right after install before any register
+            // completed) must not crash, throw, or fire a spurious unregister.
+            val fixture = newFixture(initialState = SessionState.Loading)
+
+            fixture.coordinator.signOut()
+            advanceUntilIdle()
+
+            assertEquals(0, fixture.repository.unregisterCalls.size)
+            assertEquals(PushRegistrationState.Default, fixture.store.read())
+        }
+
+    @Test
+    fun `signOut is idempotent — second call after a SignedOut state transition is a no-op`() =
+        runTest {
+            // signOut() runs from the SessionClearable path (BEFORE atOAuth.logout);
+            // the coordinator's collector also receives SignedOut moments later and
+            // re-runs onSessionEnded(). The second pass must not re-unregister: by
+            // then the store is already clear so the if-not-null guard short-circuits.
+            val sessionFlow = MutableStateFlow<SessionState>(SessionState.SignedIn(handle = "alice.bsky.social", did = viewerDid))
+            val fixture = newFixture(sessionFlow = sessionFlow)
+            fixture.coordinator.start()
+            advanceUntilIdle()
+
+            fixture.coordinator.signOut()
+            advanceUntilIdle()
+            // The SessionClearable side ran. Now simulate the StateFlow transition.
+            sessionFlow.value = SessionState.SignedOut
+            advanceUntilIdle()
+
+            assertEquals(
+                1,
+                fixture.repository.unregisterCalls.size,
+                "unregister must fire exactly once — the SessionClearable path, NOT the StateFlow-collector safety-net path",
+            )
+        }
+
+    @Test
+    fun `signOut mid-backoff cancels the in-flight register before running unregister`() =
+        runTest {
+            // signOut() runs from inside DefaultAuthRepository.signOut(). If a token-
+            // rotation-triggered register is mid-backoff at that moment, the in-flight
+            // job needs to be cancelled BEFORE we issue the unregister — otherwise
+            // a successful register could complete after our unregister and re-create
+            // the gateway-side binding we just dropped.
+            val fixture = newFixture(initialState = SessionState.SignedIn(handle = "alice.bsky.social", did = viewerDid))
+            fixture.repository.registerFailures = Int.MAX_VALUE // wedge the register in its backoff loop
+            fixture.coordinator.start()
+            runCurrent()
+            // First register attempt fired; loop suspended in delay(5_000).
+            val registerCallsBeforeSignOut = fixture.repository.registerCalls.size
+
+            fixture.coordinator.signOut()
+            // Advance well past every backoff delay; if cancellation didn't fire, the
+            // outer for-loop would keep trying.
+            advanceTimeBy(60_000)
+            advanceUntilIdle()
+
+            assertEquals(
+                registerCallsBeforeSignOut,
+                fixture.repository.registerCalls.size,
+                "no further register attempts must fire after signOut — the in-flight job is cancelled",
+            )
+            assertEquals(1, fixture.repository.unregisterCalls.size, "unregister fires exactly once")
+            assertEquals(PushRegistrationState.Default, fixture.store.read())
+        }
+
     private data class Fixture(
         val coordinator: PushRegistrationCoordinator,
         val repository: FakePushRegistrationRepository,

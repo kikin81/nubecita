@@ -198,8 +198,10 @@ internal class DefaultPostInteractionsCache
         }
 
         // SessionClearable — delegates to clear() so sign-out and the
-        // PostInteractionsCache.clear() contract stay in sync.
-        override fun clearSession() = clear()
+        // PostInteractionsCache.clear() contract stay in sync. The
+        // override is `suspend` to match the interface; the body itself
+        // is a synchronous StateFlow assignment.
+        override suspend fun clearSession() = clear()
 
         /**
          * Test-only seam: directly inserts [state] for [postUri] without going through

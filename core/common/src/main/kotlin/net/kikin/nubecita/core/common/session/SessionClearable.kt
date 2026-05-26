@@ -19,11 +19,18 @@ package net.kikin.nubecita.core.common.session
  */
 fun interface SessionClearable {
     /**
-     * Reset all session-scoped in-memory state.
+     * Reset all session-scoped state — and, when needed, issue a network
+     * call that requires the still-valid session.
      *
-     * Called synchronously on the coroutine that drives sign-out, before the
-     * network revocation request. Implementations must be non-suspending and
-     * idempotent.
+     * Called sequentially from the coroutine that drives sign-out, BEFORE
+     * `atOAuth.logout()` revokes the OAuth tokens. Implementations may suspend
+     * to make authenticated XRPC calls (e.g. `:core:push`'s
+     * `unregisterPush`) — those calls require a live session, so doing them
+     * here is the only correct path. Implementations must be idempotent and
+     * should fail-fast on errors rather than hanging the sign-out flow.
+     *
+     * Non-suspending implementations (e.g. in-memory cache reset) are fine;
+     * `suspend` is a superset.
      */
-    fun clearSession()
+    suspend fun clearSession()
 }

@@ -7,10 +7,12 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import kotlinx.coroutines.CoroutineScope
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.common.session.SessionClearable
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.DataStoreNotificationsPromptShownStore
 import net.kikin.nubecita.core.push.DefaultPushRegistrationRepository
@@ -28,6 +30,7 @@ import net.kikin.nubecita.core.push.PushRegistrationRepository
 import net.kikin.nubecita.core.push.PushRegistrationStateStore
 import net.kikin.nubecita.core.push.internal.FirebaseFcmAutoInit
 import net.kikin.nubecita.core.push.internal.FirebaseFcmTokenProvider
+import net.kikin.nubecita.core.push.internal.PushRegistrationSessionClearable
 import javax.inject.Singleton
 
 /**
@@ -61,6 +64,18 @@ abstract class PushModule {
     @Binds
     @Singleton
     internal abstract fun bindFcmAutoInit(impl: FirebaseFcmAutoInit): FcmAutoInit
+
+    // Contributes the push module's pre-logout hook into the multibound
+    // Set<SessionClearable> consumed by DefaultAuthRepository.signOut(). The
+    // clearable runs synchronously inside signOut(), BEFORE atOAuth.logout()
+    // revokes the OAuth tokens — so the unregisterPush call can still
+    // authenticate. See PushRegistrationSessionClearable's KDoc + nubecita-1fy.8
+    // for the regression this defends against.
+    @Binds
+    @IntoSet
+    internal abstract fun bindPushRegistrationSessionClearable(
+        impl: PushRegistrationSessionClearable,
+    ): SessionClearable
 
     companion object {
         @Provides
