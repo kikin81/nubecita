@@ -19,6 +19,32 @@ permissions:
   contents: read
 
 jobs:
+  # Detect which path groups changed so downstream jobs can skip work that
+  # isn't relevant to the files in this PR / push.
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      fastlane: ${{ steps.filter.outputs.fastlane }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # fetch-depth: 2 gives dorny/paths-filter the parent commit it needs
+          # to diff against on `push` events. PR events use the GitHub API and
+          # don't need extra depth.
+          fetch-depth: 2
+      - name: Filter paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            fastlane:
+              - 'Gemfile'
+              - 'Gemfile.lock'
+              - '.ruby-version'
+              - 'fastlane/**'
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -317,3 +343,23 @@ jobs:
           path: app/build/reports/androidTests/
           if-no-files-found: ignore
           retention-days: 14
+
+  fastlane-validate:
+    name: Fastlane validate
+    needs: [changes]
+    # Only run when Gemfile, Gemfile.lock, .ruby-version, or fastlane/ changed.
+    # Skipped automatically on Android-only PRs — no Ruby toolchain setup, no overhead.
+    if: needs.changes.outputs.fastlane == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: .ruby-version
+          bundler-cache: true   # runs `bundle install` and caches the result
+
+      - name: Validate Fastlane gem tree
+        run: bundle exec fastlane validate
