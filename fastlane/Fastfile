@@ -45,11 +45,10 @@ platform :android do
     # Force-require the gems most likely to have runtime incompatibilities
     # under a new Ruby major version. A successful `bundle install` proves
     # compilation; these calls prove the constants are accessible at runtime.
-    require "google/auth"
     require "googleauth"
     Google::Auth
 
-    UI.success("Gem load-time check passed — googleauth and google-auth constants are accessible.")
+    UI.success("Gem load-time check passed — googleauth constants are accessible.")
   end
 
   desc "Build a signed release AAB and upload it to the Play Console internal track."
