@@ -1,0 +1,43 @@
+name: Fastlane validate
+
+# Runs whenever Ruby runtime or Fastlane dependency files change so gem
+# incompatibilities (e.g. a gem that doesn't support a new Ruby major) are
+# caught before they can break a real Play Store upload.
+on:
+  pull_request:
+    paths:
+      - Gemfile
+      - Gemfile.lock
+      - .ruby-version
+      - fastlane/**
+  push:
+    branches: [main]
+    paths:
+      - Gemfile
+      - Gemfile.lock
+      - .ruby-version
+      - fastlane/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Fastlane validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: .ruby-version
+          bundler-cache: true   # runs `bundle install` and caches the result
+
+      - name: Validate Fastlane dependency tree
+        run: bundle exec fastlane validate

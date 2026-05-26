@@ -21,6 +21,11 @@ REQUIRED_KEYSTORE_ENV = %w[KEYSTORE_FILE KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWOR
 PLAY_CHANGELOG_MAX_CHARS = 500
 
 platform :android do
+  desc "Smoke-test: verify the gem tree loads and the Fastfile parses without touching Gradle or Play Console."
+  lane :validate do
+    UI.success("Fastlane gem tree is healthy — all dependencies loaded.")
+  end
+
   desc "Build a signed release AAB and upload it to the Play Console internal track."
   lane :internal do
     missing = REQUIRED_KEYSTORE_ENV.reject { |k| ENV[k] && !ENV[k].empty? }
