@@ -47,7 +47,13 @@ import net.kikin.nubecita.feature.search.impl.ui.SearchInputRow
  * through a `SearchEvent` would add a hop for no benefit — the
  * canonical clear path is the same `textFieldState.clearText()`
  * that [SearchInputRow]'s trailing X already calls.
+ *
+ * Suppresses VM-forwarding lints — see ComposerScreen / ProfileScreen
+ * for the full rationale (slack compose-lints 1.5.0+ tightened
+ * ComposeViewModelForwarding's data-flow analysis; conflicts with
+ * ComposeViewModelInjection on stateful screens that hoist state).
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun SearchScreen(
     modifier: Modifier = Modifier,

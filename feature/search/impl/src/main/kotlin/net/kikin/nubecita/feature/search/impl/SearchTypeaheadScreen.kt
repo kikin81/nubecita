@@ -43,7 +43,13 @@ import net.kikin.nubecita.feature.search.impl.ui.TypeaheadSectionHeader
  * same way [SearchActorsScreen]'s [onClearQuery] reaches the parent's
  * canonical `TextFieldState`. Routing commit through the typeahead VM
  * would couple this screen to a piece of state it doesn't own.
+ *
+ * Suppresses VM-forwarding lints — see ComposerScreen / ProfileScreen
+ * for the full rationale (slack compose-lints 1.5.0+ tightened
+ * ComposeViewModelForwarding's data-flow analysis; conflicts with
+ * ComposeViewModelInjection on stateful screens that hoist state).
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun SearchTypeaheadScreen(
     currentQuery: String,
