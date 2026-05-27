@@ -14,6 +14,12 @@ dependencies {
     implementation(project(":data:models"))
     implementation(project(":feature:postdetail:api"))
     implementation(project(":feature:profile:api"))
+    // ProcessLifecycleOwner — the unread-count polling observer registers
+    // against the process-wide lifecycle so polling pauses on backgrounding
+    // and resumes on foregrounding.
+    implementation(libs.androidx.lifecycle.process)
+    // repeatOnLifecycle extension — needed by NotificationsPollingObserver.
+    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.timber)
