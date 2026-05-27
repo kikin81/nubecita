@@ -30,6 +30,8 @@ import net.kikin.nubecita.core.common.navigation.DeepLinkRouter
 import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
+import net.kikin.nubecita.core.push.PushNotificationBuilder
+import net.kikin.nubecita.core.push.PushPayload
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
@@ -180,7 +182,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
-        val uri = intent.data ?: return
+        val uri = intent.data
+        if (uri == null) {
+            // FCM auto-display fallback: when the push gateway sends a
+            // `notification` payload alongside `data`, Firebase Messaging on
+            // the device auto-displays the notification while the app is
+            // backgrounded — our custom PushNotificationBuilder's PendingIntent
+            // never fires; instead, the tap delivers the launcher intent with
+            // the `data` map flattened as Bundle extras. Reconstruct the
+            // deep-link target from those extras here so the user lands on
+            // PostDetail / Profile per the gateway-side AT-URI instead of the
+            // start tab. Confirmed via on-device diagnostics on Pixel Tablet
+            // and Pixel 10 Pro XL — see nubecita-1fy.6.
+            handleFcmExtrasTap(intent)
+            return
+        }
         // Defense in depth: the manifest intent filters constrain scheme + host + path
         // at the OS level, but re-validate here so a misconfigured filter (or a future
         // unrelated deep link sharing a scheme or host) can't leak unrelated URIs into
@@ -252,6 +268,83 @@ class MainActivity : ComponentActivity() {
             // same unmatched URI.
             intent.data = null
         }
+    }
+
+    /**
+     * Reconstructs the deep-link target from FCM `data` extras carried on
+     * an auto-displayed notification's tap intent (action `MAIN`,
+     * `data = null`). Parses the extras back into a [PushPayload], derives
+     * the canonical `nubecita://...` URI via the same helper
+     * [PushNotificationBuilder] uses to build its PendingIntent, then runs
+     * the URI through the registered deep-link matcher set.
+     *
+     * Recipient-mismatch defence: if `recipientDid` in the extras doesn't
+     * match the currently signed-in DID (e.g. the gateway delivered to all
+     * tokens but only one matches the active session on this device), drop
+     * the tap rather than routing the wrong account into PostDetail.
+     */
+    private fun handleFcmExtrasTap(intent: Intent) {
+        val extras = intent.extras ?: return
+        val data = extras.toFcmDataMap() ?: return
+        val payload = PushPayload.parse(data) ?: return
+        val activeDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+        if (activeDid != null && payload.recipientDid != activeDid) {
+            // Multi-account leak guard: the gateway delivered this push to
+            // every registered token, but only the recipient's session
+            // should route into PostDetail. Drop without surfacing — the
+            // OS-auto-displayed notification stays visible (FCM owns that),
+            // but tapping it on the wrong-account device becomes a no-op.
+            intent.replaceExtras(null as Bundle?)
+            return
+        }
+        val deepLink = PushNotificationBuilder.deepLinkFor(payload) ?: return
+        val synthetic =
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(deepLink)).apply {
+                setPackage(packageName)
+            }
+        val request = DeepLinkRequest.fromIntent(synthetic)
+        val matched =
+            deepLinkMatchers
+                .sortedByDescending { it.patternSpecificity }
+                .firstNotNullOfOrNull { it.match(request) }
+        if (matched != null) {
+            val target =
+                when (matched) {
+                    is PostDeepLinkKey -> matched.toPostDetailRoute()
+                    else -> matched
+                }
+            lifecycleScope.launch { deepLinkRouter.publish(target) }
+        }
+        // Consume the extras so a configuration change doesn't re-publish.
+        intent.replaceExtras(null as Bundle?)
+    }
+
+    /**
+     * Projects an FCM-carried Bundle into the `Map<String, String>` shape
+     * `PushPayload.parse` expects. Returns null if the required FCM data
+     * keys aren't present (i.e. this is some other intent, not an
+     * FCM-auto-displayed-notification tap).
+     */
+    private fun Bundle.toFcmDataMap(): Map<String, String>? {
+        if (!containsKey(FCM_KEY_REASON) ||
+            !containsKey(FCM_KEY_URI) ||
+            !containsKey(FCM_KEY_ACTOR_DID) ||
+            !containsKey(FCM_KEY_RECIPIENT_DID)
+        ) {
+            return null
+        }
+        return keySet()
+            .mapNotNull { key ->
+                val value = getString(key) ?: return@mapNotNull null
+                key to value
+            }.toMap()
+    }
+
+    private companion object {
+        private const val FCM_KEY_REASON = "reason"
+        private const val FCM_KEY_URI = "uri"
+        private const val FCM_KEY_ACTOR_DID = "actorDid"
+        private const val FCM_KEY_RECIPIENT_DID = "recipientDid"
     }
 }
 

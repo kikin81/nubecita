@@ -88,13 +88,13 @@ class PushNotificationBuilder(
         payload: PushPayload,
         context: Context,
     ): PendingIntent? {
-        val deepLink = deepLinkFor(payload) ?: return null
+        val spec = tapIntentSpecFor(payload, context.packageName) ?: return null
         val intent =
-            Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
+            Intent(Intent.ACTION_VIEW, Uri.parse(spec.deepLinkUri)).apply {
                 // Constrain to our app so the OS routes to MainActivity's
                 // nubecita://profile filter without surfacing a chooser.
-                setPackage(context.packageName)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                setPackage(spec.packageName)
+                addFlags(spec.flags)
             }
         return PendingIntent.getActivity(
             context,
@@ -142,6 +142,51 @@ class PushNotificationBuilder(
                 atUri = payload.subject ?: payload.uri,
                 recipientDid = payload.recipientDid,
             )
+
+        /**
+         * Flag composition for the tap intent. Load-bearing:
+         * `FLAG_ACTIVITY_NEW_TASK` is required because the PendingIntent fires
+         * from the system notification dispatch context (not an Activity);
+         * `FLAG_ACTIVITY_CLEAR_TASK` is required for the receiving
+         * `MainActivity` which is `launchMode="singleTask"`. Without
+         * `CLEAR_TASK`, if a task for the activity already exists (the user
+         * opened the app from the launcher), Android silently delivers the
+         * task's BASE intent (`ACTION_MAIN`, `data = null`) on rebuild and the
+         * deep-link URI never reaches `handleIntent`. Verified on Pixel 10
+         * Pro XL during the nubecita-veqm Phase 4 smoke — taps landed on Feed
+         * instead of PostDetail until both flags were set together.
+         * Documented at developer.android.com/develop/ui/views/notifications/build-notification
+         * §"Add a direct entry point".
+         */
+        internal const val TAP_INTENT_FLAGS: Int =
+            Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+
+        /**
+         * Pre-Intent shape of the tap target. Extracted from
+         * [tapPendingIntentFor] so unit tests can assert the URI / package /
+         * flags shape without needing a working `Uri.parse` / `Intent.setPackage`
+         * (both throw "Method not mocked" in the AGP unit-test Android stubs).
+         *
+         * Returns `null` when [deepLinkFor] returns `null` (untranslatable
+         * payload) — caller posts the notification with no tap intent so a tap
+         * is a no-op rather than routing wrong.
+         */
+        internal fun tapIntentSpecFor(
+            payload: PushPayload,
+            packageName: String,
+        ): TapIntentSpec? = deepLinkFor(payload)?.let { TapIntentSpec(it, packageName, TAP_INTENT_FLAGS) }
+
+        /**
+         * Data shape of the tap-intent fields the notification builder writes
+         * onto the constructed [Intent]. Internal for testability — production
+         * code never sees this; [tapPendingIntentFor] constructs a real
+         * [Intent] from the spec and hands it to [PendingIntent.getActivity].
+         */
+        internal data class TapIntentSpec(
+            val deepLinkUri: String,
+            val packageName: String,
+            val flags: Int,
+        )
 
         @StringRes
         private fun titleResFor(reason: PushPayload.Reason): Int =

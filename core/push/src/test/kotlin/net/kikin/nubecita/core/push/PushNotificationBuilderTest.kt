@@ -1,12 +1,16 @@
 package net.kikin.nubecita.core.push
 
+import android.content.Intent
+import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.TAP_INTENT_FLAGS
 import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.deepLinkFor
 import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.groupKeyFor
 import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.notifyIdFor
 import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.summaryNotifyIdFor
+import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.tapIntentSpecFor
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class PushNotificationBuilderTest {
@@ -95,6 +99,59 @@ class PushNotificationBuilderTest {
         val payload = likePayload(uri = "not-an-at-uri", subject = "also-not-an-at-uri")
 
         assertNull(deepLinkFor(payload))
+    }
+
+    @Test
+    fun `tapIntentSpecFor a translatable payload carries the deep-link uri, the app package, and the load-bearing flag pair`() {
+        // Regression coverage for nubecita-1fy.6. NEW_TASK alone is
+        // insufficient for a launchMode="singleTask" target: if a task for
+        // MainActivity already exists (e.g. the user opened the app via the
+        // launcher icon), Android silently delivers the task's BASE intent
+        // (ACTION_MAIN, no data) on rebuild and the deep-link URI never
+        // reaches `MainActivity.handleIntent`. CLEAR_TASK forces the task
+        // to be destroyed and re-launched with this Intent as the new base.
+        // Tested against the spec rather than the constructed Intent because
+        // android.content.Intent / android.net.Uri throw "Method not mocked"
+        // under the AGP unit-test stubs.
+        val spec =
+            tapIntentSpecFor(
+                payload =
+                    likePayload(
+                        uri = "at://did:plc:alice/app.bsky.feed.like/3kabc",
+                        subject = "at://did:plc:alice/app.bsky.feed.post/3kxyz",
+                    ),
+                packageName = "net.kikin.nubecita",
+            )
+
+        assertEquals("nubecita://profile/did:plc:alice/post/3kxyz", spec?.deepLinkUri)
+        assertEquals("net.kikin.nubecita", spec?.packageName)
+        val flags = spec?.flags ?: 0
+        assertTrue(
+            flags and Intent.FLAG_ACTIVITY_NEW_TASK == Intent.FLAG_ACTIVITY_NEW_TASK,
+            "FLAG_ACTIVITY_NEW_TASK required for PendingIntent dispatched from system context",
+        )
+        assertTrue(
+            flags and Intent.FLAG_ACTIVITY_CLEAR_TASK == Intent.FLAG_ACTIVITY_CLEAR_TASK,
+            "FLAG_ACTIVITY_CLEAR_TASK required so a pre-existing singleTask task doesn't shadow the deep-link with its ACTION_MAIN base",
+        )
+    }
+
+    @Test
+    fun `TAP_INTENT_FLAGS pins the NEW_TASK plus CLEAR_TASK pair`() {
+        // Belt-and-suspenders: the constant equality double-checks both bits
+        // are set without relying on the spec being computed. If anyone
+        // changes the constant in isolation, this catches it.
+        assertEquals(
+            Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK,
+            TAP_INTENT_FLAGS,
+        )
+    }
+
+    @Test
+    fun `tapIntentSpecFor returns null for a payload whose deep link cannot be translated`() {
+        val payload = likePayload(uri = "not-an-at-uri", subject = "also-not-an-at-uri")
+
+        assertNull(tapIntentSpecFor(payload, packageName = "net.kikin.nubecita"))
     }
 
     private fun likePayload(
