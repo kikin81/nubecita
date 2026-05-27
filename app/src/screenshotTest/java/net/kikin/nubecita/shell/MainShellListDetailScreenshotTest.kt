@@ -76,6 +76,7 @@ private fun MainShellListDetailCompact() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
@@ -91,6 +92,7 @@ private fun MainShellListDetailMedium() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.NavigationRail,
         ) {
@@ -106,6 +108,7 @@ private fun MainShellListDetailExpanded() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.NavigationRail,
         ) {
@@ -121,6 +124,7 @@ private fun MainShellListDetailMediumWithDetail() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.NavigationRail,
         ) {
@@ -136,6 +140,7 @@ private fun MainShellListDetailExpandedWithDetail() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
             activeKey = TopLevelDestinations[0].key,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.NavigationRail,
         ) {

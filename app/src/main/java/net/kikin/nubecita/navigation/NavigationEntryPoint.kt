@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
+import net.kikin.nubecita.feature.notifications.impl.store.NotificationsUnreadCountStore
 
 /**
  * Hilt entry point that exposes the `EntryProviderInstaller` multibindings
@@ -52,4 +53,16 @@ interface NavigationEntryPoint {
     fun deepLinkMatchers(): Set<@JvmSuppressWildcards NavKeyDeepLinkMatcher>
 
     fun deepLinkRouter(): DeepLinkRouter
+
+    /**
+     * The process-singleton unread-notifications store, populated by
+     * `:feature:notifications:impl`'s `NotificationsPollingObserver` while
+     * the app is foregrounded. `MainShell` collects the
+     * `StateFlow<Int>` to drive the bottom-nav `BadgedBox` overlay on the
+     * Notifications tab. Reaches across the `:feature:notifications:impl`
+     * boundary via this entry point — Composables can't constructor-inject
+     * the singleton, and `:app` already depends on the impl module for
+     * the qualifier-tagged `EntryProviderInstaller` set.
+     */
+    fun notificationsUnreadCountStore(): NotificationsUnreadCountStore
 }

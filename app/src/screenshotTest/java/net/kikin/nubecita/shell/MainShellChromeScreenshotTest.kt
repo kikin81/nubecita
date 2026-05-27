@@ -10,16 +10,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
+import net.kikin.nubecita.feature.chats.api.Chats
+import net.kikin.nubecita.feature.feed.api.Feed
+import net.kikin.nubecita.feature.notifications.api.NotificationsTab
+import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.api.Search
 
 /**
  * Screenshot baselines for [MainShellChrome] covering:
  *
  * - The chrome swap across `WindowSizeClass` width breakpoints
  *   (`NavigationBar` at compact, `NavigationRail` at medium and expanded).
- * - The selected-state indicator on each of the four top-level
+ * - The selected-state indicator on each of the five top-level
  *   destinations at compact width (the most common form factor).
+ * - The Notifications-tab `BadgedBox` overlay across the rendering
+ *   thresholds (no-badge, single-digit, double-digit, "99+" overflow).
  *
- * Seven baselines total. Each `@PreviewTest`-annotated function also
+ * Eleven baselines total. Each `@PreviewTest`-annotated function also
  * doubles as a Compose `@Preview` for in-IDE inspection. The chrome
  * composable is `internal`, so these tests live in `:app`'s
  * `screenshotTest` source set.
@@ -29,6 +36,11 @@ import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
  * chrome itself; tab navigation behavior is exercised by the
  * `MainShellNavStateTest` unit tests in `:core:common` and the
  * instrumented persistence test in this module.
+ *
+ * Selected-tab previews reference the destination `NavKey` directly
+ * (e.g. `activeKey = NotificationsTab`) rather than indexing into
+ * `TopLevelDestinations` — index references would shift silently if
+ * the destination order ever changes.
  */
 
 private const val COMPACT_WIDTH_DP: Int = 360
@@ -41,7 +53,8 @@ private const val EXPANDED_WIDTH_DP: Int = 840
 private fun MainShellChromeCompactBarFeedSelected() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
-            activeKey = TopLevelDestinations[0].key,
+            activeKey = Feed,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
@@ -56,11 +69,30 @@ private fun MainShellChromeCompactBarFeedSelected() {
 private fun MainShellChromeCompactBarSearchSelected() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
-            activeKey = TopLevelDestinations[1].key,
+            activeKey = Search,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             ChromeContentPlaceholder(label = "Search")
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "compact-bar-notifications-selected", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
+@Composable
+private fun MainShellChromeCompactBarNotificationsSelected() {
+    // Selected with no badge — confirms the filled bell renders without
+    // a stale-badge overlay.
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = NotificationsTab,
+            notificationsUnreadCount = 0,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Notifications")
         }
     }
 }
@@ -71,7 +103,8 @@ private fun MainShellChromeCompactBarSearchSelected() {
 private fun MainShellChromeCompactBarChatsSelected() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
-            activeKey = TopLevelDestinations[2].key,
+            activeKey = Chats,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
@@ -86,11 +119,63 @@ private fun MainShellChromeCompactBarChatsSelected() {
 private fun MainShellChromeCompactBarYouSelected() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
-            activeKey = TopLevelDestinations[3].key,
+            activeKey = Profile(handle = null),
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             ChromeContentPlaceholder(label = "You")
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "compact-bar-badge-1", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
+@Composable
+private fun MainShellChromeCompactBarBadgeOne() {
+    // Single-digit badge; user on Feed (Notifications NOT selected) so the
+    // BadgedBox is rendered over the unfilled bell.
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = Feed,
+            notificationsUnreadCount = 1,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Feed (1 unread)")
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "compact-bar-badge-9", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
+@Composable
+private fun MainShellChromeCompactBarBadgeNine() {
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = Feed,
+            notificationsUnreadCount = 9,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Feed (9 unread)")
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "compact-bar-badge-overflow", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
+@Composable
+private fun MainShellChromeCompactBarBadgeOverflow() {
+    // Count > 99 — must render "99+" per the formatUnreadCount() cap.
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = Feed,
+            notificationsUnreadCount = 137,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Feed (137 unread → 99+)")
         }
     }
 }
@@ -101,7 +186,8 @@ private fun MainShellChromeCompactBarYouSelected() {
 private fun MainShellChromeMediumRailFeedSelected() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
-            activeKey = TopLevelDestinations[0].key,
+            activeKey = Feed,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.NavigationRail,
         ) {
@@ -116,7 +202,8 @@ private fun MainShellChromeMediumRailFeedSelected() {
 private fun MainShellChromeExpandedRailFeedSelected() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
-            activeKey = TopLevelDestinations[0].key,
+            activeKey = Feed,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.NavigationRail,
         ) {
@@ -131,11 +218,33 @@ private fun MainShellChromeExpandedRailFeedSelected() {
 private fun MainShellChromeCompactBarFeedSelectedDark() {
     NubecitaCanvasPreviewTheme {
         MainShellChrome(
-            activeKey = TopLevelDestinations[0].key,
+            activeKey = Feed,
+            notificationsUnreadCount = 0,
             onTabClick = {},
             layoutType = NavigationSuiteType.ShortNavigationBarCompact,
         ) {
             ChromeContentPlaceholder(label = "Feed (dark)")
+        }
+    }
+}
+
+@PreviewTest
+@Preview(
+    name = "compact-bar-badge-overflow-dark",
+    widthDp = COMPACT_WIDTH_DP,
+    heightDp = 640,
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun MainShellChromeCompactBarBadgeOverflowDark() {
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = Feed,
+            notificationsUnreadCount = 137,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Feed (99+ unread, dark)")
         }
     }
 }
