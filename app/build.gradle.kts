@@ -154,6 +154,37 @@ android {
         )
     }
 
+    // The `environment` flavor dimension is the consumer side of the split
+    // declared in `:core:auth` and `:core:preferences`. The `production`
+    // variant boots through the real OAuth + Tink-encrypted DataStore stack;
+    // the `bench` variant binds in-process fakes (see
+    // `core/auth/src/bench/.../FakeSessionStateProvider`,
+    // `core/preferences/src/bench/.../FakeUserPreferencesRepository`) so
+    // Macrobenchmark + baseline-profile journeys can run against a
+    // deterministic, network-free stack.
+    //
+    // The flavor is named `bench` (not `benchmark` per the bd ticket's
+    // original wording) to avoid colliding with the androidx.baselineprofile
+    // plugin's auto-generated `benchmarkRelease` build type — flavor ×
+    // build-type compose into task names, and `benchmark` × `Release`
+    // collides with the plugin's existing `assembleBenchmarkRelease`.
+    //
+    // `applicationIdSuffix` is deliberately NOT set — google-services.json
+    // is keyed by applicationId and only registers `net.kikin.nubecita`.
+    // Both flavors keep that applicationId; the bench APK simply replaces
+    // a production install on the same device. Sideload-coexistence via
+    // an explicit `.bench` suffix is a follow-up that requires either
+    // a parallel Firebase project (google-services.json under
+    // `src/bench/`) or skipping google-services for the bench flavor
+    // entirely.
+    //
+    // See `bd show nubecita-crmi.6` Section A for the full scope.
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
+
     buildTypes {
         debug {
             // When the release keystore is resolvable (CI exports the env vars, or

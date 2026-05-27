@@ -67,6 +67,17 @@ class AndroidBenchmarkConventionPlugin : Plugin<Project> {
                     // :app:benchmarkRelease.
                     targetSdk = 37
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+                    // :app gained an `environment` flavor dimension
+                    // (`production` / `benchmark`) under nubecita-crmi.6.
+                    // For now `:benchmark` targets the production variant —
+                    // real OAuth + real network — to preserve the existing
+                    // Macrobench behaviour. Section B of the ticket flips
+                    // this to "benchmark" once the fake-network stack is
+                    // fully wired (all 14 repos faked, not just Auth +
+                    // Preferences) so journey results are deterministic
+                    // across runs.
+                    missingDimensionStrategy("environment", "production")
                 }
 
                 @Suppress("UnstableApiUsage")

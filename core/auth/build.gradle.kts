@@ -22,7 +22,7 @@ android {
     flavorDimensions += "environment"
     productFlavors {
         create("production") { dimension = "environment" }
-        create("benchmark") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
     }
 }
 
