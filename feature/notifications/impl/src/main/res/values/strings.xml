@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Placeholder caption rendered by NotificationsScreen until the real
+         screen lands in nubecita-1fy.1.8. -->
+    <string name="notifications_placeholder_title">Notifications</string>
+</resources>
