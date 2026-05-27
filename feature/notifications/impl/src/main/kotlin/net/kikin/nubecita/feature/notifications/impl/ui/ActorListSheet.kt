@@ -15,17 +15,20 @@ import net.kikin.nubecita.feature.notifications.impl.NotificationsTestTags
 /**
  * Modal bottom sheet that lists every actor on an aggregated
  * notification row. Hosted by [net.kikin.nubecita.feature.notifications.impl.NotificationsScreen]
- * when a [net.kikin.nubecita.feature.notifications.impl.NotificationsEffect.ShowActorList]
- * effect lands.
+ * when `NotificationsState.actorListSheet` is non-null (driven by the
+ * `AvatarStackTapped` reducer; cleared by `SheetDismissed`).
  *
- * Tapping an actor row dispatches [onActorClick] — the host is expected
- * to dismiss the sheet and push the actor's `Profile(handle = did)`
+ * Tapping an actor row dispatches [onActorClick] — the host dispatches
+ * `SheetDismissed` and pushes the actor's `Profile(handle = did)`
  * onto the active tab's back stack.
  *
- * Layoutlib doesn't render `ModalBottomSheet` reliably in previews —
- * this composable's pixel baseline is captured indirectly via the
- * full-screen `NotificationsScreen` preview (the screen-level fixture
- * stages a sheet-open variant by passing a non-null `actorListSheetActors`).
+ * Layoutlib doesn't render `ModalBottomSheet` reliably in previews so
+ * this composable has no pixel-baseline coverage today. The screen-level
+ * screenshot fixtures drive `NotificationsContent`, which renders the
+ * sheet's host but not the sheet itself (the sheet is composed at the
+ * Root layer alongside `NotificationsContent`). When layoutlib gains
+ * `ModalBottomSheet` support, add a dedicated `@PreviewTest` fixture
+ * that drives this composable directly with a fixture actor list.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

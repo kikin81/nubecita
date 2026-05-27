@@ -28,11 +28,12 @@ import net.kikin.nubecita.feature.notifications.impl.R
  * with zero items. Stateless. Mirrors `:feature:feed:impl`'s
  * `FeedEmptyState` shape so the two surfaces read consistently.
  *
- * Today there's no "Refresh" CTA — the user can pull-to-refresh on the
- * scroll surface above (which renders this empty state when no items
- * are present), and an explicit button on an empty surface invites
- * uncovered edge-cases. If telemetry shows users don't discover pull-
- * to-refresh, we can add one in a follow-up.
+ * No "Refresh" CTA — the host wraps this composable in a `PullToRefreshBox`
+ * and the empty body is laid out inside a `verticalScroll` so the pull
+ * gesture works on the empty surface too. An explicit button would
+ * duplicate the affordance and invite uncovered edge-cases. If telemetry
+ * shows users don't discover pull-to-refresh, we can add one in a
+ * follow-up.
  */
 @Composable
 internal fun NotificationsEmptyState(

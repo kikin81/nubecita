@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -89,20 +90,35 @@ internal fun NotificationRow(
                     .size(REASON_ICON_SIZE),
         )
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                StackedAvatarRow(actors = item.actors)
-                if (item is NotificationItemUi.Aggregated) {
+            // Aggregated rows: the entire avatar-stack + chevron strip is
+            // the tap target for the actor-list sheet, not just the 20.dp
+            // chevron icon. The visible chevron stays 20.dp; an enclosing
+            // clickable Row with `heightIn(min = MIN_TOUCH_TARGET)` provides
+            // the 48.dp WCAG touch slop. The bare-chevron clickable was
+            // unreachable for users with motor impairments — and a missed
+            // chevron tap fell through to the row-level clickable, opening
+            // PostDetail instead of the actor list.
+            //
+            // Single rows: render only the lone avatar, no clickable wrapper.
+            if (item is NotificationItemUi.Aggregated) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier =
+                        Modifier
+                            .heightIn(min = MIN_TOUCH_TARGET)
+                            .clickable(onClick = onAvatarStackClick),
+                ) {
+                    StackedAvatarRow(actors = item.actors)
                     Spacer(Modifier.width(2.dp))
                     NubecitaIcon(
                         name = NubecitaIconName.ExpandMore,
                         contentDescription = stringResource(R.string.notifications_row_expand_actors),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier =
-                            Modifier
-                                .size(CHEVRON_SIZE)
-                                .clickable(onClick = onAvatarStackClick),
+                        modifier = Modifier.size(CHEVRON_SIZE),
                     )
                 }
+            } else {
+                StackedAvatarRow(actors = item.actors)
             }
             Spacer(Modifier.height(8.dp))
             HeadlineWithTimestamp(item = item)
@@ -210,6 +226,9 @@ internal fun NotificationItemUi.buildHeadline(resources: Resources): String {
 
 private val REASON_ICON_SIZE = 24.dp
 private val CHEVRON_SIZE = 20.dp
+
+/** WCAG / Material Design 3 minimum interactive touch target. */
+private val MIN_TOUCH_TARGET = 48.dp
 
 // ---------- Previews -------------------------------------------------------
 

@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -65,11 +67,15 @@ private const val PREFETCH_DISTANCE = 5
  * - Reads `LocalTabReTapSignal` to scroll the LazyColumn to top on
  *   tab re-tap.
  *
- * The host actor-list bottom sheet lives at this layer so its state can
- * survive configuration changes via `rememberSaveable`. Tapping an actor
- * inside the sheet pushes `Profile(handle = author.did)` onto the
- * MainShell's inner back stack directly — there's no VM round-trip
- * because the actor identity is the only input needed.
+ * Actor-list sheet visibility lives on `NotificationsState.actorListSheet`
+ * (owned by the VM) rather than as local Compose state. Reading sheet
+ * visibility off the VM-projected state means config changes survive via
+ * the standard state-restoration path, and the unit-tested reducer is the
+ * single source of truth for open/close transitions. Tapping an actor
+ * inside the sheet dispatches `SheetDismissed` then pushes
+ * `Profile(handle = author.did)` onto the MainShell's inner back stack;
+ * the actor identity is the only input the navigation needs, so no
+ * VM round-trip is required for the destination resolution.
  *
  * Suppresses VM-forwarding lints — see `FeedScreen` / `ComposerScreen`
  * for the rationale (slack compose-lints 1.5.0+ tightened
@@ -231,6 +237,14 @@ internal fun NotificationsContent(
     // the duration of the load, lying about the user's intent. Passing
     // `activeFilter` straight through keeps the chip selection truthful
     // across every view-state branch.
+    // PullToRefreshBox wraps EVERY per-state body — not just Loaded — so
+    // pull-to-refresh works from the Empty / InitialError / InitialLoading
+    // affordances too. Non-Loaded branches participate in the pull gesture
+    // via `verticalScroll(rememberScrollState())` so the nested-scroll
+    // pipeline that PullToRefreshBox listens on has something to bubble
+    // from. `isRefreshing` only goes true while we have items to render the
+    // indicator over (the Loaded.isRefreshing case); empty-state refresh
+    // shows the centered shimmer in the InitialLoading branch instead.
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -244,77 +258,91 @@ internal fun NotificationsContent(
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
-            when (viewState) {
-                NotificationsScreenViewState.InitialLoading ->
-                    NotificationsInitialLoading()
-                NotificationsScreenViewState.Empty ->
-                    NotificationsEmptyState()
-                is NotificationsScreenViewState.InitialError ->
-                    NotificationsInitialError(
-                        error = viewState.error,
-                        onRetry = { onEvent(NotificationsEvent.Refresh) },
-                    )
-                is NotificationsScreenViewState.Loaded ->
-                    LoadedNotifications(
-                        items = viewState.items,
-                        isRefreshing = viewState.isRefreshing,
-                        isAppending = viewState.isAppending,
-                        listState = listState,
-                        onEvent = onEvent,
-                    )
+            PullToRefreshBox(
+                isRefreshing = (viewState as? NotificationsScreenViewState.Loaded)?.isRefreshing == true,
+                onRefresh = { onEvent(NotificationsEvent.Refresh) },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                when (viewState) {
+                    NotificationsScreenViewState.InitialLoading ->
+                        NotificationsInitialLoading(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                        )
+                    NotificationsScreenViewState.Empty ->
+                        NotificationsEmptyState(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                        )
+                    is NotificationsScreenViewState.InitialError ->
+                        NotificationsInitialError(
+                            error = viewState.error,
+                            onRetry = { onEvent(NotificationsEvent.Refresh) },
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                        )
+                    is NotificationsScreenViewState.Loaded ->
+                        LoadedNotifications(
+                            items = viewState.items,
+                            isAppending = viewState.isAppending,
+                            listState = listState,
+                            onEvent = onEvent,
+                        )
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LoadedNotifications(
     items: ImmutableList<NotificationItemUi>,
-    isRefreshing: Boolean,
     isAppending: Boolean,
     listState: LazyListState,
     onEvent: (NotificationsEvent) -> Unit,
 ) {
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = { onEvent(NotificationsEvent.Refresh) },
-        modifier = Modifier.fillMaxSize(),
+    // No local PullToRefreshBox — the outer NotificationsContent wraps every
+    // per-state body so pull-to-refresh works from Loaded AND from the
+    // non-Loaded surfaces (Empty / InitialError / InitialLoading).
+    LazyColumn(
+        state = listState,
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .testTag(NotificationsTestTags.LIST),
     ) {
-        LazyColumn(
-            state = listState,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .testTag(NotificationsTestTags.LIST),
-        ) {
-            items(
-                items = items,
-                key = { it.itemKey },
-                contentType = {
-                    when (it) {
-                        is NotificationItemUi.Single -> "single"
-                        is NotificationItemUi.Aggregated -> "aggregated"
+        items(
+            items = items,
+            key = { it.itemKey },
+            contentType = {
+                when (it) {
+                    is NotificationItemUi.Single -> "single"
+                    is NotificationItemUi.Aggregated -> "aggregated"
+                }
+            },
+        ) { item ->
+            NotificationRow(
+                item = item,
+                onClick = { onEvent(NotificationsEvent.RowTapped(item)) },
+                onAvatarStackClick = {
+                    if (item is NotificationItemUi.Aggregated) {
+                        onEvent(NotificationsEvent.AvatarStackTapped(item))
                     }
                 },
-            ) { item ->
-                NotificationRow(
-                    item = item,
-                    onClick = { onEvent(NotificationsEvent.RowTapped(item)) },
-                    onAvatarStackClick = {
-                        if (item is NotificationItemUi.Aggregated) {
-                            onEvent(NotificationsEvent.AvatarStackTapped(item))
-                        }
-                    },
-                )
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                )
-            }
-            if (isAppending) {
-                item(key = "appending", contentType = "appending") {
-                    NotificationsAppendingIndicator()
-                }
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+        }
+        if (isAppending) {
+            item(key = "appending", contentType = "appending") {
+                NotificationsAppendingIndicator()
             }
         }
     }
@@ -352,12 +380,16 @@ private fun LoadedNotifications(
 }
 
 @Composable
-private fun NotificationsInitialLoading() {
+private fun NotificationsInitialLoading(modifier: Modifier = Modifier) {
     // Simple centered indicator — slice 1 stays cheap. A future change can
     // swap in a per-row shimmer matching the Feed's PostCardShimmer roster
     // once aggregation-aware shimmer fixtures exist.
+    //
+    // The caller passes `Modifier.verticalScroll(rememberScrollState())`
+    // when this composable is hosted inside the outer PullToRefreshBox so
+    // the pull gesture has a nested-scroll source to bubble from.
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = modifier.padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
