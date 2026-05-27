@@ -150,6 +150,37 @@ internal class NotificationsViewModelTest {
         }
 
     @Test
+    fun `Refresh while InitialLoading is dropped (no second fetch)`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Park the init fetch on a deferred so the VM sits in
+            // `InitialLoading`. A Refresh dispatched at that moment used to
+            // launch a second head request; the single-flight invariant
+            // (mirrored from FeedViewModel) now drops it.
+            val initialDeferred = CompletableDeferred<Result<NotificationsPage>>()
+            val callIndex = AtomicInteger(0)
+            val repo =
+                FakeNotificationsRepository(
+                    pageProducer = { _, _ ->
+                        when (callIndex.getAndIncrement()) {
+                            0 -> initialDeferred.await()
+                            else -> error("Refresh during InitialLoading should NOT issue a second fetch")
+                        }
+                    },
+                )
+            val vm = NotificationsViewModel(repo)
+            // Don't advanceUntilIdle — init fetch is parked.
+            assertEquals(NotificationsLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
+
+            vm.handleEvent(NotificationsEvent.Refresh) // must be dropped
+
+            initialDeferred.complete(Result.success(page(items = items("a1"), nextCursor = null)))
+            advanceUntilIdle()
+
+            // Exactly one call: the init. The Refresh would have produced a second.
+            assertEquals(1, repo.fetchPageCalls.size)
+        }
+
+    @Test
     fun `Refresh while Appending is dropped (no second fetch)`() =
         runTest(mainDispatcher.dispatcher) {
             val initial = page(items = items("a1"), nextCursor = "c1")
@@ -305,6 +336,83 @@ internal class NotificationsViewModelTest {
             assertEquals(NotificationFilter.Mentions, secondCall.filter)
             assertNull(secondCall.cursor)
         }
+
+    @Test
+    fun `FilterSelected drops the stale completion from an in-flight initial load`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Park the All-filter init fetch; user switches to Mentions before
+            // it completes; Mentions completes first, then the stale All
+            // completion lands and MUST be rejected by the requestFilter check.
+            val allDeferred = CompletableDeferred<Result<NotificationsPage>>()
+            val mentionsDeferred = CompletableDeferred<Result<NotificationsPage>>()
+            val repo =
+                FakeNotificationsRepository(
+                    pageProducer = { filter, _ ->
+                        when (filter) {
+                            NotificationFilter.All -> allDeferred.await()
+                            NotificationFilter.Mentions -> mentionsDeferred.await()
+                            else -> error("unexpected filter $filter")
+                        }
+                    },
+                )
+            val vm = NotificationsViewModel(repo)
+            // init fetch parked on allDeferred; activeFilter = All.
+
+            vm.handleEvent(NotificationsEvent.FilterSelected(NotificationFilter.Mentions))
+            // Mentions fetch parked on mentionsDeferred; activeFilter = Mentions.
+
+            // Resolve Mentions first.
+            mentionsDeferred.complete(Result.success(page(items = items("m1"), nextCursor = "mc")))
+            advanceUntilIdle()
+            assertEquals(NotificationFilter.Mentions, vm.uiState.value.activeFilter)
+            assertEquals(
+                listOf("m1"),
+                vm.uiState.value.items
+                    .map { it.itemKey },
+            )
+            assertEquals("mc", vm.uiState.value.cursor)
+
+            // Now resolve the stale All fetch with different items — its
+            // completion must be dropped (state unchanged).
+            allDeferred.complete(Result.success(page(items = items("stale-a1", "stale-a2"), nextCursor = "stale-cursor")))
+            advanceUntilIdle()
+
+            assertEquals(NotificationFilter.Mentions, vm.uiState.value.activeFilter)
+            assertEquals(
+                listOf("m1"),
+                vm.uiState.value.items
+                    .map { it.itemKey },
+            )
+            assertEquals("mc", vm.uiState.value.cursor)
+        }
+
+    // ---------- toViewState projection ----------
+
+    @Test
+    fun `empty items + Refreshing projects to InitialLoading view state`() {
+        // Reachable when the user retries from `InitialError` (the VM
+        // transitions to Refreshing while items are still empty). Was
+        // mapping to `Empty` — flashed the all-caught-up affordance for
+        // a brief instant before items arrived. Now maps to shimmer.
+        val state =
+            NotificationsState(
+                items = persistentListOf(),
+                loadStatus = NotificationsLoadStatus.Refreshing,
+            )
+        assertEquals(NotificationsScreenViewState.InitialLoading, state.toViewState())
+    }
+
+    @Test
+    fun `empty items + Idle projects to Empty view state`() {
+        // Sanity check: the Empty case is still preserved for a settled
+        // empty result.
+        val state =
+            NotificationsState(
+                items = persistentListOf(),
+                loadStatus = NotificationsLoadStatus.Idle,
+            )
+        assertEquals(NotificationsScreenViewState.Empty, state.toViewState())
+    }
 
     // ---------- RowTapped: deep-link routing per reason ----------
 

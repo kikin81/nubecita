@@ -60,30 +60,35 @@ internal sealed interface NotificationsScreenViewState {
  * | `items`     | `loadStatus`        | Result                                                 |
  * |-------------|---------------------|--------------------------------------------------------|
  * | empty       | `InitialLoading`    | [NotificationsScreenViewState.InitialLoading]          |
+ * | empty       | `Refreshing`        | [NotificationsScreenViewState.InitialLoading]          |
  * | empty       | `InitialError`      | [NotificationsScreenViewState.InitialError]            |
  * | empty       | `Idle`              | [NotificationsScreenViewState.Empty]                   |
- * | empty       | `Refreshing`/`Appending` | [NotificationsScreenViewState.Empty] (VM-impossible; safe fallback) |
+ * | empty       | `Appending`         | [NotificationsScreenViewState.InitialLoading] (VM-impossible; safe fallback) |
  * | non-empty   | `Appending`         | [NotificationsScreenViewState.Loaded] (`isAppending = true`)   |
  * | non-empty   | `Refreshing`        | [NotificationsScreenViewState.Loaded] (`isRefreshing = true`)  |
  * | non-empty   | any other           | [NotificationsScreenViewState.Loaded] (both flags false)       |
  *
- * The `Refreshing` / `Appending` cases with `items.isEmpty()` and the
- * `InitialLoading` / `InitialError` cases with `items.isNotEmpty()` are
- * never produced by the VM (see `NotificationsViewModel`'s reducers — the
- * `Loaded` branches only run when items are present and `InitialError` is
- * a sticky empty-state). They're handled here for total coverage so a
- * future contract change can't introduce a silent unhandled-state crash.
+ * The `empty` + `Refreshing` row is reachable in practice — the VM permits
+ * a retry from `InitialError` (and from `Idle` when the first page came
+ * back empty), and that retry transitions to `Refreshing` while items are
+ * still empty. Mapping it to [InitialLoading] keeps the user looking at a
+ * shimmer instead of an "all caught up" empty screen for the duration of
+ * the retry; the alternative (mapping to [Empty]) would flash the empty
+ * affordance for a few hundred ms before items arrive. The `empty` +
+ * `Appending` row is still VM-impossible (Appending requires Idle, which
+ * requires items) but routes to the same loading branch as a safe
+ * fallback if a future contract change makes it reachable.
  */
 internal fun NotificationsState.toViewState(): NotificationsScreenViewState =
     if (items.isEmpty()) {
         when (loadStatus) {
-            NotificationsLoadStatus.InitialLoading -> NotificationsScreenViewState.InitialLoading
-            is NotificationsLoadStatus.InitialError ->
-                NotificationsScreenViewState.InitialError(loadStatus.error)
-            NotificationsLoadStatus.Idle,
+            NotificationsLoadStatus.InitialLoading,
             NotificationsLoadStatus.Refreshing,
             NotificationsLoadStatus.Appending,
-            -> NotificationsScreenViewState.Empty
+            -> NotificationsScreenViewState.InitialLoading
+            is NotificationsLoadStatus.InitialError ->
+                NotificationsScreenViewState.InitialError(loadStatus.error)
+            NotificationsLoadStatus.Idle -> NotificationsScreenViewState.Empty
         }
     } else {
         NotificationsScreenViewState.Loaded(

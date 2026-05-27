@@ -69,23 +69,32 @@ internal class NotificationsViewModel
         }
 
         private fun refresh() {
-            // Mutually exclusive with append / initial-load. Dropping a
-            // Refresh while another fetch is in flight matches the
-            // FeedViewModel back-pressure rule: the user's pull-to-refresh
-            // wrist gesture is the rate limit, not a queue.
+            // Mutually exclusive with every other in-flight fetch — including
+            // `InitialLoading`. The original guard only dropped Refresh during
+            // `Refreshing` / `Appending`, but allowing Refresh on top of
+            // `InitialLoading` lets two head-fetches race on `items` / `cursor`
+            // with last-writer-wins semantics (the older response can land
+            // after the newer and overwrite). FeedViewModel's invariant — only
+            // one head fetch in flight — is what we mirror.
             val status = uiState.value.loadStatus
-            if (status == NotificationsLoadStatus.Refreshing || status == NotificationsLoadStatus.Appending) return
-            // Refresh while in InitialLoading / InitialError is allowed —
-            // it's the same "fetch head of the list" intent. The status
-            // transitions to Refreshing so the screen can swap the
-            // initial shimmer for the pull-to-refresh indicator on
+            if (status == NotificationsLoadStatus.InitialLoading ||
+                status == NotificationsLoadStatus.Refreshing ||
+                status == NotificationsLoadStatus.Appending
+            ) {
+                return
+            }
+            // Refresh while in `InitialError` / `Idle` is allowed — it's the
+            // same "fetch head of the list" intent. Transition to
+            // `Refreshing` so the screen swaps the initial shimmer (or the
+            // full-screen retry) for the pull-to-refresh indicator on
             // subsequent fetches.
+            val filter = uiState.value.activeFilter
             setState { copy(loadStatus = NotificationsLoadStatus.Refreshing) }
             viewModelScope.launch {
                 repository
-                    .fetchPage(filter = uiState.value.activeFilter, cursor = null)
-                    .onSuccess { page -> applyRefreshSuccess(page) }
-                    .onFailure { throwable -> applyRefreshFailure(throwable) }
+                    .fetchPage(filter = filter, cursor = null)
+                    .onSuccess { page -> applyRefreshSuccess(page, requestFilter = filter) }
+                    .onFailure { throwable -> applyRefreshFailure(throwable, requestFilter = filter) }
             }
         }
 
@@ -98,12 +107,14 @@ internal class NotificationsViewModel
             // Appending all drop the event so two getNotifications calls
             // don't race on items + cursor with last-writer-wins.
             if (current.loadStatus != NotificationsLoadStatus.Idle) return
+            val filter = current.activeFilter
+            val cursor = current.cursor
             setState { copy(loadStatus = NotificationsLoadStatus.Appending) }
             viewModelScope.launch {
                 repository
-                    .fetchPage(filter = current.activeFilter, cursor = current.cursor)
-                    .onSuccess { page -> applyAppendSuccess(page) }
-                    .onFailure { throwable -> applyAppendFailure(throwable) }
+                    .fetchPage(filter = filter, cursor = cursor)
+                    .onSuccess { page -> applyAppendSuccess(page, requestFilter = filter) }
+                    .onFailure { throwable -> applyAppendFailure(throwable, requestFilter = filter) }
             }
         }
 
@@ -117,6 +128,14 @@ internal class NotificationsViewModel
             // the lexicon and a different result set — reset cursor / items
             // and re-enter the InitialLoading branch so the screen renders
             // a shimmer instead of stale rows under a new filter.
+            //
+            // Any fetch from the previous filter that's still in flight gets
+            // invalidated at completion time via the `requestFilter` check
+            // in the `apply*` helpers — a stale response under the old
+            // filter never overwrites the new filter's state. We don't
+            // try to cancel the in-flight HTTP request itself; the
+            // wasted-bytes cost is dominated by the user-perceived latency
+            // win of starting the new fetch immediately.
             setState {
                 copy(
                     activeFilter = filter,
@@ -133,12 +152,35 @@ internal class NotificationsViewModel
             viewModelScope.launch {
                 repository
                     .fetchPage(filter = filter, cursor = null)
-                    .onSuccess { page -> applyInitialSuccess(page) }
-                    .onFailure { throwable -> applyInitialFailure(throwable) }
+                    .onSuccess { page -> applyInitialSuccess(page, requestFilter = filter) }
+                    .onFailure { throwable -> applyInitialFailure(throwable, requestFilter = filter) }
             }
         }
 
-        private fun applyInitialSuccess(page: NotificationsPage) {
+        /**
+         * Drop a completion whose [requestFilter] no longer matches the
+         * VM's [activeFilter]. Returns `true` when the completion should
+         * be applied. The single-flight head gate in [refresh] +
+         * [loadMore] guarantees only one same-filter fetch is in flight;
+         * this guard handles the cross-filter race that [onFilterSelected]
+         * intentionally leaves open (it doesn't wait for the old fetch).
+         */
+        private fun isCurrent(requestFilter: NotificationFilter): Boolean {
+            val current = uiState.value.activeFilter
+            if (current == requestFilter) return true
+            Timber.tag(TAG).d(
+                "Dropping stale completion for filter=%s (current=%s)",
+                requestFilter,
+                current,
+            )
+            return false
+        }
+
+        private fun applyInitialSuccess(
+            page: NotificationsPage,
+            requestFilter: NotificationFilter,
+        ) {
+            if (!isCurrent(requestFilter)) return
             setState {
                 copy(
                     items = page.items,
@@ -149,7 +191,11 @@ internal class NotificationsViewModel
             }
         }
 
-        private fun applyInitialFailure(throwable: Throwable) {
+        private fun applyInitialFailure(
+            throwable: Throwable,
+            requestFilter: NotificationFilter,
+        ) {
+            if (!isCurrent(requestFilter)) return
             // Initial load with no fallback rows → sticky InitialError so
             // the screen renders a full-screen retry layout. If items are
             // somehow non-empty at this point (would imply a race between
@@ -163,7 +209,11 @@ internal class NotificationsViewModel
             }
         }
 
-        private fun applyRefreshSuccess(page: NotificationsPage) {
+        private fun applyRefreshSuccess(
+            page: NotificationsPage,
+            requestFilter: NotificationFilter,
+        ) {
+            if (!isCurrent(requestFilter)) return
             setState {
                 copy(
                     items = page.items,
@@ -174,7 +224,11 @@ internal class NotificationsViewModel
             }
         }
 
-        private fun applyRefreshFailure(throwable: Throwable) {
+        private fun applyRefreshFailure(
+            throwable: Throwable,
+            requestFilter: NotificationFilter,
+        ) {
+            if (!isCurrent(requestFilter)) return
             // Refresh failure: preserve items if we have them (snackbar);
             // otherwise this is effectively still an initial load and we
             // promote to InitialError so the screen can render the retry
@@ -187,7 +241,11 @@ internal class NotificationsViewModel
             }
         }
 
-        private fun applyAppendSuccess(page: NotificationsPage) {
+        private fun applyAppendSuccess(
+            page: NotificationsPage,
+            requestFilter: NotificationFilter,
+        ) {
+            if (!isCurrent(requestFilter)) return
             // Append: concatenate the new page after the existing items.
             // Slice 1 does no cross-page aggregation merging (see design
             // D3), so two same-reason groups straddling a page boundary
@@ -204,7 +262,11 @@ internal class NotificationsViewModel
             }
         }
 
-        private fun applyAppendFailure(throwable: Throwable) {
+        private fun applyAppendFailure(
+            throwable: Throwable,
+            requestFilter: NotificationFilter,
+        ) {
+            if (!isCurrent(requestFilter)) return
             // Preserve items AND cursor on append failure so the user can
             // retry from the same page boundary. Surface as snackbar; the
             // load status returns to Idle to re-arm the gate for another
