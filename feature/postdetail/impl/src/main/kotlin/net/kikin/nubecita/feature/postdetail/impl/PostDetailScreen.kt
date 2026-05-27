@@ -94,7 +94,13 @@ import kotlin.time.Instant
  * container hierarchy, no carousel, no floating composer — those land
  * in m28.5.2. Reviewers should be able to tell at a glance "this PR
  * isn't trying to look pretty yet."
+ *
+ * Suppresses VM-forwarding lints — see ComposerScreen / ProfileScreen
+ * for the full rationale (slack compose-lints 1.5.0+ tightened
+ * ComposeViewModelForwarding's data-flow analysis; conflicts with
+ * ComposeViewModelInjection on stateful screens that hoist state).
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun PostDetailScreen(
     viewModel: PostDetailViewModel,

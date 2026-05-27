@@ -91,7 +91,22 @@ import kotlin.math.max
  * Delegates rendering to [ComposerScreenContent] which previews and
  * screenshot tests can call directly with fixture inputs (no
  * ViewModel, no Hilt graph).
+ *
+ * Suppresses [compose:vm-forwarding-check] (ktlint) and
+ * [ComposeViewModelForwarding] (slack compose-lints 1.5.0+, the
+ * Android Lint counterpart). The Stateful Screen / Stateless Content
+ * split is the project's standard MVI pattern (CLAUDE.md §MVI
+ * conventions): `ComposerScreen` owns the VM, observes state, and
+ * delegates rendering to `ComposerScreenContent` which takes typed
+ * state + callbacks. compose-lints 1.5.0 broadened the rule to trace
+ * through any callback expression that captures the VM — including
+ * remembered lambdas like the ones below — making the pattern
+ * unsuppressible without ripping out the Root/Content split across
+ * every screen. Matches the precedent on `ComposerOverlayContent` in
+ * `:app`. Revisit if a project-wide refactor away from Root/Content
+ * is ever scoped.
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 fun ComposerScreen(
     onNavigateBack: () -> Unit,

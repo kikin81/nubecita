@@ -28,7 +28,17 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
  * and the remember-d PostCallbacks that dispatch to the VM.
  * Delegates rendering to [ProfileScreenContent], which previews and
  * screenshot tests call directly with fixture inputs.
+ *
+ * Suppresses [compose:vm-forwarding-check] (ktlint) and
+ * [ComposeViewModelForwarding] (slack compose-lints 1.5.0+).
+ * Stateful-Screen / Stateless-Content split per CLAUDE.md §MVI:
+ * `ProfileScreen` owns the VM and delegates rendering to
+ * `ProfileScreenContent`, which takes typed state + callbacks. 1.5.0
+ * broadened the rule to trace lambda captures, making the pattern
+ * unsuppressible without refactoring every screen. Matches the
+ * precedent on `ComposerScreen` / `ComposerOverlayContent`.
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun ProfileScreen(
     viewModel: ProfileViewModel,

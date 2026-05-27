@@ -96,7 +96,13 @@ private const val MIN_ZOOM_TOLERANCE: Float = 0.02f
  * so children (and especially the active page's `ZoomableAsyncImage`)
  * see stable references and don't recompose during pinch/zoom from
  * lambda-identity churn alone.
+ *
+ * Suppresses VM-forwarding lints — see ComposerScreen / ProfileScreen
+ * for the full rationale (slack compose-lints 1.5.0+ tightened
+ * ComposeViewModelForwarding's data-flow analysis; conflicts with
+ * ComposeViewModelInjection on stateful screens that hoist state).
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun MediaViewerScreen(
     onDismiss: () -> Unit,

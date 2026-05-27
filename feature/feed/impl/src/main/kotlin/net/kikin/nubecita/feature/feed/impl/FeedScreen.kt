@@ -110,7 +110,13 @@ private const val SHIMMER_PREVIEW_COUNT = 6
  * one-shot `LaunchedEffect(Unit)` that fires `FeedEvent.Load` on first
  * composition. Delegates the actual rendering to [FeedScreenContent]
  * which previews/screenshot tests call directly with fixture inputs.
+ *
+ * Suppresses VM-forwarding lints — see ComposerScreen / ProfileScreen
+ * for the full rationale (slack compose-lints 1.5.0+ tightened
+ * ComposeViewModelForwarding's data-flow analysis; conflicts with
+ * ComposeViewModelInjection on stateful screens that hoist state).
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun FeedScreen(
     modifier: Modifier = Modifier,

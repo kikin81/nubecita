@@ -139,17 +139,19 @@ internal fun ComposerOverlay(
  * lambda each time this Composable is composed (a new Open(...)
  * with a fresh URI gets a fresh VM with the right route).
  *
- * Suppresses [compose:vm-forwarding-check]: yes, the [viewModel] is
- * passed downstream into [ComposerScreen]. The intent of the
- * forwarding-check rule is to flag VMs threaded through 3+ layers
- * of Composables; here it's exactly one hop (Content → Screen) and
- * exists only because the `ComposeViewModelInjection` rule requires
- * the VM live in a default param of a named Composable. The two
- * rules are at odds for this specific shape; we satisfy the more
- * load-bearing one (`ComposeViewModelInjection`, which the wider
- * codebase respects on every other screen).
+ * Suppresses [compose:vm-forwarding-check] (ktlint) AND
+ * `ComposeViewModelForwarding` (slack compose-lints 1.5.0+, the
+ * Android Lint counterpart): yes, the [viewModel] is passed downstream
+ * into [ComposerScreen]. The intent of the forwarding-check rule is to
+ * flag VMs threaded through 3+ layers of Composables; here it's exactly
+ * one hop (Content → Screen) and exists only because the
+ * `ComposeViewModelInjection` rule requires the VM live in a default
+ * param of a named Composable. The two rules are at odds for this
+ * specific shape; we satisfy the more load-bearing one
+ * (`ComposeViewModelInjection`, which the wider codebase respects on
+ * every other screen).
  */
-@Suppress("ktlint:compose:vm-forwarding-check")
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 private fun ComposerOverlayContent(
     replyToUri: String?,
