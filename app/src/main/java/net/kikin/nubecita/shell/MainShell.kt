@@ -3,7 +3,6 @@ package net.kikin.nubecita.shell
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -371,34 +370,33 @@ internal fun MainShellChrome(
         navigationItems = {
             TopLevelDestinations.forEach { destination ->
                 val isSelected = activeKey == destination.key
+                // Use NavigationSuiteItem's built-in `badge` slot (M3
+                // 1.5.0-alpha20+) rather than wrapping the icon in
+                // `BadgedBox` manually. The library positions the badge
+                // correctly for each NavigationSuiteType (compact bar vs
+                // medium rail vs expanded rail), which a hand-rolled
+                // BadgedBox doesn't track.
+                val badge: @Composable (() -> Unit)? =
+                    if (destination.key == NotificationsTab && notificationsUnreadCount > 0) {
+                        { Badge { Text(text = formatUnreadCount(notificationsUnreadCount)) } }
+                    } else {
+                        null
+                    }
                 NavigationSuiteItem(
                     navigationSuiteType = layoutType,
                     selected = isSelected,
                     onClick = { onTabClick(destination.key) },
                     icon = {
-                        val icon = @Composable {
-                            NubecitaIcon(
-                                name = destination.iconName,
-                                // The accessible name comes from `label` below; setting
-                                // `contentDescription` to the same string would make
-                                // TalkBack announce the destination twice.
-                                contentDescription = null,
-                                filled = isSelected,
-                            )
-                        }
-                        if (destination.key == NotificationsTab && notificationsUnreadCount > 0) {
-                            BadgedBox(
-                                badge = {
-                                    Badge {
-                                        Text(text = formatUnreadCount(notificationsUnreadCount))
-                                    }
-                                },
-                                content = { icon() },
-                            )
-                        } else {
-                            icon()
-                        }
+                        NubecitaIcon(
+                            name = destination.iconName,
+                            // The accessible name comes from `label` below; setting
+                            // `contentDescription` to the same string would make
+                            // TalkBack announce the destination twice.
+                            contentDescription = null,
+                            filled = isSelected,
+                        )
                     },
+                    badge = badge,
                     label = { Text(stringResource(destination.labelRes)) },
                 )
             }
