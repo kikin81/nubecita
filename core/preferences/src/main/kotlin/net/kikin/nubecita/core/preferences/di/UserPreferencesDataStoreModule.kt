@@ -7,17 +7,23 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
-import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import net.kikin.nubecita.core.preferences.DefaultUserPreferencesRepository
-import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import timber.log.Timber
 import javax.inject.Singleton
 
+/**
+ * Provides the [DataStore]<[Preferences]> consumed by the production
+ * [net.kikin.nubecita.core.preferences.DefaultUserPreferencesRepository].
+ * Lives in `src/main/` (compiled into every variant) because the
+ * provider itself is variant-agnostic; the benchmark flavor's
+ * `UserPreferencesBindingsModule` binds a fake repository that doesn't
+ * consume this DataStore, so the provider is dead-code-eliminated by
+ * Hilt's lazy-initialization in that variant.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 internal object UserPreferencesDataStoreModule {
@@ -42,20 +48,4 @@ internal object UserPreferencesDataStoreModule {
                 },
             produceFile = { context.preferencesDataStoreFile(PREFERENCES_FILE_NAME) },
         )
-}
-
-/**
- * Bindings module is `abstract class` (not `object`) and publicly addressable
- * so downstream instrumentation tests can swap individual bindings via
- * `@TestInstallIn(replaces = [UserPreferencesBindingsModule::class])`. Matches
- * the pattern documented on `:core:auth`'s `AuthBindingsModule`.
- */
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class UserPreferencesBindingsModule {
-    @Binds
-    @Singleton
-    internal abstract fun bindUserPreferencesRepository(
-        impl: DefaultUserPreferencesRepository,
-    ): UserPreferencesRepository
 }
