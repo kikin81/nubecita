@@ -17,13 +17,13 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.timber)
 
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
-
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     // Instrumentation tests for the report dialog flow (the
     // `run-instrumented` PR label is required to exercise these in CI).

@@ -8,9 +8,6 @@ android {
 }
 
 dependencies {
-    api(libs.androidx.navigation3.runtime)
-    api(libs.kotlinx.serialization.json)
-
     // PostUi — referenced by the `Report.forPost(post: PostUi)`
     // companion factory so call sites in feature host VMs (Feed,
     // PostDetail, Profile) collapse from the verbose 4-arg construction
@@ -20,4 +17,6 @@ dependencies {
     // compile/runtime classpath transitively. Same-shape `api`
     // exposure as `:core:feed-mapping`'s `:data:models` dependency.
     api(project(":data:models"))
+    api(libs.androidx.navigation3.runtime)
+    api(libs.kotlinx.serialization.json)
 }

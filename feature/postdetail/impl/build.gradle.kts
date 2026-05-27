@@ -10,8 +10,8 @@ dependencies {
     api(project(":feature:postdetail:api"))
 
     implementation(project(":core:auth"))
-    implementation(project(":core:post-interactions"))
     implementation(project(":core:feed-mapping"))
+    implementation(project(":core:post-interactions"))
     implementation(project(":data:models"))
     implementation(project(":feature:mediaviewer:api"))
     // Report NavKey + Report.forPost factory — pushed onto the inner
