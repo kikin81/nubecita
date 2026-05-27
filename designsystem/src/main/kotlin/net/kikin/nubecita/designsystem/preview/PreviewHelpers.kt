@@ -4,6 +4,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 import net.kikin.nubecita.designsystem.LocalNubecitaTokens
 import net.kikin.nubecita.designsystem.NubecitaMotion
 import net.kikin.nubecita.designsystem.NubecitaMotionScheme
@@ -55,6 +56,8 @@ private fun previewSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             videoOverlayScrim = NubecitaPalette.Neutral0.copy(alpha = 0.8f),
             videoOverlayScrimSubtle = NubecitaPalette.Neutral0.copy(alpha = 0.4f),
             onVideoOverlay = NubecitaPalette.Neutral100,
+            likeAccent = Color(0xFFF472B6),
+            repostAccent = Color(0xFF4ADE80),
         )
     } else {
         NubecitaSemanticColors(
@@ -67,5 +70,7 @@ private fun previewSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             videoOverlayScrim = NubecitaPalette.Neutral0.copy(alpha = 0.8f),
             videoOverlayScrimSubtle = NubecitaPalette.Neutral0.copy(alpha = 0.4f),
             onVideoOverlay = NubecitaPalette.Neutral100,
+            likeAccent = Color(0xFFEC4899),
+            repostAccent = Color(0xFF20BC70),
         )
     }
