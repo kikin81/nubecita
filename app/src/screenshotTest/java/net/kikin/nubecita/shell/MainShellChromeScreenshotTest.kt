@@ -180,6 +180,65 @@ private fun MainShellChromeCompactBarBadgeOverflow() {
     }
 }
 
+// ----- Threshold sweep: filled bell + badge ------------------------------
+//
+// Notifications tab IS the active destination — so the bell renders FILLED
+// (the FILL axis of the variable Material Symbols font flips to the
+// activity-dot variant) AND the badge overlays it when the count > 0.
+// This is the production state when a push arrives while the user is
+// sitting on the Notifications tab, before the mark-seen-on-tab-exit
+// handshake fires. The earlier badge previews use Feed-selected, so the
+// outlined bell + badge case is covered; these three fill in the filled
+// bell + badge case at each digit-count threshold.
+
+@PreviewTest
+@Preview(name = "compact-bar-notifications-active-no-badge", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
+@Composable
+private fun MainShellChromeCompactBarNotificationsActiveNoBadge() {
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = NotificationsTab,
+            notificationsUnreadCount = 0,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Notifications (0 unread)")
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "compact-bar-notifications-active-badge-1", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
+@Composable
+private fun MainShellChromeCompactBarNotificationsActiveBadgeOne() {
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = NotificationsTab,
+            notificationsUnreadCount = 1,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Notifications (1 unread)")
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "compact-bar-notifications-active-badge-overflow", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
+@Composable
+private fun MainShellChromeCompactBarNotificationsActiveBadgeOverflow() {
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = NotificationsTab,
+            notificationsUnreadCount = 137,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Notifications (137 unread → 99+)")
+        }
+    }
+}
+
 @PreviewTest
 @Preview(name = "medium-rail-feed-selected", widthDp = MEDIUM_WIDTH_DP, heightDp = 800)
 @Composable

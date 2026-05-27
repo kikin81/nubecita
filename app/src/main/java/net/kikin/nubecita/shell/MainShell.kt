@@ -406,13 +406,20 @@ internal fun MainShellChrome(
 }
 
 /**
- * M3 `BadgedBox` truncates large counts to "99+" — the digit cap is
- * what the bottom-nav real estate can fit without pushing the icon
- * off-center. Format the count here so previews can sweep across the
- * 1 / 9 / 99 / 100 boundaries deterministically without depending on
- * `BadgedBox`'s internal heuristic.
+ * Format an unread count for the bottom-nav `Badge`. Caps at `"99+"`
+ * per the Material Design 3 bottom-nav badge convention — three glyphs
+ * are the most the badge real estate can fit without pushing the icon
+ * off-center. Compose's `Badge` / `BadgedBox` do NOT truncate the
+ * inner Text on their own; this helper is the sole source of the cap,
+ * which keeps the preview matrix's 1 / 9 / 99 / 100+ sweep
+ * deterministic across baseline regeneration.
  */
-private fun formatUnreadCount(count: Int): String = if (count > NOTIFICATIONS_BADGE_OVERFLOW) "$NOTIFICATIONS_BADGE_OVERFLOW+" else count.toString()
+private fun formatUnreadCount(count: Int): String =
+    if (count > NOTIFICATIONS_BADGE_OVERFLOW) {
+        "$NOTIFICATIONS_BADGE_OVERFLOW+"
+    } else {
+        count.toString()
+    }
 
 private const val NOTIFICATIONS_BADGE_OVERFLOW = 99
 
