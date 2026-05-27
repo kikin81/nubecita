@@ -114,6 +114,22 @@ class PushRegistrationCoordinator(
             }
     }
 
+    /**
+     * Sign-out entry point. Runs the same cancel + unregister + clear sequence
+     * the [SessionState.SignedOut] collector branch runs, but called BEFORE
+     * `atOAuth.logout()` revokes the OAuth tokens so
+     * [PushRegistrationRepository.unregister] still has a valid authenticated
+     * client. The coordinator's collector branch fires a moment later
+     * (idempotently — the store is already clear by then).
+     *
+     * Invoked from the [SessionClearable][net.kikin.nubecita.core.common.session.SessionClearable]
+     * contributed by `:core:push` in [`PushModule`][net.kikin.nubecita.core.push.di.PushModule].
+     */
+    suspend fun signOut() {
+        cancelInFlightRegister()
+        onSessionEnded()
+    }
+
     suspend fun onTokenRotated(token: String) {
         // Fast path: skip the mutex acquire + job-cancel work when there's
         // no session to register against. The inner re-check below is the

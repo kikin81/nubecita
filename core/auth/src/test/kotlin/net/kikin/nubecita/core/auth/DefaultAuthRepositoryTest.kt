@@ -93,7 +93,7 @@ internal class DefaultAuthRepositoryTest {
         @Volatile
         var logoutInvokedAtCount: Int = 0
 
-        override fun clearSession() {
+        override suspend fun clearSession() {
             callCount.incrementAndGet()
         }
     }
