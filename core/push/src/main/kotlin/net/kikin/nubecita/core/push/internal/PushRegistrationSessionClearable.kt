@@ -19,8 +19,10 @@ import javax.inject.Inject
  * (refresh-token failure, etc.), where the unregister call will fail but at
  * least the local store gets cleared.
  *
- * See [nubecita-1fy.8](https://github.com/kikin81/nubecita/issues) and the
- * smoke results recorded on nubecita-veqm for the original symptom.
+ * See bd `nubecita-1fy.8` for the regression details and `nubecita-veqm`
+ * for the manual smoke results that surfaced it (Phase 4 of the
+ * `add-push-notifications` change). Issues are tracked in beads (Dolt), not
+ * GitHub Issues — `bd show <id>` for details.
  */
 internal class PushRegistrationSessionClearable
     @Inject

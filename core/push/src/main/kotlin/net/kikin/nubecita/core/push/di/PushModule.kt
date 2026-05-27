@@ -67,10 +67,13 @@ abstract class PushModule {
 
     // Contributes the push module's pre-logout hook into the multibound
     // Set<SessionClearable> consumed by DefaultAuthRepository.signOut(). The
-    // clearable runs synchronously inside signOut(), BEFORE atOAuth.logout()
-    // revokes the OAuth tokens — so the unregisterPush call can still
-    // authenticate. See PushRegistrationSessionClearable's KDoc + nubecita-1fy.8
-    // for the regression this defends against.
+    // clearable runs sequentially inside the signOut coroutine, BEFORE
+    // atOAuth.logout() revokes the OAuth tokens — so the unregisterPush
+    // call can still authenticate. Suspending here is expected (the
+    // unregisterPush is a network call); the contract is "complete before
+    // atOAuth.logout runs," not "non-suspending." See
+    // PushRegistrationSessionClearable's KDoc + nubecita-1fy.8 for the
+    // regression this defends against.
     @Binds
     @IntoSet
     internal abstract fun bindPushRegistrationSessionClearable(
