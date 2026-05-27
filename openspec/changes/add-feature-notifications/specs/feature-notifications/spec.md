@@ -80,7 +80,7 @@ A `NotificationFilter` enum SHALL define exactly the values `All`, `Mentions`, `
 
 ### Requirement: Notifications are aggregated client-side into single-actor and multi-actor rows
 
-A `NotificationsMapper` SHALL group same-page `(reason, reasonSubject)` notifications into one `NotificationItemUi.Aggregated` row with `actors` populated by the union of contributors, ordered by `indexedAt` descending. Follows (where `reasonSubject` is null) SHALL aggregate by `(reason, sameCalendarDay)`. Single-event groups SHALL be rendered as `NotificationItemUi.Single`. Aggregation SHALL be page-scoped (no cross-page merging in this slice).
+A `NotificationsMapper` SHALL group same-page **engagement-style** notifications — `like`, `like-via-repost`, `repost`, `repost-via-repost` — by `(reason, reasonSubject)` into one `NotificationItemUi.Aggregated` row with `actors` populated by the union of contributors, ordered by `indexedAt` descending. `follow` notifications (where `reasonSubject` is null) SHALL aggregate by `(reason, sameCalendarDay)`. **Content-bearing reasons** — `reply`, `quote`, `mention`, `subscribed-post` — and **rare per-actor reasons** — `starterpack-joined`, `verified`, `unverified`, `contact-match`, `Unknown` — SHALL each render as their own `NotificationItemUi.Single` row regardless of `reasonSubject` overlap, because the row's load-bearing content (the actor's new post, the verification record, the joined-starterpack identity) is distinct per actor. Single-event groups in aggregatable categories SHALL render as `NotificationItemUi.Single`. Aggregation SHALL be page-scoped (no cross-page merging in this slice).
 
 #### Scenario: Three likes of the same post collapse into one Aggregated row
 

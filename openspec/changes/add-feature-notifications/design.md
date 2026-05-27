@@ -51,9 +51,9 @@ The meta-epic [[nubecita-1fy]] is staged in four slices. This change is **slice 
 - Wrap remote data in `Async<NotificationsPage>` — rejected by the project's MVI convention (no `Async<T>` at the VM→UI boundary).
 - Flat-only boolean flags (`isLoading: Boolean`, `isRefreshing: Boolean`, `isAppending: Boolean`) — rejected because these states are mutually exclusive and the sealed sum prevents invalid combinations (`isRefreshing=true` AND `isAppending=true`) by construction. The convention permits a sealed status sum exactly for this case.
 
-### D3. Aggregation: client-side, in the mapper, with a coalescing window
+### D3. Aggregation: client-side, in the mapper, reason-conditional
 
-**Decision**: The lexicon returns a flat per-event list. The mapper groups events by `(reason, reasonSubject)` and coalesces same-day events into one `NotificationItemUi.Aggregated` row. For `follow` (where `reasonSubject` is null), aggregate by reason + same-day. Cap visible avatars at 5; render `+N` after the cap. The chevron sheet shows the full actor list. Aggregation runs per-page (no cross-page merging) — simpler and matches Bluesky's behavior.
+**Decision**: The lexicon returns a flat per-event list. The mapper groups **engagement-style** events (`like`, `like-via-repost`, `repost`, `repost-via-repost`) by `(reason, reasonSubject)` into one `NotificationItemUi.Aggregated` row. `follow` (where `reasonSubject` is null) aggregates by `(reason, sameCalendarDay)`. **Content-bearing** events (`reply`, `quote`, `mention`, `subscribed-post`) and **rare per-actor** events (`starterpack-joined`, `verified`, `unverified`, `contact-match`, `Unknown`) always render as `NotificationItemUi.Single` — even when their `reasonSubject` would collide — because the row's load-bearing content is the *actor's new post* (the `uri` field, which is unique per event) rather than the `reasonSubject` (which would be the user's own post for reply/quote/mention and thus collide unhelpfully). The UI's avatar-stack renderer caps visible avatars at 5; the chevron sheet shows the full actor list. Aggregation runs per-page (no cross-page merging) — simpler and matches Bluesky's behavior.
 
 **Alternatives considered**:
 

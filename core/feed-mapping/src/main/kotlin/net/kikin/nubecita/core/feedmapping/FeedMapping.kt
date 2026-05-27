@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.feedmapping
 
+import io.github.kikin81.atproto.app.bsky.actor.ProfileView
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewBasic
 import io.github.kikin81.atproto.app.bsky.embed.ExternalView
 import io.github.kikin81.atproto.app.bsky.embed.ImagesView
@@ -135,6 +136,21 @@ fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     }
 
 fun ProfileViewBasic.toAuthorUi(): AuthorUi =
+    AuthorUi(
+        did = did.raw,
+        handle = handle.raw,
+        displayName = displayName?.takeIf { it.isNotBlank() } ?: handle.raw,
+        avatarUrl = avatar?.raw,
+    )
+
+/**
+ * Project a [ProfileView] (the actor shape on
+ * `app.bsky.notification.listNotifications#notification`) into the
+ * UI-layer [AuthorUi]. Same fields as [ProfileViewBasic.toAuthorUi] —
+ * `ProfileView` adds metadata (`description`, `viewer`, `labels`, etc.)
+ * that the avatar-stack / actor-list renderers don't read.
+ */
+fun ProfileView.toAuthorUi(): AuthorUi =
     AuthorUi(
         did = did.raw,
         handle = handle.raw,
