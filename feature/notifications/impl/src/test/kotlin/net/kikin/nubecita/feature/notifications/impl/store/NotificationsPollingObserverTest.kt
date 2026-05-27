@@ -37,6 +37,37 @@ class NotificationsPollingObserverTest {
     val mainDispatcherExtension = MainDispatcherExtension(UnconfinedTestDispatcher())
 
     @Test
+    fun `start is idempotent - second call does not double-launch the polling loop`() =
+        runPollingTest { fixture ->
+            // Two start() calls must NOT produce two parallel polling jobs.
+            // Without the AtomicBoolean guard, every call launched a fresh
+            // pair of coroutines (one repeatOnLifecycle + one session-state
+            // collector), which would race on store.clear() and double the
+            // network budget per tick.
+            fixture.observer.start()
+            fixture.observer.start()
+            runCurrent()
+            fixture.lifecycleRegistry.currentState = Lifecycle.State.STARTED
+            runCurrent()
+
+            // Exactly ONE refresh fires on STARTED. Two parallel loops would
+            // both fire on STARTED, producing two calls.
+            assertEquals(
+                1,
+                fixture.repository.unreadCountCalls.size,
+                "second start() must short-circuit; saw two refresh calls so two loops launched",
+            )
+
+            advanceTimeBy(60_000L)
+            runCurrent()
+            assertEquals(
+                2,
+                fixture.repository.unreadCountCalls.size,
+                "60s tick produces exactly one refresh, not two",
+            )
+        }
+
+    @Test
     fun `polling fires an immediate refresh on lifecycle reaching STARTED`() =
         runPollingTest { fixture ->
             fixture.observer.start()

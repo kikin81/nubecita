@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Wires [NotificationsUnreadCountStore] to the app's foreground lifecycle.
@@ -41,15 +42,26 @@ class NotificationsPollingObserver(
     private val lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
 ) {
     /**
+     * Guards [start] against double-invocation. In production `start()` is
+     * called exactly once from `NubecitaApplication.onCreate`, but a stray
+     * second call (test re-registration, future refactor) would otherwise
+     * launch parallel polling loops + duplicate session-state collectors
+     * that race on `store.clear()` and burn double the network budget.
+     * Atomic compare-and-set is sufficient — the second call returns
+     * silently rather than throwing because the desired post-condition
+     * ("observer is running") is already met.
+     */
+    private val started = AtomicBoolean(false)
+
+    /**
      * Registers the polling loop against [lifecycle] and starts the
-     * session-state collector. Idempotent — re-launching the polling job
-     * is fine because the previous one would already be cancelled by the
-     * `ON_STOP` lifecycle event (a SignedOut transition does NOT cancel
-     * the polling loop; the store's `clear()` is the only side-effect of
-     * sign-out, and the next foreground poll will read the post-logout
-     * count of `0` regardless).
+     * session-state collector. Idempotent — subsequent calls after the
+     * first short-circuit via [started]. The polling job itself is
+     * lifecycle-scoped: `repeatOnLifecycle(STARTED)` cancels the inner
+     * block on `ON_STOP` and re-runs on the next `ON_START` for free.
      */
     fun start() {
+        if (!started.compareAndSet(false, true)) return
         scope.launch {
             // repeatOnLifecycle(STARTED) suspends until the lifecycle reaches
             // STARTED, runs the block, cancels it on STOP, and re-runs on the

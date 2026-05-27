@@ -15,10 +15,14 @@ import javax.inject.Singleton
  * `ProcessLifecycleOwner`-scoped polling loop (60-second cadence while the
  * app is foregrounded) and zeroed on logout.
  *
- * The store is package-internal to `:feature:notifications:impl`. The
- * `MainShell` consumer (added in bd issue nubecita-1fy.1.9) reaches it via
- * a Hilt `@EntryPoint` declared in `:app`, not a direct dep on this class —
- * no other module imports the type.
+ * The class itself is `public` (not module-internal) so the `MainShell`
+ * consumer in `:app` can hold the `StateFlow<Int>` type at the
+ * Hilt `@EntryPoint` boundary that gets added in bd issue nubecita-1fy.1.9.
+ * The `@Inject` constructor is `internal`, so construction stays
+ * module-local — only Hilt itself can instantiate the singleton, and no
+ * other feature module reaches in to build one directly. Mirrors the
+ * pattern `PushModule` uses for its exposed-but-internally-constructed
+ * collaborators.
  *
  * Mark-read optimistic-zeroing (per design D6 in
  * `openspec/changes/add-feature-notifications/design.md`) is the

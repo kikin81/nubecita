@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsUnreadCountStore
+import javax.inject.Singleton
 
 /**
  * Hilt bindings for the unread-count store and its `ProcessLifecycleOwner`-
@@ -28,6 +29,7 @@ import net.kikin.nubecita.feature.notifications.impl.store.NotificationsUnreadCo
 @InstallIn(SingletonComponent::class)
 internal object NotificationsStoreModule {
     @Provides
+    @Singleton
     internal fun provideNotificationsPollingObserver(
         store: NotificationsUnreadCountStore,
         sessionStateProvider: SessionStateProvider,
