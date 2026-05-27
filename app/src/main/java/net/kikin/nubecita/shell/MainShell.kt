@@ -2,6 +2,7 @@ package net.kikin.nubecita.shell
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Badge
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,11 +18,13 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -44,6 +47,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.feed.api.Feed
+import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
 import net.kikin.nubecita.navigation.NavigationEntryPoint
@@ -56,12 +60,18 @@ import net.kikin.nubecita.shell.composer.rememberComposerLauncher
  *
  * Wraps an inner `NavDisplay` in `NavigationSuiteScaffold`, which auto-
  * swaps `NavigationBar` (compact widths) → `NavigationRail` (medium and
- * expanded widths). Drawer mode is suppressed: with only four
+ * expanded widths). Drawer mode is suppressed: with only five
  * destinations, a permanent drawer wastes screen real estate.
  *
- * The four top-level destinations — Feed, Search, Chats, You — are
- * registered via the `@MainShell`-qualified `EntryProviderInstaller` set
- * bound from `:feature:*:impl` modules.
+ * The five top-level destinations — Feed, Search, Notifications, Chats,
+ * You — are registered via the `@MainShell`-qualified
+ * `EntryProviderInstaller` set bound from `:feature:*:impl` modules.
+ * The Notifications tab passes a non-null lambda to `NavigationSuiteItem`'s
+ * built-in `badge` slot when the `NotificationsUnreadCountStore`
+ * (`:feature:notifications:impl`) reports a non-zero count, so the
+ * unread count from the foregrounded polling observer surfaces on the
+ * navigation chrome (bottom bar at compact widths, rail at medium /
+ * expanded) without any per-screen wiring.
  *
  * Per-tab back-stack state lives in `MainShellNavState`, created via
  * `rememberMainShellNavState(...)` in this composable's body. The state
@@ -97,6 +107,18 @@ fun MainShell(modifier: Modifier = Modifier) {
         }
     val installers = remember(entryPoint) { entryPoint.mainShellEntryProviderInstallers() }
     val deepLinkRouter = remember(entryPoint) { entryPoint.deepLinkRouter() }
+    val notificationsUnreadCountStore =
+        remember(entryPoint) { entryPoint.notificationsUnreadCountStore() }
+
+    // Unread-count badge source. The store is populated by
+    // `NotificationsPollingObserver` (a `ProcessLifecycleOwner`-scoped
+    // observer wired in `NubecitaApplication.onCreate`) while the app is
+    // foregrounded. `collectAsStateWithLifecycle` releases the collector
+    // when MainShell leaves composition (e.g. on logout's outer
+    // Navigator transition to Login) so the badge doesn't keep an
+    // extra reference to the store across the auth-state boundary.
+    val notificationsUnreadCount by
+        notificationsUnreadCountStore.unreadCount.collectAsStateWithLifecycle()
 
     val mainShellNavState =
         rememberMainShellNavState(
@@ -229,7 +251,7 @@ fun MainShell(modifier: Modifier = Modifier) {
     //    so this is the consistent default for our phone-first social
     //    client.
     //  - `NavigationDrawer` at expanded widths on some form factors.
-    //    With only four destinations, a permanent drawer is overkill —
+    //    With only five destinations, a permanent drawer is overkill —
     //    collapse to rail in that case.
     val defaultLayoutType = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
     val layoutType =
@@ -248,6 +270,7 @@ fun MainShell(modifier: Modifier = Modifier) {
     ) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
+            notificationsUnreadCount = notificationsUnreadCount,
             onTabClick = { tapped ->
                 // Re-tap on the active tab fires the generic tab-re-tap
                 // signal. Each tab's screen interprets it: Feed/Profile
@@ -301,11 +324,20 @@ fun MainShell(modifier: Modifier = Modifier) {
 
 /**
  * Hilt-free chrome wrapper isolated from `MainShell` so previews and
- * screenshot tests can exercise the bar/rail swap and selected-state
- * indicators without standing up an entry-point or a back stack.
+ * screenshot tests can exercise the bar/rail swap, selected-state
+ * indicators, and badge overlay without standing up an entry-point or
+ * a back stack.
  *
  * @param activeKey The currently selected top-level destination's [NavKey].
  *   Drives which item renders in selected (filled icon) state.
+ * @param notificationsUnreadCount The current unread-count from
+ *   `NotificationsUnreadCountStore`. Drives the `Badge` lambda passed to
+ *   `NavigationSuiteItem`'s `badge` slot on the Notifications tab — the
+ *   slot lambda is null (no badge rendered) when the count is zero,
+ *   renders the digit verbatim for 1–99, and clamps to "99+" via the
+ *   [formatUnreadCount] helper beyond that. Passed as a plain `Int` so
+ *   previews can sweep each rendering threshold without touching Hilt
+ *   or the store.
  * @param onTabClick Invoked when the user taps a navigation item.
  * @param layoutType Forces a specific [NavigationSuiteType]. Production
  *   callers compute this from `currentWindowAdaptiveInfoV2()`; previews and
@@ -316,6 +348,7 @@ fun MainShell(modifier: Modifier = Modifier) {
 @Composable
 internal fun MainShellChrome(
     activeKey: NavKey,
+    notificationsUnreadCount: Int,
     onTabClick: (NavKey) -> Unit,
     layoutType: NavigationSuiteType,
     modifier: Modifier = Modifier,
@@ -340,6 +373,18 @@ internal fun MainShellChrome(
         navigationItems = {
             TopLevelDestinations.forEach { destination ->
                 val isSelected = activeKey == destination.key
+                // Use NavigationSuiteItem's built-in `badge` slot (M3
+                // 1.5.0-alpha20+) rather than wrapping the icon in
+                // `BadgedBox` manually. The library positions the badge
+                // correctly for each NavigationSuiteType (compact bar vs
+                // medium rail vs expanded rail), which a hand-rolled
+                // BadgedBox doesn't track.
+                val badge: @Composable (() -> Unit)? =
+                    if (destination.key == NotificationsTab && notificationsUnreadCount > 0) {
+                        { Badge { Text(text = formatUnreadCount(notificationsUnreadCount)) } }
+                    } else {
+                        null
+                    }
                 NavigationSuiteItem(
                     navigationSuiteType = layoutType,
                     selected = isSelected,
@@ -354,6 +399,7 @@ internal fun MainShellChrome(
                             filled = isSelected,
                         )
                     },
+                    badge = badge,
                     label = { Text(stringResource(destination.labelRes)) },
                 )
             }
@@ -362,6 +408,24 @@ internal fun MainShellChrome(
     )
 }
 
+/**
+ * Format an unread count for the bottom-nav `Badge`. Caps at `"99+"`
+ * per the Material Design 3 bottom-nav badge convention — three glyphs
+ * are the most the badge real estate can fit without pushing the icon
+ * off-center. Compose's `Badge` / `BadgedBox` do NOT truncate the
+ * inner Text on their own; this helper is the sole source of the cap,
+ * which keeps the preview matrix's 1 / 9 / 99 / 100+ sweep
+ * deterministic across baseline regeneration.
+ */
+private fun formatUnreadCount(count: Int): String =
+    if (count > NOTIFICATIONS_BADGE_OVERFLOW) {
+        "$NOTIFICATIONS_BADGE_OVERFLOW+"
+    } else {
+        count.toString()
+    }
+
+private const val NOTIFICATIONS_BADGE_OVERFLOW = 99
+
 internal data class TopLevelDestination(
     val key: NavKey,
     val iconName: NubecitaIconName,
@@ -369,11 +433,16 @@ internal data class TopLevelDestination(
 )
 
 /**
- * The four top-level destinations rendered in the navigation suite, in
+ * The five top-level destinations rendered in the navigation suite, in
  * display order (Feed first, You last). Order is load-bearing: the inner
  * `NavDisplay`'s flattened back stack is computed using Feed as the start
  * route per the recipe's "exit through home" rule, and the
  * `NavigationSuiteScaffold` items render in iteration order.
+ *
+ * Notifications sits between Search and Chats per Bluesky's official
+ * layout (see openspec change `add-feature-notifications` design D7) —
+ * splitting the discovery surfaces (Feed, Search) on the left from the
+ * personal-activity surfaces (Notifications, Chats, You) on the right.
  */
 internal val TopLevelDestinations: List<TopLevelDestination> =
     listOf(
@@ -386,6 +455,11 @@ internal val TopLevelDestinations: List<TopLevelDestination> =
             key = Search,
             iconName = NubecitaIconName.Search,
             labelRes = R.string.main_shell_tab_search,
+        ),
+        TopLevelDestination(
+            key = NotificationsTab,
+            iconName = NubecitaIconName.Notifications,
+            labelRes = R.string.main_shell_tab_notifications,
         ),
         TopLevelDestination(
             key = Chats,

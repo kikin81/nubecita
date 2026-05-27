@@ -2,6 +2,7 @@
     <string name="app_name">Nubecita</string>
     <string name="main_shell_tab_feed">Feed</string>
     <string name="main_shell_tab_search">Search</string>
+    <string name="main_shell_tab_notifications">Notifications</string>
     <string name="main_shell_tab_chats">Chats</string>
     <string name="main_shell_tab_you">You</string>
 </resources>
