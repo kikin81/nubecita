@@ -20,7 +20,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -48,8 +47,15 @@ internal fun StackedAvatarRow(
     maxVisible: Int = DEFAULT_MAX_VISIBLE,
     avatarSize: androidx.compose.ui.unit.Dp = DEFAULT_AVATAR_SIZE,
 ) {
-    val visibleCount = actors.size.coerceAtMost(maxVisible)
-    val overflowCount = (actors.size - maxVisible).coerceAtLeast(0)
+    // Cap visible bubbles at maxVisible: when there are MORE actors than fit,
+    // the LAST visible slot becomes a "+N" pill (NOT an extra bubble appended
+    // after maxVisible avatars). So with maxVisible=5 and actors.size=8, we
+    // render 4 avatars + 1 "+4" pill = 5 visible bubbles total. With
+    // actors.size <= maxVisible no pill renders. Matches the KDoc at line 35.
+    val overflows = actors.size > maxVisible
+    val avatarSlots =
+        if (overflows) maxVisible - 1 else actors.size
+    val overflowCount = actors.size - avatarSlots
     val ringColor = MaterialTheme.colorScheme.surface
     val description =
         androidx.compose.ui.res.pluralStringResource(
@@ -65,7 +71,7 @@ internal fun StackedAvatarRow(
         horizontalArrangement = Arrangement.spacedBy(-OVERLAP_OFFSET),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        actors.take(visibleCount).forEachIndexed { _, actor ->
+        for (actor in actors.take(avatarSlots)) {
             NubecitaAvatar(
                 model = actor.avatarUrl,
                 contentDescription = null,
@@ -75,7 +81,7 @@ internal fun StackedAvatarRow(
                         .border(width = 1.5.dp, color = ringColor, shape = CircleShape),
             )
         }
-        if (overflowCount > 0) {
+        if (overflows) {
             Box(
                 modifier =
                     Modifier
@@ -155,6 +161,3 @@ private fun StackedAvatarRowEightDarkPreview() {
         StackedAvatarRow(actors = fakeAuthors(8))
     }
 }
-
-@Suppress("unused")
-private val EmptyActors: ImmutableList<AuthorUi> = persistentListOf()

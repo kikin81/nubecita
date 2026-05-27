@@ -178,12 +178,16 @@ private fun NotificationsScreenLoadedAppendingScreenshot() {
 }
 
 @Composable
-private fun NotificationsScreenshotHost(viewState: NotificationsScreenViewState) {
+private fun NotificationsScreenshotHost(
+    viewState: NotificationsScreenViewState,
+    activeFilter: NotificationFilter = NotificationFilter.All,
+) {
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     CompositionLocalProvider(LocalClock provides PreviewClock) {
         NotificationsContent(
             viewState = viewState,
+            activeFilter = activeFilter,
             listState = listState,
             snackbarHostState = snackbarHostState,
             onEvent = {},

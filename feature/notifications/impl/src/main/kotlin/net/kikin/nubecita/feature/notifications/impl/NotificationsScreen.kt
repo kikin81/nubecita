@@ -1,9 +1,9 @@
 package net.kikin.nubecita.feature.notifications.impl
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -19,22 +19,20 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.filter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
@@ -90,36 +88,35 @@ internal fun NotificationsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
-    // Actor-list sheet visibility. Held as a (rememberSaveable does not
-    // serialize `ImmutableList<AuthorUi>` out of the box) plain remember —
-    // the sheet's content is purely derived from the latest VM-emitted
-    // effect, and a configuration change inside the sheet's lifetime would
-    // simply close and re-open it. Acceptable trade-off given the alternative
-    // (writing a `Saver<ImmutableList<AuthorUi>>` for a UI-only fixture) is
-    // out of scope for slice 1.
-    var sheetActors by remember {
-        mutableStateOf<ImmutableList<AuthorUi>?>(null)
-    }
-
     // Stable lambdas — keyed on `viewModel` only because each `handleEvent`
     // call is a bound method reference whose identity doesn't change.
+    // Sheet visibility lives on `state.actorListSheet` (owned by the VM)
+    // rather than local Compose state — see the contract KDoc.
     val onEvent = remember(viewModel) { viewModel::handleEvent }
     val onActorTap =
-        remember(mainShellNavState) {
+        remember(mainShellNavState, onEvent) {
             { actor: AuthorUi ->
-                sheetActors = null
+                onEvent(NotificationsEvent.SheetDismissed)
                 mainShellNavState.add(Profile(handle = actor.did))
             }
         }
-    val onSheetDismiss = remember { { sheetActors = null } }
+    val onSheetDismiss =
+        remember(onEvent) {
+            { onEvent(NotificationsEvent.SheetDismissed) }
+        }
 
-    // Pre-resolved Snackbar copy. Reading via stringResource() at
-    // composition time keeps locale + dark-mode changes participating in
-    // recomposition (lint: LocalContextGetResourceValueCall). Mirrors
-    // FeedScreen's pattern.
-    val networkErrorMessage = stringResource(R.string.notifications_snackbar_error_network)
-    val unauthErrorMessage = stringResource(R.string.notifications_snackbar_error_unauthenticated)
-    val unknownErrorMessage = stringResource(R.string.notifications_snackbar_error_unknown)
+    // Resolve Snackbar copy from the Context inside the collector so each
+    // emission reads the CURRENT locale / dark-mode / font-scale resources.
+    // The earlier approach (three `stringResource()` reads captured by closure
+    // at composition time) left the LaunchedEffect coroutine holding the
+    // original-locale strings — a system-locale change recomposed the screen
+    // but did NOT restart the collector (its only key is `viewModel`), so a
+    // subsequent ShowError surfaced stale-locale copy. Resolving from
+    // `LocalContext` per-emission removes that footgun and `rememberUpdatedState`
+    // keeps the lambda reading the latest Context across recompositions
+    // without restarting the collector.
+    val context = LocalContext.current
+    val currentContext by rememberUpdatedState(context)
 
     // Single outer effects collector. Per MVI convention all effects funnel
     // here; the screen's only branches are: navigate (call .add() on the
@@ -130,56 +127,67 @@ internal fun NotificationsScreen(
             when (effect) {
                 is NotificationsEffect.NavigateTo -> mainShellNavState.add(effect.target)
                 is NotificationsEffect.ShowError -> {
-                    val message =
-                        when (effect.error) {
-                            NotificationsError.Network -> networkErrorMessage
-                            NotificationsError.Unauthenticated -> unauthErrorMessage
-                            NotificationsError.Unknown -> unknownErrorMessage
-                        }
+                    val message = currentContext.getString(effect.error.snackbarMessageRes())
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)
-                }
-                is NotificationsEffect.ShowActorList -> {
-                    sheetActors = effect.actors
                 }
             }
         }
     }
 
     // Tab-exit detection (design D6). Watch the active top-level key; when
-    // it transitions away from NotificationsTab fire `TabExited`. `.drop(1)`
-    // is critical — the initial snapshot would otherwise fire TabExited
-    // immediately on first composition (the user just opened the tab; that's
-    // not an exit). `distinctUntilChanged` defends against duplicate
-    // snapshot emissions if MainShellNavState's internal state list churns
-    // without the topLevelKey actually changing.
-    LaunchedEffect(viewModel, mainShellNavState) {
+    // it transitions away from NotificationsTab fire `TabExited`.
+    // `dropWhile { it == NotificationsTab }` is value-based rather than
+    // positional (`.drop(1)`) — the latter would also drop a real exit
+    // emission in edge scenarios where the screen is composed while the
+    // topLevelKey is mid-transition (predictive-back peek, list-detail
+    // two-pane composition off the active tab). The dropWhile only swallows
+    // the leading run of NotificationsTab emissions, then lets the first
+    // non-Notifications transition through.
+    LaunchedEffect(onEvent, mainShellNavState) {
         snapshotFlow { mainShellNavState.topLevelKey }
-            .drop(1)
+            .dropWhile { it == NotificationsTab }
             .distinctUntilChanged()
             .filter { it != NotificationsTab }
-            .collect { viewModel.handleEvent(NotificationsEvent.TabExited) }
+            .collect { onEvent(NotificationsEvent.TabExited) }
     }
 
-    // Tab re-tap → scroll to top (design D11). Default empty SharedFlow in
-    // previews / screenshot tests never emits, so this is a runtime no-op
-    // outside MainShell.
-    LaunchedEffect(tabReTapSignal, listState) {
-        tabReTapSignal.collect { listState.animateScrollToItem(0) }
+    // Tab re-tap (design D11). View-state-aware:
+    //
+    // - Loaded → scroll the list to top (canonical re-tap affordance).
+    // - InitialError → dispatch Refresh so re-tap doubles as retry; a user
+    //   who landed on the full-screen error often re-taps the tab habitually
+    //   expecting a fresh fetch instead of having to scroll to find the
+    //   Retry button below the error copy.
+    // - InitialLoading / Empty → `animateScrollToItem(0)` against the
+    //   non-composed LazyColumn is a no-op but harmless; no further work.
+    //
+    // `rememberUpdatedState(state)` ensures the collector lambda reads the
+    // current state even though the LaunchedEffect's key set is fixed (we
+    // don't want to restart the collector on every state change).
+    val currentState by rememberUpdatedState(state)
+    LaunchedEffect(tabReTapSignal, listState, onEvent) {
+        tabReTapSignal.collect {
+            when (currentState.loadStatus) {
+                is NotificationsLoadStatus.InitialError -> onEvent(NotificationsEvent.Refresh)
+                else -> listState.animateScrollToItem(0)
+            }
+        }
     }
 
     NotificationsContent(
         viewState = state.toViewState(),
+        activeFilter = state.activeFilter,
         listState = listState,
         snackbarHostState = snackbarHostState,
         onEvent = onEvent,
         modifier = modifier,
     )
 
-    val currentSheetActors = sheetActors
-    if (currentSheetActors != null) {
+    val sheetActors = state.actorListSheet
+    if (sheetActors != null) {
         ActorListSheet(
-            actors = currentSheetActors,
+            actors = sheetActors,
             onActorClick = onActorTap,
             onDismiss = onSheetDismiss,
         )
@@ -208,22 +216,21 @@ internal fun NotificationsScreen(
 @Composable
 internal fun NotificationsContent(
     viewState: NotificationsScreenViewState,
+    activeFilter: NotificationFilter,
     listState: LazyListState,
     snackbarHostState: SnackbarHostState,
     onEvent: (NotificationsEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val activeFilter =
-        when (viewState) {
-            is NotificationsScreenViewState.Loaded -> viewState.activeFilter
-            // Empty / InitialLoading / InitialError preserve the user's
-            // active filter on the chip strip — but those branches don't
-            // carry a filter field (the state is folded away in the
-            // projection). Default to All for those non-Loaded branches;
-            // a filter change followed by an empty page will re-render the
-            // chip row from the Loaded(...) branch as soon as it lands.
-            else -> NotificationFilter.All
-        }
+    // `activeFilter` is passed in as a sibling param of `viewState` rather
+    // than projected through `NotificationsScreenViewState`. The earlier
+    // shape only carried `activeFilter` on the Loaded variant and fell
+    // back to NotificationFilter.All for InitialLoading / Empty /
+    // InitialError — which meant a filter-change transition (clears items
+    // → InitialLoading) visibly snapped the chip strip back to All for
+    // the duration of the load, lying about the user's intent. Passing
+    // `activeFilter` straight through keeps the chip selection truthful
+    // across every view-state branch.
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -317,14 +324,26 @@ private fun LoadedNotifications(
     // Same shape as :feature:feed:impl's LoadMore wiring: the boolean is
     // distinctUntilChanged'd so we don't re-fire every visible-index change
     // past the threshold (without that, scroll would fire 10–30 LoadMores/s).
+    //
+    // Guard against short pages: when `items.size < PREFETCH_DISTANCE` the
+    // threshold goes negative and `pastThreshold` would be true on the very
+    // first frame, triggering LoadMore before the user has scrolled. The
+    // `items.size >= PREFETCH_DISTANCE` precondition skips the trigger
+    // entirely for short pages — the next refresh / append / filter switch
+    // will re-evaluate once the list is large enough to warrant prefetch.
     val currentItems by rememberUpdatedState(items)
     LaunchedEffect(listState, onEvent) {
         snapshotFlow {
-            val lastVisible =
-                listState.layoutInfo.visibleItemsInfo
-                    .lastOrNull()
-                    ?.index ?: 0
-            lastVisible > currentItems.size - PREFETCH_DISTANCE
+            val size = currentItems.size
+            if (size < PREFETCH_DISTANCE) {
+                false
+            } else {
+                val lastVisible =
+                    listState.layoutInfo.visibleItemsInfo
+                        .lastOrNull()
+                        ?.index ?: 0
+                lastVisible > size - PREFETCH_DISTANCE
+            }
         }.distinctUntilChanged()
             .collect { pastThreshold ->
                 if (pastThreshold) onEvent(NotificationsEvent.LoadMore)
@@ -348,28 +367,14 @@ private fun NotificationsInitialLoading() {
 
 @Composable
 private fun NotificationsAppendingIndicator() {
+    // fillMaxWidth (not fillMaxSize) — this lives inside a LazyColumn item
+    // slot where the main-axis constraint is Constraints.Infinity. Asking
+    // for max height there is misleading at best and a real bug if the
+    // LazyColumn ever gets wrapped in a bounded-height container.
     Column(
-        modifier = Modifier.fillMaxSize().padding(vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CircularProgressIndicator()
     }
 }
-
-/**
- * Map a [NotificationsError] to its Snackbar-ready message. Lives as a
- * `Context` extension so the screen can resolve strings from the host
- * Activity Context without participating in the unstable lambda
- * recomposition. Mirrors `FeedError.toMessage` in :feature:feed:impl.
- *
- * Internal because the same mapping is exposed to test helpers that
- * exercise the Snackbar copy without standing up a full screen.
- */
-internal fun NotificationsError.toMessage(context: Context): String =
-    context.getString(
-        when (this) {
-            NotificationsError.Network -> R.string.notifications_snackbar_error_network
-            NotificationsError.Unauthenticated -> R.string.notifications_snackbar_error_unauthenticated
-            NotificationsError.Unknown -> R.string.notifications_snackbar_error_unknown
-        },
-    )

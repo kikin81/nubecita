@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.notifications.impl
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
@@ -30,6 +31,15 @@ internal data class NotificationsState(
     val loadStatus: NotificationsLoadStatus = NotificationsLoadStatus.InitialLoading,
     val cursor: String? = null,
     val hasMore: Boolean = true,
+    /**
+     * Actor list backing the avatar-stack disclosure sheet. Non-null when
+     * the sheet is open; null when closed. Owned by the VM (not local
+     * Compose state) so the sheet survives configuration changes via the
+     * same state-restoration plumbing the rest of the screen uses, and so
+     * the unit-tested reducer is the single source of truth for sheet
+     * visibility transitions.
+     */
+    val actorListSheet: ImmutableList<AuthorUi>? = null,
 ) : UiState
 
 /**
@@ -88,6 +98,21 @@ internal enum class NotificationsError {
     Unknown,
 }
 
+/**
+ * Resolve the Snackbar copy resource for this error variant. Lives next
+ * to the enum (not the screen) so adding a new variant forces a single
+ * exhaustive `when` to grow at the data location — the screen's effects
+ * collector just calls `context.getString(error.snackbarMessageRes())`
+ * per emission and stays Android-resource-free of the mapping itself.
+ */
+@StringRes
+internal fun NotificationsError.snackbarMessageRes(): Int =
+    when (this) {
+        NotificationsError.Network -> R.string.notifications_snackbar_error_network
+        NotificationsError.Unauthenticated -> R.string.notifications_snackbar_error_unauthenticated
+        NotificationsError.Unknown -> R.string.notifications_snackbar_error_unknown
+    }
+
 internal sealed interface NotificationsEvent : UiEvent {
     /** Pull-to-refresh; resets the cursor and re-fetches the head of the list. */
     data object Refresh : NotificationsEvent
@@ -113,12 +138,19 @@ internal sealed interface NotificationsEvent : UiEvent {
 
     /**
      * User tapped the avatar stack (chevron disclosure) on an aggregated
-     * row. The VM emits [NotificationsEffect.ShowActorList] so the screen
-     * can present the bottom-sheet actor list.
+     * row. The reducer sets [NotificationsState.actorListSheet] to the
+     * aggregated row's actors so the screen renders the bottom-sheet
+     * actor list.
      */
     data class AvatarStackTapped(
         val item: NotificationItemUi.Aggregated,
     ) : NotificationsEvent
+
+    /**
+     * User dismissed the actor-list sheet (swipe-down, scrim tap, or back
+     * press). The reducer clears [NotificationsState.actorListSheet].
+     */
+    data object SheetDismissed : NotificationsEvent
 
     /**
      * The user navigated away from the Notifications tab (top-level key
@@ -153,15 +185,5 @@ internal sealed interface NotificationsEffect : UiEffect {
     @Immutable
     data class NavigateTo(
         val target: NavKey,
-    ) : NotificationsEffect
-
-    /**
-     * Present the multi-actor list for an aggregated row (Bluesky-style
-     * bottom-sheet disclosure). The screen owns the sheet itself; the VM
-     * just hands over the actors to render.
-     */
-    @Immutable
-    data class ShowActorList(
-        val actors: ImmutableList<AuthorUi>,
     ) : NotificationsEffect
 }
