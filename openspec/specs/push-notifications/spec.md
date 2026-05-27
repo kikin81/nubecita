@@ -1,5 +1,8 @@
-## ADDED Requirements
+# push-notifications Specification
 
+## Purpose
+TBD - created by archiving change add-push-notifications. Update Purpose after archive.
+## Requirements
 ### Requirement: `:core:push` module hosts the push pipeline
 
 The application SHALL host the push notification pipeline (FCM service, registration, channel installation, payload dispatch, notification building, and gateway-gap filters) in a dedicated `:core:push` Android library module. The module SHALL apply the `nubecita.android.library` and `nubecita.android.hilt` convention plugins. The module SHALL NOT contain Compose UI, NavKeys, or `EntryProviderInstaller` contributions.
@@ -232,13 +235,9 @@ The Settings screen SHALL include a "Notifications" row that opens the Android s
 - **WHEN** the user taps the "Notifications" row in Settings
 - **THEN** an `Intent` with action `android.settings.APP_NOTIFICATION_SETTINGS` and the application's package name extra is started
 
-## MODIFIED Requirements
+### Requirement: Firebase Messaging is available on the runtime classpath
 
-### Requirement: Firebase SDK bootstrap includes the Messaging module
-
-The application SHALL bundle `firebase-messaging` as a runtime dependency in `:app`, version-managed by the existing `firebase-bom` pin. No explicit initialization in `Application.onCreate()` is required (FCM auto-initializes via its `ContentProvider`).
-
-The previous requirement scope (Firebase Analytics + App Check + App Distribution + bootstrap from `app/google-services.json`) is unchanged; this requirement adds Messaging to the four-module runtime set.
+The application SHALL bundle `firebase-messaging` as a runtime dependency in `:app`, version-managed by the existing `firebase-bom` pin already used by the Analytics / App Check / App Distribution modules. No explicit initialization in `Application.onCreate()` is required for Messaging itself — FCM auto-initializes via its `ContentProvider`, gated by the manifest's `firebase_messaging_auto_init_enabled` meta (set to `false` for instrumented-test safety; re-enabled at runtime via `PushRegistrationCoordinator.start()` once the real `NubecitaApplication` has booted).
 
 #### Scenario: Firebase Messaging class is on the runtime classpath
 - **WHEN** the debug APK is built
