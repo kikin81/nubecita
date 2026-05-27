@@ -66,10 +66,12 @@ import net.kikin.nubecita.shell.composer.rememberComposerLauncher
  * The five top-level destinations — Feed, Search, Notifications, Chats,
  * You — are registered via the `@MainShell`-qualified
  * `EntryProviderInstaller` set bound from `:feature:*:impl` modules.
- * The Notifications icon wraps in a `BadgedBox` reading from the
- * `NotificationsUnreadCountStore` (`:feature:notifications:impl`) so the
+ * The Notifications tab passes a non-null lambda to `NavigationSuiteItem`'s
+ * built-in `badge` slot when the `NotificationsUnreadCountStore`
+ * (`:feature:notifications:impl`) reports a non-zero count, so the
  * unread count from the foregrounded polling observer surfaces on the
- * bottom-nav chrome without any per-screen wiring.
+ * navigation chrome (bottom bar at compact widths, rail at medium /
+ * expanded) without any per-screen wiring.
  *
  * Per-tab back-stack state lives in `MainShellNavState`, created via
  * `rememberMainShellNavState(...)` in this composable's body. The state
@@ -249,7 +251,7 @@ fun MainShell(modifier: Modifier = Modifier) {
     //    so this is the consistent default for our phone-first social
     //    client.
     //  - `NavigationDrawer` at expanded widths on some form factors.
-    //    With only four destinations, a permanent drawer is overkill —
+    //    With only five destinations, a permanent drawer is overkill —
     //    collapse to rail in that case.
     val defaultLayoutType = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
     val layoutType =
@@ -329,12 +331,13 @@ fun MainShell(modifier: Modifier = Modifier) {
  * @param activeKey The currently selected top-level destination's [NavKey].
  *   Drives which item renders in selected (filled icon) state.
  * @param notificationsUnreadCount The current unread-count from
- *   `NotificationsUnreadCountStore`. Drives the [BadgedBox] overlay on
- *   the Notifications tab — the badge is omitted entirely when the count
- *   is zero, renders the digit verbatim for 1–99, and clamps to "99+"
- *   per M3 `BadgedBox` overflow convention beyond that. Passed as a
- *   plain `Int` so previews can sweep each rendering threshold without
- *   touching Hilt or the store.
+ *   `NotificationsUnreadCountStore`. Drives the `Badge` lambda passed to
+ *   `NavigationSuiteItem`'s `badge` slot on the Notifications tab — the
+ *   slot lambda is null (no badge rendered) when the count is zero,
+ *   renders the digit verbatim for 1–99, and clamps to "99+" via the
+ *   [formatUnreadCount] helper beyond that. Passed as a plain `Int` so
+ *   previews can sweep each rendering threshold without touching Hilt
+ *   or the store.
  * @param onTabClick Invoked when the user taps a navigation item.
  * @param layoutType Forces a specific [NavigationSuiteType]. Production
  *   callers compute this from `currentWindowAdaptiveInfoV2()`; previews and

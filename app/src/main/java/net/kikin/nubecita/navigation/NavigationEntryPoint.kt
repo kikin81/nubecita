@@ -19,7 +19,7 @@ import net.kikin.nubecita.feature.notifications.impl.store.NotificationsUnreadCo
  * - `@OuterShell` — entries for the outer `NavDisplay` in
  *   `MainNavigation` (Splash → Login → Main wrapper).
  * - `@MainShell` — entries for the inner `NavDisplay` hosted inside
- *   `MainShell`, covering the four top-level tabs and any sub-routes
+ *   `MainShell`, covering the five top-level tabs and any sub-routes
  *   pushed onto a tab's stack.
  *
  * `:feature:*:impl` modules contribute via `@Provides @IntoSet` with the
@@ -57,8 +57,8 @@ interface NavigationEntryPoint {
     /**
      * The process-singleton unread-notifications store, populated by
      * `:feature:notifications:impl`'s `NotificationsPollingObserver` while
-     * the app is foregrounded. `MainShell` collects the
-     * `StateFlow<Int>` to drive the bottom-nav `BadgedBox` overlay on the
+     * the app is foregrounded. `MainShell` collects the `StateFlow<Int>`
+     * and threads it into `NavigationSuiteItem`'s `badge` slot on the
      * Notifications tab. Reaches across the `:feature:notifications:impl`
      * boundary via this entry point — Composables can't constructor-inject
      * the singleton, and `:app` already depends on the impl module for
