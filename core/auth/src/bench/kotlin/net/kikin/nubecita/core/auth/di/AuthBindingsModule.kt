@@ -17,18 +17,18 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import javax.inject.Singleton
 
 /**
- * Benchmark-flavor parallel of `:core:auth`'s production [AuthBindingsModule].
+ * Bench-flavor parallel of `:core:auth`'s production [AuthBindingsModule].
  *
- * AGP source-set selection includes this file in benchmark-flavored
- * variants only — the production-flavor variant picks up the
- * `src/production/...` copy instead. The two files have the same FQN
+ * AGP source-set selection includes this file in bench-flavored variants
+ * only — the production-flavor variant picks up the `src/production/...`
+ * copy instead. The two files have the same FQN
  * (`net.kikin.nubecita.core.auth.di.AuthBindingsModule`) so existing
  * `@TestInstallIn(replaces = [AuthBindingsModule::class])` references in
  * downstream feature androidTests resolve identically regardless of
  * which flavor variant they run against.
  *
- * Each `@Binds` swaps the production implementation for its
- * benchmark-flavor fake. See:
+ * Each `@Binds` swaps the production implementation for its bench-flavor
+ * fake. See:
  * - [FakeOAuthSessionStore] — always reports "no session"
  * - [FakeAuthRepository] — deterministic happy-path results
  * - [FakeOAuthRedirectBroker] — empty redirect stream, no-op publish

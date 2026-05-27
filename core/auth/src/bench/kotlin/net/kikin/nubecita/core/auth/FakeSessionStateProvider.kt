@@ -7,7 +7,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Benchmark-flavor [SessionStateProvider]. Reports a deterministic
+ * Bench-flavor [SessionStateProvider]. Reports a deterministic
  * [SessionState.SignedIn] at construction so `MainActivity`'s splash-
  * routing predicate resolves on the first frame and the bench's setup
  * phase never has to wait for an OAuth handshake.
@@ -30,7 +30,7 @@ internal class FakeSessionStateProvider
             MutableStateFlow<SessionState>(
                 SessionState.SignedIn(
                     handle = "bench.nubecita.app",
-                    did = "did:plc:benchmark0000000000000000",
+                    did = "did:plc:benchnubecita0000000000000",
                 ),
             )
 

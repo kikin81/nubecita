@@ -14,8 +14,8 @@ import javax.inject.Singleton
  * `@TestInstallIn(replaces = [UserPreferencesBindingsModule::class])`. Matches
  * the pattern documented on `:core:auth`'s `AuthBindingsModule`.
  *
- * Lives in `src/production/` — the parallel benchmark-flavor copy in
- * `src/benchmark/` binds a fake repository. AGP source-set selection
+ * Lives in `src/production/` — the parallel bench-flavor copy in
+ * `src/bench/` binds a fake repository. AGP source-set selection
  * includes exactly one copy per variant.
  */
 @Module

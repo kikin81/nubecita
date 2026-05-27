@@ -7,7 +7,7 @@ android {
     namespace = "net.kikin.nubecita.core.preferences"
 
     // Mirrors `:core:auth`'s split: the `environment` dimension swaps the
-    // production UserPreferencesBindingsModule for a benchmark-flavor parallel
+    // production UserPreferencesBindingsModule for a bench-flavor parallel
     // that binds FakeUserPreferencesRepository. Consumers without the dimension
     // pick up `production` via the missingDimensionStrategy in the library
     // convention plugin. See `bd show nubecita-crmi.6`.

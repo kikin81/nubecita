@@ -1,5 +1,5 @@
 {
-  "_comment": "Deterministic fixture timeline for the :app benchmark flavor. Loaded by FakeFeedRepository on first fetchPage() call. Field names mirror data/models/*.kt Kotlin property names. Sealed types use a 'type' discriminator following kotlinx.serialization defaults. Timestamps end at 2026-05-27T17:00:00Z and span the prior 24h. See bd nubecita-crmi.6 Section E stage 1.",
+  "_comment": "Deterministic fixture timeline for the :app bench flavor. Loaded by FakeFeedRepository on first fetchPage() call. Field names mirror data/models/*.kt Kotlin property names. Sealed types use a 'type' discriminator following kotlinx.serialization defaults. Timestamps end at 2026-05-27T17:00:00Z and span the prior 24h. See bd nubecita-crmi.6 Section E stage 1.",
   "cursor": null,
   "items": [
     {

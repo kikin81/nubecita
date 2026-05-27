@@ -6,12 +6,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Benchmark-flavor [UserPreferencesRepository]. Always reports
+ * Bench-flavor [UserPreferencesRepository]. Always reports
  * `hasSeenOnboarding = true` so MainActivity's routing gate doesn't
  * steer the bench journey into the Onboarding flow, and
  * `markOnboardingSeen` is a no-op.
  *
- * Pairs with `:core:auth`'s benchmark `FakeSessionStateProvider` (which
+ * Pairs with `:core:auth`'s bench `FakeSessionStateProvider` (which
  * reports `SignedIn` at boot). Together they collapse Splash → Main in
  * a single frame.
  *

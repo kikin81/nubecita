@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Download deterministic image fixtures for the :app benchmark flavor.
+# Download deterministic image fixtures for the :app bench flavor.
 #
 # Pulls 8 avatars, 8 post images, and 2 external-link thumbnails from
 # CC-licensed sources, then resizes each to a fixed bench-friendly size
 # (256x256 for avatars, 800x600 / 800x800 / 800x1200 for posts depending
 # on aspect, 600x400 for external-link cards). Output lands under
-# app/src/benchmark/assets/img/. Idempotent — re-running overwrites.
+# app/src/bench/assets/img/. Idempotent — re-running overwrites.
 #
 # Provenance and licensing notes per asset are inline below. All sources
 # are Unsplash (license: free to use, no attribution required, no
@@ -25,7 +25,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-ASSETS="${REPO_ROOT}/app/src/benchmark/assets/img"
+ASSETS="${REPO_ROOT}/app/src/bench/assets/img"
 TMPDIR="$(mktemp -d -t nubecita-bench-img-XXXX)"
 trap 'rm -rf "${TMPDIR}"' EXIT
 

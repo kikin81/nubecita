@@ -6,15 +6,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Benchmark-flavor [OAuthRedirectBroker]. Exposes an empty redirect
- * stream and accepts publish calls as no-ops.
+ * Bench-flavor [OAuthRedirectBroker]. Exposes an empty redirect stream
+ * and accepts publish calls as no-ops.
  *
  * `MainActivity` injects this to publish redirect URIs captured from
- * deep-link intents. Under the benchmark flavor we never receive such
- * an intent — `applicationIdSuffix = ".benchmark"` means the
- * `nubecita.app://oauth` redirect filter resolves to the production
- * install if both are present, and there's no OAuth consent step
- * during a bench journey anyway.
+ * deep-link intents. Under the bench flavor we never receive such an
+ * intent — [FakeSessionStateProvider] reports `SignedIn` at boot, so
+ * the OAuth flow that would surface a redirect is never composed.
+ * The no-op `publish` is defensive only.
  *
  * Scoped `@Singleton` to match the production binding.
  */

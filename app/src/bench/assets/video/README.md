@@ -1,6 +1,6 @@
-# Benchmark video fixtures
+# Bench-flavor video fixtures
 
-Three short H.264/AAC `.mp4` clips bundled into the `:app` benchmark flavor's
+Three short H.264/AAC `.mp4` clips bundled into the `:app` bench flavor's
 `assets/` so Macrobenchmark journeys (`FeedScrollBenchmark`,
 `VideoPlaybackBenchmark`) can exercise Media3's progressive-MP4 path
 deterministically without network access. See bd `nubecita-crmi.6`
@@ -99,7 +99,7 @@ migrate to LFS.
   ladder. We're not testing HEVC or AV1 in stage 1; those are reserved for a
   future tier when the asset HLS work in Section E stage 2 lands.
 - **Motion complexity spectrum.** clip-1 (low) / clip-2 (medium) / clip-3
-  (high) give the benchmark a defensible spread without bloating the APK.
+  (high) give the bench a defensible spread without bloating the APK.
   If a Compose / Media3 regression preferentially impacts high-motion decode
   (e.g. dropped P-frames under contention), clip-3 will surface it first.
 - **Scene-cut count.** clip-3's hard cuts force keyframe insertion so the
@@ -109,7 +109,7 @@ migrate to LFS.
 - **Provenance.** All three sources are CC BY 3.0 Blender Open Movies —
   one license type, three properly credited films, no commercial-use
   ambiguity. Attribution lives in this README; redistribution as part of
-  the benchmark APK is permitted.
+  the bench APK is permitted.
 
 ## Regenerating after upstream changes
 

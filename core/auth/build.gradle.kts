@@ -15,10 +15,10 @@ android {
 
     // The `environment` flavor dimension splits the production AuthBindingsModule
     // (real DPoP-signed XrpcClient, Tink-encrypted OAuthSessionStore, AtOAuth flow
-    // orchestrator) from a benchmark-flavor parallel that binds in-process fakes.
-    // The `:app` module's `benchmark` flavor consumes the matching variant via
-    // missingDimensionStrategy plumbing in the AndroidLibraryConventionPlugin —
-    // see `bd show nubecita-crmi.6` for the broader scope.
+    // orchestrator) from a bench-flavor parallel that binds in-process fakes. The
+    // `:app` module's `bench` flavor consumes the matching variant via the
+    // missingDimensionStrategy plumbing in AndroidLibraryConventionPlugin — see
+    // `bd show nubecita-crmi.6` for the broader scope.
     flavorDimensions += "environment"
     productFlavors {
         create("production") { dimension = "environment" }

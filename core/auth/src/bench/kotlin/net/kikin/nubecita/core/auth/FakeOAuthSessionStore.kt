@@ -6,7 +6,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Benchmark-flavor [OAuthSessionStore]. Always reports "no session"
+ * Bench-flavor [OAuthSessionStore]. Always reports "no session"
  * — [load] returns `null`, [save] and [clear] are no-ops.
  *
  * The bench journey doesn't go through the auth flow, so this store

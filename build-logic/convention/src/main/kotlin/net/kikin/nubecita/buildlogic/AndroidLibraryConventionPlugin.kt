@@ -22,12 +22,12 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                     // Default fallback for the `environment` product-flavor dimension
                     // introduced by `:core:auth` and `:core:preferences` (and any
                     // future module that ships a fake-network swap for the `:app`
-                    // `benchmark` flavor). Libraries that don't declare the
-                    // `environment` dimension themselves pick the `production`
-                    // variant of any flavored dependency. Libraries that DO declare
-                    // it (the two named above + future cohorts) ignore this — AGP
-                    // applies missingDimensionStrategy only when the dimension is
-                    // missing from the current module.
+                    // `bench` flavor). Libraries that don't declare the `environment`
+                    // dimension themselves pick the `production` variant of any
+                    // flavored dependency. Libraries that DO declare it (the two
+                    // named above + future cohorts) ignore this — AGP applies
+                    // missingDimensionStrategy only when the dimension is missing
+                    // from the current module.
                     //
                     // See `bd show nubecita-crmi.6` for the broader rationale and
                     // the source-set substitution pattern this enables.
