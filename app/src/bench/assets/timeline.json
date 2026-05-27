@@ -1,0 +1,531 @@
+{
+  "_comment": "Deterministic fixture timeline for the :app benchmark flavor. Loaded by FakeFeedRepository on first fetchPage() call. Field names mirror data/models/*.kt Kotlin property names. Sealed types use a 'type' discriminator following kotlinx.serialization defaults. Timestamps end at 2026-05-27T17:00:00Z and span the prior 24h. See bd nubecita-crmi.6 Section E stage 1.",
+  "cursor": null,
+  "items": [
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:alice000000000000000000/app.bsky.feed.post/3kfeed0001",
+        "cid": "bafyreialice000000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:alice000000000000000000",
+          "handle": "alice.bsky.social",
+          "displayName": "Alice Chen",
+          "avatarUrl": "file:///android_asset/img/avatars/alice.jpg"
+        },
+        "createdAt": "2026-05-26T17:05:00Z",
+        "text": "shipped the new feed pagination today. 120hz scroll holds even with three videos in viewport. months of profile-guided tuning and the difference is finally visible to my eyes, not just the trace viewer.",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 12, "repostCount": 4, "likeCount": 88, "quoteCount": 1 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:bob0000000000000000000000/app.bsky.feed.post/3kfeed0002",
+        "cid": "bafyreibob000000000000000000000000000000000000000000000002",
+        "author": {
+          "did": "did:plc:bob0000000000000000000000",
+          "handle": "bob.dev",
+          "displayName": "Bob Iglesias",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        "createdAt": "2026-05-26T19:42:00Z",
+        "text": "morning brew, fresh from the new roaster. Ethiopian Yirgacheffe, light roast, fruity to the point that my partner thought I added juice. recommend if you can find it.",
+        "facets": [],
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "altText": "A pour-over coffee dripper on a wooden countertop, morning light through a window.",
+              "aspectRatio": 1.333
+            }
+          ]
+        },
+        "stats": { "replyCount": 5, "repostCount": 2, "likeCount": 41, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike1",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/3kfeed0003",
+        "cid": "bafyreicarmen0000000000000000000000000000000000000000000003",
+        "author": {
+          "did": "did:plc:carmen0000000000000000000",
+          "handle": "carmen.codes",
+          "displayName": "Carmen Lopez",
+          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+        },
+        "createdAt": "2026-05-26T20:18:00Z",
+        "text": "rewriting our Compose nav graph in N3 today. the type-safe routes are real nice but the migration mostly means staring at sealed interfaces until the pattern clicks. anyone else gone through this?",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 18, "repostCount": 1, "likeCount": 22, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:diego00000000000000000000/app.bsky.feed.post/3kfeed0004",
+        "cid": "bafyreidiego000000000000000000000000000000000000000000004",
+        "author": {
+          "did": "did:plc:diego00000000000000000000",
+          "handle": "diego.outdoors",
+          "displayName": "Diego Marin",
+          "avatarUrl": "file:///android_asset/img/avatars/diego.jpg"
+        },
+        "createdAt": "2026-05-26T22:01:00Z",
+        "text": "weekend trip up to the ridge. clouds rolled in right after this shot, then it hailed for twenty minutes. perfect day.",
+        "facets": [],
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+              "altText": "A wide mountain ridge with low clouds approaching from the left.",
+              "aspectRatio": 1.5
+            },
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+              "altText": "A narrow rocky trail descending into pine forest.",
+              "aspectRatio": 0.75
+            },
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/ridge-flower.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/ridge-flower.jpg",
+              "altText": "Close up of an alpine wildflower, purple petals on a thin green stem.",
+              "aspectRatio": 1.0
+            }
+          ]
+        },
+        "stats": { "replyCount": 7, "repostCount": 9, "likeCount": 134, "quoteCount": 2 },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike4",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:elena00000000000000000000/app.bsky.feed.post/3kfeed0005",
+        "cid": "bafyreielena000000000000000000000000000000000000000000005",
+        "author": {
+          "did": "did:plc:elena00000000000000000000",
+          "handle": "elena.draws",
+          "displayName": "Elena Ortega",
+          "avatarUrl": "file:///android_asset/img/avatars/elena.jpg"
+        },
+        "createdAt": "2026-05-26T23:44:00Z",
+        "text": "studio cleanup day. found a sketchbook from 2019 with concepts I thought I had lost forever. going to scan a couple this week.",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 2, "repostCount": 0, "likeCount": 15, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:alice000000000000000000/app.bsky.feed.post/3kfeed0006",
+        "cid": "bafyreialice000000000000000000000000000000000000000000006",
+        "author": {
+          "did": "did:plc:alice000000000000000000",
+          "handle": "alice.bsky.social",
+          "displayName": "Alice Chen",
+          "avatarUrl": "file:///android_asset/img/avatars/alice.jpg"
+        },
+        "createdAt": "2026-05-27T01:30:00Z",
+        "text": "quick demo of the new gesture handler. tap-and-drag now stays at 120hz under load. ignore the office chatter in the background.",
+        "facets": [],
+        "embed": {
+          "type": "Video",
+          "posterUrl": "file:///android_asset/img/posts/video-poster-1.jpg",
+          "playlistUrl": "asset:///video/clip-1.mp4",
+          "aspectRatio": 1.7777778,
+          "durationSeconds": 12,
+          "altText": "Screen recording of a phone scrolling a feed at high frame rate."
+        },
+        "stats": { "replyCount": 21, "repostCount": 14, "likeCount": 203, "quoteCount": 6 },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": true,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike6",
+          "repostUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.repost/3kviewerrepost6",
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:fede00000000000000000000/app.bsky.feed.post/3kfeed0007",
+        "cid": "bafyreifede0000000000000000000000000000000000000000000007",
+        "author": {
+          "did": "did:plc:fede00000000000000000000",
+          "handle": "fede.gardens",
+          "displayName": "Federico Vega",
+          "avatarUrl": "file:///android_asset/img/avatars/fede.jpg"
+        },
+        "createdAt": "2026-05-27T03:10:00Z",
+        "text": "the tomatoes are finally taking. first time growing San Marzanos and the bottom truss already has a dozen fruit. tip from a neighbor: bone meal at the base when you set the cage.",
+        "facets": [],
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+              "altText": "Green San Marzano tomatoes hanging from a wire cage in a backyard garden.",
+              "aspectRatio": 1.333
+            }
+          ]
+        },
+        "stats": { "replyCount": 9, "repostCount": 1, "likeCount": 56, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:gabe00000000000000000000/app.bsky.feed.post/3kfeed0008",
+        "cid": "bafyreigabe0000000000000000000000000000000000000000000008",
+        "author": {
+          "did": "did:plc:gabe00000000000000000000",
+          "handle": "gabe.reads",
+          "displayName": "Gabriela Soto",
+          "avatarUrl": "file:///android_asset/img/avatars/gabe.jpg"
+        },
+        "createdAt": "2026-05-27T05:50:00Z",
+        "text": "good long read on the architecture tradeoffs behind a popular embedded database. mostly think about the WAL section — surprised by how much of the perf budget goes into fsync batching.",
+        "facets": [],
+        "embed": {
+          "type": "External",
+          "uri": "https://example.com/articles/embedded-db-architecture",
+          "domain": "example.com",
+          "title": "Architecture notes from building a tiny embedded database",
+          "description": "A walkthrough of the design choices, write-ahead log, and trade-offs from a six-month sabbatical project.",
+          "thumbUrl": "file:///android_asset/img/external/article-db.jpg"
+        },
+        "stats": { "replyCount": 4, "repostCount": 11, "likeCount": 78, "quoteCount": 1 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/3kfeed0009",
+        "cid": "bafyreicarmen0000000000000000000000000000000000000000000009",
+        "author": {
+          "did": "did:plc:carmen0000000000000000000",
+          "handle": "carmen.codes",
+          "displayName": "Carmen Lopez",
+          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+        },
+        "createdAt": "2026-05-27T08:25:00Z",
+        "text": "if your Compose previews are slow and you have not yet looked at the Layout Inspector tracer, today is the day. saved me an hour of guessing why a Box was recomposing per frame.",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 6, "repostCount": 7, "likeCount": 64, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike9",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:bob0000000000000000000000/app.bsky.feed.post/3kfeed0010",
+        "cid": "bafyreibob000000000000000000000000000000000000000000000010",
+        "author": {
+          "did": "did:plc:bob0000000000000000000000",
+          "handle": "bob.dev",
+          "displayName": "Bob Iglesias",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        "createdAt": "2026-05-27T11:02:00Z",
+        "text": "short clip from the cafe roastery tour this morning. the drum is hypnotic. there is a reason people romanticize this craft.",
+        "facets": [],
+        "embed": {
+          "type": "Video",
+          "posterUrl": "file:///android_asset/img/posts/video-poster-2.jpg",
+          "playlistUrl": "asset:///video/clip-2.mp4",
+          "aspectRatio": 1.7777778,
+          "durationSeconds": 14,
+          "altText": "Slow rotation of a coffee roaster drum, beans tumbling inside."
+        },
+        "stats": { "replyCount": 11, "repostCount": 3, "likeCount": 97, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:diego00000000000000000000/app.bsky.feed.post/3kfeed0011",
+        "cid": "bafyreidiego000000000000000000000000000000000000000000011",
+        "author": {
+          "did": "did:plc:diego00000000000000000000",
+          "handle": "diego.outdoors",
+          "displayName": "Diego Marin",
+          "avatarUrl": "file:///android_asset/img/avatars/diego.jpg"
+        },
+        "createdAt": "2026-05-27T12:48:00Z",
+        "text": "topo map for next weekend's traverse. fifteen miles, three thousand feet, all above the tree line. weather window is Saturday. who's in.",
+        "facets": [],
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/topo-map.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/topo-map.jpg",
+              "altText": "USGS topographic map with a highlighted ridge traverse route in red.",
+              "aspectRatio": 1.0
+            }
+          ]
+        },
+        "stats": { "replyCount": 14, "repostCount": 0, "likeCount": 19, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:hugo00000000000000000000/app.bsky.feed.post/3kfeed0012",
+        "cid": "bafyreihugo0000000000000000000000000000000000000000000012",
+        "author": {
+          "did": "did:plc:hugo00000000000000000000",
+          "handle": "hugo.audio",
+          "displayName": "Hugo Park",
+          "avatarUrl": "file:///android_asset/img/avatars/hugo.jpg"
+        },
+        "createdAt": "2026-05-27T14:15:00Z",
+        "text": "really clean writeup on why room treatment matters before you upgrade your monitors. I bookmark this every six months and re-read it.",
+        "facets": [],
+        "embed": {
+          "type": "External",
+          "uri": "https://example.com/audio/room-treatment-first",
+          "domain": "example.com",
+          "title": "Treat the room before you upgrade the speakers",
+          "description": "A guide to acoustic treatment for small home studios, with practical panel-placement diagrams.",
+          "thumbUrl": "file:///android_asset/img/external/article-audio.jpg"
+        },
+        "stats": { "replyCount": 3, "repostCount": 8, "likeCount": 42, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:elena00000000000000000000/app.bsky.feed.post/3kfeed0013",
+        "cid": "bafyreielena000000000000000000000000000000000000000000013",
+        "author": {
+          "did": "did:plc:elena00000000000000000000",
+          "handle": "elena.draws",
+          "displayName": "Elena Ortega",
+          "avatarUrl": "file:///android_asset/img/avatars/elena.jpg"
+        },
+        "createdAt": "2026-05-27T15:33:00Z",
+        "text": "scanned one of the old pages. character study for a story I never finished. might be time to come back to it.",
+        "facets": [],
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+              "altText": "Pencil sketch of a character in a long coat, standing in profile, multiple gesture studies alongside.",
+              "aspectRatio": 0.7
+            }
+          ]
+        },
+        "stats": { "replyCount": 17, "repostCount": 5, "likeCount": 112, "quoteCount": 3 },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike13",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:fede00000000000000000000/app.bsky.feed.post/3kfeed0014",
+        "cid": "bafyreifede0000000000000000000000000000000000000000000014",
+        "author": {
+          "did": "did:plc:fede00000000000000000000",
+          "handle": "fede.gardens",
+          "displayName": "Federico Vega",
+          "avatarUrl": "file:///android_asset/img/avatars/fede.jpg"
+        },
+        "createdAt": "2026-05-27T16:20:00Z",
+        "text": "boosting this — Alice's frame pacing thread is the clearest explanation I have read of what Choreographer is actually doing under the hood.",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 1, "repostCount": 20, "likeCount": 33, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": "Federico Vega"
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:alice000000000000000000/app.bsky.feed.post/3kfeed0015",
+        "cid": "bafyreialice000000000000000000000000000000000000000000015",
+        "author": {
+          "did": "did:plc:alice000000000000000000",
+          "handle": "alice.bsky.social",
+          "displayName": "Alice Chen",
+          "avatarUrl": "file:///android_asset/img/avatars/alice.jpg"
+        },
+        "createdAt": "2026-05-27T16:55:00Z",
+        "text": "side note: the new Macrobench journey we're running takes about ninety seconds end to end on a Pixel 10 Pro XL. that is a great pace for the local feedback loop.",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 0, "repostCount": 1, "likeCount": 8, "quoteCount": 0 },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": "Gabriela Soto"
+      }
+    }
+  ]
+}
