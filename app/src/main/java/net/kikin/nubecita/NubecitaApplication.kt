@@ -9,6 +9,7 @@ import dagger.hilt.android.HiltAndroidApp
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.NotificationChannelInstaller
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
+import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
 import net.kikin.nubecita.firebase.appCheckFactory
 import timber.log.Timber
 import javax.inject.Inject
@@ -24,6 +25,8 @@ class NubecitaApplication :
     @Inject lateinit var pushRegistrationCoordinator: PushRegistrationCoordinator
 
     @Inject lateinit var appLifecycleObserver: AppLifecycleObserver
+
+    @Inject lateinit var notificationsPollingObserver: NotificationsPollingObserver
 
     override fun onCreate() {
         super.onCreate()
@@ -64,6 +67,13 @@ class NubecitaApplication :
         // up correctly and it's safe to let Firebase instantiate
         // NubecitaFcmService.
         pushRegistrationCoordinator.start()
+        // In-app notifications surface — :feature:notifications:impl owns
+        // the unread-count badge feeding MainShell's bottom-nav (wired in
+        // bd issue nubecita-1fy.1.9). The observer registers a
+        // ProcessLifecycleOwner-scoped polling loop that fires
+        // getUnreadCount on a 60-second cadence while foregrounded and
+        // exponentially backs off on failure (max 300s).
+        notificationsPollingObserver.start()
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader
