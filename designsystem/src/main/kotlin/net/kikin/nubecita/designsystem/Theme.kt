@@ -21,6 +21,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import net.kikin.nubecita.designsystem.hero.DefaultGradientCache
 import net.kikin.nubecita.designsystem.hero.LocalBoldHeroGradientCache
@@ -102,6 +103,8 @@ private fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             videoOverlayScrim = VideoOverlayScrim,
             videoOverlayScrimSubtle = VideoOverlayScrimSubtle,
             onVideoOverlay = OnVideoOverlay,
+            likeAccent = LikeAccentDark,
+            repostAccent = RepostAccentDark,
         )
     } else {
         NubecitaSemanticColors(
@@ -114,6 +117,8 @@ private fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             videoOverlayScrim = VideoOverlayScrim,
             videoOverlayScrimSubtle = VideoOverlayScrimSubtle,
             onVideoOverlay = OnVideoOverlay,
+            likeAccent = LikeAccentLight,
+            repostAccent = RepostAccentLight,
         )
     }
 
@@ -125,6 +130,20 @@ private fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
 private val VideoOverlayScrim = NubecitaPalette.Neutral0.copy(alpha = 0.8f)
 private val VideoOverlayScrimSubtle = NubecitaPalette.Neutral0.copy(alpha = 0.4f)
 private val OnVideoOverlay = NubecitaPalette.Neutral100
+
+// Social-action accent constants. Held here (vs the NubecitaPalette object)
+// because they aren't part of the brand tonal palette — they're independent
+// per-action colors chosen to match Bluesky's like/repost convention so the
+// UI reads as expected by users primed by Bluesky/Twitter. Light + dark
+// variants tuned for contrast against `colorScheme.surface` in each scheme.
+//
+// Like: magenta/pink, distinct from `colorScheme.error` (which carries error
+// semantics). Repost: green, distinct from `colorScheme.tertiary` (lilac in
+// the brand scheme).
+private val LikeAccentLight = Color(0xFFEC4899)
+private val LikeAccentDark = Color(0xFFF472B6)
+private val RepostAccentLight = Color(0xFF20BC70)
+private val RepostAccentDark = Color(0xFF4ADE80)
 
 private enum class ContrastLevel { Standard, Medium, High }
 

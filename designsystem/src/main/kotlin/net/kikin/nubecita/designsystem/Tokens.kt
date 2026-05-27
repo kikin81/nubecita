@@ -47,6 +47,25 @@ data class NubecitaSemanticColors(
      * the underlying video content. **Theme-invariant**.
      */
     val onVideoOverlay: Color,
+    /**
+     * Magenta/pink accent reserved for the like-family social action
+     * (Like, LikeViaRepost). The M3 `colorScheme.error` token is the
+     * closest neighbor in the brand scheme but reads as an error
+     * affordance to users — likes deserve a distinct, joyful tint
+     * that isn't conflated with error semantics. Used by
+     * `NotificationReasonIcon` and any future PostCard like-button
+     * variants.
+     */
+    val likeAccent: Color,
+    /**
+     * Green accent reserved for the repost-family social action
+     * (Repost, RepostViaRepost). `colorScheme.tertiary` is lilac in
+     * the brand scheme, which doesn't read as "repost" to users
+     * primed by Bluesky/Twitter conventions. Used by
+     * `NotificationReasonIcon` and any future PostCard repost-button
+     * variants.
+     */
+    val repostAccent: Color,
 )
 
 data class NubecitaDurations(

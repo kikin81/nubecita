@@ -33,6 +33,7 @@ enum class NubecitaIconName(
 ) {
     Add("\uE145"),
     AddPhotoAlternate("\uE43E"),
+    AlternateEmail("\uE0E6"),
     ArrowBack("\uE5C4"),
     ArrowForward("\uE5C8"),
     Article("\uEF42"),
@@ -43,7 +44,9 @@ enum class NubecitaIconName(
     Close("\uE5CD"),
     Edit("\uF097"),
     Error("\uF8B6"),
+    ExpandMore("\uE5CF"),
     Favorite("\uE87E"),
+    FormatQuote("\uE244"),
     Home("\uE9B2"),
     Inbox("\uE156"),
     IosShare("\uE6B8"),
@@ -52,7 +55,14 @@ enum class NubecitaIconName(
     Menu("\uE5D2"),
     MoreHoriz("\uE5D3"),
     MoreVert("\uE5D4"),
-    Notifications("\uE7F5"),
+
+    // `e7f5` is aliased to both `notifications` and `notifications_none` in
+    // the Material Symbols codepoint table — the visual difference between
+    // filled (with the activity dot) and outlined (no dot) bell is encoded
+    // as a SEPARATE glyph: `notifications_active` at `e7f7`. We vendor
+    // `e7f7` so the FILL axis flips to bell-with-activity-dot when
+    // `filled = true`, matching the notifications-surface design intent.
+    Notifications("\uE7F7"),
     Pause("\uE034"),
     Person("\uF0D3"),
     PersonAdd("\uEA4D"),
@@ -62,6 +72,7 @@ enum class NubecitaIconName(
     Reply("\uE15E"),
     Search("\uE8B6"),
     Settings("\uE8B8"),
+    Verified("\uEF76"),
     VolumeOff("\uE04F"),
     VolumeUp("\uE050"),
     WifiOff("\uE648"),
