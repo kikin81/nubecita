@@ -92,6 +92,23 @@ class PostDeepLinkMatcherTest {
         )
     }
 
+    @Test
+    fun nubecita_postDidRkey_matchesPostDeepLinkKey() {
+        // Push notifications construct nubecita:// URIs with the author's
+        // DID in the {handle} slot (via AtUriToDeepLink). Regression coverage
+        // for nubecita-1fy.6 — the smoke caught taps landing on the feed
+        // instead of PostDetail; before this test existed, the matcher set
+        // had no DID-in-custom-scheme coverage so the gap shipped unnoticed.
+        val matched =
+            nubecitaMatcher.match(
+                viewRequest("nubecita://profile/did:plc:abcdefghijklmnopqrstuvwx/post/3lkbabcdefghi"),
+            )
+        assertEquals(
+            PostDeepLinkKey(handle = "did:plc:abcdefghijklmnopqrstuvwx", rkey = "3lkbabcdefghi"),
+            matched,
+        )
+    }
+
     // -- Cross-host rejection — each matcher claims only its host ---------
 
     @Test
