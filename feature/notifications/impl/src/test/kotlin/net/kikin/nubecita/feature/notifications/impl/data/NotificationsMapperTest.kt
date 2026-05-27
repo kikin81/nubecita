@@ -442,6 +442,75 @@ class NotificationsMapperTest {
     }
 
     @Test
+    fun `subscribed-post row hydrates subject post from notification uri, not reasonSubject`() {
+        // `subscribed-post` fires when an account the user has subscribed to
+        // posts something new. The row is about the actor's new post (notification
+        // `uri`), not any pre-existing `reasonSubject` — so the hydration key
+        // is `uri`, matching reply/quote/mention's content-bearing pattern.
+        val theNewPostUri = "at://did:plc:author/app.bsky.feed.post/new-thing"
+        val reasonSubjectUri = "at://did:plc:author/app.bsky.feed.post/some-other-thing"
+        val newPost = NotificationItemUiFixtures.singleReply().subjectPost!!
+        val response =
+            listNotificationsResponse(
+                notifications =
+                    listOf(
+                        notification(
+                            actorDid = "did:plc:author",
+                            reason = "subscribed-post",
+                            reasonSubject = reasonSubjectUri,
+                            uri = theNewPostUri,
+                        ),
+                    ),
+            )
+
+        // Hydration map carries BOTH URIs to prove the mapper picks the right one.
+        val page =
+            response.toNotificationsPage(
+                hydratedPosts =
+                    mapOf(
+                        theNewPostUri to newPost,
+                        reasonSubjectUri to NotificationItemUiFixtures.singleLike().subjectPost!!,
+                    ),
+            )
+
+        val row = page.items.single() as NotificationItemUi.Single
+        assertEquals(NotificationReason.SubscribedPost, row.reason)
+        assertEquals(newPost, row.subjectPost, "subscribed-post must hydrate via `uri`, not `reasonSubject`")
+    }
+
+    @Test
+    fun `mixed reasons at identical indexedAt preserve wire-arrival order`() {
+        // At indexedAt ties, the row whose first-seen wire index is lower
+        // must stay first regardless of whether it's Single or Aggregated.
+        // Single rows are emitted into the output during the scan; aggregated
+        // rows are filled into reserved slots, so the slot the first wire-entry
+        // of a group claimed must be its eventual position.
+        val tieTime = "2026-05-26T12:00:00Z"
+        val sharedSubject = "at://did:plc:user/app.bsky.feed.post/p1"
+        val response =
+            listNotificationsResponse(
+                notifications =
+                    listOf(
+                        // wire[0]: like by alice — claims slot 0 (aggregation reserved)
+                        notification(actorDid = "did:plc:alice", reason = "like", reasonSubject = sharedSubject, uri = "at://a/like/1", indexedAt = tieTime),
+                        // wire[1]: reply by bob — Single, claims slot 1
+                        notification(actorDid = "did:plc:bob", reason = "reply", reasonSubject = sharedSubject, uri = "at://b/reply/1", indexedAt = tieTime),
+                        // wire[2]: like by carol — fills slot 0's aggregate group
+                        notification(actorDid = "did:plc:carol", reason = "like", reasonSubject = sharedSubject, uri = "at://c/like/1", indexedAt = tieTime),
+                    ),
+            )
+
+        val items = response.toNotificationsPage().items
+        assertEquals(2, items.size)
+        // Slot 0 holds the Aggregated likes; slot 1 holds bob's reply.
+        // After stable sort (all ties), wire order is preserved.
+        assertTrue(items[0] is NotificationItemUi.Aggregated, "first slot must be the aggregated likes group")
+        assertTrue(items[1] is NotificationItemUi.Single, "second slot must be bob's reply")
+        val aggregated = items[0] as NotificationItemUi.Aggregated
+        assertEquals(2, aggregated.actors.size)
+    }
+
+    @Test
     fun `actor displayName falls back to handle when blank`() {
         val response =
             listNotificationsResponse(

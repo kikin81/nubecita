@@ -60,21 +60,35 @@ private fun List<ListNotificationsNotification>.toUiItems(
 ): ImmutableList<NotificationItemUi> {
     if (isEmpty()) return persistentListOf()
 
-    val decoded = map { it.decode() }
-    val out = ArrayList<NotificationItemUi>(decoded.size)
-    val aggregatable = LinkedHashMap<AggregationKey, MutableList<DecodedNotification>>()
+    // Each output slot reserves its position the first time the corresponding
+    // wire entry is seen. Single rows fill their slot immediately; aggregation
+    // groups reserve a slot when the group is first encountered and fill it
+    // after the scan completes. The placeholder pattern means the eventual
+    // `sortByDescending` is a stable sort over the wire-arrival order — at
+    // `indexedAt` ties the row whose first-seen wire index is lower stays
+    // first, matching reader intuition for "what the server emitted first".
+    val slots = ArrayList<NotificationItemUi?>(size)
+    val aggregateSlots = LinkedHashMap<AggregationKey, Int>()
+    val aggregateGroups = LinkedHashMap<AggregationKey, MutableList<DecodedNotification>>()
 
-    for (n in decoded) {
-        val key = n.aggregationKeyOrNull()
+    for (notification in this) {
+        val decoded = notification.decode()
+        val key = decoded.aggregationKeyOrNull()
         if (key == null) {
-            out += n.toSingle(hydratedPosts)
+            slots += decoded.toSingle(hydratedPosts)
         } else {
-            aggregatable.getOrPut(key) { mutableListOf() }.add(n)
+            val existingSlot = aggregateSlots[key]
+            if (existingSlot == null) {
+                aggregateSlots[key] = slots.size
+                slots += null
+            }
+            aggregateGroups.getOrPut(key) { mutableListOf() }.add(decoded)
         }
     }
 
-    for ((_, group) in aggregatable) {
-        out +=
+    for ((key, group) in aggregateGroups) {
+        val slotIndex = aggregateSlots.getValue(key)
+        slots[slotIndex] =
             if (group.size == 1) {
                 group.single().toSingle(hydratedPosts)
             } else {
@@ -82,9 +96,13 @@ private fun List<ListNotificationsNotification>.toUiItems(
             }
     }
 
-    // Stable sort preserves wire-arrival order within ties of `indexedAt`.
-    out.sortByDescending { it.indexedAt }
-    return out.toImmutableList()
+    // No nulls remain — every reserved slot has been filled by the aggregation
+    // pass. Stable sort over wire-arrival order: at `indexedAt` ties, the row
+    // whose first-seen wire index is lower stays first.
+    @Suppress("UNCHECKED_CAST")
+    val filled = (slots as ArrayList<NotificationItemUi>)
+    filled.sortByDescending { it.indexedAt }
+    return filled.toImmutableList()
 }
 
 private data class AggregationKey(
@@ -192,14 +210,19 @@ private fun DecodedNotification.resolveSubjectPost(
         NotificationReason.LikeViaRepost,
         NotificationReason.Repost,
         NotificationReason.RepostViaRepost,
-        NotificationReason.SubscribedPost,
         -> source.reasonSubject?.raw?.let(hydratedPosts::get)
 
         // Content-bearing reasons: the row references the actor's new
-        // post via the notification `uri`. Distinct per event.
+        // post via the notification `uri`. Distinct per event. `subscribed-post`
+        // belongs here too — the user subscribed to the actor's activity, so
+        // the post the row is *about* is whatever the actor just posted (the
+        // notification uri), not any pre-existing `reasonSubject`. Matches
+        // the "Subject-post hydration uses a batched getPosts per page" spec
+        // requirement which keys subscribed-post on `uri`.
         NotificationReason.Reply,
         NotificationReason.Quote,
         NotificationReason.Mention,
+        NotificationReason.SubscribedPost,
         -> hydratedPosts[source.uri.raw]
 
         // No associated post for these reasons.
