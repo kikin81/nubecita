@@ -81,6 +81,15 @@ sealed interface SettingsEvent : UiEvent {
      * real account-picker NavKey push.
      */
     data object SwitchAccountTapped : SettingsEvent
+
+    /**
+     * User tapped the Notifications row. v1 deep-links to the OS app
+     * notification settings (per-channel toggles, badge controls,
+     * importance overrides) — Nubecita's own in-app per-reason toggles
+     * land in a later epic. VM responds with
+     * [SettingsEffect.OpenSystemNotificationSettings].
+     */
+    data object NotificationsTapped : SettingsEvent
 }
 
 /**
@@ -106,4 +115,16 @@ sealed interface SettingsEffect : UiEffect {
      * string at render time (same pattern as [ShowSignOutError]).
      */
     data object ShowSwitchAccountComingSoon : SettingsEffect
+
+    /**
+     * Fire `Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)` with the
+     * app's package as `EXTRA_APP_PACKAGE`, deep-linking the user into
+     * the OS-level per-channel notification settings page for Nubecita.
+     *
+     * Distinct from [LaunchUri] because that effect is bound to Chrome
+     * Custom Tabs (https URLs), while this one launches a system
+     * `android.settings.*` activity directly. Screen-side handler builds
+     * the intent and calls `context.startActivity(...)`.
+     */
+    data object OpenSystemNotificationSettings : SettingsEffect
 }
