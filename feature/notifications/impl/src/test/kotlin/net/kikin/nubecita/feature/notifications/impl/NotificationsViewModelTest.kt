@@ -760,20 +760,34 @@ internal class NotificationsViewModelTest {
             }
         }
 
-    // ---------- AvatarStackTapped ----------
+    // ---------- AvatarStackTapped + SheetDismissed ----------
 
     @Test
-    fun `AvatarStackTapped emits ShowActorList with the row's actors`() =
+    fun `AvatarStackTapped writes the actors to state actorListSheet`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = vmWithInitialPage()
             val aggregated = NotificationItemUiFixtures.aggregatedLikes(actorCount = 4)
 
-            vm.effects.test {
-                vm.handleEvent(NotificationsEvent.AvatarStackTapped(aggregated))
-                val effect = awaitItem()
-                assertTrue(effect is NotificationsEffect.ShowActorList)
-                assertEquals(aggregated.actors, (effect as NotificationsEffect.ShowActorList).actors)
-            }
+            assertNull(vm.uiState.value.actorListSheet, "sheet starts closed")
+            vm.handleEvent(NotificationsEvent.AvatarStackTapped(aggregated))
+            advanceUntilIdle()
+
+            assertEquals(aggregated.actors, vm.uiState.value.actorListSheet)
+        }
+
+    @Test
+    fun `SheetDismissed clears state actorListSheet`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = vmWithInitialPage()
+            val aggregated = NotificationItemUiFixtures.aggregatedLikes(actorCount = 3)
+
+            vm.handleEvent(NotificationsEvent.AvatarStackTapped(aggregated))
+            advanceUntilIdle()
+            assertNotNull(vm.uiState.value.actorListSheet)
+
+            vm.handleEvent(NotificationsEvent.SheetDismissed)
+            advanceUntilIdle()
+            assertNull(vm.uiState.value.actorListSheet)
         }
 
     // ---------- TabExited ----------

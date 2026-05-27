@@ -77,7 +77,13 @@ internal class NotificationsViewModel
                 is NotificationsEvent.FilterSelected -> onFilterSelected(event.filter)
                 is NotificationsEvent.RowTapped -> onRowTapped(event.item)
                 is NotificationsEvent.AvatarStackTapped ->
-                    sendEffect(NotificationsEffect.ShowActorList(event.item.actors))
+                    // Sheet visibility lives on `actorListSheet` in state (not a
+                    // one-shot effect) so the sheet survives configuration
+                    // changes via the VM's standard state restoration. A future
+                    // `SavedStateHandle` integration carries this for free.
+                    setState { copy(actorListSheet = event.item.actors) }
+                NotificationsEvent.SheetDismissed ->
+                    setState { copy(actorListSheet = null) }
                 NotificationsEvent.TabExited -> onTabExited()
             }
         }

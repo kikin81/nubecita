@@ -1,6 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Placeholder caption rendered by NotificationsScreen until the real
-         screen lands in nubecita-1fy.1.8. -->
+    <!-- Filter chip labels — single-select FilterChip row above the
+         notifications LazyColumn. Order in the strip is fixed by the
+         NotificationFilter enum's declaration order: All, Mentions,
+         Reposts, Follows, Likes. -->
+    <string name="notifications_filter_all">All</string>
+    <string name="notifications_filter_mentions">Mentions</string>
+    <string name="notifications_filter_reposts">Reposts</string>
+    <string name="notifications_filter_follows">Follows</string>
+    <string name="notifications_filter_likes">Likes</string>
+
+    <!-- Empty state -->
+    <string name="notifications_empty_title">No notifications yet</string>
+    <string name="notifications_empty_body">When someone likes, replies to, or follows you, you\'ll see it here.</string>
+    <string name="notifications_empty_icon_description">No notifications</string>
+
+    <!-- Initial-error state (full-screen retry layout). Same three error
+         categories as :feature:feed:impl — Network / Unauthenticated /
+         Unknown — so the surface reads consistently. -->
+    <string name="notifications_error_network_title">No connection</string>
+    <string name="notifications_error_network_body">Check your network and try again.</string>
+    <string name="notifications_error_network_icon_description">No network connection</string>
+
+    <string name="notifications_error_unauthenticated_title">Sign-in expired</string>
+    <string name="notifications_error_unauthenticated_body">Sign in again to keep using nubecita.</string>
+    <string name="notifications_error_unauthenticated_icon_description">Authentication required</string>
+
+    <string name="notifications_error_unknown_title">Something went wrong</string>
+    <string name="notifications_error_unknown_body">An unexpected error occurred while loading your notifications.</string>
+    <string name="notifications_error_unknown_icon_description">Unknown error</string>
+
+    <string name="notifications_error_action">Try again</string>
+
+    <!-- Snackbar messages — surfaced from NotificationsEffect.ShowError
+         when a refresh / append fails but items are already loaded. -->
+    <string name="notifications_snackbar_error_network">Network error. Pull to retry.</string>
+    <string name="notifications_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
+    <string name="notifications_snackbar_error_unknown">Couldn\'t refresh. Try again.</string>
+
+    <!-- Aggregated row chevron — opens the actor list bottom sheet. -->
+    <string name="notifications_row_expand_actors">Show all participants</string>
+
+    <!-- Avatar stack accessibility — read by TalkBack when the visible
+         stack is focused on an aggregated row. The count is the total
+         number of actors (including those past the visible +N pill). -->
+    <plurals name="notifications_avatar_stack_description">
+        <item quantity="one">%1$d participant</item>
+        <item quantity="other">%1$d participants</item>
+    </plurals>
+
+    <!-- "+N" overflow pill on the avatar stack when more actors exist than
+         can fit in the visible cap (maxVisible=5). -->
+    <string name="notifications_avatar_overflow">+%1$d</string>
+
+    <!--
+      Headline rows. Pattern (a) from openspec design.md open question 3:
+      "alice liked your post"
+      "alice and 1 other liked your post"
+      "alice and 5 others liked your post"
+
+      %1$s is the lead actor's display name (or handle fallback). %2$d is
+      the count of "other" actors (totalActors - 1). Single-actor variants
+      live in their own `*_single` string (no plural) so the lookup site
+      can branch on actor count without juggling quantity=zero semantics.
+    -->
+    <plurals name="notifications_headline_like">
+        <item quantity="one">%1$s and %2$d other liked your post</item>
+        <item quantity="other">%1$s and %2$d others liked your post</item>
+    </plurals>
+    <string name="notifications_headline_like_single">%1$s liked your post</string>
+
+    <plurals name="notifications_headline_repost">
+        <item quantity="one">%1$s and %2$d other reposted your post</item>
+        <item quantity="other">%1$s and %2$d others reposted your post</item>
+    </plurals>
+    <string name="notifications_headline_repost_single">%1$s reposted your post</string>
+
+    <plurals name="notifications_headline_follow">
+        <item quantity="one">%1$s and %2$d other followed you</item>
+        <item quantity="other">%1$s and %2$d others followed you</item>
+    </plurals>
+    <string name="notifications_headline_follow_single">%1$s followed you</string>
+
+    <!-- Reasons that don't aggregate (Single-only). -->
+    <string name="notifications_headline_reply">%1$s replied to your post</string>
+    <string name="notifications_headline_quote">%1$s quoted your post</string>
+    <string name="notifications_headline_mention">%1$s mentioned you</string>
+    <string name="notifications_headline_starterpack_joined">%1$s joined via your starter pack</string>
+    <string name="notifications_headline_subscribed_post">%1$s posted</string>
+    <string name="notifications_headline_contact_match">%1$s is in your contacts</string>
+    <string name="notifications_headline_verified">You are verified</string>
+    <string name="notifications_headline_unverified">You are no longer verified</string>
+    <string name="notifications_headline_unknown">%1$s interacted with you</string>
+
+    <!--
+      Headline + relative-time wrapper. Composed as "<headline> · <time>" so
+      the time slot stays a runtime String (built from
+      rememberRelativeTimeText). The middle-dot separator follows Bluesky's
+      own client convention.
+    -->
+    <string name="notifications_headline_with_time">%1$s · %2$s</string>
+
+    <!-- Legacy placeholder kept until §1.9 rewires MainShell — the §1.3
+         skeleton's string-resource entry. Safe to delete once the placeholder
+         composable is removed entirely. -->
     <string name="notifications_placeholder_title">Notifications</string>
 </resources>
