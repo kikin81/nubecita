@@ -12,6 +12,8 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
+    implementation(project(":feature:postdetail:api"))
+    implementation(project(":feature:profile:api"))
     // ProcessLifecycleOwner — the unread-count polling observer registers
     // against the process-wide lifecycle so polling pauses on backgrounding
     // and resumes on foregrounding.
@@ -25,4 +27,5 @@ dependencies {
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.turbine)
 }

@@ -1,20 +1,167 @@
 package net.kikin.nubecita.feature.notifications.impl
 
+import androidx.compose.runtime.Immutable
+import androidx.navigation3.runtime.NavKey
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.NotificationFilter
+import net.kikin.nubecita.data.models.NotificationItemUi
 
 /**
- * Skeleton MVI contract for the Notifications screen.
+ * One frame's worth of UI state for the Notifications screen.
  *
- * Real state, events, and effects land in `nubecita-1fy.1.6` (the
- * `NotificationsViewModel` task in the `add-feature-notifications`
- * openspec change). For now these are empty types so the scaffolded
- * [NotificationsViewModel] compiles and the `NotificationsNavigationModule`
- * can register its `@MainShell EntryProviderInstaller`.
+ * `items`, `activeFilter`, `cursor`, and `hasMore` are flat fields per the
+ * MVI convention's "independent flags stay flat" rule. `loadStatus` is a
+ * sealed sum (per the amended convention's "mutually-exclusive view modes"
+ * carve-out) so the type system makes invalid combinations like
+ * `Refreshing && Appending` unrepresentable. Initial value is
+ * [NotificationsLoadStatus.InitialLoading] because the VM fires its first
+ * fetch from `init` — the screen sees a loading frame on the very first
+ * recomposition without an intermediate Idle blink.
  */
-internal data object NotificationsState : UiState
+@Immutable
+internal data class NotificationsState(
+    val items: ImmutableList<NotificationItemUi> = persistentListOf(),
+    val activeFilter: NotificationFilter = NotificationFilter.All,
+    val loadStatus: NotificationsLoadStatus = NotificationsLoadStatus.InitialLoading,
+    val cursor: String? = null,
+    val hasMore: Boolean = true,
+) : UiState
 
-internal sealed interface NotificationsEvent : UiEvent
+/**
+ * Mutually-exclusive load lifecycle for the notifications surface. At any
+ * instant the VM is in exactly one of these states; the type system
+ * prevents `Refreshing && Appending` combinations that boolean flags
+ * would otherwise allow.
+ */
+internal sealed interface NotificationsLoadStatus {
+    /** No load is in flight. */
+    @Immutable
+    data object Idle : NotificationsLoadStatus
 
-internal sealed interface NotificationsEffect : UiEffect
+    /** First load (the screen has no rows yet). */
+    @Immutable
+    data object InitialLoading : NotificationsLoadStatus
+
+    /** Pull-to-refresh in progress; existing rows are still rendered. */
+    @Immutable
+    data object Refreshing : NotificationsLoadStatus
+
+    /** Append-on-scroll in progress; existing rows are still rendered. */
+    @Immutable
+    data object Appending : NotificationsLoadStatus
+
+    /**
+     * Initial load failed. Sticky — the screen renders a full-screen
+     * retry layout against this state. Refresh / append failures preserve
+     * the existing rows and emit [NotificationsEffect.ShowError] instead
+     * of flipping the load status.
+     */
+    @Immutable
+    data class InitialError(
+        val error: NotificationsError,
+    ) : NotificationsLoadStatus
+}
+
+/**
+ * UI-resolvable error categories surfaced by the notifications VM. The
+ * screen maps each variant to a `stringResource` call when rendering — the
+ * VM stays Android-resource-free. Same shape as `:feature:feed:impl`'s
+ * `FeedError`: the VM hands the screen a typed error value, not pre-
+ * rendered text.
+ */
+internal enum class NotificationsError {
+    /** Underlying network or transport failure (IOException, timeouts). */
+    Network,
+
+    /**
+     * No authenticated session — typically because the access token
+     * couldn't be refreshed or the user signed out from another device.
+     */
+    Unauthenticated,
+
+    /** Anything else (server 5xx, decode failure, unexpected throwable). */
+    Unknown,
+}
+
+internal sealed interface NotificationsEvent : UiEvent {
+    /** Pull-to-refresh; resets the cursor and re-fetches the head of the list. */
+    data object Refresh : NotificationsEvent
+
+    /** Append-on-scroll; fetches the next page using the current cursor. */
+    data object LoadMore : NotificationsEvent
+
+    /**
+     * User selected a filter chip. Identity-of-filter no-op'd in the
+     * reducer; switching filters resets cursor + items and re-fetches.
+     */
+    data class FilterSelected(
+        val filter: NotificationFilter,
+    ) : NotificationsEvent
+
+    /**
+     * User tapped a notification row. The VM resolves the deep-link
+     * target by reason and emits [NotificationsEffect.NavigateTo].
+     */
+    data class RowTapped(
+        val item: NotificationItemUi,
+    ) : NotificationsEvent
+
+    /**
+     * User tapped the avatar stack (chevron disclosure) on an aggregated
+     * row. The VM emits [NotificationsEffect.ShowActorList] so the screen
+     * can present the bottom-sheet actor list.
+     */
+    data class AvatarStackTapped(
+        val item: NotificationItemUi.Aggregated,
+    ) : NotificationsEvent
+
+    /**
+     * The user navigated away from the Notifications tab (top-level key
+     * transitioned away from `NotificationsTab`) or the screen left
+     * composition. Fire-and-forget `updateSeen(now)` — failures are
+     * swallowed because the next 60s `getUnreadCount` poll corrects the
+     * count.
+     */
+    data object TabExited : NotificationsEvent
+}
+
+internal sealed interface NotificationsEffect : UiEffect {
+    /**
+     * Surface-able, non-sticky error (snackbar). Carries a typed
+     * [NotificationsError] — the screen maps each variant to the correct
+     * `stringResource` at render time. Mirrors
+     * `:feature:feed:impl`'s `FeedEffect.ShowError(error: FeedError)`
+     * shape; the VM stays Android-resource-free.
+     */
+    @Immutable
+    data class ShowError(
+        val error: NotificationsError,
+    ) : NotificationsEffect
+
+    /**
+     * Push a sub-route NavKey onto `MainShell`'s inner back stack via
+     * `LocalMainShellNavState`. The screen collector resolves the
+     * `CompositionLocal` (which the ViewModel can't see) and calls
+     * `add(key)`. Matches the cross-tab navigation pattern established
+     * by `:feature:feed:impl`'s `FeedEffect.NavigateTo`.
+     */
+    @Immutable
+    data class NavigateTo(
+        val target: NavKey,
+    ) : NotificationsEffect
+
+    /**
+     * Present the multi-actor list for an aggregated row (Bluesky-style
+     * bottom-sheet disclosure). The screen owns the sheet itself; the VM
+     * just hands over the actors to render.
+     */
+    @Immutable
+    data class ShowActorList(
+        val actors: ImmutableList<AuthorUi>,
+    ) : NotificationsEffect
+}
