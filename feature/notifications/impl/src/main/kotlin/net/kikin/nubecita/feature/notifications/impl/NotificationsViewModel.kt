@@ -47,6 +47,20 @@ internal class NotificationsViewModel
     constructor(
         private val repository: NotificationsRepository,
     ) : MviViewModel<NotificationsState, NotificationsEvent, NotificationsEffect>(NotificationsState()) {
+        /**
+         * Monotonically increasing tag attached to every in-flight fetch.
+         * Each apply* helper checks the captured generation against the
+         * latest value before mutating state — older completions are
+         * dropped. Replaces the earlier `requestFilter`-equality guard
+         * which leaked stale data across same-filter back-toggles (All
+         * → Mentions → All within the lifetime of the first All fetch).
+         *
+         * All mutations to this counter happen on the Main dispatcher
+         * (every fetch helper is called from a VM event handler, which
+         * runs on Main), so a plain `Int` is race-free without `Atomic*`.
+         */
+        private var fetchGeneration: Int = 0
+
         init {
             // First page on construction. Mirrors FeedViewModel: emits an
             // initial-loading frame immediately and the page result lands
@@ -89,12 +103,13 @@ internal class NotificationsViewModel
             // full-screen retry) for the pull-to-refresh indicator on
             // subsequent fetches.
             val filter = uiState.value.activeFilter
+            val gen = ++fetchGeneration
             setState { copy(loadStatus = NotificationsLoadStatus.Refreshing) }
             viewModelScope.launch {
                 repository
                     .fetchPage(filter = filter, cursor = null)
-                    .onSuccess { page -> applyRefreshSuccess(page, requestFilter = filter) }
-                    .onFailure { throwable -> applyRefreshFailure(throwable, requestFilter = filter) }
+                    .onSuccess { page -> applyRefreshSuccess(page, requestGeneration = gen) }
+                    .onFailure { throwable -> applyRefreshFailure(throwable, requestGeneration = gen) }
             }
         }
 
@@ -109,12 +124,13 @@ internal class NotificationsViewModel
             if (current.loadStatus != NotificationsLoadStatus.Idle) return
             val filter = current.activeFilter
             val cursor = current.cursor
+            val gen = ++fetchGeneration
             setState { copy(loadStatus = NotificationsLoadStatus.Appending) }
             viewModelScope.launch {
                 repository
                     .fetchPage(filter = filter, cursor = cursor)
-                    .onSuccess { page -> applyAppendSuccess(page, requestFilter = filter) }
-                    .onFailure { throwable -> applyAppendFailure(throwable, requestFilter = filter) }
+                    .onSuccess { page -> applyAppendSuccess(page, requestGeneration = gen) }
+                    .onFailure { throwable -> applyAppendFailure(throwable, requestGeneration = gen) }
             }
         }
 
@@ -149,38 +165,39 @@ internal class NotificationsViewModel
         }
 
         private fun fetchInitial(filter: NotificationFilter) {
+            val gen = ++fetchGeneration
             viewModelScope.launch {
                 repository
                     .fetchPage(filter = filter, cursor = null)
-                    .onSuccess { page -> applyInitialSuccess(page, requestFilter = filter) }
-                    .onFailure { throwable -> applyInitialFailure(throwable, requestFilter = filter) }
+                    .onSuccess { page -> applyInitialSuccess(page, requestGeneration = gen) }
+                    .onFailure { throwable -> applyInitialFailure(throwable, requestGeneration = gen) }
             }
         }
 
         /**
-         * Drop a completion whose [requestFilter] no longer matches the
-         * VM's [activeFilter]. Returns `true` when the completion should
-         * be applied. The single-flight head gate in [refresh] +
-         * [loadMore] guarantees only one same-filter fetch is in flight;
-         * this guard handles the cross-filter race that [onFilterSelected]
-         * intentionally leaves open (it doesn't wait for the old fetch).
+         * Drop a completion whose generation no longer matches the latest
+         * [fetchGeneration]. Returns `true` when the completion should be
+         * applied. Catches stale results from any cancelled-by-newer
+         * request — including the same-filter back-toggle race (All →
+         * Mentions → All inside the first All's request lifetime), which
+         * the previous filter-equality guard would have let through
+         * because both fetches carry `requestFilter = All`.
          */
-        private fun isCurrent(requestFilter: NotificationFilter): Boolean {
-            val current = uiState.value.activeFilter
-            if (current == requestFilter) return true
+        private fun isCurrent(requestGeneration: Int): Boolean {
+            if (requestGeneration == fetchGeneration) return true
             Timber.tag(TAG).d(
-                "Dropping stale completion for filter=%s (current=%s)",
-                requestFilter,
-                current,
+                "Dropping stale completion for gen=%d (current=%d)",
+                requestGeneration,
+                fetchGeneration,
             )
             return false
         }
 
         private fun applyInitialSuccess(
             page: NotificationsPage,
-            requestFilter: NotificationFilter,
+            requestGeneration: Int,
         ) {
-            if (!isCurrent(requestFilter)) return
+            if (!isCurrent(requestGeneration)) return
             setState {
                 copy(
                     items = page.items,
@@ -193,27 +210,28 @@ internal class NotificationsViewModel
 
         private fun applyInitialFailure(
             throwable: Throwable,
-            requestFilter: NotificationFilter,
+            requestGeneration: Int,
         ) {
-            if (!isCurrent(requestFilter)) return
+            if (!isCurrent(requestGeneration)) return
             // Initial load with no fallback rows → sticky InitialError so
             // the screen renders a full-screen retry layout. If items are
             // somehow non-empty at this point (would imply a race between
             // a filter switch and an in-flight fetch we didn't gate),
             // degrade gracefully to a snackbar.
+            val error = throwable.toError()
             if (uiState.value.items.isEmpty()) {
-                setState { copy(loadStatus = NotificationsLoadStatus.InitialError(throwable.toError())) }
+                setState { copy(loadStatus = NotificationsLoadStatus.InitialError(error)) }
             } else {
                 setState { copy(loadStatus = NotificationsLoadStatus.Idle) }
-                sendEffect(NotificationsEffect.ShowError(throwable.errorMessage()))
+                sendEffect(NotificationsEffect.ShowError(error))
             }
         }
 
         private fun applyRefreshSuccess(
             page: NotificationsPage,
-            requestFilter: NotificationFilter,
+            requestGeneration: Int,
         ) {
-            if (!isCurrent(requestFilter)) return
+            if (!isCurrent(requestGeneration)) return
             setState {
                 copy(
                     items = page.items,
@@ -226,26 +244,27 @@ internal class NotificationsViewModel
 
         private fun applyRefreshFailure(
             throwable: Throwable,
-            requestFilter: NotificationFilter,
+            requestGeneration: Int,
         ) {
-            if (!isCurrent(requestFilter)) return
+            if (!isCurrent(requestGeneration)) return
             // Refresh failure: preserve items if we have them (snackbar);
             // otherwise this is effectively still an initial load and we
             // promote to InitialError so the screen can render the retry
             // layout. Mirrors FeedViewModel's refresh failure handling.
+            val error = throwable.toError()
             if (uiState.value.items.isEmpty()) {
-                setState { copy(loadStatus = NotificationsLoadStatus.InitialError(throwable.toError())) }
+                setState { copy(loadStatus = NotificationsLoadStatus.InitialError(error)) }
             } else {
                 setState { copy(loadStatus = NotificationsLoadStatus.Idle) }
-                sendEffect(NotificationsEffect.ShowError(throwable.errorMessage()))
+                sendEffect(NotificationsEffect.ShowError(error))
             }
         }
 
         private fun applyAppendSuccess(
             page: NotificationsPage,
-            requestFilter: NotificationFilter,
+            requestGeneration: Int,
         ) {
-            if (!isCurrent(requestFilter)) return
+            if (!isCurrent(requestGeneration)) return
             // Append: concatenate the new page after the existing items.
             // Slice 1 does no cross-page aggregation merging (see design
             // D3), so two same-reason groups straddling a page boundary
@@ -264,15 +283,15 @@ internal class NotificationsViewModel
 
         private fun applyAppendFailure(
             throwable: Throwable,
-            requestFilter: NotificationFilter,
+            requestGeneration: Int,
         ) {
-            if (!isCurrent(requestFilter)) return
+            if (!isCurrent(requestGeneration)) return
             // Preserve items AND cursor on append failure so the user can
             // retry from the same page boundary. Surface as snackbar; the
             // load status returns to Idle to re-arm the gate for another
             // LoadMore.
             setState { copy(loadStatus = NotificationsLoadStatus.Idle) }
-            sendEffect(NotificationsEffect.ShowError(throwable.errorMessage()))
+            sendEffect(NotificationsEffect.ShowError(throwable.toError()))
         }
 
         private fun onRowTapped(item: NotificationItemUi) {
@@ -363,20 +382,6 @@ internal class NotificationsViewModel
                 is NoSessionException -> NotificationsError.Unauthenticated
                 is IOException -> NotificationsError.Network
                 else -> NotificationsError.Unknown
-            }
-
-        /**
-         * Pre-rendered English error message for the snackbar effect. The
-         * project has no shared `UiText` wrapper today, so the VM hands
-         * the screen the literal text it should display. When `UiText`
-         * lands (tracked under `nubecita-1fy.1.8`'s screen task), swap
-         * this for the wrapper without touching the reducer logic.
-         */
-        private fun Throwable.errorMessage(): String =
-            when (this) {
-                is NoSessionException -> "Your session expired. Please sign in again."
-                is IOException -> "Network unavailable. Please try again."
-                else -> "Something went wrong. Please try again."
             }
 
         private companion object {

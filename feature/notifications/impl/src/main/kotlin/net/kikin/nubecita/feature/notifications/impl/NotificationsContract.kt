@@ -69,13 +69,10 @@ internal sealed interface NotificationsLoadStatus {
 
 /**
  * UI-resolvable error categories surfaced by the notifications VM. The
- * screen maps each variant to a stringResource call when rendering — the
- * VM stays Android-resource-free.
- *
- * TODO(nubecita-1fy.1.8): When the screen lands, swap the screen's
- * `ShowError(message: String)` consumption for a `UiText`-like wrapper if
- * one ships before then. Today the project has no shared `UiText` type, so
- * the effect carries a plain String produced by `errorMessage(throwable)`.
+ * screen maps each variant to a `stringResource` call when rendering — the
+ * VM stays Android-resource-free. Same shape as `:feature:feed:impl`'s
+ * `FeedError`: the VM hands the screen a typed error value, not pre-
+ * rendered text.
  */
 internal enum class NotificationsError {
     /** Underlying network or transport failure (IOException, timeouts). */
@@ -135,17 +132,15 @@ internal sealed interface NotificationsEvent : UiEvent {
 
 internal sealed interface NotificationsEffect : UiEffect {
     /**
-     * Surface-able, non-sticky error (snackbar). Carries a plain String
-     * today; the screen owns the user-facing copy via `stringResource`.
-     *
-     * TODO(nubecita-1fy.1.8): When the screen lands, swap this for a
-     * `UiText`-like wrapper if the project ships one. Today the VM hands
-     * the screen a pre-rendered English message produced by
-     * `errorMessage(throwable)` because no shared `UiText` exists.
+     * Surface-able, non-sticky error (snackbar). Carries a typed
+     * [NotificationsError] — the screen maps each variant to the correct
+     * `stringResource` at render time. Mirrors
+     * `:feature:feed:impl`'s `FeedEffect.ShowError(error: FeedError)`
+     * shape; the VM stays Android-resource-free.
      */
     @Immutable
     data class ShowError(
-        val message: String,
+        val error: NotificationsError,
     ) : NotificationsEffect
 
     /**

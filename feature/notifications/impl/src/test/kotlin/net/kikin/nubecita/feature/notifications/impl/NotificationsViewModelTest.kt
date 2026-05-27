@@ -386,6 +386,126 @@ internal class NotificationsViewModelTest {
             assertEquals("mc", vm.uiState.value.cursor)
         }
 
+    @Test
+    fun `FilterSelected back-toggle drops the original stale completion under the same filter`() =
+        runTest(mainDispatcher.dispatcher) {
+            // The user's filter switches: All (init) → Mentions → All. All
+            // three fetches share `requestFilter = All` for two of the three
+            // requests, so a filter-equality guard wouldn't catch the race —
+            // the slow first All can overwrite the newer third All. The
+            // monotonic generation tag distinguishes them.
+            val firstAllDeferred = CompletableDeferred<Result<NotificationsPage>>()
+            val mentionsDeferred = CompletableDeferred<Result<NotificationsPage>>()
+            val secondAllDeferred = CompletableDeferred<Result<NotificationsPage>>()
+            val allCallIndex = AtomicInteger(0)
+            val repo =
+                FakeNotificationsRepository(
+                    pageProducer = { filter, _ ->
+                        when (filter) {
+                            NotificationFilter.All ->
+                                when (allCallIndex.getAndIncrement()) {
+                                    0 -> firstAllDeferred.await()
+                                    else -> secondAllDeferred.await()
+                                }
+                            NotificationFilter.Mentions -> mentionsDeferred.await()
+                            else -> error("unexpected filter $filter")
+                        }
+                    },
+                )
+            val vm = NotificationsViewModel(repo)
+            // gen 1 = first All (parked)
+
+            vm.handleEvent(NotificationsEvent.FilterSelected(NotificationFilter.Mentions))
+            // gen 2 = Mentions (parked)
+
+            vm.handleEvent(NotificationsEvent.FilterSelected(NotificationFilter.All))
+            // gen 3 = second All (parked). state.activeFilter = All again.
+
+            // Resolve the second (latest) All first — its completion lands.
+            secondAllDeferred.complete(Result.success(page(items = items("fresh-a1"), nextCursor = "fresh-cursor")))
+            advanceUntilIdle()
+            assertEquals(
+                listOf("fresh-a1"),
+                vm.uiState.value.items
+                    .map { it.itemKey },
+            )
+            assertEquals("fresh-cursor", vm.uiState.value.cursor)
+
+            // Resolve the original (stale) All — its requestFilter (All)
+            // matches state.activeFilter (All), but its generation (1) does
+            // NOT match the current generation (3). The completion MUST be
+            // dropped — without the generation tag, the stale items would
+            // overwrite the fresh state.
+            firstAllDeferred.complete(Result.success(page(items = items("stale-a1", "stale-a2"), nextCursor = "stale-cursor")))
+            advanceUntilIdle()
+            assertEquals(
+                listOf("fresh-a1"),
+                vm.uiState.value.items
+                    .map { it.itemKey },
+                "stale same-filter completion must NOT overwrite fresh state",
+            )
+            assertEquals("fresh-cursor", vm.uiState.value.cursor)
+
+            // Resolve the orphaned Mentions completion too — it must also be dropped
+            // (different filter from current All, generation 2 != 3).
+            mentionsDeferred.complete(Result.success(page(items = items("mentions-orphan"), nextCursor = "mentions-cursor")))
+            advanceUntilIdle()
+            assertEquals(
+                listOf("fresh-a1"),
+                vm.uiState.value.items
+                    .map { it.itemKey },
+            )
+        }
+
+    @Test
+    fun `Refresh failure ShowError effect carries the typed NotificationsError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeNotificationsRepository(
+                    pages =
+                        listOf(
+                            Result.success(page(items = items("a1"), nextCursor = "c1")),
+                            Result.failure(IOException("network down")),
+                        ),
+                )
+            val vm = NotificationsViewModel(repo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(NotificationsEvent.Refresh)
+                advanceUntilIdle()
+
+                val effect = awaitItem() as NotificationsEffect.ShowError
+                // Effect carries a typed `NotificationsError`, not a pre-rendered string.
+                // The screen maps each variant to its stringResource at render time —
+                // same shape as FeedEffect.ShowError(error: FeedError).
+                assertEquals(NotificationsError.Network, effect.error)
+            }
+        }
+
+    @Test
+    fun `Refresh failure under NoSessionException emits ShowError with Unauthenticated`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeNotificationsRepository(
+                    pages =
+                        listOf(
+                            Result.success(page(items = items("a1"), nextCursor = "c1")),
+                            Result.failure(NoSessionException()),
+                        ),
+                )
+            val vm = NotificationsViewModel(repo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(NotificationsEvent.Refresh)
+                advanceUntilIdle()
+
+                val effect = awaitItem() as NotificationsEffect.ShowError
+                assertEquals(NotificationsError.Unauthenticated, effect.error)
+            }
+        }
+
     // ---------- toViewState projection ----------
 
     @Test
