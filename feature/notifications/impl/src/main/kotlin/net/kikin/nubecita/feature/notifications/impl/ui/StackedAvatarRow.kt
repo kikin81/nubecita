@@ -142,9 +142,11 @@ private fun StackedAvatarRowFivePreview() {
     }
 }
 
-@Preview(name = "StackedAvatarRow — 8 actors (+3 overflow)", showBackground = true)
+@Preview(name = "StackedAvatarRow — 8 actors (+4 overflow)", showBackground = true)
 @Composable
 private fun StackedAvatarRowEightPreview() {
+    // 8 actors, maxVisible=5 → 4 avatars + a "+4" pill (the pill consumes
+    // the 5th visible slot per the overflow contract).
     NubecitaTheme {
         StackedAvatarRow(actors = fakeAuthors(8))
     }

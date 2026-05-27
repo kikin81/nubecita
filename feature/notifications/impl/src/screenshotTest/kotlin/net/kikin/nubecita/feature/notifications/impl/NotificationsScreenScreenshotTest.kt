@@ -180,14 +180,26 @@ private fun NotificationsScreenLoadedAppendingScreenshot() {
 @Composable
 private fun NotificationsScreenshotHost(
     viewState: NotificationsScreenViewState,
-    activeFilter: NotificationFilter = NotificationFilter.All,
+    activeFilter: NotificationFilter? = null,
 ) {
+    // Derive `activeFilter` from the Loaded variant when the caller doesn't
+    // pass it explicitly, so a fixture that constructs a `Loaded` with
+    // `activeFilter = Mentions` actually captures the Mentions chip as
+    // selected (rather than always rendering All because the host defaulted
+    // there). For non-Loaded states the chip strip falls back to All in
+    // the baseline — there's no per-state activeFilter on InitialLoading /
+    // Empty / InitialError, and the production screen uses the VM's
+    // `state.activeFilter` to drive selection across those branches.
+    val resolvedFilter =
+        activeFilter
+            ?: (viewState as? NotificationsScreenViewState.Loaded)?.activeFilter
+            ?: NotificationFilter.All
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     CompositionLocalProvider(LocalClock provides PreviewClock) {
         NotificationsContent(
             viewState = viewState,
-            activeFilter = activeFilter,
+            activeFilter = resolvedFilter,
             listState = listState,
             snackbarHostState = snackbarHostState,
             onEvent = {},

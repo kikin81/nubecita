@@ -12,7 +12,10 @@ import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
 
 /**
  * Screenshot baselines for [StackedAvatarRow] — covers the actor-count
- * sweep (1, 2, 5 at cap, 8 with +3 overflow) × light/dark.
+ * sweep (1, 2, 5 at cap, 8 with +4 overflow) × light/dark. The 8-actor
+ * baseline renders 4 avatars + a "+4" pill, NOT 5 avatars + "+3":
+ * the overflow contract reserves the (maxVisible)th slot for the pill
+ * so the row never exceeds maxVisible visible bubbles.
  */
 
 private fun fakeAuthors(count: Int): ImmutableList<AuthorUi> =

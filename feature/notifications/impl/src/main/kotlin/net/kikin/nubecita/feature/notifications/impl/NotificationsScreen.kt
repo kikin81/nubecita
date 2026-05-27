@@ -62,8 +62,11 @@ private const val PREFETCH_DISTANCE = 5
  * - Drains [NotificationsEffect] in a single outer `LaunchedEffect`.
  * - Reads `LocalMainShellNavState` for the cross-feature navigation push
  *   (`add(target)`) and for tab-exit detection via a
- *   `snapshotFlow { topLevelKey }.drop(1).filter { != NotificationsTab }`
- *   collector — design D6's mark-read-on-tab-exit handshake.
+ *   `snapshotFlow { topLevelKey }.dropWhile { it == NotificationsTab }.filter { != NotificationsTab }`
+ *   collector — design D6's mark-read-on-tab-exit handshake. The
+ *   `dropWhile` is value-based rather than positional so the screen
+ *   surviving composition-edge cases (predictive-back peek, list-detail
+ *   off-tab composition) still gets the right initial-emission behavior.
  * - Reads `LocalTabReTapSignal` to scroll the LazyColumn to top on
  *   tab re-tap.
  *
@@ -125,9 +128,12 @@ internal fun NotificationsScreen(
     val currentContext by rememberUpdatedState(context)
 
     // Single outer effects collector. Per MVI convention all effects funnel
-    // here; the screen's only branches are: navigate (call .add() on the
-    // nav state), surface an error (showSnackbar), or open the actor list
-    // sheet (toggle the local Compose state).
+    // here; the surface today carries exactly two branches: navigate
+    // (push a NavKey onto the inner back stack) and show an error
+    // (resolve the typed error to a localized Snackbar message). The
+    // actor-list sheet is NOT driven through an effect — it lives on
+    // `state.actorListSheet` (a reducer-managed field) and is rendered
+    // outside this collector at the bottom of the Root composable.
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
