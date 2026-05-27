@@ -32,6 +32,14 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.timber)
 
+    // Required by createAndroidComposeRule<HiltTestActivity>() — the
+    // manifest dep registers the empty Activity stub Compose needs for
+    // ActivityScenario to launch under instrumentation. Without it,
+    // connected tests fail at ComposeRule activity launch with a
+    // ClassNotFoundException on ComponentActivity. Matches the wiring
+    // in :feature:feed:impl and :feature:composer:impl.
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)

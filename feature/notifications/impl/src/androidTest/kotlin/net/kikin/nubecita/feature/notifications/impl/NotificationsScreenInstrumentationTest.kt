@@ -12,10 +12,14 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
+import net.kikin.nubecita.data.models.NotificationFilter
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab
+import net.kikin.nubecita.feature.notifications.impl.testing.FakeNotificationsRepository
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import javax.inject.Inject
 
 /**
  * Smoke instrumentation test for [NotificationsScreen]. Verifies that
@@ -45,12 +49,19 @@ import org.junit.Test
  *   returns the same page so visible rows don't change).
  */
 @HiltAndroidTest
-class NotificationsScreenInstrumentationTest {
+internal class NotificationsScreenInstrumentationTest {
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
+
+    // Hilt populates this with the same @Singleton instance the screen's
+    // VM sees. The @Inject binding for the concrete type co-exists with
+    // the @Binds-as-NotificationsRepository binding because both point at
+    // the same @Singleton @Inject constructor — no second instance.
+    @Inject
+    lateinit var fakeRepository: FakeNotificationsRepository
 
     @Test
     fun notificationsScreen_rendersFakedPage() {
@@ -120,25 +131,35 @@ class NotificationsScreenInstrumentationTest {
                 .isNotEmpty()
         }
 
-        // Tap the Mentions chip. The fake repo returns the same page for
-        // every filter, so visible rows don't change — but the VM does
-        // run its filter-switch reducer (clear items → InitialLoading →
-        // refetch → Loaded). Assert that the page settles back with the
-        // headline still rendered.
+        // Capture the call count BEFORE the tap so the post-tap assertion
+        // doesn't trip on the initial-load fetch that already fired with
+        // NotificationFilter.All.
+        val callCountBeforeTap = fakeRepository.fetchPageCalls.size
+
+        // Tap the Mentions chip. The VM's filter-switch reducer should
+        // fire fetchPage(filter = Mentions, cursor = null) through the
+        // fake repo.
         composeTestRule
             .onNodeWithText(MENTIONS_LABEL)
             .performClick()
 
+        // Wait for the recorded call rather than for visible-text settle —
+        // the fake returns the same default page for every filter, so a
+        // text-based wait would also pass if the tap were a no-op. Polling
+        // fetchPageCalls is the assertion the test is actually claiming.
         composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) {
-            composeTestRule
-                .onAllNodesWithText(LIKED_YOUR_POST, substring = true)
-                .fetchSemanticsNodes()
-                .isNotEmpty()
+            fakeRepository.fetchPageCalls
+                .drop(callCountBeforeTap)
+                .any { it.filter == NotificationFilter.Mentions }
         }
 
-        composeTestRule
-            .onNodeWithText(LIKED_YOUR_POST, substring = true)
-            .assertIsDisplayed()
+        assertTrue(
+            "expected a fetchPage call with filter=Mentions after chip tap; recorded calls were " +
+                fakeRepository.fetchPageCalls.joinToString(),
+            fakeRepository.fetchPageCalls
+                .drop(callCountBeforeTap)
+                .any { it.filter == NotificationFilter.Mentions },
+        )
     }
 
     private companion object {

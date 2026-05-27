@@ -24,8 +24,10 @@ import kotlin.time.Instant
  * filter-chip switch in the screen produces a different result set.
  * Defaults to a single shared page for every filter.
  *
- * Records each `fetchPage` / `markSeen` / `unreadCount` invocation on
- * companion-level lists for behavioral assertions in the test layer.
+ * Records `fetchPage` + `markSeen` invocations on per-instance lists
+ * for behavioral assertions in the test layer. `unreadCount()` is not
+ * recorded — the polling observer fires it on every cold launch and
+ * the call shape carries no useful payload to assert against.
  */
 @Singleton
 internal class FakeNotificationsRepository
