@@ -7,7 +7,7 @@
 - `Single` — exactly one actor; carries `subjectPost: PostUi?` (null for follow / verified / starterpack-joined / unverified reasons).
 - `Aggregated` — two or more actors collapsed from same-reason events on the same `reasonSubject` (or same calendar day for `follow`); carries the same `subjectPost: PostUi?` plus the full `actors: ImmutableList<AuthorUi>`.
 
-Both variants SHALL expose: `itemKey: String` (stable LazyColumn key), `reason: NotificationReason`, `indexedAt: kotlinx.datetime.Instant`, `isRead: Boolean`, `actors: ImmutableList<AuthorUi>`.
+Both variants SHALL expose: `itemKey: String` (stable LazyColumn key), `reason: NotificationReason`, `indexedAt: kotlin.time.Instant`, `isRead: Boolean`, `actors: ImmutableList<AuthorUi>`.
 
 #### Scenario: Single carries one actor
 
@@ -30,7 +30,7 @@ Both variants SHALL expose: `itemKey: String` (stable LazyColumn key), `reason: 
 
 ### Requirement: `NotificationFilter` enum exposes the slice-1 filter chip set
 
-`:data:models` SHALL expose `NotificationFilter` as a Kotlin `enum class` with exactly the values `All`, `Mentions`, `Reposts`, `Follows`, `Likes`. Each value SHALL expose an internal `reasons: List<String>?` property that maps to the lexicon `reasons[]` request parameter (null for `All`).
+`:data:models` SHALL expose `NotificationFilter` as a Kotlin `enum class` with exactly the values `All`, `Mentions`, `Reposts`, `Follows`, `Likes`. Each value SHALL expose a public `reasons: ImmutableList<String>?` property that maps to the lexicon `reasons[]` request parameter (null for `All`). The property is `public` because cross-module consumers (`:feature:notifications:impl`) need to read it, and `ImmutableList` matches the data-models capability's immutable-collections convention.
 
 #### Scenario: Mentions filter maps to three reason values
 

@@ -1,5 +1,8 @@
 package net.kikin.nubecita.data.models
 
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+
 /**
  * Reason-grouped filter applied to the notifications surface's filter chip
  * row. Each value maps to a `reasons[]` array sent on
@@ -18,14 +21,17 @@ package net.kikin.nubecita.data.models
  *   intentionally not chip-addressable.
  *
  * [reasons] is `null` for [All] (the lexicon `reasons` parameter is omitted
- * — the server returns everything).
+ * — the server returns everything). The property is intentionally `public`
+ * because `:feature:notifications:impl` reads it cross-module (Kotlin
+ * `internal` is module-private and would not be visible). `ImmutableList`
+ * defends against accidental cast-and-mutate at the call site.
  */
 public enum class NotificationFilter(
-    public val reasons: List<String>?,
+    public val reasons: ImmutableList<String>?,
 ) {
     All(reasons = null),
-    Mentions(reasons = listOf("mention", "reply", "quote")),
-    Reposts(reasons = listOf("repost", "repost-via-repost")),
-    Follows(reasons = listOf("follow")),
-    Likes(reasons = listOf("like", "like-via-repost")),
+    Mentions(reasons = persistentListOf("mention", "reply", "quote")),
+    Reposts(reasons = persistentListOf("repost", "repost-via-repost")),
+    Follows(reasons = persistentListOf("follow")),
+    Likes(reasons = persistentListOf("like", "like-via-repost")),
 }

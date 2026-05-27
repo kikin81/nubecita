@@ -99,14 +99,16 @@ The VM handles `TabExited` by calling `repository.markSeen(now)`, then optimisti
 **Decision**: An M3 `FilterChip` row (horizontal-scrolling `LazyRow` with horizontal contentPadding, non-sticky above the LazyColumn). Chips: All, Mentions, Reposts, Follows, Likes. Single-select, with selection lifted to `NotificationsState.activeFilter: NotificationFilter`. The repository maps each filter to its `reasons[]` array:
 
 ```kotlin
-enum class NotificationFilter(internal val reasons: List<String>?) {
+enum class NotificationFilter(val reasons: ImmutableList<String>?) {
     All(reasons = null),
-    Mentions(reasons = listOf("mention", "reply", "quote")),
-    Reposts(reasons = listOf("repost", "repost-via-repost")),
-    Follows(reasons = listOf("follow")),
-    Likes(reasons = listOf("like", "like-via-repost")),
+    Mentions(reasons = persistentListOf("mention", "reply", "quote")),
+    Reposts(reasons = persistentListOf("repost", "repost-via-repost")),
+    Follows(reasons = persistentListOf("follow")),
+    Likes(reasons = persistentListOf("like", "like-via-repost")),
 }
 ```
+
+`reasons` is `public` (not `internal`) because cross-module consumers in `:feature:notifications:impl` read it; Kotlin `internal` is module-private and would not be visible there. `ImmutableList<String>?` matches the immutable-collections convention in `:data:models`.
 
 Switching filters resets cursor to null and re-fetches.
 

@@ -8,10 +8,10 @@
 
 ## 2. Data models
 
-- [ ] 2.1 Add `NotificationReason` enum (14 entries including `Unknown`) to `:data:models`. Adds: `NotificationReasonTest.unknownIsFallback`.
-- [ ] 2.2 Add `NotificationFilter` enum (`All`, `Mentions`, `Reposts`, `Follows`, `Likes`) with internal `reasons: List<String>?` property. Adds: `NotificationFilterTest` asserting each filter's reasons mapping.
-- [ ] 2.3 Add `NotificationItemUi` sealed interface (`Single` / `Aggregated`) with required fields. Both variants implement `@Stable`; `actors` is `ImmutableList<AuthorUi>`; `subjectPost` is `PostUi?`. Adds: stability annotation enforced by Compose compiler.
-- [ ] 2.4 Add `NotificationItemUiFixtures` object with factories: `singleLike`, `aggregatedLikes(actorCount)`, `singleFollow`, `aggregatedFollows(actorCount)`, `singleReply`, `singleQuote`, `singleMention`, plus one fixture per remaining known reason. Adds: `NotificationItemUiFixturesTest` smoke-checking each factory returns the expected variant.
+- [x] 2.1 Add `NotificationReason` enum (14 entries including `Unknown`) to `:data:models`. Adds: `NotificationReasonTest.unknownIsFallback`.
+- [x] 2.2 Add `NotificationFilter` enum (`All`, `Mentions`, `Reposts`, `Follows`, `Likes`) with public `reasons: ImmutableList<String>?` property. Adds: `NotificationFilterTest` asserting each filter's reasons mapping.
+- [x] 2.3 Add `NotificationItemUi` sealed interface (`Single` / `Aggregated`) with required fields. Both variants implement `@Stable`; `actors` is `ImmutableList<AuthorUi>`; `subjectPost` is `PostUi?`. Adds: stability annotation enforced by Compose compiler.
+- [x] 2.4 Add `NotificationItemUiFixtures` object with factories: `singleLike`, `aggregatedLikes(actorCount)`, `singleFollow`, `aggregatedFollows(actorCount)`, `singleReply`, `singleQuote`, `singleMention`, plus one fixture per remaining known reason. Adds: `NotificationItemUiFixturesTest` smoke-checking each factory returns the expected variant.
 
 ## 3. Feature module scaffolding
 
