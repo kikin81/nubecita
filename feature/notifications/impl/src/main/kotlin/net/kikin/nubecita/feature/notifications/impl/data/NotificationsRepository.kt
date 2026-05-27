@@ -38,9 +38,10 @@ internal interface NotificationsRepository {
 
     /**
      * Return the server-reported unread count via
-     * `app.bsky.notification.getUnreadCount`. Polled by
-     * `NotificationsUnreadCountStore` from a `ProcessLifecycleOwner`
-     * scope on a 60-second cadence (see nubecita-1fy.1.7).
+     * `app.bsky.notification.getUnreadCount`. The badge polling layer
+     * (a `ProcessLifecycleOwner`-scoped observer landing in bd issue
+     * nubecita-1fy.1.7) calls this on a 60-second cadence while the
+     * app is foregrounded.
      */
     suspend fun unreadCount(): Result<Int>
 }

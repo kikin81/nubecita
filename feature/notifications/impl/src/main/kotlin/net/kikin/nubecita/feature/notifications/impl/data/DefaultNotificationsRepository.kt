@@ -137,8 +137,9 @@ internal class DefaultNotificationsRepository
  * use `reasonSubject` (the user's own post — same across aggregated actors).
  * Content-bearing reasons (reply / quote / mention / subscribed-post) use
  * the notification `uri` (the actor's new post). All other reasons need no
- * hydration. Order is preserved (LinkedHashSet) so the resulting list
- * batches are stable and reviewable in logs.
+ * hydration. Order is preserved (LinkedHashSet) so chunking into batches is
+ * deterministic — same input page produces identical batch boundaries on
+ * every call, which is what the chunking unit test asserts on.
  */
 private fun List<ListNotificationsNotification>.collectHydrationUris(): List<String> {
     val unique = LinkedHashSet<String>()
