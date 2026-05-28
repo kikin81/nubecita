@@ -307,7 +307,12 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest
+          # `:app` ships two product flavors (production + benchmark) since
+          # nubecita-crmi.6, so `connectedDebugAndroidTest` is ambiguous and
+          # must name the flavor. The instrumented suite runs against the
+          # production flavor; the benchmark flavor (fake-network DI) is
+          # exclusive to :benchmark Macrobench in the scheduled bench job.
+          script: ./gradlew :app:connectedProductionDebugAndroidTest
 
       - name: Upload androidTest reports on failure
         if: failure()
