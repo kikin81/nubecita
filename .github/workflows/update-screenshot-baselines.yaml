@@ -92,12 +92,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Regenerate baselines
-        # `updateScreenshotTest` is the all-variants aggregator — see
-        # the parallel comment on ci.yaml's `validateScreenshotTest`
-        # invocation. The unflavored `updateDebugScreenshotTest` form
-        # no longer exists on flavored modules and would silently skip
-        # their baseline regeneration.
-        run: ./gradlew updateScreenshotTest
+        # Mirror the explicit per-module pattern from ci.yaml's
+        # `Validate screenshot tests` step — `updateDebugScreenshotTest`
+        # for non-flavored modules + the explicit production-flavor
+        # task for `:feature:feed:impl` (the bench-flavor variant
+        # fails to compile due to `internal` visibility on tested
+        # symbols).
+        run: ./gradlew updateDebugScreenshotTest :feature:feed:impl:updateProductionDebugScreenshotTest
 
       - name: Commit and push
         run: |
