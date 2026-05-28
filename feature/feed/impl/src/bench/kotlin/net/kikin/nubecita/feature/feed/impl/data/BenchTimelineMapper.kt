@@ -10,27 +10,40 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import timber.log.Timber
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
  * Pure-function conversions from the bench JSON DTOs ([BenchTimelineDto]
  * and friends) into the production-shaped `:data:models` UI types —
  * [FeedItemUi], [PostUi], [EmbedUi], etc. Keeping the conversion
- * separate from the loader (in [FakeFeedRepository]) means the loader's
- * `@Singleton` caching policy and the DTO→UI shape mapping are
+ * separate from the loader (in [BenchFakeFeedRepository]) means the
+ * loader's caching policy and the DTO→UI shape mapping are
  * independently swappable.
  *
- * Conventions:
+ * Error containment:
  *
- * - Field aspect ratios fall back to a 16:9 (`1.7777f`) default when the
- *   fixture omits them — matches the production mapper's behaviour
- *   documented on [EmbedUi.Video.aspectRatio].
- * - Unparseable timestamps fall back to [Instant.DISTANT_PAST] rather
- *   than throwing — the bench fixture is checked-in test data; if a
- *   timestamp is wrong, the better signal is a visually-broken card in
- *   the bench journey than a `FakeFeedRepository` that fails its
- *   `getTimeline` call entirely.
- * - Facets are hard-coded empty; see [BenchPostDto.facets] for why.
+ * - Per-item failures (malformed Video embed, missing External `uri`
+ *   etc.) are caught inside [toFeedItemUi] and the offending item is
+ *   skipped with a [Timber.w]. One bad fixture entry does NOT poison
+ *   the entire timeline parse — the remaining 18-of-19 items still
+ *   render and the bench journey can proceed against a deliberately-
+ *   degraded feed.
+ * - Bad timestamps fall back to [Clock.System.now] (NOT
+ *   [Instant.DISTANT_PAST] — that produced ~58,000-year-ago strings
+ *   that overran [PostCard]'s author/timestamp row and corrupted
+ *   layout/measure metrics in the bench journey). The post stays at
+ *   the visible top of the feed instead of being silently buried.
+ * - Required-field-missing embed errors (Video without `playlistUrl`,
+ *   External without `uri`/`domain`) demote the post's embed to
+ *   [EmbedUi.Unsupported] rather than throwing — the post itself
+ *   still renders as text-only.
+ *
+ * Float precision: [BenchEmbedDto.aspectRatio] and
+ * [BenchImageDto.aspectRatio] are typed `Double?` in the DTO layer to
+ * preserve JSON precision. The Float narrowing happens exactly once
+ * here at the mapper boundary, keeping the narrowing site visible
+ * for future fixture comparisons.
  */
 internal object BenchTimelineMapper {
     private const val TAG = "BenchTimelineMapper"
@@ -39,13 +52,23 @@ internal object BenchTimelineMapper {
     fun toFeedItems(dto: BenchTimelineDto): List<FeedItemUi> = dto.items.mapNotNull { it.toFeedItemUi() }
 
     private fun BenchFeedItemDto.toFeedItemUi(): FeedItemUi? =
-        when (type) {
-            BenchFeedItemDto.Type.Single ->
-                post
-                    ?.let { FeedItemUi.Single(post = it.toPostUi()) }
-                    .also {
-                        if (it == null) Timber.tag(TAG).w("Single feed item with null post; skipping")
-                    }
+        runCatching {
+            when (type) {
+                BenchFeedItemDto.Type.Single ->
+                    post?.let { FeedItemUi.Single(post = it.toPostUi()) }
+                        ?: run {
+                            Timber.tag(TAG).w("Single feed item with null post; skipping")
+                            null
+                        }
+            }
+        }.getOrElse { throwable ->
+            // Per-item failure containment: a malformed embed or any
+            // other unexpected mapper failure logs + skips this entry so
+            // the rest of the timeline still renders. Without this, a
+            // single bad fixture post takes down the whole bench feed
+            // via the loader's runCatching → cached Result.failure.
+            Timber.tag(TAG).w(throwable, "Skipping malformed feed item: id=%s", post?.id)
+            null
         }
 
     private fun BenchPostDto.toPostUi(): PostUi =
@@ -53,7 +76,7 @@ internal object BenchTimelineMapper {
             id = id,
             cid = cid,
             author = author.toAuthorUi(),
-            createdAt = parseInstantOrEpoch(createdAt),
+            createdAt = parseInstantOrNow(createdAt),
             text = text,
             facets = persistentListOf(),
             embed = embed.toEmbedUi(),
@@ -97,41 +120,74 @@ internal object BenchTimelineMapper {
                 EmbedUi.Images(
                     items = (items ?: emptyList()).map { it.toImageUi() }.toPersistentList(),
                 )
-            BenchEmbedDto.Type.Video ->
-                EmbedUi.Video(
-                    posterUrl = posterUrl,
-                    // playlistUrl is non-null in the lexicon `view` form, and the
-                    // bench fixture must populate it. Fall back to the empty
-                    // string + Unsupported promotion would mask a fixture bug;
-                    // the assertion form keeps the failure loud during fixture
-                    // edits.
-                    playlistUrl = playlistUrl ?: error("Video embed missing playlistUrl"),
-                    aspectRatio = aspectRatio ?: DEFAULT_ASPECT_RATIO_16_9,
-                    durationSeconds = durationSeconds,
-                    altText = altText,
-                )
-            BenchEmbedDto.Type.External ->
-                EmbedUi.External(
-                    uri = uri ?: error("External embed missing uri"),
-                    domain = domain ?: error("External embed missing domain"),
-                    title = title.orEmpty(),
-                    description = description.orEmpty(),
-                    thumbUrl = thumbUrl,
-                )
+            BenchEmbedDto.Type.Video -> toEmbedUiVideoOrUnsupported()
+            BenchEmbedDto.Type.External -> toEmbedUiExternalOrUnsupported()
         }
+
+    /**
+     * Required-field-missing Video → [EmbedUi.Unsupported] rather than
+     * a hard throw. A fixture-author typo on a single Video embed
+     * surfaces as a per-card "Unsupported embed" chip instead of
+     * killing the whole timeline parse.
+     */
+    private fun BenchEmbedDto.toEmbedUiVideoOrUnsupported(): EmbedUi {
+        val resolvedPlaylist = playlistUrl
+        if (resolvedPlaylist == null) {
+            Timber.tag(TAG).w("Video embed missing playlistUrl; rendering as Unsupported")
+            return EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
+        }
+        return EmbedUi.Video(
+            posterUrl = posterUrl,
+            playlistUrl = resolvedPlaylist,
+            aspectRatio = aspectRatio?.toFloat() ?: DEFAULT_ASPECT_RATIO_16_9,
+            durationSeconds = durationSeconds,
+            altText = altText,
+        )
+    }
+
+    /**
+     * Required-field-missing External → [EmbedUi.Unsupported] rather
+     * than a hard throw. See [toEmbedUiVideoOrUnsupported] for the
+     * rationale.
+     */
+    private fun BenchEmbedDto.toEmbedUiExternalOrUnsupported(): EmbedUi {
+        val resolvedUri = uri
+        val resolvedDomain = domain
+        if (resolvedUri == null || resolvedDomain == null) {
+            Timber.tag(TAG).w(
+                "External embed missing uri=%b / domain=%b; rendering as Unsupported",
+                resolvedUri == null,
+                resolvedDomain == null,
+            )
+            return EmbedUi.Unsupported(typeUri = "app.bsky.embed.external")
+        }
+        return EmbedUi.External(
+            uri = resolvedUri,
+            domain = resolvedDomain,
+            title = title.orEmpty(),
+            description = description.orEmpty(),
+            thumbUrl = thumbUrl,
+        )
+    }
 
     private fun BenchImageDto.toImageUi(): ImageUi =
         ImageUi(
             fullsizeUrl = fullsizeUrl,
             thumbUrl = thumbUrl,
             altText = altText,
-            aspectRatio = aspectRatio,
+            aspectRatio = aspectRatio?.toFloat(),
         )
 
-    private fun parseInstantOrEpoch(raw: String): Instant =
+    /**
+     * Falls back to [Clock.System.now] (NOT [Instant.DISTANT_PAST]) so a
+     * fixture-author typo produces a "just now" timestamp instead of a
+     * layout-breaking "57,000 years ago" string. The Timber.w surfaces
+     * the bad input for debugging during fixture edits.
+     */
+    private fun parseInstantOrNow(raw: String): Instant =
         runCatching { Instant.parse(raw) }
             .getOrElse {
-                Timber.tag(TAG).w("Unparseable createdAt %s; falling back to DISTANT_PAST", raw)
-                Instant.DISTANT_PAST
+                Timber.tag(TAG).w("Unparseable createdAt %s; falling back to Clock.System.now()", raw)
+                Clock.System.now()
             }
 }

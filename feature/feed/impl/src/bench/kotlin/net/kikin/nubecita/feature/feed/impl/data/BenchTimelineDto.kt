@@ -14,26 +14,29 @@ import kotlinx.serialization.Serializable
  * [net.kikin.nubecita.data.models.PostUi], etc.) so the bench `Feed`
  * renders against the same shape production does.
  *
- * Sealed types in the JSON use a flat `type: String` discriminator
- * rather than kotlinx.serialization polymorphism — the mapper does an
- * explicit `when` on the discriminator string. Two reasons:
+ * Sealed types in the JSON use a flat `type` enum discriminator rather
+ * than kotlinx.serialization polymorphism — the mapper does an explicit
+ * `when` on the discriminator. Two reasons:
  *
  * - Polymorphic deserialization configuration adds boilerplate
  *   (`SerializersModule { polymorphic { ... } }`) the bench scope
  *   doesn't justify.
  * - The flat shape lets the JSON fixture stay forgiving: adding a new
- *   variant means extending the `when` plus the DTO, with no central
- *   registration site to remember to update.
+ *   variant means extending the enum plus the mapper `when`.
+ *
+ * Both discriminator enums ([BenchFeedItemDto.Type] and
+ * [BenchEmbedDto.Type]) carry a `= Type.Single` / `= Type.Empty`
+ * default on the owning property so an unknown discriminator string
+ * coerces to a safe fallback rather than throwing
+ * `SerializationException` and bricking the bench journey via the
+ * [BenchFakeFeedRepository] cache. The `Single`/`Empty` defaults are
+ * the most-permissive variants and intentionally make a fixture-author
+ * typo silent-but-renderable — failure is loud in dev (Timber-tag
+ * warning) but the feed still loads.
  *
  * Field names mirror the Kotlin property names of the target types
  * verbatim (`fullsizeUrl`, `thumbUrl`, `displayName`, etc.) so the JSON
  * fixture is human-editable without a serial-name lookup table.
- *
- * Every field is non-null with a sensible default where the JSON might
- * omit it (per kotlinx.serialization's
- * [Json.encodeDefaults]/[Json.ignoreUnknownKeys] settings used by the
- * loader) — this keeps the fixture easy to extend in Section A2+ when
- * the timeline grows from the current 15 items.
  *
  * [_models_policy]: openspec/specs/data-models/spec.md
  */
@@ -45,7 +48,7 @@ internal data class BenchTimelineDto(
 )
 
 /**
- * Sealed-type variant for a top-level feed item. Section A1's fixture
+ * Sealed-type variant for a top-level feed item. Section A2's fixture
  * only uses [Type.Single]; the other [net.kikin.nubecita.data.models.FeedItemUi]
  * variants ([ReplyCluster][net.kikin.nubecita.data.models.FeedItemUi.ReplyCluster],
  * [SelfThreadChain][net.kikin.nubecita.data.models.FeedItemUi.SelfThreadChain],
@@ -55,7 +58,10 @@ internal data class BenchTimelineDto(
  */
 @Serializable
 internal data class BenchFeedItemDto(
-    val type: Type,
+    // Default ensures an unknown discriminator string (future-fixture-
+    // typo) coerces to Single rather than throwing — see the type-level
+    // KDoc above.
+    val type: Type = Type.Single,
     val post: BenchPostDto? = null,
 ) {
     @Serializable
@@ -72,29 +78,11 @@ internal data class BenchPostDto(
     val author: BenchAuthorDto,
     val createdAt: String,
     val text: String,
-    /**
-     * The fixture currently ships `"facets": []` for every post — bench
-     * doesn't exercise rich-text affordances. The wire `Facet` type lives
-     * in the atproto-kotlin runtime; if the fixture later needs links /
-     * mentions, this field grows into `List<BenchFacetDto>` plus a
-     * mapper branch that constructs typed [io.github.kikin81.atproto.app.bsky.richtext.Facet]
-     * instances. Today the loader hard-codes empty.
-     */
-    val facets: List<JsonElementUnused> = emptyList(),
     val embed: BenchEmbedDto = BenchEmbedDto(type = BenchEmbedDto.Type.Empty),
     val stats: BenchStatsDto = BenchStatsDto(),
     val viewer: BenchViewerDto = BenchViewerDto(),
     val repostedBy: String? = null,
 )
-
-/**
- * Placeholder type so `facets: []` in the JSON parses without coupling
- * to atproto-runtime's [io.github.kikin81.atproto.app.bsky.richtext.Facet]
- * serializer. Replace with a real `BenchFacetDto` if the fixture starts
- * carrying populated facet arrays.
- */
-@Serializable
-internal class JsonElementUnused
 
 @Serializable
 internal data class BenchAuthorDto(
@@ -135,14 +123,23 @@ internal data class BenchViewerDto(
  * hierarchy ([Record][net.kikin.nubecita.data.models.EmbedUi.Record],
  * [RecordWithMedia][net.kikin.nubecita.data.models.EmbedUi.RecordWithMedia],
  * etc.) lands here once the fixture grows.
+ *
+ * [aspectRatio] is typed `Double?` (not `Float?`) so JSON values like
+ * `1.7777778` round-trip without the silent Double-to-Float narrowing
+ * the kotlinx.serialization deserializer would otherwise apply at the
+ * DTO boundary. The mapper narrows to `Float` exactly once when
+ * constructing [net.kikin.nubecita.data.models.EmbedUi.Video], keeping
+ * the precision-loss site explicit.
  */
 @Serializable
 internal data class BenchEmbedDto(
-    val type: Type,
+    // Default makes an unknown discriminator coerce to Empty — see the
+    // type-level KDoc on BenchTimelineDto.
+    val type: Type = Type.Empty,
     val items: List<BenchImageDto>? = null,
     val posterUrl: String? = null,
     val playlistUrl: String? = null,
-    val aspectRatio: Float? = null,
+    val aspectRatio: Double? = null,
     val durationSeconds: Int? = null,
     val altText: String? = null,
     val uri: String? = null,
@@ -172,5 +169,5 @@ internal data class BenchImageDto(
     val fullsizeUrl: String,
     val thumbUrl: String? = null,
     val altText: String? = null,
-    val aspectRatio: Float? = null,
+    val aspectRatio: Double? = null,
 )

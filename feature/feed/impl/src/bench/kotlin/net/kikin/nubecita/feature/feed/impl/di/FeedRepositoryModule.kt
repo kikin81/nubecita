@@ -4,7 +4,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import net.kikin.nubecita.feature.feed.impl.data.FakeFeedRepository
+import net.kikin.nubecita.feature.feed.impl.data.BenchFakeFeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 
 /**
@@ -15,7 +15,7 @@ import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
  * - `productionDebug` / `productionRelease` see the production module
  *   (binds `DefaultFeedRepository` → `FeedRepository`).
  * - `benchDebug` / `benchRelease` see this module (binds
- *   [FakeFeedRepository] → `FeedRepository`).
+ *   [BenchFakeFeedRepository] → `FeedRepository`).
  *
  * The shared FQN matters: both modules sit at
  * `net.kikin.nubecita.feature.feed.impl.di.FeedRepositoryModule`, so they
@@ -28,5 +28,5 @@ import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 @InstallIn(SingletonComponent::class)
 internal interface FeedRepositoryModule {
     @Binds
-    fun bindFeedRepository(impl: FakeFeedRepository): FeedRepository
+    fun bindFeedRepository(impl: BenchFakeFeedRepository): FeedRepository
 }

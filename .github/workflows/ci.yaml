@@ -195,7 +195,17 @@ jobs:
 
       - name: Validate screenshot tests
         id: validate
-        run: ./gradlew validateDebugScreenshotTest
+        # `validateScreenshotTest` aggregates every variant on every
+        # module — the unflavored `validateDebugScreenshotTest` form no
+        # longer exists on flavored modules (`:feature:feed:impl` after
+        # nubecita-xh99, `:core:auth` and `:core:preferences` after
+        # nubecita-crmi.6 Section A1), so the old form silently skipped
+        # those modules' `src/screenshotTest/` sources. The aggregator
+        # covers both flavored and non-flavored modules; the flavored
+        # ones run their tests once per flavor variant against the same
+        # baseline (acceptable — bench/production share the screenshot
+        # source set in practice).
+        run: ./gradlew validateScreenshotTest
 
       - name: Upload diff report on failure
         if: failure() && steps.validate.outcome == 'failure'
