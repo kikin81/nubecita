@@ -38,8 +38,8 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
 
-    androidTestImplementation(libs.androidx.core.ktx)
     androidTestImplementation(project(":core:testing-android"))
+    androidTestImplementation(libs.androidx.core.ktx)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

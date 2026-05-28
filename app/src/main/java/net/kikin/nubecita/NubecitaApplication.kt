@@ -6,10 +6,8 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import com.google.firebase.appcheck.FirebaseAppCheck
 import dagger.hilt.android.HiltAndroidApp
-import net.kikin.nubecita.core.push.AppLifecycleObserver
+import net.kikin.nubecita.bootstrap.AppInitializer
 import net.kikin.nubecita.core.push.NotificationChannelInstaller
-import net.kikin.nubecita.core.push.PushRegistrationCoordinator
-import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
 import net.kikin.nubecita.firebase.appCheckFactory
 import timber.log.Timber
 import javax.inject.Inject
@@ -22,11 +20,15 @@ class NubecitaApplication :
 
     @Inject lateinit var notificationChannelInstaller: NotificationChannelInstaller
 
-    @Inject lateinit var pushRegistrationCoordinator: PushRegistrationCoordinator
-
-    @Inject lateinit var appLifecycleObserver: AppLifecycleObserver
-
-    @Inject lateinit var notificationsPollingObserver: NotificationsPollingObserver
+    /**
+     * Per-flavor startup hooks. Under `production`, contains lambdas wrapping
+     * `AppLifecycleObserver.start()`, `PushRegistrationCoordinator.start()`,
+     * and `NotificationsPollingObserver.start()`. Under `bench`, empty —
+     * those three coordinators are never constructed, Firebase Messaging
+     * stays dormant, and the APK emits zero network traffic during the
+     * Macrobench measurement window. See `bootstrap/AppInitializer.kt`.
+     */
+    @Inject lateinit var appInitializers: Set<@JvmSuppressWildcards AppInitializer>
 
     override fun onCreate() {
         super.onCreate()
@@ -47,33 +49,20 @@ class NubecitaApplication :
             Timber.plant(Timber.DebugTree())
         }
 
-        // Push notifications wiring — order matters:
-        // 1. Install channels first so any inbound push posted before
-        //    PushRegistrationCoordinator.start() returns finds its channel
-        //    already created (createNotificationChannel is idempotent and
-        //    no-ops on a duplicate ID + same configuration).
-        // 2. Start the lifecycle observer second — it hydrates the muted-actor
-        //    snapshot from disk and schedules a foreground refresh, both
-        //    fire-and-forget into the application scope.
-        // 3. Start the registration coordinator third — it begins collecting
-        //    SessionStateProvider.state and reacts to whatever session state
-        //    MainActivity's refresh() resolves to (Loading initially).
+        // Push-related startup wiring — channel installation is direct
+        // because the must-precede-coordinator constraint matters: any
+        // inbound push delivered before the registration coordinator opts
+        // FCM auto-init back on must find its NotificationChannel already
+        // created (createNotificationChannel is idempotent on a duplicate
+        // ID + same configuration). The remaining three coordinators
+        // (AppLifecycleObserver, PushRegistrationCoordinator,
+        // NotificationsPollingObserver) flow through `appInitializers`
+        // so the bench-flavor source set can supply an empty set and
+        // keep the Macrobench APK silent. Iteration order across the
+        // set is undefined — the three coordinators are independent and
+        // fire-and-forget into the application scope.
         notificationChannelInstaller.install(this)
-        appLifecycleObserver.start()
-        // Coordinator.start() also opts FCM auto-init back on. The manifest
-        // disables auto-init for instrumented-test safety; reaching this
-        // line implies we're running under the real NubecitaApplication
-        // (not HiltTestApplication) so the SERVICE Hilt component is set
-        // up correctly and it's safe to let Firebase instantiate
-        // NubecitaFcmService.
-        pushRegistrationCoordinator.start()
-        // In-app notifications surface — :feature:notifications:impl owns
-        // the unread-count badge feeding MainShell's bottom-nav (wired in
-        // bd issue nubecita-1fy.1.9). The observer registers a
-        // ProcessLifecycleOwner-scoped polling loop that fires
-        // getUnreadCount on a 60-second cadence while foregrounded and
-        // exponentially backs off on failure (max 300s).
-        notificationsPollingObserver.start()
+        appInitializers.forEach { it.start() }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader

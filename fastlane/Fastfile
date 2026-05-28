@@ -31,7 +31,14 @@ platform :android do
       )
     end
 
-    gradle(task: "bundleRelease")
+    # Flavor-qualified: :app's `environment` dimension makes the unflavored
+    # `bundleRelease` aggregate both productionRelease + benchRelease AABs.
+    # Both share the same applicationId (net.kikin.nubecita), so without
+    # this qualifier `SharedValues::GRADLE_AAB_OUTPUT_PATH` would be
+    # populated non-deterministically and could send the bench AAB — the
+    # one with fake-network DI swapped in — to Play Console. Bench AABs
+    # are reserved for Macrobench (nubecita-crmi.6 Section B onwards).
+    gradle(task: "bundleProductionRelease")
 
     release_notes = ENV["PLAY_RELEASE_NOTES"]
     release_notes = "Internal build — wire PLAY_RELEASE_NOTES for human-readable notes." if release_notes.nil? || release_notes.empty?

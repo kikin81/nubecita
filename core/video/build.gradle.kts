@@ -14,9 +14,15 @@ android {
 }
 
 dependencies {
-    api(libs.media3.exoplayer) // was: implementation
-    implementation(libs.media3.exoplayer.hls) // unchanged — HLS types stay internal
-    implementation(project(":core:common")) // NEW — for @ApplicationScope qualifier
+    // ExoPlayer types (Player, MediaItem, etc.) are part of the public surface
+    // of `:core:video` — `VideoPlayerCoordinator` accepts a `Player` and exposes
+    // ExoPlayer-shaped state to feature modules. The HLS module stays
+    // `implementation` because no public surface here returns HLS-specific
+    // types; consumers see plain MediaItem URIs.
+    api(libs.media3.exoplayer)
+
+    implementation(project(":core:common"))
+    implementation(libs.media3.exoplayer.hls)
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))

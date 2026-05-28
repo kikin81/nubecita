@@ -12,6 +12,18 @@ android {
     // so DPoP/Authorization headers can never reach release logcat or remote
     // crash reports — independent of which Timber trees are planted at runtime.
     buildFeatures.buildConfig = true
+
+    // The `environment` flavor dimension splits the production AuthBindingsModule
+    // (real DPoP-signed XrpcClient, Tink-encrypted OAuthSessionStore, AtOAuth flow
+    // orchestrator) from a bench-flavor parallel that binds in-process fakes. The
+    // `:app` module's `bench` flavor consumes the matching variant via the
+    // missingDimensionStrategy plumbing in AndroidLibraryConventionPlugin — see
+    // `bd show nubecita-crmi.6` for the broader scope.
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
 }
 
 dependencies {

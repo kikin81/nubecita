@@ -6,3 +6,15 @@ gradlew text eol=lf
 *.jpeg binary
 *.webp binary
 *.keystore binary
+
+# Bench-flavor fixtures — bundled media for the :app `bench` flavor.
+# Mark as binary so diffs do not try to render them. If the total
+# bundled media under app/src/bench/assets/ exceeds ~20 MB, migrate
+# these extensions to Git LFS (track them with `git lfs track "*.mp4"`
+# etc. and update this file accordingly).
+*.mp4 binary
+*.m4v binary
+*.mov binary
+*.m3u8 binary
+*.ts binary
+*.aac binary

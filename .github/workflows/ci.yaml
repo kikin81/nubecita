@@ -100,7 +100,14 @@ jobs:
           checkout-repo: false
 
       - name: Spotless + Android Lint + Sort Dependencies
-        run: ./gradlew spotlessCheck lint :app:checkSortDependencies
+        # `:app:lintProductionDebug` is explicit because :app's `environment`
+        # flavor dimension makes the unflavored `:app:lint` task alias to
+        # `:app:lintBenchDebug` (AGP picks the alphabetically-first flavor),
+        # so without this we'd lint the bench source set — which has only the
+        # ~5-file fake-network shim — and miss every lint finding in the
+        # production-flavor source under `app/src/production/`. The
+        # top-level `lint` aggregator still covers every non-flavored module.
+        run: ./gradlew spotlessCheck lint :app:lintProductionDebug :app:checkSortDependencies
 
   test:
     name: Test
@@ -157,7 +164,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        # Same flavor-disambiguation reason as the connected-test pin below:
+        # :app's `environment` dimension makes `assembleDebug` aggregate both
+        # productionDebug + benchDebug. The bench APK isn't smoke-tested in
+        # this job (and won't be until the Section-C scheduled bench pipeline
+        # lands), so keep CI building only the production variant.
+        run: ./gradlew assembleProductionDebug
 
   screenshot:
     name: Screenshot tests
@@ -307,7 +319,12 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest
+          # `:app` ships two product flavors (`production` + `bench`) since
+          # nubecita-crmi.6, so `connectedDebugAndroidTest` is ambiguous and
+          # must name the flavor. The instrumented suite runs against the
+          # production flavor; the `bench` flavor (fake-network DI) is
+          # exclusive to :benchmark Macrobench in the scheduled bench job.
+          script: ./gradlew :app:connectedProductionDebugAndroidTest
 
       - name: Upload androidTest reports on failure
         if: failure()
