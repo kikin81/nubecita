@@ -100,7 +100,14 @@ jobs:
           checkout-repo: false
 
       - name: Spotless + Android Lint + Sort Dependencies
-        run: ./gradlew spotlessCheck lint :app:checkSortDependencies
+        # `:app:lintProductionDebug` is explicit because :app's `environment`
+        # flavor dimension makes the unflavored `:app:lint` task alias to
+        # `:app:lintBenchDebug` (AGP picks the alphabetically-first flavor),
+        # so without this we'd lint the bench source set — which has only the
+        # ~5-file fake-network shim — and miss every lint finding in the
+        # production-flavor source under `app/src/production/`. The
+        # top-level `lint` aggregator still covers every non-flavored module.
+        run: ./gradlew spotlessCheck lint :app:lintProductionDebug :app:checkSortDependencies
 
   test:
     name: Test

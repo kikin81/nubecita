@@ -237,7 +237,13 @@ jobs:
         # signingConfig resolves and the debug buildType picks it up via
         # the conditional `signingConfig =` assignment in
         # `buildTypes.debug`.
-        run: ./gradlew assembleDebug
+        #
+        # Flavor-qualified: :app's `environment` dimension makes the
+        # unflavored `assembleDebug` aggregate both productionDebug +
+        # benchDebug. Firebase App Distribution gets the production
+        # variant — the bench flavor's fake-network DI is reserved for
+        # Macrobench (nubecita-crmi.6 Section B onwards).
+        run: ./gradlew :app:assembleProductionDebug
         env:
           KEYSTORE_FILE: /tmp/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -262,7 +268,7 @@ jobs:
             exit 1
           fi
           firebase appdistribution:distribute \
-            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/production/debug/app-production-debug.apk \
             --app "$FIREBASE_APP_ID" \
             --groups internal-testers \
             --release-notes "$RELEASE_NOTES"
@@ -404,7 +410,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload AAB to Play Console internal track
-        # `bundle exec fastlane internal` runs `gradle bundleRelease`
+        # `bundle exec fastlane internal` runs `gradle bundleProductionRelease`
         # (signed by the keystore env vars below) then uploads the AAB
         # via supply. See fastlane/Fastfile for the lane shape.
         #
