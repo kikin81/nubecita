@@ -61,7 +61,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          distribution: zulu
+          distribution: temurin
           java-version-file: .java-version
 
       - name: Setup Android SDK
@@ -122,7 +122,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          distribution: zulu
+          distribution: temurin
           java-version-file: .java-version
 
       - name: Setup Android SDK
@@ -154,7 +154,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          distribution: zulu
+          distribution: temurin
           java-version-file: .java-version
 
       - name: Setup Android SDK
@@ -184,7 +184,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          distribution: zulu
+          distribution: temurin
           java-version-file: .java-version
 
       - name: Setup Android SDK
@@ -279,7 +279,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          distribution: zulu
+          distribution: temurin
           java-version-file: .java-version
 
       - name: Setup Android SDK
