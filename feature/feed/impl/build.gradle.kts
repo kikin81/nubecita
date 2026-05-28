@@ -1,5 +1,14 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
+    // `kotlin.serialization` runs the @Serializable compiler plugin that
+    // generates the `<Type>.serializer()` companions read by the bench
+    // flavor's `BenchTimelineDto` loader in `FakeFeedRepository`. The
+    // `kotlinx-serialization-json` runtime is already on the
+    // implementation classpath (used by `DefaultFeedRepository` /
+    // `FeedRepository`'s wire integration in `:core:feed-mapping`),
+    // but without the plugin the codegen never runs and the bench DTOs
+    // fail to compile.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
