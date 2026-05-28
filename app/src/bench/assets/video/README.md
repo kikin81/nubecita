@@ -20,14 +20,25 @@ migrate to LFS.
 
 ### Current vs. designed
 
-Section A1 ships the asset-staging plumbing but only the first two clips
-and two corresponding video posts in `timeline.json` (referencing
-`clip-1.mp4` and `clip-2.mp4`). `clip-3.mp4` and the additional four
-video posts needed to drive the full three-codec-init coverage land in
-Section A2+ alongside the broader feed/notification repository fakes —
-until then the "six video posts × three clips" framing in the rest of
-this README documents the *target* shape, not what `timeline.json`
-currently contains.
+Section A1 (the PR landing this README) ships only the asset-staging
+plumbing — this transcode spec, the `.gitattributes` binary marking,
+and the two placeholder `asset:///video/clip-{1,2}.mp4` references
+already inside `timeline.json`. **None of `clip-1.mp4`, `clip-2.mp4`,
+or `clip-3.mp4` is checked in yet.** Building the bench APK today and
+scrolling to either video post yields a missing-asset error from
+Media3; that's expected and acceptable while Section A1's scope is
+"wire the flavor + DI", not "play video."
+
+The actual clip acquisition + commit lands inline with **Section A2+**
+— the follow-up PR that introduces `FakeFeedRepository` and turns
+`timeline.json` into a working Feed fixture. That PR transcodes the
+three clips per the recipes below, expands `timeline.json` to the
+designed six video posts (so the trio forces three unique codec-init
+paths), and at that point this README's "six video posts × three
+clips" framing matches reality.
+
+Tracking: documented as crmi.6 Section E Stage 1 in
+`bd show nubecita-crmi.6`; not currently a standalone bd child issue.
 
 ## Clip roster
 
