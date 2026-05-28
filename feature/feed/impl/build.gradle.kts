@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.nubecita.android.feature)
     // `kotlin.serialization` runs the @Serializable compiler plugin that
     // generates the `<Type>.serializer()` companions read by the bench
-    // flavor's `BenchTimelineDto` loader in `FakeFeedRepository`. The
+    // flavor's `BenchTimelineDto` loader in `BenchFakeFeedRepository`. The
     // `kotlinx-serialization-json` runtime is already on the
     // implementation classpath (used by `DefaultFeedRepository` /
     // `FeedRepository`'s wire integration in `:core:feed-mapping`),
@@ -33,7 +33,7 @@ android {
     // The `environment` flavor dimension splits the production
     // FeedRepositoryModule (real `app.bsky.feed.getTimeline` XRPC call via
     // `DefaultFeedRepository`) from a bench-flavor parallel that binds an
-    // asset-backed `FakeFeedRepository`. The `:app` module's `bench` flavor
+    // asset-backed `BenchFakeFeedRepository`. The `:app` module's `bench` flavor
     // consumes the matching variant via the missingDimensionStrategy plumbing
     // in `AndroidLibraryConventionPlugin`; everything that imports
     // `:feature:feed:impl` resolves the production variant by default. See

@@ -4,7 +4,10 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Bench-only intermediate DTOs for `app/src/bench/assets/timeline.json`.
+ * Bench-only intermediate DTOs for the timeline fixture at
+ * `feature/feed/impl/src/bench/assets/timeline.json` — loaded by
+ * [BenchFakeFeedRepository] via `AssetManager` on the asset path
+ * `timeline.json`.
  *
  * These types live in the bench source set deliberately — `:data:models`
  * stays clean of `kotlinx.serialization.runtime` per the
@@ -24,15 +27,35 @@ import kotlinx.serialization.Serializable
  * - The flat shape lets the JSON fixture stay forgiving: adding a new
  *   variant means extending the enum plus the mapper `when`.
  *
- * Both discriminator enums ([BenchFeedItemDto.Type] and
- * [BenchEmbedDto.Type]) carry a `= Type.Single` / `= Type.Empty`
- * default on the owning property so an unknown discriminator string
- * coerces to a safe fallback rather than throwing
- * `SerializationException` and bricking the bench journey via the
- * [BenchFakeFeedRepository] cache. The `Single`/`Empty` defaults are
- * the most-permissive variants and intentionally make a fixture-author
- * typo silent-but-renderable — failure is loud in dev (Timber-tag
- * warning) but the feed still loads.
+ * Two-layer safety net for discriminator robustness:
+ *
+ * 1. **Missing-field protection**: each owning property carries a
+ *    `= Type.Single` / `= Type.Empty` default, so a fixture entry
+ *    that omits `"type"` entirely deserializes to the most-permissive
+ *    variant rather than throwing.
+ * 2. **Unknown-value protection**: [BenchFakeFeedRepository.JSON]
+ *    sets `coerceInputValues = true`. With this flag, a JSON value
+ *    that doesn't match any known enum case (a future
+ *    `"type": "ReplyCluster"` ahead of the enum extension, or a
+ *    fixture-author typo like `"video"` lowercase) is coerced to the
+ *    property's declared default rather than throwing
+ *    `SerializationException`.
+ *
+ * Both nets are needed: defaults handle the missing-field case;
+ * coerceInputValues handles the unknown-value case. Without
+ * coerceInputValues, an unknown discriminator throws and the bench
+ * journey lands on InitialError until the fixture is fixed (per
+ * [BenchFakeFeedRepository]'s retryable-cache, Retry would re-parse
+ * but would re-hit the same throw).
+ *
+ * Known trade-off of coerceInputValues: an explicit JSON `null` on a
+ * non-nullable Kotlin field that HAS a default is silently substituted
+ * with the default rather than throwing. For a checked-in test
+ * fixture this is acceptable — explicit `null` isn't an intentional
+ * encoding here. The alternative (drop the flag and add
+ * `@JsonEnumDefaultValue` on each enum case) requires
+ * kotlinx-serialization-json 1.6+'s experimental API and complicates
+ * the type definitions; not worth it for the bench scope.
  *
  * Field names mirror the Kotlin property names of the target types
  * verbatim (`fullsizeUrl`, `thumbUrl`, `displayName`, etc.) so the JSON

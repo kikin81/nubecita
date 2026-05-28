@@ -67,7 +67,20 @@ internal object BenchTimelineMapper {
             // the rest of the timeline still renders. Without this, a
             // single bad fixture post takes down the whole bench feed
             // via the loader's runCatching → cached Result.failure.
-            Timber.tag(TAG).w(throwable, "Skipping malformed feed item: id=%s", post?.id)
+            //
+            // Log only the AT-URI's rkey (path segment after the last
+            // `/`) rather than the full `at://did:plc:.../app.bsky.feed.post/<rkey>`
+            // form — the codebase convention (see
+            // `:core:auth/.../RedactDid`) is to avoid emitting full
+            // DIDs to logcat surfaces that could be captured by a
+            // future Crashlytics/Sentry tree. The rkey alone is
+            // enough to identify which fixture post failed during
+            // editing.
+            Timber.tag(TAG).w(
+                throwable,
+                "Skipping malformed feed item: rkey=%s",
+                post?.id?.substringAfterLast('/'),
+            )
             null
         }
 

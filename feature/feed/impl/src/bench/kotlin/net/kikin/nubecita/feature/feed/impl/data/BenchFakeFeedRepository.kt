@@ -162,18 +162,28 @@ internal class BenchFakeFeedRepository
              * - `ignoreUnknownKeys = true` so future fixture extensions
              *   (`_comment`, new viewer fields the production model
              *   doesn't yet have) don't break the loader.
+             * - `coerceInputValues = true` so unknown enum discriminators
+             *   (`"type": "ReplyCluster"` ahead of an enum extension,
+             *   `"video"` lowercase typo, etc.) coerce to the property's
+             *   declared default ([BenchFeedItemDto.Type.Single] /
+             *   [BenchEmbedDto.Type.Empty]) instead of throwing
+             *   `SerializationException`. The mapper's per-item
+             *   `runCatching` containment then surfaces the issue as a
+             *   per-card visual (Single → text-only, Empty → no embed)
+             *   plus a Timber warning, instead of bricking the whole
+             *   timeline.
              *
-             * Note: deliberately NOT setting `coerceInputValues = true`.
-             * That flag silently substitutes the property's default for
-             * an explicit `null` in JSON for a non-nullable Kotlin
-             * field — a fixture-author edit intending to encode 'no
-             * data' (e.g. `"likeCount": null`) would silently produce
-             * `0` with no diagnostic, defeating fail-loud fixture
-             * editing.
+             *   Trade-off: an explicit JSON `null` on a non-nullable
+             *   Kotlin field that has a default (`"likeCount": null`
+             *   on `BenchStatsDto.likeCount: Int = 0`) silently
+             *   produces the default. Acceptable for checked-in
+             *   fixture data — `null` isn't an intentional encoding
+             *   here.
              */
             private val JSON =
                 Json {
                     ignoreUnknownKeys = true
+                    coerceInputValues = true
                 }
         }
     }
