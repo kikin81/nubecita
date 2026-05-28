@@ -68,15 +68,61 @@ class AndroidBenchmarkConventionPlugin : Plugin<Project> {
                     targetSdk = 37
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+                    // Suppress the standard Macrobench refusal classes so
+                    // the bench will run on dev-laptop AVDs + GitHub-hosted
+                    // emulator runners (a hard requirement once the CI
+                    // workflow under crmi.6 Section C lands; useful today
+                    // for local-emulator smoke). Suppressed:
+                    //   EMULATOR     — running on an emulator
+                    //   LOW-BATTERY  — battery below 25%
+                    //   DEBUGGABLE   — debuggable app under test
+                    // Other suppressible classes (METHOD-TRACING,
+                    // NOT-PROFILEABLE, CODE-COVERAGE, UNLOCKED,
+                    // UNSUSTAINED-ACTIVITY-MISSING, ACTIVITY-MISSING)
+                    // are NOT suppressed — those would genuinely
+                    // invalidate the numbers and want investigation.
+                    //
+                    // Trade-off: numbers measured under suppressed
+                    // conditions aren't perf-stable enough for hard
+                    // PR-blocking thresholds. Section C will configure
+                    // the regression-tracker for relative trend
+                    // tracking, not absolute gating, consistent with
+                    // crmi.6's intended use of Macrobench.
+                    //
+                    // Lives here (not the bench module's manifest)
+                    // because the manifest-meta-data form only applies
+                    // when declared on the *target app*'s manifest. The
+                    // runner-arg form is the canonical recipe in the
+                    // androidx.benchmark refusal error message itself.
+                    testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] =
+                        "EMULATOR,LOW-BATTERY,DEBUGGABLE"
+
                     // :app gained an `environment` flavor dimension
-                    // (`production` / `bench`) under nubecita-crmi.6. For
-                    // now `:benchmark` targets the production variant —
-                    // real OAuth + real network — to preserve the existing
-                    // Macrobench behaviour. Section B of the ticket flips
-                    // this to "bench" once the fake-network stack is fully
-                    // wired (all 14 repos faked, not just Auth + Preferences)
-                    // so journey results are deterministic across runs.
-                    missingDimensionStrategy("environment", "production")
+                    // (`production` / `bench`) under nubecita-crmi.6 — see
+                    // `:app/build.gradle.kts` for the flavor decl and
+                    // `:feature:feed:impl` / `:core:auth` / `:core:preferences`
+                    // for the per-module fake-network source-set splits
+                    // landed across PRs #330 + #332.
+                    //
+                    // `:benchmark` now targets the `bench` variant so the
+                    // Macrobench journey hits FakeFeedRepository, the
+                    // FakeSessionStateProvider's hardcoded SignedIn, the
+                    // bench-source-set AppInitializer (empty — no FCM /
+                    // notifications-polling / muted-actor refresh chatter
+                    // during cold start), and the bundled `clip-1/2/3.mp4`
+                    // assets — deterministic across runs.
+                    //
+                    // The 2026-05-27 scope refresh on crmi.6 lists 14 repos
+                    // total; today only Auth, Preferences, and Feed are
+                    // faked. Other journeys (PostDetail, Profile, Search,
+                    // Notifications) will hit FakeXrpcClientProvider's
+                    // NoSessionException throw and render InitialError if
+                    // a future bench journey traverses them — those need
+                    // per-feature bench fakes (tracked under crmi.6's
+                    // remaining sections). The current bench-flavor
+                    // FeedScrollBenchmark + StartupBenchmark exercise only
+                    // the bench-quiet path (Splash → MainShell → Feed).
+                    missingDimensionStrategy("environment", "bench")
                 }
 
                 @Suppress("UnstableApiUsage")

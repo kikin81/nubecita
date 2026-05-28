@@ -6,6 +6,17 @@
     <instrumentation> tag automatically; we only declare the queries
     block here so the bench can resolve net.kikin.nubecita's launcher
     activity on API 30+.
+
+    The `androidx.benchmark.suppressErrors` config that lets the bench
+    run on emulators / low-battery / debuggable APKs lives on the
+    BENCH MODULE'S `testInstrumentationRunnerArguments` (see
+    `AndroidBenchmarkConventionPlugin.kt`'s defaultConfig block) —
+    NOT here on the bench module's manifest. The manifest meta-data
+    form of that config only applies when declared on the *target app*'s
+    manifest, not the benchmark module's. Trying it here is the
+    canonical first-time mistake (see the bench's own error output
+    quoting the recommended `testInstrumentationRunnerArguments[...]`
+    DSL).
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <queries>
