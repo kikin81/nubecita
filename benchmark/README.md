@@ -73,7 +73,7 @@ the `run-bench` label (mirrors the `instrumented` job's
 point to gh-pages and `fail-on-alert` at a `150%` threshold — a
 "catastrophic-regression smoke detector", not a fine-grained gate,
 because Macrobench's absolute numbers are 30–50 % noisy on
-`ubuntu-latest`. PR runs never mutate the trend (`auto-push: false`,
+hosted GitHub runners. PR runs never mutate the trend (`auto-push: false`,
 `save-data-file: false`) and never auto-fail; they post a
 comment-on-alert so the author sees the delta without blocking merge.
 

@@ -53,9 +53,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Single job, single permission set. Splitting the scheduled and PR paths
+# into separate jobs to drop `contents: write` on the PR path (as a strict
+# least-privilege reading would suggest) doesn't actually narrow the PR
+# token: github-action-benchmark's `comment-on-alert` / `comment-always`
+# output is posted as a *commit comment*, which itself requires
+# `contents: write`. So both paths need the same scope, and the PR path is
+# already gated to maintainer opt-in (the `run-bench` label — fork PRs can
+# neither add labels nor see write-capable tokens). Workflow-level it is.
 permissions:
-  contents: write # auto-push trend data to gh-pages + commit-comment on alert
-  pull-requests: write # comment-on-alert for run-bench PRs
+  contents: write # gh-pages auto-push (scheduled) + commit comments (both)
+  pull-requests: write # PR review-thread context for the bench comment
 
 jobs:
   macrobench:
@@ -66,16 +74,18 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-bench'))
-    runs-on: ubuntu-24.04
+    # `ubuntu-latest` to match the `instrumented` job (ci.yaml) — the AVD
+    # snapshot cache is keyed identically and shared between the two, so the
+    # runner image must track in lockstep. Pinning a distinct version here
+    # would risk a snapshot built on one image being restored on another.
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - name: Checkout
+        # Default shallow (depth 1) is enough — the build/benchmark steps
+        # don't need history, and github-action-benchmark fetches the
+        # gh-pages branch itself.
         uses: actions/checkout@v6
-        with:
-          # github-action-benchmark needs the full history of the gh-pages
-          # branch (fetched separately by the action), but a shallow main
-          # checkout is fine for the build itself.
-          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@v5
