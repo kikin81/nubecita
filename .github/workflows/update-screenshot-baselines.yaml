@@ -92,7 +92,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Regenerate baselines
-        run: ./gradlew updateDebugScreenshotTest
+        # Mirror the explicit per-module pattern from ci.yaml's
+        # `Validate screenshot tests` step — `updateDebugScreenshotTest`
+        # for non-flavored modules + the explicit production-flavor
+        # task for `:feature:feed:impl` (the bench-flavor variant
+        # fails to compile due to `internal` visibility on tested
+        # symbols).
+        run: ./gradlew updateDebugScreenshotTest :feature:feed:impl:updateProductionDebugScreenshotTest
 
       - name: Commit and push
         run: |

@@ -195,7 +195,20 @@ jobs:
 
       - name: Validate screenshot tests
         id: validate
-        run: ./gradlew validateDebugScreenshotTest
+        # `validateDebugScreenshotTest` keeps covering every non-flavored
+        # module (`:designsystem`, `feature/*:impl` minus `:feature:feed:impl`,
+        # `:core:common`); `:feature:feed:impl:validateProductionDebugScreenshotTest`
+        # is explicit because that module's `environment` flavor split
+        # (nubecita-xh99) removed the unflavored task name, AND running
+        # the bench-flavor variant fails to compile — `src/screenshotTest/`
+        # tests reference `internal FeedScreenViewState` / `FeedContent`
+        # / etc. that the bench compilation unit can't see (same shape as
+        # the testBenchDebugUnitTest condition this branch documents).
+        # Mirror the lint-job pattern from d74bc424: keep the umbrella
+        # task for unflavored modules and add the production-flavor task
+        # explicitly for the one flavored module that ships screenshot
+        # tests today.
+        run: ./gradlew validateDebugScreenshotTest :feature:feed:impl:validateProductionDebugScreenshotTest
 
       - name: Upload diff report on failure
         if: failure() && steps.validate.outcome == 'failure'
