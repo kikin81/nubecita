@@ -22,7 +22,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -381,7 +384,29 @@ internal fun MainShellChrome(
                 // BadgedBox doesn't track.
                 val badge: @Composable (() -> Unit)? =
                     if (destination.key == NotificationsTab && notificationsUnreadCount > 0) {
-                        { Badge { Text(text = formatUnreadCount(notificationsUnreadCount)) } }
+                        {
+                            // `clearAndSetSemantics` replaces the bare count Text
+                            // ("99+") with the full plurals string so TalkBack
+                            // reads "5 unread notifications" — merged into the
+                            // item it becomes "Notifications, 5 unread
+                            // notifications, selected". The visual still shows the
+                            // capped count via `formatUnreadCount`; the a11y string
+                            // uses the true count.
+                            val unreadDescription =
+                                pluralStringResource(
+                                    R.plurals.notifications_unread,
+                                    notificationsUnreadCount,
+                                    notificationsUnreadCount,
+                                )
+                            Badge(
+                                modifier =
+                                    Modifier.clearAndSetSemantics {
+                                        contentDescription = unreadDescription
+                                    },
+                            ) {
+                                Text(text = formatUnreadCount(notificationsUnreadCount))
+                            }
+                        }
                     } else {
                         null
                     }
@@ -392,15 +417,20 @@ internal fun MainShellChrome(
                     icon = {
                         NubecitaIcon(
                             name = destination.iconName,
-                            // The accessible name comes from `label` below; setting
-                            // `contentDescription` to the same string would make
-                            // TalkBack announce the destination twice.
-                            contentDescription = null,
+                            // Labels are hidden (icon-only bar — the localized
+                            // names, especially "Notifications", are too wide), so
+                            // the icon now carries the destination's accessible
+                            // name. NavigationSuiteItem merges descendants, so this
+                            // becomes the item's TalkBack label; the `selected` flag
+                            // above still contributes the Tab role + selected state.
+                            contentDescription = stringResource(destination.labelRes),
                             filled = isSelected,
                         )
                     },
                     badge = badge,
-                    label = { Text(stringResource(destination.labelRes)) },
+                    // `label = null` → icon-only. The accessible name moves to the
+                    // icon's `contentDescription` above; visible text is dropped.
+                    label = null,
                 )
             }
         },

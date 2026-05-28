@@ -5,4 +5,15 @@
     <string name="main_shell_tab_notifications">Notifications</string>
     <string name="main_shell_tab_chats">Chats</string>
     <string name="main_shell_tab_you">You</string>
+    <!--
+      Accessible description for the Notifications tab's unread badge. The
+      bottom-nav labels are hidden (icon-only), so this is read by TalkBack
+      after the tab's content description, e.g. "Notifications, 5 unread
+      notifications". %1$d is the true unread count (not the visually-capped
+      "99+"), so screen-reader users hear the exact number.
+    -->
+    <plurals name="notifications_unread">
+        <item quantity="one">%1$d unread notification</item>
+        <item quantity="other">%1$d unread notifications</item>
+    </plurals>
 </resources>
