@@ -16,8 +16,15 @@
         "createdAt": "2026-05-26T17:05:00Z",
         "text": "shipped the new feed pagination today. 120hz scroll holds even with three videos in viewport. months of profile-guided tuning and the difference is finally visible to my eyes, not just the trace viewer.",
         "facets": [],
-        "embed": { "type": "Empty" },
-        "stats": { "replyCount": 12, "repostCount": 4, "likeCount": 88, "quoteCount": 1 },
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 12,
+          "repostCount": 4,
+          "likeCount": 88,
+          "quoteCount": 1
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
@@ -56,12 +63,58 @@
             }
           ]
         },
-        "stats": { "replyCount": 5, "repostCount": 2, "likeCount": 41, "quoteCount": 0 },
+        "stats": {
+          "replyCount": 5,
+          "repostCount": 2,
+          "likeCount": 41,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": true,
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
           "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike1",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:ivyf00000000000000000000/app.bsky.feed.post/3kfeed1601",
+        "cid": "bafyreiivyf00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:ivyf00000000000000000000",
+          "handle": "ivy.fpv",
+          "displayName": "Ivy Park",
+          "avatarUrl": "file:///android_asset/img/avatars/ivy.jpg"
+        },
+        "createdAt": "2026-05-26T19:45:00Z",
+        "text": "test flight over the canyon yesterday. half a battery on hard cuts between rim, slot, and the wash. props for the new motor mount holding up.",
+        "facets": [],
+        "embed": {
+          "type": "Video",
+          "posterUrl": "file:///android_asset/img/posts/video-poster-3.jpg",
+          "playlistUrl": "asset:///video/clip-3.mp4",
+          "aspectRatio": 1.7777778,
+          "durationSeconds": 15,
+          "altText": "Fast cuts between FPV drone shots over canyon terrain."
+        },
+        "stats": {
+          "replyCount": 9,
+          "repostCount": 6,
+          "likeCount": 142,
+          "quoteCount": 2
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": null,
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
@@ -84,8 +137,15 @@
         "createdAt": "2026-05-26T20:18:00Z",
         "text": "rewriting our Compose nav graph in N3 today. the type-safe routes are real nice but the migration mostly means staring at sealed interfaces until the pattern clicks. anyone else gone through this?",
         "facets": [],
-        "embed": { "type": "Empty" },
-        "stats": { "replyCount": 18, "repostCount": 1, "likeCount": 22, "quoteCount": 0 },
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 18,
+          "repostCount": 1,
+          "likeCount": 22,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
@@ -136,7 +196,12 @@
             }
           ]
         },
-        "stats": { "replyCount": 7, "repostCount": 9, "likeCount": 134, "quoteCount": 2 },
+        "stats": {
+          "replyCount": 7,
+          "repostCount": 9,
+          "likeCount": 134,
+          "quoteCount": 2
+        },
         "viewer": {
           "isLikedByViewer": true,
           "isRepostedByViewer": false,
@@ -164,8 +229,15 @@
         "createdAt": "2026-05-26T23:44:00Z",
         "text": "studio cleanup day. found a sketchbook from 2019 with concepts I thought I had lost forever. going to scan a couple this week.",
         "facets": [],
-        "embed": { "type": "Empty" },
-        "stats": { "replyCount": 2, "repostCount": 0, "likeCount": 15, "quoteCount": 0 },
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 2,
+          "repostCount": 0,
+          "likeCount": 15,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
@@ -201,7 +273,12 @@
           "durationSeconds": 12,
           "altText": "Screen recording of a phone scrolling a feed at high frame rate."
         },
-        "stats": { "replyCount": 21, "repostCount": 14, "likeCount": 203, "quoteCount": 6 },
+        "stats": {
+          "replyCount": 21,
+          "repostCount": 14,
+          "likeCount": 203,
+          "quoteCount": 6
+        },
         "viewer": {
           "isLikedByViewer": true,
           "isRepostedByViewer": true,
@@ -240,12 +317,58 @@
             }
           ]
         },
-        "stats": { "replyCount": 9, "repostCount": 1, "likeCount": 56, "quoteCount": 0 },
+        "stats": {
+          "replyCount": 9,
+          "repostCount": 1,
+          "likeCount": 56,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
           "isFollowingAuthor": false,
           "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:juno00000000000000000000/app.bsky.feed.post/3kfeed1602",
+        "cid": "bafyreijuno00000000000000000000000000000000000000000002",
+        "author": {
+          "did": "did:plc:juno00000000000000000000",
+          "handle": "juno.live",
+          "displayName": "Juno Wright",
+          "avatarUrl": "file:///android_asset/img/avatars/juno.jpg"
+        },
+        "createdAt": "2026-05-27T03:20:00Z",
+        "text": "soundcheck from the warehouse set last night. drums, synth, the whole room is tracking together. continuous take, no cuts.",
+        "facets": [],
+        "embed": {
+          "type": "Video",
+          "posterUrl": "file:///android_asset/img/posts/video-poster-2.jpg",
+          "playlistUrl": "asset:///video/clip-2.mp4",
+          "aspectRatio": 1.7777778,
+          "durationSeconds": 14,
+          "altText": "A continuous warehouse-stage soundcheck with the full band playing."
+        },
+        "stats": {
+          "replyCount": 14,
+          "repostCount": 9,
+          "likeCount": 188,
+          "quoteCount": 4
+        },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike1602",
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
@@ -266,7 +389,7 @@
           "avatarUrl": "file:///android_asset/img/avatars/gabe.jpg"
         },
         "createdAt": "2026-05-27T05:50:00Z",
-        "text": "good long read on the architecture tradeoffs behind a popular embedded database. mostly think about the WAL section — surprised by how much of the perf budget goes into fsync batching.",
+        "text": "good long read on the architecture tradeoffs behind a popular embedded database. mostly think about the WAL section \u2014 surprised by how much of the perf budget goes into fsync batching.",
         "facets": [],
         "embed": {
           "type": "External",
@@ -276,7 +399,12 @@
           "description": "A walkthrough of the design choices, write-ahead log, and trade-offs from a six-month sabbatical project.",
           "thumbUrl": "file:///android_asset/img/external/article-db.jpg"
         },
-        "stats": { "replyCount": 4, "repostCount": 11, "likeCount": 78, "quoteCount": 1 },
+        "stats": {
+          "replyCount": 4,
+          "repostCount": 11,
+          "likeCount": 78,
+          "quoteCount": 1
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
@@ -304,8 +432,15 @@
         "createdAt": "2026-05-27T08:25:00Z",
         "text": "if your Compose previews are slow and you have not yet looked at the Layout Inspector tracer, today is the day. saved me an hour of guessing why a Box was recomposing per frame.",
         "facets": [],
-        "embed": { "type": "Empty" },
-        "stats": { "replyCount": 6, "repostCount": 7, "likeCount": 64, "quoteCount": 0 },
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 6,
+          "repostCount": 7,
+          "likeCount": 64,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": true,
           "isRepostedByViewer": false,
@@ -341,7 +476,12 @@
           "durationSeconds": 14,
           "altText": "Slow rotation of a coffee roaster drum, beans tumbling inside."
         },
-        "stats": { "replyCount": 11, "repostCount": 3, "likeCount": 97, "quoteCount": 0 },
+        "stats": {
+          "replyCount": 11,
+          "repostCount": 3,
+          "likeCount": 97,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
@@ -380,11 +520,57 @@
             }
           ]
         },
-        "stats": { "replyCount": 14, "repostCount": 0, "likeCount": 19, "quoteCount": 0 },
+        "stats": {
+          "replyCount": 14,
+          "repostCount": 0,
+          "likeCount": 19,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:luna00000000000000000000/app.bsky.feed.post/3kfeed1603",
+        "cid": "bafyreilun000000000000000000000000000000000000000000003",
+        "author": {
+          "did": "did:plc:luna00000000000000000000",
+          "handle": "luna.makes",
+          "displayName": "Luna Martinez",
+          "avatarUrl": "file:///android_asset/img/avatars/luna.jpg"
+        },
+        "createdAt": "2026-05-27T07:15:00Z",
+        "text": "slow process shot of the pour. the paint moves at maybe one frame per second. perfect for testing how a player handles low-motion content.",
+        "facets": [],
+        "embed": {
+          "type": "Video",
+          "posterUrl": "file:///android_asset/img/posts/video-poster-1.jpg",
+          "playlistUrl": "asset:///video/clip-1.mp4",
+          "aspectRatio": 1.7777778,
+          "durationSeconds": 12,
+          "altText": "A slow time-lapse of paint pouring into a tray, mostly static frame."
+        },
+        "stats": {
+          "replyCount": 5,
+          "repostCount": 3,
+          "likeCount": 76,
+          "quoteCount": 1
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
           "likeUri": null,
           "repostUri": null,
           "isAuthorMutedByViewer": false,
@@ -416,7 +602,12 @@
           "description": "A guide to acoustic treatment for small home studios, with practical panel-placement diagrams.",
           "thumbUrl": "file:///android_asset/img/external/article-audio.jpg"
         },
-        "stats": { "replyCount": 3, "repostCount": 8, "likeCount": 42, "quoteCount": 0 },
+        "stats": {
+          "replyCount": 3,
+          "repostCount": 8,
+          "likeCount": 42,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
@@ -455,7 +646,12 @@
             }
           ]
         },
-        "stats": { "replyCount": 17, "repostCount": 5, "likeCount": 112, "quoteCount": 3 },
+        "stats": {
+          "replyCount": 17,
+          "repostCount": 5,
+          "likeCount": 112,
+          "quoteCount": 3
+        },
         "viewer": {
           "isLikedByViewer": true,
           "isRepostedByViewer": false,
@@ -481,10 +677,17 @@
           "avatarUrl": "file:///android_asset/img/avatars/fede.jpg"
         },
         "createdAt": "2026-05-27T16:20:00Z",
-        "text": "boosting this — Alice's frame pacing thread is the clearest explanation I have read of what Choreographer is actually doing under the hood.",
+        "text": "boosting this \u2014 Alice's frame pacing thread is the clearest explanation I have read of what Choreographer is actually doing under the hood.",
         "facets": [],
-        "embed": { "type": "Empty" },
-        "stats": { "replyCount": 1, "repostCount": 20, "likeCount": 33, "quoteCount": 0 },
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 1,
+          "repostCount": 20,
+          "likeCount": 33,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
@@ -512,8 +715,15 @@
         "createdAt": "2026-05-27T16:55:00Z",
         "text": "side note: the new Macrobench journey we're running takes about ninety seconds end to end on a Pixel 10 Pro XL. that is a great pace for the local feedback loop.",
         "facets": [],
-        "embed": { "type": "Empty" },
-        "stats": { "replyCount": 0, "repostCount": 1, "likeCount": 8, "quoteCount": 0 },
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 0,
+          "repostCount": 1,
+          "likeCount": 8,
+          "quoteCount": 0
+        },
         "viewer": {
           "isLikedByViewer": false,
           "isRepostedByViewer": false,
@@ -525,6 +735,47 @@
           "isAuthorBlockingViewer": false
         },
         "repostedBy": "Gabriela Soto"
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:kaiu00000000000000000000/app.bsky.feed.post/3kfeed1604",
+        "cid": "bafyreikaiu00000000000000000000000000000000000000000004",
+        "author": {
+          "did": "did:plc:kaiu00000000000000000000",
+          "handle": "kai.surf",
+          "displayName": "Kai Tanaka",
+          "avatarUrl": "file:///android_asset/img/avatars/kai.jpg"
+        },
+        "createdAt": "2026-05-27T16:50:00Z",
+        "text": "session edit from yesterday morning. tight cuts between the inside section, the carve, and the boost. shoutout to the cinematographer.",
+        "facets": [],
+        "embed": {
+          "type": "Video",
+          "posterUrl": "file:///android_asset/img/posts/video-poster-3.jpg",
+          "playlistUrl": "asset:///video/clip-3.mp4",
+          "aspectRatio": 1.7777778,
+          "durationSeconds": 15,
+          "altText": "High-motion surf session edit with multiple hard cuts."
+        },
+        "stats": {
+          "replyCount": 11,
+          "repostCount": 7,
+          "likeCount": 167,
+          "quoteCount": 3
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": true,
+          "isFollowingAuthor": false,
+          "likeUri": null,
+          "repostUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.repost/3kviewerrepost1604",
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
       }
     }
   ]
