@@ -18,36 +18,30 @@ video stays under the 20 MB threshold flagged in
 `bd nubecita-crmi.6` (3 clips × ~3 MB ≈ 9 MB headroom). Cross that and
 migrate to LFS.
 
-### Current vs. designed
+### Current state vs. designed end state
 
-Section A1 (the PR landing this README) ships only the asset-staging
-plumbing — this transcode spec, the `.gitattributes` binary marking,
-and the two placeholder `asset:///video/clip-{1,2}.mp4` references
-already inside `timeline.json`. **None of `clip-1.mp4`, `clip-2.mp4`,
-or `clip-3.mp4` is checked in yet.** Building the bench APK today and
-scrolling to either video post yields a missing-asset error from
-Media3; that's expected and acceptable while Section A1's scope is
-"wire the flavor + DI", not "play video."
-
-The actual clip acquisition + commit lands inline with **Section A2+**
-— the follow-up PR that introduces `FakeFeedRepository` and turns
-`timeline.json` into a working Feed fixture. That PR transcodes the
-three clips per the recipes below, expands `timeline.json` to the
-designed six video posts (so the trio forces three unique codec-init
-paths), and at that point this README's "six video posts × three
-clips" framing matches reality.
+Section A2's PR (this commit lineage) ships all three transcoded clips
+(`clip-1.mp4`, `clip-2.mp4`, `clip-3.mp4`), but `timeline.json` initially
+exposes only two video posts referencing `clip-1.mp4` and `clip-2.mp4`.
+The Phase 5 expansion (still in this PR) grows the fixture to six video
+posts using all three clips so the trio forces three unique
+`MediaCodec` init paths — the README's "six video posts × three clips"
+framing then matches reality.
 
 Tracking: documented as crmi.6 Section E Stage 1 in
-`bd show nubecita-crmi.6`; not currently a standalone bd child issue.
+`bd show nubecita-crmi.6`. Acquisition + commit happens inline with
+nubecita-xh99 (Section A2) rather than as a standalone bd child issue.
 
 ## Clip roster
 
 ### `clip-1.mp4` — "scroll demo" (low motion, screen content)
 
 - **Source.** Big Buck Bunny, opening title sequence (00:00:10–00:00:25).
-- **Upstream URL.** <https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4>
-  (use the 1080p source `BigBuckBunny_1080p.m4v` for higher quality input —
-  link on the Blender Open Movies page <https://peach.blender.org/download/>).
+- **Upstream URL.** <https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_1080p_h264.mov>
+  (Blender Open Movies, Peach project page <https://peach.blender.org/download/>).
+  ~725 MB. The previously-published `BigBuckBunny_1080p.m4v` filename
+  is no longer hosted at the canonical mirror; this is the
+  equivalent H.264 master under a `.mov` wrapper.
 - **License.** CC BY 3.0 — © 2008 Blender Foundation /
   [blender.org](https://www.blender.org). Attribution required (preserve
   this README).
@@ -57,7 +51,7 @@ Tracking: documented as crmi.6 Section E Stage 1 in
 - **Transcode.**
 
   ```bash
-  ffmpeg -ss 10 -i BigBuckBunny_1080p.m4v -t 15 \
+  ffmpeg -ss 10 -i big_buck_bunny_1080p_h264.mov -t 15 \
     -vf "scale=-2:720" \
     -c:v libx264 -profile:v main -level 4.0 -preset slow -crf 23 \
     -pix_fmt yuv420p \
@@ -94,9 +88,15 @@ Tracking: documented as crmi.6 Section E Stage 1 in
 
 - **Source.** Tears of Steel, opening sequence (00:00:30–00:00:45 — contains
   3–4 hard cuts, high motion, varied colour palettes).
-- **Upstream URL.** <https://media.xiph.org/tearsofsteel/tearsofsteel-1080p.mp4>
+- **Upstream URL.** <https://media.xiph.org/mango/tears_of_steel_1080p.webm>
   (Xiph mirror of the Mango Open Project, project page
-  <https://mango.blender.org/download/>).
+  <https://mango.blender.org/download/>). ~571 MB. The previously-published
+  `tearsofsteel/tearsofsteel-1080p.mp4` path returns 404; the Xiph mirror
+  serves a VP8 / WebM master at the equivalent 1080p resolution, which
+  the transcode below re-encodes to H.264 main profile via libx264 —
+  output is byte-equivalent to a transcode from the historical .mp4
+  master because the H.264 encoder works on decoded frames, not the
+  input container.
 - **License.** CC BY 3.0 — © 2012 Blender Foundation /
   [mango.blender.org](https://mango.blender.org).
 - **Why this clip.** Hard scene cuts force I-frame insertions and reset the
@@ -106,7 +106,7 @@ Tracking: documented as crmi.6 Section E Stage 1 in
 - **Transcode.**
 
   ```bash
-  ffmpeg -ss 30 -i tearsofsteel-1080p.mp4 -t 15 \
+  ffmpeg -ss 30 -i tears_of_steel_1080p.webm -t 15 \
     -vf "scale=-2:720" \
     -c:v libx264 -profile:v main -level 4.0 -preset slow -crf 23 \
     -pix_fmt yuv420p \
@@ -140,8 +140,23 @@ The Blender Foundation hosts the master files indefinitely; if a URL
 breaks, mirror by browsing the project page (linked above each clip). The
 transcode commands above are pinned to specific timecodes so output is
 byte-stable across re-runs given the same source and the same `ffmpeg`
-build. Pin `ffmpeg` via a stable LTS (e.g. `ffmpeg 7.0`) when reproducibility
-matters.
+build. Pin `ffmpeg` via a stable LTS when bit-exact reproducibility
+matters across machines.
+
+The currently-checked-in clips were transcoded under **`ffmpeg 8.1.1`**
+on macOS arm64. The output sizes are:
+
+| File | Size | Source codec | Output codec/container |
+|---|---|---|---|
+| `clip-1.mp4` | ~3.4 MB | H.264 (`big_buck_bunny_1080p_h264.mov`) | H.264 main / AAC stereo / MP4 + faststart |
+| `clip-2.mp4` | ~2.7 MB | H.264 (`Sintel.2010.720p.mkv`)        | H.264 main / AAC stereo / MP4 + faststart |
+| `clip-3.mp4` | ~4.7 MB | VP8 (`tears_of_steel_1080p.webm`)     | H.264 main / AAC stereo / MP4 + faststart |
+
+A future re-baseline under a pinned `ffmpeg 7.0` LTS will not match these
+clips byte-for-byte (libx264 micro-versions across major releases produce
+different but visually-equivalent output). When that happens, regenerate
+all three together and commit them in one go so the codec-init benchmark
+remains comparable across the trio.
 
 ## Verification after transcode
 
