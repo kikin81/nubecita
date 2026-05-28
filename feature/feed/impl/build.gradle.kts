@@ -20,6 +20,22 @@ android {
     // effects on a mocked AudioManager + StateFlow transitions, so
     // letting AudioAttributes calls no-op is safe.
     testOptions.unitTests.isReturnDefaultValues = true
+
+    // The `environment` flavor dimension splits the production
+    // FeedRepositoryModule (real `app.bsky.feed.getTimeline` XRPC call via
+    // `DefaultFeedRepository`) from a bench-flavor parallel that binds an
+    // asset-backed `FakeFeedRepository`. The `:app` module's `bench` flavor
+    // consumes the matching variant via the missingDimensionStrategy plumbing
+    // in `AndroidLibraryConventionPlugin`; everything that imports
+    // `:feature:feed:impl` resolves the production variant by default. See
+    // `bd show nubecita-xh99` for the broader scope (crmi.6 Section A2) and
+    // `:core:auth/build.gradle.kts` for the precedent established in
+    // Section A1 (#330).
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
 }
 
 dependencies {
