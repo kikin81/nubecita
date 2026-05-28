@@ -157,7 +157,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        # Same flavor-disambiguation reason as the connected-test pin below:
+        # :app's `environment` dimension makes `assembleDebug` aggregate both
+        # productionDebug + benchDebug. The bench APK isn't smoke-tested in
+        # this job (and won't be until the Section-C scheduled bench pipeline
+        # lands), so keep CI building only the production variant.
+        run: ./gradlew assembleProductionDebug
 
   screenshot:
     name: Screenshot tests
