@@ -8,14 +8,26 @@ Section E stage 1 for rationale.
 
 Each clip is **~10–15 s, 720p, H.264 main profile, AAC stereo 128 kbps, MP4
 container with faststart**, targeting **~2–3 MB on disk**. Three distinct
-clips guarantee that six video posts in `timeline.json` force three unique
-codec-init paths so the single-player coordinator's acquire/release/swap is
-actually exercised under scroll.
+clips are the *designed* end state — once the bench timeline grows to six
+video posts (see the **Current vs. designed** note below) the trio forces
+three unique codec-init paths so the single-player coordinator's
+acquire/release/swap is actually exercised under scroll.
 
 These files are **not checked in via Git LFS** as long as the total bundled
 video stays under the 20 MB threshold flagged in
 `bd nubecita-crmi.6` (3 clips × ~3 MB ≈ 9 MB headroom). Cross that and
 migrate to LFS.
+
+### Current vs. designed
+
+Section A1 ships the asset-staging plumbing but only the first two clips
+and two corresponding video posts in `timeline.json` (referencing
+`clip-1.mp4` and `clip-2.mp4`). `clip-3.mp4` and the additional four
+video posts needed to drive the full three-codec-init coverage land in
+Section A2+ alongside the broader feed/notification repository fakes —
+until then the "six video posts × three clips" framing in the rest of
+this README documents the *target* shape, not what `timeline.json`
+currently contains.
 
 ## Clip roster
 
