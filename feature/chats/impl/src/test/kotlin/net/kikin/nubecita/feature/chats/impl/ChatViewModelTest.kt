@@ -311,6 +311,83 @@ internal class ChatViewModelTest {
             )
         }
 
+    @Test
+    fun `send success survives a refresh that wipes the optimistic row mid-send`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.sendGate = CompletableDeferred()
+            repo.nextSendResult =
+                Result.success(
+                    MessageUi(
+                        id = "server-1",
+                        senderDid = "did:plc:viewer",
+                        isOutgoing = true,
+                        text = "hello",
+                        isDeleted = false,
+                        sentAt = Instant.parse("2026-05-20T10:00:00Z"),
+                        sendStatus = MessageSendStatus.Sent,
+                    ),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "hello")
+            vm.handleEvent(ChatEvent.Send)
+            runCurrent()
+            assertEquals(
+                1,
+                vm.uiState.value
+                    .outgoingMessages()
+                    .size,
+                "optimistic row appended",
+            )
+
+            // A refresh lands while the send is still in flight and replaces the
+            // list wholesale — the local:* optimistic row is gone.
+            repo.nextMessagesResult = Result.success(MessagePage(messages = persistentListOf()))
+            vm.handleEvent(ChatEvent.Refresh)
+            advanceUntilIdle()
+            assertTrue(
+                vm.uiState.value
+                    .outgoingMessages()
+                    .isEmpty(),
+                "refresh wiped the temp row",
+            )
+
+            // Now the send confirms — the sent message must not be silently dropped.
+            repo.sendGate!!.complete(Unit)
+            advanceUntilIdle()
+            val outgoing = vm.uiState.value.outgoingMessages()
+            assertEquals(1, outgoing.size, "the confirmed sent message must survive the concurrent refresh")
+            assertEquals("server-1", outgoing.single().id)
+            assertEquals(MessageSendStatus.Sent, outgoing.single().sendStatus)
+        }
+
+    @Test
+    fun `send failure survives a refresh that wipes the optimistic row mid-send`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.sendGate = CompletableDeferred()
+            repo.nextSendResult = Result.failure(IOException("net down"))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "oops")
+            vm.handleEvent(ChatEvent.Send)
+            runCurrent()
+
+            repo.nextMessagesResult = Result.success(MessagePage(messages = persistentListOf()))
+            vm.handleEvent(ChatEvent.Refresh)
+            advanceUntilIdle()
+
+            repo.sendGate!!.complete(Unit)
+            advanceUntilIdle()
+            val outgoing = vm.uiState.value.outgoingMessages()
+            assertEquals(1, outgoing.size, "a failed send must not be silently dropped by a concurrent refresh")
+            assertEquals("oops", outgoing.single().text)
+            assertEquals(MessageSendStatus.Failed, outgoing.single().sendStatus)
+        }
+
     /**
      * Mutates the VM's [ChatViewModel.textFieldState] and drives the Compose
      * snapshot system so the change reaches the VM's `snapshotFlow` collector.

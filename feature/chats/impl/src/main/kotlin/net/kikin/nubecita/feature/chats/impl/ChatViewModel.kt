@@ -68,8 +68,12 @@ internal class ChatViewModel
         val textFieldState: TextFieldState = TextFieldState()
 
         init {
-            snapshotFlow { textFieldState.text.toString() }
-                .onEach { text -> setState { copy(isSendEnabled = text.isNotBlank()) } }
+            // Project the boolean gate (not the raw text) so the collector only
+            // touches state when blank/non-blank actually flips — snapshotFlow
+            // dedupes on the computed value, so per-keystroke setState churn is
+            // avoided.
+            snapshotFlow { textFieldState.text.toString().isNotBlank() }
+                .onEach { enabled -> setState { copy(isSendEnabled = enabled) } }
                 .launchIn(viewModelScope)
             launchLoad()
         }
@@ -92,6 +96,11 @@ internal class ChatViewModel
          * server id reconcile means the next `getMessages` refresh (which replaces
          * [messages] wholesale) won't double the row. The transient error effect +
          * inline retry are a follow-up (child D).
+         *
+         * If a refresh completes mid-send and wipes the temp row, the reconcile
+         * re-surfaces the result instead of dropping it: a confirmed message is
+         * re-inserted (de-duped on server id in case the refresh already pulled it
+         * in), and a failed row is re-inserted so the send isn't silently lost.
          */
         private fun onSend() {
             val convo = convoId ?: return
@@ -119,12 +128,20 @@ internal class ChatViewModel
                 repository
                     .sendMessage(convo, text)
                     .onSuccess { server ->
-                        messages = messages.map { if (it.id == tempId) server else it }
+                        messages =
+                            when {
+                                messages.any { it.id == tempId } -> messages.map { if (it.id == tempId) server else it }
+                                messages.any { it.id == server.id } -> messages // refresh already pulled it in
+                                else -> listOf(server) + messages // temp row wiped mid-send; don't lose the sent message
+                            }
                         commitMessages()
                     }.onFailure {
+                        val failed = optimistic.copy(sendStatus = MessageSendStatus.Failed)
                         messages =
-                            messages.map {
-                                if (it.id == tempId) it.copy(sendStatus = MessageSendStatus.Failed) else it
+                            if (messages.any { it.id == tempId }) {
+                                messages.map { if (it.id == tempId) failed else it }
+                            } else {
+                                listOf(failed) + messages // temp row wiped mid-send; re-surface the failure
                             }
                         commitMessages()
                     }
