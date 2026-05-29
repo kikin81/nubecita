@@ -1,9 +1,14 @@
 package net.kikin.nubecita.feature.chats.impl
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.snapshots.Snapshot
 import app.cash.turbine.test
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.chats.api.Chat
@@ -13,6 +18,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import java.io.IOException
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -197,6 +203,213 @@ internal class ChatViewModelTest {
                 assertEquals(ChatEffect.NavigateToPost(quotedUri), effect)
             }
         }
+
+    // --- Composer: enable gate + optimistic send (child B) ---
+
+    @Test
+    fun `isSendEnabled tracks whether the composer text is non-blank`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            assertEquals(false, vm.uiState.value.isSendEnabled)
+
+            setComposerText(vm, "hello")
+            assertEquals(true, vm.uiState.value.isSendEnabled)
+
+            setComposerText(vm, "   ")
+            assertEquals(false, vm.uiState.value.isSendEnabled, "whitespace-only is not sendable")
+        }
+
+    @Test
+    fun `Send appends an optimistic Sending row and clears the composer`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            // Gate the send so the optimistic row is observable before reconcile.
+            repo.sendGate = CompletableDeferred()
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "hello")
+            vm.handleEvent(ChatEvent.Send)
+            runCurrent()
+
+            assertEquals("", vm.textFieldState.text.toString(), "composer clears immediately on send")
+            val outgoing = vm.uiState.value.outgoingMessages()
+            assertEquals(1, outgoing.size)
+            assertEquals("hello", outgoing.single().text)
+            assertEquals(MessageSendStatus.Sending, outgoing.single().sendStatus)
+            assertTrue(outgoing.single().id.startsWith("local:"), "optimistic row uses a client temp id")
+            assertEquals("convo-1", repo.lastSendConvoId)
+            assertEquals("hello", repo.lastSendText)
+        }
+
+    @Test
+    fun `Send success replaces the optimistic row with the server message`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.nextSendResult =
+                Result.success(
+                    MessageUi(
+                        id = "server-99",
+                        senderDid = "did:plc:viewer",
+                        isOutgoing = true,
+                        text = "hello",
+                        isDeleted = false,
+                        sentAt = Instant.parse("2026-05-20T10:00:00Z"),
+                        sendStatus = MessageSendStatus.Sent,
+                    ),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "hello")
+            vm.handleEvent(ChatEvent.Send)
+            advanceUntilIdle()
+
+            val outgoing = vm.uiState.value.outgoingMessages()
+            assertEquals(1, outgoing.size, "exactly one outgoing row after reconcile — no duplicate")
+            assertEquals("server-99", outgoing.single().id)
+            assertEquals(MessageSendStatus.Sent, outgoing.single().sendStatus)
+            assertEquals(1, repo.sendCalls.get())
+        }
+
+    @Test
+    fun `Send failure flips the optimistic row to Failed`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.nextSendResult = Result.failure(IOException("net down"))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "oops")
+            vm.handleEvent(ChatEvent.Send)
+            advanceUntilIdle()
+
+            val outgoing = vm.uiState.value.outgoingMessages()
+            assertEquals(1, outgoing.size)
+            assertEquals("oops", outgoing.single().text)
+            assertEquals(MessageSendStatus.Failed, outgoing.single().sendStatus)
+        }
+
+    @Test
+    fun `Send with a blank composer is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "   ")
+            vm.handleEvent(ChatEvent.Send)
+            advanceUntilIdle()
+
+            assertEquals(0, repo.sendCalls.get())
+            assertTrue(
+                vm.uiState.value
+                    .outgoingMessages()
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `send success survives a refresh that wipes the optimistic row mid-send`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.sendGate = CompletableDeferred()
+            repo.nextSendResult =
+                Result.success(
+                    MessageUi(
+                        id = "server-1",
+                        senderDid = "did:plc:viewer",
+                        isOutgoing = true,
+                        text = "hello",
+                        isDeleted = false,
+                        sentAt = Instant.parse("2026-05-20T10:00:00Z"),
+                        sendStatus = MessageSendStatus.Sent,
+                    ),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "hello")
+            vm.handleEvent(ChatEvent.Send)
+            runCurrent()
+            assertEquals(
+                1,
+                vm.uiState.value
+                    .outgoingMessages()
+                    .size,
+                "optimistic row appended",
+            )
+
+            // A refresh lands while the send is still in flight and replaces the
+            // list wholesale — the local:* optimistic row is gone.
+            repo.nextMessagesResult = Result.success(MessagePage(messages = persistentListOf()))
+            vm.handleEvent(ChatEvent.Refresh)
+            advanceUntilIdle()
+            assertTrue(
+                vm.uiState.value
+                    .outgoingMessages()
+                    .isEmpty(),
+                "refresh wiped the temp row",
+            )
+
+            // Now the send confirms — the sent message must not be silently dropped.
+            repo.sendGate!!.complete(Unit)
+            advanceUntilIdle()
+            val outgoing = vm.uiState.value.outgoingMessages()
+            assertEquals(1, outgoing.size, "the confirmed sent message must survive the concurrent refresh")
+            assertEquals("server-1", outgoing.single().id)
+            assertEquals(MessageSendStatus.Sent, outgoing.single().sendStatus)
+        }
+
+    @Test
+    fun `send failure survives a refresh that wipes the optimistic row mid-send`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.sendGate = CompletableDeferred()
+            repo.nextSendResult = Result.failure(IOException("net down"))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "oops")
+            vm.handleEvent(ChatEvent.Send)
+            runCurrent()
+
+            repo.nextMessagesResult = Result.success(MessagePage(messages = persistentListOf()))
+            vm.handleEvent(ChatEvent.Refresh)
+            advanceUntilIdle()
+
+            repo.sendGate!!.complete(Unit)
+            advanceUntilIdle()
+            val outgoing = vm.uiState.value.outgoingMessages()
+            assertEquals(1, outgoing.size, "a failed send must not be silently dropped by a concurrent refresh")
+            assertEquals("oops", outgoing.single().text)
+            assertEquals(MessageSendStatus.Failed, outgoing.single().sendStatus)
+        }
+
+    /**
+     * Mutates the VM's [ChatViewModel.textFieldState] and drives the Compose
+     * snapshot system so the change reaches the VM's `snapshotFlow` collector.
+     * No frame loop exists in unit tests, so [Snapshot.sendApplyNotifications]
+     * is triggered manually; [runCurrent] then advances past the collector's
+     * suspending boundary. Mirrors `ComposerViewModelTest.setComposerText`.
+     */
+    private fun TestScope.setComposerText(
+        vm: ChatViewModel,
+        text: String,
+    ) {
+        vm.textFieldState.setTextAndPlaceCursorAtEnd(text)
+        Snapshot.sendApplyNotifications()
+        testScheduler.runCurrent()
+    }
+
+    private fun ChatScreenViewState.outgoingMessages(): List<MessageUi> =
+        (status as ChatLoadStatus.Loaded)
+            .items
+            .filterIsInstance<ThreadItem.Message>()
+            .map { it.message }
+            .filter { it.isOutgoing }
 
     private fun chatViewModel(repo: FakeChatRepository): ChatViewModel =
         ChatViewModel(

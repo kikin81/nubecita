@@ -27,4 +27,8 @@
     <string name="chat_error_convo_not_found_body">You don\'t have a conversation with this user yet.</string>
     <string name="chat_error_messages_disabled_title">Can\'t send messages</string>
     <string name="chat_error_messages_disabled_body">This person has chosen not to receive direct messages.</string>
+
+    <!-- Composer (b6uv.2) -->
+    <string name="chat_composer_placeholder">Message</string>
+    <string name="chat_composer_send_content_description">Send</string>
 </resources>
