@@ -13,6 +13,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import kotlin.time.Instant
 
@@ -21,6 +22,7 @@ private fun mu(
     isOutgoing: Boolean,
     text: String = "Hello there",
     isDeleted: Boolean = false,
+    sendStatus: MessageSendStatus = MessageSendStatus.Sent,
 ): MessageUi =
     MessageUi(
         id = id,
@@ -29,6 +31,7 @@ private fun mu(
         text = text,
         isDeleted = isDeleted,
         sentAt = Instant.parse("2026-05-14T12:00:00Z"),
+        sendStatus = sendStatus,
     )
 
 @PreviewTest
@@ -100,6 +103,50 @@ private fun OutgoingRunOfThree() {
                 MessageBubble(mu(id = "a", isOutgoing = true, text = "first message"), runIndex = 0, runCount = 3)
                 MessageBubble(mu(id = "b", isOutgoing = true, text = "middle one"), runIndex = 1, runCount = 3)
                 MessageBubble(mu(id = "c", isOutgoing = true, text = "last in the run"), runIndex = 2, runCount = 3)
+            }
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "bubble-outgoing-sending-light", showBackground = true)
+@Preview(name = "bubble-outgoing-sending-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun OutgoingSending() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                MessageBubble(
+                    mu(isOutgoing = true, text = "On my way", sendStatus = MessageSendStatus.Sending),
+                    runIndex = 0,
+                    runCount = 1,
+                )
+            }
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "bubble-outgoing-failed-light", showBackground = true)
+@Preview(name = "bubble-outgoing-failed-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun OutgoingFailed() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                MessageBubble(
+                    mu(isOutgoing = true, text = "Did this go through?", sendStatus = MessageSendStatus.Failed),
+                    runIndex = 0,
+                    runCount = 1,
+                )
             }
         }
     }

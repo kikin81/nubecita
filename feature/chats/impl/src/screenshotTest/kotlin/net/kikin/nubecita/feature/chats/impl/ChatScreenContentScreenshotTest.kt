@@ -40,6 +40,7 @@ private fun mu(
     sentAt: String,
     isDeleted: Boolean = false,
     embed: EmbedUi.RecordOrUnavailable? = null,
+    sendStatus: MessageSendStatus = MessageSendStatus.Sent,
 ): MessageUi =
     MessageUi(
         id = id,
@@ -49,6 +50,7 @@ private fun mu(
         isDeleted = isDeleted,
         sentAt = Instant.parse(sentAt),
         embed = embed,
+        sendStatus = sendStatus,
     )
 
 private fun recordEmbed(
@@ -221,6 +223,63 @@ private val LOADED_WITH_EMBEDS_STATE =
             ),
     )
 
+/**
+ * Loaded state exercising the send-status footers added by `nubecita-b6uv.4`:
+ * an in-flight `Sending` row (spinner + label) and a `Failed` row (error line
+ * + inline retry). Its own state so the pre-send-status baselines are untouched.
+ */
+private val LOADED_WITH_SEND_STATUS_STATE =
+    ChatScreenViewState(
+        otherUserHandle = "alice.bsky.social",
+        otherUserDisplayName = "Alice",
+        otherUserAvatarHue = 217,
+        status =
+            ChatLoadStatus.Loaded(
+                items =
+                    persistentListOf(
+                        ThreadItem.Message(
+                            message =
+                                mu(
+                                    id = "local:1",
+                                    isOutgoing = true,
+                                    text = "Did this one go through?",
+                                    sentAt = "2026-05-14T17:36:00Z",
+                                    sendStatus = MessageSendStatus.Failed,
+                                ),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = false,
+                        ),
+                        ThreadItem.Message(
+                            message =
+                                mu(
+                                    id = "local:0",
+                                    isOutgoing = true,
+                                    text = "On my way",
+                                    sentAt = "2026-05-14T17:35:00Z",
+                                    sendStatus = MessageSendStatus.Sending,
+                                ),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = false,
+                        ),
+                        ThreadItem.Message(
+                            message = mu("m1", isOutgoing = false, text = "Hey, you around?", sentAt = "2026-05-14T17:27:00Z"),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = true,
+                        ),
+                        ThreadItem.DaySeparator(
+                            epochDay =
+                                java.time.LocalDate
+                                    .parse("2026-05-14")
+                                    .toEpochDay(),
+                            label = "Today",
+                        ),
+                    ),
+            ),
+    )
+
 private val EMPTY_STATE =
     ChatScreenViewState(
         otherUserHandle = "alice.bsky.social",
@@ -264,6 +323,16 @@ private fun ChatScreenLoadedWithEmbedsScreenshot() {
         NubecitaCanvasPreviewTheme {
             ChatScreenContent(state = LOADED_WITH_EMBEDS_STATE, onEvent = {}, textFieldState = TextFieldState())
         }
+    }
+}
+
+@PreviewTest
+@Preview(name = "chat-send-status-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-send-status-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenSendStatusScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = LOADED_WITH_SEND_STATUS_STATE, onEvent = {}, textFieldState = TextFieldState())
     }
 }
 

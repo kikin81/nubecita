@@ -31,4 +31,12 @@
     <!-- Composer (b6uv.2) -->
     <string name="chat_composer_placeholder">Message</string>
     <string name="chat_composer_send_content_description">Send</string>
+
+    <!-- Send status + retry (b6uv.4) -->
+    <string name="chat_send_status_sending">Sending</string>
+    <string name="chat_send_status_failed">Not delivered</string>
+    <string name="chat_send_retry">Retry</string>
+    <string name="chat_send_error_network">Couldn\'t send — check your connection and retry.</string>
+    <string name="chat_send_error_messages_disabled">This person can\'t receive your messages.</string>
+    <string name="chat_send_error_generic">Couldn\'t send your message. Tap retry to try again.</string>
 </resources>

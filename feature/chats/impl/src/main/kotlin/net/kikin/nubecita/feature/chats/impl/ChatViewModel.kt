@@ -84,6 +84,7 @@ internal class ChatViewModel
                 ChatEvent.RetryClicked -> launchLoad()
                 ChatEvent.BackPressed -> Unit // screen handles back via nav state
                 ChatEvent.Send -> onSend()
+                is ChatEvent.RetrySend -> onRetrySend(event.tempId)
                 is ChatEvent.QuotedPostTapped ->
                     sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
             }
@@ -124,9 +125,43 @@ internal class ChatViewModel
                 )
             messages = listOf(optimistic) + messages
             commitMessages()
+            dispatchSend(convo, tempId, optimistic)
+        }
+
+        /**
+         * Inline retry from a `Failed` row: flip it back to `Sending` in place
+         * (reusing its `local:<n>` temp id so the reconcile path is unchanged)
+         * and re-issue the send with the row's existing text. No-op if the row
+         * was already reconciled away or isn't `Failed` (a stale tap after a
+         * concurrent refresh, say).
+         */
+        private fun onRetrySend(tempId: String) {
+            val convo = convoId ?: return
+            val existing = messages.firstOrNull { it.id == tempId } ?: return
+            if (existing.sendStatus != MessageSendStatus.Failed) return
+            val retrying = existing.copy(sendStatus = MessageSendStatus.Sending)
+            messages = messages.map { if (it.id == tempId) retrying else it }
+            commitMessages()
+            dispatchSend(convo, tempId, retrying)
+        }
+
+        /**
+         * Shared send + reconcile for both the first attempt ([onSend]) and an
+         * inline retry ([onRetrySend]). [optimistic] is the in-flight `Sending`
+         * row carrying the text to send; on success its [tempId] row is replaced
+         * by the server message, on failure it flips to `Failed` and a transient
+         * [ChatEffect.ShowSendError] is emitted. The mid-send-refresh fallbacks
+         * (temp row wiped wholesale by a concurrent `getMessages`) re-surface the
+         * result so neither a sent nor a failed message is silently lost.
+         */
+        private fun dispatchSend(
+            convoId: String,
+            tempId: String,
+            optimistic: MessageUi,
+        ) {
             viewModelScope.launch {
                 repository
-                    .sendMessage(convo, text)
+                    .sendMessage(convoId, optimistic.text)
                     .onSuccess { server ->
                         messages =
                             when {
@@ -135,7 +170,7 @@ internal class ChatViewModel
                                 else -> listOf(server) + messages // temp row wiped mid-send; don't lose the sent message
                             }
                         commitMessages()
-                    }.onFailure {
+                    }.onFailure { throwable ->
                         val failed = optimistic.copy(sendStatus = MessageSendStatus.Failed)
                         messages =
                             if (messages.any { it.id == tempId }) {
@@ -144,6 +179,7 @@ internal class ChatViewModel
                                 listOf(failed) + messages // temp row wiped mid-send; re-surface the failure
                             }
                         commitMessages()
+                        sendEffect(ChatEffect.ShowSendError(throwable.toChatError()))
                     }
             }
         }

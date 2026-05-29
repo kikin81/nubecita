@@ -1,15 +1,21 @@
 package net.kikin.nubecita.feature.chats.impl.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +28,9 @@ import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.designsystem.component.PostCardQuotedPost
 import net.kikin.nubecita.designsystem.component.PostCardRecordUnavailable
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.R
 
@@ -78,6 +87,11 @@ internal fun messageBubbleShape(
  * is omitted — rendering an empty bubble would just be visual noise.
  * Deleted messages (`isDeleted = true`) always carry a null `embed` per
  * the mapper, so they render only the italic placeholder.
+ *
+ * Outgoing rows mid-send carry a [MessageSendStatus] footer under the
+ * bubble: a `Sending` spinner, or a `Failed` "Not delivered" line with an
+ * inline retry affordance ([onRetrySend], keyed on the row's temp id).
+ * Incoming and `Sent` rows render no footer.
  */
 @Composable
 internal fun MessageBubble(
@@ -87,6 +101,7 @@ internal fun MessageBubble(
     modifier: Modifier = Modifier,
     maxWidth: Dp = 280.dp,
     onQuotedPostTap: (quotedPostUri: String) -> Unit = {},
+    onRetrySend: (tempId: String) -> Unit = {},
 ) {
     val embed = message.embed
     val showTextBubble = message.isDeleted || message.text.isNotEmpty() || embed == null
@@ -104,6 +119,73 @@ internal fun MessageBubble(
         if (embed != null) {
             if (showTextBubble) Spacer(Modifier.height(4.dp))
             MessageEmbedCard(embed = embed, onQuotedPostTap = onQuotedPostTap)
+        }
+        // Send-status footer for outgoing rows only; server-fetched + reconciled
+        // messages are Sent and render nothing.
+        if (message.isOutgoing) {
+            when (message.sendStatus) {
+                MessageSendStatus.Sending -> SendingFooter()
+                MessageSendStatus.Failed -> FailedFooter(onRetry = { onRetrySend(message.id) })
+                MessageSendStatus.Sent -> Unit
+            }
+        }
+    }
+}
+
+/** A small spinner + "Sending" label shown under an in-flight outgoing bubble. */
+@Composable
+private fun SendingFooter() {
+    Row(
+        modifier = Modifier.padding(top = 2.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(10.dp),
+            strokeWidth = 1.5.dp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(R.string.chat_send_status_sending),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * "Not delivered" line with an inline Retry button shown under a failed
+ * outgoing bubble. The error icon + label use the error color; the retry
+ * is a low-emphasis text button so the bubble stays the visual anchor.
+ */
+@Composable
+private fun FailedFooter(onRetry: () -> Unit) {
+    Row(
+        modifier = Modifier.padding(top = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        NubecitaIcon(
+            name = NubecitaIconName.Error,
+            contentDescription = null,
+            filled = true,
+            opticalSize = 14.dp,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.error,
+        )
+        Text(
+            text = stringResource(R.string.chat_send_status_failed),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        TextButton(
+            onClick = onRetry,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.chat_send_retry),
+                style = MaterialTheme.typography.labelMedium,
+            )
         }
     }
 }

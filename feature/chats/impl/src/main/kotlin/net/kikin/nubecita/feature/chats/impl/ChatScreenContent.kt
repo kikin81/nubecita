@@ -6,9 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.fitInside
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,11 +27,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.WindowInsetsRulers
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -69,6 +74,7 @@ internal fun ChatScreenContent(
     onEvent: (ChatEvent) -> Unit,
     textFieldState: TextFieldState,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -76,6 +82,7 @@ internal fun ChatScreenContent(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -108,7 +115,17 @@ internal fun ChatScreenContent(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .imePadding(),
+                    .consumeWindowInsets(padding)
+                    // Fit the thread + composer inside the IME rulers so the composer
+                    // sits flush above the keyboard. `fitInside` is the Android-docs-
+                    // preferred IME handling here (over `imePadding()`) precisely
+                    // because rulers are absolute window positions: it's robust to
+                    // upstream not consuming the inset. MainShell's
+                    // `NavigationSuiteScaffold` raises content for the IME by layout
+                    // without consuming, which makes `imePadding()` either double the
+                    // keyboard or fall a nav-bar height short — `fitInside` sidesteps
+                    // both. See docs/design-system (IME notes) / android-cli e2e skill.
+                    .fitInside(WindowInsetsRulers.Ime.current),
         ) {
             Box(
                 modifier =
@@ -126,6 +143,7 @@ internal fun ChatScreenContent(
                                 items = status.items,
                                 listState = listState,
                                 onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
+                                onRetrySend = { tempId -> onEvent(ChatEvent.RetrySend(tempId)) },
                             )
                         }
                     is ChatLoadStatus.InitialError ->
@@ -286,6 +304,7 @@ private fun LoadedBody(
     items: ImmutableList<ThreadItem>,
     listState: LazyListState,
     onQuotedPostTap: (quotedPostUri: String) -> Unit,
+    onRetrySend: (tempId: String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -326,6 +345,7 @@ private fun LoadedBody(
                             runIndex = item.runIndex,
                             runCount = item.runCount,
                             onQuotedPostTap = onQuotedPostTap,
+                            onRetrySend = onRetrySend,
                         )
                     }
                 }

@@ -150,6 +150,16 @@ sealed interface ChatEvent : UiEvent {
     data object Send : ChatEvent
 
     /**
+     * User tapped the inline retry affordance on a `Failed` outgoing row.
+     * [tempId] is the optimistic row's client temp id (`local:<n>`); the VM
+     * flips that row back to `Sending` and re-issues `sendMessage` with its
+     * text. A no-op if the row no longer exists or isn't `Failed`.
+     */
+    data class RetrySend(
+        val tempId: String,
+    ) : ChatEvent
+
+    /**
      * User tapped the quoted-post embed under a message bubble. The VM
      * translates this to [ChatEffect.NavigateToPost] so the screen can
      * push `PostDetailRoute(postUri = quotedPostUri)` onto the active
@@ -164,5 +174,15 @@ sealed interface ChatEffect : UiEffect {
     /** Push the post-detail screen for the tapped quoted-post URI. */
     data class NavigateToPost(
         val postUri: String,
+    ) : ChatEffect
+
+    /**
+     * A send (or retry) failed. Surfaced once as a transient snackbar by the
+     * screen's effect collector; the sticky failure also lives on the row's
+     * `Failed` [MessageSendStatus] with an inline retry affordance. The
+     * [error] reuses the thread-load [ChatError] taxonomy via `toChatError`.
+     */
+    data class ShowSendError(
+        val error: ChatError,
     ) : ChatEffect
 }
