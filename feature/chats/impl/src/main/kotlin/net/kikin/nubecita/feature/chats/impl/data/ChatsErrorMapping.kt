@@ -78,8 +78,8 @@ internal fun Throwable.toChatsError(): ChatsError =
  * auto-opened).
  *
  * The `sendMessage` write path reuses this mapping unchanged: a failed send is
- * either a transport failure ([ChatError.Network]), a not-enrolled / messages-
- * disabled condition that the existing markers already cover, or an
+ * either a transport failure ([ChatError.Network]), a not-enrolled or
+ * messages-disabled condition that the existing markers already cover, or an
  * otherwise-unrecognised wire code that falls through to [ChatError.Unknown]
  * (retryable from the composer's inline retry affordance). No send-specific
  * variant is added — there is no distinct send-failure UX in scope.
