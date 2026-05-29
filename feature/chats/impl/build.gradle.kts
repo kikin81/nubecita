@@ -38,7 +38,10 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.stavfx.nav3hiltvm)
     implementation(libs.timber)
+
+    ksp(libs.stavfx.nav3hiltvm)
 
     // Compose UI tests for ChatScreen — required so
     // createAndroidComposeRule<HiltTestActivity>() can drive the screen

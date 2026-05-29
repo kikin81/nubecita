@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.chats.impl.di
 
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -12,8 +11,8 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.impl.ChatScreen
-import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
+import net.kikin.nubecita.feature.chats.impl.chatEntry
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
 @Module
@@ -30,12 +29,8 @@ internal object ChatsNavigationModule {
                     onNavigateToChat = { did -> navState.add(Chat(otherUserDid = did)) },
                 )
             }
-            entry<Chat> { chat ->
+            chatEntry { viewModel ->
                 val navState = LocalMainShellNavState.current
-                val viewModel =
-                    hiltViewModel<ChatViewModel, ChatViewModel.Factory>(
-                        creationCallback = { factory -> factory.create(chat) },
-                    )
                 ChatScreen(
                     viewModel = viewModel,
                     onNavigateBack = { navState.removeLast() },

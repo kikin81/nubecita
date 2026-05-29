@@ -24,6 +24,7 @@ import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitte
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.ComposerScreen
 import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
+import net.kikin.nubecita.feature.composer.impl.ComposerViewModel_HiltNavArgs
 
 /**
  * Centered-dialog overlay host for the composer at Medium / Expanded
@@ -157,7 +158,7 @@ private fun ComposerOverlayContent(
     replyToUri: String?,
     onClose: () -> Unit,
     viewModel: ComposerViewModel =
-        hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(
+        hiltViewModel<ComposerViewModel_HiltNavArgs, ComposerViewModel_HiltNavArgs.Factory>(
             creationCallback = { factory ->
                 factory.create(ComposerRoute(replyToUri = replyToUri))
             },

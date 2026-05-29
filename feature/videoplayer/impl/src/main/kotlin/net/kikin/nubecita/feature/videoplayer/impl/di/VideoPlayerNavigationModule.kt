@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.videoplayer.impl.di
 
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -8,9 +7,8 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.OuterShell
-import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerScreen
-import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerViewModel
+import net.kikin.nubecita.feature.videoplayer.impl.videoPlayerEntry
 
 /**
  * Provides the `@OuterShell`-qualified `EntryProviderInstaller` that
@@ -44,11 +42,7 @@ internal object VideoPlayerNavigationModule {
     @OuterShell
     fun provideVideoPlayerEntries(): EntryProviderInstaller =
         {
-            entry<VideoPlayerRoute> { route ->
-                val viewModel =
-                    hiltViewModel<VideoPlayerViewModel, VideoPlayerViewModel.Factory>(
-                        creationCallback = { factory -> factory.create(route) },
-                    )
+            videoPlayerEntry { viewModel ->
                 VideoPlayerScreen(viewModel = viewModel)
             }
         }
