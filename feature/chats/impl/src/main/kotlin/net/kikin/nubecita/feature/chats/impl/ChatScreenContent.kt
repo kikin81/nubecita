@@ -8,13 +8,15 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -84,12 +86,16 @@ internal fun ChatScreenContent(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
-        // Body inset = system bars only. The IME is owned by exactly one layer —
-        // the `bottomBar` composer below (via imePadding) — so the keyboard never
-        // squeezes the body or drags the TopAppBar up. When the composer is absent
-        // (Loading / InitialError), Scaffold applies this inset's bottom to the
-        // body so the spinner / error content clears the navigation bar.
-        contentWindowInsets = WindowInsets.systemBars,
+        // Body inset = the full safe-drawing area MINUS the IME. The IME is owned
+        // by exactly one layer — the `bottomBar` composer below (via imePadding) —
+        // so the keyboard never squeezes the body or drags the TopAppBar up.
+        // Excluding only `ime` (rather than narrowing to `systemBars`) keeps the
+        // body clear of the display cutout too: with no orientation lock and
+        // `layoutInDisplayCutoutMode=always`, a landscape side cutout would
+        // otherwise occlude the message list / error states. When the composer is
+        // absent (Loading / InitialError) the bottom inset also applies, so that
+        // content clears the navigation bar.
+        contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
