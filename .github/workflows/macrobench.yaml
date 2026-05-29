@@ -175,6 +175,17 @@ jobs:
           echo "Found benchmark JSON: $JSON"
           echo "path=$JSON" >> "$GITHUB_OUTPUT"
 
+      # github-action-benchmark has no `androidx` tool parser, so convert the
+      # AndroidX benchmarkData.json into its `customSmallerIsBetter` array
+      # format (one point per benchmark×metric, using each metric's median).
+      - name: Convert to custom benchmark JSON
+        id: bench-convert
+        run: |
+          OUT=benchmark/build/macrobench-custom.json
+          python3 benchmark/ci/androidx_to_custom_benchmark_json.py \
+            "${{ steps.bench-json.outputs.path }}" "$OUT"
+          echo "path=$OUT" >> "$GITHUB_OUTPUT"
+
       # Scheduled / manual: this is the trend of record. Push the new point to
       # gh-pages and fail the run if any metric regressed past the threshold.
       # The first run (no gh-pages history yet) seeds dev/bench/data.js.
@@ -182,8 +193,8 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          tool: androidx
-          output-file-path: ${{ steps.bench-json.outputs.path }}
+          tool: customSmallerIsBetter
+          output-file-path: ${{ steps.bench-convert.outputs.path }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           gh-pages-branch: gh-pages
           auto-push: true
@@ -198,8 +209,8 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          tool: androidx
-          output-file-path: ${{ steps.bench-json.outputs.path }}
+          tool: customSmallerIsBetter
+          output-file-path: ${{ steps.bench-convert.outputs.path }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           gh-pages-branch: gh-pages
           auto-push: false
