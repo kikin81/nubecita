@@ -23,8 +23,11 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.stavfx.nav3hiltvm.annotations)
     implementation(libs.telephoto.zoomable.image.coil3)
     implementation(libs.timber)
+
+    ksp(libs.stavfx.nav3hiltvm.compiler)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

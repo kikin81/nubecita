@@ -1,10 +1,8 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.lifecycle.viewModelScope
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.stavfx.nav3hiltvm.annotations.HiltNavArgViewModel
+import com.stavfx.nav3hiltvm.annotations.NavArg
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
@@ -44,11 +42,10 @@ import java.io.IOException
  * VM so the repository remains pure (sets us up for future
  * multi-account support, see Bead C's brainstorming note).
  */
-@HiltViewModel(assistedFactory = ProfileViewModel.Factory::class)
-internal class ProfileViewModel
-    @AssistedInject
+@HiltNavArgViewModel
+internal open class ProfileViewModel
     constructor(
-        @Assisted private val route: Profile,
+        @NavArg private val route: Profile,
         private val repository: ProfileRepository,
         private val sessionStateProvider: SessionStateProvider,
         private val postInteractionsCache: PostInteractionsCache,
@@ -58,11 +55,6 @@ internal class ProfileViewModel
                 ownProfile = route.handle == null,
             ),
         ) {
-        @AssistedFactory
-        interface Factory {
-            fun create(route: Profile): ProfileViewModel
-        }
-
         /**
          * Per-tab pagination guard. Tracks the in-flight `LoadMore`
          * coroutine for each tab so repeated `LoadMore` events

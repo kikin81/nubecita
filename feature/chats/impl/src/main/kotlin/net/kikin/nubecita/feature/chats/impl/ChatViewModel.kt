@@ -4,10 +4,8 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.stavfx.nav3hiltvm.annotations.HiltNavArgViewModel
+import com.stavfx.nav3hiltvm.annotations.NavArg
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -22,25 +20,20 @@ import kotlin.time.Clock
 /**
  * MVI presenter for the chat thread screen.
  *
- * Receives its peer DID via assisted injection of the [Chat] NavKey at the
- * navigation entry point — matches the project pattern used by
- * `ComposerViewModel` / `MediaViewerViewModel`. Auto-loads on construction:
+ * Receives its peer DID via the `@NavArg` [Chat] NavKey at the navigation
+ * entry point (`@HiltNavArgViewModel` generates the assisted-inject bridge) —
+ * matches the project pattern used by `ComposerViewModel` /
+ * `MediaViewerViewModel`. Auto-loads on construction:
  * resolves the peer DID to a convoId via `chat.bsky.convo.getConvoForMembers`,
  * then loads the first page of messages via `chat.bsky.convo.getMessages`.
  * Refresh / retry events re-run the chain. Single-flight via [inFlightLoad].
  */
-@HiltViewModel(assistedFactory = ChatViewModel.Factory::class)
-internal class ChatViewModel
-    @AssistedInject
+@HiltNavArgViewModel
+internal open class ChatViewModel
     constructor(
-        @Assisted private val chat: Chat,
+        @NavArg private val chat: Chat,
         private val repository: ChatRepository,
     ) : MviViewModel<ChatScreenViewState, ChatEvent, ChatEffect>(ChatScreenViewState()) {
-        @AssistedFactory
-        interface Factory {
-            fun create(chat: Chat): ChatViewModel
-        }
-
         private val otherUserDid: String = chat.otherUserDid
         private var inFlightLoad: Job? = null
 

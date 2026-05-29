@@ -1,10 +1,8 @@
 package net.kikin.nubecita.feature.moderation.impl
 
 import androidx.lifecycle.viewModelScope
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.stavfx.nav3hiltvm.annotations.HiltNavArgViewModel
+import com.stavfx.nav3hiltvm.annotations.NavArg
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
@@ -18,9 +16,9 @@ import kotlin.time.ExperimentalTime
 /**
  * Presenter for the Report dialog (`oftc.3.2`).
  *
- * Construction uses Hilt's assisted-injection bridge: the [Report]
- * NavKey flows from the entry-provider call site (`hiltViewModel<VM, Factory>(creationCallback = { it.create(route) })`)
- * into the constructor, same pattern as `PostDetailViewModel`. This
+ * The [Report] NavKey is a `@NavArg` param flowing from the entry-provider
+ * call site into the constructor; `@HiltNavArgViewModel` generates the
+ * assisted-inject Hilt bridge, same pattern as `PostDetailViewModel`. This
  * keeps the VM's state synchronously seeded against the navigated
  * subject — no SavedStateHandle decode step, no first-frame null —
  * which matters here because the Subject step needs `state.subject`
@@ -30,22 +28,16 @@ import kotlin.time.ExperimentalTime
  * to a fixed instant. Production binds the system clock.
  */
 @OptIn(ExperimentalTime::class)
-@HiltViewModel(assistedFactory = ReportDialogViewModel.Factory::class)
-internal class ReportDialogViewModel
-    @AssistedInject
+@HiltNavArgViewModel
+internal open class ReportDialogViewModel
     constructor(
-        @Assisted private val route: Report,
+        @NavArg private val route: Report,
         private val moderationRepository: ModerationRepository,
         private val subjectPreviewResolver: SubjectPreviewResolver,
         private val clock: Clock,
     ) : MviViewModel<ReportDialogState, ReportDialogEvent, ReportDialogEffect>(
             ReportDialogState(subject = route.subject),
         ) {
-        @AssistedFactory
-        interface Factory {
-            fun create(route: Report): ReportDialogViewModel
-        }
-
         init {
             resolveSubjectPreview()
         }

@@ -31,7 +31,10 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.stavfx.nav3hiltvm.annotations)
     implementation(libs.timber)
+
+    ksp(libs.stavfx.nav3hiltvm.compiler)
 
     // Compose UI tests for ComposerScreen — mirrors :feature:feed:impl's
     // setup. Required so the BackHandler / discard-dialog gate can be

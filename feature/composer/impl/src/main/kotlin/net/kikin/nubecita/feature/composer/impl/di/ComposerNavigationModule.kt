@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.composer.impl.di
 
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -11,9 +10,8 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
-import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.ComposerScreen
-import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
+import net.kikin.nubecita.feature.composer.impl.composerEntry
 
 /**
  * `@MainShell`-qualified [EntryProviderInstaller] that registers
@@ -50,13 +48,9 @@ internal object ComposerNavigationModule {
     @MainShell
     fun provideComposerEntries(): EntryProviderInstaller =
         {
-            entry<ComposerRoute> { route ->
+            composerEntry { viewModel ->
                 val navState = LocalMainShellNavState.current
                 val composerSubmitEventsEmitter = LocalComposerSubmitEventsEmitter.current
-                val viewModel =
-                    hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(
-                        creationCallback = { factory -> factory.create(route) },
-                    )
                 ComposerScreen(
                     onNavigateBack = { navState.removeLast() },
                     // Submit-success emits a `ComposerSubmitEvent` on the

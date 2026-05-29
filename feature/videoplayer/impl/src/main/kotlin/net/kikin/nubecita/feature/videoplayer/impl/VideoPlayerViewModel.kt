@@ -1,10 +1,8 @@
 package net.kikin.nubecita.feature.videoplayer.impl
 
 import androidx.lifecycle.viewModelScope
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.stavfx.nav3hiltvm.annotations.HiltNavArgViewModel
+import com.stavfx.nav3hiltvm.annotations.NavArg
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -20,12 +18,11 @@ import net.kikin.nubecita.feature.videoplayer.impl.data.VideoPostResolver
 /**
  * Presenter for the fullscreen video player.
  *
- * Uses Hilt's assisted-injection bridge so the [VideoPlayerRoute] (the
- * Nav 3 NavKey carrying the post AT URI) flows from the entry-provider
- * call site into the VM constructor without a SavedStateHandle decode
- * step. The canonical Nav 3 pattern documented in the official Hilt
- * recipe — `hiltViewModel<VM, Factory>(creationCallback = { it.create(route) })`
- * — preserves a per-NavEntry VM instance via the
+ * The [VideoPlayerRoute] (the Nav 3 NavKey carrying the post AT URI) is a
+ * `@NavArg` param flowing from the entry-provider call site into the VM
+ * constructor without a SavedStateHandle decode step. `@HiltNavArgViewModel`
+ * generates the assisted-inject Hilt bridge (`VideoPlayerViewModel_HiltNavArgs`
+ * + `videoPlayerEntry`), which preserves a per-NavEntry VM instance via the
  * `rememberViewModelStoreNavEntryDecorator` already wired in `MainShell`.
  * (NavKey types aren't reachable through SavedStateHandle by default; see
  * `ChatScreenInstrumentationTest.kt` for the failure mode the assisted-
@@ -52,19 +49,13 @@ import net.kikin.nubecita.feature.videoplayer.impl.data.VideoPostResolver
  * composable can read `sharedVideoPlayer.player` to render
  * `PlayerSurface(player = …)`.
  */
-@HiltViewModel(assistedFactory = VideoPlayerViewModel.Factory::class)
-internal class VideoPlayerViewModel
-    @AssistedInject
+@HiltNavArgViewModel
+internal open class VideoPlayerViewModel
     constructor(
-        @Assisted private val route: VideoPlayerRoute,
+        @NavArg private val route: VideoPlayerRoute,
         val sharedVideoPlayer: SharedVideoPlayer,
         private val resolver: VideoPostResolver,
     ) : MviViewModel<VideoPlayerState, VideoPlayerEvent, VideoPlayerEffect>(VideoPlayerState()) {
-        @AssistedFactory
-        interface Factory {
-            fun create(route: VideoPlayerRoute): VideoPlayerViewModel
-        }
-
         private val postUri: String = route.postUri
 
         private var autoHideJob: Job? = null

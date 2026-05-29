@@ -17,7 +17,10 @@ dependencies {
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.media3.ui.compose)
+    implementation(libs.stavfx.nav3hiltvm.annotations)
     implementation(libs.timber)
+
+    ksp(libs.stavfx.nav3hiltvm.compiler)
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
