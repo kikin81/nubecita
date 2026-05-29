@@ -26,11 +26,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +72,7 @@ internal fun ChatScreenContent(
     onEvent: (ChatEvent) -> Unit,
     textFieldState: TextFieldState,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -76,6 +80,7 @@ internal fun ChatScreenContent(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -126,6 +131,7 @@ internal fun ChatScreenContent(
                                 items = status.items,
                                 listState = listState,
                                 onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
+                                onRetrySend = { tempId -> onEvent(ChatEvent.RetrySend(tempId)) },
                             )
                         }
                     is ChatLoadStatus.InitialError ->
@@ -286,6 +292,7 @@ private fun LoadedBody(
     items: ImmutableList<ThreadItem>,
     listState: LazyListState,
     onQuotedPostTap: (quotedPostUri: String) -> Unit,
+    onRetrySend: (tempId: String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -326,6 +333,7 @@ private fun LoadedBody(
                             runIndex = item.runIndex,
                             runCount = item.runCount,
                             onQuotedPostTap = onQuotedPostTap,
+                            onRetrySend = onRetrySend,
                         )
                     }
                 }

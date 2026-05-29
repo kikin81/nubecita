@@ -293,6 +293,117 @@ internal class ChatViewModelTest {
         }
 
     @Test
+    fun `Send failure emits ShowSendError once with the mapped ChatError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.nextSendResult = Result.failure(IOException("net down"))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "oops")
+            vm.effects.test {
+                vm.handleEvent(ChatEvent.Send)
+                advanceUntilIdle()
+
+                val effect = awaitItem()
+                assertTrue(effect is ChatEffect.ShowSendError, "send failure surfaces a transient error effect")
+                assertEquals(ChatError.Network, (effect as ChatEffect.ShowSendError).error)
+                expectNoEvents()
+            }
+            assertEquals(
+                MessageSendStatus.Failed,
+                vm.uiState.value
+                    .outgoingMessages()
+                    .single()
+                    .sendStatus,
+            )
+        }
+
+    @Test
+    fun `RetrySend on a Failed row flips it back to Sending`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.nextSendResult = Result.failure(IOException("net down"))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "oops")
+            vm.handleEvent(ChatEvent.Send)
+            advanceUntilIdle()
+            val failed =
+                vm.uiState.value
+                    .outgoingMessages()
+                    .single()
+            assertEquals(MessageSendStatus.Failed, failed.sendStatus)
+
+            // Gate the retry so the intermediate Sending state is observable.
+            repo.sendGate = CompletableDeferred()
+            vm.handleEvent(ChatEvent.RetrySend(failed.id))
+            runCurrent()
+
+            val retrying =
+                vm.uiState.value
+                    .outgoingMessages()
+                    .single()
+            assertEquals(failed.id, retrying.id, "retry reuses the same temp row, no duplicate")
+            assertEquals("oops", retrying.text)
+            assertEquals(MessageSendStatus.Sending, retrying.sendStatus)
+        }
+
+    @Test
+    fun `RetrySend success reconciles the row to Sent with the server id`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.nextSendResult = Result.failure(IOException("net down"))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            setComposerText(vm, "hello")
+            vm.handleEvent(ChatEvent.Send)
+            advanceUntilIdle()
+            val failed =
+                vm.uiState.value
+                    .outgoingMessages()
+                    .single()
+            assertEquals(MessageSendStatus.Failed, failed.sendStatus)
+
+            repo.nextSendResult =
+                Result.success(
+                    MessageUi(
+                        id = "server-7",
+                        senderDid = "did:plc:viewer",
+                        isOutgoing = true,
+                        text = "hello",
+                        isDeleted = false,
+                        sentAt = Instant.parse("2026-05-20T10:00:00Z"),
+                        sendStatus = MessageSendStatus.Sent,
+                    ),
+                )
+            vm.handleEvent(ChatEvent.RetrySend(failed.id))
+            advanceUntilIdle()
+
+            val outgoing = vm.uiState.value.outgoingMessages()
+            assertEquals(1, outgoing.size, "exactly one outgoing row after retry reconcile — no duplicate")
+            assertEquals("server-7", outgoing.single().id)
+            assertEquals(MessageSendStatus.Sent, outgoing.single().sendStatus)
+            assertEquals(2, repo.sendCalls.get(), "retry re-issues sendMessage")
+        }
+
+    @Test
+    fun `RetrySend on an unknown temp id is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            val priorSends = repo.sendCalls.get()
+
+            vm.handleEvent(ChatEvent.RetrySend("local:does-not-exist"))
+            advanceUntilIdle()
+
+            assertEquals(priorSends, repo.sendCalls.get())
+        }
+
+    @Test
     fun `Send with a blank composer is a no-op`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository()
