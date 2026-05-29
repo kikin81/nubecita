@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -82,7 +84,12 @@ internal fun ChatScreenContent(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
-        contentWindowInsets = WindowInsets.safeDrawing,
+        // Body inset = system bars only. The IME is owned by exactly one layer —
+        // the `bottomBar` composer below (via imePadding) — so the keyboard never
+        // squeezes the body or drags the TopAppBar up. When the composer is absent
+        // (Loading / InitialError), Scaffold applies this inset's bottom to the
+        // body so the spinner / error content clears the navigation bar.
+        contentWindowInsets = WindowInsets.systemBars,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
@@ -110,40 +117,16 @@ internal fun ChatScreenContent(
                 },
             )
         },
-    ) { padding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .consumeWindowInsets(padding),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-            ) {
-                when (val status = state.status) {
-                    ChatLoadStatus.Loading -> LoadingBody()
-                    is ChatLoadStatus.Loaded ->
-                        if (status.items.isEmpty()) {
-                            EmptyBody()
-                        } else {
-                            LoadedBody(
-                                items = status.items,
-                                listState = listState,
-                                onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
-                                onRetrySend = { tempId -> onEvent(ChatEvent.RetrySend(tempId)) },
-                            )
-                        }
-                    is ChatLoadStatus.InitialError ->
-                        ErrorBody(status.error, onRetry = { onEvent(ChatEvent.RetryClicked) })
-                }
-            }
+        bottomBar = {
             // The composer is available whenever the convo is loaded (including an
             // empty thread, so the first message can be sent). Loading / initial-
-            // error states show no composer.
+            // error states show no composer. Per M3 Scaffold's contract, a present
+            // bottomBar owns the bottom inset (the body's bottom padding becomes the
+            // bottomBar's measured height, NOT the raw inset) — so the composer self-
+            // pins above the navigation bar when the keyboard is closed and above the
+            // IME when it's open. `.navigationBarsPadding().imePadding()` chains so
+            // each windowInsetsPadding consumes the previous: closed → nav-bar height;
+            // open → full IME (which already subsumes the nav-bar area).
             if (state.status is ChatLoadStatus.Loaded) {
                 ChatComposerRow(
                     textFieldState = textFieldState,
@@ -152,7 +135,36 @@ internal fun ChatScreenContent(
                     // Anchor to newest (index 0 under reverseLayout) when the
                     // composer gains focus, so the IME never hides the latest run.
                     onFocus = { scope.launch { listState.animateScrollToItem(0) } },
+                    modifier =
+                        Modifier
+                            .navigationBarsPadding()
+                            .imePadding(),
                 )
+            }
+        },
+    ) { padding ->
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .consumeWindowInsets(padding),
+        ) {
+            when (val status = state.status) {
+                ChatLoadStatus.Loading -> LoadingBody()
+                is ChatLoadStatus.Loaded ->
+                    if (status.items.isEmpty()) {
+                        EmptyBody()
+                    } else {
+                        LoadedBody(
+                            items = status.items,
+                            listState = listState,
+                            onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
+                            onRetrySend = { tempId -> onEvent(ChatEvent.RetrySend(tempId)) },
+                        )
+                    }
+                is ChatLoadStatus.InitialError ->
+                    ErrorBody(status.error, onRetry = { onEvent(ChatEvent.RetryClicked) })
             }
         }
     }
@@ -179,10 +191,10 @@ private fun ChatComposerRow(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // The screen's Scaffold uses WindowInsets.safeDrawing, which propagates the
-    // system navigation bar and soft keyboard (IME) bottom insets correctly.
-    // The inner Column's padding handles these insets, so the composer row
-    // sits flush above the keyboard or navigation bar without extra custom padding.
+    // Inset handling lives entirely in the caller's `modifier` (the Scaffold
+    // bottomBar slot passes `.navigationBarsPadding().imePadding()`). This row
+    // only paints + lays out its controls; it adds no window-inset padding of
+    // its own, so there's exactly one IME owner and no double-lift.
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
