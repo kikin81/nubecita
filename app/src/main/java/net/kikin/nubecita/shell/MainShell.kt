@@ -256,10 +256,21 @@ fun MainShell(modifier: Modifier = Modifier) {
     //  - `NavigationDrawer` at expanded widths on some form factors.
     //    With only five destinations, a permanent drawer is overkill —
     //    collapse to rail in that case.
+    val activeKey = mainShellNavState.backStack.lastOrNull()
+    val isTopLevel =
+        remember(activeKey) {
+            activeKey in TopLevelDestinations.map { it.key }
+        }
     val defaultLayoutType = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
     val layoutType =
         when (defaultLayoutType) {
-            NavigationSuiteType.NavigationBar -> NavigationSuiteType.ShortNavigationBarCompact
+            NavigationSuiteType.NavigationBar -> {
+                if (isTopLevel) {
+                    NavigationSuiteType.ShortNavigationBarCompact
+                } else {
+                    NavigationSuiteType.None
+                }
+            }
             NavigationSuiteType.NavigationDrawer -> NavigationSuiteType.NavigationRail
             else -> defaultLayoutType
         }

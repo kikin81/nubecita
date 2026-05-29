@@ -7,11 +7,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -43,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -83,6 +82,7 @@ internal fun ChatScreenContent(
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
@@ -115,7 +115,8 @@ internal fun ChatScreenContent(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .consumeWindowInsets(padding),
         ) {
             Box(
                 modifier =
@@ -178,29 +179,12 @@ private fun ChatComposerRow(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // MainShell's `NavigationSuiteScaffold` raises this content for the IME but
-    // consumes the navigation-bar inset *first* (and raises by layout without
-    // re-consuming), so its lift stops one nav-bar height short of the full
-    // keyboard — the keyboard's accessory strip overlaps the composer. We must
-    // re-add exactly that nav-bar-sized overlap, and only while the IME is up.
-    //
-    // This is done with a measure-phase, state-read `padding` rather than
-    // `imePadding()` or `fitInside(WindowInsetsRulers.Ime)`: imePadding re-adds
-    // the *whole* keyboard (the suite's lift isn't a consumed inset), and
-    // `fitInside` is placement-phase and can desync from the suite's own lift —
-    // observed sticking to a keyboard-tall gap on real IME-open (nubecita-b6uv.4).
-    // Reading the raw inset values recomposes every IME-animation frame and is
-    // deterministic: `min(ime, navigationBars)` is 0 when the keyboard is closed.
-    val density = LocalDensity.current
-    val imeOverlap =
-        with(density) {
-            minOf(
-                WindowInsets.ime.getBottom(density),
-                WindowInsets.navigationBars.getBottom(density),
-            ).toDp()
-        }
+    // The screen's Scaffold uses WindowInsets.safeDrawing, which propagates the
+    // system navigation bar and soft keyboard (IME) bottom insets correctly.
+    // The inner Column's padding handles these insets, so the composer row
+    // sits flush above the keyboard or navigation bar without extra custom padding.
     Surface(
-        modifier = modifier.fillMaxWidth().padding(bottom = imeOverlap),
+        modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(

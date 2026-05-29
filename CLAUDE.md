@@ -181,15 +181,19 @@ Reference implementation: `:feature:composer:impl/ComposerViewModel`. Rationale:
 
 ### Keyboard / IME insets inside `MainShell`
 
-Screens hosted by `MainShell`'s inner `NavDisplay` (any tab or sub-route) sit inside a `NavigationSuiteScaffold`. Adaptive scaffolds (`NavigationSuiteScaffold`, `ListDetailPaneScaffold`) manage their own bar/rail insets but **do NOT propagate inset `PaddingValues` to inner content, and raise content for the IME by layout without consuming the inset**. That breaks the usual inset modifiers:
+Screens hosted by `MainShell`'s inner `NavDisplay` can be top-level tabs or sub-routes (e.g. Chat thread, PostDetail, Settings):
 
-- `Modifier.imePadding()` **double-counts** the keyboard (the suite's lift isn't a consumed inset, so imePadding re-adds the whole keyboard → a keyboard-tall gap).
-- Removing it leaves the content a nav-bar height short (the suite consumes the nav-bar inset before lifting, so the keyboard's accessory strip overlaps a bottom-pinned input).
-- `Modifier.fitInside(WindowInsetsRulers.Ime.current)` — the Android-docs-preferred tool for "ancestor didn't consume" — is **placement-phase** and was observed **desyncing from the suite's own lift and sticking to a keyboard-tall gap** on real IME-open here. Avoid it under this shell.
+- **Sub-routes on Compact Width (Phones):** `MainShell` detects if the active route is a sub-route (not in `TopLevelDestinations`) and overrides the navigation suite layout type to `NavigationSuiteType.None`. This hides the bottom navigation bar.
+- **Sub-routes on Medium/Expanded (Tablets):** The navigation suite uses `NavigationSuiteType.NavigationRail` which sits on the left side of the screen, so there is no bottom bar to interfere.
 
-What works: a **measure-phase, state-read padding** on the bottom-anchored element — `padding(bottom = min(WindowInsets.ime.getBottom(d), WindowInsets.navigationBars.getBottom(d)).toDp())`. It re-adds exactly the nav-bar-sized overlap the suite's lift misses, recomputes every IME-animation frame, and (being measure-phase) can't get stuck on a stale placement. `min(...)` is 0 when the keyboard is closed. Reference: `:feature:chats:impl/ChatScreenContent` `ChatComposerRow` (`nubecita-b6uv.4`).
+Because the bottom navigation bar is hidden on phone sub-routes and placed on the side on tablets, the inner sub-routes receive correct system insets directly. They should use the standard Jetpack Compose edge-to-edge pattern:
+- The screen `Scaffold` should declare `contentWindowInsets = WindowInsets.safeDrawing`.
+- The root layout of the content block should apply `.padding(innerPadding).consumeWindowInsets(innerPadding)` to prevent nested double-padding.
+- Bottom-pinned input fields (like `ChatComposerRow`) do not require custom bottom padding modifiers — they naturally sit flush above the keyboard (when open) or the system navigation bar (when closed) due to the scaffold padding.
 
-**Outer-shell** screens (Login, Onboarding — `@OuterShell`, no `NavigationSuiteScaffold`) are unaffected and keep handling the IME themselves via `Scaffold(contentWindowInsets = WindowInsets.safeDrawing)` / `safeDrawingPadding()`.
+**Top-level tabs** continue to show the bottom bar (on phones) or rail (on tablets), and their internal content insets are managed by the `NavigationSuiteScaffold`'s default insets consumption. If a tab-home screen has a text field at the top (like `SearchScreen`), standard `Scaffold` padding handles it correctly.
+
+**Outer-shell** screens (Login, Onboarding — `@OuterShell`, no `NavigationSuiteScaffold`) are unaffected and handle the IME themselves via `Scaffold(contentWindowInsets = WindowInsets.safeDrawing)` / `safeDrawingPadding()`.
 
 ### Design system conventions
 
