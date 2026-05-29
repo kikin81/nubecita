@@ -179,6 +179,14 @@ Reference implementation: `:feature:composer:impl/ComposerViewModel`. Rationale:
 
 `MainShell` provides `LocalTabReTapSignal` — a `CompositionLocal<SharedFlow<Unit>>`. Any feature screen that wants to respond to a tab re-tap (scroll to top, etc.) reads this local and launches a `collectLatest` in a `LaunchedEffect`. **ViewModels do not observe this signal** — it terminates at the screen Composable only, because scroll state is a Compose runtime concern, not a VM state field.
 
+### Keyboard / IME insets inside `MainShell`
+
+Screens hosted by `MainShell`'s inner `NavDisplay` (any tab or sub-route) sit inside a `NavigationSuiteScaffold`. Adaptive scaffolds (`NavigationSuiteScaffold`, `ListDetailPaneScaffold`) manage their own bar/rail insets but **do NOT propagate inset `PaddingValues` to inner content, and raise content for the IME by layout without consuming the inset**. Because of that, a local **`Modifier.imePadding()` double-counts** the keyboard (a keyboard-tall gap), and simply removing it leaves the content a nav-bar height short (the keyboard's accessory strip overlaps a bottom-pinned input).
+
+So any inner-shell screen with a bottom-anchored text field (chat composer, future in-thread search, etc.) handles the IME with **`Modifier.fitInside(WindowInsetsRulers.Ime.current)`** on the content container — **not** `imePadding()`. `fitInside` keys off absolute window-positioned rulers, so it's robust to the suite not consuming insets upstream (this is also what the Android edge-to-edge docs prefer for exactly this case). Pair it with `consumeWindowInsets(innerPadding)`. Reference: `:feature:chats:impl/ChatScreenContent` (`nubecita-b6uv.4`).
+
+**Outer-shell** screens (Login, Onboarding — `@OuterShell`, no `NavigationSuiteScaffold`) are unaffected and keep handling the IME themselves via `Scaffold(contentWindowInsets = WindowInsets.safeDrawing)` / `safeDrawingPadding()`.
+
 ### Design system conventions
 
 #### Surface token roles
