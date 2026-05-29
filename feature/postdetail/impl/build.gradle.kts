@@ -31,7 +31,10 @@ dependencies {
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.stavfx.nav3hiltvm)
     implementation(libs.timber)
+
+    ksp(libs.stavfx.nav3hiltvm)
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)

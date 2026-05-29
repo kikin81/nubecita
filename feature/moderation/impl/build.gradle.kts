@@ -15,7 +15,10 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.stavfx.nav3hiltvm)
     implementation(libs.timber)
+
+    ksp(libs.stavfx.nav3hiltvm)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

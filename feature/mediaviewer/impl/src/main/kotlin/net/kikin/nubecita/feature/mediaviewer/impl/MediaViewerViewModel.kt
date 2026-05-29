@@ -1,10 +1,8 @@
 package net.kikin.nubecita.feature.mediaviewer.impl
 
 import androidx.lifecycle.viewModelScope
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.stavfx.nav3hiltvm.annotations.HiltNavArgViewModel
+import com.stavfx.nav3hiltvm.annotations.NavArg
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
@@ -20,9 +18,10 @@ import java.io.IOException
 /**
  * Presenter for the fullscreen image viewer.
  *
- * Uses Hilt's assisted-injection bridge so the [MediaViewerRoute]
- * (carrying `postUri` + `imageIndex`) flows from the entry-provider
- * call site into the VM constructor — same pattern as `PostDetailViewModel`.
+ * The [MediaViewerRoute] (carrying `postUri` + `imageIndex`) is a
+ * `@NavArg` param flowing from the entry-provider call site into the VM
+ * constructor; `@HiltNavArgViewModel` generates the assisted-inject Hilt
+ * bridge — same pattern as `PostDetailViewModel`.
  *
  * The VM does NOT own the pager state. `HorizontalPager`'s
  * `rememberPagerState` lives in the screen composable; the active page
@@ -37,18 +36,12 @@ import java.io.IOException
  * outer `Navigator` (the viewer is hosted on the outer `NavDisplay`
  * to escape `MainShell`'s chrome — see `MediaViewerNavigationModule`).
  */
-@HiltViewModel(assistedFactory = MediaViewerViewModel.Factory::class)
-internal class MediaViewerViewModel
-    @AssistedInject
+@HiltNavArgViewModel
+internal open class MediaViewerViewModel
     constructor(
-        @Assisted private val route: MediaViewerRoute,
+        @NavArg private val route: MediaViewerRoute,
         private val postRepository: PostRepository,
     ) : MviViewModel<MediaViewerState, MediaViewerEvent, MediaViewerEffect>(MediaViewerState()) {
-        @AssistedFactory
-        interface Factory {
-            fun create(route: MediaViewerRoute): MediaViewerViewModel
-        }
-
         override fun handleEvent(event: MediaViewerEvent) {
             when (event) {
                 MediaViewerEvent.Load -> load()

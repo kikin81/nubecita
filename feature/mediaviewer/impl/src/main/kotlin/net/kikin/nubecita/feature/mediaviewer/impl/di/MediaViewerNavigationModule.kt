@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.mediaviewer.impl.di
 
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -9,9 +8,8 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
-import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.mediaviewer.impl.MediaViewerScreen
-import net.kikin.nubecita.feature.mediaviewer.impl.MediaViewerViewModel
+import net.kikin.nubecita.feature.mediaviewer.impl.mediaViewerEntry
 
 /**
  * Provides the `@OuterShell`-qualified `EntryProviderInstaller` that
@@ -43,12 +41,8 @@ internal object MediaViewerNavigationModule {
     @OuterShell
     fun provideMediaViewerEntries(): EntryProviderInstaller =
         {
-            entry<MediaViewerRoute> { route ->
+            mediaViewerEntry { viewModel ->
                 val navigator = LocalAppNavigator.current
-                val viewModel =
-                    hiltViewModel<MediaViewerViewModel, MediaViewerViewModel.Factory>(
-                        creationCallback = { factory -> factory.create(route) },
-                    )
                 MediaViewerScreen(
                     onDismiss = { navigator.goBack() },
                     viewModel = viewModel,

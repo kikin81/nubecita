@@ -3,10 +3,8 @@ package net.kikin.nubecita.feature.composer.impl
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.stavfx.nav3hiltvm.annotations.HiltNavArgViewModel
+import com.stavfx.nav3hiltvm.annotations.NavArg
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -70,11 +68,12 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * # Lifecycle
  *
- * - Constructor receives the [ComposerRoute] via Hilt assisted
- *   injection (Nav3 canonical pattern — see `:feature:postdetail:impl`'s
- *   `PostDetailViewModel.Factory` for the precedent). The route
- *   carries `replyToUri: String?`; null means new-post mode, non-null
- *   means reply mode.
+ * - Constructor receives the [ComposerRoute] as a `@NavArg` param;
+ *   `@HiltNavArgViewModel` generates the assisted-inject Hilt bridge
+ *   (Nav3 canonical pattern — see `:feature:postdetail:impl`'s
+ *   `PostDetailViewModel` for the precedent). The route carries
+ *   `replyToUri: String?`; null means new-post mode, non-null means
+ *   reply mode.
  * - In reply mode, `init` kicks off a parent fetch via
  *   [ParentFetchSource]. State transitions Loading → Loaded or
  *   Loading → Failed; submit is blocked until Loaded.
@@ -105,11 +104,10 @@ import kotlin.time.Duration.Companion.milliseconds
  * commit).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-@HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)
-class ComposerViewModel
-    @AssistedInject
+@HiltNavArgViewModel
+open class ComposerViewModel
     constructor(
-        @Assisted private val route: ComposerRoute,
+        @NavArg private val route: ComposerRoute,
         private val postingRepository: PostingRepository,
         private val parentFetchSource: ParentFetchSource,
         private val actorTypeaheadRepository: ActorTypeaheadRepository,
@@ -117,11 +115,6 @@ class ComposerViewModel
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
             initialState = ComposerState(replyToUri = route.replyToUri),
         ) {
-        @AssistedFactory
-        interface Factory {
-            fun create(route: ComposerRoute): ComposerViewModel
-        }
-
         /**
          * Canonical text and selection for the composer. Constructed
          * once in init (default empty); never re-assigned. The

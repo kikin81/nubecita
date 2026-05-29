@@ -6,7 +6,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,9 +15,8 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
-import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.moderation.impl.ReportDialogScreen
-import net.kikin.nubecita.feature.moderation.impl.ReportDialogViewModel
+import net.kikin.nubecita.feature.moderation.impl.reportDialogEntry
 
 /**
  * Provides the `@MainShell`-qualified `EntryProviderInstaller` that
@@ -54,14 +52,10 @@ internal object ModerationNavigationModule {
     @MainShell
     fun provideReportEntries(): EntryProviderInstaller =
         {
-            entry<Report> { route ->
+            reportDialogEntry { viewModel ->
                 val navState = LocalMainShellNavState.current
                 val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                 val scope = rememberCoroutineScope()
-                val viewModel =
-                    hiltViewModel<ReportDialogViewModel, ReportDialogViewModel.Factory>(
-                        creationCallback = { factory -> factory.create(route) },
-                    )
 
                 // Single source of truth for "close the sheet and pop the
                 // NavKey": animate the sheet down to give the M3 motion

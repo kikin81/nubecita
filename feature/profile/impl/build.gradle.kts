@@ -51,7 +51,10 @@ dependencies {
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.stavfx.nav3hiltvm)
     implementation(libs.timber)
+
+    ksp(libs.stavfx.nav3hiltvm)
 
     // Compose UI tests for ProfileScreen — mirrors :feature:feed:impl and
     // :feature:composer:impl. Required so createAndroidComposeRule<ComponentActivity>()

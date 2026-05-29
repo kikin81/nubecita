@@ -1,10 +1,8 @@
 package net.kikin.nubecita.feature.postdetail.impl
 
 import androidx.lifecycle.viewModelScope
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.assisted.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.stavfx.nav3hiltvm.annotations.HiltNavArgViewModel
+import com.stavfx.nav3hiltvm.annotations.NavArg
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
@@ -27,27 +25,20 @@ import java.io.IOException
 /**
  * Presenter for the post-detail screen.
  *
- * Uses Hilt's assisted-injection bridge so the [PostDetailRoute] (the
- * Nav 3 NavKey carrying the focus URI) flows from the entry-provider
- * call site into the VM constructor without a SavedStateHandle decode
- * step. The canonical Nav 3 pattern documented in the official Hilt
- * recipe — `hiltViewModel<VM, Factory>(creationCallback = { it.create(key) })`
- * — preserves a per-NavEntry VM instance via the
+ * The [PostDetailRoute] (the Nav 3 NavKey carrying the focus URI) flows
+ * from the entry-provider call site into the VM constructor — marked
+ * `@NavArg` — without a SavedStateHandle decode step. `@HiltNavArgViewModel`
+ * generates the assisted-injection Hilt bridge (`PostDetailViewModel_HiltNavArgs`
+ * + `postDetailEntry`), which preserves a per-NavEntry VM instance via the
  * `rememberViewModelStoreNavEntryDecorator` already wired in `MainShell`.
  */
-@HiltViewModel(assistedFactory = PostDetailViewModel.Factory::class)
-internal class PostDetailViewModel
-    @AssistedInject
+@HiltNavArgViewModel
+internal open class PostDetailViewModel
     constructor(
-        @Assisted private val route: PostDetailRoute,
+        @NavArg private val route: PostDetailRoute,
         private val postThreadRepository: PostThreadRepository,
         private val postInteractionsCache: PostInteractionsCache,
     ) : MviViewModel<PostDetailState, PostDetailEvent, PostDetailEffect>(PostDetailState()) {
-        @AssistedFactory
-        interface Factory {
-            fun create(route: PostDetailRoute): PostDetailViewModel
-        }
-
         init {
             // Subscribe to the cache BEFORE the initial thread load so the
             // first emission from seed() is captured rather than dropped.

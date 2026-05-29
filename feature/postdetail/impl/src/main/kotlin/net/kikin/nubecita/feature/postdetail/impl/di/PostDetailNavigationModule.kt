@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.postdetail.impl.di
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,7 +15,7 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.PostDetailScreen
-import net.kikin.nubecita.feature.postdetail.impl.PostDetailViewModel
+import net.kikin.nubecita.feature.postdetail.impl.postDetailEntry
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 
@@ -48,9 +47,9 @@ internal object PostDetailNavigationModule {
     @MainShell
     fun providePostDetailEntries(): EntryProviderInstaller =
         {
-            entry<PostDetailRoute>(
+            postDetailEntry(
                 metadata = ListDetailSceneStrategy.detailPane(),
-            ) { route ->
+            ) { viewModel ->
                 val navState = LocalMainShellNavState.current
                 // The media viewer is registered on the OUTER NavDisplay
                 // (`@OuterShell` in MediaViewerNavigationModule) so it
@@ -60,10 +59,6 @@ internal object PostDetailNavigationModule {
                 // Push via the outer Navigator instead.
                 val appNavigator = LocalAppNavigator.current
                 val launchComposer = LocalComposerLauncher.current
-                val viewModel =
-                    hiltViewModel<PostDetailViewModel, PostDetailViewModel.Factory>(
-                        creationCallback = { factory -> factory.create(route) },
-                    )
                 PostDetailScreen(
                     onBack = { navState.removeLast() },
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
