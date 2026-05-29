@@ -71,10 +71,18 @@ internal fun Throwable.toChatsError(): ChatsError =
     }
 
 /**
- * Maps a thrown error from the thread path (`resolveConvo` or `getMessages`) to a
- * screen-facing [ChatError] variant. Distinct from [toChatsError] because the
- * thread screen recognises `ConvoNotFound` (returned by `getConvoForMembers`
- * when the peer DID has no shared convo and one can't be auto-opened).
+ * Maps a thrown error from the thread path (`resolveConvo`, `getMessages`, or
+ * `sendMessage`) to a screen-facing [ChatError] variant. Distinct from
+ * [toChatsError] because the thread screen recognises `ConvoNotFound` (returned
+ * by `getConvoForMembers` when the peer DID has no shared convo and one can't be
+ * auto-opened).
+ *
+ * The `sendMessage` write path reuses this mapping unchanged: a failed send is
+ * either a transport failure ([ChatError.Network]), a not-enrolled / messages-
+ * disabled condition that the existing markers already cover, or an
+ * otherwise-unrecognised wire code that falls through to [ChatError.Unknown]
+ * (retryable from the composer's inline retry affordance). No send-specific
+ * variant is added — there is no distinct send-failure UX in scope.
  */
 internal fun Throwable.toChatError(): ChatError =
     when (this) {

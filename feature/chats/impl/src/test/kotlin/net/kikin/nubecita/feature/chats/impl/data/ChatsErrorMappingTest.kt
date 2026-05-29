@@ -72,4 +72,38 @@ internal class ChatsErrorMappingTest {
         val result = xrpc.toChatError()
         assertTrue(result is ChatError.Unknown)
     }
+
+    // --- sendMessage write-path failures reuse toChatError unchanged ---
+
+    @Test
+    fun `send transport failure maps to ChatError Network`() {
+        // A dropped connection mid-send surfaces as an IOException, same as
+        // the read path — the composer's inline retry can recover.
+        val result = IOException("connection reset").toChatError()
+        assertEquals(ChatError.Network, result)
+    }
+
+    @Test
+    fun `send to a not-enrolled account maps to ChatError NotEnrolled`() {
+        // sendMessage rejects when the viewer hasn't opted into DMs; the
+        // existing not-enrolled marker covers the write path too.
+        val xrpc =
+            XrpcError.Unknown(
+                name = "InvalidRequest",
+                message = "user is not enrolled in direct messaging",
+                status = 400,
+            )
+        val result = xrpc.toChatError()
+        assertEquals(ChatError.NotEnrolled, result)
+    }
+
+    @Test
+    fun `send rejected with an unrecognized wire code maps to ChatError Unknown`() {
+        // No send-specific variant exists; any unmatched send failure (rate
+        // limit, transient server error) falls through to Unknown, which the
+        // composer renders as a retryable failed row.
+        val xrpc = XrpcError.Unknown(name = "RateLimitExceeded", message = "too many requests", status = 429)
+        val result = xrpc.toChatError()
+        assertTrue(result is ChatError.Unknown)
+    }
 }
