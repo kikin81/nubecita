@@ -177,13 +177,37 @@ jobs:
 
       # github-action-benchmark has no `androidx` tool parser, so convert the
       # AndroidX benchmarkData.json into its `customSmallerIsBetter` array
-      # format (one point per benchmark×metric, using each metric's median).
+      # format with jq (preinstalled on the ubuntu-latest runner — 1.7 on
+      # 24.04). One point per benchmark×metric, keyed on each metric's median;
+      # metrics with no median are skipped. The coefficient of variation rides
+      # along as the displayed `range`. `round` only rounds to an integer in
+      # jq, so we scale/round/divide: median → 3 dp, CoV% → 1 dp. On a
+      # swiftshader emulator only `timeToInitialDisplayMs` + `frameCount`
+      # capture; frame-duration metrics flow through unchanged on real hardware.
       - name: Convert to custom benchmark JSON
         id: bench-convert
         run: |
           OUT=benchmark/build/macrobench-custom.json
-          python3 benchmark/ci/androidx_to_custom_benchmark_json.py \
-            "${{ steps.bench-json.outputs.path }}" "$OUT"
+          jq '[ .benchmarks[]
+            | (.className | split(".") | last) as $cls
+            | .name as $bench
+            | .metrics | to_entries[]
+            | select(.value.median != null)
+            | { name: "\($cls).\($bench) / \(.key)",
+                unit: (if   (.key | endswith("Ms")) then "ms"
+                       elif  .key == "frameCount"    then "frames"
+                       else  "" end),
+                value: (.value.median * 1000 | round / 1000) }
+              + (if .value.coefficientOfVariation != null
+                 then { range: "+/- \(.value.coefficientOfVariation * 1000 | round / 10)%" }
+                 else {} end) ]' \
+            "${{ steps.bench-json.outputs.path }}" > "$OUT"
+          COUNT=$(jq 'length' "$OUT")
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::No benchmark metrics found in ${{ steps.bench-json.outputs.path }}"
+            exit 1
+          fi
+          echo "Converted $COUNT metric(s)"
           echo "path=$OUT" >> "$GITHUB_OUTPUT"
 
       # Scheduled / manual: this is the trend of record. Push the new point to

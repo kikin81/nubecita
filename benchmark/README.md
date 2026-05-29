@@ -63,14 +63,14 @@ emulator, then pipes the per-cell JSON through
 `benchmark-action/github-action-benchmark@v1` to build a historical
 trend on the `gh-pages` branch.
 
-That action has no `androidx` parser, so a conversion step
-(`benchmark/ci/androidx_to_custom_benchmark_json.py`) first maps the
-AndroidX `benchmarkData.json` into the action's `customSmallerIsBetter`
-array — one point per benchmark×metric, keyed on each metric's median.
-The converter is metric-agnostic: on a swiftshader emulator only
-`timeToInitialDisplayMs` (the COLD/WARM startup cells) and `frameCount`
-capture, but frame-duration metrics flow through automatically on a
-real-hardware runner.
+That action has no `androidx` parser, so an inline `jq` step in the
+workflow first maps the AndroidX `benchmarkData.json` into the action's
+`customSmallerIsBetter` array — one point per benchmark×metric, keyed on
+each metric's median (`jq` is preinstalled on the `ubuntu-latest`
+runner). The conversion is metric-agnostic: on a swiftshader emulator
+only `timeToInitialDisplayMs` (the COLD/WARM startup cells) and
+`frameCount` capture, but frame-duration metrics flow through
+automatically on a real-hardware runner.
 
 **Triggers.** Nightly at 07:00 UTC (the canonical trend source),
 `workflow_dispatch` (manual — used to seed the gh-pages baseline
