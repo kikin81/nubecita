@@ -9,6 +9,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 /**
  * Stateful entry for the chat thread screen. Owns the [ChatViewModel],
@@ -44,6 +45,13 @@ internal fun ChatScreen(
     val genericErrorMsg = stringResource(R.string.chat_send_error_generic)
 
     LaunchedEffect(Unit) {
+        // The effect collector drains a single stream that carries both
+        // navigation (NavigateToPost) and the send-error snackbar. showSnackbar
+        // suspends until the snackbar is dismissed (~4s), so showing it inline
+        // would head-of-line-block a NavigateToPost queued right behind it —
+        // e.g. tapping a quoted-post embed just after a send fails. Launch the
+        // snackbar in a child coroutine so navigation effects dispatch promptly.
+        val effectScope = this
         viewModel.effects.collect { effect ->
             when (effect) {
                 is ChatEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
@@ -57,8 +65,10 @@ internal fun ChatScreen(
                             is ChatError.Unknown,
                             -> genericErrorMsg
                         }
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message)
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(message)
+                    }
                 }
             }
         }
