@@ -6,11 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.fitInside
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,7 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.WindowInsetsRulers
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -115,7 +114,18 @@ internal fun ChatScreenContent(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+                    // Fit the thread + composer inside the IME rulers so the composer
+                    // sits flush above the keyboard. `fitInside` is the Android-docs-
+                    // preferred IME handling here (over `imePadding()`) precisely
+                    // because rulers are absolute window positions: it's robust to
+                    // upstream not consuming the inset. MainShell's
+                    // `NavigationSuiteScaffold` raises content for the IME by layout
+                    // without consuming, which makes `imePadding()` either double the
+                    // keyboard or fall a nav-bar height short — `fitInside` sidesteps
+                    // both. See docs/design-system (IME notes) / android-cli e2e skill.
+                    .fitInside(WindowInsetsRulers.Ime.current),
         ) {
             Box(
                 modifier =
@@ -178,24 +188,8 @@ private fun ChatComposerRow(
     onFocus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // MainShell's `NavigationSuiteScaffold` raises this content for the IME, but
-    // it consumes the navigation-bar inset *first* and raises by layout (without
-    // re-consuming), so its lift stops exactly one nav-bar height short of the
-    // full keyboard and the keyboard's accessory strip overlaps the composer.
-    // `imePadding()` can't recover it (the suite's lift isn't a consumed inset,
-    // so imePadding re-adds the *whole* keyboard → a keyboard-tall gap). Read the
-    // raw values and re-add only the nav-bar-sized overlap, and only while the
-    // IME is up: min(ime, navigationBars) is 0 when the keyboard is closed.
-    val density = LocalDensity.current
-    val imeResidual =
-        with(density) {
-            minOf(
-                WindowInsets.ime.getBottom(density),
-                WindowInsets.navigationBars.getBottom(density),
-            ).toDp()
-        }
     Surface(
-        modifier = modifier.fillMaxWidth().padding(bottom = imeResidual),
+        modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
