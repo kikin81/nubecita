@@ -181,9 +181,13 @@ Reference implementation: `:feature:composer:impl/ComposerViewModel`. Rationale:
 
 ### Keyboard / IME insets inside `MainShell`
 
-Screens hosted by `MainShell`'s inner `NavDisplay` (any tab or sub-route) sit inside a `NavigationSuiteScaffold`. Adaptive scaffolds (`NavigationSuiteScaffold`, `ListDetailPaneScaffold`) manage their own bar/rail insets but **do NOT propagate inset `PaddingValues` to inner content, and raise content for the IME by layout without consuming the inset**. Because of that, a local **`Modifier.imePadding()` double-counts** the keyboard (a keyboard-tall gap), and simply removing it leaves the content a nav-bar height short (the keyboard's accessory strip overlaps a bottom-pinned input).
+Screens hosted by `MainShell`'s inner `NavDisplay` (any tab or sub-route) sit inside a `NavigationSuiteScaffold`. Adaptive scaffolds (`NavigationSuiteScaffold`, `ListDetailPaneScaffold`) manage their own bar/rail insets but **do NOT propagate inset `PaddingValues` to inner content, and raise content for the IME by layout without consuming the inset**. That breaks the usual inset modifiers:
 
-So any inner-shell screen with a bottom-anchored text field (chat composer, future in-thread search, etc.) handles the IME with **`Modifier.fitInside(WindowInsetsRulers.Ime.current)`** on the content container — **not** `imePadding()`. `fitInside` keys off absolute window-positioned rulers, so it's robust to the suite not consuming insets upstream (this is also what the Android edge-to-edge docs prefer for exactly this case). Pair it with `consumeWindowInsets(innerPadding)`. Reference: `:feature:chats:impl/ChatScreenContent` (`nubecita-b6uv.4`).
+- `Modifier.imePadding()` **double-counts** the keyboard (the suite's lift isn't a consumed inset, so imePadding re-adds the whole keyboard → a keyboard-tall gap).
+- Removing it leaves the content a nav-bar height short (the suite consumes the nav-bar inset before lifting, so the keyboard's accessory strip overlaps a bottom-pinned input).
+- `Modifier.fitInside(WindowInsetsRulers.Ime.current)` — the Android-docs-preferred tool for "ancestor didn't consume" — is **placement-phase** and was observed **desyncing from the suite's own lift and sticking to a keyboard-tall gap** on real IME-open here. Avoid it under this shell.
+
+What works: a **measure-phase, state-read padding** on the bottom-anchored element — `padding(bottom = min(WindowInsets.ime.getBottom(d), WindowInsets.navigationBars.getBottom(d)).toDp())`. It re-adds exactly the nav-bar-sized overlap the suite's lift misses, recomputes every IME-animation frame, and (being measure-phase) can't get stuck on a stale placement. `min(...)` is 0 when the keyboard is closed. Reference: `:feature:chats:impl/ChatScreenContent` `ChatComposerRow` (`nubecita-b6uv.4`).
 
 **Outer-shell** screens (Login, Onboarding — `@OuterShell`, no `NavigationSuiteScaffold`) are unaffected and keep handling the IME themselves via `Scaffold(contentWindowInsets = WindowInsets.safeDrawing)` / `safeDrawingPadding()`.
 
