@@ -49,6 +49,7 @@ internal fun ChatScreen(
                 viewModel.handleEvent(event)
             }
         },
+        textFieldState = viewModel.textFieldState,
         modifier = modifier,
     )
 }

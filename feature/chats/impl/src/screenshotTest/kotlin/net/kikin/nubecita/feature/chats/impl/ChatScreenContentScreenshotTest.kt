@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl
 
 import android.content.res.Configuration
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
@@ -250,7 +251,7 @@ private val NOT_ENROLLED_STATE =
 @Composable
 private fun ChatScreenLoadedScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatScreenContent(state = LOADED_STATE, onEvent = {})
+        ChatScreenContent(state = LOADED_STATE, onEvent = {}, textFieldState = TextFieldState())
     }
 }
 
@@ -261,7 +262,7 @@ private fun ChatScreenLoadedScreenshot() {
 private fun ChatScreenLoadedWithEmbedsScreenshot() {
     CompositionLocalProvider(LocalClock provides ThreadFixtureClock) {
         NubecitaCanvasPreviewTheme {
-            ChatScreenContent(state = LOADED_WITH_EMBEDS_STATE, onEvent = {})
+            ChatScreenContent(state = LOADED_WITH_EMBEDS_STATE, onEvent = {}, textFieldState = TextFieldState())
         }
     }
 }
@@ -272,7 +273,7 @@ private fun ChatScreenLoadedWithEmbedsScreenshot() {
 @Composable
 private fun ChatScreenEmptyScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatScreenContent(state = EMPTY_STATE, onEvent = {})
+        ChatScreenContent(state = EMPTY_STATE, onEvent = {}, textFieldState = TextFieldState())
     }
 }
 
@@ -282,7 +283,33 @@ private fun ChatScreenEmptyScreenshot() {
 @Composable
 private fun ChatScreenLoadingScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatScreenContent(state = LOADING_STATE, onEvent = {})
+        ChatScreenContent(state = LOADING_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}
+
+@PreviewTest
+@Preview(name = "chat-composer-empty-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-composer-empty-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenComposerEmptyScreenshot() {
+    // Blank composer → send control disabled (isSendEnabled = false default).
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = LOADED_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}
+
+@PreviewTest
+@Preview(name = "chat-composer-typed-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-composer-typed-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenComposerTypedScreenshot() {
+    // Non-blank composer → send control enabled.
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(
+            state = LOADED_STATE.copy(isSendEnabled = true),
+            onEvent = {},
+            textFieldState = TextFieldState(initialText = "Let's grab coffee at 5?"),
+        )
     }
 }
 
@@ -292,7 +319,7 @@ private fun ChatScreenLoadingScreenshot() {
 @Composable
 private fun ChatScreenNetworkErrorScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatScreenContent(state = NETWORK_ERROR_STATE, onEvent = {})
+        ChatScreenContent(state = NETWORK_ERROR_STATE, onEvent = {}, textFieldState = TextFieldState())
     }
 }
 
@@ -302,6 +329,6 @@ private fun ChatScreenNetworkErrorScreenshot() {
 @Composable
 private fun ChatScreenNotEnrolledScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatScreenContent(state = NOT_ENROLLED_STATE, onEvent = {})
+        ChatScreenContent(state = NOT_ENROLLED_STATE, onEvent = {}, textFieldState = TextFieldState())
     }
 }

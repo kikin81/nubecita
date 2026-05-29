@@ -24,6 +24,7 @@ data class ChatScreenViewState(
     val otherUserAvatarUrl: String? = null,
     val otherUserAvatarHue: Int = 0,
     val status: ChatLoadStatus = ChatLoadStatus.Loading,
+    val isSendEnabled: Boolean = false,
 ) : UiState
 
 sealed interface ChatLoadStatus {
@@ -122,7 +123,21 @@ data class MessageUi(
     val isDeleted: Boolean,
     val sentAt: Instant,
     val embed: EmbedUi.RecordOrUnavailable? = null,
+    val sendStatus: MessageSendStatus = MessageSendStatus.Sent,
 )
+
+/**
+ * Per-message send lifecycle for outgoing (composed) messages. Server-fetched
+ * messages from `getMessages` are always [Sent] (the default), so the read path
+ * and all existing fixtures are unaffected. The composer's optimistic echo
+ * starts [Sending]; a confirmed server echo reconciles to [Sent]; a failed send
+ * flips to [Failed] (inline retry UX is a follow-up — child D).
+ */
+enum class MessageSendStatus {
+    Sending,
+    Sent,
+    Failed,
+}
 
 sealed interface ChatEvent : UiEvent {
     data object Refresh : ChatEvent
@@ -130,6 +145,9 @@ sealed interface ChatEvent : UiEvent {
     data object RetryClicked : ChatEvent
 
     data object BackPressed : ChatEvent
+
+    /** User tapped send (or pressed the IME Send action) with non-blank composer text. */
+    data object Send : ChatEvent
 
     /**
      * User tapped the quoted-post embed under a message bubble. The VM

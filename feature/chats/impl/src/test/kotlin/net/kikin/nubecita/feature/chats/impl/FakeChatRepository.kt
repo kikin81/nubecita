@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl
 
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CompletableDeferred
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoListPage
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
@@ -23,6 +24,11 @@ internal class FakeChatRepository(
     var nextMessagesResult: Result<MessagePage> = Result.success(MessagePage(messages = persistentListOf())),
     var nextSendResult: Result<MessageUi> = Result.success(DEFAULT_SENT_MESSAGE),
 ) : ChatRepository {
+    /**
+     * Optional gate: when set, `sendMessage` suspends on it before returning,
+     * so a test can observe the optimistic `Sending` row before reconcile.
+     */
+    var sendGate: CompletableDeferred<Unit>? = null
     val listCalls = AtomicInteger(0)
     val resolveCalls = AtomicInteger(0)
     val messagesCalls = AtomicInteger(0)
@@ -67,6 +73,7 @@ internal class FakeChatRepository(
         sendCalls.incrementAndGet()
         lastSendConvoId = convoId
         lastSendText = text
+        sendGate?.await()
         return nextSendResult
     }
 

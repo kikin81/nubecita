@@ -8,31 +8,45 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -53,10 +67,15 @@ import net.kikin.nubecita.feature.chats.impl.ui.MessageBubble
 internal fun ChatScreenContent(
     state: ChatScreenViewState,
     onEvent: (ChatEvent) -> Unit,
+    textFieldState: TextFieldState,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
     Scaffold(
         modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
                 title = {
@@ -84,25 +103,109 @@ internal fun ChatScreenContent(
             )
         },
     ) { padding ->
-        Box(
+        Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .imePadding(),
         ) {
-            when (val status = state.status) {
-                ChatLoadStatus.Loading -> LoadingBody()
-                is ChatLoadStatus.Loaded ->
-                    if (status.items.isEmpty()) {
-                        EmptyBody()
-                    } else {
-                        LoadedBody(
-                            items = status.items,
-                            onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
-                        )
-                    }
-                is ChatLoadStatus.InitialError ->
-                    ErrorBody(status.error, onRetry = { onEvent(ChatEvent.RetryClicked) })
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+            ) {
+                when (val status = state.status) {
+                    ChatLoadStatus.Loading -> LoadingBody()
+                    is ChatLoadStatus.Loaded ->
+                        if (status.items.isEmpty()) {
+                            EmptyBody()
+                        } else {
+                            LoadedBody(
+                                items = status.items,
+                                listState = listState,
+                                onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
+                            )
+                        }
+                    is ChatLoadStatus.InitialError ->
+                        ErrorBody(status.error, onRetry = { onEvent(ChatEvent.RetryClicked) })
+                }
+            }
+            // The composer is available whenever the convo is loaded (including an
+            // empty thread, so the first message can be sent). Loading / initial-
+            // error states show no composer.
+            if (state.status is ChatLoadStatus.Loaded) {
+                ChatComposerRow(
+                    textFieldState = textFieldState,
+                    isSendEnabled = state.isSendEnabled,
+                    onSend = { onEvent(ChatEvent.Send) },
+                    // Anchor to newest (index 0 under reverseLayout) when the
+                    // composer gains focus, so the IME never hides the latest run.
+                    onFocus = { scope.launch { listState.animateScrollToItem(0) } },
+                )
+            }
+        }
+    }
+
+    // Anchor to newest when a message is appended (optimistic send / refresh).
+    // Keying on the newest item's key fires the scroll exactly when the head changes.
+    val newestKey = (state.status as? ChatLoadStatus.Loaded)?.items?.firstOrNull()?.key
+    LaunchedEffect(newestKey) {
+        if (newestKey != null) listState.animateScrollToItem(0)
+    }
+}
+
+/**
+ * M3 Expressive composer row pinned below the thread. `surfaceContainerHigh`
+ * per the surface-roles contract (raised affordance). The text field uses the
+ * Compose `TextFieldState` overload (the VM owns the state per the editor
+ * exception); the send control is disabled until [isSendEnabled].
+ */
+@Composable
+private fun ChatComposerRow(
+    textFieldState: TextFieldState,
+    isSendEnabled: Boolean,
+    onSend: () -> Unit,
+    onFocus: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                state = textFieldState,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .onFocusChanged { if (it.isFocused) onFocus() },
+                placeholder = { Text(text = stringResource(R.string.chat_composer_placeholder)) },
+                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 5),
+                keyboardOptions =
+                    KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Send,
+                    ),
+                onKeyboardAction = { if (isSendEnabled) onSend() },
+            )
+            IconButton(
+                onClick = onSend,
+                enabled = isSendEnabled,
+            ) {
+                NubecitaIcon(
+                    name = NubecitaIconName.Send,
+                    contentDescription = stringResource(R.string.chat_composer_send_content_description),
+                    filled = true,
+                )
             }
         }
     }
@@ -181,10 +284,12 @@ private fun EmptyBody() {
 @Composable
 private fun LoadedBody(
     items: ImmutableList<ThreadItem>,
+    listState: LazyListState,
     onQuotedPostTap: (quotedPostUri: String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = listState,
         reverseLayout = true,
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
         // 2dp baseline matches ListItemDefaults.SegmentedGap (the M3 Expressive grouped-
