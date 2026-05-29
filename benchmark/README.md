@@ -56,26 +56,86 @@ benchmark/build/outputs/connected_android_test_additional_output/<variant>/conne
 
 ## Run in CI
 
-**Not wired in this change.** CI macrobench is deferred to a follow-up
-epic because it depends on prerequisites that don't ship here:
+Wired by `.github/workflows/macrobench.yaml` (crmi.6 Section C).
+The workflow runs `:benchmark:connectedBenchmarkReleaseAndroidTest`
+against the bench-flavor `:app` (fake-network Feed) on a hosted
+emulator, then pipes the per-cell JSON through
+`benchmark-action/github-action-benchmark@v1` to build a historical
+trend on the `gh-pages` branch.
 
-- A `benchmark` product flavor on `:app` that swaps the real Bluesky
-  data layer for an asset-backed fake (so a fresh CI install routes
-  past Login and renders a deterministic feed). Without it,
-  `FeedScrollBenchmark` can't find `feed_list` on a CI runner.
-- A regression-tracking strategy that copes with cloud-runner CPU
-  variance — Macrobench's absolute numbers are 30–50 % noisy on
-  `ubuntu-latest`, so the CI gate has to be a "catastrophic-regression
-  smoke detector" (e.g. `benchmark-action/github-action-benchmark@v1`
-  with conservative threshold-on-alert) rather than a fine-grained
-  measurement.
-- Emulator-side configuration (`androidx.benchmark.suppressErrors`
-  meta-data, fixed API target, KVM-enabled runners) so the bench can
-  even start under an emulated device.
+**Triggers.** Nightly at 07:00 UTC (the canonical trend source),
+`workflow_dispatch` (manual — used to seed the gh-pages baseline
+immediately instead of waiting for the first cron), and PR opt-in via
+the `run-bench` label (mirrors the `instrumented` job's
+`run-instrumented` gate).
 
-The follow-up epic tracks all of the above. Until it lands, run the
-bench locally on a physical device and post numbers to the
-`nubecita-crmi` epic comment thread.
+**Alert behaviour.** Scheduled/manual runs `auto-push` the new data
+point to gh-pages and `fail-on-alert` at a `150%` threshold — a
+"catastrophic-regression smoke detector", not a fine-grained gate,
+because Macrobench's absolute numbers are 30–50 % noisy on
+hosted GitHub runners. PR runs never mutate the trend (`auto-push: false`,
+`save-data-file: false`) and never auto-fail; they post a
+comment-on-alert so the author sees the delta without blocking merge.
+
+**Emulator config.** API 35 / `google_apis` / `pixel_6` / x86_64 with
+KVM, sharing the AVD cache key (`avd-cache-v1-api35-pixel6`) with the
+`instrumented` job so the snapshot is reused. The HOT
+`StartupBenchmark` cells are filtered out (`tests_regex` negative
+lookahead on `HOT`) because they fail on emulators with "Unable to
+read any metrics" — tracked as `nubecita-vuny`, unrelated to the
+pipeline.
+
+> **Platform anchoring.** Frame timing is genuinely platform-divergent
+> (CI Linux x86_64 emulator vs. local arm64 hardware), so — unlike the
+> screenshot baselines — the gh-pages history is deliberately
+> CI-runner-anchored and **not** cross-platform-comparable. Only compare
+> a CI cell to the prior CI cell; the on-device numbers posted to the
+> `nubecita-crmi` epic thread live on a separate track.
+
+> **Baseline profile in CI.** The workflow only *uses* the committed
+> `app/src/release/generated/baselineProfiles/baseline-prof.txt`; it
+> never regenerates it. Profile generation is blocked on hosted runners
+> by `requiresPhysicalDevice` and the signed-in OAuth cold-start path —
+> the `androidx.baselineprofile` plugin routes `BaselineProfileGenerator`
+> to the `nonMinifiedRelease` variant, so the `benchmarkRelease`
+> connected-test task only runs `StartupBenchmark` + `FeedScrollBenchmark`.
+> Regen stays the manual on-device task documented below.
+
+### Re-baselining the gh-pages trend
+
+When an *intentional* perf change shifts the numbers (a Compose runtime
+bump, a deliberate Feed-layout rework, a benchmark-cell rename), the old
+history becomes a false-positive generator — every subsequent run alerts
+against a baseline that no longer reflects reality. Clear the stale
+points so the next scheduled run re-seeds from the new normal:
+
+1. **Targeted edit** — for a single shifted metric, check out the
+   `gh-pages` branch, open `dev/bench/data.js`, and delete the trailing
+   entries for the affected benchmark from the `window.BENCHMARK_DATA`
+   array. Commit and push. The next scheduled run appends fresh points
+   that diff only against what remains.
+
+   ```bash
+   git fetch origin gh-pages
+   git switch gh-pages
+   # edit dev/bench/data.js — trim the stale entries
+   git commit -am "chore(bench): re-baseline <metric> after intentional perf change"
+   git push origin gh-pages
+   git switch -
+   ```
+
+2. **Full wipe + re-seed** — for a broad shift (toolchain bump touching
+   every cell), delete `dev/bench/data.js` entirely (or delete the
+   `gh-pages` branch), then run the workflow via `workflow_dispatch`. The
+   first run with no history re-seeds the baseline from scratch.
+
+Always note the re-baseline (commit subject + reason) so a later
+investigator doesn't mistake the discontinuity for a measurement bug.
+
+Until a few nightly cycles accumulate, also run the bench locally on a
+physical device and post numbers to the `nubecita-crmi` epic comment
+thread — the on-device track is the higher-signal trend while the CI
+history is still short.
 
 ## Regenerating the startup baseline profile
 

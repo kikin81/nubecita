@@ -1,0 +1,221 @@
+# Macrobench — scheduled AndroidX Macrobenchmark regression tracker.
+#
+# Runs the bench-flavor Macrobench (:benchmark:connectedBenchmarkReleaseAndroidTest,
+# which targets :app:benchBenchmarkRelease — the fake-network Feed) on a
+# hosted emulator, then pipes the per-cell JSON through
+# benchmark-action/github-action-benchmark@v1 to build a historical trend on
+# the `gh-pages` branch and alert on regression.
+#
+# WHAT THIS WORKFLOW USES vs. NEVER DOES
+# --------------------------------------
+# - It only USES the committed baseline profile at
+#   `app/src/release/generated/baselineProfiles/baseline-prof.txt`. It NEVER
+#   regenerates it: baseline-profile generation (BaselineProfileGenerator /
+#   BaselineProfileRule) is gated behind `requiresPhysicalDevice` and the
+#   signed-in OAuth cold-start path, neither of which exists on a hosted
+#   emulator. Regen stays a manual on-device task (see benchmark/README.md).
+#   The androidx.baselineprofile plugin routes BaselineProfileGenerator to the
+#   `nonMinifiedRelease` variant, so `connectedBenchmarkReleaseAndroidTest`
+#   only executes StartupBenchmark + FeedScrollBenchmark here.
+#
+# PLATFORM ANCHORING
+# ------------------
+# Frame timing is genuinely platform-divergent (CI Linux x86_64 emulator vs.
+# local arm64 hardware), so — unlike the screenshot baselines — the gh-pages
+# history is deliberately CI-runner-anchored and NOT cross-platform-comparable.
+# Only compare a CI cell to the prior CI cell. Re-baseline procedure when an
+# intentional perf change shifts the numbers: benchmark/README.md.
+#
+# AVD REUSE
+# ---------
+# The emulator config (api35 / google_apis / pixel_6 / x86_64) and the AVD
+# cache key (`avd-cache-v1-api35-pixel6`) intentionally match the CI
+# `instrumented` job (.github/workflows/ci.yaml) so the cached snapshot is
+# shared between the two workflows.
+
+name: Macrobench
+
+on:
+  # Nightly at 07:00 UTC — off-hours for US contributors. The scheduled run
+  # is the canonical trend source: it seeds gh-pages on first run and diffs
+  # against history thereafter.
+  schedule:
+    - cron: "0 7 * * *"
+  # Manual trigger — used to seed the gh-pages baseline immediately rather
+  # than waiting for the first nightly cron.
+  workflow_dispatch:
+  # Opt-in for perf-sensitive PRs. `labeled` re-fires when `run-bench` is
+  # added; the job `if:` below gates execution on the label's presence.
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Single job, single permission set. Splitting the scheduled and PR paths
+# into separate jobs to drop `contents: write` on the PR path (as a strict
+# least-privilege reading would suggest) doesn't actually narrow the PR
+# token: github-action-benchmark's `comment-on-alert` / `comment-always`
+# output is posted as a *commit comment*, which itself requires
+# `contents: write`. So both paths need the same scope, and the PR path is
+# already gated to maintainer opt-in (the `run-bench` label — fork PRs can
+# neither add labels nor see write-capable tokens). Workflow-level it is.
+permissions:
+  contents: write # gh-pages auto-push (scheduled) + commit comments (both)
+  pull-requests: write # PR review-thread context for the bench comment
+
+jobs:
+  macrobench:
+    name: Macrobench
+    # Scheduled + manual run unconditionally; PRs opt in via the `run-bench`
+    # label (mirrors the `instrumented` job's `run-instrumented` gate).
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-bench'))
+    # `ubuntu-latest` to match the `instrumented` job (ci.yaml) — the AVD
+    # snapshot cache is keyed identically and shared between the two, so the
+    # runner image must track in lockstep. Pinning a distinct version here
+    # would risk a snapshot built on one image being restored on another.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        # Default shallow (depth 1) is enough — the build/benchmark steps
+        # don't need history, and github-action-benchmark fetches the
+        # gh-pages branch itself.
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Confirm the runner exposes hardware-virtualization extensions before
+      # spending minutes booting an emulator that would otherwise fall back
+      # to software rendering. A `0` here means no KVM — fail loud.
+      - name: Verify KVM is available
+        run: |
+          COUNT=$(grep -Ec '(vmx|svm)' /proc/cpuinfo)
+          echo "vmx/svm flags: $COUNT"
+          test "$COUNT" -gt 0 || { echo "::error::No KVM acceleration on this runner"; exit 1; }
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Shared with the `instrumented` job — same key so the snapshot is
+      # reused across both workflows. Bump both keys together when the API
+      # level / profile below changes.
+      - name: AVD cache
+        uses: actions/cache@v5
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-cache-v1-api35-pixel6
+
+      - name: Create AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "AVD created and cached"
+
+      - name: Run Macrobench
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          # `tests_regex` drops the HOT StartupBenchmark cells. HOT fails on
+          # emulators with "Unable to read any metrics" (StartupTimingMetric
+          # vs. the emulator trace-window race) — tracked as nubecita-vuny,
+          # unrelated to the regression-tracking pipeline. The negative
+          # lookahead keeps everything that doesn't contain "HOT"
+          # (FeedScrollBenchmark#scrollFeed + StartupBenchmark COLD/WARM
+          # cells) and is robust to whether the runner matches the regex
+          # against `method[params]` or the fully-qualified description.
+          script: >-
+            ./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest
+            -Pandroid.testInstrumentationRunnerArguments.tests_regex='^(?!.*HOT).*$'
+
+      # The per-device output dir name varies (`<profile>(AVD) - <api>`), so
+      # resolve the JSON by glob and hand the action a concrete path.
+      - name: Locate benchmark JSON
+        id: bench-json
+        run: |
+          JSON=$(find benchmark/build/outputs/connected_android_test_additional_output/benchmarkRelease/connected \
+            -name '*-benchmarkData.json' | head -n1)
+          if [ -z "$JSON" ]; then
+            echo "::error::No benchmarkData.json produced — the bench run emitted no metrics"
+            exit 1
+          fi
+          echo "Found benchmark JSON: $JSON"
+          echo "path=$JSON" >> "$GITHUB_OUTPUT"
+
+      # Scheduled / manual: this is the trend of record. Push the new point to
+      # gh-pages and fail the run if any metric regressed past the threshold.
+      # The first run (no gh-pages history yet) seeds dev/bench/data.js.
+      - name: Store benchmark result (trend + alert)
+        if: github.event_name != 'pull_request'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: androidx
+          output-file-path: ${{ steps.bench-json.outputs.path }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          auto-push: true
+          alert-threshold: "150%"
+          fail-on-alert: true
+          comment-on-alert: true
+
+      # PR opt-in run: never mutate the gh-pages trend (auto-push: false,
+      # save-data-file: false) and never auto-fail the build — surface a
+      # comment so the author sees the delta without blocking the merge.
+      - name: Store benchmark result (PR comment only)
+        if: github.event_name == 'pull_request'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: androidx
+          output-file-path: ${{ steps.bench-json.outputs.path }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          auto-push: false
+          save-data-file: false
+          alert-threshold: "150%"
+          fail-on-alert: false
+          comment-on-alert: true
+          comment-always: true
+
+      - name: Upload benchmark output on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macrobench-output
+          path: |
+            benchmark/build/outputs/connected_android_test_additional_output/
+            benchmark/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
