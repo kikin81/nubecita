@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -112,8 +111,14 @@ internal fun ChatScreenContent(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .imePadding(),
+                    .padding(padding),
+            // No `imePadding()` here. This screen renders inside MainShell's
+            // `NavigationSuiteScaffold`, which already insets its content for the
+            // IME — adding a local `imePadding()` double-counts the keyboard and
+            // floats the composer one keyboard-height above the IME (the bug
+            // fixed in nubecita-b6uv.4). Screens on the OUTER shell (e.g. Login)
+            // are not inside the suite and DO handle the IME themselves via
+            // `WindowInsets.safeDrawing`.
         ) {
             Box(
                 modifier =
