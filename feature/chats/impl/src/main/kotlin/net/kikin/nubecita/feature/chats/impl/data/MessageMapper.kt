@@ -29,16 +29,7 @@ internal fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: Stri
     if (isEmpty()) return persistentListOf()
     return mapNotNull { union ->
         when (union) {
-            is MessageView ->
-                MessageUi(
-                    id = union.id,
-                    senderDid = union.sender.did.raw,
-                    isOutgoing = union.sender.did.raw == viewerDid,
-                    text = union.text,
-                    isDeleted = false,
-                    sentAt = Instant.parse(union.sentAt.raw),
-                    embed = union.embed.toMessageEmbedUi(),
-                )
+            is MessageView -> union.toMessageUi(viewerDid = viewerDid)
 
             is DeletedMessageView ->
                 MessageUi(
@@ -54,6 +45,23 @@ internal fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: Stri
         }
     }.toImmutableList()
 }
+
+/**
+ * Maps a single wire [MessageView] to [MessageUi]. Shared by the `getMessages`
+ * page mapper above and the `sendMessage` write path (whose response is a bare
+ * `MessageView`). A server-fetched/confirmed message is never deleted here, so
+ * `isDeleted = false`.
+ */
+internal fun MessageView.toMessageUi(viewerDid: String): MessageUi =
+    MessageUi(
+        id = id,
+        senderDid = sender.did.raw,
+        isOutgoing = sender.did.raw == viewerDid,
+        text = text,
+        isDeleted = false,
+        sentAt = Instant.parse(sentAt.raw),
+        embed = embed.toMessageEmbedUi(),
+    )
 
 /**
  * Maps `MessageView.embed` to [EmbedUi.RecordOrUnavailable]. The chat

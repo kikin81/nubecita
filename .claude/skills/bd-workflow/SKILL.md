@@ -60,6 +60,17 @@ Then report: branch name, bd id + title, and a suggested first commit subject (`
 1. `./gradlew :app:assembleDebug` — proves the app graph still links. Cheaper than the full build and catches missing deps / Hilt graph breaks the IDE wouldn't flag.
 2. `./gradlew :<changed-module>:lintDebug` for each Android Gradle module touched (e.g. `:feature:feed:impl:lintDebug`). Lint catches Compose-rule violations (stability, unused state, modifier order) and other correctness issues that compilation and unit tests don't. Run on the specific modules rather than the umbrella `lint` task so the loop stays fast. Modules outside the main Android build (e.g. `build-logic`, plain JVM libs) have no `lintDebug` task — skip them here, the convention plugins already gate them at compile time.
 3. Pre-commit hook on the commit itself already ran spotless + commitlint + secret scan — no extra step needed here. If the hook reports a failure, fix the underlying issue rather than re-running with `--no-verify`.
+4. **Compose review gate.** Run the detector below; it decides whether a Compose-specific review is warranted before the PR opens:
+
+   ```bash
+   git diff origin/main...HEAD -- '*.kt' | grep -E '^\+' | grep -q '@Composable' \
+     && echo "compose-touched" || echo "headless"
+   ```
+
+   - `compose-touched` → invoke the **`compose-expert` Review Mode** skill on this branch's diff (it runs the recomposition / stability / modifier / M3-motion / lists-keys checklist) and fold any Critical findings into the branch before pushing. Suggestions are optional.
+   - `headless` → **skip it.** A diff with no added `@Composable` lines (repository, mapper, DI, test-only changes) yields zero Compose signal — running the reviewer just burns tokens. `./gradlew :<module>:lintDebug` from step 2 already covers Compose lint rules for any incidental UI touch.
+
+   Rationale: gate the heavyweight Compose lens on the one cheap signal that predicts whether it'll find anything. Empirically, PR #340 (headless send-path) was correctly skipped by this gate.
 
 **Execute:**
 

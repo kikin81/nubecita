@@ -4,6 +4,8 @@ import io.github.kikin81.atproto.chat.bsky.convo.ConvoService
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoForMembersRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ListConvosRequest
+import io.github.kikin81.atproto.chat.bsky.convo.MessageInput
+import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
 import io.github.kikin81.atproto.runtime.Did
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
@@ -14,6 +16,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.profile.avatarHueFor
+import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -97,6 +100,27 @@ internal class DefaultChatRepository
                     )
                 }.onFailure { throwable ->
                     Timber.tag(TAG).e(throwable, "getMessages failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun sendMessage(
+            convoId: String,
+            text: String,
+        ): Result<MessageUi> =
+            withContext(dispatcher) {
+                runCatching {
+                    val viewerDid = currentViewerDid()
+                    val client = xrpcClientProvider.authenticated()
+                    val response =
+                        ConvoService(client).sendMessage(
+                            SendMessageRequest(
+                                convoId = convoId,
+                                message = MessageInput(text = text),
+                            ),
+                        )
+                    response.toMessageUi(viewerDid = viewerDid)
+                }.onFailure { throwable ->
+                    Timber.tag(TAG).e(throwable, "sendMessage failed: %s", throwable.javaClass.name)
                 }
             }
 

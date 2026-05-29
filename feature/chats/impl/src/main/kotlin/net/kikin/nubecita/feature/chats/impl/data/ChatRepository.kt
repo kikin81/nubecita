@@ -33,6 +33,18 @@ internal interface ChatRepository {
         cursor: String? = null,
         limit: Int = GET_MESSAGES_PAGE_LIMIT,
     ): Result<MessagePage>
+
+    /**
+     * Sends [text] as a new message in [convoId] via `chat.bsky.convo.sendMessage`
+     * and returns the server-confirmed message. The returned [MessageUi] is the
+     * canonical (Sent) row — the composer replaces its optimistic echo with it.
+     * A blank/whitespace guard is the caller's responsibility (the composer
+     * disables send while empty); this method does not validate [text].
+     */
+    suspend fun sendMessage(
+        convoId: String,
+        text: String,
+    ): Result<MessageUi>
 }
 
 internal data class ConvoListPage(

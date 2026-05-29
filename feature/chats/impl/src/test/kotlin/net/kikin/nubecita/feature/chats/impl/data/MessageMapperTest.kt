@@ -193,6 +193,42 @@ internal class MessageMapperTest {
         assertNull(ui[0].embed)
     }
 
+    // --- Single-message mapper (sendMessage write path) ---
+
+    @Test
+    fun `single MessageView from viewer maps to outgoing Sent-shape MessageUi`() {
+        // The sendMessage response is a bare MessageView (the echo of the
+        // message just sent), so the sender is always the viewer.
+        val wire = messageView(id = "sent-1", senderDid = viewer, text = "hello", sentAt = "2026-05-01T12:00:00Z")
+        val ui = wire.toMessageUi(viewerDid = viewer)
+        assertEquals("sent-1", ui.id)
+        assertTrue(ui.isOutgoing)
+        assertEquals(false, ui.isDeleted)
+        assertEquals("hello", ui.text)
+        assertNull(ui.embed)
+    }
+
+    @Test
+    fun `single MessageView preserves a record embed`() {
+        val embed = RecordView(record = quotedPostRecord(text = "quoted body"))
+        val wire =
+            messageView(id = "sent-2", senderDid = viewer, text = "look", sentAt = "2026-05-01T12:00:00Z", embed = embed)
+        val ui = wire.toMessageUi(viewerDid = viewer)
+        assertEquals("look", ui.text)
+        val record = assertInstanceOf(EmbedUi.Record::class.java, ui.embed)
+        assertEquals("quoted body", record.quotedPost.text)
+    }
+
+    @Test
+    fun `single mapper and list mapper agree on the same MessageView`() {
+        // The list mapper delegates to the single mapper; guard that
+        // refactor so the two never diverge.
+        val wire = messageView(id = "m", senderDid = peer, text = "yo", sentAt = "2026-05-01T12:01:00Z")
+        val single = wire.toMessageUi(viewerDid = viewer)
+        val viaList = listOf<GetMessagesResponseMessagesUnion>(wire).toMessageUis(viewerDid = viewer).single()
+        assertEquals(viaList, single)
+    }
+
     private fun messageView(
         id: String,
         senderDid: String,
