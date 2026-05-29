@@ -71,6 +71,7 @@ enum class NubecitaIconName(
     Repeat("\uE040"),
     Reply("\uE15E"),
     Search("\uE8B6"),
+    Send("\uE163"),
     Settings("\uE8B8"),
     Verified("\uEF76"),
     VolumeOff("\uE04F"),
