@@ -29,9 +29,9 @@ internal object CropExtractor {
     const val WORKING_MAX_DIM = 2048
 
     /**
-     * Decode [uri] to a mutable, EXIF-oriented [Bitmap] capped at
-     * [WORKING_MAX_DIM] on its longest side. Software allocator because the
-     * result is later fed to `Bitmap.createBitmap` (hardware bitmaps throw).
+     * Decode [uri] to an EXIF-oriented [Bitmap] capped at [WORKING_MAX_DIM] on
+     * its longest side. Software allocator because the result is later read by
+     * `Bitmap.createBitmap` (a hardware bitmap can't be a `createBitmap` source).
      */
     fun decodeWorkingBitmap(
         context: Context,

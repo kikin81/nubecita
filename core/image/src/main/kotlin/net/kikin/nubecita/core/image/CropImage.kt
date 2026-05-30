@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -165,23 +166,35 @@ fun CropImage(
                     val cw = canvasSize.width.toFloat()
                     val ch = canvasSize.height.toFloat()
                     if (cw <= 0f || ch <= 0f) return@Button
+                    // Snapshot the gesture state at tap time so a later pan/zoom
+                    // can't change what gets extracted out from under the user.
+                    val tappedScale = scale
+                    val tappedOffset = offset
                     cropping = true
                     scope.launch {
-                        val (bytes, mime) =
-                            withContext(Dispatchers.Default) {
-                                CropExtractor.extract(
-                                    working = bitmap,
-                                    shape = shape,
-                                    canvasW = cw,
-                                    canvasH = ch,
-                                    scale = scale,
-                                    offsetX = offset.x,
-                                    offsetY = offset.y,
-                                    frameInset = FRAME_INSET,
-                                )
-                            }
-                        cropping = false
-                        onCrop(bytes, mime)
+                        try {
+                            val (bytes, mime) =
+                                withContext(Dispatchers.Default) {
+                                    CropExtractor.extract(
+                                        working = bitmap,
+                                        shape = shape,
+                                        canvasW = cw,
+                                        canvasH = ch,
+                                        scale = tappedScale,
+                                        offsetX = tappedOffset.x,
+                                        offsetY = tappedOffset.y,
+                                        frameInset = FRAME_INSET,
+                                    )
+                                }
+                            onCrop(bytes, mime)
+                        } catch (cancellation: CancellationException) {
+                            throw cancellation
+                        } catch (t: Throwable) {
+                            // Extraction failed (OOM / decode) — re-enable so the
+                            // user can retry. Robust error surfacing lands in qr1q.7.
+                        } finally {
+                            cropping = false
+                        }
                     }
                 },
                 enabled = working != null && !cropping,
