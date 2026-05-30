@@ -33,7 +33,7 @@ internal data class SearchTypeaheadState(
  *
  * - [Idle]: query is blank, OR the previous fetch failed silently.
  *   The screen body below the CTA renders empty. Per the
- *   [net.kikin.nubecita.core.posting.ActorTypeaheadRepository]
+ *   [net.kikin.nubecita.core.actors.ActorRepository]
  *   contract, transient failures collapse here — typeahead is a
  *   quality-of-life surface, not worth a snackbar on every flap of
  *   a flaky connection. Mirrors `:feature:composer:impl`'s

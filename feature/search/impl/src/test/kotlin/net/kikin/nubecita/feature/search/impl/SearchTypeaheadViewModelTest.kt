@@ -9,7 +9,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
+import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.data.models.ActorUi
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -225,7 +226,7 @@ class SearchTypeaheadViewModelTest {
 }
 
 /**
- * Test fake for [ActorTypeaheadRepository]. Same shape as the composer's
+ * Test fake for [ActorRepository]. Same shape as the composer's
  * [net.kikin.nubecita.feature.composer.impl.ComposerViewModelTypeaheadTest]
  * fake (kept inline because the composer fake is `private` to that test).
  *
@@ -235,7 +236,7 @@ class SearchTypeaheadViewModelTest {
  *    the test calls `.complete(...)`).
  *  - [callLog] is the chronological list of queries the VM passed in.
  */
-private class ControllableTypeaheadRepository : ActorTypeaheadRepository {
+private class ControllableTypeaheadRepository : ActorRepository {
     private val deferreds = mutableMapOf<String, CompletableDeferred<Result<List<ActorUi>>>>()
     val callLog: MutableList<String> = mutableListOf()
 
@@ -255,8 +256,19 @@ private class ControllableTypeaheadRepository : ActorTypeaheadRepository {
 
     fun gate(query: String): CompletableDeferred<Result<List<ActorUi>>> = deferreds.getOrPut(query) { CompletableDeferred() }
 
-    override suspend fun searchTypeahead(query: String): Result<List<ActorUi>> {
+    override suspend fun searchTypeahead(
+        query: String,
+        limit: Int,
+    ): Result<List<ActorUi>> {
         callLog += query
         return gate(query).await()
     }
+
+    override suspend fun searchActors(
+        query: String,
+        cursor: String?,
+        limit: Int,
+    ): Result<ActorSearchPage> = error("unused in typeahead tests")
+
+    override fun getActor(did: String): kotlinx.coroutines.flow.Flow<ActorUi?> = kotlinx.coroutines.flow.flowOf(null)
 }

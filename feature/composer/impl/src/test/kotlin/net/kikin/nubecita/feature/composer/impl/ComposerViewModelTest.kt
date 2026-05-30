@@ -17,7 +17,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
+import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
@@ -45,7 +46,7 @@ import org.junit.jupiter.api.Test
  * through `vm.textFieldState`, not through `ComposerEvent.TextChanged`.
  *
  * Strategy: real VM, fake [PostingRepository] + [ParentFetchSource]
- * + [ActorTypeaheadRepository] via mockk, assert state transitions
+ * + [ActorRepository] via mockk, assert state transitions
  * via Turbine on `uiState` and effects via Turbine on `effects`. No
  * Compose harness needed — the VM is the unit under test, and
  * `TextFieldState` is JVM-friendly so we can mutate it directly.
@@ -70,9 +71,20 @@ class ComposerViewModelTest {
     // here we install a fake that returns empty so the snapshot
     // collector's typeahead pipeline does not interfere with the
     // assertions in this suite.
-    private val actorTypeaheadRepository =
-        object : ActorTypeaheadRepository {
-            override suspend fun searchTypeahead(query: String): Result<List<net.kikin.nubecita.data.models.ActorUi>> = Result.success(emptyList())
+    private val actorRepository =
+        object : ActorRepository {
+            override suspend fun searchTypeahead(
+                query: String,
+                limit: Int,
+            ): Result<List<net.kikin.nubecita.data.models.ActorUi>> = Result.success(emptyList())
+
+            override suspend fun searchActors(
+                query: String,
+                cursor: String?,
+                limit: Int,
+            ): Result<ActorSearchPage> = error("unused")
+
+            override fun getActor(did: String): kotlinx.coroutines.flow.Flow<net.kikin.nubecita.data.models.ActorUi?> = kotlinx.coroutines.flow.flowOf(null)
         }
 
     @BeforeEach
@@ -532,7 +544,7 @@ class ComposerViewModelTest {
             route = ComposerRoute(replyToUri = replyToUri),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
-            actorTypeaheadRepository = actorTypeaheadRepository,
+            actorRepository = actorRepository,
             localeProvider = fixedLocaleProvider(deviceLocaleTag),
         )
 

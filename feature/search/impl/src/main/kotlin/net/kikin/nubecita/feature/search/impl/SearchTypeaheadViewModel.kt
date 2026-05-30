@@ -7,8 +7,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
+import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
 import javax.inject.Inject
 
 /**
@@ -37,7 +37,7 @@ import javax.inject.Inject
  * variant's `query` payload (the snapshot that the fetch was issued
  * for, which is what the user sees results against).
  *
- * Failure handling: per the [ActorTypeaheadRepository] contract,
+ * Failure handling: per the [ActorRepository] contract,
  * transient failures collapse to [SearchTypeaheadStatus.Idle]
  * (typeahead is QoL — a flaky-network snackbar on every keystroke
  * is more annoying than helpful, and the user can still commit via
@@ -52,7 +52,7 @@ import javax.inject.Inject
 internal class SearchTypeaheadViewModel
     @Inject
     constructor(
-        private val repository: ActorTypeaheadRepository,
+        private val repository: ActorRepository,
     ) : MviViewModel<SearchTypeaheadState, SearchTypeaheadEvent, SearchTypeaheadEffect>(SearchTypeaheadState()) {
         private val queryFlow = MutableStateFlow("")
 

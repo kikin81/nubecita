@@ -18,6 +18,7 @@ android {
 dependencies {
     api(project(":feature:composer:api"))
 
+    implementation(project(":core:actors"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:posting"))
