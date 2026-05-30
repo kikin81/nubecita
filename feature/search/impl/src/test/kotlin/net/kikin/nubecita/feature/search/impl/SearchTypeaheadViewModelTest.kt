@@ -271,4 +271,9 @@ private class ControllableTypeaheadRepository : ActorRepository {
     ): Result<ActorSearchPage> = error("unused in typeahead tests")
 
     override fun getActor(did: String): kotlinx.coroutines.flow.Flow<ActorUi?> = kotlinx.coroutines.flow.flowOf(null)
+
+    override fun recentActors(
+        selfDid: String?,
+        limit: Int,
+    ): kotlinx.coroutines.flow.Flow<List<ActorUi>> = kotlinx.coroutines.flow.flowOf(emptyList())
 }

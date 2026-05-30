@@ -100,6 +100,16 @@ internal class DefaultActorRepository
 
         override fun getActor(did: String): Flow<ActorUi?> = actorDao.getActor(did).map { it?.asExternalModel() }
 
+        override fun recentActors(
+            selfDid: String?,
+            limit: Int,
+        ): Flow<List<ActorUi>> {
+            // Guard the public API: a negative LIMIT is "unbounded" in SQLite, which would
+            // read the entire actors cache. Matches the searchActors/searchTypeahead range.
+            require(limit in 1..100) { "limit must be in 1..100, got $limit" }
+            return actorDao.recentActors(selfDid, limit).map { rows -> rows.map { it.asExternalModel() } }
+        }
+
         /** Best-effort cache population. A cache write failure must never fail the search. */
         private suspend fun writeThrough(actors: List<ActorUi>) {
             if (actors.isEmpty()) return

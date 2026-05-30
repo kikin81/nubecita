@@ -85,6 +85,11 @@ class ComposerViewModelTest {
             ): Result<ActorSearchPage> = error("unused")
 
             override fun getActor(did: String): kotlinx.coroutines.flow.Flow<net.kikin.nubecita.data.models.ActorUi?> = kotlinx.coroutines.flow.flowOf(null)
+
+            override fun recentActors(
+                selfDid: String?,
+                limit: Int,
+            ): kotlinx.coroutines.flow.Flow<List<net.kikin.nubecita.data.models.ActorUi>> = kotlinx.coroutines.flow.flowOf(emptyList())
         }
 
     @BeforeEach

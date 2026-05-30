@@ -82,7 +82,7 @@ private val LOADING_STATE = ChatsScreenViewState(status = ChatsLoadStatus.Loadin
 private fun ChatsScreenLoadedScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaCanvasPreviewTheme {
-            ChatsScreenContent(state = LOADED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+            ChatsScreenContent(state = LOADED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
         }
     }
 }
@@ -94,7 +94,7 @@ private fun ChatsScreenLoadedScreenshot() {
 private fun ChatsScreenLoadedRefreshingScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaCanvasPreviewTheme {
-            ChatsScreenContent(state = LOADED_REFRESHING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+            ChatsScreenContent(state = LOADED_REFRESHING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
         }
     }
 }
@@ -105,7 +105,7 @@ private fun ChatsScreenLoadedRefreshingScreenshot() {
 @Composable
 private fun ChatsScreenEmptyScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatsScreenContent(state = EMPTY_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+        ChatsScreenContent(state = EMPTY_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
     }
 }
 
@@ -115,7 +115,7 @@ private fun ChatsScreenEmptyScreenshot() {
 @Composable
 private fun ChatsScreenLoadingScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatsScreenContent(state = LOADING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+        ChatsScreenContent(state = LOADING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
     }
 }
 
@@ -125,7 +125,7 @@ private fun ChatsScreenLoadingScreenshot() {
 @Composable
 private fun ChatsScreenNetworkErrorScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatsScreenContent(state = NETWORK_ERROR_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+        ChatsScreenContent(state = NETWORK_ERROR_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
     }
 }
 
@@ -135,6 +135,6 @@ private fun ChatsScreenNetworkErrorScreenshot() {
 @Composable
 private fun ChatsScreenNotEnrolledScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ChatsScreenContent(state = NOT_ENROLLED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {})
+        ChatsScreenContent(state = NOT_ENROLLED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
     }
 }

@@ -18,6 +18,7 @@ android {
 dependencies {
     api(project(":feature:chats:api"))
 
+    implementation(project(":core:actors"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     // Record-embed wire → UI mapping (RecordView → EmbedUi.RecordOrUnavailable)

@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 internal fun ChatsScreen(
     onNavigateToChat: (otherUserDid: String) -> Unit,
+    onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatsViewModel = hiltViewModel(),
 ) {
@@ -60,6 +61,7 @@ internal fun ChatsScreen(
         state = state,
         snackbarHostState = snackbarHostState,
         onEvent = viewModel::handleEvent,
+        onNewChat = onNewChat,
         modifier = modifier,
     )
 }

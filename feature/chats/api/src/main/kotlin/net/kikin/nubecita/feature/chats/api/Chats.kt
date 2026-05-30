@@ -27,3 +27,11 @@ data object Chats : NavKey
 data class Chat(
     val otherUserDid: String,
 ) : NavKey
+
+/**
+ * Recipient picker for starting a new DM. A `@MainShell` sub-route pushed
+ * onto the Chats tab by the New-Chat FAB. Selecting a recipient replaces
+ * this route with [Chat] (see `MainShellNavState.replaceTop`).
+ */
+@Serializable
+data object NewChat : NavKey
