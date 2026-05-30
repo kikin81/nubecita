@@ -111,6 +111,11 @@ internal class FakeSearchActorsRepository : ActorRepository {
     }
 
     override fun getActor(did: String): Flow<ActorUi?> = flowOf(null)
+
+    override fun recentActors(
+        selfDid: String?,
+        limit: Int,
+    ): Flow<List<ActorUi>> = flowOf(emptyList())
 }
 
 /** Tiny actor fixture for VM tests. Minimal fields exercised by the VM. */

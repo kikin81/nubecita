@@ -42,6 +42,11 @@ internal class FakeSearchActorsRepository
 
         override fun getActor(did: String): Flow<ActorUi?> = flowOf(null)
 
+        override fun recentActors(
+            selfDid: String?,
+            limit: Int,
+        ): Flow<List<ActorUi>> = flowOf(emptyList())
+
         companion object {
             const val ACTOR_ALICE_HANDLE: String = "alice.bsky.social"
             const val ACTOR_BOB_HANDLE: String = "bob.bsky.social"
