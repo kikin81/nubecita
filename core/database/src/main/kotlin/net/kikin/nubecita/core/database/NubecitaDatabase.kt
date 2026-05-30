@@ -23,11 +23,12 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  */
 @Database(
     entities = [RecentSearchEntity::class, ActorEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
         AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4),
     ],
 )
 @TypeConverters(InstantConverter::class)

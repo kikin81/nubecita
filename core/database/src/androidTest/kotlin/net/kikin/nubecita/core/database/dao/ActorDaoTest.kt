@@ -28,7 +28,8 @@ internal class ActorDaoTest : DatabaseTest() {
         handle: String,
         name: String?,
         seen: Long,
-    ) = ActorEntity(did, handle, name, avatarUrl = null, lastSeenAt = Instant.fromEpochMilliseconds(seen))
+        canMessage: Boolean = true,
+    ) = ActorEntity(did, handle, name, avatarUrl = null, lastSeenAt = Instant.fromEpochMilliseconds(seen), canMessage = canMessage)
 
     @Test
     fun getActor_emitsNull_whenAbsent() =
@@ -111,6 +112,20 @@ internal class ActorDaoTest : DatabaseTest() {
                 assertEquals(listOf("did:other"), awaitItem().map { it.did })
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+
+    @Test
+    fun upsert_canMessageFalse_roundTrips() =
+        runTest {
+            dao.upsert(listOf(actor("did:n", "n.bsky.social", "N", 1_000, canMessage = false)))
+            assertEquals(false, dao.getActor("did:n").first()?.canMessage)
+        }
+
+    @Test
+    fun upsert_canMessageDefaultsTrue() =
+        runTest {
+            dao.upsert(listOf(actor("did:y", "y.bsky.social", "Y", 1_000)))
+            assertEquals(true, dao.getActor("did:y").first()?.canMessage)
         }
 
     @Test

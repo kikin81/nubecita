@@ -21,8 +21,16 @@ data class ActorEntity(
     @ColumnInfo(name = "display_name") val displayName: String?,
     @ColumnInfo(name = "avatar_url") val avatarUrl: String?,
     @ColumnInfo(name = "last_seen_at") val lastSeenAt: Instant,
+    // `defaultValue = "0"` is the SQL default the v3→v4 AutoMigration uses to
+    // backfill rows cached *before* this column existed: their DM-eligibility was
+    // never computed, so we treat them as NOT messageable (fail-closed) and let a
+    // fresh search overwrite the real value. Every app write binds `canMessage`
+    // explicitly (write-through), so the SQL default only governs that backfill.
+    // The Kotlin default (`= true`) is the construction fail-open used for previews
+    // /fixtures and is intentionally distinct from the migration's fail-closed.
+    @ColumnInfo(name = "can_message", defaultValue = "0") val canMessage: Boolean = true,
 )
 
-fun ActorEntity.asExternalModel(): ActorUi = ActorUi(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl)
+fun ActorEntity.asExternalModel(): ActorUi = ActorUi(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl, canMessage = canMessage)
 
-fun ActorUi.toCacheEntity(lastSeenAt: Instant): ActorEntity = ActorEntity(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl, lastSeenAt = lastSeenAt)
+fun ActorUi.toCacheEntity(lastSeenAt: Instant): ActorEntity = ActorEntity(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl, lastSeenAt = lastSeenAt, canMessage = canMessage)

@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:database"))
+    implementation(project(":core:profile"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)

@@ -53,12 +53,20 @@ internal fun ChatsScreenContent(
             TopAppBar(title = { Text(stringResource(R.string.chats_title)) })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewChat) {
-                NubecitaIcon(
-                    name = NubecitaIconName.Edit,
-                    contentDescription = stringResource(R.string.new_chat_fab_content_description),
-                    filled = true,
-                )
+            // A non-DM-enrolled account can't start a chat, so don't offer "new chat" —
+            // it would dead-end on the same not-enrolled screen. ChatsErrorMapping stays
+            // the authoritative post-tap backstop for recipients we can't message.
+            val status = state.status
+            val notEnrolled =
+                status is ChatsLoadStatus.InitialError && status.error == ChatsError.NotEnrolled
+            if (!notEnrolled) {
+                FloatingActionButton(onClick = onNewChat) {
+                    NubecitaIcon(
+                        name = NubecitaIconName.Edit,
+                        contentDescription = stringResource(R.string.new_chat_fab_content_description),
+                        filled = true,
+                    )
+                }
             }
         },
     ) { padding ->

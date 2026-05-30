@@ -16,6 +16,10 @@ import androidx.compose.runtime.Immutable
  * `nubecita-vrba.4` — same shape, broader applicability, dropped the
  * misleading `Typeahead` suffix since it's now also used for non-
  * typeahead actor-row surfaces (search People tab, future profile lists).
+ *
+ * `canMessage` is a fail-open DM-eligibility hint (default true): false only
+ * when the source response said the viewer can't DM this actor. See
+ * `:core:profile` `canViewerMessage`.
  */
 @Immutable
 public data class ActorUi(
@@ -23,4 +27,5 @@ public data class ActorUi(
     val handle: String,
     val displayName: String?,
     val avatarUrl: String?,
+    val canMessage: Boolean = true,
 )

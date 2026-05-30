@@ -39,7 +39,10 @@ internal class NewChatViewModelTest {
 
     private fun vm() = NewChatViewModel(repo, session)
 
-    private fun actor(did: String) = ActorUi(did, "$did.bsky", null, null)
+    private fun actor(
+        did: String,
+        canMessage: Boolean = true,
+    ) = ActorUi(did, "$did.bsky", null, null, canMessage)
 
     @Test
     fun `blankQuery_loadsRecentFromCache_selfExcludedViaRepo`() =
@@ -72,6 +75,43 @@ internal class NewChatViewModelTest {
             assertTrue(status is NewChatStatus.Results, "expected Results, got $status")
             val results = status as NewChatStatus.Results
             assertEquals(listOf("did:jay"), results.items.map { it.did }, "self must be filtered out")
+        }
+
+    @Test
+    fun `recentList_retainsNonMessageableActorsForDisabledDisplay`() =
+        runTest(mainDispatcher.dispatcher) {
+            every { repo.recentActors("did:self", any()) } returns
+                flowOf(listOf(actor("did:can"), actor("did:cannot", canMessage = false)))
+
+            val vm = vm()
+            advanceUntilIdle()
+
+            val status = vm.uiState.value.status
+            assertTrue(status is NewChatStatus.Recent, "expected Recent, got $status")
+            val items = (status as NewChatStatus.Recent).items
+            // Non-messageable actors are kept (shown disabled), not filtered out.
+            assertEquals(listOf("did:can", "did:cannot"), items.map { it.did })
+            assertEquals(listOf(true, false), items.map { it.canMessage })
+        }
+
+    @Test
+    fun `searchResults_retainNonMessageableActorsForDisabledDisplay`() =
+        runTest(mainDispatcher.dispatcher) {
+            every { repo.recentActors(any(), any()) } returns flowOf(emptyList())
+            coEvery { repo.searchTypeahead("jay", any()) } returns
+                Result.success(listOf(actor("did:can"), actor("did:cannot", canMessage = false)))
+
+            val vm = vm()
+            advanceUntilIdle()
+
+            setQueryText(vm, "jay")
+            testScheduler.advanceUntilIdle()
+
+            val status = vm.uiState.value.status
+            assertTrue(status is NewChatStatus.Results, "expected Results, got $status")
+            val items = (status as NewChatStatus.Results).items
+            assertEquals(listOf("did:can", "did:cannot"), items.map { it.did })
+            assertEquals(listOf(true, false), items.map { it.canMessage })
         }
 
     @Test
