@@ -2,7 +2,36 @@
 
 - **bd issue:** nubecita-j1gm (`fix(chats)`) — fast-follow after PR #349 (epic nubecita-b6uv)
 - **Date:** 2026-05-30
-- **Status:** design approved, ready for plan
+- **Status:** implemented; revised after live verification (see Revision 2)
+
+## Revision 2 (2026-05-30) — after on-device verification vs the official client
+
+Live testing on a prod account, plus comparison with the official Bluesky web client,
+changed three decisions from the original design below. The `canMessage` plumbing
+(ActorUi → `:core:actors` mappers → Room column) is unchanged; only its *interpretation*
+and *presentation* changed:
+
+1. **Present, don't hide.** The picker no longer filters non-messageable actors out of the
+   list. It keeps them visible but **disabled** (greyed, tap disabled, "Can't be messaged"
+   label), matching the official client. The VM stops filtering; the gate moves to
+   `RecipientRow` reading `ActorUi.canMessage`. (Reverts the original "filter in
+   `NewChatViewModel`" decision.)
+2. **Absent `associated.chat` → "following", not fail-open.** Verified against ground truth:
+   accounts that never customized DMs omit the `chat` block, and the official client treats
+   them as *people-you-follow* (greys them unless they follow you back). The original
+   "absent ⇒ messageable (fail-open)" rule surfaced un-DM-able recipients (e.g.
+   `@chenoweth.bsky.social`). `canViewerMessage` now gates absent/unrecognized
+   `allowIncoming` on `viewer.followedBy`. This also tightens the profile Message-button gate
+   (they share the helper) — a correctness improvement, not behavior-preservation.
+3. **Migration backfill → `0` (fail-closed).** Rows cached before the column existed have
+   *unknown* eligibility; the v3→v4 default is `0` so they aren't assumed messageable. A fresh
+   search overwrites the real value. (Reverses the original `DEFAULT 1` choice.)
+
+The post-tap `ChatsErrorMapping` backstop and the per-recipient `getConvoAvailability`
+out-of-scope note are unchanged. The original design (filter + fail-open + `DEFAULT 1`) is
+retained below for history.
+
+---
 
 ## Problem
 
