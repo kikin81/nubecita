@@ -33,7 +33,7 @@ import javax.inject.Singleton
  *     because the public `app.bsky.feed.getFeedGenerator` lookup depends
  *     on it.
  *
- * Mirrors [DefaultSearchPostsRepository] / [DefaultSearchActorsRepository]
+ * Mirrors [DefaultSearchPostsRepository] (and :core:actors' DefaultActorRepository)
  * otherwise: same IO dispatcher routing, same `CancellationException`-aware
  * error handling, same Timber failure-log shape, same up-front
  * limit-range guard.

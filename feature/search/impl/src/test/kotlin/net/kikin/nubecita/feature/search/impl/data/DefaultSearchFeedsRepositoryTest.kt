@@ -31,7 +31,7 @@ import java.io.IOException
  * Unit tests for [DefaultSearchFeedsRepository].
  *
  * Same MockEngine-driven shape as
- * [DefaultSearchActorsRepositoryTest] / [DefaultSearchPostsRepositoryTest]
+ * [DefaultSearchPostsRepositoryTest]
  * — stand up a real [XrpcClient] backed by Ktor [MockEngine] and assert
  * on `engine.requestHistory.single().url` (wire format) and the parsed
  * `Result<SearchFeedsPage>` (mapping + cursor + error path).
