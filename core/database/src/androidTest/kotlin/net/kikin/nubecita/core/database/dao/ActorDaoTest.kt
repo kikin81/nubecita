@@ -81,4 +81,45 @@ internal class ActorDaoTest : DatabaseTest() {
             dao.upsert(listOf(actor("did:c", "carol.bsky.social", null, 3_000)))
             assertNull(dao.getActor("did:c").first()?.displayName)
         }
+
+    @Test
+    fun recentActors_ordersByLastSeenDesc_andLimits() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    actor("did:a", "a.bsky.social", "A", 1_000),
+                    actor("did:b", "b.bsky.social", "B", 3_000),
+                    actor("did:c", "c.bsky.social", "C", 2_000),
+                ),
+            )
+            dao.recentActors(selfDid = null, limit = 2).test {
+                assertEquals(listOf("did:b", "did:c"), awaitItem().map { it.did })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun recentActors_excludesSelfDid() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    actor("did:self", "me.bsky.social", "Me", 3_000),
+                    actor("did:other", "other.bsky.social", "Other", 1_000),
+                ),
+            )
+            dao.recentActors(selfDid = "did:self", limit = 10).test {
+                assertEquals(listOf("did:other"), awaitItem().map { it.did })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun recentActors_nullSelfDid_returnsAllRows() =
+        runTest {
+            dao.upsert(listOf(actor("did:a", "a.bsky.social", "A", 1_000)))
+            dao.recentActors(selfDid = null, limit = 10).test {
+                assertEquals(listOf("did:a"), awaitItem().map { it.did })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 }

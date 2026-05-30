@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.actors.internal
 
+import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.NoAuth
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
@@ -14,12 +15,15 @@ import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.database.dao.ActorDao
 import net.kikin.nubecita.core.database.model.ActorEntity
@@ -485,6 +489,30 @@ class DefaultActorRepositoryTest {
             val actor = result.getOrThrow().single()
             assertNull(actor.displayName, "displayName should be null when absent from JSON")
             assertNull(actor.avatarUrl, "avatarUrl should be null when absent from JSON")
+        }
+
+    // -------------------------------------------------------------------------
+    // recentActors
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun recentActors_mapsEntitiesAndPassesSelfDid() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val entity =
+                ActorEntity(
+                    did = "did:a",
+                    handle = "a.bsky.social",
+                    displayName = "A",
+                    avatarUrl = null,
+                    lastSeenAt = Instant.fromEpochMilliseconds(1),
+                )
+            every { actorDao.recentActors("did:self", 20) } returns flowOf(listOf(entity))
+            val (_, repo) = newRepo(actorDao) { _ -> okJson("""{"actors": []}""") }
+            repo.recentActors(selfDid = "did:self").test {
+                assertEquals(listOf("did:a"), awaitItem().map { it.did })
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     // -------------------------------------------------------------------------

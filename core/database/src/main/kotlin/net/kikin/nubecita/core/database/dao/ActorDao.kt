@@ -24,4 +24,13 @@ interface ActorDao {
 
     @Query("SELECT * FROM actors WHERE did = :did")
     fun getActor(did: String): Flow<ActorEntity?>
+
+    @Query(
+        "SELECT * FROM actors WHERE :selfDid IS NULL OR did <> :selfDid " +
+            "ORDER BY last_seen_at DESC LIMIT :limit",
+    )
+    fun recentActors(
+        selfDid: String?,
+        limit: Int,
+    ): Flow<List<ActorEntity>>
 }

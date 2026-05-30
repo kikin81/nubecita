@@ -100,6 +100,11 @@ internal class DefaultActorRepository
 
         override fun getActor(did: String): Flow<ActorUi?> = actorDao.getActor(did).map { it?.asExternalModel() }
 
+        override fun recentActors(
+            selfDid: String?,
+            limit: Int,
+        ): Flow<List<ActorUi>> = actorDao.recentActors(selfDid, limit).map { rows -> rows.map { it.asExternalModel() } }
+
         /** Best-effort cache population. A cache write failure must never fail the search. */
         private suspend fun writeThrough(actors: List<ActorUi>) {
             if (actors.isEmpty()) return

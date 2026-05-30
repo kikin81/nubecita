@@ -34,6 +34,12 @@ interface ActorRepository {
 
     /** Observe a single cached actor by DID; emits null when not cached. */
     fun getActor(did: String): Flow<ActorUi?>
+
+    /** Recently-seen actors (most recent first) from the cache, excluding [selfDid]. */
+    fun recentActors(
+        selfDid: String?,
+        limit: Int = 20,
+    ): Flow<List<ActorUi>>
 }
 
 /** One page of [ActorRepository.searchActors] results. */
