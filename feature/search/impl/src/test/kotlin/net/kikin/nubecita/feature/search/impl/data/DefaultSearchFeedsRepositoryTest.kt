@@ -47,7 +47,7 @@ import java.io.IOException
  *  - Happy path: well-formed GeneratorView + cursor map through; all
  *    `FeedGeneratorUi` fields populate correctly.
  *  - Blank `displayName` on creator → null in [FeedGeneratorUi] (boundary
- *    contract, same as DefaultSearchActorsRepository).
+ *    contract, same as DefaultSearchPostsRepository).
  *  - Empty result: empty page + null cursor (the `feeds: []` shape).
  *  - Missing required `feeds` field: decode throws MissingFieldException;
  *    repo surfaces `Result.failure`. Pins the no-default-on-feeds
@@ -199,7 +199,7 @@ class DefaultSearchFeedsRepositoryTest {
 
     @Test
     fun searchFeeds_cancellation_propagates() {
-        // Same shape as DefaultSearchActorsRepositoryTest's cancellation test —
+        // Same shape as DefaultSearchPostsRepositoryTest's cancellation test —
         // a plain runBlocking outside of runTest because nested runTest is
         // forbidden by kotlinx-coroutines-test.
         val (_, repo) =
@@ -268,7 +268,7 @@ class DefaultSearchFeedsRepositoryTest {
             assertTrue(!url.contains("query="), "expected no query= param in $url")
         }
 
-    // --- helpers (same shape as DefaultSearchActorsRepositoryTest) ---
+    // --- helpers (same shape as DefaultSearchPostsRepositoryTest) ---
 
     private fun newRepo(
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
