@@ -39,4 +39,13 @@
     <string name="chat_send_error_network">Couldn\'t send — check your connection and retry.</string>
     <string name="chat_send_error_messages_disabled">This person can\'t receive your messages.</string>
     <string name="chat_send_error_generic">Couldn\'t send your message. Tap retry to try again.</string>
+
+    <!-- New-chat recipient picker (b6uv.5) -->
+    <string name="new_chat_title">New message</string>
+    <string name="new_chat_search_placeholder">Search for someone</string>
+    <string name="new_chat_recent_header">Recent</string>
+    <string name="new_chat_no_results">No people found</string>
+    <string name="new_chat_error_body">Couldn\'t search right now.</string>
+    <string name="new_chat_retry">Retry</string>
+    <string name="new_chat_back_content_description">Back</string>
 </resources>
