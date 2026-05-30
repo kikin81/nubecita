@@ -21,8 +21,9 @@ data class ActorEntity(
     @ColumnInfo(name = "display_name") val displayName: String?,
     @ColumnInfo(name = "avatar_url") val avatarUrl: String?,
     @ColumnInfo(name = "last_seen_at") val lastSeenAt: Instant,
+    @ColumnInfo(name = "can_message", defaultValue = "1") val canMessage: Boolean = true,
 )
 
-fun ActorEntity.asExternalModel(): ActorUi = ActorUi(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl)
+fun ActorEntity.asExternalModel(): ActorUi = ActorUi(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl, canMessage = canMessage)
 
-fun ActorUi.toCacheEntity(lastSeenAt: Instant): ActorEntity = ActorEntity(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl, lastSeenAt = lastSeenAt)
+fun ActorUi.toCacheEntity(lastSeenAt: Instant): ActorEntity = ActorEntity(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl, lastSeenAt = lastSeenAt, canMessage = canMessage)
