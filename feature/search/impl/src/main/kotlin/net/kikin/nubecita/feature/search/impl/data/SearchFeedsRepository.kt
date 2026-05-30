@@ -6,7 +6,7 @@ import kotlinx.collections.immutable.ImmutableList
  * `app.bsky.unspecced.getPopularFeedGenerators` fetch surface scoped to
  * `:feature:search:impl`. Stateless — the caller (Search Feeds tab VM
  * in `nubecita-vrba.11`) owns the cursor and re-issues calls for the
- * next page. Mirrors [SearchPostsRepository] / [SearchActorsRepository]
+ * next page. Mirrors [SearchPostsRepository] (actor search now lives in :core:actors)
  * shape.
  *
  * **Why this lives in nubecita rather than `:core:posting` (or as a

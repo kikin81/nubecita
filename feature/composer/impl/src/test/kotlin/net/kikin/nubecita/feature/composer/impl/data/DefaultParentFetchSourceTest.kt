@@ -29,7 +29,7 @@ import java.io.IOException
  * Unit tests for [DefaultParentFetchSource].
  *
  * Strategy mirrors `DefaultPostingRepositoryTest` and
- * `DefaultActorTypeaheadRepositoryTest`: stand up a real [XrpcClient]
+ * `DefaultActorRepositoryTest`: stand up a real [XrpcClient]
  * backed by a Ktor [MockEngine] so the SDK's full
  * `FeedService.getPostThread(...)` codepath runs end-to-end against
  * deterministic responses. Asserts work on the resolved

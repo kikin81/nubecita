@@ -7,7 +7,7 @@ import androidx.compose.runtime.Immutable
  * Feeds tab row in `:feature:search:impl/ui/FeedRow`.
  *
  * Kept local to `:feature:search:impl/data` for V1 — same rationale as
- * `DefaultSearchActorsRepository`'s local `ActorUi` mapper before it was
+ * `DefaultActorRepository`'s local `ActorUi` mapper before it was
  * promoted to `:data:models`: one consumer, no premature sharing.
  * Promote to `:data:models` when a second consumer surfaces (e.g. a
  * future "feeds you follow" list or a feed-detail header).

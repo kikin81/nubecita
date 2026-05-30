@@ -28,7 +28,7 @@ import java.io.IOException
 /**
  * Unit tests for [DefaultSearchPostsRepository].
  *
- * Strategy mirrors [net.kikin.nubecita.core.posting.internal.DefaultActorTypeaheadRepositoryTest]:
+ * Strategy mirrors [net.kikin.nubecita.core.actors.internal.DefaultActorRepositoryTest]:
  * stand up a real [XrpcClient] backed by a Ktor [MockEngine] so the
  * SDK's full `FeedService.searchPosts(...)` codepath runs end-to-end
  * against deterministic responses. Tests assert on the

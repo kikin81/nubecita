@@ -18,8 +18,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostingRepository
@@ -86,7 +86,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * V1 ships with four injected dependencies (the assisted
  * [ComposerRoute] + [PostingRepository] + [ParentFetchSource] +
- * [ActorTypeaheadRepository]). The future `:core:drafts` adds
+ * [ActorRepository]). The future `:core:drafts` adds
  * `DraftRepository` as the next param — no reorder, no rename.
  *
  * # Process death
@@ -112,7 +112,7 @@ class ComposerViewModel
         @Assisted private val route: ComposerRoute,
         private val postingRepository: PostingRepository,
         private val parentFetchSource: ParentFetchSource,
-        private val actorTypeaheadRepository: ActorTypeaheadRepository,
+        private val actorRepository: ActorRepository,
         private val localeProvider: LocaleProvider,
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
             initialState = ComposerState(replyToUri = route.replyToUri),
@@ -148,7 +148,7 @@ class ComposerViewModel
          * `@`-mention token here on every text/selection change;
          * the pipeline downstream dedupes, `mapLatest`s + delays
          * for the debounce window, then resolves through
-         * [actorTypeaheadRepository]. The empty string is a sentinel
+         * [actorRepository]. The empty string is a sentinel
          * meaning "no active token" — it cancels any in-flight
          * query via `mapLatest` immediately (no upstream debounce
          * to wait through) and resolves to [TypeaheadStatus.Idle].
@@ -224,7 +224,7 @@ class ComposerViewModel
                     } else {
                         delay(TYPEAHEAD_DEBOUNCE)
                         setState { copy(typeahead = TypeaheadStatus.Querying(query)) }
-                        actorTypeaheadRepository.searchTypeahead(query).fold(
+                        actorRepository.searchTypeahead(query).fold(
                             onSuccess = { actors ->
                                 if (actors.isEmpty()) {
                                     TypeaheadStatus.NoResults(query)

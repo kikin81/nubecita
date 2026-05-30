@@ -33,7 +33,7 @@ import javax.inject.Singleton
  *     because the public `app.bsky.feed.getFeedGenerator` lookup depends
  *     on it.
  *
- * Mirrors [DefaultSearchPostsRepository] / [DefaultSearchActorsRepository]
+ * Mirrors [DefaultSearchPostsRepository] (and :core:actors' DefaultActorRepository)
  * otherwise: same IO dispatcher routing, same `CancellationException`-aware
  * error handling, same Timber failure-log shape, same up-front
  * limit-range guard.
@@ -41,7 +41,7 @@ import javax.inject.Singleton
  * Tracking the upstream lexicon-architecture gap:
  * `github.com/kikin81/atproto-kotlin/issues/108`. When/if that lands a
  * generated `UnspeccedService.getPopularFeedGenerators`, this repo
- * collapses to the same shape as `DefaultSearchActorsRepository` (drop
+ * collapses to the same shape as `DefaultSearchPostsRepository` (drop
  * the hand-written DTOs, swap in the generated request/response).
  */
 @Singleton
@@ -141,7 +141,7 @@ private fun GeneratorView.toFeedGeneratorUi(): FeedGeneratorUi =
         displayName = displayName,
         creatorHandle = creator.handle.raw,
         // Normalize blank → null per the same rule used in
-        // DefaultSearchActorsRepository — empty display name means
+        // DefaultSearchPostsRepository — empty display name means
         // "no display name", not an empty string the UI has to fall
         // back from.
         creatorDisplayName = creator.displayName?.takeIf { it.isNotBlank() },

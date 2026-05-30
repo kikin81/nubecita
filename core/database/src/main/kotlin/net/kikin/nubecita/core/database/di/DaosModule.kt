@@ -5,6 +5,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.database.NubecitaDatabase
+import net.kikin.nubecita.core.database.dao.ActorDao
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 
 /**
@@ -17,4 +18,7 @@ import net.kikin.nubecita.core.database.dao.RecentSearchDao
 internal object DaosModule {
     @Provides
     fun providesRecentSearchDao(database: NubecitaDatabase): RecentSearchDao = database.recentSearchDao()
+
+    @Provides
+    fun providesActorDao(database: NubecitaDatabase): ActorDao = database.actorDao()
 }

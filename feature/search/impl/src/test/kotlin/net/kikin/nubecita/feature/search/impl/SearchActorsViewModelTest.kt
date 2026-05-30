@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
 import org.junit.jupiter.api.AfterEach
@@ -129,7 +130,7 @@ class SearchActorsViewModelTest {
 
             aliGate.complete(
                 Result.success(
-                    net.kikin.nubecita.feature.search.impl.data.SearchActorsPage(
+                    ActorSearchPage(
                         items =
                             kotlinx.collections.immutable.persistentListOf(
                                 actorFixture(did = "did:plc:stale", handle = "stale.bsky.social", displayName = "Stale"),
@@ -319,7 +320,7 @@ class SearchActorsViewModelTest {
             //    onto the bob list.
             pageTwoAliceGate.complete(
                 Result.success(
-                    net.kikin.nubecita.feature.search.impl.data.SearchActorsPage(
+                    ActorSearchPage(
                         items =
                             kotlinx.collections.immutable.persistentListOf(
                                 actorFixture(did = "did:plc:stale-alice", handle = "stale.bsky.social"),
@@ -447,7 +448,7 @@ class SearchActorsViewModelTest {
             // setState below must NOT land.
             aliceGate.complete(
                 Result.success(
-                    net.kikin.nubecita.feature.search.impl.data.SearchActorsPage(
+                    ActorSearchPage(
                         items =
                             kotlinx.collections.immutable.persistentListOf(
                                 actorFixture(did = "did:plc:stale", handle = "stale.bsky.social"),

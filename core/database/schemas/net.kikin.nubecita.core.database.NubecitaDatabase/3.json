@@ -1,0 +1,77 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "9e29187df3783ee47e52a0f11766827d",
+    "entities": [
+      {
+        "tableName": "recent_search",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`query` TEXT NOT NULL, `recorded_at` INTEGER NOT NULL, PRIMARY KEY(`query`))",
+        "fields": [
+          {
+            "fieldPath": "query",
+            "columnName": "query",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordedAt",
+            "columnName": "recorded_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "query"
+          ]
+        }
+      },
+      {
+        "tableName": "actors",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`did` TEXT NOT NULL, `handle` TEXT NOT NULL, `display_name` TEXT, `avatar_url` TEXT, `last_seen_at` INTEGER NOT NULL, PRIMARY KEY(`did`))",
+        "fields": [
+          {
+            "fieldPath": "did",
+            "columnName": "did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "handle",
+            "columnName": "handle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "display_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "avatarUrl",
+            "columnName": "avatar_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastSeenAt",
+            "columnName": "last_seen_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "did"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9e29187df3783ee47e52a0f11766827d')"
+    ]
+  }
+}

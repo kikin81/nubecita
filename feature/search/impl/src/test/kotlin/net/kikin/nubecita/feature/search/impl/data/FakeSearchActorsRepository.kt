@@ -3,11 +3,15 @@ package net.kikin.nubecita.feature.search.impl.data
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.data.models.ActorUi
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * Hand-written fake for [SearchActorsRepository]. Same shape as
+ * Hand-written fake for [ActorRepository]. Same shape as
  * `FakeSearchPostsRepository` minus the `sort` axis.
  *
  *  - [respond] / [fail] register a result for a `(query, cursor)` pair
@@ -32,7 +36,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * [callLog] is the chronological list of every `(query, cursor, limit)`
  * the VM passed.
  */
-internal class FakeSearchActorsRepository : SearchActorsRepository {
+internal class FakeSearchActorsRepository : ActorRepository {
     private data class Key(
         val query: String,
         val cursor: String?,
@@ -44,9 +48,9 @@ internal class FakeSearchActorsRepository : SearchActorsRepository {
         val limit: Int,
     )
 
-    private val gates = mutableMapOf<Key, CompletableDeferred<Result<SearchActorsPage>>>()
-    private var fallback: Result<SearchActorsPage> =
-        Result.success(SearchActorsPage(items = persistentListOf(), nextCursor = null))
+    private val gates = mutableMapOf<Key, CompletableDeferred<Result<ActorSearchPage>>>()
+    private var fallback: Result<ActorSearchPage> =
+        Result.success(ActorSearchPage(items = persistentListOf(), nextCursor = null))
     val callLog: MutableList<Call> = CopyOnWriteArrayList()
 
     fun respond(
@@ -57,7 +61,7 @@ internal class FakeSearchActorsRepository : SearchActorsRepository {
     ) {
         gate(query, cursor).complete(
             Result.success(
-                SearchActorsPage(
+                ActorSearchPage(
                     items = items.toImmutableList(),
                     nextCursor = nextCursor,
                 ),
@@ -76,7 +80,7 @@ internal class FakeSearchActorsRepository : SearchActorsRepository {
     fun gate(
         query: String,
         cursor: String?,
-    ): CompletableDeferred<Result<SearchActorsPage>> = gates.getOrPut(Key(query, cursor)) { CompletableDeferred() }
+    ): CompletableDeferred<Result<ActorSearchPage>> = gates.getOrPut(Key(query, cursor)) { CompletableDeferred() }
 
     /** Drop a registered gate so a subsequent `respond` can replace it. */
     fun clearGate(
@@ -86,20 +90,27 @@ internal class FakeSearchActorsRepository : SearchActorsRepository {
         gates.remove(Key(query, cursor))
     }
 
-    fun setFallback(result: Result<SearchActorsPage>) {
+    fun setFallback(result: Result<ActorSearchPage>) {
         fallback = result
     }
+
+    override suspend fun searchTypeahead(
+        query: String,
+        limit: Int,
+    ): Result<List<ActorUi>> = error("searchTypeahead is not used in search tests")
 
     override suspend fun searchActors(
         query: String,
         cursor: String?,
         limit: Int,
-    ): Result<SearchActorsPage> {
+    ): Result<ActorSearchPage> {
         callLog += Call(query = query, cursor = cursor, limit = limit)
         val key = Key(query, cursor)
         val deferred = gates[key]
         return deferred?.await() ?: fallback
     }
+
+    override fun getActor(did: String): Flow<ActorUi?> = flowOf(null)
 }
 
 /** Tiny actor fixture for VM tests. Minimal fields exercised by the VM. */

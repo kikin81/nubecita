@@ -9,7 +9,7 @@ import net.kikin.nubecita.feature.search.impl.data.SearchFeedsRepository
 
 /**
  * Hilt binding for [SearchFeedsRepository] → [DefaultSearchFeedsRepository].
- * Mirrors [SearchPostsRepositoryModule] / [SearchActorsRepositoryModule].
+ * Mirrors [SearchPostsRepositoryModule].
  */
 @Module
 @InstallIn(SingletonComponent::class)

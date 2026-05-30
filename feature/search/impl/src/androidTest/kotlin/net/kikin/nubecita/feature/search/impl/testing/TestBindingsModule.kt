@@ -30,7 +30,7 @@ import javax.inject.Singleton
  *  - **`@OAuthClientMetadataUrl` / `@OAuthScope` `String`**: required
  *    by `:core:auth`'s `AtOAuthModule.provideAtOAuth`. Transitively
  *    reachable through `SearchTypeaheadViewModel` →
- *    `ActorTypeaheadRepository` → `XrpcClientProvider` → `AtOAuth`. We
+ *    `ActorRepository` → `XrpcClientProvider` → `AtOAuth`. We
  *    don't run the typeahead VM in vrba.9's tap-through tests, but
  *    Hilt's ViewModelMap pulls in every `@HiltViewModel` in the module.
  *    Production values live in `:app`'s `OAuthConfigModule`; here we

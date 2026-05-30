@@ -14,7 +14,8 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import net.kikin.nubecita.core.posting.ActorTypeaheadRepository
+import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.data.models.ActorUi
@@ -315,7 +316,7 @@ class ComposerViewModelTypeaheadTest {
             route = ComposerRoute(replyToUri = null),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
-            actorTypeaheadRepository = typeaheadRepo,
+            actorRepository = typeaheadRepo,
             localeProvider =
                 object : LocaleProvider {
                     override fun primaryLanguageTag(): String = "en-US"
@@ -355,7 +356,7 @@ class ComposerViewModelTypeaheadTest {
 }
 
 /**
- * Test fake for [ActorTypeaheadRepository] that records every query
+ * Test fake for [ActorRepository] that records every query
  * and either resolves to a pre-registered response or suspends on a
  * gateable [CompletableDeferred].
  *
@@ -368,7 +369,7 @@ class ComposerViewModelTypeaheadTest {
  * to the repo; tests use it to assert that mapLatest cancellation
  * and distinctUntilChanged correctly dedupe / cancel.
  */
-private class ControllableTypeaheadRepository : ActorTypeaheadRepository {
+private class ControllableTypeaheadRepository : ActorRepository {
     private val deferreds = mutableMapOf<String, CompletableDeferred<Result<List<ActorUi>>>>()
     val callLog: MutableList<String> = mutableListOf()
 
@@ -388,8 +389,19 @@ private class ControllableTypeaheadRepository : ActorTypeaheadRepository {
 
     fun gate(query: String): CompletableDeferred<Result<List<ActorUi>>> = deferreds.getOrPut(query) { CompletableDeferred() }
 
-    override suspend fun searchTypeahead(query: String): Result<List<ActorUi>> {
+    override suspend fun searchTypeahead(
+        query: String,
+        limit: Int,
+    ): Result<List<ActorUi>> {
         callLog += query
         return gate(query).await()
     }
+
+    override suspend fun searchActors(
+        query: String,
+        cursor: String?,
+        limit: Int,
+    ): Result<ActorSearchPage> = error("unused in typeahead tests")
+
+    override fun getActor(did: String): kotlinx.coroutines.flow.Flow<ActorUi?> = kotlinx.coroutines.flow.flowOf(null)
 }

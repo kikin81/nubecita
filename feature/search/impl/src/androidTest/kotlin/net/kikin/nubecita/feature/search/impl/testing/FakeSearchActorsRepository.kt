@@ -1,16 +1,18 @@
 package net.kikin.nubecita.feature.search.impl.testing
 
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.data.models.ActorUi
-import net.kikin.nubecita.feature.search.impl.data.SearchActorsPage
-import net.kikin.nubecita.feature.search.impl.data.SearchActorsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Instrumentation-test fake for [SearchActorsRepository]. Hilt-injected via
+ * Instrumentation-test fake for [ActorRepository]. Hilt-injected via
  * [TestSearchActorsRepositoryModule]'s
- * `@TestInstallIn(replaces = [SearchActorsRepositoryModule::class])`.
+ * `@TestInstallIn(replaces = [ActorsModule::class])`.
  *
  * Returns a fixed two-actor page for any non-blank query. Mirrors the
  * synchronous shape of [FakeSearchPostsRepository] — the `vrba.9`
@@ -20,18 +22,25 @@ import javax.inject.Singleton
 @Singleton
 internal class FakeSearchActorsRepository
     @Inject
-    constructor() : SearchActorsRepository {
+    constructor() : ActorRepository {
+        override suspend fun searchTypeahead(
+            query: String,
+            limit: Int,
+        ): Result<List<ActorUi>> = error("searchTypeahead is not used in search tests")
+
         override suspend fun searchActors(
             query: String,
             cursor: String?,
             limit: Int,
-        ): Result<SearchActorsPage> =
+        ): Result<ActorSearchPage> =
             Result.success(
-                SearchActorsPage(
+                ActorSearchPage(
                     items = DEFAULT_HITS.toImmutableList(),
                     nextCursor = null,
                 ),
             )
+
+        override fun getActor(did: String): Flow<ActorUi?> = flowOf(null)
 
         companion object {
             const val ACTOR_ALICE_HANDLE: String = "alice.bsky.social"
