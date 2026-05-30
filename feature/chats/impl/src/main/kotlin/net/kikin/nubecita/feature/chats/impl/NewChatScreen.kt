@@ -25,7 +25,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -39,7 +38,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.data.models.ActorUi
-import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
@@ -65,15 +63,13 @@ internal fun NewChatScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val navState = LocalMainShellNavState.current
     val focusManager = LocalFocusManager.current
-    val currentNavState by rememberUpdatedState(navState)
-    val currentFocusManager by rememberUpdatedState(focusManager)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 is NewChatEffect.OpenChat -> {
-                    currentFocusManager.clearFocus()
-                    currentNavState.replaceTop(Chat(otherUserDid = effect.otherUserDid))
+                    focusManager.clearFocus()
+                    navState.replaceTop(Chat(otherUserDid = effect.otherUserDid))
                 }
             }
         }
@@ -160,7 +156,7 @@ internal fun NewChatScreenContent(
                 is NewChatStatus.Recent -> {
                     if (s.items.isNotEmpty()) {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            item(key = "recent_header") {
+                            item(key = "recent_header", contentType = "header") {
                                 Text(
                                     text = stringResource(R.string.new_chat_recent_header),
                                     style = MaterialTheme.typography.labelLarge,
@@ -177,6 +173,7 @@ internal fun NewChatScreenContent(
                             items(
                                 items = s.items,
                                 key = { it.did },
+                                contentType = { "recipient" },
                             ) { actor ->
                                 RecipientRow(
                                     actor = actor,
@@ -202,6 +199,7 @@ internal fun NewChatScreenContent(
                         items(
                             items = s.items,
                             key = { it.did },
+                            contentType = { "recipient" },
                         ) { actor ->
                             RecipientRow(
                                 actor = actor,
@@ -291,7 +289,7 @@ private fun NewChatScreenRecentPreview() {
 @Preview(showBackground = true)
 @Composable
 private fun NewChatScreenSearchingPreview() {
-    NubecitaTheme(dynamicColor = false) {
+    NubecitaCanvasPreviewTheme {
         NewChatScreenContent(
             state = NewChatState(status = NewChatStatus.Searching),
             queryFieldState = TextFieldState(initialText = "ali"),

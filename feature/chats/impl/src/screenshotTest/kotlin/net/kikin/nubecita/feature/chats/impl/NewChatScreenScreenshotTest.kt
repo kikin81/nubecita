@@ -41,6 +41,21 @@ private fun NewChatScreenRecentScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "new-chat-searching-light", showBackground = true, heightDp = 600)
+@Preview(name = "new-chat-searching-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun NewChatScreenSearchingScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        NewChatScreenContent(
+            state = NewChatState(status = NewChatStatus.Searching),
+            queryFieldState = TextFieldState(initialText = "ali"),
+            onEvent = {},
+            onBack = {},
+        )
+    }
+}
+
+@PreviewTest
 @Preview(name = "new-chat-results-light", showBackground = true, heightDp = 600)
 @Preview(name = "new-chat-results-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable

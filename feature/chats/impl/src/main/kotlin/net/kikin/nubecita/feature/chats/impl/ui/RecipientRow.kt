@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
@@ -83,7 +84,7 @@ private fun RecipientAvatar(
     actor: ActorUi,
     modifier: Modifier = Modifier,
 ) {
-    val hue = (actor.did.hashCode() and 0x7fffffff) % 360
+    val hue = avatarHueFor(did = actor.did, handle = actor.handle)
     val hueColor = Color.hsv(hue.toFloat(), saturation = 0.5f, value = 0.55f)
     val initial =
         (actor.displayName ?: actor.handle)
