@@ -160,9 +160,16 @@ class MainShellNavState(
      * frame, no flicker) and Back skips the replaced route. If the active
      * tab is at its home (single entry), this degrades to a plain push so
      * the tab root is never dropped.
+     *
+     * **Single-top no-op.** Mirrors [add]: replacing the current top with a
+     * structurally-equal key is a silent no-op (replacing X with X changes
+     * nothing). Without this guard, `replaceTop(currentTop)` at tab home
+     * would push a duplicate root (`[Chats] -> [Chats, Chats]`), leaving an
+     * extra back-stack entry.
      */
     fun replaceTop(key: NavKey) {
         val stack = backStacks.getValue(topLevelKey)
+        if (stack.lastOrNull() == key) return
         stack.add(key)
         // Drop the entry beneath the just-pushed top, but never the tab root (index 0).
         // Picker case: [root, picker] → add → [root, picker, key] (size 3)

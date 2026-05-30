@@ -181,6 +181,19 @@ class MainShellNavStateTest {
     }
 
     @Test
+    fun `replaceTop with current top route is a no-op`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        // At home [TabFeed]: replacing the top with the same route must NOT duplicate
+        // it (regression guard for replaceTop bypassing add's single-top check).
+        state.replaceTop(TabFeed)
+        assertEquals(listOf<NavKey>(TabFeed), state.backStack.toList())
+        // Same on a sub-route: replaceTop with the current top is a no-op.
+        state.add(SubProfile) // [TabFeed, SubProfile]
+        state.replaceTop(SubProfile)
+        assertEquals(listOf<NavKey>(TabFeed, SubProfile), state.backStack.toList())
+    }
+
+    @Test
     fun `persistence round-trip via saved primitives restores topLevelKey and per-tab stacks`() {
         val before = newState(start = TabFeed, top = setOf(TabFeed, TabSearch, TabChats))
         before.add(SubProfile) // Feed: [Feed, Profile]
