@@ -155,8 +155,20 @@ internal class AuthorProfileMapperTest {
     }
 
     @Test
-    fun `canMessage is true when associated chat is absent (fail-open for accounts that never set the preference)`() {
-        val ui = sampleView(associated = null).toProfileHeaderUi()
+    fun `canMessage is false when associated chat is absent and the actor does not follow the viewer`() {
+        // Absent chat declaration ⇒ Bluesky default "people you follow"; with no
+        // follow-back the viewer cannot DM them (matches the official client).
+        val ui = sampleView(associated = null, viewer = ViewerState(followedBy = null)).toProfileHeaderUi()
+        assertEquals(false, ui.canMessage)
+    }
+
+    @Test
+    fun `canMessage is true when associated chat is absent but the actor follows the viewer`() {
+        val ui =
+            sampleView(
+                associated = null,
+                viewer = ViewerState(followedBy = AtUri("at://did:plc:other/app.bsky.graph.follow/abc")),
+            ).toProfileHeaderUi()
         assertEquals(true, ui.canMessage)
     }
 
@@ -277,15 +289,23 @@ internal class AuthorProfileMapperTest {
     }
 
     @Test
-    fun `canMessage falls open when allowIncoming carries an unrecognized value`() {
-        // Forward-compat with future appview tokens — anything we don't recognize
-        // (or a typo'd value) falls through the else branch as true rather than
-        // hiding the action.
-        val ui =
+    fun `canMessage treats an unrecognized allowIncoming value like following`() {
+        // Anything we don't recognize (a future appview token or a typo) is gated
+        // like the "following" default: messageable only with a follow-back, never
+        // fail-open — an unknown setting must not surface an un-DM-able recipient.
+        val notFollowed =
             sampleView(
                 associated = ProfileAssociated(chat = ProfileAssociatedChat(allowIncoming = "mutuals")),
+                viewer = ViewerState(followedBy = null),
             ).toProfileHeaderUi()
-        assertEquals(true, ui.canMessage)
+        assertEquals(false, notFollowed.canMessage)
+
+        val followed =
+            sampleView(
+                associated = ProfileAssociated(chat = ProfileAssociatedChat(allowIncoming = "mutuals")),
+                viewer = ViewerState(followedBy = AtUri("at://did:plc:other/app.bsky.graph.follow/abc")),
+            ).toProfileHeaderUi()
+        assertEquals(true, followed.canMessage)
     }
 
     private fun sampleView(

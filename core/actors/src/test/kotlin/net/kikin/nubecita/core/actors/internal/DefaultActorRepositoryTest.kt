@@ -613,8 +613,10 @@ class DefaultActorRepositoryTest {
         }
 
     @Test
-    fun searchTypeahead_absentAssociated_canMessageTrueFailOpen() =
+    fun searchTypeahead_absentAssociated_withoutFollowedBy_canMessageFalse() =
         runTest {
+            // No `associated.chat` block ⇒ Bluesky's "following" default; with no
+            // `viewer.followedBy` the actor is NOT messageable (not fail-open).
             val actorDao = mockk<ActorDao>(relaxed = true)
             val (_, repo) =
                 newRepo(actorDao) { _ ->
@@ -626,6 +628,34 @@ class DefaultActorRepositoryTest {
                               "${'$'}type": "app.bsky.actor.defs#profileViewBasic",
                               "did": "did:plc:plain",
                               "handle": "plain.bsky.social"
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val actor = repo.searchTypeahead(query = "plain", limit = 8).getOrThrow().single()
+            assertFalse(actor.canMessage)
+        }
+
+    @Test
+    fun searchTypeahead_absentAssociated_withFollowedBy_canMessageTrue() =
+        runTest {
+            // No `associated.chat` block but the actor follows the viewer ⇒ messageable
+            // under the "following" default.
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (_, repo) =
+                newRepo(actorDao) { _ ->
+                    okJson(
+                        """
+                        {
+                          "actors": [
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileViewBasic",
+                              "did": "did:plc:plain",
+                              "handle": "plain.bsky.social",
+                              "viewer": { "followedBy": "at://did:plc:plain/app.bsky.graph.follow/x" }
                             }
                           ]
                         }
