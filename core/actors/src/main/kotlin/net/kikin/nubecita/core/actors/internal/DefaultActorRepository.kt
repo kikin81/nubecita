@@ -24,6 +24,20 @@ import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Production [ActorRepository] backed by the atproto-kotlin SDK's
+ * [io.github.kikin81.atproto.app.bsky.actor.ActorService], with a
+ * write-through cache into [net.kikin.nubecita.core.database.dao.ActorDao].
+ *
+ * Every successful search (typeahead or full) upserts its actors into the
+ * cache with `Clock.System.now()` as `lastSeenAt`. Cache writes are
+ * best-effort: a DAO exception is logged at WARN and swallowed so a Room
+ * failure never becomes a [Result.failure] to callers. Empty results skip
+ * the write entirely. [kotlinx.coroutines.CancellationException] is
+ * re-thrown at every catch site — including inside the cache write — so
+ * structured concurrency cancels cleanly. `displayName` is normalized:
+ * blank collapses to null per the [net.kikin.nubecita.data.models.ActorUi] contract.
+ */
 @Singleton
 internal class DefaultActorRepository
     @Inject
@@ -78,7 +92,7 @@ internal class DefaultActorRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
-                    Timber.tag(TAG).e(t, "searchActors(q=%s, cursor=%s) failed", query, cursor)
+                    Timber.tag(TAG).e(t, "searchActors(q=%s, cursor=%s) failed: %s", query, cursor, t.javaClass.name)
                     Result.failure(t)
                 }
             }
@@ -100,7 +114,7 @@ internal class DefaultActorRepository
         }
 
         private companion object {
-            const val TAG = "ActorRepo"
+            private const val TAG = "ActorRepo"
         }
     }
 

@@ -15,18 +15,19 @@ import io.ktor.utils.io.ByteReadChannel
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.database.dao.ActorDao
 import net.kikin.nubecita.core.database.model.ActorEntity
-import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
 import java.io.IOException
 
 /**
@@ -46,7 +47,6 @@ import java.io.IOException
  *  - Cache write failure (upsert throws) → search still returns Result.success (best-effort).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-@ExtendWith(MainDispatcherExtension::class)
 class DefaultActorRepositoryTest {
     // -------------------------------------------------------------------------
     // searchTypeahead
@@ -330,6 +330,116 @@ class DefaultActorRepositoryTest {
 
             assertTrue(result.isSuccess, "cache write failure must not fail the search")
             assertEquals(1, result.getOrThrow().items.size)
+        }
+
+    // -------------------------------------------------------------------------
+    // Limit guard (synchronous, no runTest needed)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun searchTypeahead_limitOutOfRange_throwsIllegalArgument() {
+        // `require(limit in 1..100)` throws synchronously before any suspend body
+        // runs, so a plain runBlocking suffices — same shape as
+        // searchActors_cancellation_propagates in the sibling test.
+        val actorDao = mockk<ActorDao>(relaxed = true)
+        val (_, repo) = newRepo(actorDao) { _ -> okJson("""{"actors": []}""") }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { repo.searchTypeahead(query = "x", limit = 0) }
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { repo.searchTypeahead(query = "x", limit = 101) }
+        }
+    }
+
+    @Test
+    fun searchActors_limitOutOfRange_throwsIllegalArgument() {
+        val actorDao = mockk<ActorDao>(relaxed = true)
+        val (_, repo) = newRepo(actorDao) { _ -> okJson("""{"actors": []}""") }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { repo.searchActors(query = "x", cursor = null, limit = 0) }
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { repo.searchActors(query = "x", cursor = null, limit = 101) }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // CancellationException propagates (not swallowed into Result.failure)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun searchTypeahead_cancellation_propagates() {
+        // Don't wrap the outer test in `runTest`: kotlinx-coroutines-test
+        // forbids nested `runTest` invocations (TestScopeImpl.enter), so
+        // `assertThrows` needs a plain `runBlocking` driver to reach into
+        // the suspending repo call. The contract under test — the repo's
+        // explicit `catch (cancellation: CancellationException) { throw }`
+        // before the Timber log — is dispatcher-agnostic.
+        val actorDao = mockk<ActorDao>(relaxed = true)
+        val (_, repo) =
+            newRepo(actorDao) { _ ->
+                throw CancellationException("scope cancelled")
+            }
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repo.searchTypeahead(query = "x", limit = 8) }
+        }
+    }
+
+    @Test
+    fun searchActors_cancellation_propagates() {
+        val actorDao = mockk<ActorDao>(relaxed = true)
+        val (_, repo) =
+            newRepo(actorDao) { _ ->
+                throw CancellationException("scope cancelled")
+            }
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repo.searchActors(query = "x", cursor = null, limit = 25) }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Wire-format: outgoing request carries correct query parameters
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun searchTypeahead_passesQueryAndLimitThrough() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (engine, repo) = newRepo(actorDao) { _ -> okJson("""{"actors": []}""") }
+
+            repo.searchTypeahead(query = "kotlin lang", limit = 7)
+
+            val url =
+                engine.requestHistory
+                    .single()
+                    .url
+                    .toString()
+            // Order of query params is not contractual, just presence:
+            assertTrue(url.contains("q=kotlin"), "url should contain q=kotlin but was: $url")
+            assertTrue(url.contains("limit=7"), "url should contain limit=7 but was: $url")
+        }
+
+    @Test
+    fun searchActors_passesQueryCursorAndLimitThrough() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (engine, repo) = newRepo(actorDao) { _ -> okJson("""{"actors": []}""") }
+
+            repo.searchActors(query = "kotlin lang", cursor = "abc", limit = 13)
+
+            val url =
+                engine.requestHistory
+                    .single()
+                    .url
+                    .toString()
+            // Order of query params is not contractual, just presence:
+            assertTrue(url.contains("q=kotlin"), "url should contain q=kotlin but was: $url")
+            assertTrue(url.contains("cursor=abc"), "url should contain cursor=abc but was: $url")
+            assertTrue(url.contains("limit=13"), "url should contain limit=13 but was: $url")
         }
 
     // -------------------------------------------------------------------------
