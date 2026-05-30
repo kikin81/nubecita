@@ -9,6 +9,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -152,6 +153,47 @@ internal class NewChatViewModelTest {
                 val effect = awaitItem()
                 assertEquals(NewChatEffect.OpenChat("did:jay"), effect)
             }
+        }
+
+    @Test
+    fun `typingQuery_emitsSearchingBeforeResults`() =
+        runTest(mainDispatcher.dispatcher) {
+            every { repo.recentActors(any(), any()) } returns flowOf(emptyList())
+            coEvery { repo.searchTypeahead(any(), any()) } returns Result.success(listOf(actor("did:jay")))
+
+            val vm = vm()
+            advanceUntilIdle()
+
+            // Set query but do NOT advance past the 250ms debounce.
+            setQueryText(vm, "jay")
+            // runCurrent drives the snapshot collector and the flow up to its first suspension
+            // (the delay). The Searching status must already be set.
+            val status = vm.uiState.value.status
+            assertTrue(status is NewChatStatus.Searching, "expected Searching before debounce, got $status")
+        }
+
+    @Test
+    fun `recentCacheError_surfacesErrorAndPipelineSurvives`() =
+        runTest(mainDispatcher.dispatcher) {
+            every { repo.recentActors(any(), any()) } returns flow { throw RuntimeException("db") }
+            coEvery { repo.searchTypeahead(any(), any()) } returns Result.success(listOf(actor("did:jay")))
+
+            val vm = vm()
+            advanceUntilIdle()
+
+            val errorStatus = vm.uiState.value.status
+            assertTrue(errorStatus is NewChatStatus.Error, "expected Error from cache failure, got $errorStatus")
+
+            // Now type a query — the outer pipeline must still be alive.
+            setQueryText(vm, "jay")
+            testScheduler.advanceUntilIdle()
+
+            val resultsStatus = vm.uiState.value.status
+            assertTrue(
+                resultsStatus is NewChatStatus.Results,
+                "expected Results after pipeline survived cache error, got $resultsStatus",
+            )
+            assertEquals(listOf("did:jay"), (resultsStatus as NewChatStatus.Results).items.map { it.did })
         }
 
     /**

@@ -8,6 +8,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
@@ -18,6 +19,7 @@ import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.data.models.ActorUi
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -50,7 +52,9 @@ class NewChatViewModel
         // Stable for the session — NewChat is only reachable inside MainShell (SignedIn).
         private val selfDid: String? = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
 
-        // Re-runs the *current* query when the text alone wouldn't change (Retry).
+        // extraBufferCapacity = 1 + tryEmit: at most one retry is buffered; additional
+        // taps while one is queued are dropped (not DROP_OLDEST — there is no stale-token
+        // concept here, a retry just re-runs the current query).
         private val retryTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
         init {
@@ -60,11 +64,13 @@ class NewChatViewModel
             ).flatMapLatest { raw ->
                 val q = raw.trim()
                 if (q.isEmpty()) {
-                    actorRepository.recentActors(selfDid).map { actors ->
-                        NewChatStatus.Recent(actors.toImmutableList())
-                    }
+                    actorRepository
+                        .recentActors(selfDid)
+                        .map<List<ActorUi>, NewChatStatus> { actors ->
+                            NewChatStatus.Recent(actors.toImmutableList())
+                        }.catch { emit(NewChatStatus.Error) } // recent cache read failed; pipeline survives
                 } else {
-                    flow<NewChatStatus> {
+                    flow {
                         emit(NewChatStatus.Searching)
                         delay(DEBOUNCE)
                         emit(
