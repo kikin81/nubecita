@@ -7,10 +7,18 @@ import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.actors.ActorRepository
 import javax.inject.Singleton
 
+/**
+ * Hilt binding for [ActorRepository] → [DefaultActorRepository].
+ *
+ * Public visibility (with internal-only binding methods) so downstream
+ * feature modules' instrumented tests can swap bindings via
+ * `@TestInstallIn(replaces = [ActorsModule::class])`. Mirrors the
+ * pattern in `PostingModule` and `AuthBindingsModule`.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
-internal interface ActorsModule {
+abstract class ActorsModule {
     @Binds
     @Singleton
-    fun bindActorRepository(impl: DefaultActorRepository): ActorRepository
+    internal abstract fun bindActorRepository(impl: DefaultActorRepository): ActorRepository
 }
