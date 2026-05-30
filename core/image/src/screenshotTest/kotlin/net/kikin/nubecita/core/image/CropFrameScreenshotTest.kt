@@ -28,14 +28,14 @@ private val SCRIM_COLOR = Color.Black.copy(alpha = 0.55f)
 private const val FRAME_INSET = 0.9f
 
 @PreviewTest
-@Preview(name = "Crop frame — avatar circle", widthDp = 360, heightDp = 640)
+@Preview(widthDp = 360, heightDp = 640)
 @Composable
 private fun CropFrameAvatarCirclePreview() {
     CropFrameFixture(CropShape.AvatarCircle)
 }
 
 @PreviewTest
-@Preview(name = "Crop frame — banner 3:1", widthDp = 360, heightDp = 640)
+@Preview(widthDp = 360, heightDp = 640)
 @Composable
 private fun CropFrameBannerPreview() {
     CropFrameFixture(CropShape.Banner)

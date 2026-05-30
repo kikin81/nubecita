@@ -80,6 +80,10 @@ fun CropImage(
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     var cropping by remember(sourceUri) { mutableStateOf(false) }
 
+    // Wrap the working bitmap once per decode, not once per gesture frame — the
+    // draw lambda runs every frame during a pan/zoom (120hz target).
+    val imageBitmap = remember(working) { working?.asImageBitmap() }
+
     LaunchedEffect(sourceUri) {
         val decoded =
             withContext(Dispatchers.IO) {
@@ -89,8 +93,11 @@ fun CropImage(
         if (decoded == null) currentOnCancel() // unreadable / unsupported source → treat as aborted
     }
 
-    DisposableEffect(sourceUri) {
-        onDispose { working?.recycle() }
+    // Keyed on the bitmap itself (captured into a local) so each decoded bitmap
+    // is recycled exactly once — on dispose AND when replaced by a new source.
+    DisposableEffect(working) {
+        val bitmap = working
+        onDispose { bitmap?.recycle() }
     }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
@@ -123,7 +130,7 @@ fun CropImage(
                     },
         ) {
             drawCropScene(
-                image = working?.asImageBitmap(),
+                image = imageBitmap,
                 shape = shape,
                 scale = scale,
                 offset = offset,
