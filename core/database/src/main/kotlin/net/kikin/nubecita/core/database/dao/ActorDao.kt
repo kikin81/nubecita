@@ -6,6 +6,17 @@ import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import net.kikin.nubecita.core.database.model.ActorEntity
 
+/**
+ * DAO for the `actors` table.
+ *
+ * [getActor] emits `null` as its first emission when no row with the
+ * given [did] exists, then re-emits the matching [ActorEntity] whenever
+ * the underlying row is inserted or updated by a subsequent [upsert] call.
+ *
+ * [upsert] is a full-row overwrite: on conflict with an existing [did]
+ * every column is replaced with the supplied values. Callers must always
+ * provide a complete [ActorEntity] — partial updates are not supported.
+ */
 @Dao
 interface ActorDao {
     @Upsert

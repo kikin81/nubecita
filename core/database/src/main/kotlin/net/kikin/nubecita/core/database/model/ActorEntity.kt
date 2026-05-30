@@ -23,8 +23,6 @@ data class ActorEntity(
     @ColumnInfo(name = "last_seen_at") val lastSeenAt: Instant,
 )
 
-fun ActorEntity.asExternalModel(): ActorUi =
-    ActorUi(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl)
+fun ActorEntity.asExternalModel(): ActorUi = ActorUi(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl)
 
-fun ActorUi.toCacheEntity(lastSeenAt: Instant): ActorEntity =
-    ActorEntity(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl, lastSeenAt = lastSeenAt)
+fun ActorUi.toCacheEntity(lastSeenAt: Instant): ActorEntity = ActorEntity(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl, lastSeenAt = lastSeenAt)
