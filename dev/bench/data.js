@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780043493228,
+  "lastUpdate": 1780128450346,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -103,6 +103,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1154.705,
             "range": "+/- 16.9%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "71fc142279ae04729267ce47c12fccac0eb6ebe6",
+          "message": "refactor(core): extract :core:actors with DID-keyed cache; migrate search + composer (#348)\n\n* docs(actors): spec for :core:actors extraction + DID-keyed cache\n\nDesign for PR1 of the recipient-picker prep: consolidate search +\ncomposer actor-search into a new :core:actors capability, add a\nDID-keyed Room cache (v2→v3 additive AutoMigration) with always-\nnetwork-refreshed write-through. No user-facing change.\n\nRefs: nubecita-26a6\n\n* docs(actors): implementation plan for :core:actors extraction + cache\n\nRefs: nubecita-26a6\n\n* feat(core/actors): scaffold module + ActorRepository surface\n\nRefs: nubecita-26a6\n\n* feat(core/database): add DID-keyed actors cache table (v2→v3)\n\nActorEntity + ActorDao + asExternalModel/toCacheEntity mappers, additive\n@AutoMigration(2→3), committed 3.json, DAO provider + ActorDaoTest.\n\nRefs: nubecita-26a6\n\n* refactor(core/database): address review on actors DAO test + KDoc\n\nExtend DatabaseTest base, internal + dao-package placement, batch +\nnull round-trip cases, ActorDao KDoc, schema trailing newline.\nAlso apply spotless fix for ActorEntity extension function formatting.\n\nRefs: nubecita-26a6\n\n* feat(core/actors): implement DefaultActorRepository + write-through\n\nImplements DefaultActorRepository:\n- searchTypeahead via ActorService.searchActorsTypeahead, maps\n  ProfileViewBasic → ActorUi (blank displayName → null).\n- searchActors via ActorService.searchActors, maps ProfileView →\n  ActorUi, returns ActorSearchPage with nextCursor.\n- writeThrough: best-effort upsert into ActorDao; skips on empty\n  results; swallows non-cancellation exceptions so a cache failure\n  never fails the caller's Result.\n- getActor: Flow<ActorUi?> backed by ActorDao.getActor.\n\nAdds ActorsModule (@Binds DefaultActorRepository → ActorRepository).\n\nUnit tests (MockEngine harness + MockK relaxed ActorDao): 10 tests,\nall passing — success/empty/failure/blank-displayName/cache-write-fail\npaths for both searchTypeahead and searchActors.\n\nAlso applies spotless reformatting to ActorRepository.kt (long params\nsplit to match ktlint max-line rule).\n\nClock import: kotlinx.datetime.Clock (deprecated warning only; matches\nActorEntity.lastSeenAt: kotlinx.datetime.Instant in :core:database).\n\nRefs: nubecita-26a6\n\n* refactor(core/actors): address review on DefaultActorRepository\n\nClass KDoc, limit-guard + cancellation + wire-format tests, private TAG,\nsibling-shaped error log.\n\nRefs: nubecita-26a6\n\n* refactor(core/actors): make ActorsModule a public abstract class\n\nSo downstream feature-module instrumented tests can @TestInstallIn\n(replaces = [ActorsModule::class]). Mirrors PostingModule/AuthBindingsModule.\n\nRefs: nubecita-26a6\n\n* refactor(search): consume :core:actors ActorRepository for People tab\n\nReplaces the feature-local SearchActorsRepository with the shared\nActorRepository; SearchActorsPage -> ActorSearchPage; androidTest swaps\nActorsModule. No behavior change.\n\nRefs: nubecita-26a6\n\n* refactor(composer,search): move @-mention typeahead to :core:actors\n\nMigrate ComposerViewModel and SearchTypeaheadViewModel off the\n:core:posting ActorTypeaheadRepository onto the shared ActorRepository;\ndelete ActorTypeaheadRepository + impl + test; drop PostingModule binding.\n\nRefs: nubecita-26a6\n\n* refactor(search): drop dead :core:posting dep + typeahead tests\n\nSearch no longer uses :core:posting after the typeahead migration; restore\nthe term=-absent guard and missing-fields normalization cases from the\ndeleted posting repo test.\n\nRefs: nubecita-26a6\n\n* build(core/actors): add empty consumer-rules.pro\n\nThe nubecita.android.library plugin declares consumerProguardFiles;\nevery :core module ships this file. Was missing on the new module.\n\nRefs: nubecita-26a6\n\n* docs(search): fix stale doclinks to deleted SearchActors* types\n\nRe-point/drop KDoc references left dangling after the :core:actors\nextraction.\n\nRefs: nubecita-26a6\n\n* docs(search): re-point remaining stale doclinks to live repos\n\nThe :core:actors extraction deleted DefaultSearchActorsRepository(Test);\nremaining prose mentions now point at DefaultSearchPostsRepository (same\nshape) and the ActorUi mapper note at :core:actors DefaultActorRepository.\nAddresses Copilot review on #348.\n\nRefs: nubecita-26a6",
+          "timestamp": "2026-05-30T05:11:45Z",
+          "url": "https://github.com/kikin81/nubecita/commit/71fc142279ae04729267ce47c12fccac0eb6ebe6"
+        },
+        "date": 1780128449272,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 38,
+            "range": "+/- 8.8%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1413.859,
+            "range": "+/- 11.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1286.601,
+            "range": "+/- 3.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1020.37,
+            "range": "+/- 23.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1160.194,
+            "range": "+/- 20.6%",
             "unit": "ms"
           }
         ]
