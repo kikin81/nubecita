@@ -4,7 +4,9 @@ import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import net.kikin.nubecita.core.database.dao.ActorDao
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
+import net.kikin.nubecita.core.database.model.ActorEntity
 import net.kikin.nubecita.core.database.model.RecentSearchEntity
 import net.kikin.nubecita.core.database.util.InstantConverter
 
@@ -20,14 +22,17 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * [MANUAL_MIGRATIONS] when AutoMigration cannot express the diff.
  */
 @Database(
-    entities = [RecentSearchEntity::class],
-    version = 2,
+    entities = [RecentSearchEntity::class, ActorEntity::class],
+    version = 3,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
+        AutoMigration(from = 2, to = 3),
     ],
 )
 @TypeConverters(InstantConverter::class)
 abstract class NubecitaDatabase : RoomDatabase() {
     abstract fun recentSearchDao(): RecentSearchDao
+
+    abstract fun actorDao(): ActorDao
 }
