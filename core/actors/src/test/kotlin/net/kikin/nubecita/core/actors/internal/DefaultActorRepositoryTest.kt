@@ -525,6 +525,119 @@ class DefaultActorRepositoryTest {
     }
 
     // -------------------------------------------------------------------------
+    // canMessage mapping (DM availability hint)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun searchTypeahead_allowIncomingNone_canMessageFalse() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (_, repo) =
+                newRepo(actorDao) { _ ->
+                    okJson(
+                        """
+                        {
+                          "actors": [
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileViewBasic",
+                              "did": "did:plc:none",
+                              "handle": "none.bsky.social",
+                              "associated": { "chat": { "allowIncoming": "none" } }
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val actor = repo.searchTypeahead(query = "none", limit = 8).getOrThrow().single()
+            assertFalse(actor.canMessage)
+        }
+
+    @Test
+    fun searchTypeahead_allowIncomingFollowing_withoutFollowedBy_canMessageFalse() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (_, repo) =
+                newRepo(actorDao) { _ ->
+                    okJson(
+                        """
+                        {
+                          "actors": [
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileViewBasic",
+                              "did": "did:plc:foll",
+                              "handle": "foll.bsky.social",
+                              "associated": { "chat": { "allowIncoming": "following" } }
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val actor = repo.searchTypeahead(query = "foll", limit = 8).getOrThrow().single()
+            assertFalse(actor.canMessage)
+        }
+
+    @Test
+    fun searchActors_allowIncomingFollowing_withFollowedBy_canMessageTrue() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (_, repo) =
+                newRepo(actorDao) { _ ->
+                    okJson(
+                        """
+                        {
+                          "actors": [
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileView",
+                              "did": "did:plc:foll",
+                              "handle": "foll.bsky.social",
+                              "associated": { "chat": { "allowIncoming": "following" } },
+                              "viewer": { "followedBy": "at://did:plc:foll/app.bsky.graph.follow/x" }
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val actor =
+                repo
+                    .searchActors(query = "foll", cursor = null, limit = 25)
+                    .getOrThrow()
+                    .items
+                    .single()
+            assertTrue(actor.canMessage)
+        }
+
+    @Test
+    fun searchTypeahead_absentAssociated_canMessageTrueFailOpen() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (_, repo) =
+                newRepo(actorDao) { _ ->
+                    okJson(
+                        """
+                        {
+                          "actors": [
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileViewBasic",
+                              "did": "did:plc:plain",
+                              "handle": "plain.bsky.social"
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val actor = repo.searchTypeahead(query = "plain", limit = 8).getOrThrow().single()
+            assertTrue(actor.canMessage)
+        }
+
+    // -------------------------------------------------------------------------
     // Harness helpers
     // -------------------------------------------------------------------------
 
