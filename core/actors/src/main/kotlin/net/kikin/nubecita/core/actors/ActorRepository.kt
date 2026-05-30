@@ -20,10 +20,17 @@ import net.kikin.nubecita.data.models.ActorUi
  */
 interface ActorRepository {
     /** Fast as-you-type suggestions — `app.bsky.actor.searchActorsTypeahead`. Single-shot. */
-    suspend fun searchTypeahead(query: String, limit: Int = 8): Result<List<ActorUi>>
+    suspend fun searchTypeahead(
+        query: String,
+        limit: Int = 8,
+    ): Result<List<ActorUi>>
 
     /** Full paginated search — `app.bsky.actor.searchActors`. */
-    suspend fun searchActors(query: String, cursor: String? = null, limit: Int = 25): Result<ActorSearchPage>
+    suspend fun searchActors(
+        query: String,
+        cursor: String? = null,
+        limit: Int = 25,
+    ): Result<ActorSearchPage>
 
     /** Observe a single cached actor by DID; emits null when not cached. */
     fun getActor(did: String): Flow<ActorUi?>
