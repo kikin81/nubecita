@@ -180,10 +180,12 @@ data class ProfileHeaderUi(
      * — mirrors the official Bluesky Android client's behavior and
      * avoids the dead-end "MessagesDisabled" error after tap.
      *
-     * Defaults to `true` so callers that don't construct the field
-     * (older test fixtures, future synthetic header instances) keep
-     * the action visible — same fail-open posture as the wire mapping
-     * (an absent `allowIncoming` is treated as `"all"`).
+     * Defaults to `true` for callers that don't construct the field
+     * (older test fixtures, future synthetic header instances); the
+     * mapper always computes the real value via `canViewerMessage`, so
+     * this default only affects fixtures. Note the computed value is NOT
+     * fail-open: an absent `associated.chat` is treated as `"following"`
+     * (Bluesky's default), so it's gated on `viewer.followedBy`.
      */
     val canMessage: Boolean = true,
     /**
