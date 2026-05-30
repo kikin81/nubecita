@@ -11,9 +11,11 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.Chats
+import net.kikin.nubecita.feature.chats.api.NewChat
 import net.kikin.nubecita.feature.chats.impl.ChatScreen
 import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
+import net.kikin.nubecita.feature.chats.impl.NewChatScreen
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
 @Module
@@ -28,7 +30,12 @@ internal object ChatsNavigationModule {
                 val navState = LocalMainShellNavState.current
                 ChatsScreen(
                     onNavigateToChat = { did -> navState.add(Chat(otherUserDid = did)) },
+                    onNewChat = { navState.add(NewChat) },
                 )
+            }
+            entry<NewChat> {
+                val navState = LocalMainShellNavState.current
+                NewChatScreen(onBack = { navState.removeLast() })
             }
             entry<Chat> { chat ->
                 val navState = LocalMainShellNavState.current
