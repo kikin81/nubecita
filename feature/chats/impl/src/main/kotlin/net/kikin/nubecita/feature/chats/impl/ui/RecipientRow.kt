@@ -14,9 +14,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -25,6 +27,7 @@ import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.feature.chats.impl.R
 
 /**
  * Single row in the NewChat recipient picker. Tapping anywhere on the
@@ -38,6 +41,12 @@ import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
  *
  * Title: [ActorUi.displayName] when available, else [ActorUi.handle].
  * Subtitle: "@" + [ActorUi.handle] in `onSurfaceVariant`.
+ *
+ * Disabled state: when [ActorUi.canMessage] is false the actor can't
+ * receive a DM from the viewer. The row is greyed ([DISABLED_CONTENT_ALPHA])
+ * and the tap target is disabled, and a "Can't be messaged" line is shown —
+ * matching the official Bluesky client, which keeps such actors visible
+ * rather than hiding them.
  */
 @Composable
 internal fun RecipientRow(
@@ -45,14 +54,16 @@ internal fun RecipientRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val enabled = actor.canMessage
+    val contentAlpha = if (enabled) 1f else DISABLED_CONTENT_ALPHA
     Row(
         modifier =
             modifier
-                .clickable(onClick = onClick)
+                .clickable(enabled = enabled, onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RecipientAvatar(actor = actor, modifier = Modifier.size(40.dp))
+        RecipientAvatar(actor = actor, modifier = Modifier.size(40.dp).alpha(contentAlpha))
         Column(
             modifier = Modifier.padding(start = 12.dp),
         ) {
@@ -61,6 +72,7 @@ internal fun RecipientRow(
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.alpha(contentAlpha),
             )
             Text(
                 text = "@${actor.handle}",
@@ -68,7 +80,17 @@ internal fun RecipientRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.alpha(contentAlpha),
             )
+            if (!enabled) {
+                Text(
+                    text = stringResource(R.string.new_chat_cannot_message),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -116,6 +138,10 @@ private fun RecipientAvatar(
     }
 }
 
+// M3 disabled-content alpha — greys the avatar/name/handle of a recipient the
+// viewer can't DM, while the "Can't be messaged" reason stays at full opacity.
+private const val DISABLED_CONTENT_ALPHA = 0.38f
+
 @Preview(showBackground = true)
 @Composable
 private fun RecipientRowWithDisplayNamePreview() {
@@ -144,6 +170,24 @@ private fun RecipientRowHandleOnlyPreview() {
                     handle = "bob.bsky.social",
                     displayName = null,
                     avatarUrl = null,
+                ),
+            onClick = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun RecipientRowCannotMessagePreview() {
+    NubecitaTheme(dynamicColor = false) {
+        RecipientRow(
+            actor =
+                ActorUi(
+                    did = "did:plc:carol",
+                    handle = "carol.bsky.social",
+                    displayName = "Carol",
+                    avatarUrl = null,
+                    canMessage = false,
                 ),
             onClick = {},
         )

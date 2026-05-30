@@ -78,7 +78,7 @@ internal class NewChatViewModelTest {
         }
 
     @Test
-    fun `recentList_dropsActorsThatCannotBeMessaged`() =
+    fun `recentList_retainsNonMessageableActorsForDisabledDisplay`() =
         runTest(mainDispatcher.dispatcher) {
             every { repo.recentActors("did:self", any()) } returns
                 flowOf(listOf(actor("did:can"), actor("did:cannot", canMessage = false)))
@@ -88,11 +88,14 @@ internal class NewChatViewModelTest {
 
             val status = vm.uiState.value.status
             assertTrue(status is NewChatStatus.Recent, "expected Recent, got $status")
-            assertEquals(listOf("did:can"), (status as NewChatStatus.Recent).items.map { it.did })
+            val items = (status as NewChatStatus.Recent).items
+            // Non-messageable actors are kept (shown disabled), not filtered out.
+            assertEquals(listOf("did:can", "did:cannot"), items.map { it.did })
+            assertEquals(listOf(true, false), items.map { it.canMessage })
         }
 
     @Test
-    fun `searchResults_dropActorsThatCannotBeMessaged`() =
+    fun `searchResults_retainNonMessageableActorsForDisabledDisplay`() =
         runTest(mainDispatcher.dispatcher) {
             every { repo.recentActors(any(), any()) } returns flowOf(emptyList())
             coEvery { repo.searchTypeahead("jay", any()) } returns
@@ -106,7 +109,9 @@ internal class NewChatViewModelTest {
 
             val status = vm.uiState.value.status
             assertTrue(status is NewChatStatus.Results, "expected Results, got $status")
-            assertEquals(listOf("did:can"), (status as NewChatStatus.Results).items.map { it.did })
+            val items = (status as NewChatStatus.Results).items
+            assertEquals(listOf("did:can", "did:cannot"), items.map { it.did })
+            assertEquals(listOf(true, false), items.map { it.canMessage })
         }
 
     @Test

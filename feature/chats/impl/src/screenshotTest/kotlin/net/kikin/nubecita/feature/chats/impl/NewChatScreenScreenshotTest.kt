@@ -25,6 +25,25 @@ private val FIXTURE_ACTORS =
         ),
     )
 
+// A messageable actor next to one the viewer can't DM, to capture the disabled
+// "Can't be messaged" row treatment.
+private val FIXTURE_ACTORS_MIXED =
+    persistentListOf(
+        ActorUi(
+            did = "did:plc:alice",
+            handle = "alice.bsky.social",
+            displayName = "Alice Liddell",
+            avatarUrl = null,
+        ),
+        ActorUi(
+            did = "did:plc:carol",
+            handle = "carol.bsky.social",
+            displayName = "Carol",
+            avatarUrl = null,
+            canMessage = false,
+        ),
+    )
+
 @PreviewTest
 @Preview(name = "new-chat-recent-light", showBackground = true, heightDp = 600)
 @Preview(name = "new-chat-recent-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
@@ -64,6 +83,21 @@ private fun NewChatScreenResultsScreenshot() {
         NewChatScreenContent(
             state = NewChatState(status = NewChatStatus.Results(FIXTURE_ACTORS)),
             queryFieldState = TextFieldState(initialText = "alice"),
+            onEvent = {},
+            onBack = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "new-chat-results-mixed-light", showBackground = true, heightDp = 600)
+@Preview(name = "new-chat-results-mixed-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun NewChatScreenResultsWithDisabledScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        NewChatScreenContent(
+            state = NewChatState(status = NewChatStatus.Results(FIXTURE_ACTORS_MIXED)),
+            queryFieldState = TextFieldState(initialText = "a"),
             onEvent = {},
             onBack = {},
         )

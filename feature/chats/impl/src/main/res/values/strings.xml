@@ -49,4 +49,5 @@
     <string name="new_chat_retry">Retry</string>
     <string name="new_chat_back_content_description">Back</string>
     <string name="new_chat_fab_content_description">New message</string>
+    <string name="new_chat_cannot_message">Can\'t be messaged</string>
 </resources>

@@ -67,7 +67,10 @@ class NewChatViewModel
                     actorRepository
                         .recentActors(selfDid)
                         .map<List<ActorUi>, NewChatStatus> { actors ->
-                            NewChatStatus.Recent(actors.filter { it.canMessage }.toImmutableList())
+                            // Non-messageable actors are NOT filtered out — the picker shows
+                            // them disabled with a "can't be messaged" label (RecipientRow
+                            // reads ActorUi.canMessage), matching the official client.
+                            NewChatStatus.Recent(actors.toImmutableList())
                         }.catch { emit(NewChatStatus.Error) } // recent cache read failed; pipeline survives
                 } else {
                     flow {
@@ -76,7 +79,9 @@ class NewChatViewModel
                         emit(
                             actorRepository.searchTypeahead(q).fold(
                                 onSuccess = { actors ->
-                                    val filtered = actors.filter { it.did != selfDid && it.canMessage }
+                                    // Only self is filtered out; non-messageable actors stay in the
+                                    // list and render disabled (see RecipientRow / ActorUi.canMessage).
+                                    val filtered = actors.filter { it.did != selfDid }
                                     if (filtered.isEmpty()) {
                                         NewChatStatus.NoResults
                                     } else {
