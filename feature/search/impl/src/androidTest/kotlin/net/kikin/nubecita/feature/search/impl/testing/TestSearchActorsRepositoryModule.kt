@@ -4,15 +4,15 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
-import net.kikin.nubecita.feature.search.impl.data.SearchActorsRepository
-import net.kikin.nubecita.feature.search.impl.di.SearchActorsRepositoryModule
+import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.actors.internal.ActorsModule
 
 @Module
 @TestInstallIn(
     components = [SingletonComponent::class],
-    replaces = [SearchActorsRepositoryModule::class],
+    replaces = [ActorsModule::class],
 )
 internal interface TestSearchActorsRepositoryModule {
     @Binds
-    fun bindFakeSearchActorsRepository(impl: FakeSearchActorsRepository): SearchActorsRepository
+    fun bindFakeActorRepository(impl: FakeSearchActorsRepository): ActorRepository
 }

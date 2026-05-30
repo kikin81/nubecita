@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.feature.search.impl.data.SearchActorsRepository
 import javax.inject.Inject
 
 /**
@@ -51,7 +51,7 @@ import javax.inject.Inject
 internal class SearchActorsViewModel
     @Inject
     constructor(
-        private val repository: SearchActorsRepository,
+        private val repository: ActorRepository,
     ) : MviViewModel<SearchActorsState, SearchActorsEvent, SearchActorsEffect>(SearchActorsState()) {
         private data class FetchKey(
             val query: String,
