@@ -67,7 +67,7 @@ class NewChatViewModel
                     actorRepository
                         .recentActors(selfDid)
                         .map<List<ActorUi>, NewChatStatus> { actors ->
-                            NewChatStatus.Recent(actors.toImmutableList())
+                            NewChatStatus.Recent(actors.filter { it.canMessage }.toImmutableList())
                         }.catch { emit(NewChatStatus.Error) } // recent cache read failed; pipeline survives
                 } else {
                     flow {
@@ -76,7 +76,7 @@ class NewChatViewModel
                         emit(
                             actorRepository.searchTypeahead(q).fold(
                                 onSuccess = { actors ->
-                                    val filtered = actors.filter { it.did != selfDid }
+                                    val filtered = actors.filter { it.did != selfDid && it.canMessage }
                                     if (filtered.isEmpty()) {
                                         NewChatStatus.NoResults
                                     } else {
