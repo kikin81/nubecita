@@ -11,4 +11,6 @@ dependencies {
     implementation(project(":core:common"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.core)
+
+    testImplementation(project(":core:testing"))
 }
