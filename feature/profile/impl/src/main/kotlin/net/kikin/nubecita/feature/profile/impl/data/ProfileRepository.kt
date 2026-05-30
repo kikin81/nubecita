@@ -50,6 +50,38 @@ internal interface ProfileRepository {
      * by the appview on `getProfile.viewer.following`).
      */
     suspend fun unfollow(followUri: String): Result<Unit>
+
+    /**
+     * Writes the authenticated user's own `app.bsky.actor.profile`
+     * record (rkey `self`), editing only the four managed fields and
+     * preserving every other field on the record.
+     *
+     * Flow (design "Write path"):
+     * 1. `getRecord(app.bsky.actor.profile/self)` → `(value, cid)`.
+     *    A brand-new account has no record yet — `RecordNotFound`
+     *    starts from an empty record and writes WITHOUT a swap.
+     * 2. Upload only **changed** images ([ImageChange.Replaced]); reuse
+     *    the fetched blob ref for [ImageChange.Unchanged]; drop the key
+     *    for [ImageChange.Removed].
+     * 3. Merge [displayName] / [description] / avatar / banner onto the
+     *    fetched [kotlinx.serialization.json.JsonObject], preserving all
+     *    other keys (pinnedPost, labels, createdAt, pronouns, …).
+     * 4. `putRecord(..., swapRecord = cid)` — optimistic concurrency. A
+     *    stale CID surfaces distinctly as
+     *    [ProfileUpdateError.SwapConflict] (no silent overwrite).
+     *
+     * [displayName] / [description]: a non-blank string sets the key; a
+     * `null`-or-blank value drops it.
+     *
+     * On failure, returns a [ProfileUpdateError] through `Result`'s
+     * exception channel.
+     */
+    suspend fun updateProfile(
+        displayName: String?,
+        description: String?,
+        avatar: ImageChange,
+        banner: ImageChange,
+    ): Result<Unit>
 }
 
 /**

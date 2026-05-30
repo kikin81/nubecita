@@ -1184,5 +1184,16 @@ internal class ProfileViewModelTest {
             }
             return unfollowResult
         }
+
+        // The Profile ViewModel doesn't exercise the write path; the
+        // updateProfile contract is covered by
+        // DefaultProfileRepositoryUpdateProfileTest. This stub just
+        // satisfies the interface so ProfileViewModelTest still compiles.
+        override suspend fun updateProfile(
+            displayName: String?,
+            description: String?,
+            avatar: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
+            banner: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
+        ): Result<Unit> = Result.success(Unit)
     }
 }
