@@ -163,6 +163,24 @@ class MainShellNavStateTest {
     }
 
     @Test
+    fun `replaceTop swaps top of active tab and back skips replaced`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        state.add(SubProfile) // [TabFeed, SubProfile]
+        state.replaceTop(SubPost("at://x")) // push SubPost, drop SubProfile beneath
+        assertEquals(listOf<NavKey>(TabFeed, SubPost("at://x")), state.backStack.toList())
+        assertTrue(state.removeLast()) // back
+        assertEquals(listOf<NavKey>(TabFeed), state.backStack.toList()) // SubProfile gone, not revisited
+    }
+
+    @Test
+    fun `replaceTop on tab home pushes without dropping root`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        // Active tab is [TabFeed] only — nothing to drop beneath the root.
+        state.replaceTop(SubProfile)
+        assertEquals(listOf<NavKey>(TabFeed, SubProfile), state.backStack.toList())
+    }
+
+    @Test
     fun `persistence round-trip via saved primitives restores topLevelKey and per-tab stacks`() {
         val before = newState(start = TabFeed, top = setOf(TabFeed, TabSearch, TabChats))
         before.add(SubProfile) // Feed: [Feed, Profile]
