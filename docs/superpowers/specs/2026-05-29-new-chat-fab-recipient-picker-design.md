@@ -16,17 +16,20 @@ No user-facing behavior change to existing screens beyond the added FAB.
 ### Cache read-side — `:core:database` + `:core:actors`
 The read-side PR1 deferred (no schema change; reuses the `actors` table + `last_seen_at`):
 
-- `ActorDao`:
+- `ActorDao` — self-exclusion happens in SQL so a `LIMIT n` always yields up to `n` rows (filtering after the query could drop one to `n-1`). The `:selfDid IS NULL OR …` guard is **required**: `did <> NULL` evaluates to `NULL` in SQL and would return zero rows if `selfDid` were ever null.
   ```kotlin
-  @Query("SELECT * FROM actors ORDER BY last_seen_at DESC LIMIT :limit")
-  fun recentActors(limit: Int): Flow<List<ActorEntity>>
+  @Query(
+      "SELECT * FROM actors WHERE :selfDid IS NULL OR did <> :selfDid " +
+          "ORDER BY last_seen_at DESC LIMIT :limit",
+  )
+  fun recentActors(selfDid: String?, limit: Int): Flow<List<ActorEntity>>
   ```
 - `ActorRepository`:
   ```kotlin
-  /** Recently-seen actors (most recent first), from the local cache. */
-  fun recentActors(limit: Int = 20): Flow<List<ActorUi>>
+  /** Recently-seen actors (most recent first) from the cache, excluding [selfDid]. */
+  fun recentActors(selfDid: String?, limit: Int = 20): Flow<List<ActorUi>>
   ```
-  `DefaultActorRepository.recentActors` = `actorDao.recentActors(limit).map { it.map(ActorEntity::asExternalModel) }`.
+  `DefaultActorRepository.recentActors` = `actorDao.recentActors(selfDid, limit).map { it.map(ActorEntity::asExternalModel) }`.
 
 ### `NewChat` NavKey — `:feature:chats:api`
 ```kotlin
@@ -34,8 +37,21 @@ The read-side PR1 deferred (no schema change; reuses the `actors` table + `last_
 data object NewChat : NavKey
 ```
 
+### `replaceTop` on `MainShellNavState` — `:core:common`
+The picker needs to swap itself for the chat thread (push thread, drop the picker), not just push. `MainShellNavState` today exposes only `add` / `removeLast`. Add:
+```kotlin
+/**
+ * Replace the current top of the active tab's back stack with [key]:
+ * push [key], then remove the entry beneath it — in one snapshot block,
+ * so NavDisplay sees a single forward transition (no intermediate frame,
+ * no flicker) and Back skips the replaced route.
+ */
+fun replaceTop(key: NavKey)
+```
+Implemented on the active `NavBackStack`: `add(key)` then `removeAt(lastIndex - 1)` (guarded for a single-element stack). Covered by a `MainShellNavStateTest` case. This is the clean fix for the picker→thread transition (vs. `removeLast()` + `add()`, which relies on snapshot-batching and lets Nav3 guess the animation direction).
+
 ### New-Chat FAB — `:feature:chats:impl` (`b6uv.5`)
-- `ChatsScreenContent`'s `Scaffold` gains a `floatingActionButton` (M3 `FloatingActionButton`, bottom-end via the default Scaffold FAB position) with an edit/compose icon.
+- `ChatsScreenContent`'s `Scaffold` gains a `floatingActionButton` (M3 `FloatingActionButton`, bottom-end via the default Scaffold FAB position) with an edit/compose icon. Static (no hide-on-scroll — DM lists are short; deferred unless the list grows).
 - `ChatsScreen` takes a new `onNewChat: () -> Unit`.
 - `ChatsNavigationModule`'s `entry<Chats>` wires `onNewChat = { navState.add(NewChat) }` — mirrors the existing `onNavigateToChat`.
 
@@ -44,11 +60,10 @@ data object NewChat : NavKey
 **ViewModel** (`MviViewModel<NewChatState, NewChatEvent, NewChatEffect>`), injects `ActorRepository` + `SessionStateProvider`:
 
 - **Query input** uses the sanctioned editor exception: a public `val queryFieldState: TextFieldState` observed via `snapshotFlow { queryFieldState.text }`. The screen wires `OutlinedTextField(state = vm.queryFieldState)`.
-- **Pipeline:** `snapshotFlow` → `debounce(250ms)` → `mapLatest`:
-  - blank query → collect `actorRepository.recentActors()` → `Recent(items)`.
-  - non-blank → `Searching` → `actorRepository.searchTypeahead(query)` → `Results(items)` / `NoResults` / `Error`.
-  - (Mirror the debounce/`mapLatest` shape already used by `ComposerViewModel` / `SearchTypeaheadViewModel`.)
-- **Self-exclusion:** read the current DID once — `(sessionStateProvider.state.value as? SessionState.SignedIn)?.did` (same precedent as `ProfileViewModel`) — and filter it out of BOTH recent and search result lists.
+- **Pipeline:** source = `merge(snapshotFlow { queryFieldState.text.toString() }, retryTrigger.map { queryFieldState.text.toString() })` (a `retryTrigger: MutableSharedFlow<Unit>` so `RetryClicked` re-runs the *current* query — text alone wouldn't change). Then `distinctUntilChanged()` → `flatMapLatest { q -> … }`:
+  - blank `q` → **immediately** `actorRepository.recentActors(selfDid)` → `Recent(items)`. No delay — clearing/backspacing-to-empty returns to Recent instantly.
+  - non-blank `q` → emit `Searching`, then `delay(250)` (debounce **inside** the branch, so it never delays the blank path), then `actorRepository.searchTypeahead(q)` → `Results` / `NoResults` / `Error`. This is the exact shape `ComposerViewModel`'s mention typeahead uses (delay-in-branch, not an upstream `.debounce()` operator).
+- **Self-exclusion:** the current DID is read once — `(sessionStateProvider.state.value as? SessionState.SignedIn)?.did` (same synchronous precedent as `ProfileViewModel`). This is safe because `NewChat` is only reachable inside `MainShell`, which `MainActivity` mounts **only** on `SessionState.SignedIn` (a stable DID for the session; background token refresh keeps `SignedIn` and never changes the DID). The DID is passed to `recentActors(selfDid, …)` (SQL-level exclusion) and used to filter network `searchTypeahead` results in the VM. If the DID were ever null, both paths degrade to "don't filter" (the SQL guard handles null) rather than crashing — no dynamic session collection needed.
 - **State:**
   ```kotlin
   data class NewChatState(val status: NewChatStatus = NewChatStatus.Recent(persistentListOf())) : UiState
@@ -67,11 +82,12 @@ data object NewChat : NavKey
 **Screen** (`NewChatScreen`): `Scaffold` (sub-route insets per the MainShell IME convention — `contentWindowInsets = WindowInsets.safeDrawing`), top search field, a `LazyColumn` of `RecipientRow`s with a header ("Recent" vs results), and Searching/NoResults/Error bodies. Collects `OpenChat` in a single `LaunchedEffect`:
 ```kotlin
 val navState = LocalMainShellNavState.current
-// pop the picker, then push the thread → Back returns to the Chats list (Gmail-style)
-navState.removeLast()
-navState.add(Chat(otherUserDid = did))
+val focusManager = LocalFocusManager.current
+// effect collector:
+focusManager.clearFocus()                          // dismiss the IME before the route change
+navState.replaceTop(Chat(otherUserDid = did))      // push thread, drop the picker (one snapshot, no flicker)
 ```
-The existing `ChatViewModel` resolves DID→convo via `getConvoForMembers`; a brand-new convo materializes on first send. **No new resolution code** (this is why `b6uv.7` is covered).
+Back from the thread returns to the Chats list (Gmail-style). The existing `ChatViewModel` resolves DID→convo via `getConvoForMembers`; a brand-new convo materializes on first send. **No new resolution code** (this is why `b6uv.7` is covered).
 
 **`RecipientRow`** (`:feature:chats:impl/ui`): avatar + display name + handle (falls back to handle when display name is null), styled to match `ConvoListItem`'s avatar. Chats-local — search's `ActorRow` is `internal` to `:feature:search:impl`; not promoting a shared component for a single reuse (house "per-feature UI" convention).
 
@@ -84,10 +100,11 @@ The existing `ChatViewModel` resolves DID→convo via `getConvoForMembers`; a br
 - `getConvoForMembers` failures remain owned by the existing `ChatViewModel`/`ChatScreen` (unchanged).
 
 ## Testing
-- `NewChatViewModel` unit tests (fake `ActorRepository` + fake/real `SessionStateProvider`): blank→Recent (with self filtered out), debounced non-blank→Results, NoResults, Error+retry, `RecipientSelected`→`OpenChat` effect, self-exclusion in both lists. Drive `TextFieldState` mutations via `Snapshot.sendApplyNotifications()` + `testScheduler.runCurrent()` per the editor-exception testing rule.
-- `ActorDaoTest`: add a `recentActors` ordering+limit case (instrumented).
+- `NewChatViewModel` unit tests (fake `ActorRepository` + fake `SessionStateProvider`): blank→Recent (self filtered out); **clearing a non-blank query returns to Recent immediately** (no 250ms lag — assert via virtual time); debounced non-blank→Results; NoResults; Error then **`RetryClicked` re-runs the same query** (assert the repo is hit again though the text is unchanged); `RecipientSelected`→`OpenChat` effect; self-exclusion in both recent and search lists. Drive `TextFieldState` mutations via `Snapshot.sendApplyNotifications()` + `testScheduler.runCurrent()` per the editor-exception testing rule.
+- `ActorDaoTest`: `recentActors` ordering + limit; **excludes `selfDid`**; **`selfDid = null` returns all rows** (the SQL null-guard) (instrumented).
+- `MainShellNavStateTest`: `replaceTop` swaps the active tab's top entry (push + drop-beneath), Back then skips the replaced route; single-element-stack guard behaves.
 - Screenshot tests for `NewChatScreen` states (Recent / Results / NoResults / Error) + the FAB on `ChatsScreen`.
-- `:feature:chats:impl` unit + screenshot must stay green; lint/spotless/checkSortDependencies clean.
+- `:feature:chats:impl` / `:core:common` / `:core:actors` / `:core:database` unit + screenshot stay green; lint/spotless/checkSortDependencies clean.
 
 ## Out of scope
 - Group DMs (Bluesky is 1:1).
