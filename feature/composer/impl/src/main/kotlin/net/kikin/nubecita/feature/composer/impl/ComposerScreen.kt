@@ -45,6 +45,8 @@ import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.image.PickedImage
+import net.kikin.nubecita.core.image.rememberImagePicker
 import net.kikin.nubecita.core.posting.BLUESKY_LANGUAGE_TAGS
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
@@ -63,7 +65,6 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSect
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
 import net.kikin.nubecita.feature.composer.impl.internal.LanguagePicker
 import net.kikin.nubecita.feature.composer.impl.internal.composerCloseAttempt
-import net.kikin.nubecita.feature.composer.impl.internal.rememberComposerImagePicker
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
@@ -151,8 +152,15 @@ fun ComposerScreen(
         }
     val onAddAttachments =
         remember(viewModel) {
-            { picked: List<ComposerAttachment> ->
-                viewModel.handleEvent(ComposerEvent.AddAttachments(picked))
+            { picked: List<PickedImage> ->
+                // Map the neutral `:core:image` picker result onto the
+                // composer's own attachment model at this boundary —
+                // `:core:image` carries no posting knowledge.
+                viewModel.handleEvent(
+                    ComposerEvent.AddAttachments(
+                        picked.map { ComposerAttachment(uri = it.uri, mimeType = it.mimeType) },
+                    ),
+                )
             }
         }
     val onRemoveAttachment =
@@ -232,10 +240,10 @@ fun ComposerScreen(
     // Picker plumbing. The contract is captured at registration time
     // by `rememberLauncherForActivityResult`, so we re-key the helper
     // on `remainingCapacity` to keep the picker UI honest as the user
-    // adds / removes attachments. See `ComposerImagePicker.kt`.
+    // adds / removes attachments. See `:core:image`'s `ImagePicker.kt`.
     val remainingCapacity = ComposerViewModel.MAX_ATTACHMENTS - state.attachments.size
     val onAddImageClick =
-        rememberComposerImagePicker(
+        rememberImagePicker(
             remainingCapacity = remainingCapacity,
             onPick = onAddAttachments,
         )

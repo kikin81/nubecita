@@ -26,6 +26,8 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.image.ImageByteSource
+import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
@@ -72,8 +74,8 @@ internal class DefaultPostingRepository
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
         private val sessionStateProvider: SessionStateProvider,
-        private val byteSource: AttachmentByteSource,
-        private val encoder: AttachmentEncoder,
+        private val byteSource: ImageByteSource,
+        private val encoder: ImageEncoder,
         private val facetExtractor: FacetExtractor,
         private val localeProvider: LocaleProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
