@@ -4,11 +4,16 @@
 #   pre-commit install --hook-type pre-push
 # Run across the whole repo with: `pre-commit run --all-files`
 
+# Skip generated/vendored trees globally. Room exports its DB schema JSON under
+# core/database/schemas/ — generated, committed artifacts that KSP writes
+# without a trailing newline, so the formatting hooks (end-of-file-fixer,
+# trailing-whitespace, …) must not rewrite them and fail CI. (nubecita-vfku)
 exclude: |
   (?x)^(
     .*/build/.*|
     .*/\.gradle/.*|
-    node_modules/.*
+    node_modules/.*|
+    core/database/schemas/.*\.json
   )$
 
 repos:
