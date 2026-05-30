@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 4,
-    "identityHash": "3bbfb9452a1ca24b1088f3ffbf5c384d",
+    "identityHash": "12615eabdada1a5dc584d632a1284db3",
     "entities": [
       {
         "tableName": "recent_search",
@@ -30,7 +30,7 @@
       },
       {
         "tableName": "actors",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`did` TEXT NOT NULL, `handle` TEXT NOT NULL, `display_name` TEXT, `avatar_url` TEXT, `last_seen_at` INTEGER NOT NULL, `can_message` INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(`did`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`did` TEXT NOT NULL, `handle` TEXT NOT NULL, `display_name` TEXT, `avatar_url` TEXT, `last_seen_at` INTEGER NOT NULL, `can_message` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`did`))",
         "fields": [
           {
             "fieldPath": "did",
@@ -65,7 +65,7 @@
             "columnName": "can_message",
             "affinity": "INTEGER",
             "notNull": true,
-            "defaultValue": "1"
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -78,7 +78,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3bbfb9452a1ca24b1088f3ffbf5c384d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '12615eabdada1a5dc584d632a1284db3')"
     ]
   }
 }
