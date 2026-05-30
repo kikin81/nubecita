@@ -34,6 +34,9 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.image.EncodedImage
+import net.kikin.nubecita.core.image.ImageByteSource
+import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
@@ -54,7 +57,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * history (`engine.requestHistory`) and on captured request bodies.
  *
  * `android.net.Uri` is mockk-relaxed since the test's fake
- * [AttachmentByteSource] ignores the URI and returns canned bytes —
+ * [ImageByteSource] ignores the URI and returns canned bytes —
  * we just need a non-null [Uri] reference for [ComposerAttachment]'s
  * constructor.
  *
@@ -366,7 +369,7 @@ class DefaultPostingRepositoryTest {
                             override suspend fun refresh() = Unit
                         },
                     byteSource =
-                        object : AttachmentByteSource {
+                        object : ImageByteSource {
                             override suspend fun read(uri: Uri): ByteArray = byteArrayOf(1)
                         },
                     encoder = passthroughEncoder(),
@@ -411,21 +414,21 @@ class DefaultPostingRepositoryTest {
         runTest {
             // The repository MUST forward the encoder's output bytes
             // and MIME to uploadBlob, not the raw bytes from
-            // AttachmentByteSource. This is what closes the
+            // ImageByteSource. This is what closes the
             // nubecita-uii gap: a 4 MB JPEG from the picker becomes a
             // 700 KB WebP at the wire, under Bluesky's 1 MB cap.
             val rawBytes = byteArrayOf(11, 22, 33, 44, 55, 66, 77, 88) // pretend "raw photo bytes"
             val encodedBytes = byteArrayOf(99, 100, 101) // pretend "compressed WebP bytes"
             val capturedEncoderInputs = mutableListOf<Pair<Int, String>>()
             val rewriteEncoder =
-                object : AttachmentEncoder {
+                object : ImageEncoder {
                     override suspend fun encodeForUpload(
                         bytes: ByteArray,
                         sourceMimeType: String,
                         maxBytes: Long,
-                    ): EncodedAttachment {
+                    ): EncodedImage {
                         capturedEncoderInputs += bytes.size to sourceMimeType
-                        return EncodedAttachment(bytes = encodedBytes, mimeType = "image/webp")
+                        return EncodedImage(bytes = encodedBytes, mimeType = "image/webp")
                     }
                 }
 
@@ -466,14 +469,14 @@ class DefaultPostingRepositoryTest {
         runTest {
             val invocations = AtomicInteger(0)
             val countingEncoder =
-                object : AttachmentEncoder {
+                object : ImageEncoder {
                     override suspend fun encodeForUpload(
                         bytes: ByteArray,
                         sourceMimeType: String,
                         maxBytes: Long,
-                    ): EncodedAttachment {
+                    ): EncodedImage {
                         invocations.incrementAndGet()
-                        return EncodedAttachment(bytes = bytes, mimeType = sourceMimeType)
+                        return EncodedImage(bytes = bytes, mimeType = sourceMimeType)
                     }
                 }
 
@@ -697,8 +700,8 @@ class DefaultPostingRepositoryTest {
 
     private fun newRepo(
         signedIn: Boolean,
-        encoder: AttachmentEncoder = passthroughEncoder(),
-        byteSource: AttachmentByteSource = canned(byteArrayOf(1, 2, 3)),
+        encoder: ImageEncoder = passthroughEncoder(),
+        byteSource: ImageByteSource = canned(byteArrayOf(1, 2, 3)),
         facetExtractor: FacetExtractor = passthroughFacetExtractor(),
         localeProvider: LocaleProvider = fixedLocaleProvider("en-US"),
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
@@ -747,25 +750,25 @@ class DefaultPostingRepositoryTest {
             override fun primaryLanguageTag(): String = tag
         }
 
-    private fun canned(bytes: ByteArray): AttachmentByteSource =
-        object : AttachmentByteSource {
+    private fun canned(bytes: ByteArray): ImageByteSource =
+        object : ImageByteSource {
             override suspend fun read(uri: Uri): ByteArray = bytes
         }
 
     /**
-     * Pass-through [AttachmentEncoder]. The Bitmap-backed default impl
+     * Pass-through [ImageEncoder]. The Bitmap-backed default impl
      * requires an Android runtime; orchestration tests just assert the
      * wiring (read -> encode -> uploadBlob) and forward whatever bytes
      * the byteSource produced. Compression behavior itself is exercised
      * by the instrumented suite that lands with nubecita-9tw.
      */
-    private fun passthroughEncoder(): AttachmentEncoder =
-        object : AttachmentEncoder {
+    private fun passthroughEncoder(): ImageEncoder =
+        object : ImageEncoder {
             override suspend fun encodeForUpload(
                 bytes: ByteArray,
                 sourceMimeType: String,
                 maxBytes: Long,
-            ): EncodedAttachment = EncodedAttachment(bytes = bytes, mimeType = sourceMimeType)
+            ): EncodedImage = EncodedImage(bytes = bytes, mimeType = sourceMimeType)
         }
 
     /**

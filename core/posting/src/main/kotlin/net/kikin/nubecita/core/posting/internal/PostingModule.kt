@@ -10,10 +10,10 @@ import net.kikin.nubecita.core.posting.PostingRepository
 import javax.inject.Singleton
 
 /**
- * Hilt bindings for `:core:posting`. Both the public
- * [PostingRepository] and the internal [AttachmentByteSource] are
- * bound at the singleton scope — they're stateless service objects
- * with no per-call setup cost.
+ * Hilt bindings for `:core:posting`. The public [PostingRepository] is
+ * bound at the singleton scope — a stateless service object with no
+ * per-call setup cost. Image byte-source/encoder bindings live in
+ * `:core:image`'s `ImageModule`.
  *
  * Public visibility (with internal-only bindings inside) so downstream
  * feature modules' instrumentation tests can swap bindings via
@@ -26,14 +26,6 @@ abstract class PostingModule {
     @Binds
     @Singleton
     internal abstract fun bindPostingRepository(impl: DefaultPostingRepository): PostingRepository
-
-    @Binds
-    @Singleton
-    internal abstract fun bindAttachmentByteSource(impl: ContentResolverAttachmentByteSource): AttachmentByteSource
-
-    @Binds
-    @Singleton
-    internal abstract fun bindAttachmentEncoder(impl: BitmapAttachmentEncoder): AttachmentEncoder
 
     @Binds
     @Singleton

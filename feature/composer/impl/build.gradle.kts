@@ -21,6 +21,7 @@ dependencies {
     implementation(project(":core:actors"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    implementation(project(":core:image"))
     implementation(project(":core:posting"))
     implementation(libs.androidx.activity.compose)
     // currentWindowAdaptiveInfoV2() + WindowSizeClass — used by

@@ -1,4 +1,4 @@
-package net.kikin.nubecita.core.posting.internal
+package net.kikin.nubecita.core.image.internal
 
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
@@ -9,23 +9,25 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.DefaultDispatcher
+import net.kikin.nubecita.core.image.EncodedImage
+import net.kikin.nubecita.core.image.ImageEncoder
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.max
 
 /**
- * Production [AttachmentEncoder] backed by `android.graphics.ImageDecoder`
+ * Production [ImageEncoder] backed by `android.graphics.ImageDecoder`
  * (decode + EXIF-aware orientation + in-flight downsample) and
  * `Bitmap.compress(WEBP_LOSSY, …)` (encode). Both APIs are in
  * `android.graphics` core — no third-party dependencies.
  *
- * Pipeline (matches the design in `nubecita-uii`'s description):
+ * Pipeline:
  *
  * 1. **Pass-through gate.** If the raw bytes already fit under
  *    [TARGET_BYTES] (50 KB headroom under the wire-level
- *    [BLUESKY_BLOB_LIMIT_BYTES]), return them verbatim with the
- *    original MIME type.
+ *    [net.kikin.nubecita.core.image.BLUESKY_BLOB_LIMIT_BYTES]), return
+ *    them verbatim with the original MIME type.
  *
  * 2. **Decode + dimension cap.** `ImageDecoder.decodeBitmap(...)` with
  *    `setOnHeaderDecodedListener` so the dimension cap is applied
@@ -51,7 +53,7 @@ import kotlin.math.max
  *    so the heap isn't held by GC roots until the next GC cycle.
  *
  * Concurrency: a [Semaphore] permit count of [MAX_PARALLEL_ENCODES]
- * gates simultaneous encodes. The composer's parallel `awaitAll()`
+ * gates simultaneous encodes. A caller's parallel `awaitAll()`
  * over 4 attachments would otherwise hold 4 large bitmaps on heap
  * simultaneously; serializing to two-at-a-time keeps memory
  * predictable on low-RAM devices without measurably hurting the wall-
@@ -65,11 +67,11 @@ import kotlin.math.max
  */
 @Singleton
 @RequiresApi(Build.VERSION_CODES.P)
-internal class BitmapAttachmentEncoder
+internal class BitmapImageEncoder
     @Inject
     constructor(
         @param:DefaultDispatcher private val dispatcher: CoroutineDispatcher,
-    ) : AttachmentEncoder {
+    ) : ImageEncoder {
         // Two simultaneous encodes is the right balance: enough to keep
         // the upload pipeline fed while the network is in flight, few
         // enough to bound peak heap on low-RAM devices.
@@ -79,12 +81,12 @@ internal class BitmapAttachmentEncoder
             bytes: ByteArray,
             sourceMimeType: String,
             maxBytes: Long,
-        ): EncodedAttachment {
-            // Pass-through. The repository's submit pipeline expects an
-            // EncodedAttachment back; constructing one here avoids a
+        ): EncodedImage {
+            // Pass-through. The caller's pipeline expects an
+            // EncodedImage back; constructing one here avoids a
             // redundant byte copy on the (very rare) already-small case.
             if (bytes.size <= effectiveTarget(maxBytes)) {
-                return EncodedAttachment(bytes = bytes, mimeType = sourceMimeType)
+                return EncodedImage(bytes = bytes, mimeType = sourceMimeType)
             }
             return gate.withPermit {
                 withContext(dispatcher) {
@@ -96,14 +98,14 @@ internal class BitmapAttachmentEncoder
         private fun encodeUnderCap(
             bytes: ByteArray,
             maxBytes: Long,
-        ): EncodedAttachment {
+        ): EncodedImage {
             val target = effectiveTarget(maxBytes)
             // Try the primary dimension cap first; fall back to smaller
             // ceilings only if the entire quality ladder fails.
             for (dimensionCap in listOf(MAX_DIMENSION) + DIMENSION_FALLBACKS) {
                 val encoded = decodeAndCompressLadder(bytes = bytes, dimensionCap = dimensionCap, target = target)
                 if (encoded != null) {
-                    return EncodedAttachment(bytes = encoded, mimeType = OUTPUT_MIME)
+                    return EncodedImage(bytes = encoded, mimeType = OUTPUT_MIME)
                 }
             }
             // Last resort: quality 1 at the smallest fallback dimension.
@@ -115,7 +117,7 @@ internal class BitmapAttachmentEncoder
                     dimensionCap = DIMENSION_FALLBACKS.last(),
                     quality = MIN_QUALITY,
                 )
-            return EncodedAttachment(bytes = lastResort, mimeType = OUTPUT_MIME)
+            return EncodedImage(bytes = lastResort, mimeType = OUTPUT_MIME)
         }
 
         /**
