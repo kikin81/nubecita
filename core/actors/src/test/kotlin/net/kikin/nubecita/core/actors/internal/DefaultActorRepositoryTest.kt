@@ -515,6 +515,15 @@ class DefaultActorRepositoryTest {
             }
         }
 
+    @Test
+    fun recentActors_limitOutOfRange_throwsIllegalArgument() {
+        // recentActors is non-suspend; the require guard fires on the call, before any Flow is returned.
+        val actorDao = mockk<ActorDao>(relaxed = true)
+        val (_, repo) = newRepo(actorDao) { _ -> okJson("""{"actors": []}""") }
+        assertThrows(IllegalArgumentException::class.java) { repo.recentActors(selfDid = null, limit = 0) }
+        assertThrows(IllegalArgumentException::class.java) { repo.recentActors(selfDid = null, limit = 101) }
+    }
+
     // -------------------------------------------------------------------------
     // Harness helpers
     // -------------------------------------------------------------------------
