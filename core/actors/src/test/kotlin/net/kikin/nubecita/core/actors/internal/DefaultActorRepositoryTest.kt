@@ -24,6 +24,7 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.database.dao.ActorDao
 import net.kikin.nubecita.core.database.model.ActorEntity
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -421,6 +422,15 @@ class DefaultActorRepositoryTest {
             // Order of query params is not contractual, just presence:
             assertTrue(url.contains("q=kotlin"), "url should contain q=kotlin but was: $url")
             assertTrue(url.contains("limit=7"), "url should contain limit=7 but was: $url")
+            // Guard against regression to the deprecated `term` query parameter:
+            assertTrue(
+                url.contains("searchActorsTypeahead"),
+                "url path should contain searchActorsTypeahead but was: $url",
+            )
+            assertFalse(
+                url.contains("term="),
+                "url must NOT contain deprecated term= param but was: $url",
+            )
         }
 
     @Test
@@ -440,6 +450,41 @@ class DefaultActorRepositoryTest {
             assertTrue(url.contains("q=kotlin"), "url should contain q=kotlin but was: $url")
             assertTrue(url.contains("cursor=abc"), "url should contain cursor=abc but was: $url")
             assertTrue(url.contains("limit=13"), "url should contain limit=13 but was: $url")
+        }
+
+    // -------------------------------------------------------------------------
+    // Missing optional fields: displayName and avatar absent entirely
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun searchTypeahead_missingDisplayNameAndAvatar_normalizedToNull() =
+        runTest {
+            // Distinct from the blank-string case: these fields are not present
+            // in the JSON at all (omitted), so the SDK will default them to null.
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (_, repo) =
+                newRepo(actorDao) { _ ->
+                    okJson(
+                        """
+                        {
+                          "actors": [
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileViewBasic",
+                              "did": "did:plc:xyz",
+                              "handle": "carol.bsky.social"
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val result = repo.searchTypeahead(query = "carol", limit = 8)
+
+            assertTrue(result.isSuccess)
+            val actor = result.getOrThrow().single()
+            assertNull(actor.displayName, "displayName should be null when absent from JSON")
+            assertNull(actor.avatarUrl, "avatarUrl should be null when absent from JSON")
         }
 
     // -------------------------------------------------------------------------
