@@ -1,0 +1,157 @@
+{
+  "_comment": "Discover (whats-hot generator) fixture for the bench flavor. Deliberately distinct authors + text from timeline.json so a feed switch in the chip row is unmistakable on-device and in screenshots. Exercises Single, ReplyCluster, and image/video embeds — the same card mix as the Following fixture, with different content.",
+  "items": [
+    {
+      "type": "Single",
+      "post": {
+        "_comment": "Standalone trending post, no embed.",
+        "author": {
+          "displayName": "Nova Reyes",
+          "handle": "nova.astro",
+          "avatarUrl": null,
+          "createdAtIso": "2026-05-28T07:30:00Z"
+        },
+        "post": {
+          "uri": "at://did:plc:nova/app.bsky.feed.post/d1",
+          "cid": "bafyreidiscover1",
+          "text": "comet C/2026 K1 is naked-eye visible before dawn this week. faint smudge near the eastern horizon — best viewing 40 minutes before sunrise, away from city light. it won't be back for 50,000 years.",
+          "createdAtIso": "2026-05-28T07:30:00Z",
+          "likeCount": 1420,
+          "replyCount": 96,
+          "repostCount": 311
+        }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "_comment": "Image embed — exercises the trending image card path.",
+        "author": {
+          "displayName": "Maria Lindqvist",
+          "handle": "maria.cooks",
+          "avatarUrl": null,
+          "createdAtIso": "2026-05-28T06:10:00Z"
+        },
+        "post": {
+          "uri": "at://did:plc:maria/app.bsky.feed.post/d2",
+          "cid": "bafyreidiscover2",
+          "text": "sourdough discard crackers — the trick is rolling them paper-thin and a hot oven. flaky sea salt on top. gone in ten minutes flat at the market stall today.",
+          "createdAtIso": "2026-05-28T06:10:00Z",
+          "likeCount": 870,
+          "replyCount": 54,
+          "repostCount": 132,
+          "embed": {
+            "type": "Image",
+            "imageUrl": "https://picsum.photos/seed/discover-crackers/900/600",
+            "width": 900,
+            "height": 600
+          }
+        }
+      }
+    },
+    {
+      "type": "ReplyCluster",
+      "_comment": "Cross-author reply thread surfaced by the algorithm.",
+      "hasEllipsis": true,
+      "root": {
+        "author": {
+          "displayName": "Theo Adeyemi",
+          "handle": "theo.builds",
+          "avatarUrl": null,
+          "createdAtIso": "2026-05-27T20:00:00Z"
+        },
+        "post": {
+          "uri": "at://did:plc:theo/app.bsky.feed.post/d3root",
+          "cid": "bafyreidiscover3a",
+          "text": "hot take: most keyboard shortcuts are discoverability debt the team never paid down.",
+          "createdAtIso": "2026-05-27T20:00:00Z",
+          "likeCount": 2200,
+          "replyCount": 410,
+          "repostCount": 640
+        }
+      },
+      "parent": {
+        "author": {
+          "displayName": "Priya Nair",
+          "handle": "priya.ux",
+          "avatarUrl": null,
+          "createdAtIso": "2026-05-27T20:45:00Z"
+        },
+        "post": {
+          "uri": "at://did:plc:priya/app.bsky.feed.post/d3parent",
+          "cid": "bafyreidiscover3b",
+          "text": "counterpoint: shortcuts are for the 5% who live in the app all day, and they subsidize the polish everyone else gets.",
+          "createdAtIso": "2026-05-27T20:45:00Z",
+          "likeCount": 980,
+          "replyCount": 72,
+          "repostCount": 88
+        }
+      },
+      "leaf": {
+        "author": {
+          "displayName": "Sam Okonkwo",
+          "handle": "sam.dev",
+          "avatarUrl": null,
+          "createdAtIso": "2026-05-27T21:10:00Z"
+        },
+        "post": {
+          "uri": "at://did:plc:sam/app.bsky.feed.post/d3leaf",
+          "cid": "bafyreidiscover3c",
+          "text": "both true — the fix is progressive disclosure, not removing the shortcut. show the hint the third time someone does it the slow way.",
+          "createdAtIso": "2026-05-27T21:10:00Z",
+          "likeCount": 1540,
+          "replyCount": 31,
+          "repostCount": 210
+        }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "_comment": "Video embed — trending clip card path.",
+        "author": {
+          "displayName": "Lena Hofer",
+          "handle": "lena.climbs",
+          "avatarUrl": null,
+          "createdAtIso": "2026-05-27T18:25:00Z"
+        },
+        "post": {
+          "uri": "at://did:plc:lena/app.bsky.feed.post/d4",
+          "cid": "bafyreidiscover4",
+          "text": "first ascent of the north arete, three days on the wall. the crux pitch goes free at last light — sound on for the rope drag, you can hear how committing it is.",
+          "createdAtIso": "2026-05-27T18:25:00Z",
+          "likeCount": 5300,
+          "replyCount": 188,
+          "repostCount": 1240,
+          "embed": {
+            "type": "Video",
+            "playlistUrl": "https://example.invalid/discover/arete.m3u8",
+            "width": 1280,
+            "height": 720
+          }
+        }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "_comment": "Closing trending text post.",
+        "author": {
+          "displayName": "Orion Labs",
+          "handle": "orion.labs",
+          "avatarUrl": null,
+          "createdAtIso": "2026-05-27T15:00:00Z"
+        },
+        "post": {
+          "uri": "at://did:plc:orion/app.bsky.feed.post/d5",
+          "cid": "bafyreidiscover5",
+          "text": "open-sourced the firmware for the soil-moisture sensor. solar, LoRa, ten-year battery on a coin cell. schematics and the board files are in the repo — build one for your garden.",
+          "createdAtIso": "2026-05-27T15:00:00Z",
+          "likeCount": 3100,
+          "replyCount": 240,
+          "repostCount": 905
+        }
+      }
+    }
+  ]
+}

@@ -11,8 +11,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import timber.log.Timber
 import java.io.FileNotFoundException
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,6 +52,18 @@ import javax.inject.Singleton
  *   button a no-op until process death. With this retry-on-failure
  *   shape, a fixture-author edit that fixes a broken JSON gets
  *   picked up on the next `getTimeline` call without an app restart.
+ *
+ * Per-feed content:
+ *
+ * - [getTimeline] (Following) serves `timeline.json`; [getFeed] for the
+ *   Discover generator serves a distinct `discover.json` so the
+ *   feed-switcher journey shows visibly different posts when the user
+ *   switches feeds (and screenshots prove the switch, not just a scroll
+ *   reset). Any other generator URI and every list feed fall back to
+ *   `timeline.json` — the bench fallback chip set only pins Following +
+ *   Discover, so unknown generators / lists are unreachable today but
+ *   still render deterministically rather than empty. Each asset is
+ *   parsed and cached independently (see Caching).
  *
  * Pagination:
  *
@@ -97,52 +111,70 @@ internal class BenchFakeFeedRepository
     ) : FeedRepository {
         private val mutex = Mutex()
 
-        @Volatile
-        private var cachedSuccess: TimelinePage? = null
+        // Per-asset success cache. ConcurrentHashMap (not a plain Map +
+        // @Volatile) so the lock-free fast-path read below is memory-safe
+        // under the concurrent first-loads that a feed switch can trigger.
+        // Failures are never inserted, preserving the original retry-on-
+        // failure semantics (a fixture-author fix is picked up on the next
+        // call without an app restart).
+        private val cache = ConcurrentHashMap<String, TimelinePage>()
 
         override suspend fun getTimeline(
             cursor: String?,
             limit: Int,
-        ): Result<TimelinePage> =
-            withContext(dispatcher) {
-                cachedSuccess?.let { return@withContext Result.success(it) }
-                mutex.withLock {
-                    // Re-check under the lock — another coroutine may
-                    // have populated the cache while we were waiting.
-                    cachedSuccess?.let { return@withLock Result.success(it) }
-                    runCatching { loadFromAsset() }
-                        .onSuccess { cachedSuccess = it }
-                        .onFailure { Timber.tag(TAG).e(it, "Failed to load bench timeline") }
-                }
-            }
+        ): Result<TimelinePage> = pageForAsset(TIMELINE_ASSET_PATH)
 
-        // The bench journey only exercises the Following timeline; the
-        // generator / list kinds delegate to the same asset-backed page
-        // so a future bench feed-switch journey renders deterministically
-        // without a second fixture.
         override suspend fun getFeed(
             feedUri: String,
             cursor: String?,
             limit: Int,
-        ): Result<TimelinePage> = getTimeline(cursor, limit)
+        ): Result<TimelinePage> = pageForAsset(assetForFeedUri(feedUri))
 
+        // No list is pinned in the bench fallback chip set, so this path is
+        // unreachable today; serve the Following fixture deterministically
+        // rather than empty if a future bench journey pins a list.
         override suspend fun getListFeed(
             listUri: String,
             cursor: String?,
             limit: Int,
-        ): Result<TimelinePage> = getTimeline(cursor, limit)
+        ): Result<TimelinePage> = pageForAsset(TIMELINE_ASSET_PATH)
 
-        private fun loadFromAsset(): TimelinePage {
+        /**
+         * Resolve a feed-generator URI to its bench fixture asset. The
+         * Discover (`whats-hot`) generator gets its own [DISCOVER_ASSET_PATH]
+         * so the chip-switch journey renders visibly different content;
+         * everything else falls back to the Following fixture.
+         */
+        private fun assetForFeedUri(feedUri: String): String =
+            when (feedUri) {
+                PinnedFeedsRepository.DISCOVER_FEED_URI -> DISCOVER_ASSET_PATH
+                else -> TIMELINE_ASSET_PATH
+            }
+
+        private suspend fun pageForAsset(assetPath: String): Result<TimelinePage> =
+            withContext(dispatcher) {
+                cache[assetPath]?.let { return@withContext Result.success(it) }
+                mutex.withLock {
+                    // Re-check under the lock — another coroutine may have
+                    // populated this asset's cache entry while we waited.
+                    cache[assetPath]?.let { return@withLock Result.success(it) }
+                    runCatching { loadFromAsset(assetPath) }
+                        .onSuccess { cache[assetPath] = it }
+                        .onFailure { Timber.tag(TAG).e(it, "Failed to load bench feed: %s", assetPath) }
+                }
+            }
+
+        private fun loadFromAsset(assetPath: String): TimelinePage {
             val stream =
                 try {
-                    context.assets.open(TIMELINE_ASSET_PATH)
+                    context.assets.open(assetPath)
                 } catch (e: FileNotFoundException) {
                     // Translate to a non-IOException type so
                     // FeedViewModel.toFeedError doesn't misclassify a
                     // build-time packaging miss as a connectivity error.
                     throw FixtureLoadException(
-                        "Bench fixture not packaged: assets/$TIMELINE_ASSET_PATH not found. " +
-                            "Verify :feature:feed:impl's bench source set includes the timeline.json asset.",
+                        "Bench fixture not packaged: assets/$assetPath not found. " +
+                            "Verify :feature:feed:impl's bench source set includes the asset.",
                         e,
                     )
                 }
@@ -163,14 +195,17 @@ internal class BenchFakeFeedRepository
 
             /**
              * Asset path resolved by [android.content.res.AssetManager].
-             * The fixture lives at
-             * `feature/feed/impl/src/bench/assets/timeline.json` — under
-             * the fake's owning module so a rename in `:app` doesn't
+             * The fixtures live at
+             * `feature/feed/impl/src/bench/assets/{timeline,discover}.json`
+             * — under the fake's owning module so a rename in `:app` doesn't
              * silently brick the bench feed. AGP merges every module's
-             * bench-flavor assets into the bench APK's single asset
-             * tree, so this relative path resolves at runtime.
+             * bench-flavor assets into the bench APK's single asset tree, so
+             * these relative paths resolve at runtime.
              */
             private const val TIMELINE_ASSET_PATH = "timeline.json"
+
+            /** Discover (`whats-hot`) generator fixture — see [assetForFeedUri]. */
+            private const val DISCOVER_ASSET_PATH = "discover.json"
 
             /**
              * Lenient JSON config:
