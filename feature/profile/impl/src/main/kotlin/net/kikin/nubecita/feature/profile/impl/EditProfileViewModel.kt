@@ -14,11 +14,12 @@ import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileUpdateError
 
 /**
- * Presenter for the own-profile edit screen (text-first slice: display name +
- * bio). Pre-fills from the [EditProfile] route's values, tracks dirtiness +
- * grapheme limits, and writes through [ProfileRepository.updateProfile] with
- * both images left [ImageChange.Unchanged] (avatar/banner editing lands in
- * `nubecita-qr1q.6`).
+ * Presenter for the own-profile edit screen: display name, bio, avatar, and
+ * banner. Pre-fills from the [EditProfile] route, tracks dirtiness + grapheme
+ * limits + per-image edit state, drives the crop surface, and writes through
+ * [ProfileRepository.updateProfile] — only changed images are uploaded
+ * ([ImageChange.Replaced]); untouched images stay [ImageChange.Unchanged];
+ * cleared images become [ImageChange.Removed].
  */
 @HiltViewModel(assistedFactory = EditProfileViewModel.Factory::class)
 internal class EditProfileViewModel
@@ -32,6 +33,8 @@ internal class EditProfileViewModel
                 description = route.description.orEmpty(),
                 displayNameGraphemes = GraphemeCounter.count(route.displayName.orEmpty()),
                 descriptionGraphemes = GraphemeCounter.count(route.description.orEmpty()),
+                avatar = ImageSlot.Original(route.avatarUrl),
+                banner = ImageSlot.Original(route.bannerUrl),
             ),
         ) {
         @AssistedFactory
@@ -41,6 +44,8 @@ internal class EditProfileViewModel
 
         private val initialDisplayName = route.displayName.orEmpty()
         private val initialDescription = route.description.orEmpty()
+        private val initialAvatar: ImageSlot = ImageSlot.Original(route.avatarUrl)
+        private val initialBanner: ImageSlot = ImageSlot.Original(route.bannerUrl)
 
         override fun handleEvent(event: EditProfileEvent) {
             when (event) {
@@ -49,7 +54,7 @@ internal class EditProfileViewModel
                         copy(
                             displayName = event.value,
                             displayNameGraphemes = GraphemeCounter.count(event.value),
-                            isDirty = isDirtyFor(event.value, description),
+                            isDirty = dirty(event.value, description, avatar, banner),
                         )
                     }
 
@@ -58,7 +63,37 @@ internal class EditProfileViewModel
                         copy(
                             description = event.value,
                             descriptionGraphemes = GraphemeCounter.count(event.value),
-                            isDirty = isDirtyFor(displayName, event.value),
+                            isDirty = dirty(displayName, event.value, avatar, banner),
+                        )
+                    }
+
+                is EditProfileEvent.ImagePicked ->
+                    setState { copy(croppingTarget = CropRequest(uri = event.uri, slot = event.slot)) }
+
+                is EditProfileEvent.ImageCropped ->
+                    setState {
+                        val cropped = ImageSlot.Cropped(bytes = event.bytes, mimeType = event.mimeType)
+                        val nextAvatar = if (event.slot == ImageSlotKind.Avatar) cropped else avatar
+                        val nextBanner = if (event.slot == ImageSlotKind.Banner) cropped else banner
+                        copy(
+                            avatar = nextAvatar,
+                            banner = nextBanner,
+                            croppingTarget = null,
+                            isDirty = dirty(displayName, description, nextAvatar, nextBanner),
+                        )
+                    }
+
+                EditProfileEvent.CropCancelled ->
+                    setState { copy(croppingTarget = null) }
+
+                is EditProfileEvent.RemoveImage ->
+                    setState {
+                        val nextAvatar = if (event.slot == ImageSlotKind.Avatar) ImageSlot.Removed else avatar
+                        val nextBanner = if (event.slot == ImageSlotKind.Banner) ImageSlot.Removed else banner
+                        copy(
+                            avatar = nextAvatar,
+                            banner = nextBanner,
+                            isDirty = dirty(displayName, description, nextAvatar, nextBanner),
                         )
                     }
 
@@ -97,8 +132,8 @@ internal class EditProfileViewModel
                     .updateProfile(
                         displayName = state.displayName,
                         description = state.description,
-                        avatar = ImageChange.Unchanged,
-                        banner = ImageChange.Unchanged,
+                        avatar = state.avatar.toImageChange(),
+                        banner = state.banner.toImageChange(),
                     ).onSuccess {
                         // Keep isSaving = true; the screen pops on NavigateBack.
                         sendEffect(EditProfileEffect.NavigateBack)
@@ -109,10 +144,23 @@ internal class EditProfileViewModel
             }
         }
 
-        private fun isDirtyFor(
+        private fun dirty(
             displayName: String,
             description: String,
-        ): Boolean = displayName != initialDisplayName || description != initialDescription
+            avatar: ImageSlot,
+            banner: ImageSlot,
+        ): Boolean =
+            displayName != initialDisplayName ||
+                description != initialDescription ||
+                avatar != initialAvatar ||
+                banner != initialBanner
+
+        private fun ImageSlot.toImageChange(): ImageChange =
+            when (this) {
+                is ImageSlot.Original -> ImageChange.Unchanged
+                is ImageSlot.Cropped -> ImageChange.Replaced(bytes = bytes, mimeType = mimeType)
+                ImageSlot.Removed -> ImageChange.Removed
+            }
 
         private fun Throwable.toSaveError(): SaveError =
             when (this) {

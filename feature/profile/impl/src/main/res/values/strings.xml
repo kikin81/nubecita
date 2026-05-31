@@ -90,6 +90,14 @@
     <string name="edit_profile_title">Edit profile</string>
     <string name="edit_profile_back_content_description">Back</string>
     <string name="edit_profile_save">Save</string>
+    <string name="edit_profile_photos_title">Photos</string>
+    <string name="edit_profile_banner_content_description">Banner photo</string>
+    <string name="edit_profile_avatar_content_description">Profile photo</string>
+    <string name="edit_profile_change_avatar_content_description">Change profile photo</string>
+    <string name="edit_profile_change_banner_content_description">Change banner photo</string>
+    <string name="edit_profile_more_options_content_description">More options</string>
+    <string name="edit_profile_remove_profile_photo">Remove profile photo</string>
+    <string name="edit_profile_remove_banner_photo">Remove banner photo</string>
     <string name="edit_profile_display_name_label">Display name</string>
     <string name="edit_profile_bio_label">Bio</string>
     <string name="edit_profile_grapheme_counter">%1$d/%2$d</string>

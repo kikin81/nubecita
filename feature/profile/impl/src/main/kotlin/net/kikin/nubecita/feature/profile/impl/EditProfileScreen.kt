@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -29,11 +30,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.image.CropImage
+import net.kikin.nubecita.core.image.CropShape
+import net.kikin.nubecita.core.image.rememberImagePicker
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 
 /**
  * Stateful own-profile edit screen (text-first slice). Owns the
@@ -86,17 +92,69 @@ internal fun EditProfileScreen(
         }
     }
 
-    // App-bar up and system back share the dirty guard in the VM. While the
-    // discard dialog is up, system-back dismisses it (matching the dialog's
-    // own onDismissRequest) instead of re-triggering the guard.
+    // System back: cancel an active crop first, then dismiss the discard dialog,
+    // else run the dirty guard. (The crop surface has no BackHandler of its own.)
     BackHandler {
-        if (state.showDiscardDialog) {
-            viewModel.handleEvent(EditProfileEvent.DiscardDismissed)
-        } else {
-            viewModel.handleEvent(EditProfileEvent.BackPressed)
+        when {
+            state.croppingTarget != null -> viewModel.handleEvent(EditProfileEvent.CropCancelled)
+            state.showDiscardDialog -> viewModel.handleEvent(EditProfileEvent.DiscardDismissed)
+            else -> viewModel.handleEvent(EditProfileEvent.BackPressed)
         }
     }
 
+    // Single-image pickers, one per slot, each routing to the matching slot.
+    val pickAvatar =
+        rememberImagePicker(remainingCapacity = 1) { picked ->
+            picked.firstOrNull()?.let { viewModel.handleEvent(EditProfileEvent.ImagePicked(ImageSlotKind.Avatar, it.uri)) }
+        }
+    val pickBanner =
+        rememberImagePicker(remainingCapacity = 1) { picked ->
+            picked.firstOrNull()?.let { viewModel.handleEvent(EditProfileEvent.ImagePicked(ImageSlotKind.Banner, it.uri)) }
+        }
+
+    val cropping = state.croppingTarget
+    if (cropping != null) {
+        // Full-screen crop surface, modal over the form (form state is preserved
+        // in the VM); confirm/cancel route back to the slot.
+        CropImage(
+            sourceUri = cropping.uri,
+            shape = if (cropping.slot == ImageSlotKind.Avatar) CropShape.AvatarCircle else CropShape.Banner,
+            onCrop = { bytes, mime -> viewModel.handleEvent(EditProfileEvent.ImageCropped(cropping.slot, bytes, mime)) },
+            onCancel = { viewModel.handleEvent(EditProfileEvent.CropCancelled) },
+            modifier = modifier.fillMaxSize(),
+        )
+        return
+    }
+
+    EditProfileScreenContent(
+        state = state,
+        onEvent = viewModel::handleEvent,
+        onPickAvatar = pickAvatar,
+        onPickBanner = pickBanner,
+        onBack = { viewModel.handleEvent(EditProfileEvent.BackPressed) },
+        snackbarHostState = snackbarHostState,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Stateless EditProfile screen chrome — the `Scaffold` + app bar (title, back,
+ * Save / saving spinner) + the form + discard dialog, driven purely by [state]
+ * and [onEvent]. Split out so previews and screenshot tests can exercise the
+ * full screen (app bar + Save-button states) without a ViewModel; the stateful
+ * [EditProfileScreen] owns the VM, effects, pickers, and crop overlay.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun EditProfileScreenContent(
+    state: EditProfileViewState,
+    onEvent: (EditProfileEvent) -> Unit,
+    onPickAvatar: () -> Unit,
+    onPickBanner: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -104,7 +162,7 @@ internal fun EditProfileScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.edit_profile_title)) },
                 navigationIcon = {
-                    IconButton(onClick = { viewModel.handleEvent(EditProfileEvent.BackPressed) }) {
+                    IconButton(onClick = onBack) {
                         NubecitaIcon(
                             name = NubecitaIconName.ArrowBack,
                             contentDescription = stringResource(R.string.edit_profile_back_content_description),
@@ -119,7 +177,7 @@ internal fun EditProfileScreen(
                         )
                     } else {
                         TextButton(
-                            onClick = { viewModel.handleEvent(EditProfileEvent.SaveTapped) },
+                            onClick = { onEvent(EditProfileEvent.SaveTapped) },
                             enabled = state.canSave,
                         ) {
                             Text(stringResource(R.string.edit_profile_save))
@@ -132,15 +190,17 @@ internal fun EditProfileScreen(
     ) { innerPadding ->
         EditProfileContent(
             state = state,
-            onEvent = viewModel::handleEvent,
+            onEvent = onEvent,
+            onPickAvatar = onPickAvatar,
+            onPickBanner = onPickBanner,
             modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
         )
     }
 
     if (state.showDiscardDialog) {
         DiscardChangesDialog(
-            onConfirm = { viewModel.handleEvent(EditProfileEvent.DiscardConfirmed) },
-            onDismiss = { viewModel.handleEvent(EditProfileEvent.DiscardDismissed) },
+            onConfirm = { onEvent(EditProfileEvent.DiscardConfirmed) },
+            onDismiss = { onEvent(EditProfileEvent.DiscardDismissed) },
         )
     }
 }
@@ -150,6 +210,8 @@ internal fun EditProfileScreen(
 internal fun EditProfileContent(
     state: EditProfileViewState,
     onEvent: (EditProfileEvent) -> Unit,
+    onPickAvatar: () -> Unit,
+    onPickBanner: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -161,6 +223,15 @@ internal fun EditProfileContent(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        EditProfileImages(
+            banner = state.banner,
+            avatar = state.avatar,
+            onPickBanner = onPickBanner,
+            onPickAvatar = onPickAvatar,
+            onRemoveBanner = { onEvent(EditProfileEvent.RemoveImage(ImageSlotKind.Banner)) },
+            onRemoveAvatar = { onEvent(EditProfileEvent.RemoveImage(ImageSlotKind.Avatar)) },
+        )
+
         OutlinedTextField(
             value = state.displayName,
             onValueChange = { onEvent(EditProfileEvent.DisplayNameChanged(it)) },
@@ -226,4 +297,69 @@ private fun DiscardChangesDialog(
             }
         },
     )
+}
+
+// Co-located previews for the in-editor dev loop. Screenshot baselines for
+// these states live in EditProfileScreenshotTest (the @PreviewTest harness).
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(name = "Edit profile — with images", showBackground = true)
+@Composable
+private fun EditProfileScreenWithImagesPreview() {
+    NubecitaCanvasPreviewTheme {
+        EditProfileScreenContent(
+            state =
+                EditProfileViewState(
+                    displayName = "Alice",
+                    description = "Coffee, Kotlin, and cloud-watching.",
+                    displayNameGraphemes = 5,
+                    descriptionGraphemes = 35,
+                    avatar = ImageSlot.Original("https://example.test/avatar.jpg"),
+                    banner = ImageSlot.Original("https://example.test/banner.jpg"),
+                    isDirty = true,
+                ),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+            onBack = {},
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(name = "Edit profile — empty", showBackground = true)
+@Composable
+private fun EditProfileScreenEmptyPreview() {
+    NubecitaCanvasPreviewTheme {
+        EditProfileScreenContent(
+            state = EditProfileViewState(),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+            onBack = {},
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(name = "Edit profile — saving", showBackground = true)
+@Composable
+private fun EditProfileScreenSavingPreview() {
+    NubecitaCanvasPreviewTheme {
+        EditProfileScreenContent(
+            state =
+                EditProfileViewState(
+                    displayName = "Alice",
+                    description = "Coffee, Kotlin, and cloud-watching.",
+                    displayNameGraphemes = 5,
+                    descriptionGraphemes = 35,
+                    isDirty = true,
+                    isSaving = true,
+                ),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+            onBack = {},
+        )
+    }
 }

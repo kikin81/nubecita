@@ -133,6 +133,8 @@ internal class ProfileViewModel
                                 EditProfile(
                                     displayName = header.displayName,
                                     description = header.bio,
+                                    avatarUrl = header.avatarUrl,
+                                    bannerUrl = header.bannerUrl,
                                 ),
                             ),
                         )
