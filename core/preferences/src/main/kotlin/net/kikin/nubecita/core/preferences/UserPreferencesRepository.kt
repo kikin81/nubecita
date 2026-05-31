@@ -22,4 +22,14 @@ interface UserPreferencesRepository {
 
     /** Persist that onboarding was completed or skipped. Idempotent. */
     suspend fun markOnboardingSeen()
+
+    /**
+     * The AT-URI of the feed the user last had selected, remembered across
+     * launches so the app restores it instead of always opening the default.
+     * Emits `null` until the user has selected a feed at least once.
+     */
+    val lastSelectedFeedUri: Flow<String?>
+
+    /** Persist the AT-URI of the currently selected feed. */
+    suspend fun setLastSelectedFeedUri(uri: String)
 }
