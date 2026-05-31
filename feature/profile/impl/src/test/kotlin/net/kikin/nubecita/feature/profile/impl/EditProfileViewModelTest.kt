@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.profile.api.EditProfile
@@ -112,6 +113,25 @@ class EditProfileViewModelTest {
         }
 
     @Test
+    fun backPressed_whileSaving_isNoOp() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            val repo = FakeProfileRepository(gate = gate)
+            val vm = viewModel(EditProfile(displayName = "Alice"), repo)
+            vm.handleEvent(EditProfileEvent.DisplayNameChanged("Alicia"))
+            vm.handleEvent(EditProfileEvent.SaveTapped) // suspends in updateProfile → isSaving stays true
+            assertTrue(vm.uiState.value.isSaving)
+
+            vm.effects.test {
+                vm.handleEvent(EditProfileEvent.BackPressed)
+                expectNoEvents() // no NavigateBack while the save is in flight
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertFalse(vm.uiState.value.showDiscardDialog) // and no discard dialog
+            gate.complete(Unit) // let the save finish so the test scope can settle
+        }
+
+    @Test
     fun backPressed_whenDirty_showsDiscardDialog() {
         val vm = viewModel(EditProfile(displayName = "Alice"))
         vm.handleEvent(EditProfileEvent.DisplayNameChanged("Alicia"))
@@ -161,6 +181,7 @@ class EditProfileViewModelTest {
 
     private class FakeProfileRepository(
         private val updateResult: Result<Unit> = Result.success(Unit),
+        private val gate: CompletableDeferred<Unit>? = null,
     ) : ProfileRepository {
         var updateCalls = 0
         var lastDisplayName: String? = null
@@ -179,6 +200,9 @@ class EditProfileViewModelTest {
             lastDescription = description
             lastAvatar = avatar
             lastBanner = banner
+            // When a gate is supplied, suspend here so the test can observe the
+            // in-flight (isSaving = true) state before the write resolves.
+            gate?.await()
             return updateResult
         }
 
