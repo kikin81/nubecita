@@ -1,5 +1,5 @@
 {
-  "_comment": "Discover (whats-hot generator) fixture for the :app bench flavor. Served by BenchFakeFeedRepository.getFeed(DISCOVER_FEED_URI). Deliberately distinct authors + text from timeline.json so a chip-row feed switch is unmistakable on-device and in screenshots. Schema mirrors timeline.json / BenchTimelineDto exactly: flat `post` with id/cid/author.did/createdAt, Single items only (the DTO supports no other variant), Images/Video embeds. img/ avatar+image assets are not packaged (Coil placeholders them, same as timeline.json); video/clip-*.mp4 are real bench assets.",
+  "_comment": "Discover (whats-hot generator) fixture for the :app bench flavor. Served by BenchFakeFeedRepository.getFeed(DISCOVER_FEED_URI). Deliberately distinct authors + text from timeline.json so a chip-row feed switch is unmistakable on-device and in screenshots. Schema mirrors timeline.json / BenchTimelineDto exactly: flat `post` with id/cid/author.did/createdAt, Single items only (the DTO supports no other variant), Images/Video embeds. Avatar + image assets reuse the shared CC pool under app/src/bench/assets/img/ produced by scripts/download-benchmark-images.sh (deterministic bench data, not real identities, so photo reuse across names is fine); video clips use the asset:/// scheme like timeline.json.",
   "cursor": null,
   "items": [
     {
@@ -11,7 +11,7 @@
           "did": "did:plc:nova00000000000000000000",
           "handle": "nova.astro",
           "displayName": "Nova Reyes",
-          "avatarUrl": "file:///android_asset/img/avatars/nova.jpg"
+          "avatarUrl": "file:///android_asset/img/avatars/gabe.jpg"
         },
         "createdAt": "2026-05-27T16:40:00Z",
         "text": "comet C/2026 K1 is naked-eye visible before dawn this week. faint smudge near the eastern horizon, best 40 minutes before sunrise away from city light. it will not be back for 50,000 years.",
@@ -30,7 +30,7 @@
           "did": "did:plc:maria0000000000000000000",
           "handle": "maria.cooks",
           "displayName": "Maria Lindqvist",
-          "avatarUrl": "file:///android_asset/img/avatars/maria.jpg"
+          "avatarUrl": "file:///android_asset/img/avatars/elena.jpg"
         },
         "createdAt": "2026-05-27T15:10:00Z",
         "text": "sourdough discard crackers, the trick is rolling them paper-thin and a hot oven. flaky sea salt on top. gone in ten minutes flat at the market stall today.",
@@ -39,8 +39,8 @@
           "type": "Images",
           "items": [
             {
-              "fullsizeUrl": "file:///android_asset/img/posts/crackers.jpg",
-              "thumbUrl": "file:///android_asset/img/posts/crackers.jpg",
+              "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
               "altText": "Thin seeded crackers on a baking sheet",
               "aspectRatio": 1.5
             }
@@ -59,7 +59,7 @@
           "did": "did:plc:theo00000000000000000000",
           "handle": "theo.builds",
           "displayName": "Theo Adeyemi",
-          "avatarUrl": "file:///android_asset/img/avatars/theo.jpg"
+          "avatarUrl": "file:///android_asset/img/avatars/fede.jpg"
         },
         "createdAt": "2026-05-27T13:25:00Z",
         "text": "hot take: most keyboard shortcuts are discoverability debt the team never paid down. the fix is progressive disclosure, not removing the shortcut.",
@@ -78,15 +78,15 @@
           "did": "did:plc:lena00000000000000000000",
           "handle": "lena.climbs",
           "displayName": "Lena Hofer",
-          "avatarUrl": "file:///android_asset/img/avatars/lena.jpg"
+          "avatarUrl": "file:///android_asset/img/avatars/diego.jpg"
         },
         "createdAt": "2026-05-27T11:00:00Z",
         "text": "first ascent of the north arete, three days on the wall. the crux pitch goes free at last light, sound on for the rope drag.",
         "facets": [],
         "embed": {
           "type": "Video",
-          "posterUrl": "file:///android_asset/img/posts/arete_poster.jpg",
-          "playlistUrl": "file:///android_asset/video/clip-2.mp4",
+          "posterUrl": "file:///android_asset/img/posts/video-poster-2.jpg",
+          "playlistUrl": "asset:///video/clip-1.mp4",
           "aspectRatio": 1.7777778,
           "durationSeconds": 15,
           "altText": "Climber on a granite arete at sunset"
