@@ -22,6 +22,7 @@ dependencies {
     api(libs.media3.exoplayer)
 
     implementation(project(":core:common"))
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.timber)
 

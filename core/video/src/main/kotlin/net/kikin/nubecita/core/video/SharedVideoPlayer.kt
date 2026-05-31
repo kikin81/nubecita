@@ -2,6 +2,10 @@
 
 package net.kikin.nubecita.core.video
 
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import kotlinx.coroutines.CoroutineDispatcher
@@ -47,7 +51,29 @@ class SharedVideoPlayer
         // advanceTimeBy still drives the polling deterministically.
         private val mainDispatcher: CoroutineDispatcher,
         private val idleReleaseMs: Long,
+        // App/process lifecycle. Injected so unit tests can drive ON_STOP
+        // through a LifecycleRegistry; production passes
+        // ProcessLifecycleOwner.get().lifecycle via createSharedVideoPlayer.
+        lifecycle: Lifecycle,
     ) {
+        // Pause playback when the whole app goes to the background so audio
+        // doesn't keep playing — the app has no background-play / PiP support
+        // (that's a separate epic). Pause-only: returning to the foreground
+        // leaves playback paused; the user taps play. Only pauses an
+        // already-constructed player (never builds one just to pause it).
+        private val appBackgroundObserver =
+            object : DefaultLifecycleObserver {
+                override fun onStop(owner: LifecycleOwner) {
+                    cachedExoPlayer?.pause()
+                }
+            }
+
+        init {
+            // Lifecycle.addObserver MUST run on the main thread; hop there.
+            // Main.immediate is synchronous when the caller is already on Main.
+            scope.launch(mainDispatcher) { lifecycle.addObserver(appBackgroundObserver) }
+        }
+
         private val _mode = MutableStateFlow(PlaybackMode.FeedPreview)
         val mode: StateFlow<PlaybackMode> = _mode.asStateFlow()
 
@@ -463,6 +489,7 @@ fun createSharedVideoPlayer(
     context: android.content.Context,
     scope: CoroutineScope,
     idleReleaseMs: Long = DEFAULT_IDLE_RELEASE_MS,
+    lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
 ): SharedVideoPlayer {
     val appContext = context.applicationContext
     return SharedVideoPlayer(
@@ -488,6 +515,7 @@ fun createSharedVideoPlayer(
             }
         },
         scope = scope,
+        lifecycle = lifecycle,
         // The ExoPlayer is lazily constructed inside `playerFactory` on
         // the first `requirePlayer()` (called from bind() / setMode()),
         // and `verifyApplicationThread()` rejects any access from a
