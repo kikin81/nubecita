@@ -126,6 +126,35 @@ internal fun EditProfileScreen(
         return
     }
 
+    EditProfileScreenContent(
+        state = state,
+        onEvent = viewModel::handleEvent,
+        onPickAvatar = pickAvatar,
+        onPickBanner = pickBanner,
+        onBack = { viewModel.handleEvent(EditProfileEvent.BackPressed) },
+        snackbarHostState = snackbarHostState,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Stateless EditProfile screen chrome — the `Scaffold` + app bar (title, back,
+ * Save / saving spinner) + the form + discard dialog, driven purely by [state]
+ * and [onEvent]. Split out so previews and screenshot tests can exercise the
+ * full screen (app bar + Save-button states) without a ViewModel; the stateful
+ * [EditProfileScreen] owns the VM, effects, pickers, and crop overlay.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun EditProfileScreenContent(
+    state: EditProfileViewState,
+    onEvent: (EditProfileEvent) -> Unit,
+    onPickAvatar: () -> Unit,
+    onPickBanner: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -133,7 +162,7 @@ internal fun EditProfileScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.edit_profile_title)) },
                 navigationIcon = {
-                    IconButton(onClick = { viewModel.handleEvent(EditProfileEvent.BackPressed) }) {
+                    IconButton(onClick = onBack) {
                         NubecitaIcon(
                             name = NubecitaIconName.ArrowBack,
                             contentDescription = stringResource(R.string.edit_profile_back_content_description),
@@ -148,7 +177,7 @@ internal fun EditProfileScreen(
                         )
                     } else {
                         TextButton(
-                            onClick = { viewModel.handleEvent(EditProfileEvent.SaveTapped) },
+                            onClick = { onEvent(EditProfileEvent.SaveTapped) },
                             enabled = state.canSave,
                         ) {
                             Text(stringResource(R.string.edit_profile_save))
@@ -161,17 +190,17 @@ internal fun EditProfileScreen(
     ) { innerPadding ->
         EditProfileContent(
             state = state,
-            onEvent = viewModel::handleEvent,
-            onPickAvatar = pickAvatar,
-            onPickBanner = pickBanner,
+            onEvent = onEvent,
+            onPickAvatar = onPickAvatar,
+            onPickBanner = onPickBanner,
             modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
         )
     }
 
     if (state.showDiscardDialog) {
         DiscardChangesDialog(
-            onConfirm = { viewModel.handleEvent(EditProfileEvent.DiscardConfirmed) },
-            onDismiss = { viewModel.handleEvent(EditProfileEvent.DiscardDismissed) },
+            onConfirm = { onEvent(EditProfileEvent.DiscardConfirmed) },
+            onDismiss = { onEvent(EditProfileEvent.DiscardDismissed) },
         )
     }
 }

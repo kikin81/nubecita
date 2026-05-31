@@ -99,3 +99,54 @@ private fun EditProfileWithImagesPreview() {
         )
     }
 }
+
+@PreviewTest
+@Preview(name = "edit-profile-screen-dirty-light", showBackground = true)
+@Preview(name = "edit-profile-screen-dirty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun EditProfileScreenDirtyPreview() {
+    NubecitaCanvasPreviewTheme {
+        // Full screen with the app bar — Save is enabled (dirty, in-limit, not saving).
+        EditProfileScreenContent(
+            state =
+                EditProfileViewState(
+                    displayName = "Alice",
+                    description = "Coffee, Kotlin, and cloud-watching.",
+                    displayNameGraphemes = 5,
+                    descriptionGraphemes = 35,
+                    avatar = ImageSlot.Original("https://example.test/avatar.jpg"),
+                    banner = ImageSlot.Original("https://example.test/banner.jpg"),
+                    isDirty = true,
+                ),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+            onBack = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "edit-profile-screen-saving-light", showBackground = true)
+@Preview(name = "edit-profile-screen-saving-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun EditProfileScreenSavingPreview() {
+    NubecitaCanvasPreviewTheme {
+        // Mid-save: the Save action becomes the inline progress spinner.
+        EditProfileScreenContent(
+            state =
+                EditProfileViewState(
+                    displayName = "Alice",
+                    description = "Coffee, Kotlin, and cloud-watching.",
+                    displayNameGraphemes = 5,
+                    descriptionGraphemes = 35,
+                    isDirty = true,
+                    isSaving = true,
+                ),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+            onBack = {},
+        )
+    }
+}
