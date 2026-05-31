@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,8 +18,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -102,8 +105,8 @@ internal fun EditProfileImages(
                     contentDescription = stringResource(R.string.edit_profile_banner_content_description),
                     editContentDescription = stringResource(R.string.edit_profile_change_banner_content_description),
                     badgeAlignment = Alignment.TopEnd,
-                    badgeOffsetX = (-6).dp,
-                    badgeOffsetY = 6.dp,
+                    badgeOffsetX = (-8).dp,
+                    badgeOffsetY = 8.dp,
                     modifier = Modifier.fillMaxWidth().aspectRatio(3f),
                 )
 
@@ -114,10 +117,11 @@ internal fun EditProfileImages(
                     imageShape = CircleShape,
                     contentDescription = stringResource(R.string.edit_profile_avatar_content_description),
                     editContentDescription = stringResource(R.string.edit_profile_change_avatar_content_description),
-                    // Nudge the badge onto the circle's top-right edge (~1–2 o'clock).
-                    badgeAlignment = Alignment.TopEnd,
-                    badgeOffsetX = (-2).dp,
-                    badgeOffsetY = 14.dp,
+                    // Float the badge at the avatar's bottom-right edge (~4–5 o'clock),
+                    // in the clear space below the banner rather than over it.
+                    badgeAlignment = Alignment.BottomEnd,
+                    badgeOffsetX = (-4).dp,
+                    badgeOffsetY = (-4).dp,
                     modifier =
                         Modifier
                             .align(Alignment.BottomStart)
@@ -168,9 +172,12 @@ private fun ImagesOverflowMenu(
 }
 
 /**
- * One tappable image (clipped to [imageShape]) with an overlapping pencil / ＋
- * edit button. The image and the badge are siblings in an unclipped box so the
- * badge can straddle the image edge without being clipped.
+ * One editable image. The image itself is the primary tap target — the whole
+ * surface is clickable, so the ripple shows on the image (clipped to
+ * [imageShape]). A small edit button floats over a corner as a secondary, more
+ * obvious affordance; both trigger [onPick]. The image and the badge are
+ * siblings in an unclipped box so the badge can float over the image edge
+ * without being clipped (and the image's ripple doesn't bleed under the badge).
  */
 @Composable
 private fun EditableImage(
@@ -191,7 +198,8 @@ private fun EditableImage(
                 Modifier
                     .matchParentSize()
                     .clip(imageShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .clickable(onClick = onPick),
         ) {
             if (model != null) {
                 NubecitaAsyncImage(
@@ -211,10 +219,12 @@ private fun EditableImage(
 }
 
 /**
- * The pencil (image set) / ＋ (no image) edit button, set in a card-colored ring
- * so it appears notched into the image behind it. The inner `FilledTonalIconButton`
- * provides the M3 tonal fill + ripple.
+ * The pencil (image set) / ＋ (no image) edit button — an M3-Expressive
+ * extra-small [FilledTonalIconButton] (it morphs shape on press via
+ * [IconButtonDefaults.shapes]). A card-colored ring sets it apart from the
+ * image it floats over.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun EditBadge(
     hasImage: Boolean,
@@ -229,12 +239,13 @@ private fun EditBadge(
     ) {
         FilledTonalIconButton(
             onClick = onClick,
-            modifier = Modifier.padding(3.dp).size(32.dp),
+            shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier.padding(2.dp).size(IconButtonDefaults.extraSmallContainerSize()),
         ) {
             NubecitaIcon(
                 name = if (hasImage) NubecitaIconName.Edit else NubecitaIconName.Add,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
             )
         }
     }

@@ -3,11 +3,9 @@ package net.kikin.nubecita.feature.profile.impl
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -233,8 +231,6 @@ internal fun EditProfileContent(
             onRemoveBanner = { onEvent(EditProfileEvent.RemoveImage(ImageSlotKind.Banner)) },
             onRemoveAvatar = { onEvent(EditProfileEvent.RemoveImage(ImageSlotKind.Avatar)) },
         )
-        // Reserve room for the avatar's overhang below the banner.
-        Spacer(Modifier.height(44.dp))
 
         OutlinedTextField(
             value = state.displayName,
