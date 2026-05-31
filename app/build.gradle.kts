@@ -255,6 +255,7 @@ dependencies {
     implementation(project(":feature:composer:impl"))
     implementation(project(":feature:feed:api"))
     implementation(project(":feature:feed:impl"))
+    implementation(project(":feature:feeds:api"))
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
     implementation(project(":feature:mediaviewer:impl"))
