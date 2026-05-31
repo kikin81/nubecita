@@ -39,7 +39,21 @@ data class Login(
     override val params: Map<String, AnalyticsValue> = mapOf("method" to Str(method.wire))
 }
 
-/** Which kind of feed was opened — the URI itself is never sent. */
+/**
+ * Which *kind* of feed was opened — never which feed.
+ *
+ * This is a category, not a feed identity. Every custom generator feed a user
+ * follows ("Cats", "Tech News", and hundreds more) collapses to [Custom]; every
+ * list feed collapses to [List]. The high-cardinality, identifying value — the
+ * feed URI (`at://did:plc:…/app.bsky.feed.generator/cats`, which embeds a DID
+ * and an often-identifying name) — is exactly the PII this enum exists to drop.
+ *
+ * Bucketing into a handful of kinds is intentional, not a scaling limit: it
+ * keeps `feed_type` PII-free and within GA4's param-cardinality budget (raw
+ * URIs would be sampled into "(other)" and unusable in reports anyway).
+ * Per-feed analytics, if ever wanted, belongs on a separate bounded surface —
+ * not a free-cardinality GA4 param.
+ */
 enum class FeedType(
     val wire: String,
 ) {
