@@ -19,11 +19,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -592,11 +595,19 @@ internal fun FeedScreenContent(
                                 onOpenListsSheet = { showPinnedListsSheet = true },
                             )
                         }
+                        // Status-bar scrim. Sized to the status-bar inset via
+                        // windowInsetsTopHeight (NOT statusBarsPadding, which
+                        // adds padding around a zero-height Spacer and paints
+                        // nothing). Drawn last so it sits on top: it keeps the
+                        // system-bar icons legible against a surface backdrop
+                        // and hides the chip row as it translates up behind it
+                        // on scroll, instead of letting it bleed into the
+                        // cutout/status bar.
                         Spacer(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .statusBarsPadding()
+                                    .windowInsetsTopHeight(WindowInsets.statusBars)
                                     .background(MaterialTheme.colorScheme.surface),
                         )
                     }
