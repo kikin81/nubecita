@@ -6,11 +6,11 @@
 
 ## 1. `:core:billing` skeleton — beads nubecita-q5ge.1
 
-- [ ] 1.1 Create `:core:billing` module(s) (api/impl split) + wire into `settings.gradle.kts` and convention plugins
-- [ ] 1.2 Define `EntitlementRepository` (`isPro: StateFlow<Boolean>`, `refresh()`) and `BillingRepository` (`loadPlans`, `purchase`, `restorePurchases`) interfaces — pure Kotlin, no provider types
-- [ ] 1.3 Add `:data:models` subscription types (`SubscriptionOffering`, `SubscriptionPlan`, `SubscriptionPlanId`, `BillingPeriod`) as `@Immutable` + fixtures
-- [ ] 1.4 Provide a fake/in-memory `impl` for downstream builds and tests
-- [ ] 1.5 Unit tests: fake `EntitlementRepository` emits `isPro` transitions; offering model mapping (per-month equiv, savings %)
+- [x] 1.1 Create `:core:billing` module(s) (api/impl split) + wire into `settings.gradle.kts` and convention plugins
+- [x] 1.2 Define `EntitlementRepository` (`isPro: StateFlow<Boolean>`, `refresh()`) and `BillingRepository` (`loadPlans`, `purchase`, `restorePurchases`) interfaces — pure Kotlin, no provider types
+- [x] 1.3 Add `:data:models` subscription types (`SubscriptionOffering`, `SubscriptionPlan`, `SubscriptionPlanId`, `BillingPeriod`) as `@Immutable` + fixtures
+- [x] 1.4 Provide a fake/in-memory `impl` for downstream builds and tests
+- [x] 1.5 Unit tests: fake `EntitlementRepository` emits `isPro` transitions; offering model mapping (per-month equiv, savings %)
 
 ## 2. RevenueCat impl — beads nubecita-q5ge.2
 
