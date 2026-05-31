@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
@@ -40,6 +41,7 @@ import net.kikin.nubecita.core.image.CropShape
 import net.kikin.nubecita.core.image.rememberImagePicker
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 
 /**
  * Stateful own-profile edit screen (text-first slice). Owns the
@@ -299,4 +301,69 @@ private fun DiscardChangesDialog(
             }
         },
     )
+}
+
+// Co-located previews for the in-editor dev loop. Screenshot baselines for
+// these states live in EditProfileScreenshotTest (the @PreviewTest harness).
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(name = "Edit profile — with images", showBackground = true)
+@Composable
+private fun EditProfileScreenWithImagesPreview() {
+    NubecitaCanvasPreviewTheme {
+        EditProfileScreenContent(
+            state =
+                EditProfileViewState(
+                    displayName = "Alice",
+                    description = "Coffee, Kotlin, and cloud-watching.",
+                    displayNameGraphemes = 5,
+                    descriptionGraphemes = 35,
+                    avatar = ImageSlot.Original("https://example.test/avatar.jpg"),
+                    banner = ImageSlot.Original("https://example.test/banner.jpg"),
+                    isDirty = true,
+                ),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+            onBack = {},
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(name = "Edit profile — empty", showBackground = true)
+@Composable
+private fun EditProfileScreenEmptyPreview() {
+    NubecitaCanvasPreviewTheme {
+        EditProfileScreenContent(
+            state = EditProfileViewState(),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+            onBack = {},
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(name = "Edit profile — saving", showBackground = true)
+@Composable
+private fun EditProfileScreenSavingPreview() {
+    NubecitaCanvasPreviewTheme {
+        EditProfileScreenContent(
+            state =
+                EditProfileViewState(
+                    displayName = "Alice",
+                    description = "Coffee, Kotlin, and cloud-watching.",
+                    displayNameGraphemes = 5,
+                    descriptionGraphemes = 35,
+                    isDirty = true,
+                    isSaving = true,
+                ),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+            onBack = {},
+        )
+    }
 }
