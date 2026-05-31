@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.FeedType
+import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.search.impl.data.SearchFeedsRepository
 import javax.inject.Inject
@@ -44,6 +47,7 @@ internal class SearchFeedsViewModel
     @Inject
     constructor(
         private val repository: SearchFeedsRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchFeedsState, SearchFeedsEvent, SearchFeedsEffect>(SearchFeedsState()) {
         private data class FetchKey(
             val query: String,
@@ -85,6 +89,10 @@ internal class SearchFeedsViewModel
             repository
                 .searchFeeds(query = key.query, cursor = null)
                 .onSuccess { page ->
+                    // view_feed fires when the Feeds-tab results load. These
+                    // are custom generator feeds, so the bucket is Custom; the
+                    // query text and per-feed URIs are never attached.
+                    analytics.log(ViewFeed(FeedType.Custom))
                     val nextStatus =
                         if (page.items.isEmpty()) {
                             SearchFeedsLoadStatus.Empty

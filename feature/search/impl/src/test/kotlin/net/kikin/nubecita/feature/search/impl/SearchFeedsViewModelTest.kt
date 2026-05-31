@@ -8,6 +8,12 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsEvent
+import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.core.analytics.FeedType
+import net.kikin.nubecita.core.analytics.UserProperty
+import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.feedFixture
 import org.junit.jupiter.api.AfterEach
@@ -27,6 +33,9 @@ class SearchFeedsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val repo = FakeSearchFeedsRepository()
 
+    // Recording analytics sink so view_feed emission can be asserted.
+    private val analytics = RecordingAnalyticsClient()
+
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -40,7 +49,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_blank_stateStaysIdle() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             runCurrent()
 
             assertEquals(SearchFeedsLoadStatus.Idle, vm.uiState.value.loadStatus)
@@ -51,7 +60,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_nonBlank_fetchesFirstPage_emitsLoaded() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             val hit = feedFixture(uri = "at://did:plc:f1/app.bsky.feed.generator/discover", displayName = "Discover")
             repo.respond(query = "art", cursor = null, items = listOf(hit), nextCursor = "c2")
 
@@ -69,9 +78,21 @@ class SearchFeedsViewModelTest {
         }
 
     @Test
+    fun setQuery_nonBlank_emitsViewFeedCustom() =
+        runTest {
+            val vm = SearchFeedsViewModel(repo, analytics)
+            repo.respond(query = "art", cursor = null, items = listOf(feedFixture()), nextCursor = null)
+
+            vm.setQuery("art")
+            runCurrent()
+
+            assertEquals(listOf(ViewFeed(FeedType.Custom)), analytics.events)
+        }
+
+    @Test
     fun setQuery_emptyResponse_emitsEmpty() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             repo.respond(query = "no-matches", cursor = null, items = emptyList(), nextCursor = null)
 
             vm.setQuery("no-matches")
@@ -83,7 +104,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_failure_emitsInitialError_withMappedError() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             repo.fail(query = "art", cursor = null, throwable = java.io.IOException("disconnected"))
 
             vm.setQuery("art")
@@ -100,7 +121,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun loadMore_loaded_appendsNextPage_andClearsIsAppending() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             val page1 = listOf(feedFixture(uri = "at://did:plc:a/app.bsky.feed.generator/a"))
             val page2 =
                 listOf(
@@ -135,7 +156,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun loadMore_endReached_isNoOp() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = null)
 
             vm.setQuery("x")
@@ -151,7 +172,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun loadMore_alreadyAppending_isNoOp_singleFlight() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = "c2")
             // Gate the second-page fetch so isAppending stays true.
             repo.gate(query = "x", cursor = "c2")
@@ -178,7 +199,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_rapidChange_cancelsPrior_viaMapLatest() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             val staleGate = repo.gate(query = "ar", cursor = null)
             repo.respond(
                 query = "art",
@@ -221,7 +242,7 @@ class SearchFeedsViewModelTest {
         runTest {
             // Regression test for the stale-completion guard. Mirrors the
             // analogous People VM test inherited from vrba.6's review.
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             // Page 1 "art": one item + nextCursor=c2 so loadMore is valid.
             repo.respond(
                 query = "art",
@@ -289,7 +310,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun loadMore_failure_emitsShowAppendError_keepsExistingItems() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = "c2")
             repo.fail(query = "x", cursor = "c2", throwable = java.io.IOException("flap"))
 
@@ -314,7 +335,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun retry_initialError_retriggersFirstPage_viaIncarnationBump() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             repo.fail(query = "x", cursor = null, throwable = java.io.IOException("network"))
 
             vm.setQuery("x")
@@ -333,7 +354,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun clearQueryClicked_emitsNavigateToClearQueryEffect() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             vm.effects.test {
                 vm.handleEvent(SearchFeedsEvent.ClearQueryClicked)
                 runCurrent()
@@ -346,7 +367,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_becomesBlankAfterLoaded_resetsToIdle() =
         runTest {
-            val vm = SearchFeedsViewModel(repo)
+            val vm = SearchFeedsViewModel(repo, analytics)
             repo.respond(query = "art", cursor = null, items = listOf(feedFixture()), nextCursor = null)
 
             vm.setQuery("art")
@@ -359,4 +380,16 @@ class SearchFeedsViewModelTest {
             assertEquals(SearchFeedsLoadStatus.Idle, vm.uiState.value.loadStatus)
             assertEquals("", vm.uiState.value.currentQuery)
         }
+}
+
+private class RecordingAnalyticsClient : AnalyticsClient {
+    val events = mutableListOf<AnalyticsEvent>()
+
+    override fun log(event: AnalyticsEvent) {
+        events += event
+    }
+
+    override fun setUserProperty(property: UserProperty) = Unit
+
+    override fun logScreen(screen: AnalyticsScreen) = Unit
 }

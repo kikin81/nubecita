@@ -13,6 +13,7 @@ dependencies {
     api(libs.atproto.models)
     api(libs.atproto.runtime)
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:image"))

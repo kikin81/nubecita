@@ -21,6 +21,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.CreatePost
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -78,6 +80,7 @@ internal class DefaultPostingRepository
         private val encoder: ImageEncoder,
         private val facetExtractor: FacetExtractor,
         private val localeProvider: LocaleProvider,
+        private val analytics: AnalyticsClient,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PostingRepository {
         override suspend fun createPost(
@@ -207,6 +210,18 @@ internal class DefaultPostingRepository
                     Timber.tag(TAG).d(
                         "createPost() — createRecord ok, rkey=%s",
                         response.uri.raw.substringAfterLast('/'),
+                    )
+                    // Fire-and-forget create_post on a confirmed write. Only
+                    // structural booleans — never the body, language, or
+                    // attachment URIs. `isQuote` is false until the composer
+                    // grows a record-embed path (V1 createPost has no quote
+                    // surface; the embed is images-only).
+                    analytics.log(
+                        CreatePost(
+                            hasMedia = attachments.isNotEmpty(),
+                            isReply = replyTo != null,
+                            isQuote = false,
+                        ),
                     )
                     Result.success(response.uri)
                 } catch (cancellation: CancellationException) {

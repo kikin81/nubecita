@@ -23,6 +23,7 @@ dependencies {
     api(project(":feature:search:api"))
 
     implementation(project(":core:actors"))
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:database"))
