@@ -1,5 +1,8 @@
 package net.kikin.nubecita.core.video
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import io.mockk.clearMocks
@@ -29,6 +32,58 @@ import org.junit.jupiter.api.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SharedVideoPlayerTest {
+    @Test
+    fun appBackgrounded_onStop_pausesPlayingVideo() =
+        runTest {
+            val owner = resumedTestLifecycle()
+            val player = mockk<ExoPlayer>(relaxed = true)
+            val testDispatcher = coroutineContext[kotlinx.coroutines.CoroutineDispatcher]!!
+            val holder =
+                SharedVideoPlayer(
+                    playerFactory = { _ -> player },
+                    trackSelectorFactory = { mockk(relaxed = true) },
+                    scope = this,
+                    mainDispatcher = testDispatcher,
+                    idleReleaseMs = 30_000L,
+                    lifecycle = owner.registry,
+                )
+            runCurrent() // run the addObserver coroutine
+            holder.play() // construct + start the player so cachedExoPlayer is non-null
+            clearMocks(player, answers = false) // forget the initial play() call
+
+            // App goes fully to the background: RESUMED → CREATED emits ON_STOP.
+            owner.registry.currentState = Lifecycle.State.CREATED
+
+            verify(exactly = 1) { player.pause() }
+        }
+
+    @Test
+    fun appReturnsToForeground_staysPaused_noAutoResume() =
+        runTest {
+            val owner = resumedTestLifecycle()
+            val player = mockk<ExoPlayer>(relaxed = true)
+            val testDispatcher = coroutineContext[kotlinx.coroutines.CoroutineDispatcher]!!
+            val holder =
+                SharedVideoPlayer(
+                    playerFactory = { _ -> player },
+                    trackSelectorFactory = { mockk(relaxed = true) },
+                    scope = this,
+                    mainDispatcher = testDispatcher,
+                    idleReleaseMs = 30_000L,
+                    lifecycle = owner.registry,
+                )
+            runCurrent()
+            holder.play()
+            clearMocks(player, answers = false)
+
+            owner.registry.currentState = Lifecycle.State.CREATED // background → pause
+            owner.registry.currentState = Lifecycle.State.RESUMED // foreground again
+
+            // Pause-only contract: backgrounding pauses, returning does NOT auto-resume.
+            verify(exactly = 1) { player.pause() }
+            verify(exactly = 0) { player.play() }
+        }
+
     @Test
     fun initialState_isFeedPreviewWithNoBoundUrl() =
         runTest {
@@ -289,6 +344,7 @@ class SharedVideoPlayerTest {
                     scope = this,
                     mainDispatcher = testDispatcher,
                     idleReleaseMs = 30_000L,
+                    lifecycle = resumedTestLifecycle().registry,
                 )
 
             holder.bind("https://video.cdn/hls/a.m3u8", null)
@@ -665,7 +721,22 @@ class SharedVideoPlayerTest {
                 scope = testScope,
                 mainDispatcher = testDispatcher,
                 idleReleaseMs = 30_000L,
+                lifecycle = resumedTestLifecycle().registry,
             )
         return holder to player
     }
+
+    /**
+     * Minimal [LifecycleOwner] whose [LifecycleRegistry] is constructed via
+     * `createUnsafe` so JVM unit tests can drive lifecycle events without a
+     * main-thread looper. Tests move `registry.currentState` to emit events
+     * (e.g. RESUMED → CREATED emits ON_PAUSE then ON_STOP).
+     */
+    private class TestLifecycleOwnerSimple : LifecycleOwner {
+        val registry: LifecycleRegistry = LifecycleRegistry.createUnsafe(this)
+
+        override val lifecycle: Lifecycle get() = registry
+    }
+
+    private fun resumedTestLifecycle(): TestLifecycleOwnerSimple = TestLifecycleOwnerSimple().apply { registry.currentState = Lifecycle.State.RESUMED }
 }
