@@ -36,4 +36,8 @@ internal class FakeUserPreferencesRepository
             markFailure?.let { throw it }
             seen.value = true
         }
+
+        override val lastSelectedFeedUri: Flow<String?> = MutableStateFlow<String?>(null).asStateFlow()
+
+        override suspend fun setLastSelectedFeedUri(uri: String) = Unit
     }

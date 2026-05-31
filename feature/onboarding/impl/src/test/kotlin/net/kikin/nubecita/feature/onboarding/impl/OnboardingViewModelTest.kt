@@ -80,6 +80,10 @@ internal class OnboardingViewModelTest {
             markCalls += 1
             seen.value = true
         }
+
+        override val lastSelectedFeedUri: Flow<String?> = MutableStateFlow<String?>(null).asStateFlow()
+
+        override suspend fun setLastSelectedFeedUri(uri: String) = Unit
     }
 
     private class FailingPreferences : UserPreferencesRepository {
@@ -91,5 +95,9 @@ internal class OnboardingViewModelTest {
             markAttempts += 1
             error("simulated disk failure")
         }
+
+        override val lastSelectedFeedUri: Flow<String?> = MutableStateFlow<String?>(null).asStateFlow()
+
+        override suspend fun setLastSelectedFeedUri(uri: String) = Unit
     }
 }
