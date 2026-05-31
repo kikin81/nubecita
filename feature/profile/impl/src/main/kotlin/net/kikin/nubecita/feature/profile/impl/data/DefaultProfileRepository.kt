@@ -24,6 +24,9 @@ import io.github.kikin81.atproto.runtime.present
 import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -65,6 +68,11 @@ internal class DefaultProfileRepository
         private val encoder: ImageEncoder,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ProfileRepository {
+        // replay = 0 (only live collectors react) + extraBufferCapacity = 1
+        // so tryEmit never drops the signal under a momentary slow collector.
+        private val _ownProfileUpdates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        override val ownProfileUpdates: SharedFlow<Unit> = _ownProfileUpdates.asSharedFlow()
+
         override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> =
             withContext(dispatcher) {
                 runCatching {
@@ -215,6 +223,10 @@ internal class DefaultProfileRepository
                             swapRecord = swapCid?.let { present(it) } ?: AtField.Missing,
                         ),
                     )
+                    // Tell any live own-profile screen to refetch its header so
+                    // the saved fields (incl. the new avatar/banner CDN URLs)
+                    // show without a manual refresh.
+                    _ownProfileUpdates.tryEmit(Unit)
                     Result.success(Unit)
                 } catch (cancellation: CancellationException) {
                     throw cancellation

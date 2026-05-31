@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
+import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.NoAuth
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
@@ -112,6 +113,35 @@ class DefaultProfileRepositoryUpdateProfileTest {
             )
             // Compare-and-swap on the fetched record CID.
             assertTrue(body.contains("\"swapRecord\":\"bafcid\""), "swapRecord(cid) missing: $body")
+        }
+
+    @Test
+    fun successfulSave_emitsOwnProfileUpdateSignal() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    when {
+                        request.isGetRecord() ->
+                            okJson(getRecordJson(cid = "bafcid", value = """{"${'$'}type":"app.bsky.actor.profile"}"""))
+                        request.isPutRecord() -> okJson(putRecordJson(cid = "bafnew"))
+                        else -> error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            // replay = 0, so collect BEFORE the write; the own-profile screen
+            // refetches its header off this emission.
+            repo.ownProfileUpdates.test {
+                val result =
+                    repo.updateProfile(
+                        displayName = "new name",
+                        description = "new bio",
+                        avatar = ImageChange.Unchanged,
+                        banner = ImageChange.Unchanged,
+                    )
+                assertTrue(result.isSuccess, "expected success, got: ${result.exceptionOrNull()}")
+                assertEquals(Unit, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     @Test
