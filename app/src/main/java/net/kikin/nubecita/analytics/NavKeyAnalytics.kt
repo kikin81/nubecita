@@ -30,10 +30,12 @@ import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
  *
  * Only the route *kind* is reported — never instance args (a handle, DID,
  * post URI, query, …). Both `Profile(handle = null)` (own profile) and
- * `Profile(handle = "alice")` collapse to [AnalyticsScreen.Profile]; the
- * de-dupe in [TrackScreenViews] keys on the returned enum, so navigating
- * between two profiles emits a single `screen_view`. See [AnalyticsScreen]'s
- * KDoc for why the wire names are a fixed, closed set.
+ * `Profile(handle = "alice")` map to [AnalyticsScreen.Profile], so the wire
+ * `screen_name` is identical and *whose* profile is structurally dropped.
+ * Navigating between two profiles still emits two `screen_view` events
+ * (each a real destination view) — [TrackScreenViews] keys its de-dupe on
+ * the `NavKey`, not on this enum. See [AnalyticsScreen]'s KDoc for why the
+ * wire names are a fixed, closed set.
  *
  * ## Why a trailing `else` instead of a true exhaustive `when`
  *
@@ -92,14 +94,17 @@ internal fun NavKey.toAnalyticsScreenOrNull(): AnalyticsScreen? =
 /**
  * Host-layer screen-view tracker. Place inside a `NavDisplay` host
  * (`MainNavigation`, `MainShell`) and pass the back stack's top [NavKey];
- * it maps that key to an [AnalyticsScreen] and emits a de-duped
- * `screen_view`.
+ * it maps that key to an [AnalyticsScreen] and emits a `screen_view`.
  *
- * De-duping keys the [LaunchedEffect] on the mapped [AnalyticsScreen] (not
- * the raw [NavKey]), so consecutive routes that resolve to the same screen
- * — e.g. `Profile(A)` → `Profile(B)`, or a recomposition that leaves the
- * top key unchanged — log at most once. Re-entering a screen after leaving
- * it (Feed → Profile → Feed) logs again, which is the correct view count.
+ * The [LaunchedEffect] is keyed on the [NavKey] itself. Every [NavKey] in
+ * this project is a value-equal `@Serializable data object` / `data class`,
+ * so a recomposition that leaves the top route structurally unchanged does
+ * **not** restart the effect — no duplicate log. But navigating to a
+ * genuinely different destination — including a different instance of the
+ * same screen *kind*, e.g. `Profile(A)` → `Profile(B)` or one thread to
+ * another — changes the key and logs each as its own view (the wire
+ * `screen_name` stays the same; only the count differs). Re-entering a
+ * screen after leaving it (Feed → Profile → Feed) logs again too.
  *
  * Untracked routes (mapping returns `null`) emit nothing. This must stay at
  * the Composable host layer and never move into a ViewModel — consistent
@@ -110,8 +115,8 @@ internal fun TrackScreenViews(
     topRoute: NavKey?,
     analytics: AnalyticsClient,
 ) {
-    val screen = topRoute?.toAnalyticsScreenOrNull()
-    LaunchedEffect(screen) {
+    LaunchedEffect(topRoute) {
+        val screen = topRoute?.toAnalyticsScreenOrNull()
         if (screen != null) analytics.logScreen(screen)
     }
 }
