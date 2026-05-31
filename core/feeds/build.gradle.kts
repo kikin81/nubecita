@@ -23,7 +23,9 @@ dependencies {
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))
+    testImplementation(libs.atproto.runtime)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
 }

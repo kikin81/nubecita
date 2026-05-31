@@ -94,7 +94,24 @@ internal class DefaultPinnedFeedsRepository
                         return@withContext fallbackResult(error = throwable)
                     }
 
-                val pinned = items?.filter(SavedFeed::pinned).orEmpty()
+                // Dedupe `type="timeline"` pins so two identical Following chips
+                // can't appear (all timeline entries collapse to the single
+                // synthesized Following feed); keep the first, drop later dupes.
+                var sawTimeline = false
+                val pinned =
+                    items
+                        .orEmpty()
+                        .filter(SavedFeed::pinned)
+                        .filter { item ->
+                            if (item.type != TYPE_TIMELINE) {
+                                true
+                            } else if (sawTimeline) {
+                                false
+                            } else {
+                                sawTimeline = true
+                                true
+                            }
+                        }
                 if (pinned.isEmpty()) {
                     // No savedFeedsPrefV2 entry, or nothing pinned → defaults.
                     return@withContext fallbackResult(error = null)

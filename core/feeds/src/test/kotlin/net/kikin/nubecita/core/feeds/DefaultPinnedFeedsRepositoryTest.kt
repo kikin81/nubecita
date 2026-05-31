@@ -92,6 +92,46 @@ internal class DefaultPinnedFeedsRepositoryTest {
         }
 
     @Test
+    fun `partial hydration keeps only the generators that getFeedGenerators returned`() =
+        runTest {
+            // Two pinned generators, but the batch hydrate returns only feed A.
+            coEvery { dataSource.getSavedFeedItems() } returns
+                listOf(
+                    savedFeed("1", "feed", "at://a", pinned = true),
+                    savedFeed("2", "feed", "at://b", pinned = true),
+                )
+            coEvery { dataSource.getFeedGenerators(any()) } returns
+                listOf(generator("at://a", "Feed A", "https://cdn/a.jpg"))
+
+            val result = repo().loadPinnedFeeds()
+
+            // B is dropped (un-hydratable), A is kept. Not a fallback, no error:
+            // a present-but-partial hydrate response is a success, not a failure.
+            assertEquals(listOf("at://a"), result.feeds.map { it.uri })
+            assertFalse(result.usedFallback)
+            assertNull(result.error)
+        }
+
+    @Test
+    fun `duplicate timeline pins collapse to a single Following chip`() =
+        runTest {
+            coEvery { dataSource.getSavedFeedItems() } returns
+                listOf(
+                    savedFeed("1", "timeline", "following", pinned = true),
+                    savedFeed("2", "timeline", "following", pinned = true),
+                    savedFeed("3", "feed", "at://a", pinned = true),
+                )
+            coEvery { dataSource.getFeedGenerators(any()) } returns
+                listOf(generator("at://a", "Feed A", null))
+
+            val result = repo().loadPinnedFeeds()
+
+            // Only one Following chip despite two timeline pins.
+            assertEquals(listOf("following", "at://a"), result.feeds.map { it.uri })
+            assertEquals(1, result.feeds.count { it.kind == FeedKind.Following })
+        }
+
+    @Test
     fun `following entry carries no remote avatar`() =
         runTest {
             coEvery { dataSource.getSavedFeedItems() } returns
