@@ -22,6 +22,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:feed-mapping"))
+    implementation(project(":core:image"))
     implementation(project(":core:post-interactions"))
     implementation(project(":core:profile"))
     implementation(project(":data:models"))
@@ -60,6 +61,10 @@ dependencies {
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+    // Ktor MockEngine for the updateProfile write-path tests — stands up
+    // a real XrpcClient over deterministic getRecord/putRecord/uploadBlob
+    // responses (mirrors :core:posting/DefaultPostingRepositoryTest).
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
 
