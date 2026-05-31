@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.feed.impl.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,14 +13,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
@@ -219,7 +221,7 @@ internal fun FeedChipRow(
 /**
  * Bottom sheet picker for pinned lists.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun PinnedListsSheet(
     pinnedLists: ImmutableList<PinnedFeedUi>,
@@ -252,8 +254,11 @@ internal fun PinnedListsSheet(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
-            LazyColumn {
-                items(pinnedLists, key = { it.uri }) { list ->
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+            ) {
+                itemsIndexed(pinnedLists, key = { _, list -> list.uri }) { index, list ->
                     val isSelected = list.uri == selectedFeedUri
                     val itemClick = {
                         scope
@@ -266,16 +271,26 @@ internal fun PinnedListsSheet(
                                 }
                             }
                     }
-                    ListItem(
-                        headlineContent = { Text(list.displayName) },
+                    SegmentedListItem(
+                        selected = isSelected,
+                        onClick = { itemClick() },
+                        shapes = ListItemDefaults.segmentedShapes(index = index, count = pinnedLists.size),
+                        colors =
+                            ListItemDefaults.segmentedColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
                         trailingContent = {
                             RadioButton(
                                 selected = isSelected,
                                 onClick = { itemClick() },
                             )
                         },
-                        modifier = Modifier.clickable { itemClick() },
-                    )
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(list.displayName)
+                    }
                 }
             }
         }

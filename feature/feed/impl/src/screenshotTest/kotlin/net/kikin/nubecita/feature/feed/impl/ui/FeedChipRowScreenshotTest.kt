@@ -182,7 +182,12 @@ private fun FeedChipRowErrorFallbackScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "pinned-lists-sheet-layout", showBackground = true)
+@Preview(name = "pinned-lists-sheet-layout-light", showBackground = true)
+@Preview(
+    name = "pinned-lists-sheet-layout-dark",
+    showBackground = true,
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES,
+)
 @Composable
 private fun PinnedListsSheetLayoutScreenshot() {
     val lists =
