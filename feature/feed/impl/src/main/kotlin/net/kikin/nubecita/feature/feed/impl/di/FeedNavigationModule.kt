@@ -14,7 +14,7 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
 import net.kikin.nubecita.feature.feed.api.Feed
-import net.kikin.nubecita.feature.feed.impl.FeedScreen
+import net.kikin.nubecita.feature.feed.impl.FeedHost
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -49,7 +49,7 @@ internal object FeedNavigationModule {
                 // because the inner NavDisplay has no handler for that key.
                 // Same contract PostDetailNavigationModule uses.
                 val appNavigator = LocalAppNavigator.current
-                FeedScreen(
+                FeedHost(
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
                     onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
                     // Image-in-PostCard tap skips PostDetail — open the
