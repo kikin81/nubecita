@@ -11,8 +11,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.FeedType
+import net.kikin.nubecita.core.analytics.InteractPost
+import net.kikin.nubecita.core.analytics.PostAction
+import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
@@ -38,6 +45,7 @@ class FeedViewModel
         private val feedRepository: FeedRepository,
         private val postInteractionsCache: PostInteractionsCache,
         val sharedVideoPlayer: SharedVideoPlayer,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()) {
         /**
          * The feed this VM renders, bound once via [FeedEvent.Bind]
@@ -88,6 +96,16 @@ class FeedViewModel
                 is FeedEvent.OnQuotedPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.quotedPostUri))
                 is FeedEvent.OnVideoTapped -> sendEffect(FeedEffect.NavigateToVideoPlayer(event.postUri))
                 is FeedEvent.OnLikeClicked -> {
+                    // Fire-and-forget analytics at the like call site. The
+                    // action direction is read from the pre-tap viewer state:
+                    // a currently-liked post is being unliked. No PII — only
+                    // the action enum + the originating surface go on the wire.
+                    analytics.log(
+                        InteractPost(
+                            action = if (event.post.viewer.isLikedByViewer) PostAction.Unlike else PostAction.Like,
+                            surface = PostSurface.Feed,
+                        ),
+                    )
                     // Mark the latest user-tapped post so the screen can
                     // animate the count's ±1 transition. Sticky — sees
                     // through the optimistic flip in the cache that
@@ -100,6 +118,12 @@ class FeedViewModel
                     }
                 }
                 is FeedEvent.OnRepostClicked -> {
+                    analytics.log(
+                        InteractPost(
+                            action = if (event.post.viewer.isRepostedByViewer) PostAction.Unrepost else PostAction.Repost,
+                            surface = PostSurface.Feed,
+                        ),
+                    )
                     setState { copy(lastRepostTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
@@ -333,7 +357,24 @@ class FeedViewModel
                 }
         }
 
+        // Maps the bound feed to its analytics bucket. Generators split on the
+        // default Discover feed vs any other (custom) generator; boundFeedUri
+        // is used only for this comparison and is never logged.
+        private fun FeedKind.toAnalyticsFeedType(uri: String): FeedType =
+            when (this) {
+                FeedKind.Following -> FeedType.Following
+                FeedKind.List -> FeedType.List
+                FeedKind.Generator ->
+                    if (uri == PinnedFeedsRepository.DISCOVER_FEED_URI) FeedType.Discover else FeedType.Custom
+            }
+
         private fun applyInitialPage(page: TimelinePage) {
+            // view_feed fires once per successful initial load of the feed
+            // surface (not on refresh or pagination). feed_type is derived
+            // from the feed this VM is bound to, so Discover / lists / custom
+            // generators report distinctly now that the surface can switch
+            // feeds. No feed URI or other identifying value is ever attached.
+            analytics.log(ViewFeed(boundKind.toAnalyticsFeedType(boundFeedUri)))
             val deduped =
                 page.feedItems
                     .dedupeClusterContext()

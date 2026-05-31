@@ -30,6 +30,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsEvent
+import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.core.analytics.CreatePost
+import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -76,6 +81,11 @@ import java.util.concurrent.atomic.AtomicInteger
 @OptIn(ExperimentalCoroutinesApi::class)
 class DefaultPostingRepositoryTest {
     private val testDid = "did:plc:abc"
+
+    // Recording analytics sink so create_post emission can be asserted.
+    // A fresh instance per test method (JUnit instantiates the class per
+    // test) keeps `events` isolated between cases.
+    private val analytics = RecordingAnalyticsClient()
 
     @Test
     fun textOnlyPost_succeeds_andHitsCreateRecordOnce() =
@@ -375,6 +385,7 @@ class DefaultPostingRepositoryTest {
                     encoder = passthroughEncoder(),
                     facetExtractor = passthroughFacetExtractor(),
                     localeProvider = fixedLocaleProvider("en-US"),
+                    analytics = analytics,
                     dispatcher = UnconfinedTestDispatcher(),
                 )
 
@@ -696,6 +707,77 @@ class DefaultPostingRepositoryTest {
             assertTrue(body.contains("at://did:plc:alice/app.bsky.feed.post/parent"), "reply ref missing: $body")
         }
 
+    @Test
+    fun textOnlyPost_emitsCreatePost_withStructuralBooleansOnly() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/abc","cid":"bafyfeed"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            repo.createPost(text = "hello world", attachments = emptyList(), replyTo = null)
+
+            assertEquals(
+                listOf(CreatePost(hasMedia = false, isReply = false, isQuote = false)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun replyPost_emitsCreatePost_withIsReplyTrue() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/abc","cid":"bafyfeed"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+            val parentRef =
+                ReplyRefs(
+                    parent =
+                        StrongRef(
+                            uri = AtUri("at://did:plc:alice/app.bsky.feed.post/parent"),
+                            cid = Cid("bafyparent"),
+                        ),
+                    root =
+                        StrongRef(
+                            uri = AtUri("at://did:plc:alice/app.bsky.feed.post/parent"),
+                            cid = Cid("bafyparent"),
+                        ),
+                )
+
+            repo.createPost(text = "a reply", attachments = emptyList(), replyTo = parentRef)
+
+            assertEquals(
+                listOf(CreatePost(hasMedia = false, isReply = true, isQuote = false)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun failedPost_doesNotEmitCreatePost() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        throw java.io.IOException("simulated socket failure")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result = repo.createPost(text = "x", attachments = emptyList(), replyTo = null)
+
+            assertTrue(result.isFailure)
+            assertTrue(analytics.events.isEmpty(), "create_post must not fire on a failed write")
+        }
+
     private fun attachment(mime: String): ComposerAttachment = ComposerAttachment(uri = mockk(relaxed = true), mimeType = mime)
 
     private fun newRepo(
@@ -736,6 +818,7 @@ class DefaultPostingRepositoryTest {
                 encoder = encoder,
                 facetExtractor = facetExtractor,
                 localeProvider = localeProvider,
+                analytics = analytics,
                 dispatcher = UnconfinedTestDispatcher(),
             )
         return engine to repo
@@ -795,3 +878,15 @@ private fun OutgoingContent.toBodyBytes(): ByteArray =
         is OutgoingContent.ByteArrayContent -> bytes()
         else -> ByteArray(0)
     }
+
+private class RecordingAnalyticsClient : AnalyticsClient {
+    val events = mutableListOf<AnalyticsEvent>()
+
+    override fun log(event: AnalyticsEvent) {
+        events += event
+    }
+
+    override fun setUserProperty(property: UserProperty) = Unit
+
+    override fun logScreen(screen: AnalyticsScreen) = Unit
+}

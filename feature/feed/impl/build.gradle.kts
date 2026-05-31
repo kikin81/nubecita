@@ -50,6 +50,7 @@ android {
 dependencies {
     api(project(":feature:feed:api"))
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":core:feeds"))
