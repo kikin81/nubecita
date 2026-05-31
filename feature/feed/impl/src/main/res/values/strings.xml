@@ -21,6 +21,10 @@
 
     <string name="feed_error_action">Try again</string>
 
+    <!-- Snackbar shown when the pinned-feed directory couldn't be loaded
+         and the Feed fell back to the default Following/Discover chips. -->
+    <string name="feed_host_snackbar_feeds_fallback">Couldn\'t load your feeds — showing defaults</string>
+
     <!-- Snackbar messages — used by FeedScreen for FeedEffect.ShowError. -->
     <string name="feed_snackbar_error_network">Network error. Pull to retry.</string>
     <string name="feed_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>

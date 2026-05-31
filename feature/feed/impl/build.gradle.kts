@@ -52,7 +52,9 @@ dependencies {
 
     implementation(project(":core:auth"))
     implementation(project(":core:feed-mapping"))
+    implementation(project(":core:feeds"))
     implementation(project(":core:post-interactions"))
+    implementation(project(":core:preferences"))
     implementation(project(":core:video"))
     implementation(project(":data:models"))
     // ComposerRoute NavKey — pushed onto the back stack when the

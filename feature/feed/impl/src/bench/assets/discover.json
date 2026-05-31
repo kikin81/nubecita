@@ -1,0 +1,118 @@
+{
+  "_comment": "Discover (whats-hot generator) fixture for the :app bench flavor. Served by BenchFakeFeedRepository.getFeed(DISCOVER_FEED_URI). Deliberately distinct authors + text from timeline.json so a chip-row feed switch is unmistakable on-device and in screenshots. Schema mirrors timeline.json / BenchTimelineDto exactly: flat `post` with id/cid/author.did/createdAt, Single items only (the DTO supports no other variant), Images/Video embeds. Avatar + image assets reuse the shared CC pool under app/src/bench/assets/img/ produced by scripts/download-benchmark-images.sh (deterministic bench data, not real identities, so photo reuse across names is fine); video clips use the asset:/// scheme like timeline.json.",
+  "cursor": null,
+  "items": [
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:nova00000000000000000000/app.bsky.feed.post/3kdisc0001",
+        "cid": "bafyreidiscover0000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:nova00000000000000000000",
+          "handle": "nova.astro",
+          "displayName": "Nova Reyes",
+          "avatarUrl": "file:///android_asset/img/avatars/gabe.jpg"
+        },
+        "createdAt": "2026-05-27T16:40:00Z",
+        "text": "comet C/2026 K1 is naked-eye visible before dawn this week. faint smudge near the eastern horizon, best 40 minutes before sunrise away from city light. it will not be back for 50,000 years.",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 96, "repostCount": 311, "likeCount": 1420, "quoteCount": 22 },
+        "viewer": { "isLikedByViewer": false, "isRepostedByViewer": false, "isFollowingAuthor": false }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:maria0000000000000000000/app.bsky.feed.post/3kdisc0002",
+        "cid": "bafyreidiscover0000000000000000000000000000000000000000002",
+        "author": {
+          "did": "did:plc:maria0000000000000000000",
+          "handle": "maria.cooks",
+          "displayName": "Maria Lindqvist",
+          "avatarUrl": "file:///android_asset/img/avatars/elena.jpg"
+        },
+        "createdAt": "2026-05-27T15:10:00Z",
+        "text": "sourdough discard crackers, the trick is rolling them paper-thin and a hot oven. flaky sea salt on top. gone in ten minutes flat at the market stall today.",
+        "facets": [],
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "altText": "Thin seeded crackers on a baking sheet",
+              "aspectRatio": 1.5
+            }
+          ]
+        },
+        "stats": { "replyCount": 54, "repostCount": 132, "likeCount": 870, "quoteCount": 9 },
+        "viewer": { "isLikedByViewer": false, "isRepostedByViewer": false, "isFollowingAuthor": false }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:theo00000000000000000000/app.bsky.feed.post/3kdisc0003",
+        "cid": "bafyreidiscover0000000000000000000000000000000000000000003",
+        "author": {
+          "did": "did:plc:theo00000000000000000000",
+          "handle": "theo.builds",
+          "displayName": "Theo Adeyemi",
+          "avatarUrl": "file:///android_asset/img/avatars/fede.jpg"
+        },
+        "createdAt": "2026-05-27T13:25:00Z",
+        "text": "hot take: most keyboard shortcuts are discoverability debt the team never paid down. the fix is progressive disclosure, not removing the shortcut.",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 410, "repostCount": 640, "likeCount": 2200, "quoteCount": 88 },
+        "viewer": { "isLikedByViewer": true, "isRepostedByViewer": false, "isFollowingAuthor": false }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:lena00000000000000000000/app.bsky.feed.post/3kdisc0004",
+        "cid": "bafyreidiscover0000000000000000000000000000000000000000004",
+        "author": {
+          "did": "did:plc:lena00000000000000000000",
+          "handle": "lena.climbs",
+          "displayName": "Lena Hofer",
+          "avatarUrl": "file:///android_asset/img/avatars/diego.jpg"
+        },
+        "createdAt": "2026-05-27T11:00:00Z",
+        "text": "first ascent of the north arete, three days on the wall. the crux pitch goes free at last light, sound on for the rope drag.",
+        "facets": [],
+        "embed": {
+          "type": "Video",
+          "posterUrl": "file:///android_asset/img/posts/video-poster-2.jpg",
+          "playlistUrl": "asset:///video/clip-1.mp4",
+          "aspectRatio": 1.7777778,
+          "durationSeconds": 15,
+          "altText": "Climber on a granite arete at sunset"
+        },
+        "stats": { "replyCount": 188, "repostCount": 1240, "likeCount": 5300, "quoteCount": 140 },
+        "viewer": { "isLikedByViewer": false, "isRepostedByViewer": true, "isFollowingAuthor": false }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:orion0000000000000000000/app.bsky.feed.post/3kdisc0005",
+        "cid": "bafyreidiscover0000000000000000000000000000000000000000005",
+        "author": {
+          "did": "did:plc:orion0000000000000000000",
+          "handle": "orion.labs",
+          "displayName": "Orion Labs",
+          "avatarUrl": "file:///android_asset/img/avatars/orion.jpg"
+        },
+        "createdAt": "2026-05-27T08:30:00Z",
+        "text": "open-sourced the firmware for the soil-moisture sensor. solar, LoRa, ten-year battery on a coin cell. schematics and board files are in the repo, build one for your garden.",
+        "facets": [],
+        "embed": { "type": "Empty" },
+        "stats": { "replyCount": 240, "repostCount": 905, "likeCount": 3100, "quoteCount": 51 },
+        "viewer": { "isLikedByViewer": false, "isRepostedByViewer": false, "isFollowingAuthor": false }
+      }
+    }
+  ]
+}

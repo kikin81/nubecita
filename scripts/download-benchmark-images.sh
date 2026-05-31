@@ -133,7 +133,7 @@ resize_landscape "ridge-trail.jpg" "${ASSETS}/posts/ridge-trail.jpg" 600 800
 
 # ridge-flower — 1:1 macro wildflower.
 # Photo by Brittney Burnett, https://unsplash.com/photos/wM5pBd0d0aE
-fetch "https://images.unsplash.com/photo-1444930694458-01babe71870e?${UNSPLASH_OPTS}" "ridge-flower.jpg"
+fetch "https://images.unsplash.com/photo-1444930694458-01babf71870c?${UNSPLASH_OPTS}" "ridge-flower.jpg"
 resize_square "ridge-flower.jpg" "${ASSETS}/posts/ridge-flower.jpg" 800
 
 # tomato-truss — 4:3 garden close-up.
