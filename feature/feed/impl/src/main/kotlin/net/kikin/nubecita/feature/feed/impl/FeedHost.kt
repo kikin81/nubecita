@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -187,6 +188,12 @@ private fun ProvisionalFeedSelector(
     Row(
         modifier =
             Modifier
+                // The provisional selector sits above the pane's own Scaffold,
+                // so it must clear the status bar itself (the real FeedChipRow
+                // in a580.8 lives inside the Feed Scaffold and inherits its
+                // insets). Without this the row renders under the status bar
+                // and its taps are swallowed by the system bar.
+                .statusBarsPadding()
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
