@@ -96,6 +96,11 @@ be disabled by shipping a build that treats `isPro` as `false` if needed.
 
 ## Open Questions
 
-- `:core:billing` strict `api`/`impl` split vs single module with internal interface (default: split).
+- ~~`:core:billing` strict `api`/`impl` split vs single module with internal interface (default: split).~~
+  **Resolved (q5ge.1):** single `:core:billing` module — `public` repository
+  interfaces + `internal` impls + a `@Binds` `BillingModule`, matching the
+  established `:core:*` convention (`profile`/`posts`/`auth`). The provider impl
+  stays `internal`, so no consumer can reference a RevenueCat type; the extra
+  module the split would add buys nothing over this.
 - Whether a brand "supporter" accent color/token is introduced for the badge (design-system call).
 - Exact RevenueCat `purchases` version to pin in `libs.versions.toml` at implementation time.
