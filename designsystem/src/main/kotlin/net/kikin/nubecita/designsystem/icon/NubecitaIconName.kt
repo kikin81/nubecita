@@ -51,6 +51,7 @@ enum class NubecitaIconName(
     Inbox("\uE156"),
     IosShare("\uE6B8"),
     Language("\uE894"),
+    LocalFireDepartment("\uEF55"),
     LockPerson("\uF8F3"),
     Menu("\uE5D2"),
     MoreHoriz("\uE5D3"),
