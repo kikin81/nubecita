@@ -1,7 +1,12 @@
 package net.kikin.nubecita.feature.feed.impl.data
 
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
+import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
+import io.github.kikin81.atproto.app.bsky.feed.GetFeedRequest
+import io.github.kikin81.atproto.app.bsky.feed.GetListFeedRequest
 import io.github.kikin81.atproto.app.bsky.feed.GetTimelineRequest
+import io.github.kikin81.atproto.runtime.AtUri
+import io.github.kikin81.atproto.runtime.XrpcClient
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -20,20 +25,69 @@ internal class DefaultFeedRepository
             cursor: String?,
             limit: Int,
         ): Result<TimelinePage> =
+            fetchPage("getTimeline", cursor) {
+                FeedService(it)
+                    .getTimeline(
+                        GetTimelineRequest(
+                            cursor = cursor,
+                            limit = limit.toLong(),
+                        ),
+                    ).let { response -> response.feed to response.cursor }
+            }
+
+        override suspend fun getFeed(
+            feedUri: String,
+            cursor: String?,
+            limit: Int,
+        ): Result<TimelinePage> =
+            fetchPage("getFeed", cursor) {
+                FeedService(it)
+                    .getFeed(
+                        GetFeedRequest(
+                            feed = AtUri(feedUri),
+                            cursor = cursor,
+                            limit = limit.toLong(),
+                        ),
+                    ).let { response -> response.feed to response.cursor }
+            }
+
+        override suspend fun getListFeed(
+            listUri: String,
+            cursor: String?,
+            limit: Int,
+        ): Result<TimelinePage> =
+            fetchPage("getListFeed", cursor) {
+                FeedService(it)
+                    .getListFeed(
+                        GetListFeedRequest(
+                            list = AtUri(listUri),
+                            cursor = cursor,
+                            limit = limit.toLong(),
+                        ),
+                    ).let { response -> response.feed to response.cursor }
+            }
+
+        /**
+         * Shared fetch-and-map pipeline for all three feed kinds. [block]
+         * issues the kind-specific XRPC call against an authenticated
+         * client and returns the wire `(feed, cursor)` pair; this builds
+         * the one canonical [TimelinePage] shape via the same
+         * `toFeedItemsUi()` mapper. No kind-specific mapping branch — the
+         * three kinds all decode `List<FeedViewPost>`.
+         */
+        private suspend fun fetchPage(
+            operation: String,
+            cursor: String?,
+            block: suspend (client: XrpcClient) -> Pair<List<FeedViewPost>, String?>,
+        ): Result<TimelinePage> =
             withContext(dispatcher) {
                 runCatching {
                     val client = xrpcClientProvider.authenticated()
-                    val response =
-                        FeedService(client).getTimeline(
-                            GetTimelineRequest(
-                                cursor = cursor,
-                                limit = limit.toLong(),
-                            ),
-                        )
+                    val (feed, nextCursor) = block(client)
                     TimelinePage(
-                        feedItems = response.feed.toFeedItemsUi(),
-                        nextCursor = response.cursor,
-                        wirePosts = response.feed.toImmutableList(),
+                        feedItems = feed.toFeedItemsUi(),
+                        nextCursor = nextCursor,
+                        wirePosts = feed.toImmutableList(),
                     )
                 }.onFailure { throwable ->
                     // Surfaces the throwable identity that FeedViewModel's
@@ -47,7 +101,8 @@ internal class DefaultFeedRepository
                     // "null" here would defeat the entire diagnostic.
                     Timber.tag(TAG).e(
                         throwable,
-                        "getTimeline(cursor=%s) failed: %s",
+                        "%s(cursor=%s) failed: %s",
+                        operation,
                         cursor,
                         throwable.javaClass.name,
                     )

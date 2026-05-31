@@ -116,6 +116,22 @@ internal class BenchFakeFeedRepository
                 }
             }
 
+        // The bench journey only exercises the Following timeline; the
+        // generator / list kinds delegate to the same asset-backed page
+        // so a future bench feed-switch journey renders deterministically
+        // without a second fixture.
+        override suspend fun getFeed(
+            feedUri: String,
+            cursor: String?,
+            limit: Int,
+        ): Result<TimelinePage> = getTimeline(cursor, limit)
+
+        override suspend fun getListFeed(
+            listUri: String,
+            cursor: String?,
+            limit: Int,
+        ): Result<TimelinePage> = getTimeline(cursor, limit)
+
         private fun loadFromAsset(): TimelinePage {
             val stream =
                 try {

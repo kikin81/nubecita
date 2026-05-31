@@ -46,6 +46,21 @@ internal class FakeFeedRepository
             return Result.success(page)
         }
 
+        // Generator / list kinds return the same fixed [page] — the
+        // instrumentation tests assert render + tap routing, which is
+        // kind-agnostic, so a single fixture covers all three.
+        override suspend fun getFeed(
+            feedUri: String,
+            cursor: String?,
+            limit: Int,
+        ): Result<TimelinePage> = getTimeline(cursor, limit)
+
+        override suspend fun getListFeed(
+            listUri: String,
+            cursor: String?,
+            limit: Int,
+        ): Result<TimelinePage> = getTimeline(cursor, limit)
+
         companion object {
             val DEFAULT_TIMELINE: TimelinePage =
                 TimelinePage(

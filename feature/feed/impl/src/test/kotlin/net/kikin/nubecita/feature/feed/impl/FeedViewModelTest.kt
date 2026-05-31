@@ -18,6 +18,7 @@ import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -25,6 +26,7 @@ import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.toFeedItemsUi
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -59,6 +61,160 @@ internal class FeedViewModelTest {
             assertEquals(false, state.endReached)
             assertEquals(FeedLoadStatus.Idle, state.loadStatus)
             assertEquals(1, repo.invocations.size)
+        }
+
+    @Test
+    fun `unbound VM defaults to getTimeline (Following) on Load`() =
+        // Pin: a pane that never receives an explicit Bind (the pre-host
+        // FeedScreen) must still load the Following timeline.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(listOf("getTimeline"), repo.calls.map { it.method })
+        }
+
+    @Test
+    fun `Bind Following dispatches Load to getTimeline`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.calls.size)
+            val call = repo.calls.single()
+            assertEquals("getTimeline", call.method)
+            assertNull(call.cursor)
+        }
+
+    @Test
+    fun `Bind Generator dispatches Load to getFeed with feedUri and never getTimeline`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.calls.size)
+            val call = repo.calls.single()
+            assertEquals("getFeed", call.method)
+            assertEquals("at://did:plc:gen/app.bsky.feed.generator/art", call.feedUri)
+            assertNull(call.cursor)
+            assertTrue(repo.calls.none { it.method == "getTimeline" })
+        }
+
+    @Test
+    fun `Bind List dispatches Load to getListFeed with listUri`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:owner/app.bsky.graph.list/friends", kind = FeedKind.List))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.calls.size)
+            val call = repo.calls.single()
+            assertEquals("getListFeed", call.method)
+            assertEquals("at://did:plc:owner/app.bsky.graph.list/friends", call.feedUri)
+        }
+
+    @Test
+    fun `Generator pagination advances cursor only on successful append, via getFeed`() =
+        // Pin: pagination semantics are identical across kinds — cursor
+        // advances on a successful append, and the append dispatches to
+        // the bound kind (getFeed here, not getTimeline).
+        runTest(mainDispatcher.dispatcher) {
+            val page1 = TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1")
+            val page2 = TimelinePage(feedItems = feedItems("p3", "p4"), nextCursor = "c2")
+            val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            assertEquals("c1", vm.uiState.value.nextCursor)
+
+            vm.handleEvent(FeedEvent.LoadMore)
+            advanceUntilIdle()
+
+            assertEquals("c2", vm.uiState.value.nextCursor)
+            assertEquals(4, vm.uiState.value.feedItems.size)
+            assertEquals(listOf("getFeed", "getFeed"), repo.calls.map { it.method })
+            // Append carried the first page's cursor.
+            assertEquals("c1", repo.calls[1].cursor)
+        }
+
+    @Test
+    fun `re-Bind to a different feed resets the loaded slice`() =
+        runTest(mainDispatcher.dispatcher) {
+            val following = TimelinePage(feedItems = feedItems("f1", "f2"), nextCursor = "fc")
+            val generator = TimelinePage(feedItems = feedItems("g1"), nextCursor = null)
+            val repo = FakeFeedRepository(pages = listOf(Result.success(following), Result.success(generator)))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            assertEquals(2, vm.uiState.value.feedItems.size)
+
+            // Rebinding to a generator clears the Following slice so the
+            // next Load fetches the generator fresh instead of being
+            // short-circuited by the "feedItems already present" guard.
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
+            assertTrue(
+                vm.uiState.value.feedItems
+                    .isEmpty(),
+            )
+            assertNull(vm.uiState.value.nextCursor)
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            assertEquals(1, vm.uiState.value.feedItems.size)
+            assertEquals(listOf("getTimeline", "getFeed"), repo.calls.map { it.method })
+        }
+
+    @Test
+    fun `re-Bind to the same feed is a no-op and preserves the loaded slice`() =
+        // Pin: the host re-emits Bind on every recomposition of the pane's
+        // LaunchedEffect(feedUri); an idempotent same-pair bind must not
+        // wipe a loaded feed on tab re-entry.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("g1", "g2"), nextCursor = "gc"))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            val loaded = vm.uiState.value
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
+
+            assertSame(loaded, vm.uiState.value)
+            assertEquals(1, repo.calls.size)
         }
 
     @Test
@@ -1263,16 +1419,59 @@ private class FakeFeedRepository(
     private val pageProducer: (suspend (cursor: String?, limit: Int) -> Result<TimelinePage>)? = null,
 ) : FeedRepository {
     private val pageQueue = ArrayDeque(pages)
+
+    /**
+     * Every `getTimeline` / `getFeed` / `getListFeed` call, recorded in
+     * order. `invocations` preserves the original `(cursor, limit)` shape
+     * the existing Following tests assert against; `calls` adds the
+     * dispatched method + target URI so the kind-dispatch tests can prove
+     * the VM routed to the right repository method.
+     */
     val invocations = mutableListOf<Pair<String?, Int>>()
+    val calls = mutableListOf<Call>()
+
+    data class Call(
+        val method: String,
+        val feedUri: String?,
+        val cursor: String?,
+        val limit: Int,
+    )
 
     override suspend fun getTimeline(
+        cursor: String?,
+        limit: Int,
+    ): Result<TimelinePage> {
+        calls += Call("getTimeline", feedUri = null, cursor = cursor, limit = limit)
+        return nextPage("getTimeline", cursor, limit)
+    }
+
+    override suspend fun getFeed(
+        feedUri: String,
+        cursor: String?,
+        limit: Int,
+    ): Result<TimelinePage> {
+        calls += Call("getFeed", feedUri = feedUri, cursor = cursor, limit = limit)
+        return nextPage("getFeed", cursor, limit)
+    }
+
+    override suspend fun getListFeed(
+        listUri: String,
+        cursor: String?,
+        limit: Int,
+    ): Result<TimelinePage> {
+        calls += Call("getListFeed", feedUri = listUri, cursor = cursor, limit = limit)
+        return nextPage("getListFeed", cursor, limit)
+    }
+
+    private suspend fun nextPage(
+        method: String,
         cursor: String?,
         limit: Int,
     ): Result<TimelinePage> {
         invocations += cursor to limit
         return pageProducer?.invoke(cursor, limit)
             ?: pageQueue.removeFirstOrNull()
-            ?: error("FakeFeedRepository got an unexpected getTimeline call ($cursor, $limit)")
+            ?: error("FakeFeedRepository got an unexpected $method call ($cursor, $limit)")
     }
 }
 

@@ -5,6 +5,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -17,6 +18,7 @@ import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
@@ -36,6 +38,17 @@ internal class FeedViewModel
         private val postInteractionsCache: PostInteractionsCache,
         val sharedVideoPlayer: SharedVideoPlayer,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()) {
+        /**
+         * The feed this VM renders, bound once via [FeedEvent.Bind]
+         * before the first load. Defaults to the Following timeline so a
+         * pane that never receives an explicit bind (the pre-host
+         * `FeedScreen`) keeps working. [boundFeedUri] is unused while
+         * [boundKind] is [FeedKind.Following]; it carries the generator /
+         * list AT URI for the other two kinds.
+         */
+        private var boundFeedUri: String = ""
+        private var boundKind: FeedKind = FeedKind.Following
+
         init {
             viewModelScope.launch {
                 postInteractionsCache.state
@@ -47,6 +60,7 @@ internal class FeedViewModel
 
         override fun handleEvent(event: FeedEvent) {
             when (event) {
+                is FeedEvent.Bind -> bind(event.feedUri, event.kind)
                 FeedEvent.Load -> load()
                 FeedEvent.Refresh -> refresh()
                 FeedEvent.LoadMore -> loadMore()
@@ -124,6 +138,47 @@ internal class FeedViewModel
             setState { copy(feedItems = feedItems.replacePost(updated)) }
         }
 
+        /**
+         * Remember the `(feedUri, kind)` this VM renders. Binding to a
+         * new feed resets the loaded slice + pagination so the next
+         * [Load] fetches the new feed fresh; binding to the same pair is
+         * a no-op (the host re-emits `Bind` on every recomposition of the
+         * pane's `LaunchedEffect(feedUri)`, so idempotence is required to
+         * avoid wiping a loaded feed on tab re-entry).
+         */
+        private fun bind(
+            feedUri: String,
+            kind: FeedKind,
+        ) {
+            if (boundFeedUri == feedUri && boundKind == kind) return
+            boundFeedUri = feedUri
+            boundKind = kind
+            // Drop any slice from a previously-bound feed so load() doesn't
+            // short-circuit on its "feedItems already present" guard and
+            // render the wrong feed's posts.
+            setState {
+                copy(
+                    feedItems = persistentListOf(),
+                    nextCursor = null,
+                    endReached = false,
+                    loadStatus = FeedLoadStatus.Idle,
+                )
+            }
+        }
+
+        /**
+         * Dispatch a page fetch on the bound [FeedKind]. All three kinds
+         * return the same [TimelinePage] shape, so every caller
+         * (`load` / `refresh` / `loadMore`) handles the result identically
+         * regardless of kind — the dispatch is the only kind-aware seam.
+         */
+        private suspend fun fetchPage(cursor: String?): Result<TimelinePage> =
+            when (boundKind) {
+                FeedKind.Following -> feedRepository.getTimeline(cursor = cursor)
+                FeedKind.Generator -> feedRepository.getFeed(feedUri = boundFeedUri, cursor = cursor)
+                FeedKind.List -> feedRepository.getListFeed(listUri = boundFeedUri, cursor = cursor)
+            }
+
         private fun load() {
             // Allow initial load (from Idle, the default) and Retry from
             // InitialError. Any other status (InitialLoading, Refreshing,
@@ -145,8 +200,7 @@ internal class FeedViewModel
             if (uiState.value.feedItems.isNotEmpty()) return
             setState { copy(loadStatus = FeedLoadStatus.InitialLoading) }
             viewModelScope.launch {
-                feedRepository
-                    .getTimeline(cursor = null)
+                fetchPage(cursor = null)
                     .onSuccess { page -> applyInitialPage(page) }
                     .onFailure { throwable ->
                         setState {
@@ -165,8 +219,7 @@ internal class FeedViewModel
             if (uiState.value.loadStatus != FeedLoadStatus.Idle) return
             setState { copy(loadStatus = FeedLoadStatus.Refreshing) }
             viewModelScope.launch {
-                feedRepository
-                    .getTimeline(cursor = null)
+                fetchPage(cursor = null)
                     .onSuccess { page ->
                         // Replace head; cursor becomes the response cursor (may be null
                         // when the entire feed fits in one page).
@@ -204,8 +257,7 @@ internal class FeedViewModel
             if (current.loadStatus != FeedLoadStatus.Idle) return
             setState { copy(loadStatus = FeedLoadStatus.Appending) }
             viewModelScope.launch {
-                feedRepository
-                    .getTimeline(cursor = current.nextCursor)
+                fetchPage(cursor = current.nextCursor)
                     .onSuccess { page ->
                         // Page-boundary chain merge: if the existing tail's
                         // last chainable PostUi links (via the strict rule)
