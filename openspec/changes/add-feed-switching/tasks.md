@@ -56,11 +56,11 @@ order; every group ends green (`./gradlew spotlessCheck lint testDebugUnitTest` 
 
 ## 8. `:feature:feed:impl` — chip row UI  ·  `nubecita-a580.8`
 
-- [ ] 8.1 Build `FeedChipRow` (`LazyRow` of `FilterChip`s, 8dp spacing, 16dp content padding); avatar `leadingIcon` for generators, `Home`/`LocalFireDepartment` glyphs for defaults; selected = filled container with avatar kept (no checkmark); `Role.Tab` semantics.
-- [ ] 8.2 Add the trailing `[＋]` button → `LocalMainShellNavState.current.add(Feeds)`.
-- [ ] 8.3 Add the `[ Lists ⌄ ]` disclosure chip (shown only if ≥1 list) + `PinnedListsSheet` (`ModalBottomSheet` single-select radio); selecting relabels the chip and activates the list pane.
-- [ ] 8.4 Add scroll-away behavior tied to the active pane's `LazyListState`, reset to shown on switch.
-- [ ] 8.5 Screenshot tests: `FeedChipRow` (selected/unselected, avatar vs glyph, with/without disclosure chip), `PinnedListsSheet`, scrolled-away state.
+- [x] 8.1 Build `FeedChipRow` (`LazyRow` of `FilterChip`s, 8dp spacing, 16dp content padding); avatar `leadingIcon` for generators, `Home`/`LocalFireDepartment` glyphs for defaults; selected = filled container with avatar kept (no checkmark); `Role.Tab` semantics.
+- [x] 8.2 Add the trailing `[＋]` button → `LocalMainShellNavState.current.add(Feeds)`.
+- [x] 8.3 Add the `[ Lists ⌄ ]` disclosure chip (shown only if ≥1 list) + `PinnedListsSheet` (`ModalBottomSheet` single-select radio); selecting relabels the chip and activates the list pane.
+- [x] 8.4 Add scroll-away behavior tied to the active pane's `LazyListState`, reset to shown on switch.
+- [x] 8.5 Screenshot tests: `FeedChipRow` (selected/unselected, avatar vs glyph, with/without disclosure chip), `PinnedListsSheet`, scrolled-away state.
 
 ## 9. Adaptive + integration polish  ·  `nubecita-a580.9`
 

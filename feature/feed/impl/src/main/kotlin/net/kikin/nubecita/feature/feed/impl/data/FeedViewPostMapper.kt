@@ -28,7 +28,7 @@ import timber.log.Timber
  * filter then drops the entry. The function MUST NOT throw — every
  * spec-conforming `FeedViewPost` produces a non-null `PostUi`.
  */
-internal fun FeedViewPost.toPostUiOrNull(): PostUi? {
+fun FeedViewPost.toPostUiOrNull(): PostUi? {
     val core = post.toPostUiCore() ?: return null
     val repostedBy = (reason as? ReasonRepost)?.by?.let { it.displayName ?: it.handle.raw }
     return if (repostedBy != null) core.copy(repostedBy = repostedBy) else core
@@ -54,7 +54,7 @@ internal fun FeedViewPost.toPostUiOrNull(): PostUi? {
  * rendering the parent post inline — the context is implicit. Detailed
  * rationale in the openspec change `add-feed-cross-author-thread-cluster`.
  */
-internal fun FeedViewPost.toFeedItemUiOrNull(): FeedItemUi? {
+fun FeedViewPost.toFeedItemUiOrNull(): FeedItemUi? {
     val leaf = toPostUiOrNull() ?: return null
     val replyRef = reply ?: return FeedItemUi.Single(leaf)
 
@@ -130,7 +130,7 @@ private fun ReplyRef.hasEllipsisRelativeToRoot(rootAuthorDid: String): Boolean {
  * existing tail of `feedItems`. The mapper stays a pure per-page
  * function.
  */
-internal fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
+fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
     if (isEmpty()) return persistentListOf()
 
     val out = mutableListOf<FeedItemUi>()
@@ -178,7 +178,7 @@ internal fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
  * share the exact same definition — diverging interpretations would be
  * a silent bug.
  */
-internal fun linksTo(
+fun linksTo(
     prev: FeedViewPost,
     next: FeedViewPost,
 ): Boolean {
@@ -205,7 +205,7 @@ internal fun linksTo(
  * DID, parent URI matching) read off the next-side wire entry exactly
  * as in [linksTo].
  */
-internal fun PostUi.linksToWire(next: FeedViewPost): Boolean {
+fun PostUi.linksToWire(next: FeedViewPost): Boolean {
     if (this.repostedBy != null) return false
     if (next.reason is ReasonRepost) return false
     val replyRef = next.reply ?: return false

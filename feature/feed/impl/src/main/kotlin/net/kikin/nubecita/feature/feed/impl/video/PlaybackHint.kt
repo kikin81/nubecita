@@ -6,7 +6,7 @@ package net.kikin.nubecita.feature.feed.impl.video
  * MUST NOT round-trip these through the VM event stream — they are
  * card-local and self-clear via `coordinator.resume()`.
  */
-internal enum class PlaybackHint {
+enum class PlaybackHint {
     /** No hint. The bound card renders normally. */
     None,
 

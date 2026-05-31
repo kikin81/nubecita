@@ -32,7 +32,7 @@ import java.io.IOException
 import javax.inject.Inject
 
 @HiltViewModel
-internal class FeedViewModel
+class FeedViewModel
     @Inject
     constructor(
         private val feedRepository: FeedRepository,

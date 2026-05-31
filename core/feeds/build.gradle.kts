@@ -5,6 +5,12 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.core.feeds"
+
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
 }
 
 dependencies {

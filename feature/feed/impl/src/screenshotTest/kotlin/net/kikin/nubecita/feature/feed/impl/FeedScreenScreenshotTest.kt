@@ -253,6 +253,14 @@ private fun FeedScreenScreenshotHost(
             onRefresh = {},
             onRetry = {},
             onLoadMore = {},
+            feedChips = persistentListOf(),
+            pinnedLists = persistentListOf(),
+            selectedFeedUri = null,
+            status = FeedHostStatus.Ready,
+            onSelectFeed = {},
+            onSelectList = {},
+            onRetryFeeds = {},
+            onNavigateTo = {},
         )
     }
 }
