@@ -130,7 +130,14 @@ internal fun FeedHost(
  * retained across feed switches; [FeedEvent.Bind] is dispatched once per
  * pane (the VM no-ops a re-bind to the same feed, so no re-fetch on
  * return). Nav callbacks pass straight through to the pane's [FeedScreen].
+ *
+ * Suppresses the VM-forwarding lints for the same reason [FeedScreen] does:
+ * the pane intentionally hands its retained [FeedViewModel] (keyed on
+ * `feedUri` for per-feed retention) to the stateful [FeedScreen]. The
+ * compose-lints data-flow heuristic flags the forward, but hoisting the VM
+ * higher would break the per-`feedUri` retention this host exists to provide.
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 private fun FeedPane(
     feedUri: String,
@@ -142,8 +149,11 @@ private fun FeedPane(
     onNavigateTo: (NavKey) -> Unit,
     onComposeClick: () -> Unit,
     onReplyClick: (String) -> Unit,
+    // hiltViewModel acquisition lives in the default param value (keyed on
+    // the preceding `feedUri`) per the compose-lints ComposeViewModelInjection
+    // rule — keeps the pane VM injectable/overridable from tests + previews.
+    feedViewModel: FeedViewModel = hiltViewModel(key = feedUri),
 ) {
-    val feedViewModel: FeedViewModel = hiltViewModel(key = feedUri)
     LaunchedEffect(feedUri) {
         feedViewModel.handleEvent(FeedEvent.Bind(feedUri, kind))
     }
