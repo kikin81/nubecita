@@ -236,6 +236,7 @@ android {
 dependencies {
     implementation(platform(libs.coil.bom))
     implementation(platform(libs.firebase.bom))
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     // :core:posting types (ComposerError, ComposerAttachment) surface in
