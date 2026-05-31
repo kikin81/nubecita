@@ -39,6 +39,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import net.kikin.nubecita.R
+import net.kikin.nubecita.analytics.TrackScreenViews
 import net.kikin.nubecita.core.common.navigation.ComposerSubmitEventsBus
 import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
@@ -110,6 +111,7 @@ fun MainShell(modifier: Modifier = Modifier) {
         }
     val installers = remember(entryPoint) { entryPoint.mainShellEntryProviderInstallers() }
     val deepLinkRouter = remember(entryPoint) { entryPoint.deepLinkRouter() }
+    val analytics = remember(entryPoint) { entryPoint.analyticsClient() }
     val notificationsUnreadCountStore =
         remember(entryPoint) { entryPoint.notificationsUnreadCountStore() }
 
@@ -257,6 +259,12 @@ fun MainShell(modifier: Modifier = Modifier) {
     //    With only five destinations, a permanent drawer is overkill —
     //    collapse to rail in that case.
     val activeKey = mainShellNavState.backStack.lastOrNull()
+
+    // Manual screen_view for the inner NavDisplay. The flattened back
+    // stack's top is the visible destination (tab home or pushed sub-route);
+    // TrackScreenViews maps it to a stable AnalyticsScreen and de-dupes.
+    TrackScreenViews(topRoute = activeKey, analytics = analytics)
+
     val isTopLevel =
         remember(activeKey) {
             activeKey in TopLevelDestinations.map { it.key }

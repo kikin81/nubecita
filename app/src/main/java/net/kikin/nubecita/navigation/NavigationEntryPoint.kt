@@ -3,6 +3,7 @@ package net.kikin.nubecita.navigation
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.common.navigation.DeepLinkRouter
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.MainShell
@@ -65,4 +66,17 @@ interface NavigationEntryPoint {
      * the qualifier-tagged `EntryProviderInstaller` set.
      */
     fun notificationsUnreadCountStore(): NotificationsUnreadCountStore
+
+    /**
+     * The process-singleton analytics sink (`@Singleton`, bound to
+     * `FirebaseAnalyticsClient` in production / `NoOpAnalyticsClient` in
+     * bench). Both `NavDisplay` hosts (`MainNavigation`'s outer display and
+     * `MainShell`'s inner display) reach it through this entry point so the
+     * host-layer `TrackScreenViews` composable can emit a manual
+     * `screen_view` for each top `NavKey`. Composables can't constructor-
+     * inject, and analytics must never be observed from a ViewModel (the
+     * screen-tracking concern lives at the host layer, mirroring
+     * `LocalMainShellNavState` / `LocalTabReTapSignal`). See nubecita-049f.2.
+     */
+    fun analyticsClient(): AnalyticsClient
 }

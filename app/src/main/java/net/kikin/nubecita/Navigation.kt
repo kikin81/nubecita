@@ -15,6 +15,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.EntryPointAccessors
+import net.kikin.nubecita.analytics.TrackScreenViews
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.designsystem.NubecitaPalette
 import net.kikin.nubecita.designsystem.component.NubecitaLogomark
@@ -30,6 +31,12 @@ fun MainNavigation(modifier: Modifier = Modifier) {
         }
     val navigator = remember(entryPoint) { entryPoint.navigator() }
     val outerInstallers = remember(entryPoint) { entryPoint.outerEntryProviderInstallers() }
+    val analytics = remember(entryPoint) { entryPoint.analyticsClient() }
+
+    // Manual screen_view for the outer NavDisplay (Splash → Login →
+    // Onboarding → Main). Splash and Main map to null — Main delegates to
+    // MainShell's inner display, which tracks the real tab / sub-route.
+    TrackScreenViews(topRoute = navigator.backStack.lastOrNull(), analytics = analytics)
 
     CompositionLocalProvider(LocalAppNavigator provides navigator) {
         NavDisplay(

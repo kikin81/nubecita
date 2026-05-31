@@ -45,6 +45,18 @@
         <meta-data
             android:name="firebase_messaging_auto_init_enabled"
             android:value="false" />
+        <!--
+            Disable Firebase's automatic Activity-based screen_view reporting.
+            It is Activity/Fragment-based and cannot see our single-Activity
+            Jetpack Navigation 3 / Compose destinations, so it would only ever
+            report "MainActivity". We emit screen_view manually from the
+            NavDisplay host layer instead (see TrackScreenViews +
+            NavKey.toAnalyticsScreenOrNull, nubecita-049f.2), mapping each top
+            NavKey to a stable, PII-free AnalyticsScreen route name.
+        -->
+        <meta-data
+            android:name="google_analytics_automatic_screen_reporting_enabled"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
