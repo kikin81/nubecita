@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780128450346,
+  "lastUpdate": 1780215447325,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -155,6 +155,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1160.194,
             "range": "+/- 20.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "b28f43b7334a930da34b704282afd31694f63a95",
+          "message": "ci(release): 1.146.0\n\n## [1.146.0](https://github.com/kikin81/nubecita/compare/v1.145.0...v1.146.0) (2026-05-31)\n\n### Features\n\n* **feeds:** add feeds api nav stub and app placeholder ([#368](https://github.com/kikin81/nubecita/issues/368)) ([aea2dd7](https://github.com/kikin81/nubecita/commit/aea2dd710fd3beaab2ed810ffa06e09e9f2fd488))\n* **preferences:** persist last-selected feed uri ([#367](https://github.com/kikin81/nubecita/issues/367)) ([383c79c](https://github.com/kikin81/nubecita/commit/383c79c0564e2bbcb89bda7e06c8dd62a1d26b13))",
+          "timestamp": "2026-05-31T08:03:09Z",
+          "url": "https://github.com/kikin81/nubecita/commit/b28f43b7334a930da34b704282afd31694f63a95"
+        },
+        "date": 1780215446011,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 35,
+            "range": "+/- 12.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1351.793,
+            "range": "+/- 5.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1405.684,
+            "range": "+/- 6.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1018.042,
+            "range": "+/- 38.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1088.878,
+            "range": "+/- 20%",
             "unit": "ms"
           }
         ]
