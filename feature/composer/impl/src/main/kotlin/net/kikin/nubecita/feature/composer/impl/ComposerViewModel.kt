@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.common.text.GraphemeCounter
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostingRepository
@@ -27,7 +28,6 @@ import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
-import net.kikin.nubecita.feature.composer.impl.internal.GraphemeCounter
 import net.kikin.nubecita.feature.composer.impl.internal.findActiveMentionStart
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
