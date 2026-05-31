@@ -140,6 +140,64 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `Bind List getListFeed failure populates InitialError (dispatch-by-kind failure symmetry)`() =
+        // Pin: the List-bound failure path mirrors the getFeed/getTimeline
+        // failure tests — a Result.failure from getListFeed flows into
+        // InitialError, and the load dispatched on the List kind
+        // (getListFeed), never getTimeline.
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository(pages = listOf(Result.failure(IOException("list feed down"))))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:owner/app.bsky.graph.list/friends", kind = FeedKind.List))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is FeedLoadStatus.InitialError, "expected InitialError, got $status")
+            assertEquals(FeedError.Network, (status as FeedLoadStatus.InitialError).error)
+            assertTrue(
+                vm.uiState.value.feedItems
+                    .isEmpty(),
+            )
+            assertEquals(listOf("getListFeed"), repo.calls.map { it.method })
+        }
+
+    @Test
+    fun `Refresh on a Generator-bound VM dispatches to getFeed (dispatch-by-kind symmetry)`() =
+        // Pin: Refresh dispatches on the bound kind, just like Load —
+        // getFeed for a Generator binding, never getTimeline.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages =
+                        listOf(
+                            Result.success(TimelinePage(feedItems = feedItems("g1"), nextCursor = "gc1")),
+                            Result.success(TimelinePage(feedItems = feedItems("g2"), nextCursor = "gc2")),
+                        ),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.Refresh)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("g2"),
+                vm.uiState.value.feedItems
+                    .map { it.key },
+            )
+            assertEquals("gc2", vm.uiState.value.nextCursor)
+            assertEquals(listOf("getFeed", "getFeed"), repo.calls.map { it.method })
+            assertTrue(repo.calls.none { it.method == "getTimeline" })
+            // Refresh carried a null cursor (head re-fetch).
+            assertNull(repo.calls[1].cursor)
+        }
+
+    @Test
     fun `Generator pagination advances cursor only on successful append, via getFeed`() =
         // Pin: pagination semantics are identical across kinds — cursor
         // advances on a successful append, and the append dispatches to
@@ -215,6 +273,74 @@ internal class FeedViewModelTest {
 
             assertSame(loaded, vm.uiState.value)
             assertEquals(1, repo.calls.size)
+        }
+
+    @Test
+    fun `re-Bind cancels an in-flight load so the previous feed's page can't land in the new pane`() =
+        // Pin (.6 review): bind(A) → Load suspends inside getTimeline →
+        // bind(B) cancels the in-flight job and resets the slice → Load on
+        // B fetches B fresh. When the gated A-fetch is finally released its
+        // result must NOT write into the rebound pane, and the
+        // feedItems.isNotEmpty() guard must not short-circuit B's load.
+        runTest(mainDispatcher.dispatcher) {
+            val followingGate = CompletableDeferred<Result<TimelinePage>>()
+            val generatorPage =
+                Result.success(TimelinePage(feedItems = feedItems("g1", "g2"), nextCursor = "gc"))
+            val repo =
+                FakeFeedRepository(
+                    pageProducer = { method, _, _ ->
+                        when (method) {
+                            // Following (feed A) suspends until the test releases it.
+                            "getTimeline" -> followingGate.await()
+                            // Generator (feed B) resolves immediately.
+                            else -> generatorPage
+                        }
+                    },
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
+
+            // Bind A (Following) and start its load; it suspends on the gate.
+            vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            assertTrue(
+                vm.uiState.value.feedItems
+                    .isEmpty(),
+                "A's fetch is still suspended",
+            )
+            assertEquals(FeedLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
+
+            // Re-bind to B (Generator) while A's fetch is in flight, then load B.
+            vm.handleEvent(
+                FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator),
+            )
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            // B's page landed.
+            assertEquals(
+                listOf("g1", "g2"),
+                vm.uiState.value.feedItems
+                    .map { it.key },
+            )
+            assertEquals(FeedLoadStatus.Idle, vm.uiState.value.loadStatus)
+
+            // Now release A's gated fetch. Its continuation was cancelled by the
+            // re-bind, so the stale Following page must NOT overwrite B's slice.
+            followingGate.complete(
+                Result.success(TimelinePage(feedItems = feedItems("f1", "f2", "f3"), nextCursor = "fc")),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("g1", "g2"),
+                vm.uiState.value.feedItems
+                    .map { it.key },
+                "stale Following page must not land after re-bind",
+            )
+            assertEquals("gc", vm.uiState.value.nextCursor)
+            assertEquals(FeedLoadStatus.Idle, vm.uiState.value.loadStatus)
+            assertEquals(listOf("getTimeline", "getFeed"), repo.calls.map { it.method })
         }
 
     @Test
@@ -448,7 +574,7 @@ internal class FeedViewModelTest {
             val first = CompletableDeferred<Result<TimelinePage>>()
             val repo =
                 FakeFeedRepository(
-                    pageProducer = { _, _ ->
+                    pageProducer = { _, _, _ ->
                         first.await()
                     },
                 )
@@ -470,7 +596,7 @@ internal class FeedViewModelTest {
     fun `Refresh while InitialLoading is a no-op (mutually exclusive load modes)`() =
         runTest(mainDispatcher.dispatcher) {
             val first = CompletableDeferred<Result<TimelinePage>>()
-            val repo = FakeFeedRepository(pageProducer = { _, _ -> first.await() })
+            val repo = FakeFeedRepository(pageProducer = { _, _, _ -> first.await() })
             val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer)
 
             vm.handleEvent(FeedEvent.Load)
@@ -491,7 +617,7 @@ internal class FeedViewModelTest {
             var call = 0
             val repo =
                 FakeFeedRepository(
-                    pageProducer = { _, _ ->
+                    pageProducer = { _, _, _ ->
                         when (call++) {
                             0 -> initial // initial Load
                             else -> refreshDeferred.await() // first Refresh
@@ -521,7 +647,7 @@ internal class FeedViewModelTest {
             var call = 0
             val repo =
                 FakeFeedRepository(
-                    pageProducer = { _, _ ->
+                    pageProducer = { _, _, _ ->
                         when (call++) {
                             0 -> initial
                             else -> refreshDeferred.await()
@@ -552,7 +678,7 @@ internal class FeedViewModelTest {
             var call = 0
             val repo =
                 FakeFeedRepository(
-                    pageProducer = { _, _ ->
+                    pageProducer = { _, _, _ ->
                         when (call++) {
                             0 -> initial
                             else -> appendDeferred.await()
@@ -1416,7 +1542,7 @@ private fun samplePost(
 
 private class FakeFeedRepository(
     pages: List<Result<TimelinePage>> = emptyList(),
-    private val pageProducer: (suspend (cursor: String?, limit: Int) -> Result<TimelinePage>)? = null,
+    private val pageProducer: (suspend (method: String, cursor: String?, limit: Int) -> Result<TimelinePage>)? = null,
 ) : FeedRepository {
     private val pageQueue = ArrayDeque(pages)
 
@@ -1469,7 +1595,7 @@ private class FakeFeedRepository(
         limit: Int,
     ): Result<TimelinePage> {
         invocations += cursor to limit
-        return pageProducer?.invoke(cursor, limit)
+        return pageProducer?.invoke(method, cursor, limit)
             ?: pageQueue.removeFirstOrNull()
             ?: error("FakeFeedRepository got an unexpected $method call ($cursor, $limit)")
     }

@@ -7,6 +7,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -48,6 +49,20 @@ internal class FeedViewModel
          */
         private var boundFeedUri: String = ""
         private var boundKind: FeedKind = FeedKind.Following
+
+        /**
+         * The currently in-flight page fetch launched by [load] /
+         * [refresh] / [loadMore], or `null` when no fetch is running. A
+         * re-[bind] to a different feed cancels this before resetting the
+         * slice so a suspended fetch from the prior binding can't land its
+         * page into the new pane via [applyInitialPage] (and then have the
+         * `feedItems.isNotEmpty()` guard short-circuit the new feed's
+         * load). Cancellation only aborts the result-handling continuation;
+         * none of the fetch paths flip [FeedLoadStatus] in a `finally`, so a
+         * cancelled fetch leaves the status as [bind] resets it
+         * ([FeedLoadStatus.Idle]) rather than a stale loading state.
+         */
+        private var loadJob: Job? = null
 
         init {
             viewModelScope.launch {
@@ -139,12 +154,21 @@ internal class FeedViewModel
         }
 
         /**
-         * Remember the `(feedUri, kind)` this VM renders. Binding to a
-         * new feed resets the loaded slice + pagination so the next
-         * [Load] fetches the new feed fresh; binding to the same pair is
-         * a no-op (the host re-emits `Bind` on every recomposition of the
-         * pane's `LaunchedEffect(feedUri)`, so idempotence is required to
-         * avoid wiping a loaded feed on tab re-entry).
+         * Remember the `(feedUri, kind)` this VM renders. The host binds a
+         * per-`feedUri`-keyed VM once, before the first [Load]; re-binding
+         * to a *different* `(feedUri, kind)` cancels any in-flight page
+         * fetch from the prior binding and resets the loaded slice +
+         * pagination so the next [Load] fetches the new feed fresh.
+         * Re-binding to the same pair is a no-op (the host re-emits `Bind`
+         * on every recomposition of the pane's `LaunchedEffect(feedUri)`,
+         * so idempotence is required to avoid wiping a loaded feed on tab
+         * re-entry).
+         *
+         * Cancelling [loadJob] before the reset closes the race where a
+         * suspended fetch from the old binding resumes after the slice is
+         * cleared and writes its (now-stale) page into the new pane — the
+         * `feedItems.isNotEmpty()` guard in [load] would then short-circuit
+         * the new feed's load and leave the wrong content showing.
          */
         private fun bind(
             feedUri: String,
@@ -153,6 +177,10 @@ internal class FeedViewModel
             if (boundFeedUri == feedUri && boundKind == kind) return
             boundFeedUri = feedUri
             boundKind = kind
+            // Abort any fetch launched under the prior binding so its result
+            // continuation can't write a stale page after the reset below.
+            loadJob?.cancel()
+            loadJob = null
             // Drop any slice from a previously-bound feed so load() doesn't
             // short-circuit on its "feedItems already present" guard and
             // render the wrong feed's posts.
@@ -199,15 +227,16 @@ internal class FeedViewModel
             // in that state.
             if (uiState.value.feedItems.isNotEmpty()) return
             setState { copy(loadStatus = FeedLoadStatus.InitialLoading) }
-            viewModelScope.launch {
-                fetchPage(cursor = null)
-                    .onSuccess { page -> applyInitialPage(page) }
-                    .onFailure { throwable ->
-                        setState {
-                            copy(loadStatus = FeedLoadStatus.InitialError(throwable.toFeedError()))
+            loadJob =
+                viewModelScope.launch {
+                    fetchPage(cursor = null)
+                        .onSuccess { page -> applyInitialPage(page) }
+                        .onFailure { throwable ->
+                            setState {
+                                copy(loadStatus = FeedLoadStatus.InitialError(throwable.toFeedError()))
+                            }
                         }
-                    }
-            }
+                }
         }
 
         private fun refresh() {
@@ -218,31 +247,32 @@ internal class FeedViewModel
             // user's wrist).
             if (uiState.value.loadStatus != FeedLoadStatus.Idle) return
             setState { copy(loadStatus = FeedLoadStatus.Refreshing) }
-            viewModelScope.launch {
-                fetchPage(cursor = null)
-                    .onSuccess { page ->
-                        // Replace head; cursor becomes the response cursor (may be null
-                        // when the entire feed fits in one page).
-                        val refreshed =
-                            page.feedItems
-                                .dedupeClusterContext()
-                                .dedupeByKey()
-                                .toImmutableList()
-                        postInteractionsCache.seed(refreshed.allPosts())
-                        setState {
-                            copy(
-                                feedItems = refreshed,
-                                nextCursor = page.nextCursor,
-                                endReached = page.nextCursor == null,
-                                loadStatus = FeedLoadStatus.Idle,
-                            )
+            loadJob =
+                viewModelScope.launch {
+                    fetchPage(cursor = null)
+                        .onSuccess { page ->
+                            // Replace head; cursor becomes the response cursor (may be null
+                            // when the entire feed fits in one page).
+                            val refreshed =
+                                page.feedItems
+                                    .dedupeClusterContext()
+                                    .dedupeByKey()
+                                    .toImmutableList()
+                            postInteractionsCache.seed(refreshed.allPosts())
+                            setState {
+                                copy(
+                                    feedItems = refreshed,
+                                    nextCursor = page.nextCursor,
+                                    endReached = page.nextCursor == null,
+                                    loadStatus = FeedLoadStatus.Idle,
+                                )
+                            }
+                        }.onFailure { throwable ->
+                            // Preserve feedItems on refresh failure; surface as a snackbar.
+                            setState { copy(loadStatus = FeedLoadStatus.Idle) }
+                            sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
                         }
-                    }.onFailure { throwable ->
-                        // Preserve feedItems on refresh failure; surface as a snackbar.
-                        setState { copy(loadStatus = FeedLoadStatus.Idle) }
-                        sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
-                    }
-            }
+                }
         }
 
         private fun loadMore() {
@@ -256,50 +286,51 @@ internal class FeedViewModel
             // feedItems + nextCursor and the last writer wins non-deterministically.
             if (current.loadStatus != FeedLoadStatus.Idle) return
             setState { copy(loadStatus = FeedLoadStatus.Appending) }
-            viewModelScope.launch {
-                fetchPage(cursor = current.nextCursor)
-                    .onSuccess { page ->
-                        // Page-boundary chain merge: if the existing tail's
-                        // last chainable PostUi links (via the strict rule)
-                        // to the new page's first wire entry, absorb the
-                        // tail into the new page's first item before
-                        // appending. Per
-                        // `add-feed-same-author-thread-chain` design
-                        // Decision 3, arbitrary cursor cuts shouldn't
-                        // visually break a self-thread chain.
-                        val merge =
-                            mergeChainBoundary(
-                                existing = uiState.value.feedItems,
-                                newPageItems = page.feedItems,
-                                newPageWirePosts = page.wirePosts,
-                            )
-                        // De-dupe by FeedItemUi.key so a server returning a page
-                        // that overlaps the current tail (rare but possible during
-                        // cursor resyncs) doesn't show the same item twice. The
-                        // key is the leaf URI for ReplyCluster / SelfThreadChain
-                        // and the post URI for Single — stable across paging.
-                        val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
-                        val appended =
-                            (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
-                                .dedupeClusterContext()
-                                .dedupeByKey()
-                                .toImmutableList()
-                        postInteractionsCache.seed(page.feedItems.allPosts())
-                        setState {
-                            copy(
-                                feedItems = appended,
-                                nextCursor = page.nextCursor,
-                                endReached = page.nextCursor == null,
-                                loadStatus = FeedLoadStatus.Idle,
-                            )
+            loadJob =
+                viewModelScope.launch {
+                    fetchPage(cursor = current.nextCursor)
+                        .onSuccess { page ->
+                            // Page-boundary chain merge: if the existing tail's
+                            // last chainable PostUi links (via the strict rule)
+                            // to the new page's first wire entry, absorb the
+                            // tail into the new page's first item before
+                            // appending. Per
+                            // `add-feed-same-author-thread-chain` design
+                            // Decision 3, arbitrary cursor cuts shouldn't
+                            // visually break a self-thread chain.
+                            val merge =
+                                mergeChainBoundary(
+                                    existing = uiState.value.feedItems,
+                                    newPageItems = page.feedItems,
+                                    newPageWirePosts = page.wirePosts,
+                                )
+                            // De-dupe by FeedItemUi.key so a server returning a page
+                            // that overlaps the current tail (rare but possible during
+                            // cursor resyncs) doesn't show the same item twice. The
+                            // key is the leaf URI for ReplyCluster / SelfThreadChain
+                            // and the post URI for Single — stable across paging.
+                            val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
+                            val appended =
+                                (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
+                                    .dedupeClusterContext()
+                                    .dedupeByKey()
+                                    .toImmutableList()
+                            postInteractionsCache.seed(page.feedItems.allPosts())
+                            setState {
+                                copy(
+                                    feedItems = appended,
+                                    nextCursor = page.nextCursor,
+                                    endReached = page.nextCursor == null,
+                                    loadStatus = FeedLoadStatus.Idle,
+                                )
+                            }
+                        }.onFailure { throwable ->
+                            // Preserve feedItems AND cursor on append failure so the user
+                            // can retry from the same page boundary.
+                            setState { copy(loadStatus = FeedLoadStatus.Idle) }
+                            sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
                         }
-                    }.onFailure { throwable ->
-                        // Preserve feedItems AND cursor on append failure so the user
-                        // can retry from the same page boundary.
-                        setState { copy(loadStatus = FeedLoadStatus.Idle) }
-                        sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
-                    }
-            }
+                }
         }
 
         private fun applyInitialPage(page: TimelinePage) {

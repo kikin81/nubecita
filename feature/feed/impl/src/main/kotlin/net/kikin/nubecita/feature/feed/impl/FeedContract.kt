@@ -115,10 +115,13 @@ sealed interface FeedEvent : UiEvent {
      * `Generator → getFeed(feedUri, …)`, `List → getListFeed(feedUri, …)`.
      *
      * Emitted once from the host (a `LaunchedEffect(feedUri)` in the
-     * `FeedHost` task) before the first [Load]. Re-binding to a different
-     * `(feedUri, kind)` resets the loaded slice so the new feed loads
-     * fresh; re-binding to the same pair is a no-op. The Following pane
-     * keeps working without an explicit bind — the VM defaults to
+     * `FeedHost` task) before the first [Load]: the host binds a
+     * per-`feedUri`-keyed VM once. Re-binding to a different
+     * `(feedUri, kind)` cancels any in-flight load from the prior binding
+     * and resets the loaded slice so the new feed loads fresh — a stale
+     * page from the old feed can never land in the rebound pane.
+     * Re-binding to the same pair is a no-op. The Following pane keeps
+     * working without an explicit bind — the VM defaults to
      * [FeedKind.Following] (its `feedUri` is unused for that kind).
      */
     data class Bind(
