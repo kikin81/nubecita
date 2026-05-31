@@ -22,6 +22,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
@@ -121,7 +122,14 @@ internal class ProfileViewModel
                 is ProfileEvent.RetryTab -> onRetryTab(event.tab)
                 ProfileEvent.FollowTapped -> onFollowTapped()
                 ProfileEvent.EditTapped ->
-                    sendEffect(ProfileEffect.ShowComingSoon(StubbedAction.Edit))
+                    sendEffect(
+                        ProfileEffect.NavigateTo(
+                            EditProfile(
+                                displayName = uiState.value.header?.displayName,
+                                description = uiState.value.header?.bio,
+                            ),
+                        ),
+                    )
                 ProfileEvent.MessageTapped -> onMessageTapped()
                 is ProfileEvent.StubActionTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))

@@ -1,11 +1,12 @@
-package net.kikin.nubecita.feature.composer.impl.internal
+package net.kikin.nubecita.core.common.text
 
 import java.text.BreakIterator
 
 /**
- * Counts Unicode extended grapheme clusters in a string — what the
- * AT Protocol's 300-character post limit measures, and what the
- * composer's character counter renders.
+ * Counts Unicode extended grapheme clusters in a string — what the AT
+ * Protocol's character limits measure (the 300-grapheme post text, the
+ * 64-grapheme display name, the 256-grapheme profile description), and what
+ * the corresponding character counters render.
  *
  * Why not `text.length`? UTF-16 code units. A single emoji like 🎉
  * is 2 UTF-16 code units; a ZWJ-joined family emoji like 👨‍👩‍👧‍👦
@@ -15,11 +16,6 @@ import java.text.BreakIterator
  * than UTF-16 but still wrong for ZWJ sequences (each codepoint in
  * a multi-codepoint cluster counts separately). Overcounts.
  *
- * Why not the atproto SDK's `RichText` helper? The atproto-kotlin
- * 5.3.0 SDK doesn't ship one. If it lands later, swap this for the
- * SDK helper to keep counter behavior consistent with the lexicon
- * `MAX_GRAPHEMES` enforcement at the server.
- *
  * Implementation: `java.text.BreakIterator.getCharacterInstance()`
  * is JVM stdlib, no extra dep, Unicode-aware. Android's `BreakIterator`
  * is ICU-backed on API 24+ (our minSdk) — same algorithm. Some
@@ -28,7 +24,7 @@ import java.text.BreakIterator
  * cases, the count may be off by one. If we see counter-drift
  * complaints in production, swap to ICU4J or a pinned-Unicode lib.
  */
-internal object GraphemeCounter {
+object GraphemeCounter {
     /**
      * Returns the number of extended grapheme clusters in [text].
      */

@@ -86,4 +86,19 @@
     <string name="profile_header_error_title">Couldn\'t load profile</string>
     <string name="profile_header_error_retry">Try again</string>
 
+    <!-- Edit profile -->
+    <string name="edit_profile_title">Edit profile</string>
+    <string name="edit_profile_back_content_description">Back</string>
+    <string name="edit_profile_save">Save</string>
+    <string name="edit_profile_display_name_label">Display name</string>
+    <string name="edit_profile_bio_label">Bio</string>
+    <string name="edit_profile_grapheme_counter">%1$d/%2$d</string>
+    <string name="edit_profile_discard_title">Discard changes?</string>
+    <string name="edit_profile_discard_body">You have unsaved changes. Discard them?</string>
+    <string name="edit_profile_discard_confirm">Discard</string>
+    <string name="edit_profile_discard_cancel">Keep editing</string>
+    <string name="edit_profile_error_swap_conflict">Profile changed elsewhere. Reload and try again.</string>
+    <string name="edit_profile_error_unauthorized">You\'re signed out.</string>
+    <string name="edit_profile_error_network">Couldn\'t save your profile. Try again.</string>
+
 </resources>
