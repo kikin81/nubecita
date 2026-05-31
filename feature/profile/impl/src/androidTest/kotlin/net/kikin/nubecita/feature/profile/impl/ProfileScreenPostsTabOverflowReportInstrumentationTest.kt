@@ -15,6 +15,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -31,6 +32,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.moderation.api.ReportSubject
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.impl.data.ImageChange
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
@@ -116,6 +118,15 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
             )
         val fakeRepo =
             object : ProfileRepository {
+                override val ownProfileUpdates = MutableSharedFlow<Unit>()
+
+                override suspend fun updateProfile(
+                    displayName: String?,
+                    description: String?,
+                    avatar: ImageChange,
+                    banner: ImageChange,
+                ): Result<Unit> = Result.success(Unit)
+
                 override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> = Result.success(ProfileHeaderWithViewer(header, ViewerRelationship.NotFollowing()))
 
                 override suspend fun fetchTab(

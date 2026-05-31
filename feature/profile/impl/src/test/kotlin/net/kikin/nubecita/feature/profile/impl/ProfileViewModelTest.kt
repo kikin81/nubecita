@@ -5,7 +5,9 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
@@ -56,6 +58,34 @@ internal class ProfileViewModelTest {
             assertEquals(1, repo.tabCalls[ProfileTab.Posts]?.get())
             assertEquals(1, repo.tabCalls[ProfileTab.Replies]?.get())
             assertEquals(1, repo.tabCalls[ProfileTab.Media]?.get())
+        }
+
+    @Test
+    fun `own-profile save signal refetches the header`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeProfileRepository()
+            newVm(repo = repo) // route handle == null -> own profile
+            advanceUntilIdle()
+            assertEquals(1, repo.headerCalls.get(), "init loads the header once")
+
+            repo.emitOwnProfileUpdate()
+            advanceUntilIdle()
+
+            assertEquals(2, repo.headerCalls.get(), "an own-profile save MUST refetch the header")
+        }
+
+    @Test
+    fun `other-actor profile ignores the own-profile save signal`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeProfileRepository()
+            newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
+            advanceUntilIdle()
+            assertEquals(1, repo.headerCalls.get())
+
+            repo.emitOwnProfileUpdate()
+            advanceUntilIdle()
+
+            assertEquals(1, repo.headerCalls.get(), "a save can only target the OWN profile; skip refetch here")
         }
 
     @Test
@@ -1115,6 +1145,12 @@ internal class ProfileViewModelTest {
         private val followResult: Result<String> = Result.success(SAMPLE_FOLLOW_URI),
         private val unfollowResult: Result<Unit> = Result.success(Unit),
     ) : ProfileRepository {
+        private val _ownProfileUpdates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        override val ownProfileUpdates: SharedFlow<Unit> = _ownProfileUpdates
+
+        /** Simulates a successful own-profile write firing the refetch signal. */
+        suspend fun emitOwnProfileUpdate() = _ownProfileUpdates.emit(Unit)
+
         val headerCalls = AtomicInteger(0)
         val tabCalls: Map<ProfileTab, AtomicInteger> =
             ProfileTab.entries.associateWith { AtomicInteger(0) }

@@ -11,7 +11,9 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
@@ -97,6 +99,15 @@ internal class ProfileViewModel
                     .map { interactionMap -> uiState.value.applyInteractions(interactionMap) }
                     .distinctUntilChanged()
                     .collect { merged -> setState { merged } }
+            }
+            // When the user saves an edit to their OWN profile, refetch the
+            // header so the new name/bio/avatar/banner replace the stale ones
+            // under the (now-popped) editor. Only the own-profile screen can
+            // receive a write, so other-actor screens skip this collector.
+            if (uiState.value.ownProfile) {
+                repository.ownProfileUpdates
+                    .onEach { resolveActor()?.let(::launchHeaderLoad) }
+                    .launchIn(viewModelScope)
             }
         }
 

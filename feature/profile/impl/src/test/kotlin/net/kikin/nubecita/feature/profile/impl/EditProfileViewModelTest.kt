@@ -4,6 +4,7 @@ import android.net.Uri
 import app.cash.turbine.test
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.profile.api.EditProfile
@@ -244,6 +245,8 @@ class EditProfileViewModelTest {
         private val updateResult: Result<Unit> = Result.success(Unit),
         private val gate: CompletableDeferred<Unit>? = null,
     ) : ProfileRepository {
+        override val ownProfileUpdates = MutableSharedFlow<Unit>()
+
         var updateCalls = 0
         var lastDisplayName: String? = null
         var lastDescription: String? = null

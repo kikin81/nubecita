@@ -5,6 +5,7 @@ import io.github.kikin81.atproto.app.bsky.feed.GetAuthorFeedRequest
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.flow.SharedFlow
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 
@@ -26,6 +27,21 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
  * Bead-C brainstorming note on multi-account readiness.
  */
 internal interface ProfileRepository {
+    /**
+     * Emits once after every successful [updateProfile] write. A live
+     * own-profile [net.kikin.nubecita.feature.profile.impl.ProfileViewModel]
+     * collects this and refetches its header so the saved display name /
+     * bio / avatar / banner appear without a manual pull-to-refresh — in
+     * particular the authoritative avatar/banner CDN URLs, which the
+     * editor (holding only the uploaded bytes) cannot predict.
+     *
+     * Hot and replay-free: only ViewModels collecting at emit time react.
+     * A profile screen not yet composed relies on its own initial load,
+     * so it already shows fresh data; this signal only matters for the
+     * retained-but-covered own-profile screen sitting under the editor.
+     */
+    val ownProfileUpdates: SharedFlow<Unit>
+
     suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer>
 
     suspend fun fetchTab(
