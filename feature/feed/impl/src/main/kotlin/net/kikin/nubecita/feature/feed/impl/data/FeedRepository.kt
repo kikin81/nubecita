@@ -6,7 +6,12 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.FeedItemUi
 
 /**
- * `app.bsky.feed.getTimeline` fetch surface scoped to `:feature:feed:impl`.
+ * Multi-kind feed fetch surface scoped to `:feature:feed:impl`. Each
+ * method returns a [TimelinePage] of the same shape — the three feed
+ * kinds (`getTimeline` / `getFeed` / `getListFeed`) all decode a
+ * `List<FeedViewPost>` and flow through the same `toFeedItemsUi()`
+ * mapper, so `FeedViewModel`'s pagination, dedupe, and chain-merge logic
+ * is identical regardless of which kind produced the page.
  *
  * The interface is package-internal: no other module imports it. If a
  * second consumer (post detail, search) later needs the same fetch, the
@@ -14,7 +19,22 @@ import net.kikin.nubecita.data.models.FeedItemUi
  * `:core:feed` module.
  */
 internal interface FeedRepository {
+    /** The Following timeline (`app.bsky.feed.getTimeline`). */
     suspend fun getTimeline(
+        cursor: String?,
+        limit: Int = TIMELINE_PAGE_LIMIT,
+    ): Result<TimelinePage>
+
+    /** A generator / custom feed (`app.bsky.feed.getFeed`). */
+    suspend fun getFeed(
+        feedUri: String,
+        cursor: String?,
+        limit: Int = TIMELINE_PAGE_LIMIT,
+    ): Result<TimelinePage>
+
+    /** A list feed (`app.bsky.feed.getListFeed`). */
+    suspend fun getListFeed(
+        listUri: String,
         cursor: String?,
         limit: Int = TIMELINE_PAGE_LIMIT,
     ): Result<TimelinePage>

@@ -134,6 +134,76 @@ internal class DefaultFeedRepositoryTest {
             assertNull(page.nextCursor)
         }
 
+    @Test
+    fun `getFeed maps the generator response through the shared mapper`() =
+        runTest {
+            // The generator response is the same `{feed, cursor}` wire
+            // shape as the timeline, so the typical timeline fixture
+            // exercises the shared `toFeedItemsUi()` path verbatim.
+            val fixture = readFixture("timeline_typical.json")
+            val provider =
+                FakeXrpcClientProvider {
+                    XrpcClient(
+                        baseUrl = "https://example.test",
+                        httpClient = HttpClient(jsonMockEngine(fixture)),
+                    )
+                }
+            val repo = DefaultFeedRepository(provider, UnconfinedTestDispatcher(testScheduler))
+
+            val result =
+                repo.getFeed(
+                    feedUri = "at://did:plc:gen/app.bsky.feed.generator/art",
+                    cursor = null,
+                )
+
+            assertTrue(result.isSuccess, "expected success, got ${result.exceptionOrNull()}")
+            val page = result.getOrThrow()
+            assertEquals(3, page.feedItems.size)
+            assertEquals("next-page-cursor-typical", page.nextCursor)
+        }
+
+    @Test
+    fun `getListFeed maps the list response through the shared mapper`() =
+        runTest {
+            val fixture = readFixture("timeline_typical.json")
+            val provider =
+                FakeXrpcClientProvider {
+                    XrpcClient(
+                        baseUrl = "https://example.test",
+                        httpClient = HttpClient(jsonMockEngine(fixture)),
+                    )
+                }
+            val repo = DefaultFeedRepository(provider, UnconfinedTestDispatcher(testScheduler))
+
+            val result =
+                repo.getListFeed(
+                    listUri = "at://did:plc:owner/app.bsky.graph.list/friends",
+                    cursor = null,
+                )
+
+            assertTrue(result.isSuccess, "expected success, got ${result.exceptionOrNull()}")
+            val page = result.getOrThrow()
+            assertEquals(3, page.feedItems.size)
+            assertEquals("next-page-cursor-typical", page.nextCursor)
+        }
+
+    @Test
+    fun `getFeed network failure surfaces as Result_failure`() =
+        runTest {
+            val provider =
+                FakeXrpcClientProvider {
+                    XrpcClient(
+                        baseUrl = "https://example.test",
+                        httpClient = HttpClient(MockEngine { throw IOException("simulated network failure") }),
+                    )
+                }
+            val repo = DefaultFeedRepository(provider, UnconfinedTestDispatcher(testScheduler))
+
+            val result = repo.getFeed(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", cursor = null)
+
+            assertTrue(result.isFailure)
+        }
+
     private fun readFixture(name: String): String {
         val classLoader = checkNotNull(this::class.java.classLoader) { "test class loader missing" }
         return requireNotNull(classLoader.getResourceAsStream("fixtures/$name")) {

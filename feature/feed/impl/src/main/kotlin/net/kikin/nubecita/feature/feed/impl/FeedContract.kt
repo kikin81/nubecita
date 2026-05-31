@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.core.postinteractions.sharing.PostShareIntent
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
@@ -107,6 +108,27 @@ sealed interface FeedError {
 }
 
 sealed interface FeedEvent : UiEvent {
+    /**
+     * One-shot bind of the feed this VM renders. Carries the feed's AT
+     * URI and its [FeedKind] so the VM's load / refresh / append paths
+     * dispatch on kind: `Following → getTimeline`,
+     * `Generator → getFeed(feedUri, …)`, `List → getListFeed(feedUri, …)`.
+     *
+     * Emitted once from the host (a `LaunchedEffect(feedUri)` in the
+     * `FeedHost` task) before the first [Load]: the host binds a
+     * per-`feedUri`-keyed VM once. Re-binding to a different
+     * `(feedUri, kind)` cancels any in-flight load from the prior binding
+     * and resets the loaded slice so the new feed loads fresh — a stale
+     * page from the old feed can never land in the rebound pane.
+     * Re-binding to the same pair is a no-op. The Following pane keeps
+     * working without an explicit bind — the VM defaults to
+     * [FeedKind.Following] (its `feedUri` is unused for that kind).
+     */
+    data class Bind(
+        val feedUri: String,
+        val kind: FeedKind,
+    ) : FeedEvent
+
     /** First load on screen entry. Idempotent — repeated `Load` while loading is a no-op. */
     data object Load : FeedEvent
 
