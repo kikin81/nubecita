@@ -27,15 +27,17 @@ public data class SubscriptionOffering(
     /**
      * Whole-percent saved by paying annually instead of twelve monthly
      * charges — the paywall's "save N%" badge. Truncated toward zero so the
-     * headline never overstates the discount. Returns 0 when the monthly
-     * price is free (guards the divisor).
+     * headline never overstates the discount, and floored at 0 so a
+     * misconfigured/promo price where the annual plan is not actually cheaper
+     * suppresses the badge rather than advertising a negative discount.
+     * Returns 0 when the monthly price is free (guards the divisor).
      */
     val annualSavingsPercent: Int
         get() {
             val yearAtMonthlyRate = monthly.priceAmountMicros * MONTHS_PER_YEAR
             if (yearAtMonthlyRate <= 0L) return 0
             val saved = yearAtMonthlyRate - annual.priceAmountMicros
-            return ((saved * 100) / yearAtMonthlyRate).toInt()
+            return ((saved * 100) / yearAtMonthlyRate).toInt().coerceAtLeast(0)
         }
 
     private companion object {

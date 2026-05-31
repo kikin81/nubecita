@@ -23,7 +23,7 @@ import javax.inject.Singleton
  * (R8-strippable, "not for production"); this fake is wired into real builds.
  */
 @Singleton
-public class FakeBillingRepository
+internal class FakeBillingRepository
     @Inject
     constructor(
         private val entitlement: FakeEntitlementRepository,

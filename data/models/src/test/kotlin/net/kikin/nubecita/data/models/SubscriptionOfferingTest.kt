@@ -50,6 +50,20 @@ internal class SubscriptionOfferingTest {
     }
 
     @Test
+    fun `annualSavingsPercent is zero when the annual plan is not actually cheaper`() {
+        // A misconfigured / promo price where the annual plan costs MORE than
+        // twelve monthly charges must never surface a negative "save N%" badge.
+        // monthly $1.99 (12x = 23_880_000) vs annual $29.99 (29_990_000) ⇒ raw
+        // -25%, clamped to 0.
+        val offering =
+            SubscriptionOffering(
+                monthly = plan(SubscriptionPlanId.Monthly, BillingPeriod.Monthly, "$1.99", 1_990_000),
+                annual = plan(SubscriptionPlanId.Annual, BillingPeriod.Annual, "$29.99", 29_990_000),
+            )
+        assertEquals(0, offering.annualSavingsPercent)
+    }
+
+    @Test
     fun `annualSavingsPercent is zero when the monthly price is free`() {
         // Guards the savings divisor: a $0 monthly plan must not divide by zero.
         val offering =

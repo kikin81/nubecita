@@ -16,9 +16,14 @@ import javax.inject.Singleton
  * `@Singleton` so a single entitlement state is shared process-wide — the
  * same instance [FakeBillingRepository] flips on a simulated purchase is the
  * one features observe via [isPro].
+ *
+ * `internal` like the peer `Default*` repository impls (e.g.
+ * `core/profile/DefaultActorProfileRepository`): consumers reach it only
+ * through the [EntitlementRepository] interface bound by `BillingModule`, so
+ * nothing outside this module can call [setPro] and bypass the abstraction.
  */
 @Singleton
-public class FakeEntitlementRepository
+internal class FakeEntitlementRepository
     @Inject
     constructor() : EntitlementRepository {
         private val _isPro = MutableStateFlow(false)
@@ -27,8 +32,8 @@ public class FakeEntitlementRepository
         /** Nothing to sync for an in-memory entitlement; state only changes via [setPro]. */
         override suspend fun refresh() = Unit
 
-        /** Test / preview / simulated-purchase hook to drive the entitlement state. */
-        public fun setPro(value: Boolean) {
+        /** Simulated-purchase / test hook to drive the entitlement state. */
+        fun setPro(value: Boolean) {
             _isPro.value = value
         }
     }
