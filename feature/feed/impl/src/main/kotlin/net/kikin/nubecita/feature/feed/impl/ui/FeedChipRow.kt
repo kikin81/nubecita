@@ -254,9 +254,13 @@ internal fun PinnedListsSheet(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
+            // Rows span the full sheet width (no horizontal contentPadding):
+            // the header's 16dp content margin then aligns exactly with the
+            // SegmentedListItem's own internal leading inset, so the title
+            // sits flush with the row labels without reproducing M3's
+            // (non-public) ListItemStartPadding as a magic number.
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                contentPadding = PaddingValues(horizontal = 16.dp),
             ) {
                 itemsIndexed(pinnedLists, key = { _, list -> list.uri }) { index, list ->
                     val isSelected = list.uri == selectedFeedUri
