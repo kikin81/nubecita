@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import android.net.Uri
 import app.cash.turbine.test
+import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
@@ -12,6 +14,7 @@ import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import net.kikin.nubecita.feature.profile.impl.data.ProfileUpdateError
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -66,6 +69,64 @@ class EditProfileViewModelTest {
         assertTrue(state.isDescriptionOverLimit)
         assertFalse(state.canSave)
     }
+
+    @Test
+    fun imagePicked_opensCropForThatSlot() {
+        val uri = mockk<Uri>()
+        val vm = viewModel(EditProfile(displayName = "Alice"))
+        vm.handleEvent(EditProfileEvent.ImagePicked(ImageSlotKind.Avatar, uri))
+        assertEquals(CropRequest(uri = uri, slot = ImageSlotKind.Avatar), vm.uiState.value.croppingTarget)
+    }
+
+    @Test
+    fun cropCancelled_clearsCroppingTarget() {
+        val vm = viewModel(EditProfile(displayName = "Alice"))
+        vm.handleEvent(EditProfileEvent.ImagePicked(ImageSlotKind.Banner, mockk()))
+        vm.handleEvent(EditProfileEvent.CropCancelled)
+        assertNull(vm.uiState.value.croppingTarget)
+    }
+
+    @Test
+    fun imageCropped_setsCroppedSlot_clearsCrop_andMarksDirty() {
+        val bytes = byteArrayOf(1, 2, 3)
+        val vm = viewModel(EditProfile(displayName = "Alice"))
+        vm.handleEvent(EditProfileEvent.ImagePicked(ImageSlotKind.Avatar, mockk()))
+        vm.handleEvent(EditProfileEvent.ImageCropped(ImageSlotKind.Avatar, bytes, "image/webp"))
+        val state = vm.uiState.value
+        assertEquals(ImageSlot.Cropped(bytes, "image/webp"), state.avatar)
+        assertNull(state.croppingTarget)
+        assertTrue(state.isDirty)
+        assertTrue(state.canSave)
+    }
+
+    @Test
+    fun removeImage_clearsSlot_andMarksDirty() {
+        val vm = viewModel(EditProfile(displayName = "Alice", avatarUrl = "https://a.test/x.jpg"))
+        vm.handleEvent(EditProfileEvent.RemoveImage(ImageSlotKind.Avatar))
+        assertEquals(ImageSlot.Removed, vm.uiState.value.avatar)
+        assertTrue(vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun save_mapsImageSlotsToImageChanges() =
+        runTest {
+            val repo = FakeProfileRepository()
+            val vm =
+                viewModel(
+                    EditProfile(displayName = "Alice", avatarUrl = "https://a.test/x.jpg", bannerUrl = "https://b.test/y.jpg"),
+                    repo,
+                )
+            vm.handleEvent(EditProfileEvent.ImageCropped(ImageSlotKind.Avatar, byteArrayOf(9), "image/webp"))
+            vm.handleEvent(EditProfileEvent.RemoveImage(ImageSlotKind.Banner))
+
+            vm.effects.test {
+                vm.handleEvent(EditProfileEvent.SaveTapped)
+                assertEquals(EditProfileEffect.NavigateBack, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(ImageChange.Replaced(byteArrayOf(9), "image/webp"), repo.lastAvatar)
+            assertEquals(ImageChange.Removed, repo.lastBanner)
+        }
 
     @Test
     fun save_success_callsUpdateProfile_andEmitsNavigateBack() =

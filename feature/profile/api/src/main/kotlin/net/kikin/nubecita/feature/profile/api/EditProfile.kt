@@ -8,11 +8,13 @@ import kotlinx.serialization.Serializable
  * full-screen `@MainShell` sub-route pushed onto the active tab's back
  * stack from the own-profile Edit button (like Settings).
  *
- * [displayName] and [description] pre-fill the form from the current
- * profile header so the screen renders populated without a refetch; they
- * are passed by value into [Serializable]-friendly primitives and read by
- * `EditProfileViewModel` via its assisted factory. Both are nullable
- * because a brand-new account may have neither set yet.
+ * [displayName], [description], [avatarUrl], and [bannerUrl] pre-fill the
+ * form from the current profile header so the screen renders populated
+ * without a refetch; they are passed by value into [Serializable]-friendly
+ * primitives and read by `EditProfileViewModel` via its assisted factory.
+ * All are nullable because a brand-new account may have none of them set.
+ * The image URLs seed the avatar/banner previews until the user picks a new
+ * image or removes one.
  *
  * Editing is own-profile only, so this key carries no actor/handle — the
  * write path resolves the authenticated DID itself.
@@ -21,4 +23,6 @@ import kotlinx.serialization.Serializable
 data class EditProfile(
     val displayName: String? = null,
     val description: String? = null,
+    val avatarUrl: String? = null,
+    val bannerUrl: String? = null,
 ) : NavKey

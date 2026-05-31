@@ -23,6 +23,8 @@ private fun EditProfileEmptyPreview() {
         EditProfileContent(
             state = EditProfileViewState(),
             onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
         )
     }
 }
@@ -45,6 +47,8 @@ private fun EditProfilePopulatedPreview() {
                     isDirty = true,
                 ),
             onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
         )
     }
 }
@@ -65,6 +69,33 @@ private fun EditProfileOverLimitPreview() {
                     isDirty = true,
                 ),
             onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "edit-profile-with-images-light", showBackground = true)
+@Preview(name = "edit-profile-with-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun EditProfileWithImagesPreview() {
+    NubecitaCanvasPreviewTheme {
+        EditProfileContent(
+            // Original(url) slots render the camera + remove badges over the
+            // async-image placeholder (the URLs don't resolve in screenshot tests).
+            state =
+                EditProfileViewState(
+                    displayName = "Alice",
+                    description = "Coffee, Kotlin, and cloud-watching.",
+                    displayNameGraphemes = 5,
+                    descriptionGraphemes = 35,
+                    avatar = ImageSlot.Original("https://example.test/avatar.jpg"),
+                    banner = ImageSlot.Original("https://example.test/banner.jpg"),
+                ),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
         )
     }
 }

@@ -3,8 +3,11 @@ package net.kikin.nubecita.feature.profile.impl
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,6 +35,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.image.CropImage
+import net.kikin.nubecita.core.image.CropShape
+import net.kikin.nubecita.core.image.rememberImagePicker
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
@@ -86,15 +92,38 @@ internal fun EditProfileScreen(
         }
     }
 
-    // App-bar up and system back share the dirty guard in the VM. While the
-    // discard dialog is up, system-back dismisses it (matching the dialog's
-    // own onDismissRequest) instead of re-triggering the guard.
+    // System back: cancel an active crop first, then dismiss the discard dialog,
+    // else run the dirty guard. (The crop surface has no BackHandler of its own.)
     BackHandler {
-        if (state.showDiscardDialog) {
-            viewModel.handleEvent(EditProfileEvent.DiscardDismissed)
-        } else {
-            viewModel.handleEvent(EditProfileEvent.BackPressed)
+        when {
+            state.croppingTarget != null -> viewModel.handleEvent(EditProfileEvent.CropCancelled)
+            state.showDiscardDialog -> viewModel.handleEvent(EditProfileEvent.DiscardDismissed)
+            else -> viewModel.handleEvent(EditProfileEvent.BackPressed)
         }
+    }
+
+    // Single-image pickers, one per slot, each routing to the matching slot.
+    val pickAvatar =
+        rememberImagePicker(remainingCapacity = 1) { picked ->
+            picked.firstOrNull()?.let { viewModel.handleEvent(EditProfileEvent.ImagePicked(ImageSlotKind.Avatar, it.uri)) }
+        }
+    val pickBanner =
+        rememberImagePicker(remainingCapacity = 1) { picked ->
+            picked.firstOrNull()?.let { viewModel.handleEvent(EditProfileEvent.ImagePicked(ImageSlotKind.Banner, it.uri)) }
+        }
+
+    val cropping = state.croppingTarget
+    if (cropping != null) {
+        // Full-screen crop surface, modal over the form (form state is preserved
+        // in the VM); confirm/cancel route back to the slot.
+        CropImage(
+            sourceUri = cropping.uri,
+            shape = if (cropping.slot == ImageSlotKind.Avatar) CropShape.AvatarCircle else CropShape.Banner,
+            onCrop = { bytes, mime -> viewModel.handleEvent(EditProfileEvent.ImageCropped(cropping.slot, bytes, mime)) },
+            onCancel = { viewModel.handleEvent(EditProfileEvent.CropCancelled) },
+            modifier = modifier.fillMaxSize(),
+        )
+        return
     }
 
     Scaffold(
@@ -133,6 +162,8 @@ internal fun EditProfileScreen(
         EditProfileContent(
             state = state,
             onEvent = viewModel::handleEvent,
+            onPickAvatar = pickAvatar,
+            onPickBanner = pickBanner,
             modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
         )
     }
@@ -150,6 +181,8 @@ internal fun EditProfileScreen(
 internal fun EditProfileContent(
     state: EditProfileViewState,
     onEvent: (EditProfileEvent) -> Unit,
+    onPickAvatar: () -> Unit,
+    onPickBanner: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -161,6 +194,17 @@ internal fun EditProfileContent(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        EditProfileImages(
+            banner = state.banner,
+            avatar = state.avatar,
+            onPickBanner = onPickBanner,
+            onPickAvatar = onPickAvatar,
+            onRemoveBanner = { onEvent(EditProfileEvent.RemoveImage(ImageSlotKind.Banner)) },
+            onRemoveAvatar = { onEvent(EditProfileEvent.RemoveImage(ImageSlotKind.Avatar)) },
+        )
+        // Reserve room for the avatar's overhang below the banner.
+        Spacer(Modifier.height(44.dp))
+
         OutlinedTextField(
             value = state.displayName,
             onValueChange = { onEvent(EditProfileEvent.DisplayNameChanged(it)) },
