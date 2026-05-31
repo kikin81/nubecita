@@ -1,23 +1,36 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
@@ -32,23 +45,24 @@ internal fun ImageSlot.model(): Any? =
         ImageSlot.Removed -> null
     }
 
-/** Whether a "remove" affordance applies (there's an image to clear). */
-internal fun ImageSlot.isRemovable(): Boolean =
+/** Whether the slot currently shows an image (drives pencil-vs-＋ and the remove menu). */
+internal fun ImageSlot.hasImage(): Boolean =
     when (this) {
         is ImageSlot.Original -> url != null
         is ImageSlot.Cropped -> true
         ImageSlot.Removed -> false
     }
 
-private val BANNER_OVERHANG = 36.dp
 private val AVATAR_SIZE = 88.dp
+private val AVATAR_OVERHANG = 28.dp
+private val BANNER_CORNER = 16.dp
 
 /**
- * The avatar + banner editor header, matching `ProfileHero`'s overlap: a wide
- * 3:1 banner with the circular avatar overhanging its bottom-start edge. Each
- * image is tap-to-pick (a camera badge signals it) with a remove badge when an
- * image is present. The [BANNER_OVERHANG] of avatar overhang is reserved by the
- * caller (a spacer below) so the avatar doesn't collide with the form.
+ * The avatar + banner editor, presented M3-Expressive style: a titled card with
+ * an overflow menu for removals, a wide 3:1 banner, and the circular avatar
+ * overhanging its bottom-start edge (matching `ProfileHero`). Each image carries
+ * an overlapping pencil / ＋ edit button set in a card-colored "notch" so it
+ * reads as cut into the image (the Google Contacts photo-editor pattern).
  */
 @Composable
 internal fun EditProfileImages(
@@ -60,99 +74,168 @@ internal fun EditProfileImages(
     onRemoveAvatar: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier = modifier.fillMaxWidth()) {
-        EditableImage(
-            model = banner.model(),
-            removable = banner.isRemovable(),
-            onPick = onPickBanner,
-            onRemove = onRemoveBanner,
-            contentDescription = stringResource(R.string.edit_profile_banner_content_description),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(3f)
-                    .clip(RoundedCornerShape(12.dp)),
-        )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    ) {
+        Column(modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.edit_profile_photos_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f).padding(top = 12.dp),
+                )
+                ImagesOverflowMenu(
+                    canRemoveAvatar = avatar.hasImage(),
+                    canRemoveBanner = banner.hasImage(),
+                    onRemoveAvatar = onRemoveAvatar,
+                    onRemoveBanner = onRemoveBanner,
+                )
+            }
 
-        EditableImage(
-            model = avatar.model(),
-            removable = avatar.isRemovable(),
-            onPick = onPickAvatar,
-            onRemove = onRemoveAvatar,
-            contentDescription = stringResource(R.string.edit_profile_avatar_content_description),
+            Box(modifier = Modifier.fillMaxWidth().padding(end = 12.dp)) {
+                EditableImage(
+                    model = banner.model(),
+                    hasImage = banner.hasImage(),
+                    onPick = onPickBanner,
+                    imageShape = RoundedCornerShape(BANNER_CORNER),
+                    contentDescription = stringResource(R.string.edit_profile_banner_content_description),
+                    editContentDescription = stringResource(R.string.edit_profile_change_banner_content_description),
+                    badgeAlignment = Alignment.TopEnd,
+                    badgeOffsetX = (-6).dp,
+                    badgeOffsetY = 6.dp,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(3f),
+                )
+
+                EditableImage(
+                    model = avatar.model(),
+                    hasImage = avatar.hasImage(),
+                    onPick = onPickAvatar,
+                    imageShape = CircleShape,
+                    contentDescription = stringResource(R.string.edit_profile_avatar_content_description),
+                    editContentDescription = stringResource(R.string.edit_profile_change_avatar_content_description),
+                    // Nudge the badge onto the circle's top-right edge (~1–2 o'clock).
+                    badgeAlignment = Alignment.TopEnd,
+                    badgeOffsetX = (-2).dp,
+                    badgeOffsetY = 14.dp,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .offset(y = AVATAR_OVERHANG)
+                            .size(AVATAR_SIZE),
+                )
+            }
+            // Reserve room for the avatar's overhang below the banner.
+            Spacer(Modifier.height(AVATAR_OVERHANG))
+        }
+    }
+}
+
+@Composable
+private fun ImagesOverflowMenu(
+    canRemoveAvatar: Boolean,
+    canRemoveBanner: Boolean,
+    onRemoveAvatar: () -> Unit,
+    onRemoveBanner: () -> Unit,
+) {
+    Box {
+        var expanded by remember { mutableStateOf(false) }
+        IconButton(onClick = { expanded = true }, enabled = canRemoveAvatar || canRemoveBanner) {
+            NubecitaIcon(
+                name = NubecitaIconName.MoreVert,
+                contentDescription = stringResource(R.string.edit_profile_more_options_content_description),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.edit_profile_remove_profile_photo)) },
+                enabled = canRemoveAvatar,
+                onClick = {
+                    expanded = false
+                    onRemoveAvatar()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.edit_profile_remove_banner_photo)) },
+                enabled = canRemoveBanner,
+                onClick = {
+                    expanded = false
+                    onRemoveBanner()
+                },
+            )
+        }
+    }
+}
+
+/**
+ * One tappable image (clipped to [imageShape]) with an overlapping pencil / ＋
+ * edit button. The image and the badge are siblings in an unclipped box so the
+ * badge can straddle the image edge without being clipped.
+ */
+@Composable
+private fun EditableImage(
+    model: Any?,
+    hasImage: Boolean,
+    onPick: () -> Unit,
+    imageShape: Shape,
+    contentDescription: String,
+    editContentDescription: String,
+    badgeAlignment: Alignment,
+    badgeOffsetX: androidx.compose.ui.unit.Dp,
+    badgeOffsetY: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        Box(
             modifier =
                 Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 16.dp)
-                    .offset(y = BANNER_OVERHANG)
-                    .size(AVATAR_SIZE)
-                    .clip(CircleShape),
+                    .matchParentSize()
+                    .clip(imageShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+        ) {
+            if (model != null) {
+                NubecitaAsyncImage(
+                    model = model,
+                    contentDescription = contentDescription,
+                    modifier = Modifier.matchParentSize(),
+                )
+            }
+        }
+        EditBadge(
+            hasImage = hasImage,
+            onClick = onPick,
+            contentDescription = editContentDescription,
+            modifier = Modifier.align(badgeAlignment).offset(x = badgeOffsetX, y = badgeOffsetY),
         )
     }
 }
 
 /**
- * One tappable, editable image. Renders the image (or a placeholder), a
- * centered camera badge to signal tap-to-change, and a top-end remove badge
- * when [removable]. The caller supplies the size + clip via [modifier].
+ * The pencil (image set) / ＋ (no image) edit button, set in a card-colored ring
+ * so it appears notched into the image behind it. The inner `FilledTonalIconButton`
+ * provides the M3 tonal fill + ripple.
  */
 @Composable
-private fun EditableImage(
-    model: Any?,
-    removable: Boolean,
-    onPick: () -> Unit,
-    onRemove: () -> Unit,
+private fun EditBadge(
+    hasImage: Boolean,
+    onClick: () -> Unit,
     contentDescription: String,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier =
-            modifier
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .clickable(onClick = onPick),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (model != null) {
-            NubecitaAsyncImage(
-                model = model,
-                contentDescription = contentDescription,
-                modifier = Modifier.matchParentSize(),
-            )
-        }
-        // Camera badge — on a translucent scrim disc so it reads over any image.
-        Surface(
-            shape = CircleShape,
-            color = Color.Black.copy(alpha = 0.45f),
-            contentColor = Color.White,
-        ) {
-            NubecitaIcon(
-                name = NubecitaIconName.AddPhotoAlternate,
-                contentDescription = null,
-                modifier = Modifier.padding(6.dp).size(22.dp),
-            )
-        }
-        if (removable) {
-            RemoveBadge(onRemove = onRemove, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp))
-        }
-    }
-}
-
-@Composable
-private fun BoxScope.RemoveBadge(
-    onRemove: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
     Surface(
-        onClick = onRemove,
         shape = CircleShape,
-        color = Color.Black.copy(alpha = 0.55f),
-        contentColor = Color.White,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = modifier,
     ) {
-        NubecitaIcon(
-            name = NubecitaIconName.Close,
-            contentDescription = stringResource(R.string.edit_profile_remove_image_content_description),
-            modifier = Modifier.padding(4.dp).size(18.dp),
-        )
+        FilledTonalIconButton(
+            onClick = onClick,
+            modifier = Modifier.padding(3.dp).size(32.dp),
+        ) {
+            NubecitaIcon(
+                name = if (hasImage) NubecitaIconName.Edit else NubecitaIconName.Add,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(18.dp),
+            )
+        }
     }
 }
