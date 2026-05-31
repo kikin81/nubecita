@@ -24,7 +24,7 @@ import javax.inject.Inject
  * switch the active feed and persist the choice so it survives relaunch.
  */
 @HiltViewModel
-internal class FeedHostViewModel
+class FeedHostViewModel
     @Inject
     constructor(
         private val pinnedFeedsRepository: PinnedFeedsRepository,
@@ -102,6 +102,8 @@ internal class FeedHostViewModel
 
         private fun select(uri: String) {
             if (uri == uiState.value.selectedFeedUri) return
+            val isValid = (uiState.value.feedChips + uiState.value.pinnedLists).any { it.uri == uri }
+            if (!isValid) return
             setState { copy(selectedFeedUri = uri) }
             viewModelScope.launch {
                 userPreferencesRepository.setLastSelectedFeedUri(uri)

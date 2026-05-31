@@ -64,7 +64,7 @@ import net.kikin.nubecita.core.video.SharedVideoPlayer
  * @param sharedVideoPlayer the process-scoped video player holder that
  *   owns the underlying ExoPlayer lifecycle.
  */
-internal class FeedVideoPlayerCoordinator(
+class FeedVideoPlayerCoordinator(
     context: Context,
     private val audioManager: AudioManager,
     private val sharedVideoPlayer: SharedVideoPlayer,
@@ -175,7 +175,7 @@ internal class FeedVideoPlayerCoordinator(
      * broadcast effect directly without standing up a real
      * BroadcastReceiver registration on a mocked Context.
      */
-    internal fun notifyBecomingNoisy() {
+    fun notifyBecomingNoisy() {
         scope.launch { handleFocusLostInternal() }
     }
 
@@ -192,7 +192,7 @@ internal class FeedVideoPlayerCoordinator(
      * unit-test Android stubs). Production wiring goes through the
      * private [focusChangeListener] above.
      */
-    internal fun handleSystemFocusChange(focusChange: Int) {
+    fun handleSystemFocusChange(focusChange: Int) {
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS,
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
@@ -479,7 +479,7 @@ internal class FeedVideoPlayerCoordinator(
  * obtain it from [FeedViewModel] and pass it in so this factory stays
  * a thin facade with no DI knowledge of its own.
  */
-internal fun createFeedVideoPlayerCoordinator(
+fun createFeedVideoPlayerCoordinator(
     context: Context,
     audioManager: AudioManager,
     sharedVideoPlayer: SharedVideoPlayer,

@@ -13,7 +13,7 @@ import net.kikin.nubecita.data.models.quotedRecord
  * `MediaItem`). A `null` binding target means "no video card meets the
  * visible-fraction threshold; coordinator should unbind and pause".
  */
-internal data class VideoBindingTarget(
+data class VideoBindingTarget(
     val postId: String,
     val playlistUrl: String,
 )
@@ -42,7 +42,7 @@ internal data class VideoBindingTarget(
  * pick the "most visible" video because the spec ties binding to
  * scroll position, not engagement signal.
  */
-internal fun mostVisibleVideoTarget(
+fun mostVisibleVideoTarget(
     layoutInfo: LazyListLayoutInfo,
     postsById: Map<String, PostUi>,
 ): VideoBindingTarget? {
@@ -98,7 +98,7 @@ internal fun mostVisibleVideoTarget(
  * visible-fraction threshold at the parent feed-item level. Sub-rect
  * geometry for nested videos is explicitly out of scope.
  */
-internal fun videoBindingFor(post: PostUi): VideoBindingTarget? {
+fun videoBindingFor(post: PostUi): VideoBindingTarget? {
     // 1. Parent video.
     (post.embed as? EmbedUi.Video)?.let { video ->
         return VideoBindingTarget(postId = post.id, playlistUrl = video.playlistUrl)

@@ -69,4 +69,10 @@
     <string name="feed_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="feed_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
     <string name="feed_snackbar_overflow_copy_text_coming_soon">Copy post text — coming soon</string>
+
+    <!-- Pinned lists chip row and bottom sheet -->
+    <string name="feed_lists_chip_collapsed">Lists</string>
+    <string name="feed_lists_chip_selected">List: %1$s</string>
+    <string name="feed_lists_sheet_title">Pinned lists</string>
+    <string name="feed_add_feeds_button_content_description">Manage feeds</string>
 </resources>

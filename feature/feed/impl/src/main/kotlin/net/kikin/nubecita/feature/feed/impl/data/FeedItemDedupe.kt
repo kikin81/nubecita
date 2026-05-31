@@ -23,7 +23,7 @@ import net.kikin.nubecita.data.models.FeedItemUi
  * future caller) can apply it without coordinating mutable state. O(n) —
  * one pass to collect cluster URIs, one filter pass.
  */
-internal fun List<FeedItemUi>.dedupeClusterContext(): List<FeedItemUi> {
+fun List<FeedItemUi>.dedupeClusterContext(): List<FeedItemUi> {
     if (isEmpty()) return this
     val contextUris =
         buildSet {
@@ -80,7 +80,7 @@ internal fun List<FeedItemUi>.dedupeClusterContext(): List<FeedItemUi> {
  *
  * Tracked as `nubecita-7p3`.
  */
-internal fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
+fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
     if (size < 2) return this
     val seen = HashSet<String>(size)
     return filter { item -> seen.add(item.key) }

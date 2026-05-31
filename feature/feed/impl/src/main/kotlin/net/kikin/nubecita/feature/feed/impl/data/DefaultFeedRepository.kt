@@ -15,7 +15,7 @@ import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import timber.log.Timber
 import javax.inject.Inject
 
-internal class DefaultFeedRepository
+class DefaultFeedRepository
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,

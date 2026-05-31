@@ -8,15 +8,22 @@ import android.content.res.Configuration
 import android.media.AudioManager
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -38,19 +45,28 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,6 +78,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
@@ -70,6 +87,7 @@ import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.PinnedFeedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
@@ -86,12 +104,16 @@ import net.kikin.nubecita.designsystem.component.ThreadCluster
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAppendingIndicator
+import net.kikin.nubecita.feature.feed.impl.ui.FeedChipRow
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
+import net.kikin.nubecita.feature.feed.impl.ui.PinnedListsSheet
 import net.kikin.nubecita.feature.feed.impl.ui.PostCardVideoEmbed
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feed.impl.video.createFeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feed.impl.video.mostVisibleVideoTarget
+import net.kikin.nubecita.feature.feeds.api.Feeds
+import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.Instant
 import android.net.Uri as AndroidUri
@@ -120,6 +142,13 @@ private const val SHIMMER_PREVIEW_COUNT = 6
 @Composable
 internal fun FeedScreen(
     modifier: Modifier = Modifier,
+    feedChips: ImmutableList<PinnedFeedUi> = persistentListOf(),
+    pinnedLists: ImmutableList<PinnedFeedUi> = persistentListOf(),
+    selectedFeedUri: String? = null,
+    status: FeedHostStatus = FeedHostStatus.Ready,
+    onSelectFeed: (String) -> Unit = {},
+    onSelectList: (String) -> Unit = {},
+    onRetry: () -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
@@ -140,12 +169,12 @@ internal fun FeedScreen(
     onNavigateTo: (NavKey) -> Unit = {},
     onComposeClick: () -> Unit = {},
     onReplyClick: (String) -> Unit = {},
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: FeedViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val viewState = remember(state) { state.toViewState() }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
-    val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     // Reply tap is screen-level — does NOT pass through FeedViewModel
     // (per the unified-composer spec, step 10). The host wires
@@ -397,6 +426,14 @@ internal fun FeedScreen(
         onRefresh = onRefresh,
         onRetry = onRetry,
         onLoadMore = onLoadMore,
+        feedChips = feedChips,
+        pinnedLists = pinnedLists,
+        selectedFeedUri = selectedFeedUri,
+        status = status,
+        onSelectFeed = onSelectFeed,
+        onSelectList = onSelectList,
+        onRetryFeeds = onRetry,
+        onNavigateTo = onNavigateTo,
         onComposeClick = onComposeClick,
         onImageTap = onImageTap,
         onVideoTap = onVideoTap,
@@ -421,12 +458,49 @@ internal fun FeedScreenContent(
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
+    feedChips: ImmutableList<PinnedFeedUi>,
+    pinnedLists: ImmutableList<PinnedFeedUi>,
+    selectedFeedUri: String?,
+    status: FeedHostStatus,
+    onSelectFeed: (String) -> Unit,
+    onSelectList: (String) -> Unit,
+    onRetryFeeds: () -> Unit,
+    onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
     onComposeClick: () -> Unit = {},
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit = { _, _ -> },
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
+    var showPinnedListsSheet by rememberSaveable { mutableStateOf(false) }
+
+    val chipRowHeightDp = 48.dp
+    val density = LocalDensity.current
+    val chipRowHeightPx = remember(density) { with(density) { chipRowHeightDp.toPx() } }
+    val chipRowOffsetHeightPx = remember { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val nestedScrollConnection =
+        remember(chipRowHeightPx, coroutineScope) {
+            object : NestedScrollConnection {
+                override fun onPreScroll(
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    val delta = available.y
+                    val newOffset = chipRowOffsetHeightPx.value + delta
+                    coroutineScope.launch {
+                        chipRowOffsetHeightPx.snapTo(newOffset.coerceIn(-chipRowHeightPx, 0f))
+                    }
+                    return Offset.Zero
+                }
+            }
+        }
+
+    LaunchedEffect(selectedFeedUri) {
+        chipRowOffsetHeightPx.animateTo(0f)
+    }
+
     // Tap-to-top: collect MainShell's tab-retap signal and scroll the
     // feed list to the top. The default empty SharedFlow (no provider in
     // previews / screenshot tests) never emits, so collecting in those
@@ -435,7 +509,10 @@ internal fun FeedScreenContent(
     // either reference.
     val tabReTapSignal = LocalTabReTapSignal.current
     LaunchedEffect(tabReTapSignal, listState) {
-        tabReTapSignal.collect { listState.animateScrollToItem(0) }
+        tabReTapSignal.collect {
+            listState.animateScrollToItem(0)
+            chipRowOffsetHeightPx.animateTo(0f)
+        }
     }
     // FAB is the composer entry point. wtq.9 swapped the prior scroll-
     // to-top FAB content for `NubecitaIcon(NubecitaIconName.Edit)`. The action itself
@@ -474,10 +551,58 @@ internal fun FeedScreenContent(
     // ThreadCluster's new color/shape params.
     val cardColor = MaterialTheme.colorScheme.surfaceContainer
     val cardShape = MaterialTheme.shapes.medium
+
+    val hasSelector = feedChips.isNotEmpty() || pinnedLists.isNotEmpty() || status == FeedHostStatus.Loading
+    val nestedScrollModifier =
+        if (hasSelector) {
+            Modifier.nestedScroll(nestedScrollConnection)
+        } else {
+            Modifier
+        }
+
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.then(nestedScrollModifier),
         containerColor = MaterialTheme.colorScheme.surface,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            if (hasSelector) {
+                Surface(
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    .height(chipRowHeightDp)
+                                    .offset { IntOffset(x = 0, y = chipRowOffsetHeightPx.value.roundToInt()) }
+                                    .background(MaterialTheme.colorScheme.surface),
+                        ) {
+                            FeedChipRow(
+                                feedChips = feedChips,
+                                pinnedLists = pinnedLists,
+                                selectedFeedUri = selectedFeedUri,
+                                status = status,
+                                onSelectFeed = onSelectFeed,
+                                onSelectList = onSelectList,
+                                onRetry = onRetryFeeds,
+                                onManageFeedsClick = { onNavigateTo(Feeds) },
+                                onOpenListsSheet = { showPinnedListsSheet = true },
+                            )
+                        }
+                        Spacer(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    .background(MaterialTheme.colorScheme.surface),
+                        )
+                    }
+                }
+            }
+        },
         floatingActionButton = {
             // AnimatedVisibility wraps the FAB so the appearance / dismissal
             // fades + scales rather than popping in.
@@ -581,6 +706,15 @@ internal fun FeedScreenContent(
                     coordinator = coordinator,
                 )
         }
+    }
+
+    if (showPinnedListsSheet) {
+        PinnedListsSheet(
+            pinnedLists = pinnedLists,
+            selectedFeedUri = selectedFeedUri,
+            onSelectList = onSelectList,
+            onDismiss = { showPinnedListsSheet = false },
+        )
     }
 }
 
@@ -1032,6 +1166,14 @@ private fun FeedScreenPreviewHost(viewState: FeedScreenViewState) {
             onRefresh = {},
             onRetry = {},
             onLoadMore = {},
+            feedChips = persistentListOf(),
+            pinnedLists = persistentListOf(),
+            selectedFeedUri = null,
+            status = FeedHostStatus.Ready,
+            onSelectFeed = {},
+            onSelectList = {},
+            onRetryFeeds = {},
+            onNavigateTo = {},
         )
     }
 }

@@ -178,4 +178,18 @@ internal class FeedHostViewModelTest {
 
             coVerify(exactly = 0) { prefs.setLastSelectedFeedUri(any()) }
         }
+
+    @Test
+    fun `SelectFeed with unpinned uri does not update selection or persist it`() =
+        runTest(mainDispatcher.dispatcher) {
+            val (vm, _, prefs) = buildVm(feeds = listOf(following, art))
+            advanceUntilIdle()
+
+            val unpinnedUri = "at://did:plc:x/app.bsky.feed.generator/unpinned"
+            vm.handleEvent(FeedHostEvent.SelectFeed(unpinnedUri))
+            advanceUntilIdle()
+
+            assertEquals(FOLLOWING_FEED_URI, vm.uiState.value.selectedFeedUri)
+            coVerify(exactly = 0) { prefs.setLastSelectedFeedUri(any()) }
+        }
 }

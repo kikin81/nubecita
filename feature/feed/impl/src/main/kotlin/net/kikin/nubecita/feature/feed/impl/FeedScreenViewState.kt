@@ -17,7 +17,7 @@ import net.kikin.nubecita.data.models.FeedItemUi
  * Total over [FeedState]: see [toViewState] for the dispatch matrix.
  */
 @Immutable
-internal sealed interface FeedScreenViewState {
+sealed interface FeedScreenViewState {
     /** Initial load with no items yet — render shimmer rows. */
     @Immutable data object InitialLoading : FeedScreenViewState
 
@@ -69,7 +69,7 @@ internal sealed interface FeedScreenViewState {
  * coverage so a future contract change can't introduce a silent
  * unhandled-state crash.
  */
-internal fun FeedState.toViewState(): FeedScreenViewState =
+fun FeedState.toViewState(): FeedScreenViewState =
     if (feedItems.isEmpty()) {
         when (loadStatus) {
             FeedLoadStatus.InitialLoading -> FeedScreenViewState.InitialLoading

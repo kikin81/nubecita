@@ -60,6 +60,8 @@ dependencies {
     // ComposerRoute NavKey — pushed onto the back stack when the
     // compose-new-post FAB is tapped. Imports `:api` only; never `:impl`.
     implementation(project(":feature:composer:api"))
+    // Feeds NavKey — pushed onto the back stack when the manage feeds button is tapped.
+    implementation(project(":feature:feeds:api"))
     // MediaViewerRoute NavKey — pushed onto the back stack when an
     // image in a feed PostCard is tapped (skip the PostDetail detour).
     implementation(project(":feature:mediaviewer:api"))

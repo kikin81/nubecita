@@ -18,7 +18,7 @@ import net.kikin.nubecita.data.models.FeedItemUi
  * change that adds the consumer also promotes this interface to a new
  * `:core:feed` module.
  */
-internal interface FeedRepository {
+interface FeedRepository {
     /** The Following timeline (`app.bsky.feed.getTimeline`). */
     suspend fun getTimeline(
         cursor: String?,
@@ -57,7 +57,7 @@ internal interface FeedRepository {
  * 3, widening `TimelinePage` is the cleanest seam — UI models stay
  * pure, and the merge step gets the exact wire data it needs.
  */
-internal data class TimelinePage(
+data class TimelinePage(
     val feedItems: ImmutableList<FeedItemUi>,
     val nextCursor: String?,
     /**
@@ -74,4 +74,4 @@ internal data class TimelinePage(
  * matches Bluesky's official client default and keeps memory + scroll
  * pressure modest.
  */
-internal const val TIMELINE_PAGE_LIMIT: Int = 30
+const val TIMELINE_PAGE_LIMIT: Int = 30
