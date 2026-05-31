@@ -5,8 +5,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
@@ -87,6 +92,11 @@ internal fun FeedHost(
         }
 
     val stateHolder = rememberSaveableStateHolder()
+    // The selector renders only when there is more than one feed/list to
+    // switch between (see ProvisionalFeedSelector's early return). When it
+    // does, it clears the status bar for itself via statusBarsPadding, so the
+    // pane below must NOT re-pad the same inset.
+    val hasSelector = state.feedChips.size + state.pinnedLists.size > 1
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -101,7 +111,27 @@ internal fun FeedHost(
             // Only the active pane is composed; other feeds' ViewModels stay
             // retained (keyed by feedUri) but un-composed.
             if (activeFeed != null) {
-                Box(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            // When the selector is shown above this pane it has
+                            // already consumed the status-bar space; mark that
+                            // inset consumed so the pane's FeedScreen Scaffold
+                            // (contentWindowInsets = systemBars) doesn't pad the
+                            // status bar a SECOND time, which would leave a
+                            // phantom gap above the first post. With no selector
+                            // (single feed) the inset is left intact so
+                            // FeedScreen keeps its edge-to-edge
+                            // scroll-behind-status-bar behavior unchanged.
+                            .then(
+                                if (hasSelector) {
+                                    Modifier.consumeWindowInsets(WindowInsets.statusBars)
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                ) {
                     stateHolder.SaveableStateProvider(activeFeed.uri) {
                         FeedPane(
                             feedUri = activeFeed.uri,
@@ -119,9 +149,18 @@ internal fun FeedHost(
             }
         }
 
+        // Host-level snackbar for the feeds-fallback notice (a concern the
+        // nested FeedScreen can't surface). Inset past the navigation bar +
+        // IME so it isn't occluded; it shows rarely and transiently, so the
+        // rare overlap with FeedScreen's own snackbar is acceptable for this
+        // provisional host (a580.8 consolidates snackbar ownership).
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .imePadding(),
         )
     }
 }
