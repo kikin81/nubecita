@@ -24,4 +24,8 @@ internal class FakeUserPreferencesRepository
         override val hasSeenOnboarding: Flow<Boolean> = flowOf(true)
 
         override suspend fun markOnboardingSeen() = Unit
+
+        override val lastSelectedFeedUri: Flow<String?> = flowOf(null)
+
+        override suspend fun setLastSelectedFeedUri(uri: String) = Unit
     }

@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -37,7 +38,26 @@ internal class DefaultUserPreferencesRepository
             dataStore.edit { prefs -> prefs[Keys.HAS_SEEN_ONBOARDING] = true }
         }
 
+        // Mirrors `hasSeenOnboarding`'s IOException recovery: this flow feeds UI
+        // that should degrade to the default feed rather than crash on a
+        // transient read failure.
+        override val lastSelectedFeedUri: Flow<String?> =
+            dataStore.data
+                .catch { error ->
+                    if (error is IOException) {
+                        Timber.w(error, "Failed to read user preferences; defaulting lastSelectedFeedUri to null")
+                        emit(emptyPreferences())
+                    } else {
+                        throw error
+                    }
+                }.map { prefs -> prefs[Keys.LAST_SELECTED_FEED_URI] }
+
+        override suspend fun setLastSelectedFeedUri(uri: String) {
+            dataStore.edit { prefs -> prefs[Keys.LAST_SELECTED_FEED_URI] = uri }
+        }
+
         private object Keys {
             val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
+            val LAST_SELECTED_FEED_URI = stringPreferencesKey("last_selected_feed_uri")
         }
     }

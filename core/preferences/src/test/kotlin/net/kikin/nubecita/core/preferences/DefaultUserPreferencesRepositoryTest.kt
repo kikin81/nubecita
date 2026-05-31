@@ -8,7 +8,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -45,6 +47,27 @@ internal class DefaultUserPreferencesRepositoryTest {
             repo.markOnboardingSeen()
 
             assertTrue(repo.hasSeenOnboarding.first())
+        }
+
+    @Test
+    fun `lastSelectedFeedUri starts as null on a fresh store`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+
+            assertNull(repo.lastSelectedFeedUri.first())
+        }
+
+    @Test
+    fun `setLastSelectedFeedUri round-trips the stored value`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+            val uri = "at://did:plc:abc123/app.bsky.feed.generator/whats-hot"
+
+            repo.lastSelectedFeedUri.test {
+                assertNull(awaitItem())
+                repo.setLastSelectedFeedUri(uri)
+                assertEquals(uri, awaitItem())
+            }
         }
 
     @JvmField
