@@ -86,8 +86,16 @@ internal fun EditProfileScreen(
         }
     }
 
-    // App-bar up and system back share the dirty guard in the VM.
-    BackHandler { viewModel.handleEvent(EditProfileEvent.BackPressed) }
+    // App-bar up and system back share the dirty guard in the VM. While the
+    // discard dialog is up, system-back dismisses it (matching the dialog's
+    // own onDismissRequest) instead of re-triggering the guard.
+    BackHandler {
+        if (state.showDiscardDialog) {
+            viewModel.handleEvent(EditProfileEvent.DiscardDismissed)
+        } else {
+            viewModel.handleEvent(EditProfileEvent.BackPressed)
+        }
+    }
 
     Scaffold(
         modifier = modifier,

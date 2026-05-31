@@ -121,15 +121,23 @@ internal class ProfileViewModel
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)
                 is ProfileEvent.RetryTab -> onRetryTab(event.tab)
                 ProfileEvent.FollowTapped -> onFollowTapped()
-                ProfileEvent.EditTapped ->
-                    sendEffect(
-                        ProfileEffect.NavigateTo(
-                            EditProfile(
-                                displayName = uiState.value.header?.displayName,
-                                description = uiState.value.header?.bio,
+                ProfileEvent.EditTapped -> {
+                    // Only open the editor once the header has loaded. Navigating
+                    // with a null header would open an EMPTY form, and a Save
+                    // would write those blanks back, clearing the real name/bio.
+                    // A brand-new account has a non-null header with null fields,
+                    // so it still opens (correctly empty).
+                    uiState.value.header?.let { header ->
+                        sendEffect(
+                            ProfileEffect.NavigateTo(
+                                EditProfile(
+                                    displayName = header.displayName,
+                                    description = header.bio,
+                                ),
                             ),
-                        ),
-                    )
+                        )
+                    }
+                }
                 ProfileEvent.MessageTapped -> onMessageTapped()
                 is ProfileEvent.StubActionTapped ->
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))

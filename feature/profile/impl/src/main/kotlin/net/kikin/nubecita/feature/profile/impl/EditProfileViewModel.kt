@@ -78,10 +78,13 @@ internal class EditProfileViewModel
 
         private fun onBackPressed() {
             val state = uiState.value
-            if (state.isDirty && !state.isSaving) {
-                setState { copy(showDiscardDialog = true) }
-            } else {
-                sendEffect(EditProfileEffect.NavigateBack)
+            when {
+                // Ignore back while a save is in flight so the write can finish
+                // and emit its success/failure effect — popping here would
+                // dispose the VM and cancel the viewModelScope write.
+                state.isSaving -> Unit
+                state.isDirty -> setState { copy(showDiscardDialog = true) }
+                else -> sendEffect(EditProfileEffect.NavigateBack)
             }
         }
 
