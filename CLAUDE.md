@@ -109,6 +109,7 @@ app/                     thin shell; aggregates DI, hosts NavDisplay + MainActiv
 build-logic/             composite build with eight Gradle convention plugins
 core/
   auth/                  OAuth session storage + token refresh (Tink-encrypted DataStore)
+  billing/               SDK-agnostic Pro entitlement + purchase boundary (RevenueCat impl, anonymous appUserId)
   common/                MVI base, navigation qualifiers, coroutine dispatchers, time utils
   database/              Room database, entities, DAOs, migrations
   feed-mapping/          atproto wire types → UI model mappers (PostUi, EmbedUi, AuthorUi)
@@ -132,6 +133,7 @@ feature/
   mediaviewer/{api,impl} zoomable image / HLS video lightbox (telephoto)
   moderation/{api,impl}  moderation actions
   onboarding/{api,impl}  onboarding flow
+  paywall/{api,impl}     custom Compose Nubecita Pro paywall (plan picker, purchase/restore)
   postdetail/{api,impl}  thread view (ancestors + focus + replies)
   profile/{api,impl}     user profile with hero + Posts/Replies/Media tabs
   search/{api,impl}      search with typeahead, posts/people/feeds tabs, and recent search
@@ -243,6 +245,18 @@ Three wrappers in `designsystem/src/main/kotlin/.../designsystem/preview/`:
 - Every type is `@Stable` or `@Immutable`. Collections use `ImmutableList<T>`.
 - The only Compose dependency is `compose-runtime` for stability annotations — never `compose-ui` or `material3`.
 - Provide fixture factories alongside model definitions (mirror `PostUiFixtures.kt`) for use in downstream test and preview code.
+
+### Billing conventions (`:core:billing`)
+
+Nubecita Pro is an auto-renewing Google Play subscription mediated by RevenueCat. The provider is swappable by rewriting one module:
+
+- **SDK-agnostic boundary.** No RevenueCat type (`CustomerInfo`, `Offerings`, `Package`, …) leaks past `:core:billing`. The rest of the app sees only `:data:models` types (`SubscriptionOffering`, `SubscriptionPlan`, `ActiveSubscription`) and the two repository interfaces. Wire→model translation lives in `RevenueCatMappers.kt` (pure, unit-tested by mocking only SDK value types).
+- **Two repositories.** `EntitlementRepository` exposes entitlement *state* — `isPro: StateFlow<Boolean>` (the on/off gate) and `activeSubscription: StateFlow<ActiveSubscription?>` (plan + store product id, for the Settings manage/label surface). `BillingRepository` *initiates transactions* — `loadPlans` / `purchase` / `restorePurchases`. State is read from the former; the latter never exposes state.
+- **Gate through `isPro`, never per-call-site.** Feature code reacts to the `isPro` stream; it must never synchronously one-shot-check entitlement (cold-start latency). PiP folds device-capability × `isPro` into the single `PipController.isEnabled` flag; the Supporter badge and Settings Pro section read `isPro` directly. New Pro-gated surfaces add a flag, not a branch.
+- **Identity = anonymous Play `appUserId`, NOT the Bluesky DID** (design D3). No DID is sent to the provider; Pro follows the Google account across devices via Restore.
+- **Inert without the key.** `Purchases.configure` runs only on the production flavor when the `goog_` key is present (`RevenueCatInitializer`); keyless/bench builds construct the Hilt bindings but issue zero SDK/network calls and stay `isPro = false`. Never synchronously assume Pro.
+- **Custom Compose paywall** (`:feature:paywall`), not RevenueCat's drop-in `purchases-ui` — live prices still come from `Offerings`. The `Activity` that Play's purchase needs is passed from the Composable layer, never injected into a ViewModel.
+- **Tests** use the in-memory `FakeEntitlementRepository` / `FakeBillingRepository` (drive `isPro` with no SDK); a Hilt test swaps them via `@TestInstallIn(replaces = [BillingModule::class])`.
 
 ### Testing conventions
 

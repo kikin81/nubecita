@@ -20,6 +20,7 @@ A fast, lightweight, native Android client for [Bluesky](https://bsky.app) and t
 - **OAuth login** with system Custom Tabs handoff and session persistence — no embedded WebView.
 - **Edge-to-edge rendering** with system-bar inset propagation through every screen state.
 - **Material 3 Expressive theming** with Material You dynamic color on Android 12+ and a brand fallback palette below.
+- **Nubecita Pro** — an optional auto-renewing subscription (via Google Play Billing, mediated by RevenueCat) behind a custom Compose paywall. Unlocks picture-in-picture video and a self-visible Supporter badge; the honest-indie "support the developer" framing keeps the whole free app usable and never gates moderation/safety.
 
 <details>
 <summary><b>Embed-renderer deep dive</b></summary>
@@ -37,7 +38,7 @@ A fast, lightweight, native Android client for [Bluesky](https://bsky.app) and t
 - **Kotlin** + **Jetpack Compose** with **Material 3 Expressive**
 - **MVI** architecture (`UiState` / `UiEvent` / `UiEffect`) on `ViewModel` + `StateFlow`
 - **Jetpack Navigation 3** with `EntryProviderInstaller` multibindings split across an outer shell (Splash → Login → Main) and an inner `MainShell` for tabs + sub-routes
-- **Hilt** for DI, **Coil 3** for images, **Media3** for video, **DataStore + Tink** for encrypted OAuth session storage, **Room** for offline caches
+- **Hilt** for DI, **Coil 3** for images, **Media3** for video, **DataStore + Tink** for encrypted OAuth session storage, **Room** for offline caches, **RevenueCat** for Play Billing subscriptions behind an SDK-agnostic boundary
 - **`atproto-kotlin`** SDK for AT Protocol networking
 - 100% native — no web views; 120 Hz scrolling is a hard requirement
 
@@ -49,6 +50,7 @@ app/                     thin shell; aggregates DI, hosts NavDisplay + MainActiv
 build-logic/             composite build with eight Gradle convention plugins
 core/
   auth/                  OAuth session storage + token refresh (Tink-encrypted DataStore)
+  billing/               SDK-agnostic Pro entitlement + purchase boundary (RevenueCat impl)
   common/                MVI base, navigation qualifiers, coroutine dispatchers, time utils
   database/              Room database, entities, DAOs, migrations
   feed-mapping/          AT Proto post → UI model mappers (PostUi, EmbedUi, AuthorUi)
@@ -71,6 +73,7 @@ feature/
   mediaviewer/{api,impl} zoomable image / HLS video lightbox (telephoto)
   moderation/{api,impl}  moderation actions
   onboarding/{api,impl}  onboarding flow
+  paywall/{api,impl}     custom Compose Nubecita Pro paywall (plan picker, purchase/restore)
   postdetail/{api,impl}  thread view (ancestors + focus + replies)
   profile/{api,impl}     user profile with hero + Posts/Replies/Media tabs
   search/{api,impl}      search with typeahead, posts/people/feeds tabs, and recent search
