@@ -53,6 +53,21 @@ public class RevenueCatInitializer
             entitlementRepository.startObserving()
         }
 
+        /**
+         * Link this install's Firebase **app-instance id** to the RevenueCat
+         * customer so RevenueCat's server-side GA4 integration attributes
+         * subscription/revenue events to the same analytics user (launch
+         * checklist F4 / q5ge.13). No-op when [firebaseAppInstanceId] is null
+         * (analytics disabled / bench) or the SDK isn't configured (keyless
+         * build) — keeps the "inert, not crashing" promise. The composition
+         * root reads the id via `:core:analytics` and passes it here, so the
+         * RevenueCat SDK stays confined to this module.
+         */
+        fun linkFirebaseAppInstanceId(firebaseAppInstanceId: String?) {
+            if (firebaseAppInstanceId.isNullOrBlank() || !Purchases.isConfigured) return
+            Purchases.sharedInstance.setFirebaseAppInstanceID(firebaseAppInstanceId)
+        }
+
         private companion object {
             const val TAG = "RevenueCatInit"
         }

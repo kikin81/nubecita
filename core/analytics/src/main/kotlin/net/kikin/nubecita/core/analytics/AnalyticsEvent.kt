@@ -151,3 +151,80 @@ data class SearchPerform(
             "from_recent" to BoolVal(fromRecent),
         )
 }
+
+/**
+ * Which Nubecita Pro plan a paywall event refers to. Mirrors
+ * `:data:models`'s `SubscriptionPlanId` but kept as a local enum so
+ * `:core:analytics` stays dependency-free (no `:data:models` coupling); the
+ * paywall VM maps one onto the other at the log call site.
+ */
+enum class PaywallPlan(
+    val wire: String,
+) {
+    Monthly("monthly"),
+    Annual("annual"),
+}
+
+/** Terminal outcome of a user-initiated Restore-purchases tap. */
+enum class RestoreOutcome(
+    val wire: String,
+) {
+    /** Restore found an active subscription — Pro granted. */
+    Restored("restored"),
+
+    /** Restore completed but the Play account owns no Pro. */
+    Nothing("nothing"),
+
+    /** The restore call itself failed (network / provider). */
+    Error("error"),
+}
+
+/*
+ * Paywall funnel (epic nubecita-q5ge, child .13). The *terminal* purchase /
+ * revenue / renewal / refund events come from RevenueCat's server-side GA4
+ * integration — these client events deliberately cover only the funnel UP TO
+ * checkout plus the non-converting outcomes, so the conversion isn't
+ * double-counted. All params are bucketed enums; no price, sku, or account id.
+ */
+
+/** Fired once when the paywall is presented (`PaywallViewModel.init`). */
+data object PaywallViewed : AnalyticsEvent {
+    override val name: String = "paywall_viewed"
+    override val params: Map<String, AnalyticsValue> = emptyMap()
+}
+
+/** Fired when the user actively switches the selected plan. */
+data class PaywallPlanSelected(
+    val plan: PaywallPlan,
+) : AnalyticsEvent {
+    override val name: String = "paywall_plan_selected"
+    override val params: Map<String, AnalyticsValue> = mapOf("plan" to Str(plan.wire))
+}
+
+/** Fired the moment the purchase is initiated and control hands to the Play sheet. */
+data class PaywallCheckoutStarted(
+    val plan: PaywallPlan,
+) : AnalyticsEvent {
+    override val name: String = "paywall_checkout_started"
+    override val params: Map<String, AnalyticsValue> = mapOf("plan" to Str(plan.wire))
+}
+
+/** Fired when the user backs out of the Play purchase sheet (RevenueCat never sees this). */
+data object PaywallPurchaseCancelled : AnalyticsEvent {
+    override val name: String = "paywall_purchase_cancelled"
+    override val params: Map<String, AnalyticsValue> = emptyMap()
+}
+
+/** Fired when the purchase fails (billing unavailable / provider error / unexpected throw). */
+data object PaywallPurchaseError : AnalyticsEvent {
+    override val name: String = "paywall_purchase_error"
+    override val params: Map<String, AnalyticsValue> = emptyMap()
+}
+
+/** Fired with the outcome of a user-initiated Restore. */
+data class PaywallRestore(
+    val outcome: RestoreOutcome,
+) : AnalyticsEvent {
+    override val name: String = "paywall_restore"
+    override val params: Map<String, AnalyticsValue> = mapOf("outcome" to Str(outcome.wire))
+}

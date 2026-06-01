@@ -87,6 +87,48 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `paywall funnel events map to their wire names and params`() {
+        assertEquals("paywall_viewed", PaywallViewed.name)
+        assertEquals(emptyMap<String, AnalyticsValue>(), PaywallViewed.params)
+
+        assertEquals("paywall_plan_selected", PaywallPlanSelected(PaywallPlan.Annual).name)
+        assertEquals(mapOf("plan" to Str("annual")), PaywallPlanSelected(PaywallPlan.Annual).params)
+
+        assertEquals("paywall_checkout_started", PaywallCheckoutStarted(PaywallPlan.Monthly).name)
+        assertEquals(mapOf("plan" to Str("monthly")), PaywallCheckoutStarted(PaywallPlan.Monthly).params)
+
+        assertEquals("paywall_purchase_cancelled", PaywallPurchaseCancelled.name)
+        assertEquals("paywall_purchase_error", PaywallPurchaseError.name)
+
+        assertEquals("paywall_restore", PaywallRestore(RestoreOutcome.Restored).name)
+        assertEquals(mapOf("outcome" to Str("restored")), PaywallRestore(RestoreOutcome.Restored).params)
+        assertEquals(mapOf("outcome" to Str("nothing")), PaywallRestore(RestoreOutcome.Nothing).params)
+        assertEquals(mapOf("outcome" to Str("error")), PaywallRestore(RestoreOutcome.Error).params)
+    }
+
+    @Test
+    fun `is_pro user property is a bare boolean`() {
+        assertEquals("is_pro", IsPro(true).name)
+        assertEquals("true", IsPro(true).value)
+        assertEquals("false", IsPro(false).value)
+    }
+
+    @Test
+    fun `all paywall events and the is_pro property pass GA4 validation`() {
+        val events =
+            listOf(
+                PaywallViewed,
+                PaywallPlanSelected(PaywallPlan.Annual),
+                PaywallCheckoutStarted(PaywallPlan.Annual),
+                PaywallPurchaseCancelled,
+                PaywallPurchaseError,
+                PaywallRestore(RestoreOutcome.Restored),
+            )
+        events.forEach { AnalyticsValidator.requireValid(it) }
+        AnalyticsValidator.requireValid(IsPro(true))
+    }
+
+    @Test
     fun `every screen exposes a snake_case route name`() {
         val snakeCase = Regex("^[a-z][a-z0-9_]*$")
         AnalyticsScreen.entries.forEach { screen ->

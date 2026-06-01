@@ -9,7 +9,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsInstanceIdProvider
 import net.kikin.nubecita.core.analytics.FirebaseAnalyticsClient
+import net.kikin.nubecita.core.analytics.FirebaseAnalyticsInstanceIdProvider
 import javax.inject.Singleton
 
 /**
@@ -29,6 +31,12 @@ abstract class AnalyticsModule {
     @Binds
     @Singleton
     internal abstract fun bindAnalyticsClient(impl: FirebaseAnalyticsClient): AnalyticsClient
+
+    @Binds
+    @Singleton
+    internal abstract fun bindAnalyticsInstanceIdProvider(
+        impl: FirebaseAnalyticsInstanceIdProvider,
+    ): AnalyticsInstanceIdProvider
 
     companion object {
         @Provides
