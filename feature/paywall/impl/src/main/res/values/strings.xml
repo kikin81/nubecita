@@ -53,4 +53,11 @@
     <string name="paywall_purchase_error">That purchase didn\'t go through. Please try again.</string>
     <string name="paywall_restore_error">Couldn\'t restore purchases. Check your connection and try again.</string>
     <string name="paywall_nothing_to_restore">No purchases to restore on this account.</string>
+
+    <!-- Post-purchase thank-you screen (nubecita-ykpc), shown once after a fresh
+         purchase. Brand voice matches the paywall ("Keep Nubecita flying" /
+         "Become a Supporter"). The 🎉 is decorative; the reader gets these. -->
+    <string name="paywall_success_headline">You\'re a Supporter</string>
+    <string name="paywall_success_subline">Thank you for keeping Nubecita flying ☁️</string>
+    <string name="paywall_success_continue">Continue</string>
 </resources>

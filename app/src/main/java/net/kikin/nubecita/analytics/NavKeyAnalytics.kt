@@ -16,6 +16,7 @@ import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
+import net.kikin.nubecita.feature.paywall.api.PaywallSuccessRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.EditProfile
@@ -86,6 +87,7 @@ internal fun NavKey.toAnalyticsScreenOrNull(): AnalyticsScreen? =
         NewChat -> null // recipient picker, not a destination screen
         is VideoPlayerRoute -> null // no AnalyticsScreen value; left untracked
         is PostDeepLinkKey -> null // transport only; converted before reaching a back stack
+        PaywallSuccessRoute -> null // celebration, not a tracked destination (PaywallRoute is also untracked); nubecita-ykpc
 
         // New / unknown route → untracked. See KDoc + NavKeyAnalyticsTest.
         else -> null

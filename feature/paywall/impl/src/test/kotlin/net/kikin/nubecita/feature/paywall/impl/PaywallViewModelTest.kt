@@ -113,7 +113,7 @@ internal class PaywallViewModelTest {
         }
 
     @Test
-    fun `purchase success buys the selected plan and emits Dismiss`() =
+    fun `purchase success buys the selected plan and emits PurchaseSucceeded`() =
         runTest(mainDispatcher.dispatcher) {
             val activity = mockk<Activity>(relaxed = true)
             val billing =
@@ -127,7 +127,9 @@ internal class PaywallViewModelTest {
             vm.effects.test {
                 vm.handleEvent(PaywallEvent.PurchaseClicked(activity))
                 advanceUntilIdle()
-                assertEquals(PaywallEffect.Dismiss, awaitItem())
+                // A fresh purchase routes to the thank-you screen, NOT a plain
+                // Dismiss (which is restore-only) — nubecita-ykpc.
+                assertEquals(PaywallEffect.PurchaseSucceeded, awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
             // Default selection is annual, so the annual plan is purchased.

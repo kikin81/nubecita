@@ -12,6 +12,7 @@ import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
+import net.kikin.nubecita.feature.paywall.api.PaywallSuccessRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.EditProfile
@@ -79,5 +80,6 @@ class NavKeyAnalyticsTest {
         assertNull(NewChat.toAnalyticsScreenOrNull())
         assertNull(VideoPlayerRoute(postUri = "at://x").toAnalyticsScreenOrNull())
         assertNull(PostDeepLinkKey(handle = "alice.bsky.social", rkey = "3lkbabcdefghi").toAnalyticsScreenOrNull())
+        assertNull(PaywallSuccessRoute.toAnalyticsScreenOrNull()) // celebration, intentionally untracked (nubecita-ykpc)
     }
 }
