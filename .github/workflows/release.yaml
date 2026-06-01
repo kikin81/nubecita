@@ -243,7 +243,15 @@ jobs:
         # benchDebug. Firebase App Distribution gets the production
         # variant — the bench flavor's fake-network DI is reserved for
         # Macrobench (nubecita-crmi.6 Section B onwards).
-        run: ./gradlew :app:assembleProductionDebug
+        # Fail fast on a missing key (mirrors the keystore guard): a keyless
+        # build succeeds but silently ships a Pro-inert artifact. Catches a
+        # mis-scoped secret (e.g. added to the wrong environment).
+        run: |
+          if [[ -z "$REVENUECAT_API_KEY" ]]; then
+            echo "::error::REVENUECAT_API_KEY is empty — confirm it's set in the 'release' environment. Refusing to build a keyless (Pro-inert) artifact."
+            exit 1
+          fi
+          ./gradlew :app:assembleProductionDebug
         env:
           KEYSTORE_FILE: /tmp/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -421,7 +429,14 @@ jobs:
         # PLAY_RELEASE_NOTES is sourced from the previous step (rendered
         # GitHub Release body → plain text → truncated). The lane re-caps
         # at 500 chars defensively.
-        run: bundle exec fastlane internal
+        # Fail fast on a missing key (mirrors the keystore guard): otherwise a
+        # mis-scoped/empty secret silently uploads a Pro-inert production AAB.
+        run: |
+          if [[ -z "$REVENUECAT_API_KEY" ]]; then
+            echo "::error::REVENUECAT_API_KEY is empty — confirm it's set in the 'release' environment. Refusing to ship a keyless (Pro-inert) AAB."
+            exit 1
+          fi
+          bundle exec fastlane internal
         env:
           PLAY_RELEASE_NOTES: ${{ steps.release_notes.outputs.notes }}
           KEYSTORE_FILE: /tmp/release.jks
