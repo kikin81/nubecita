@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780215447325,
+  "lastUpdate": 1780304692739,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -207,6 +207,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1088.878,
             "range": "+/- 20%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "170bafdd73055c3971fdba92d238bf948608eb49",
+          "message": "build: wire RevenueCat SDK key into release builds + local.properties (#386)\n\n* build: wire RevenueCat SDK key into release builds + local.properties\n\nThe production AAB and FAD internal build need BuildConfig.REVENUECAT_API_KEY\npopulated or RevenueCatInitializer skips configure and Pro is inert. Two\ngaps closed:\n\n- app/build.gradle.kts: the key now resolves from -PrevenueCatApiKey →\n  REVENUECAT_API_KEY env → local.properties (accepts revenueCatApiKey or\n  REVENUECAT_API_KEY). Previously only the gradle property was read, so a\n  local.properties entry was silently ignored.\n- release.yaml: pass REVENUECAT_API_KEY (release-environment secret) as an\n  env var to both the FAD `assembleProductionDebug` step and the fastlane\n  `internal` (`bundleProductionRelease`) step.\n\nIt's the RevenueCat *public* SDK key (ships in the APK; publishable), so a\nsecret or variable both work; it must live in the `release` environment\n(same as the keystore secrets).\n\nRefs: nubecita-q5ge.11\n\n* ci(release): fail fast when RevenueCat key is empty\n\nAddress Copilot review on #386: both the FAD build and the fastlane\nPlay-upload steps now abort with a clear ::error:: if REVENUECAT_API_KEY\nis empty, instead of silently producing a keyless (Pro-inert) artifact.\nMirrors the existing keystore fail-fast and guards against a secret\nmis-scoped to the wrong environment.\n\nRefs: nubecita-q5ge.11",
+          "timestamp": "2026-06-01T07:35:10Z",
+          "url": "https://github.com/kikin81/nubecita/commit/170bafdd73055c3971fdba92d238bf948608eb49"
+        },
+        "date": 1780304691675,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 7.4%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1403.258,
+            "range": "+/- 6.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1227.076,
+            "range": "+/- 6.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1226.677,
+            "range": "+/- 24.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1114.902,
+            "range": "+/- 26.2%",
             "unit": "ms"
           }
         ]
