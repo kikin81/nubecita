@@ -111,12 +111,30 @@ Centered content column:
   gets `Modifier.navigationBarsPadding()` (or consumes the Scaffold's
   `safeDrawing` inner padding) so it clears the gesture-nav pill and stays a
   full hit target — never drawn under the system bar.
-- **Plays exactly once per route instance.** The confetti animation + haptic are
-  guarded by `var hasPlayed by rememberSaveable { mutableStateOf(false) }` so a
-  configuration change (rotation, split-screen, dark-mode toggle) — which tears
-  down and recreates this stateless composition — does **not** replay the burst
-  or re-fire the haptic. `rememberSaveable` survives the config change for the
-  life of this route entry.
+- **Plays exactly once, glitch-free across config changes.** A
+  `var hasPlayed by rememberSaveable { mutableStateOf(false) }` flag guards the
+  **haptic** (fires exactly once, never re-fires on rotation/split-screen/dark
+  toggle). The confetti `Animatable` is **initialized from that flag** —
+  `remember { Animatable(if (hasPlayed) 1f else 0f) }` — and the driving
+  `LaunchedEffect(Unit)` runs **only when `!hasPlayed`** (sets the flag, fires
+  the haptic, animates 0→1).
+  - *Why init-from-flag, not "guard the animation with the flag":* the
+    `Animatable` is `remember`ed (not saveable), so a config change recreates it
+    at its initial value. If the flag merely skipped the effect and the
+    Animatable defaulted to `0f`, the burst would **freeze at the emoji origin**
+    (full-alpha particles) — a visible glitch. Initializing to `1f` when
+    `hasPlayed` lands the screen on the *completed/invisible* state: rotating
+    mid-burst just finishes it instantly; rotating after it's done shows no
+    confetti. No replay, no frozen frame.
+  - *Rejected — saving the live `progress` float via `rememberSaveable` to
+    resume mid-flight:* you can't `rememberSaveable` an `Animatable` (needs a
+    custom `Saver`), and continuously mirroring its value into observable state
+    to persist it reintroduces the per-frame recomposition the draw-phase
+    isolation above exists to prevent. Resume-from-exact-frame fidelity isn't
+    worth that for a 1.2s burst.
+  - Reduce-motion short-circuits all of this (no Canvas burst, no animation, no
+    haptic — static 🎉), so the flag/Animatable logic only applies when motion
+    is allowed.
 - A bottom-pinned **Continue** button (`NubecitaPrimaryButton` or the M3
   equivalent already used) → `onContinue()`.
 
