@@ -53,8 +53,12 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun provideRevenueCatInitializer(
         initializer: RevenueCatInitializer,
+        proAnalytics: ProAnalyticsCoordinator,
     ): AppInitializer =
         AppInitializer {
             initializer.initialize(apiKey = BuildConfig.REVENUECAT_API_KEY, verboseLogging = BuildConfig.DEBUG)
+            // After configure: link the Firebase app-instance id to the RC
+            // customer (F4) and start mirroring isPro into the GA4 user property.
+            proAnalytics.start()
         }
 }

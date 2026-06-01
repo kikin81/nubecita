@@ -5,7 +5,9 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsInstanceIdProvider
 import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsInstanceIdProvider
 
 /**
  * Bench-flavor parallel of `:core:analytics`'s production [AnalyticsModule].
@@ -26,4 +28,9 @@ import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 abstract class AnalyticsModule {
     @Binds
     internal abstract fun bindAnalyticsClient(impl: NoOpAnalyticsClient): AnalyticsClient
+
+    @Binds
+    internal abstract fun bindAnalyticsInstanceIdProvider(
+        impl: NoOpAnalyticsInstanceIdProvider,
+    ): AnalyticsInstanceIdProvider
 }

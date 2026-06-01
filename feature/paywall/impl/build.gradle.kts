@@ -9,6 +9,7 @@ android {
 dependencies {
     api(project(":feature:paywall:api"))
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:billing"))
     implementation(project(":data:models"))
     // LocalActivity — the purchase flow hands the hosting Activity to

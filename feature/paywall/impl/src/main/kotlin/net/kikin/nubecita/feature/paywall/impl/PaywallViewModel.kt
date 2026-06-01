@@ -5,6 +5,15 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.PaywallCheckoutStarted
+import net.kikin.nubecita.core.analytics.PaywallPlan
+import net.kikin.nubecita.core.analytics.PaywallPlanSelected
+import net.kikin.nubecita.core.analytics.PaywallPurchaseCancelled
+import net.kikin.nubecita.core.analytics.PaywallPurchaseError
+import net.kikin.nubecita.core.analytics.PaywallRestore
+import net.kikin.nubecita.core.analytics.PaywallViewed
+import net.kikin.nubecita.core.analytics.RestoreOutcome
 import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.PurchaseResult
 import net.kikin.nubecita.core.billing.RestoreResult
@@ -42,15 +51,21 @@ internal class PaywallViewModel
     @Inject
     constructor(
         private val billingRepository: BillingRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<PaywallState, PaywallEvent, PaywallEffect>(PaywallState()) {
         init {
+            // Fired once when the paywall is presented (top of the funnel).
+            analytics.log(PaywallViewed)
             loadPlans()
         }
 
         override fun handleEvent(event: PaywallEvent) {
             when (event) {
                 PaywallEvent.Retry -> loadPlans()
-                is PaywallEvent.PlanSelected -> setState { copy(selectedPlan = event.planId) }
+                is PaywallEvent.PlanSelected -> {
+                    analytics.log(PaywallPlanSelected(event.planId.toAnalyticsPlan()))
+                    setState { copy(selectedPlan = event.planId) }
+                }
                 is PaywallEvent.PurchaseClicked -> purchase(event.activity)
                 PaywallEvent.RestoreClicked -> restore()
                 PaywallEvent.TermsClicked -> sendEffect(PaywallEffect.LaunchUri(TERMS_URL))
@@ -94,6 +109,11 @@ internal class PaywallViewModel
             if (uiState.value.isPurchasing) return
 
             val plan = ready.offering.planFor(uiState.value.selectedPlan)
+            // Checkout boundary: control is about to hand to the Play sheet. The
+            // converted purchase/revenue event comes from RevenueCat server-side
+            // (q5ge.13), so the client logs only this start + the non-converting
+            // outcomes below.
+            analytics.log(PaywallCheckoutStarted(plan.id.toAnalyticsPlan()))
             setState { copy(isPurchasing = true) }
             viewModelScope.launch {
                 // try/finally guarantees the spinner clears even if the
@@ -104,10 +124,13 @@ internal class PaywallViewModel
                 // still runs but scope teardown isn't swallowed.
                 try {
                     when (val result = billingRepository.purchase(activity, plan)) {
+                        // No client success event: the terminal purchase/revenue
+                        // event is owned by RevenueCat's server-side GA4 link.
                         PurchaseResult.Success -> sendEffect(PaywallEffect.Dismiss)
-                        PurchaseResult.Cancelled -> Unit // Expected happy-path exit — stay on the paywall.
+                        PurchaseResult.Cancelled -> analytics.log(PaywallPurchaseCancelled)
                         is PurchaseResult.Error -> {
                             Timber.tag(TAG).w("Paywall purchase failed: %s", result.message)
+                            analytics.log(PaywallPurchaseError)
                             sendEffect(PaywallEffect.ShowPurchaseError)
                         }
                     }
@@ -115,6 +138,7 @@ internal class PaywallViewModel
                     throw cancellation
                 } catch (error: Exception) {
                     Timber.tag(TAG).w(error, "Paywall purchase threw unexpectedly")
+                    analytics.log(PaywallPurchaseError)
                     sendEffect(PaywallEffect.ShowPurchaseError)
                 } finally {
                     setState { copy(isPurchasing = false) }
@@ -134,12 +158,15 @@ internal class PaywallViewModel
                     when (val result = billingRepository.restorePurchases()) {
                         is RestoreResult.Completed ->
                             if (result.isPro) {
+                                analytics.log(PaywallRestore(RestoreOutcome.Restored))
                                 sendEffect(PaywallEffect.Dismiss)
                             } else {
+                                analytics.log(PaywallRestore(RestoreOutcome.Nothing))
                                 sendEffect(PaywallEffect.ShowNothingToRestore)
                             }
                         is RestoreResult.Error -> {
                             Timber.tag(TAG).w("Paywall restore failed: %s", result.message)
+                            analytics.log(PaywallRestore(RestoreOutcome.Error))
                             sendEffect(PaywallEffect.ShowRestoreError)
                         }
                     }
@@ -147,6 +174,7 @@ internal class PaywallViewModel
                     throw cancellation
                 } catch (error: Exception) {
                     Timber.tag(TAG).w(error, "Paywall restore threw unexpectedly")
+                    analytics.log(PaywallRestore(RestoreOutcome.Error))
                     sendEffect(PaywallEffect.ShowRestoreError)
                 } finally {
                     setState { copy(isRestoring = false) }
@@ -172,4 +200,11 @@ private fun net.kikin.nubecita.data.models.SubscriptionOffering.planFor(id: Subs
     when (id) {
         SubscriptionPlanId.Monthly -> monthly
         SubscriptionPlanId.Annual -> annual
+    }
+
+/** Map the domain plan id onto the analytics enum (keeps `:core:analytics` free of `:data:models`). */
+private fun SubscriptionPlanId.toAnalyticsPlan(): PaywallPlan =
+    when (this) {
+        SubscriptionPlanId.Monthly -> PaywallPlan.Monthly
+        SubscriptionPlanId.Annual -> PaywallPlan.Annual
     }

@@ -9,6 +9,18 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsEvent
+import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.core.analytics.PaywallCheckoutStarted
+import net.kikin.nubecita.core.analytics.PaywallPlan
+import net.kikin.nubecita.core.analytics.PaywallPlanSelected
+import net.kikin.nubecita.core.analytics.PaywallPurchaseCancelled
+import net.kikin.nubecita.core.analytics.PaywallPurchaseError
+import net.kikin.nubecita.core.analytics.PaywallRestore
+import net.kikin.nubecita.core.analytics.PaywallViewed
+import net.kikin.nubecita.core.analytics.RestoreOutcome
+import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.PurchaseResult
 import net.kikin.nubecita.core.billing.RestoreResult
@@ -18,6 +30,7 @@ import net.kikin.nubecita.data.models.SubscriptionPlanId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import java.io.IOException
@@ -39,7 +52,8 @@ internal class PaywallViewModelTest {
             mockk {
                 coEvery { loadPlans() } returns Result.success(offering)
             },
-    ) = PaywallViewModel(billingRepository = billing)
+        analytics: AnalyticsClient = RecordingAnalyticsClient(),
+    ) = PaywallViewModel(billingRepository = billing, analytics = analytics)
 
     @Test
     fun `init loads the offering and transitions to Ready`() =
@@ -345,4 +359,127 @@ internal class PaywallViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+    // -- Analytics (q5ge.13) -----------------------------------------------
+
+    @Test
+    fun `init logs PaywallViewed`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            createVm(analytics = analytics)
+            advanceUntilIdle()
+
+            assertTrue(analytics.events.contains(PaywallViewed))
+        }
+
+    @Test
+    fun `PlanSelected logs PaywallPlanSelected with the plan`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val vm = createVm(analytics = analytics)
+            advanceUntilIdle()
+
+            vm.handleEvent(PaywallEvent.PlanSelected(SubscriptionPlanId.Monthly))
+
+            assertTrue(analytics.events.contains(PaywallPlanSelected(PaywallPlan.Monthly)))
+        }
+
+    @Test
+    fun `successful purchase logs checkout started and NO client success event`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val billing =
+                mockk<BillingRepository> {
+                    coEvery { loadPlans() } returns Result.success(offering)
+                    coEvery { purchase(any(), any()) } returns PurchaseResult.Success
+                }
+            val vm = createVm(billing = billing, analytics = analytics)
+            advanceUntilIdle()
+
+            vm.handleEvent(PaywallEvent.PurchaseClicked(mockk<Activity>()))
+            advanceUntilIdle()
+
+            // Annual is the default selection (D9).
+            assertTrue(analytics.events.contains(PaywallCheckoutStarted(PaywallPlan.Annual)))
+            // The terminal purchase/revenue event is owned by RevenueCat server-side.
+            assertFalse(analytics.events.any { it.name == "paywall_purchase_success" })
+            assertFalse(analytics.events.contains(PaywallPurchaseError))
+            assertFalse(analytics.events.contains(PaywallPurchaseCancelled))
+        }
+
+    @Test
+    fun `cancelled purchase logs checkout started then purchase cancelled`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val billing =
+                mockk<BillingRepository> {
+                    coEvery { loadPlans() } returns Result.success(offering)
+                    coEvery { purchase(any(), any()) } returns PurchaseResult.Cancelled
+                }
+            val vm = createVm(billing = billing, analytics = analytics)
+            advanceUntilIdle()
+
+            vm.handleEvent(PaywallEvent.PurchaseClicked(mockk<Activity>()))
+            advanceUntilIdle()
+
+            assertTrue(analytics.events.contains(PaywallCheckoutStarted(PaywallPlan.Annual)))
+            assertTrue(analytics.events.contains(PaywallPurchaseCancelled))
+        }
+
+    @Test
+    fun `failed purchase logs checkout started then purchase error`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val billing =
+                mockk<BillingRepository> {
+                    coEvery { loadPlans() } returns Result.success(offering)
+                    coEvery { purchase(any(), any()) } returns PurchaseResult.Error("boom")
+                }
+            val vm = createVm(billing = billing, analytics = analytics)
+            advanceUntilIdle()
+
+            vm.handleEvent(PaywallEvent.PurchaseClicked(mockk<Activity>()))
+            advanceUntilIdle()
+
+            assertTrue(analytics.events.contains(PaywallCheckoutStarted(PaywallPlan.Annual)))
+            assertTrue(analytics.events.contains(PaywallPurchaseError))
+        }
+
+    @Test
+    fun `restore logs PaywallRestore with the matching outcome`() =
+        runTest(mainDispatcher.dispatcher) {
+            suspend fun outcomeFor(result: RestoreResult): RestoreOutcome {
+                val analytics = RecordingAnalyticsClient()
+                val billing =
+                    mockk<BillingRepository> {
+                        coEvery { loadPlans() } returns Result.success(offering)
+                        coEvery { restorePurchases() } returns result
+                    }
+                val vm = createVm(billing = billing, analytics = analytics)
+                advanceUntilIdle()
+                vm.handleEvent(PaywallEvent.RestoreClicked)
+                advanceUntilIdle()
+                return analytics.events
+                    .filterIsInstance<PaywallRestore>()
+                    .single()
+                    .outcome
+            }
+
+            assertEquals(RestoreOutcome.Restored, outcomeFor(RestoreResult.Completed(isPro = true)))
+            assertEquals(RestoreOutcome.Nothing, outcomeFor(RestoreResult.Completed(isPro = false)))
+            assertEquals(RestoreOutcome.Error, outcomeFor(RestoreResult.Error("net")))
+        }
+}
+
+/** Records logged events for assertions; user-property / screen calls are dropped. */
+private class RecordingAnalyticsClient : AnalyticsClient {
+    val events = mutableListOf<AnalyticsEvent>()
+
+    override fun log(event: AnalyticsEvent) {
+        events += event
+    }
+
+    override fun setUserProperty(property: UserProperty) = Unit
+
+    override fun logScreen(screen: AnalyticsScreen) = Unit
 }

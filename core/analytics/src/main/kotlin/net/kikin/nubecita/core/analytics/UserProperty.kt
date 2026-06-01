@@ -49,3 +49,16 @@ data class NotificationsEnabled(
     override val name: String = "notifications_enabled"
     override val value: String = enabled.toString()
 }
+
+/**
+ * `is_pro` — whether the device currently holds the Nubecita Pro entitlement.
+ * Set from `EntitlementRepository.isPro` so paywall-funnel and engagement
+ * reports can segment by Pro status. Just the boolean — never the plan, price,
+ * sku, or Play account id.
+ */
+data class IsPro(
+    val isPro: Boolean,
+) : UserProperty {
+    override val name: String = "is_pro"
+    override val value: String = isPro.toString()
+}
