@@ -15,8 +15,9 @@ import androidx.activity.ComponentActivity
 import androidx.core.app.PictureInPictureModeChangedInfo
 import androidx.core.content.ContextCompat
 import androidx.core.util.Consumer
+import kotlinx.coroutines.flow.StateFlow
 import net.kikin.nubecita.R
-import net.kikin.nubecita.core.video.PipBridge
+import net.kikin.nubecita.core.common.navigation.PipBridge
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.core.video.clampPipAspectRatio
@@ -49,6 +50,10 @@ class ActivityPipBridge(
     private val pipController: PipController,
     private val sharedVideoPlayer: SharedVideoPlayer,
 ) : PipBridge {
+    // Delegate the entitlement state to the single choke-point so the Compose
+    // layer can key its params-publishing LaunchedEffect on it (design D4).
+    override val isEnabled: StateFlow<Boolean> get() = pipController.isEnabled
+
     private var registered = false
 
     // Feature-detected once. The bridge self-detects (rather than reading a

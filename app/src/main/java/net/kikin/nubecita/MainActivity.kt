@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -27,6 +28,7 @@ import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.navigation.DeepLinkRouter
+import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
@@ -128,7 +130,14 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .semantics { testTagsAsResourceId = true },
                     color = MaterialTheme.colorScheme.background,
-                ) { MainNavigation() }
+                ) {
+                    // Provide the PiP bridge above BOTH NavDisplays — the
+                    // fullscreen video player is an @OuterShell route, so it
+                    // can't reach a local scoped inside MainShell.
+                    CompositionLocalProvider(LocalPipController provides pipBridge) {
+                        MainNavigation()
+                    }
+                }
             }
         }
         // Cold-start case: the OAuth redirect arrived while the app was dead and Android

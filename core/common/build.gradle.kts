@@ -17,6 +17,11 @@ dependencies {
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.datetime)
 
+    // For rememberIsInPipMode: LocalActivity + ComponentActivity's
+    // addOnPictureInPictureModeChangedListener. Activity types stay an
+    // implementation detail — not exposed in any public signature.
+    implementation(libs.androidx.activity.compose)
+
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
 }

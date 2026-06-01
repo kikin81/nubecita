@@ -116,6 +116,33 @@ private fun VideoPlayerContentReadyChromeHiddenScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "pip-chrome-suppressed-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Preview(name = "pip-chrome-suppressed-dark", showBackground = true, heightDp = CANVAS_HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun VideoPlayerContentPipScreenshot() {
+    // In PiP the chrome is suppressed even though `chromeVisible = true` — the
+    // floating window shows only the video. Distinct from ready-chrome-hidden
+    // (which hides via chromeVisible = false); this locks the isInPip override.
+    NubecitaCanvasPreviewTheme {
+        VideoPlayerContent(
+            state =
+                VideoPlayerState(
+                    loadStatus = VideoPlayerLoadStatus.Ready,
+                    aspectRatio = 16f / 9f,
+                    isPlaying = true,
+                    isMuted = false,
+                    positionMs = 5_400L,
+                    durationMs = 30_000L,
+                    chromeVisible = true,
+                ),
+            player = null,
+            onEvent = {},
+            isInPip = true,
+        )
+    }
+}
+
+@PreviewTest
 @Preview(name = "error-network-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
 @Preview(name = "error-network-dark", showBackground = true, heightDp = CANVAS_HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable

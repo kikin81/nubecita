@@ -42,11 +42,11 @@
 
 ## 6. PiP Compose wiring — beads nubecita-q5ge.6
 
-- [ ] 6.1 `rememberIsInPipMode()` helper (AndroidX `addOnPictureInPictureModeChangedListener`)
-- [ ] 6.2 Hide player chrome + system bars in PiP; capture source-rect via `onGloballyPositioned`
-- [ ] 6.3 `MainShell` suppresses `NavigationSuiteScaffold` (`NavigationSuiteType.None`) in PiP
-- [ ] 6.4 `LocalPipController` CompositionLocal; `LaunchedEffect` publishes params keyed on `isPlaying`/aspect/`isEnabled`
-- [ ] 6.5 Screenshot test: video screen in PiP (chrome hidden) vs normal
+- [x] 6.1 `rememberIsInPipMode()` helper (`:core:common`, AndroidX `addOnPictureInPictureModeChangedListener`)
+- [x] 6.2 Hide player chrome in PiP (`chromeVisible && !isInPip`); capture source-rect via `onGloballyPositioned` → `updateParams`
+- [x] 6.3 `MainShell` suppresses the navigation suite (`NavigationSuiteType.None`) when `rememberIsInPipMode()`
+- [x] 6.4 `LocalPipController` CompositionLocal (`:core:common`, provided by `MainActivity` above both NavDisplays); `LaunchedEffect` publishes params keyed on `isPlaying`/aspect/`isEnabled`/source-rect. `PipBridge` moved to `:core:common` + widened with `isEnabled` (avoids a `:core:common → :core:video` cycle)
+- [x] 6.5 Screenshot test: video screen in PiP (chrome suppressed despite `chromeVisible = true`) — light/dark baselines
 
 ## 7. `:feature:paywall` module — beads nubecita-q5ge.7
 

@@ -46,6 +46,7 @@ import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
+import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -270,16 +271,15 @@ fun MainShell(modifier: Modifier = Modifier) {
             activeKey in TopLevelDestinations.map { it.key }
         }
     val defaultLayoutType = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
+    // In Picture-in-Picture the window is a tiny floating video — the navigation
+    // suite must collapse entirely (design D5/q5ge.6), regardless of width class.
+    val isInPip by rememberIsInPipMode()
     val layoutType =
-        when (defaultLayoutType) {
-            NavigationSuiteType.NavigationBar -> {
-                if (isTopLevel) {
-                    NavigationSuiteType.ShortNavigationBarCompact
-                } else {
-                    NavigationSuiteType.None
-                }
-            }
-            NavigationSuiteType.NavigationDrawer -> NavigationSuiteType.NavigationRail
+        when {
+            isInPip -> NavigationSuiteType.None
+            defaultLayoutType == NavigationSuiteType.NavigationBar ->
+                if (isTopLevel) NavigationSuiteType.ShortNavigationBarCompact else NavigationSuiteType.None
+            defaultLayoutType == NavigationSuiteType.NavigationDrawer -> NavigationSuiteType.NavigationRail
             else -> defaultLayoutType
         }
 
