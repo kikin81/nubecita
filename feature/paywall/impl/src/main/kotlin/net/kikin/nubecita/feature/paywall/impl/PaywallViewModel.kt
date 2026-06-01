@@ -157,12 +157,13 @@ internal class PaywallViewModel
         private companion object {
             const val TAG = "PaywallVM"
 
-            // Placeholder legal links. The live Terms / Privacy URLs are
-            // finalized and verified against Play subscription policy in
-            // nubecita-q5ge.11 (store/legal); the epic does not ship to
-            // production until that task lands.
-            const val TERMS_URL = "https://nubecita.app/terms"
-            const val PRIVACY_URL = "https://nubecita.app/privacy"
+            // Live legal pages on nubecita.app (GitHub Pages, repo
+            // nubecita-web). The page *content* must be updated to cover the
+            // Pro subscription (auto-renewal, billing-through-Play, refunds;
+            // purchase data + RevenueCat as processor) before store
+            // submission — tracked in nubecita-q5ge.11.
+            const val TERMS_URL = "https://nubecita.app/terms/"
+            const val PRIVACY_URL = "https://nubecita.app/privacy-policy/"
         }
     }
 

@@ -331,11 +331,17 @@ internal class PaywallViewModelTest {
             vm.effects.test {
                 vm.handleEvent(PaywallEvent.TermsClicked)
                 advanceUntilIdle()
-                assertInstanceOf(PaywallEffect.LaunchUri::class.java, awaitItem())
+                assertEquals(
+                    PaywallEffect.LaunchUri("https://nubecita.app/terms/"),
+                    awaitItem(),
+                )
 
                 vm.handleEvent(PaywallEvent.PrivacyClicked)
                 advanceUntilIdle()
-                assertInstanceOf(PaywallEffect.LaunchUri::class.java, awaitItem())
+                assertEquals(
+                    PaywallEffect.LaunchUri("https://nubecita.app/privacy-policy/"),
+                    awaitItem(),
+                )
                 cancelAndIgnoreRemainingEvents()
             }
         }
