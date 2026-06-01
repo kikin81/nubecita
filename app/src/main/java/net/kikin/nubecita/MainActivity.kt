@@ -204,7 +204,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        pipBridge.stop()
+        // Guard against teardown of a half-constructed Activity: if Hilt injection
+        // or anything before the onCreate assignment throws, onDestroy still fires
+        // and an unguarded lateinit access would mask the original failure.
+        if (::pipBridge.isInitialized) pipBridge.stop()
         super.onDestroy()
     }
 

@@ -31,7 +31,7 @@ internal annotation class PipDeviceSupport
  * exists from API 24 and phone PiP from API 26; the project's `minSdk` is 28, so
  * the SDK gate is belt-and-suspenders and the system feature is the real signal.
  */
-internal fun Context.supportsPip(): Boolean =
+public fun Context.supportsPip(): Boolean =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
         packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
@@ -45,17 +45,12 @@ internal fun Context.supportsPip(): Boolean =
  * `@Singleton` holds the shared state those layers read. [isInPip] is set by the
  * Activity's `onPictureInPictureModeChanged` bridge (a later task) and read by
  * the `SharedVideoPlayer` background-pause seam and the player chrome.
- *
- * @property deviceSupportsPip whether PiP is physically available. Exposed only
- * so the Activity bridge can avoid calling `setPictureInPictureParams` on a
- * device that would throw; UI and "offer PiP" decisions MUST gate on [isEnabled],
- * the single choke-point (design D4), not on this.
  */
 @Singleton
 public class PipController
     @Inject
     internal constructor(
-        @param:PipDeviceSupport public val deviceSupportsPip: Boolean,
+        @param:PipDeviceSupport private val deviceSupportsPip: Boolean,
         entitlementRepository: EntitlementRepository,
         @param:ApplicationScope scope: CoroutineScope,
     ) {

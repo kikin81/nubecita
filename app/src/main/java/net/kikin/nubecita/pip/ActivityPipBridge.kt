@@ -12,12 +12,15 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.util.Rational
 import androidx.activity.ComponentActivity
+import androidx.core.app.PictureInPictureModeChangedInfo
 import androidx.core.content.ContextCompat
+import androidx.core.util.Consumer
 import net.kikin.nubecita.R
 import net.kikin.nubecita.core.video.PipBridge
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.core.video.clampPipAspectRatio
+import net.kikin.nubecita.core.video.supportsPip
 import timber.log.Timber
 import kotlin.math.roundToInt
 
@@ -48,6 +51,16 @@ class ActivityPipBridge(
 ) : PipBridge {
     private var registered = false
 
+    // Feature-detected once. The bridge self-detects (rather than reading a
+    // PipController field) so PipController stays the single isEnabled choke-point
+    // (design D4) and is never mistaken for an "offer PiP" gate.
+    private val deviceSupportsPip: Boolean = activity.supportsPip()
+
+    private val pipModeListener =
+        Consumer<PictureInPictureModeChangedInfo> { info ->
+            pipController.setInPip(info.isInPictureInPictureMode)
+        }
+
     private val toggleReceiver =
         object : BroadcastReceiver() {
             override fun onReceive(
@@ -68,9 +81,7 @@ class ActivityPipBridge(
     fun start() {
         if (registered) return
         registered = true
-        activity.addOnPictureInPictureModeChangedListener { info ->
-            pipController.setInPip(info.isInPictureInPictureMode)
-        }
+        activity.addOnPictureInPictureModeChangedListener(pipModeListener)
         ContextCompat.registerReceiver(
             activity,
             toggleReceiver,
@@ -79,10 +90,11 @@ class ActivityPipBridge(
         )
     }
 
-    /** Unregister the receiver. Call from `onDestroy`. */
+    /** Remove the listener and unregister the receiver (symmetric with [start]). Call from `onDestroy`. */
     fun stop() {
         if (!registered) return
         registered = false
+        activity.removeOnPictureInPictureModeChangedListener(pipModeListener)
         runCatching { activity.unregisterReceiver(toggleReceiver) }
             .onFailure { Timber.tag(TAG).w(it, "PiP receiver already unregistered") }
     }
@@ -97,7 +109,7 @@ class ActivityPipBridge(
         // buildParams via `isEnabled && isPlaying` — so always re-publishing here
         // also disarms auto-enter the moment Pro lapses, rather than leaving stale
         // params that could still auto-enter (design risk: entitlement loss).
-        if (!pipController.deviceSupportsPip) return
+        if (!deviceSupportsPip) return
         runCatching { activity.setPictureInPictureParams(buildParams(aspectRatio, isPlaying, sourceRectHint)) }
             .onFailure { Timber.tag(TAG).w(it, "setPictureInPictureParams failed") }
     }
