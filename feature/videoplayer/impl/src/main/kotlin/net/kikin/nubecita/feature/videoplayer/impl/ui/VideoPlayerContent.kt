@@ -54,6 +54,9 @@ internal fun VideoPlayerContent(
     // previews/screenshot fixtures rendering the normal (non-PiP) surface.
     isInPip: Boolean = false,
     onSourceRectChange: (android.graphics.Rect) -> Unit = {},
+    // Pop-out / enter-PiP handler for the chrome (nubecita-q5ge.8); null hides
+    // the affordance (non-PiP device, previews).
+    onPopOut: (() -> Unit)? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -128,6 +131,7 @@ internal fun VideoPlayerContent(
                         state = state,
                         onEvent = onEvent,
                         modifier = Modifier.fillMaxSize(),
+                        onPopOut = onPopOut,
                     )
                 }
             }
