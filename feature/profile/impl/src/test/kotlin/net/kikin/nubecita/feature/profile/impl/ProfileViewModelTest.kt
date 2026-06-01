@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
@@ -25,6 +26,7 @@ import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -86,6 +88,55 @@ internal class ProfileViewModelTest {
             advanceUntilIdle()
 
             assertEquals(1, repo.headerCalls.get(), "a save can only target the OWN profile; skip refetch here")
+        }
+
+    @Test
+    fun `own profile with Pro entitlement shows the supporter badge`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = FakeProfileRepository(), route = Profile(handle = null), isPro = true)
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertTrue(state.isProSupporter, "isProSupporter MUST mirror isPro == true")
+            assertTrue(state.ownProfile, "route handle == null MUST be the own profile")
+            assertTrue(state.showSupporterBadge, "own profile + Pro MUST show the badge")
+        }
+
+    @Test
+    fun `own profile without Pro entitlement hides the supporter badge`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = FakeProfileRepository(), route = Profile(handle = null), isPro = false)
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertFalse(state.isProSupporter, "isProSupporter MUST mirror isPro == false")
+            assertFalse(state.showSupporterBadge, "own profile + non-Pro MUST hide the badge")
+        }
+
+    @Test
+    fun `other-user profile with Pro entitlement still hides the supporter badge`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Tier 1 is self-visible only: even a Pro viewer sees no badge on
+            // someone else's profile. The ownProfile gate (not isPro) is what
+            // suppresses it here.
+            val vm =
+                newVm(repo = FakeProfileRepository(), route = Profile(handle = "alice.bsky.social"), isPro = true)
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertTrue(state.isProSupporter, "isProSupporter still mirrors the viewer's isPro == true")
+            assertFalse(state.ownProfile, "a non-null route handle MUST be an other-user profile")
+            assertFalse(state.showSupporterBadge, "other-user profile MUST hide the badge regardless of Pro")
+        }
+
+    @Test
+    fun `other-user profile without Pro entitlement hides the supporter badge`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newVm(repo = FakeProfileRepository(), route = Profile(handle = "alice.bsky.social"), isPro = false)
+            advanceUntilIdle()
+
+            assertFalse(vm.uiState.value.showSupporterBadge, "other-user profile + non-Pro MUST hide the badge")
         }
 
     @Test
@@ -1097,16 +1148,22 @@ internal class ProfileViewModelTest {
         sessionState: SessionState =
             SessionState.SignedIn(handle = "viewer.bsky.social", did = "did:plc:viewer123"),
         postInteractionsCache: PostInteractionsCache = FakePostInteractionsCache(),
+        isPro: Boolean = false,
     ): ProfileViewModel {
         val sessionProvider =
             mockk<SessionStateProvider>(relaxed = true).also {
                 every { it.state } returns MutableStateFlow(sessionState)
+            }
+        val entitlementRepository =
+            mockk<EntitlementRepository>(relaxed = true).also {
+                every { it.isPro } returns MutableStateFlow(isPro)
             }
         return ProfileViewModel(
             route = route,
             repository = repo,
             sessionStateProvider = sessionProvider,
             postInteractionsCache = postInteractionsCache,
+            entitlementRepository = entitlementRepository,
         )
     }
 

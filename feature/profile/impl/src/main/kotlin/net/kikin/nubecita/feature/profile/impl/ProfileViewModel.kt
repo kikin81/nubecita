@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -55,6 +56,7 @@ internal class ProfileViewModel
         private val repository: ProfileRepository,
         private val sessionStateProvider: SessionStateProvider,
         private val postInteractionsCache: PostInteractionsCache,
+        private val entitlementRepository: EntitlementRepository,
     ) : MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>(
             ProfileScreenViewState(
                 handle = route.handle,
@@ -100,6 +102,13 @@ internal class ProfileViewModel
                     .distinctUntilChanged()
                     .collect { merged -> setState { merged } }
             }
+            // Mirror the viewer's Pro entitlement into flat state. isPro is a
+            // hot StateFlow (starts false, never throws), so no .catch — we
+            // just project each emission. The hero gates the badge on this
+            // flag AND ownProfile (see ProfileScreenViewState.showSupporterBadge).
+            entitlementRepository.isPro
+                .onEach { isPro -> setState { copy(isProSupporter = isPro) } }
+                .launchIn(viewModelScope)
             // When the user saves an edit to their OWN profile, refetch the
             // header so the new name/bio/avatar/banner replace the stale ones
             // under the (now-popped) editor. Only the own-profile screen can

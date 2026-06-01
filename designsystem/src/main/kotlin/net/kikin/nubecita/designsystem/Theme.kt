@@ -105,6 +105,7 @@ private fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             onVideoOverlay = OnVideoOverlay,
             likeAccent = LikeAccentDark,
             repostAccent = RepostAccentDark,
+            supporterAccent = SupporterAccentDark,
         )
     } else {
         NubecitaSemanticColors(
@@ -119,6 +120,7 @@ private fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             onVideoOverlay = OnVideoOverlay,
             likeAccent = LikeAccentLight,
             repostAccent = RepostAccentLight,
+            supporterAccent = SupporterAccentLight,
         )
     }
 
@@ -144,6 +146,14 @@ private val LikeAccentLight = Color(0xFFEC4899)
 private val LikeAccentDark = Color(0xFFF472B6)
 private val RepostAccentLight = Color(0xFF20BC70)
 private val RepostAccentDark = Color(0xFF4ADE80)
+
+// Supporter (Nubecita Pro) accent: warm gold. Held here alongside the
+// social-action accents (vs the brand tonal palette) because it's an
+// independent status color, not part of the brand's tonal ramp. The
+// dark variant is lifted toward a brighter gold for contrast against
+// the dark `colorScheme.surface`.
+private val SupporterAccentLight = Color(0xFFD9A521)
+private val SupporterAccentDark = Color(0xFFF5C842)
 
 private enum class ContrastLevel { Standard, Medium, High }
 

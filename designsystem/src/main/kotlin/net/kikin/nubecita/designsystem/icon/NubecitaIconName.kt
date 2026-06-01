@@ -79,4 +79,9 @@ enum class NubecitaIconName(
     VolumeOff("\uE04F"),
     VolumeUp("\uE050"),
     WifiOff("\uE648"),
+
+    // Medal/ribbon glyph for the Nubecita Pro "Supporter" badge. Chosen
+    // over `Verified` (a checkmark) so the badge reads as a patron/
+    // supporter marker, NOT as identity verification.
+    WorkspacePremium("\uE7AF"),
 }

@@ -58,6 +58,7 @@ private fun previewSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             onVideoOverlay = NubecitaPalette.Neutral100,
             likeAccent = Color(0xFFF472B6),
             repostAccent = Color(0xFF4ADE80),
+            supporterAccent = Color(0xFFF5C842),
         )
     } else {
         NubecitaSemanticColors(
@@ -72,5 +73,6 @@ private fun previewSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
             onVideoOverlay = NubecitaPalette.Neutral100,
             likeAccent = Color(0xFFEC4899),
             repostAccent = Color(0xFF20BC70),
+            supporterAccent = Color(0xFFD9A521),
         )
     }

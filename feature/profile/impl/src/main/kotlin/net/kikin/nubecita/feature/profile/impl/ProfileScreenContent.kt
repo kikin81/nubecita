@@ -113,6 +113,7 @@ internal fun ProfileScreenContent(
                     ProfileHero(
                         header = state.header,
                         headerError = state.headerError,
+                        showSupporterBadge = state.showSupporterBadge,
                         onRetryHeader = { onEvent(ProfileEvent.Refresh) },
                         topInset = topBarPadding,
                         modifier = Modifier.fillMaxWidth(),

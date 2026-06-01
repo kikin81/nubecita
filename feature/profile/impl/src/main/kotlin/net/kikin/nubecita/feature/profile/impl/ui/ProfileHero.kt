@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.component.SupporterBadge
 import net.kikin.nubecita.designsystem.extendedTypography
 import net.kikin.nubecita.feature.profile.impl.ProfileError
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
@@ -50,6 +51,7 @@ private val BannerCornerRadius = 28.dp
 internal fun ProfileHero(
     header: ProfileHeaderUi?,
     headerError: ProfileError?,
+    showSupporterBadge: Boolean,
     onRetryHeader: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
@@ -58,6 +60,7 @@ internal fun ProfileHero(
         header != null ->
             ProfileHeroLoaded(
                 header = header,
+                showSupporterBadge = showSupporterBadge,
                 modifier = modifier,
                 topInset = topInset,
             )
@@ -75,6 +78,7 @@ internal fun ProfileHero(
 @Composable
 private fun ProfileHeroLoaded(
     header: ProfileHeaderUi,
+    showSupporterBadge: Boolean,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
 ) {
@@ -168,6 +172,11 @@ private fun ProfileHeroLoaded(
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            if (showSupporterBadge) {
+                Spacer(Modifier.height(4.dp))
+                SupporterBadge()
+            }
 
             if (header.bio != null) {
                 Spacer(Modifier.height(8.dp))
