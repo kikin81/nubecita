@@ -21,6 +21,7 @@ dependencies {
     // types; consumers see plain MediaItem URIs.
     api(libs.media3.exoplayer)
 
+    implementation(project(":core:billing"))
     implementation(project(":core:common"))
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.media3.exoplayer.hls)
