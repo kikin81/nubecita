@@ -27,6 +27,7 @@ import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerLoadStatus
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerState
+import kotlin.math.roundToInt
 
 /**
  * Stateless body. Branches on `state.loadStatus`:
@@ -140,7 +141,7 @@ internal fun VideoPlayerContent(
     }
 }
 
-private fun androidx.compose.ui.geometry.Rect.toAndroidRectInt(): android.graphics.Rect = android.graphics.Rect(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
+private fun androidx.compose.ui.geometry.Rect.toAndroidRectInt(): android.graphics.Rect = android.graphics.Rect(left.roundToInt(), top.roundToInt(), right.roundToInt(), bottom.roundToInt())
 
 @androidx.compose.ui.tooling.preview.Preview(
     name = "VideoPlayer — Resolving",

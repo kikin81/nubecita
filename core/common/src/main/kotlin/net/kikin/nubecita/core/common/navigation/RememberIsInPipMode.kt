@@ -24,7 +24,9 @@ import androidx.core.util.Consumer
 @Composable
 public fun rememberIsInPipMode(): State<Boolean> {
     val activity = LocalActivity.current as? ComponentActivity
-    val state = remember { mutableStateOf(activity?.isInPictureInPictureMode == true) }
+    // Key on `activity` (like the DisposableEffect below) so the seeded initial
+    // value always reflects the current host — not a stale prior Activity.
+    val state = remember(activity) { mutableStateOf(activity?.isInPictureInPictureMode == true) }
     var isInPip by state
 
     if (activity != null) {

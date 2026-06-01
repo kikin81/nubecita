@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.common.navigation
 import android.graphics.Rect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * The Compose → Activity Picture-in-Picture seam (design D5: PiP is driven from
@@ -36,7 +37,9 @@ public interface PipBridge {
 
 /** Inert [PipBridge] for composables rendered outside the PiP-capable Activity (previews, screenshot tests). */
 public object NoOpPipBridge : PipBridge {
-    override val isEnabled: StateFlow<Boolean> = MutableStateFlow(false)
+    // asStateFlow() so it can't be cast back to MutableStateFlow and mutated —
+    // the no-op stays genuinely inert.
+    override val isEnabled: StateFlow<Boolean> = MutableStateFlow(false).asStateFlow()
 
     override fun updateParams(
         aspectRatio: Float?,
