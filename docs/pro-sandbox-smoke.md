@@ -29,10 +29,12 @@ flips it back without yanking an in-flight feature.
 | Offering | `default` → `$rc_monthly` / `$rc_annual` |
 | SDK | `com.revenuecat.purchases:purchases` 10.7.0; `goog_` public key via `BuildConfig.REVENUECAT_API_KEY` |
 
-The app is **inert without the key**: `RevenueCatInitializer` only calls
-`Purchases.configure` on the production flavor when the key is non-empty, so a
-keyless/bench build never touches the SDK and `isPro` stays `false` (by design).
-The build under test **must carry the `goog_` key**.
+The app is **inert without the key**: `RevenueCatInitializer.initialize(...)`
+skips `Purchases.configure` when the API key is blank, and the bench flavor
+never registers the initializer at all (only `:app`'s production-flavor
+`AppInitializer` calls it). Either way a keyless/bench build issues zero SDK /
+network calls and `isPro` stays `false` (by design). The build under test
+**must carry the `goog_` key**.
 
 ## Prerequisites (one-time)
 
@@ -47,8 +49,12 @@ The build under test **must carry the `goog_` key**.
    - a **local release build** with the key in `local.properties`
      (`revenueCatApiKey=goog_…`) or `-PrevenueCatApiKey=goog_…`, e.g.
      `./gradlew :app:bundleProductionRelease -PrevenueCatApiKey=goog_…`
-     (debug-signed release is fine for the smoke; see the OAuth-on-debug caveat
-     in project memory if sign-in misbehaves).
+     A debug-signed release works for the billing smoke, but **sign-in can fail
+     on it**: the debug cert isn't in the server's `assetlinks.json`, so the
+     OAuth `https` redirect isn't App-Link-verified and opens a browser instead
+     of returning to the app. If that happens, sign in from the **internal-track
+     / release-signed** build, or force the link to the app with
+     `adb shell pm set-app-links-user-selection --user 0 --package net.kikin.nubecita true bsky.app`.
 3. **Device** signed in with the **license-tester** Google account, Play Store
    updated, app installed from the keyed build above.
 
@@ -96,7 +102,9 @@ it through the three surfaces that gate on it.
          face + badge + PiP unlock return **without re-purchasing**. (Confirms the
          anonymous Play-account binding, design D3 — checklist **F2**.)
    - [ ] Restore with **nothing to restore** (a fresh non-purchased account)
-         shows the friendly "No purchases found" snackbar, not an error.
+         shows the friendly **"No purchases found to restore."** snackbar
+         (`settings_pro_restore_nothing`; the paywall's Restore shows "No
+         purchases to restore on this account."), not an error.
 
 ### D. Cancellation reflects in-app  *(checklist F3)*
 
@@ -131,4 +139,4 @@ it through the three surfaces that gate on it.
 | Purchase dialog shows a **real** price / charge warning | Account isn't a registered **license tester**, or testing on a track the tester isn't enrolled in. |
 | `isPro` never flips after a successful purchase | Entitlement id mismatch — must be exactly `pro` (`PRO_ENTITLEMENT_ID`); or the product isn't attached to the `pro` entitlement in RevenueCat (A3). |
 | Pro unlocks but disappears on next cold start | Expected if the **sandbox sub expired** (accelerated renewals); re-purchase or restore. |
-| Sign-in fails on a debug-signed release build | Debug cert isn't in `assetlinks.json` — see the "debug build App Link sign-in break" project memory for the `pm set-app-links-*` workaround. |
+| Sign-in fails on a debug-signed release build | The debug signing cert isn't in the server's `assetlinks.json`, so the App Link isn't verified and the OAuth `https` redirect opens a browser instead of returning to the app. Sign in from the internal-track / release-signed build, or run `adb shell pm set-app-links-user-selection --user 0 --package net.kikin.nubecita true bsky.app`. |
