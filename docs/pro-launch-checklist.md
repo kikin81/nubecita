@@ -52,7 +52,7 @@ Runbook for **nubecita-q5ge.11** (epic **nubecita-q5ge**, design `openspec/chang
 
 ## F. Pre-submission verification
 
-- [ ] **F1.** Sandbox / license-tester purchase grants `isPro = true` in-app and unlocks PiP + the Supporter badge — **nubecita-q5ge.12** (`run-instrumented`). Now unblocked (A–B done).
+- [ ] **F1.** Sandbox / license-tester purchase grants `isPro = true` in-app and unlocks PiP + the Supporter badge — **nubecita-q5ge.12**. Runbook: `docs/pro-sandbox-smoke.md` (manual on-device; the live purchase can't be CI-automated). Now unblocked (A–B done).
 - [ ] **F2.** Restore purchases works on a second device / reinstall (same Play account).
 - [ ] **F3.** Cancellation reflects in-app after the period ends (`isPro` → false); an active PiP session is **not** force-closed mid-use (design risk note).
 - [ ] **F4.** RC→Firebase events arrive in GA4 for a sandbox purchase. The app-side step — linking RevenueCat's anonymous app-user id to the Firebase app-instance id so events attribute to the right user — is **nubecita-q5ge.13** (the RevenueCat SDK exposes a helper for this; confirm the exact API against the pinned SDK version when implementing).
