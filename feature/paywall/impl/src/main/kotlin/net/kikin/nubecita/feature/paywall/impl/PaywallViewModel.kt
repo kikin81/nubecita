@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.paywall.impl
 import android.app.Activity
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.PurchaseResult
@@ -60,16 +61,28 @@ internal class PaywallViewModel
         private fun loadPlans() {
             setState { copy(status = PaywallStatus.Loading) }
             viewModelScope.launch {
-                billingRepository
-                    .loadPlans()
-                    .onSuccess { offering ->
-                        setState { copy(status = PaywallStatus.Ready(offering)) }
-                    }.onFailure { error ->
-                        // Developer-facing diagnostic only; the screen shows
-                        // its own localized retryable error state.
-                        Timber.tag(TAG).w(error, "Paywall offering load failed")
-                        setState { copy(status = PaywallStatus.Error) }
-                    }
+                // loadPlans is contractually a Result, but a misbehaving
+                // provider impl could still throw — guard so an unexpected
+                // throw routes to the retryable Error state instead of
+                // leaving the UI stuck in Loading. CancellationException is
+                // rethrown so normal scope teardown isn't swallowed.
+                try {
+                    billingRepository
+                        .loadPlans()
+                        .onSuccess { offering ->
+                            setState { copy(status = PaywallStatus.Ready(offering)) }
+                        }.onFailure { error ->
+                            // Developer-facing diagnostic only; the screen shows
+                            // its own localized retryable error state.
+                            Timber.tag(TAG).w(error, "Paywall offering load failed")
+                            setState { copy(status = PaywallStatus.Error) }
+                        }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (error: Exception) {
+                    Timber.tag(TAG).w(error, "Paywall offering load threw unexpectedly")
+                    setState { copy(status = PaywallStatus.Error) }
+                }
             }
         }
 
@@ -83,19 +96,28 @@ internal class PaywallViewModel
             val plan = ready.offering.planFor(uiState.value.selectedPlan)
             setState { copy(isPurchasing = true) }
             viewModelScope.launch {
-                when (val result = billingRepository.purchase(activity, plan)) {
-                    PurchaseResult.Success -> {
-                        setState { copy(isPurchasing = false) }
-                        sendEffect(PaywallEffect.Dismiss)
+                // try/finally guarantees the spinner clears even if the
+                // billing layer throws (otherwise the CTA stays permanently
+                // disabled); the catch turns an unexpected throw into the same
+                // user-facing error as a PurchaseResult.Error rather than a
+                // crash. CancellationException is rethrown so the finally
+                // still runs but scope teardown isn't swallowed.
+                try {
+                    when (val result = billingRepository.purchase(activity, plan)) {
+                        PurchaseResult.Success -> sendEffect(PaywallEffect.Dismiss)
+                        PurchaseResult.Cancelled -> Unit // Expected happy-path exit — stay on the paywall.
+                        is PurchaseResult.Error -> {
+                            Timber.tag(TAG).w("Paywall purchase failed: %s", result.message)
+                            sendEffect(PaywallEffect.ShowPurchaseError)
+                        }
                     }
-                    PurchaseResult.Cancelled ->
-                        // Expected happy-path exit — back out silently, stay on the paywall.
-                        setState { copy(isPurchasing = false) }
-                    is PurchaseResult.Error -> {
-                        Timber.tag(TAG).w("Paywall purchase failed: %s", result.message)
-                        setState { copy(isPurchasing = false) }
-                        sendEffect(PaywallEffect.ShowPurchaseError)
-                    }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (error: Exception) {
+                    Timber.tag(TAG).w(error, "Paywall purchase threw unexpectedly")
+                    sendEffect(PaywallEffect.ShowPurchaseError)
+                } finally {
+                    setState { copy(isPurchasing = false) }
                 }
             }
         }
@@ -105,20 +127,29 @@ internal class PaywallViewModel
             if (uiState.value.isRestoring) return
             setState { copy(isRestoring = true) }
             viewModelScope.launch {
-                when (val result = billingRepository.restorePurchases()) {
-                    is RestoreResult.Completed -> {
-                        setState { copy(isRestoring = false) }
-                        if (result.isPro) {
-                            sendEffect(PaywallEffect.Dismiss)
-                        } else {
-                            sendEffect(PaywallEffect.ShowNothingToRestore)
+                // Same guard shape as purchase: finally clears the spinner so
+                // the Restore action can't get stuck; the catch maps an
+                // unexpected throw to the restore-error snackbar.
+                try {
+                    when (val result = billingRepository.restorePurchases()) {
+                        is RestoreResult.Completed ->
+                            if (result.isPro) {
+                                sendEffect(PaywallEffect.Dismiss)
+                            } else {
+                                sendEffect(PaywallEffect.ShowNothingToRestore)
+                            }
+                        is RestoreResult.Error -> {
+                            Timber.tag(TAG).w("Paywall restore failed: %s", result.message)
+                            sendEffect(PaywallEffect.ShowRestoreError)
                         }
                     }
-                    is RestoreResult.Error -> {
-                        Timber.tag(TAG).w("Paywall restore failed: %s", result.message)
-                        setState { copy(isRestoring = false) }
-                        sendEffect(PaywallEffect.ShowRestoreError)
-                    }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (error: Exception) {
+                    Timber.tag(TAG).w(error, "Paywall restore threw unexpectedly")
+                    sendEffect(PaywallEffect.ShowRestoreError)
+                } finally {
+                    setState { copy(isRestoring = false) }
                 }
             }
         }

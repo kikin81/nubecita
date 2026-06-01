@@ -266,6 +266,63 @@ internal class PaywallViewModelTest {
         }
 
     @Test
+    fun `load that throws unexpectedly transitions to Error, not stuck Loading`() =
+        runTest(mainDispatcher.dispatcher) {
+            // loadPlans is contractually a Result, but guard against the impl
+            // throwing (a provider-SDK bug) leaving the UI stuck in Loading.
+            val billing =
+                mockk<BillingRepository> {
+                    coEvery { loadPlans() } throws RuntimeException("provider blew up")
+                }
+            val vm = createVm(billing)
+            advanceUntilIdle()
+
+            assertEquals(PaywallStatus.Error, vm.uiState.value.status)
+        }
+
+    @Test
+    fun `purchase that throws unexpectedly clears the spinner and emits ShowPurchaseError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val activity = mockk<Activity>(relaxed = true)
+            val billing =
+                mockk<BillingRepository> {
+                    coEvery { loadPlans() } returns Result.success(offering)
+                    coEvery { purchase(activity, offering.annual) } throws RuntimeException("billing blew up")
+                }
+            val vm = createVm(billing)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PaywallEvent.PurchaseClicked(activity))
+                advanceUntilIdle()
+                assertEquals(PaywallEffect.ShowPurchaseError, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            // Spinner must clear so the CTA isn't permanently disabled.
+            assertFalse(vm.uiState.value.isPurchasing)
+        }
+
+    @Test
+    fun `restore that throws unexpectedly clears the spinner and emits ShowRestoreError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val billing =
+                mockk<BillingRepository> {
+                    coEvery { loadPlans() } returns Result.success(offering)
+                    coEvery { restorePurchases() } throws RuntimeException("restore blew up")
+                }
+            val vm = createVm(billing)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PaywallEvent.RestoreClicked)
+                advanceUntilIdle()
+                assertEquals(PaywallEffect.ShowRestoreError, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertFalse(vm.uiState.value.isRestoring)
+        }
+
+    @Test
     fun `Terms and Privacy taps emit LaunchUri`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = createVm()
