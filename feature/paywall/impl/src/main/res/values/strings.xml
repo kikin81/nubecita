@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nubecita Pro paywall (custom Compose paywall — design D2). Supporter-
+         first framing: this is "fund the developer", not "unlock features you
+         need". Keep it warm and honest; never imply the free app is crippled. -->
+    <string name="paywall_title">Nubecita Pro</string>
+    <string name="paywall_close_content_description">Close</string>
+
+    <!-- Hero / locked "support the dev" copy. -->
+    <string name="paywall_headline">Support Nubecita</string>
+    <string name="paywall_subhead">Nubecita is an independent, native Bluesky client built by one developer. Becoming a Supporter funds the ongoing work — and unlocks a couple of perks as a thank-you.</string>
+
+    <!-- Perks section. v1 perks are picture-in-picture video and a self-visible
+         Supporter badge (design D8 — neutral wording, never "verified"). -->
+    <string name="paywall_perks_title">What you get</string>
+    <string name="paywall_perk_pip_title">Picture-in-picture video</string>
+    <string name="paywall_perk_pip_body">Pop a video out into a floating window and keep watching while you browse.</string>
+    <string name="paywall_perk_badge_title">Supporter badge</string>
+    <string name="paywall_perk_badge_body">A small badge on your own profile — a quiet thank-you, just for you.</string>
+
+    <!-- Plan picker. Prices are rendered verbatim from the store-localized
+         offering (Play policy); the only computed strings are the savings
+         percentage and the annual per-month-equivalent comparison line. -->
+    <string name="paywall_plan_monthly">Monthly</string>
+    <string name="paywall_plan_annual">Annual</string>
+    <string name="paywall_plan_per_month_caption">per month</string>
+    <string name="paywall_plan_per_year_caption">per year</string>
+    <!-- %1$d is the whole-percent saved by paying annually (offering.annualSavingsPercent). -->
+    <string name="paywall_plan_savings_badge">Save %1$d%%</string>
+    <!-- %1$s is the annual plan's price expressed per-month (e.g. "$1.67"). -->
+    <string name="paywall_plan_annual_monthly_equivalent">≈ %1$s/mo</string>
+    <!-- TalkBack label for a plan card: "%1$s, %2$s" → e.g. "Annual, $19.99". -->
+    <string name="paywall_plan_content_description">%1$s, %2$s</string>
+
+    <!-- Primary call to action. -->
+    <string name="paywall_cta">Become a Supporter</string>
+
+    <!-- Restore + legal disclosure block (required by Play subscription policy;
+         live Terms/Privacy URLs finalized in nubecita-q5ge.11). -->
+    <string name="paywall_restore">Restore purchases</string>
+    <string name="paywall_terms">Terms of Service</string>
+    <string name="paywall_privacy">Privacy Policy</string>
+    <string name="paywall_disclosure">Payment is charged to your Google Play account. Your subscription renews automatically at the same price unless you cancel at least 24 hours before the period ends. Manage or cancel anytime in Google Play.</string>
+
+    <!-- Load-error state (no network / provider unavailable / keyless build). -->
+    <string name="paywall_error_title">Couldn\'t load plans</string>
+    <string name="paywall_error_body">Check your connection and try again.</string>
+    <string name="paywall_retry">Try again</string>
+    <string name="paywall_loading_content_description">Loading plans</string>
+
+    <!-- One-shot snackbars. Purchase/restore failures map the provider\'s
+         developer-facing message to this localized copy (never shown verbatim). -->
+    <string name="paywall_purchase_error">That purchase didn\'t go through. Please try again.</string>
+    <string name="paywall_restore_error">Couldn\'t restore purchases. Check your connection and try again.</string>
+    <string name="paywall_nothing_to_restore">No purchases to restore on this account.</string>
+</resources>

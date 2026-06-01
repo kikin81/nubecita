@@ -50,11 +50,11 @@
 
 ## 7. `:feature:paywall` module — beads nubecita-q5ge.7
 
-- [ ] 7.1 Create `:feature:paywall` (api/impl); `@MainShell` `PaywallRoute` NavKey + entry provider
-- [ ] 7.2 `PaywallViewModel : MviViewModel<PaywallState, PaywallEvent, PaywallEffect>` — `PaywallStatus` sealed (Loading/Ready/Error), offering, selected plan (annual default)
-- [ ] 7.3 Paywall Composable with locked copy, perks, plan picker (prices from offering), CTA "Become a Supporter", disclosure block + Terms/Privacy/Restore
-- [ ] 7.4 Purchase flow: Composable passes Activity to `billing.purchase`; errors → `ShowError` effect; success dismisses
-- [ ] 7.5 Unit tests: reducer (load→ready, plan select, purchase success/cancel/error). Screenshot tests: light/dark × selected plan × loading × error
+- [x] 7.1 Create `:feature:paywall` (api/impl); `@MainShell` `PaywallRoute` NavKey + entry provider
+- [x] 7.2 `PaywallViewModel : MviViewModel<PaywallState, PaywallEvent, PaywallEffect>` — `PaywallStatus` sealed (Loading/Ready/Error), offering, selected plan (annual default)
+- [x] 7.3 Paywall Composable with locked copy, perks, plan picker (prices from offering), CTA "Become a Supporter", disclosure block + Terms/Privacy/Restore
+- [x] 7.4 Purchase flow: Composable passes Activity to `billing.purchase`; errors → `ShowError` effect; success dismisses. **Restore** also wired (found-Pro dismisses, none/error → snackbar). Placeholder Terms/Privacy URLs; live links finalized in q5ge.11.
+- [x] 7.5 Unit tests: reducer (load→ready + retry, plan select, purchase success/cancel/error + single-flight, restore found/none/error, legal links). Screenshot tests: light/dark × selected plan × loading × error
 
 ## 8. Pop-out upsell affordance — beads nubecita-q5ge.8
 
