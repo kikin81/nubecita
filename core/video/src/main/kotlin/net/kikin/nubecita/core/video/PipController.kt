@@ -45,12 +45,17 @@ internal fun Context.supportsPip(): Boolean =
  * `@Singleton` holds the shared state those layers read. [isInPip] is set by the
  * Activity's `onPictureInPictureModeChanged` bridge (a later task) and read by
  * the `SharedVideoPlayer` background-pause seam and the player chrome.
+ *
+ * @property deviceSupportsPip whether PiP is physically available. Exposed only
+ * so the Activity bridge can avoid calling `setPictureInPictureParams` on a
+ * device that would throw; UI and "offer PiP" decisions MUST gate on [isEnabled],
+ * the single choke-point (design D4), not on this.
  */
 @Singleton
 public class PipController
     @Inject
     internal constructor(
-        @param:PipDeviceSupport private val deviceSupportsPip: Boolean,
+        @param:PipDeviceSupport public val deviceSupportsPip: Boolean,
         entitlementRepository: EntitlementRepository,
         @param:ApplicationScope scope: CoroutineScope,
     ) {

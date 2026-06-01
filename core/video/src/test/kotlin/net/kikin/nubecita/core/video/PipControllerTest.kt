@@ -83,6 +83,13 @@ internal class PipControllerTest {
             assertFalse(pip.isEnabled.value)
         }
 
+    @Test
+    fun `deviceSupportsPip reflects the injected capability`() =
+        runTest {
+            assertTrue(controller(deviceSupportsPip = true, scope = backgroundScope).first.deviceSupportsPip)
+            assertFalse(controller(deviceSupportsPip = false, scope = backgroundScope).first.deviceSupportsPip)
+        }
+
     // isInPip is the Activity-driven flag (set by the PiP bridge in a later task).
 
     @Test
