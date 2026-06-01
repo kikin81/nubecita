@@ -27,6 +27,15 @@ fun keystoreValue(
     keystoreProps.getProperty(propKey)?.takeIf(String::isNotEmpty)
         ?: providers.environmentVariable(envKey).orNull?.takeIf(String::isNotEmpty)
 
+// local.properties is gitignored and the conventional home for machine-local
+// secrets (alongside sdk.dir). `providers.gradleProperty(...)` does NOT read it,
+// so load it explicitly for the RevenueCat key fallback below.
+val localProperties =
+    Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.exists()) f.inputStream().use(::load)
+    }
+
 /**
  * Derives Android's `versionCode` (a strictly-increasing 32-bit integer
  * required by Play Store) from the project's semantic `versionName`
@@ -153,11 +162,20 @@ android {
             value = "\"atproto transition:generic transition:chat.bsky\"",
         )
 
-        // RevenueCat public SDK (Google Play) key. Supplied per-build via
-        // `-PrevenueCatApiKey=goog_…` or `~/.gradle/gradle.properties`; the
-        // empty default keeps it out of git (secret-scan safe) and makes a
+        // RevenueCat public SDK (Google Play) key. Resolution order:
+        //   1. -PrevenueCatApiKey=… (or ~/.gradle/gradle.properties)
+        //   2. REVENUECAT_API_KEY env var — CI injects the `release`-environment
+        //      secret here (release.yaml's fastlane + FAD build steps).
+        //   3. local.properties — accepts either `revenueCatApiKey=…` or
+        //      `REVENUECAT_API_KEY=…` (gitignored; local dev).
+        // Empty default keeps it out of git (secret-scan safe) and makes a
         // keyless build a no-op (RevenueCatInitializer skips configure).
-        val revenueCatApiKey = providers.gradleProperty("revenueCatApiKey").orNull ?: ""
+        val revenueCatApiKey =
+            providers.gradleProperty("revenueCatApiKey").orNull?.takeIf(String::isNotEmpty)
+                ?: providers.environmentVariable("REVENUECAT_API_KEY").orNull?.takeIf(String::isNotEmpty)
+                ?: localProperties.getProperty("revenueCatApiKey")?.takeIf(String::isNotEmpty)
+                ?: localProperties.getProperty("REVENUECAT_API_KEY")?.takeIf(String::isNotEmpty)
+                ?: ""
         buildConfigField(
             type = "String",
             name = "REVENUECAT_API_KEY",
