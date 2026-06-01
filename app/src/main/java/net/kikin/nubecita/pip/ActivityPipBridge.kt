@@ -63,6 +63,12 @@ class ActivityPipBridge(
 
     override val isPipSupported: Boolean get() = deviceSupportsPip
 
+    // Last source-rect hint published by the Compose layer (the measured video
+    // bounds). Cached so manual entry via [enterPip] reuses it for a smooth
+    // enter animation, instead of dropping it (a null hint would make the
+    // transition originate from the wrong bounds).
+    private var lastSourceRectHint: Rect? = null
+
     private val pipModeListener =
         Consumer<PictureInPictureModeChangedInfo> { info ->
             pipController.setInPip(info.isInPictureInPictureMode)
@@ -117,7 +123,9 @@ class ActivityPipBridge(
             buildParams(
                 aspectRatio = sharedVideoPlayer.videoAspectRatio.value,
                 isPlaying = sharedVideoPlayer.isPlaying.value,
-                sourceRectHint = null,
+                // Reuse the last measured video bounds so the manual-entry
+                // animation morphs from the actual surface (Copilot review #385).
+                sourceRectHint = lastSourceRectHint,
             )
         runCatching { activity.enterPictureInPictureMode(params) }
             .onFailure { Timber.tag(TAG).w(it, "manual enterPictureInPictureMode failed") }
@@ -134,6 +142,10 @@ class ActivityPipBridge(
         // also disarms auto-enter the moment Pro lapses, rather than leaving stale
         // params that could still auto-enter (design risk: entitlement loss).
         if (!deviceSupportsPip) return
+        // Remember the latest non-null hint so manual entry ([enterPip]) can
+        // reuse it; the in-PiP play/pause toggle re-publishes with a null hint,
+        // which shouldn't erase the measured bounds.
+        sourceRectHint?.let { lastSourceRectHint = it }
         runCatching { activity.setPictureInPictureParams(buildParams(aspectRatio, isPlaying, sourceRectHint)) }
             .onFailure { Timber.tag(TAG).w(it, "setPictureInPictureParams failed") }
     }
