@@ -29,11 +29,11 @@
 
 ## 4. Manifest PiP attrs + Activity PiP bridge — beads nubecita-q5ge.4
 
-- [ ] 4.1 `MainActivity` manifest: add `supportsPictureInPicture` + `configChanges` (keep `singleTask`, `adjustResize`)
-- [ ] 4.2 Activity `updatePipParams` (aspect, source-rect hint, actions, auto-enter); API 31+ auto-enter, API 26–30 `onUserLeaveHint` fallback
-- [ ] 4.3 `onPictureInPictureModeChanged` → set `PipController.isInPip`; pause on real dismiss
-- [ ] 4.4 Play/pause `RemoteAction` + `RECEIVER_NOT_EXPORTED` broadcast receiver → `SharedVideoPlayer`
-- [ ] 4.5 Instrumented test: PiP transition does NOT recreate `MainActivity` (`run-instrumented`)
+- [x] 4.1 `MainActivity` manifest: add `supportsPictureInPicture` + `configChanges` (kept `singleTask`, `adjustResize`)
+- [x] 4.2 Activity `updateParams` (aspect via clamped `Rational`, source-rect hint, play/pause action, auto-enter); API 31+ auto-enter, API 26–30 `onUserLeaveHint` fallback — in `ActivityPipBridge`
+- [x] 4.3 `onPictureInPictureModeChanged` → set `PipController.isInPip`; pause-on-dismiss flows through the (soon PiP-aware, q5ge.5) `SharedVideoPlayer.onStop` observer per design D6
+- [x] 4.4 Play/pause `RemoteAction` + `RECEIVER_NOT_EXPORTED` broadcast receiver → `SharedVideoPlayer`
+- [x] 4.5 Instrumented test: PiP transition does NOT recreate `MainActivity` (`run-instrumented`; written, runs under the label on a PiP-capable device)
 
 ## 5. `SharedVideoPlayer` `isInPip` seam — beads nubecita-q5ge.5 (load-bearing)
 

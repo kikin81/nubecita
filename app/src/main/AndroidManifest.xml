@@ -61,7 +61,17 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:windowSoftInputMode="adjustResize">
+            android:supportsPictureInPicture="true"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden">
+            <!--
+                supportsPictureInPicture enables the Pro PiP perk; configChanges is
+                LOAD-BEARING (design D7): entering/leaving PiP is a configuration
+                change, and without these flags Android would recreate MainActivity,
+                tearing down the Nav3 back stack mid-transition. The set covers the
+                PiP transition plus rotation. Keep singleTask (OAuth redirect routing)
+                and adjustResize (IME inset handling).
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

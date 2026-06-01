@@ -31,7 +31,7 @@ internal annotation class PipDeviceSupport
  * exists from API 24 and phone PiP from API 26; the project's `minSdk` is 28, so
  * the SDK gate is belt-and-suspenders and the system feature is the real signal.
  */
-internal fun Context.supportsPip(): Boolean =
+public fun Context.supportsPip(): Boolean =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
         packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 

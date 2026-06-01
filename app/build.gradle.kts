@@ -260,6 +260,7 @@ dependencies {
     implementation(project(":core:posting"))
     implementation(project(":core:preferences"))
     implementation(project(":core:push"))
+    implementation(project(":core:video"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
     implementation(project(":feature:chats:impl"))

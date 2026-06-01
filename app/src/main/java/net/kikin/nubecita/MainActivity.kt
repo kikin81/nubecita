@@ -32,11 +32,14 @@ import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushPayload
+import net.kikin.nubecita.core.video.PipController
+import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.toPostDetailRoute
+import net.kikin.nubecita.pip.ActivityPipBridge
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -59,6 +62,19 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var deepLinkRouter: DeepLinkRouter
+
+    @Inject
+    lateinit var pipController: PipController
+
+    @Inject
+    lateinit var sharedVideoPlayer: SharedVideoPlayer
+
+    /**
+     * The Activity-side Picture-in-Picture bridge (design D5). Created in
+     * [onCreate] once Hilt has injected [pipController] / [sharedVideoPlayer];
+     * the Compose layer reaches it via a `CompositionLocal` in a later task.
+     */
+    private lateinit var pipBridge: ActivityPipBridge
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() must run BEFORE super.onCreate so the splash claims the
@@ -87,6 +103,14 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
+
+        // Activity PiP bridge: mirrors system PiP mode into PipController and
+        // services the in-window play/pause action. Inert until the Compose
+        // layer (a later task) drives updateParams; auto-enter / onUserLeaveHint
+        // only fire when PipController.isEnabled (device supports PiP AND Pro).
+        pipBridge = ActivityPipBridge(this, pipController, sharedVideoPlayer)
+        pipBridge.start()
+
         setContent {
             NubecitaTheme {
                 // testTagsAsResourceId surfaces Compose `Modifier.testTag(...)`
@@ -171,6 +195,20 @@ class MainActivity : ComponentActivity() {
                 }
             }.catch { error -> Timber.e(error, "Bootstrap routing flow threw upstream; navigation will not react to further state changes") }
             .launchIn(lifecycleScope)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // API 26–30 manual-entry fallback (no setAutoEnterEnabled); no-op on 31+.
+        pipBridge.onUserLeaveHint()
+    }
+
+    override fun onDestroy() {
+        // Guard against teardown of a half-constructed Activity: if Hilt injection
+        // or anything before the onCreate assignment throws, onDestroy still fires
+        // and an unguarded lateinit access would mask the original failure.
+        if (::pipBridge.isInitialized) pipBridge.stop()
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
