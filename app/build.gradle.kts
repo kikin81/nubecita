@@ -152,6 +152,17 @@ android {
             name = "OAUTH_SCOPE",
             value = "\"atproto transition:generic transition:chat.bsky\"",
         )
+
+        // RevenueCat public SDK (Google Play) key. Supplied per-build via
+        // `-PrevenueCatApiKey=goog_…` or `~/.gradle/gradle.properties`; the
+        // empty default keeps it out of git (secret-scan safe) and makes a
+        // keyless build a no-op (RevenueCatInitializer skips configure).
+        val revenueCatApiKey = providers.gradleProperty("revenueCatApiKey").orNull ?: ""
+        buildConfigField(
+            type = "String",
+            name = "REVENUECAT_API_KEY",
+            value = "\"$revenueCatApiKey\"",
+        )
     }
 
     // The `environment` flavor dimension is the consumer side of the split
@@ -238,6 +249,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
+    implementation(project(":core:billing"))
     implementation(project(":core:common"))
     // :core:posting types (ComposerError, ComposerAttachment) surface in
     // :feature:composer:impl's public ComposerScreenContent signature —

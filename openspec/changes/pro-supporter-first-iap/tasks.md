@@ -14,12 +14,12 @@
 
 ## 2. RevenueCat impl — beads nubecita-q5ge.2
 
-- [ ] 2.1 Add `com.revenuecat.purchases:purchases` (pin v9.x) to `libs.versions.toml`; API key via `BuildConfig`
-- [ ] 2.2 `Purchases.configure` in `Application.onCreate` with anonymous `appUserId` (no `logIn(did)`)
-- [ ] 2.3 Implement `EntitlementRepository` impl: bridge `CustomerInfo`/`UpdatedCustomerInfoListener` → `isPro: StateFlow<Boolean>` for the `pro` entitlement
-- [ ] 2.4 Implement `BillingRepository` impl: map `Offerings` → `SubscriptionOffering`; `purchase(activity, plan)`; `restorePurchases()`
-- [ ] 2.5 Hilt bindings swapping the fake for the RevenueCat impl
-- [ ] 2.6 Unit tests over the SDK boundary (faked): entitlement mapping, offering mapping, purchase result types; sandbox/license-tester smoke (instrumented, `run-instrumented`)
+- [x] 2.1 Add `com.revenuecat.purchases:purchases` (pinned **10.7.0** — latest major, chosen over 9.x; Play Billing 8.3.0) to `libs.versions.toml`; API key via `BuildConfig.REVENUECAT_API_KEY` (gradle property + empty default)
+- [x] 2.2 `Purchases.configure` via a production-flavor `AppInitializer` (keeps bench network-silent) with anonymous `appUserID(null)` (no `logIn(did)`)
+- [x] 2.3 Implement `EntitlementRepository` impl: bridge `CustomerInfo`/`UpdatedCustomerInfoListener` → `isPro: StateFlow<Boolean>` for the `pro` entitlement
+- [x] 2.4 Implement `BillingRepository` impl: map `Offerings` → `SubscriptionOffering`; `purchase(activity, plan)`; `restorePurchases()`
+- [x] 2.5 Hilt bindings swapping the fake for the RevenueCat impl
+- [x] 2.6 Unit tests over the SDK boundary (faked): entitlement mapping, offering mapping, purchase result types. **Sandbox/license-tester smoke (instrumented, `run-instrumented`) deferred** — needs a real `goog_…` key + the Play base plans + RevenueCat dashboard entitlement/offering from task 11; tracked as a follow-up.
 
 ## 3. `PipController` choke-point — beads nubecita-q5ge.3
 

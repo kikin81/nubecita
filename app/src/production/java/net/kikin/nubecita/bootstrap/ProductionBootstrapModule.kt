@@ -5,6 +5,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
+import net.kikin.nubecita.BuildConfig
+import net.kikin.nubecita.core.billing.RevenueCatInitializer
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
@@ -42,4 +44,17 @@ internal object ProductionBootstrapModule {
     fun provideNotificationsPollingInitializer(
         observer: NotificationsPollingObserver,
     ): AppInitializer = AppInitializer { observer.start() }
+
+    // RevenueCat lives only in the production flavor: configure runs here, so the
+    // bench flavor (empty initializer set) never touches the SDK or the network.
+    // The API key is :app's BuildConfig field, passed into :core:billing so the
+    // RevenueCat SDK itself stays confined to that module.
+    @Provides
+    @IntoSet
+    fun provideRevenueCatInitializer(
+        initializer: RevenueCatInitializer,
+    ): AppInitializer =
+        AppInitializer {
+            initializer.initialize(apiKey = BuildConfig.REVENUECAT_API_KEY, verboseLogging = BuildConfig.DEBUG)
+        }
 }
