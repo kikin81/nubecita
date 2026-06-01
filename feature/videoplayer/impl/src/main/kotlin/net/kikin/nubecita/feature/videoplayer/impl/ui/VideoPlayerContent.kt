@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -25,6 +27,7 @@ import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerLoadStatus
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerState
+import kotlin.math.roundToInt
 
 /**
  * Stateless body. Branches on `state.loadStatus`:
@@ -47,6 +50,10 @@ internal fun VideoPlayerContent(
     player: androidx.media3.common.Player?,
     onEvent: (VideoPlayerEvent) -> Unit,
     modifier: Modifier = Modifier,
+    // In PiP the window is just the video — chrome is suppressed. Defaults keep
+    // previews/screenshot fixtures rendering the normal (non-PiP) surface.
+    isInPip: Boolean = false,
+    onSourceRectChange: (android.graphics.Rect) -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -88,7 +95,10 @@ internal fun VideoPlayerContent(
                                 } else {
                                     Modifier
                                 },
-                            ),
+                            )
+                            // Report the video's on-screen bounds so the PiP enter
+                            // animation morphs from the actual surface, not the whole window.
+                            .onGloballyPositioned { onSourceRectChange(it.boundsInWindow().toAndroidRectInt()) },
                 ) {
                     if (state.posterUrl != null) {
                         NubecitaAsyncImage(
@@ -107,7 +117,9 @@ internal fun VideoPlayerContent(
                     }
                 }
                 AnimatedVisibility(
-                    visible = state.chromeVisible,
+                    // Chrome (back button, seek bar, controls) is always hidden in
+                    // PiP — the floating window shows only the video.
+                    visible = state.chromeVisible && !isInPip,
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier = Modifier.fillMaxSize(),
@@ -128,6 +140,8 @@ internal fun VideoPlayerContent(
         }
     }
 }
+
+private fun androidx.compose.ui.geometry.Rect.toAndroidRectInt(): android.graphics.Rect = android.graphics.Rect(left.roundToInt(), top.roundToInt(), right.roundToInt(), bottom.roundToInt())
 
 @androidx.compose.ui.tooling.preview.Preview(
     name = "VideoPlayer — Resolving",

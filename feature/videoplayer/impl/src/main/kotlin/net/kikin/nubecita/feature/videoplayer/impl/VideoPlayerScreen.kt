@@ -3,10 +3,15 @@ package net.kikin.nubecita.feature.videoplayer.impl
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
+import net.kikin.nubecita.core.common.navigation.LocalPipController
+import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
 
 /**
@@ -35,6 +40,23 @@ internal fun VideoPlayerScreen(
     val navigator = LocalAppNavigator.current
     val currentNavigator by rememberUpdatedState(navigator)
 
+    // PiP wiring (design D5): the screen — not the VM — drives the Activity PiP
+    // bridge. Republish params whenever play state / aspect / entitlement /
+    // measured video bounds change, so auto-enter (API 31+) is armed only while
+    // enabled + playing and disarms when Pro lapses.
+    val pipBridge = LocalPipController.current
+    val isInPip by rememberIsInPipMode()
+    val pipEnabled by pipBridge.isEnabled.collectAsStateWithLifecycle()
+    var sourceRect by remember { mutableStateOf<android.graphics.Rect?>(null) }
+
+    LaunchedEffect(state.isPlaying, state.aspectRatio, pipEnabled, sourceRect) {
+        pipBridge.updateParams(
+            aspectRatio = state.aspectRatio,
+            isPlaying = state.isPlaying,
+            sourceRectHint = sourceRect,
+        )
+    }
+
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
@@ -47,6 +69,8 @@ internal fun VideoPlayerScreen(
         state = state,
         player = player,
         onEvent = viewModel::handleEvent,
+        isInPip = isInPip,
+        onSourceRectChange = { sourceRect = it },
         modifier = modifier,
     )
 }
