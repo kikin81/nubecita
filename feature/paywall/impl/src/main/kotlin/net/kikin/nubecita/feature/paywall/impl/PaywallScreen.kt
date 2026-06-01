@@ -70,6 +70,7 @@ import net.kikin.nubecita.feature.paywall.impl.ui.PaywallPlanPicker
 @Composable
 internal fun PaywallScreen(
     onDismiss: () -> Unit,
+    onPurchaseSuccess: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PaywallViewModel = hiltViewModel(),
 ) {
@@ -82,10 +83,11 @@ internal fun PaywallScreen(
     val restoreErrorMsg = stringResource(R.string.paywall_restore_error)
     val nothingToRestoreMsg = stringResource(R.string.paywall_nothing_to_restore)
 
-    // The effect collector lives in a restarting LaunchedEffect; capture
-    // onDismiss via rememberUpdatedState so a Dismiss effect always invokes
-    // the current callback (ktlint compose:lambda-param-in-effect).
+    // The effect collector lives in a restarting LaunchedEffect; capture the
+    // nav callbacks via rememberUpdatedState so an effect always invokes the
+    // current callback (ktlint compose:lambda-param-in-effect).
     val currentOnDismiss by rememberUpdatedState(onDismiss)
+    val currentOnPurchaseSuccess by rememberUpdatedState(onPurchaseSuccess)
 
     LaunchedEffect(Unit) {
         // Capture the effect scope so each snackbar runs in its own child job
@@ -95,6 +97,7 @@ internal fun PaywallScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 PaywallEffect.Dismiss -> currentOnDismiss()
+                PaywallEffect.PurchaseSucceeded -> currentOnPurchaseSuccess()
                 PaywallEffect.ShowPurchaseError ->
                     effectScope.launch {
                         snackbarHostState.currentSnackbarData?.dismiss()

@@ -126,7 +126,10 @@ internal class PaywallViewModel
                     when (val result = billingRepository.purchase(activity, plan)) {
                         // No client success event: the terminal purchase/revenue
                         // event is owned by RevenueCat's server-side GA4 link.
-                        PurchaseResult.Success -> sendEffect(PaywallEffect.Dismiss)
+                        // PurchaseSucceeded (not Dismiss) routes to the thank-you
+                        // screen — only a fresh purchase celebrates; restore below
+                        // still emits Dismiss.
+                        PurchaseResult.Success -> sendEffect(PaywallEffect.PurchaseSucceeded)
                         PurchaseResult.Cancelled -> analytics.log(PaywallPurchaseCancelled)
                         is PurchaseResult.Error -> {
                             Timber.tag(TAG).w("Paywall purchase failed: %s", result.message)

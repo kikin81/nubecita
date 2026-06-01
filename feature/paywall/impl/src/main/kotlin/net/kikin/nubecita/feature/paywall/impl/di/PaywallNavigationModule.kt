@@ -11,7 +11,9 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.OuterShell
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
+import net.kikin.nubecita.feature.paywall.api.PaywallSuccessRoute
 import net.kikin.nubecita.feature.paywall.impl.PaywallScreen
+import net.kikin.nubecita.feature.paywall.impl.PaywallSuccessScreen
 
 /**
  * `@MainShell` provider for the [PaywallRoute] sub-route. Pushed onto the
@@ -31,7 +33,16 @@ internal object PaywallNavigationModule {
         {
             entry<PaywallRoute> {
                 val navState = LocalMainShellNavState.current
-                PaywallScreen(onDismiss = { navState.removeLast() })
+                PaywallScreen(
+                    onDismiss = { navState.removeLast() },
+                    // Fresh purchase: replace the paywall with the thank-you
+                    // screen so Continue/Back both pop once to the prior surface.
+                    onPurchaseSuccess = { navState.replaceTop(PaywallSuccessRoute) },
+                )
+            }
+            entry<PaywallSuccessRoute> {
+                val navState = LocalMainShellNavState.current
+                PaywallSuccessScreen(onContinue = { navState.removeLast() })
             }
         }
 
@@ -56,7 +67,20 @@ internal object PaywallNavigationModule {
         {
             entry<PaywallRoute> {
                 val navigator = LocalAppNavigator.current
-                PaywallScreen(onDismiss = { navigator.goBack() })
+                PaywallScreen(
+                    onDismiss = { navigator.goBack() },
+                    // Replace the paywall with the thank-you screen: pop the
+                    // paywall, push success (the outer Navigator has no
+                    // replace-top, so goBack + goTo is the equivalent).
+                    onPurchaseSuccess = {
+                        navigator.goBack()
+                        navigator.goTo(PaywallSuccessRoute)
+                    },
+                )
+            }
+            entry<PaywallSuccessRoute> {
+                val navigator = LocalAppNavigator.current
+                PaywallSuccessScreen(onContinue = { navigator.goBack() })
             }
         }
 }

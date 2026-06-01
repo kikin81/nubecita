@@ -96,11 +96,19 @@ sealed interface PaywallEvent : UiEvent {
  */
 sealed interface PaywallEffect : UiEffect {
     /**
-     * Pop the paywall off the inner back stack. Emitted on a completed
-     * purchase or a restore that finds Pro — the user now has the
-     * entitlement, so there's nothing left to sell.
+     * Pop the paywall off the back stack. Emitted on a **restore** that finds
+     * Pro — the user already had the entitlement, so there's nothing to
+     * celebrate or sell; just leave. (A fresh purchase emits [PurchaseSucceeded].)
      */
     data object Dismiss : PaywallEffect
+
+    /**
+     * A **fresh** purchase completed. The screen replaces the paywall with the
+     * `PaywallSuccessRoute` thank-you screen (nubecita-ykpc) — a deliberately
+     * separate effect from [Dismiss] so only a real purchase (never restore)
+     * triggers the celebration.
+     */
+    data object PurchaseSucceeded : PaywallEffect
 
     /**
      * A purchase attempt failed (NOT a user cancel — that's the silent
