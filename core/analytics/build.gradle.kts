@@ -38,4 +38,7 @@ dependencies {
     // NoOpAnalyticsClient and never links (or transitively pulls) Firebase.
     "productionImplementation"(platform(libs.firebase.bom))
     "productionImplementation"(libs.firebase.analytics)
+    // Task.await() for the Firebase app-instance-id lookup — the same bridge
+    // :core:push uses for the FCM token (FirebaseFcmTokenProvider).
+    "productionImplementation"(libs.kotlinx.coroutines.play.services)
 }
