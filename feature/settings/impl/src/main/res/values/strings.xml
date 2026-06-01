@@ -42,4 +42,26 @@
          controls, importance overrides). In-app per-reason toggles
          live in the same section and arrive in a later epic. -->
     <string name="settings_notifications_row_label">Notifications</string>
+
+    <!-- Nubecita Pro section (nubecita-q5ge.10). Two faces:
+         - Non-Pro: an upsell row opening the paywall. "Support the
+           developer" framing per the epic's honest-indie voice.
+         - Pro: a current-plan info row + manage-subscription (Play
+           deep link) + restore-purchases rows.
+         The current-plan caption is composed from the resolved plan
+         period + store-localized price; _active is the neutral fallback
+         when the price/period couldn't be resolved. -->
+    <string name="settings_pro_section_label">Nubecita Pro</string>
+    <string name="settings_pro_upsell_label">Nubecita Pro</string>
+    <string name="settings_pro_upsell_supporting">Support the developer and unlock Pro perks</string>
+    <string name="settings_pro_member_label">Nubecita Pro</string>
+    <string name="settings_pro_current_plan_active">Active</string>
+    <!-- %1$s is the store-localized price string, e.g. "$19.99". -->
+    <string name="settings_pro_current_plan_annual">Annual · %1$s/yr</string>
+    <string name="settings_pro_current_plan_monthly">Monthly · %1$s/mo</string>
+    <string name="settings_pro_manage_label">Manage subscription</string>
+    <string name="settings_pro_restore_label">Restore purchases</string>
+    <string name="settings_pro_restore_success">Purchases restored.</string>
+    <string name="settings_pro_restore_nothing">No purchases found to restore.</string>
+    <string name="settings_pro_restore_error">Couldn\'t restore purchases. Check your network and try again.</string>
 </resources>

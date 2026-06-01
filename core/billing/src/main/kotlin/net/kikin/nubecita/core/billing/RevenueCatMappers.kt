@@ -4,6 +4,7 @@ import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.Offerings
 import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.PurchasesTransactionException
+import net.kikin.nubecita.data.models.ActiveSubscription
 import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.data.models.SubscriptionOffering
 import net.kikin.nubecita.data.models.SubscriptionPlan
@@ -24,6 +25,32 @@ internal const val PRO_ENTITLEMENT_ID = "pro"
 
 /** True when the `pro` entitlement is in the active set. */
 internal fun CustomerInfo.hasProEntitlement(): Boolean = PRO_ENTITLEMENT_ID in entitlements.active
+
+/**
+ * The active `pro` subscription's identity, or null when Pro isn't active.
+ * Drives Settings' current-plan label + manage-subscription deep link.
+ *
+ * [ActiveSubscription.planId] maps the Play **base-plan** identifier
+ * (`productPlanIdentifier`, e.g. `"monthly"` / `"annual"` — the ids configured
+ * in task 11) onto our plan enum; an unrecognized base plan yields null so the
+ * UI shows a neutral label rather than guessing. [ActiveSubscription.productId]
+ * is the store product identifier used as the deep link `sku`.
+ */
+internal fun CustomerInfo.activeProSubscription(): ActiveSubscription? {
+    val pro = entitlements.active[PRO_ENTITLEMENT_ID] ?: return null
+    return ActiveSubscription(
+        planId = pro.productPlanIdentifier?.toSubscriptionPlanId(),
+        productId = pro.productIdentifier,
+    )
+}
+
+/** Map a Play base-plan id onto our plan enum. Case-insensitive; unknown → null. */
+private fun String.toSubscriptionPlanId(): SubscriptionPlanId? =
+    when (lowercase()) {
+        "monthly" -> SubscriptionPlanId.Monthly
+        "annual" -> SubscriptionPlanId.Annual
+        else -> null
+    }
 
 /**
  * Map the provider's current offering to our [SubscriptionOffering]. Fails (so

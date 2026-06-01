@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.billing.EntitlementRepository
+import net.kikin.nubecita.data.models.ActiveSubscription
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -19,6 +20,10 @@ internal class PipControllerTest {
     ) : EntitlementRepository {
         val proFlow = MutableStateFlow(initialPro)
         override val isPro: StateFlow<Boolean> get() = proFlow
+
+        // PipController only reads isPro; activeSubscription is unused here but
+        // required by the interface. Always null — PiP never inspects the plan.
+        override val activeSubscription: StateFlow<ActiveSubscription?> = MutableStateFlow(null)
 
         override suspend fun refresh() = Unit
     }

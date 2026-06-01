@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
+import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 
 /**
@@ -127,6 +128,39 @@ private fun SettingsSigningOutScreenshot() {
                     avatarHue = FIXTURE_AVATAR_HUE,
                     confirmDialogOpen = true,
                     status = SettingsStatus.SigningOut,
+                ),
+            onEvent = {},
+            versionLabel = FIXTURE_VERSION_LABEL,
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "settings-pro-member-light", showBackground = true, heightDp = 720)
+@Preview(
+    name = "settings-pro-member-dark",
+    showBackground = true,
+    heightDp = 720,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun SettingsProMemberScreenshot() {
+    // Pro face of the "Nubecita Pro" section: current-plan info row (annual,
+    // price resolved) + manage-subscription + restore rows. The non-Pro upsell
+    // face is already covered by the signed-in fixtures above (isPro defaults
+    // to false), so this pins only the Pro variant.
+    NubecitaCanvasPreviewTheme {
+        SettingsContent(
+            state =
+                SettingsViewState(
+                    handle = FIXTURE_HANDLE,
+                    displayName = FIXTURE_DISPLAY_NAME,
+                    avatarUrl = null,
+                    avatarHue = FIXTURE_AVATAR_HUE,
+                    isPro = true,
+                    currentPlanPeriod = BillingPeriod.Annual,
+                    currentPlanFormattedPrice = "$19.99",
+                    manageSku = "pro_sub:annual",
                 ),
             onEvent = {},
             versionLabel = FIXTURE_VERSION_LABEL,

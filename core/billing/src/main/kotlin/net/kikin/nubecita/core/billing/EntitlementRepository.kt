@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.billing
 
 import kotlinx.coroutines.flow.StateFlow
+import net.kikin.nubecita.data.models.ActiveSubscription
 
 /**
  * The signed-in device's Nubecita Pro entitlement, decoupled from any billing
@@ -22,6 +23,16 @@ public interface EntitlementRepository {
      * "entitlement check blocking UI / cold-start latency").
      */
     public val isPro: StateFlow<Boolean>
+
+    /**
+     * The active Pro subscription's identity (plan + store product id), or
+     * `null` when Pro is inactive or not yet resolved. Tracks [isPro] — it is
+     * non-null exactly when [isPro] is `true`. Settings reads it to label the
+     * current plan and to build the manage-subscription deep link; features
+     * that only need the on/off gate (PiP, the Supporter badge) stay on
+     * [isPro]. A hot [StateFlow] for the same no-polling reason as [isPro].
+     */
+    public val activeSubscription: StateFlow<ActiveSubscription?>
 
     /**
      * Force a re-sync of entitlement state from the provider (e.g. after a
