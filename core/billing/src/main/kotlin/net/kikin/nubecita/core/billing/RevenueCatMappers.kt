@@ -60,7 +60,8 @@ private fun Package.toSubscriptionPlan(
  * Translate a failed purchase into a [PurchaseResult]. A user backing out of the
  * Play sheet ([PurchasesTransactionException.userCancelled]) is the silent
  * happy-path exit ([PurchaseResult.Cancelled]); anything else is a real
- * [PurchaseResult.Error] carrying the SDK's already-localized message.
+ * [PurchaseResult.Error] carrying the SDK's message — a developer-facing
+ * diagnostic (often English), not user-ready copy (see [PurchaseResult.Error]).
  */
 internal fun PurchasesTransactionException.toPurchaseResult(): PurchaseResult =
     if (userCancelled) {

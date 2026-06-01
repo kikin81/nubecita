@@ -47,6 +47,10 @@ internal class RevenueCatEntitlementRepository
         }
 
         override suspend fun refresh() {
+            // Inert until RevenueCatInitializer runs configure (bench / keyless builds):
+            // a no-op here keeps the "inert, not crashing" promise and avoids logging a
+            // spurious warning on every call, matching the BillingRepository guards.
+            if (!Purchases.isConfigured) return
             runCatching { Purchases.sharedInstance.awaitCustomerInfo() }
                 .onSuccess { _isPro.value = it.hasProEntitlement() }
                 .onFailure { Timber.tag(TAG).w(it, "entitlement refresh failed: %s", it.javaClass.name) }
