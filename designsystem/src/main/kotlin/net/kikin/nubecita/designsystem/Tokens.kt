@@ -66,6 +66,18 @@ data class NubecitaSemanticColors(
      * variants.
      */
     val repostAccent: Color,
+    /**
+     * Warm gold accent reserved for the Nubecita Pro "Supporter" badge
+     * (the medal glyph + label shown on a Pro user's own profile hero).
+     * Deliberately distinct from `colorScheme.primary` (sky — the app's
+     * action color) and from `likeAccent` / `repostAccent` so the badge
+     * reads as a celebratory status marker, not an action affordance.
+     * Neutral, NOT an identity-verification signal. Introduced for the
+     * Tier-1 self-visible badge and reused by the later Tier-2 networked
+     * badge. Light + dark variants tuned for contrast against
+     * `colorScheme.surface` in each scheme.
+     */
+    val supporterAccent: Color,
 )
 
 data class NubecitaDurations(

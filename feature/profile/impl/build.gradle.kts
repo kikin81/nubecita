@@ -20,6 +20,10 @@ dependencies {
     api(project(":feature:profile:api"))
 
     implementation(project(":core:auth"))
+    // EntitlementRepository.isPro — gates the Pro "Supporter" badge on the
+    // user's OWN profile hero. Provider-agnostic interface; the badge reacts
+    // to the isPro StateFlow and never blocks on a synchronous check.
+    implementation(project(":core:billing"))
     implementation(project(":core:common"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":core:image"))

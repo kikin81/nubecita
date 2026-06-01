@@ -5,6 +5,12 @@
          container. -->
     <string name="logomark_content_description">Nubecita</string>
 
+    <!-- Nubecita Pro "Supporter" badge shown on a Pro user's own profile
+         hero. Deliberately neutral wording — a patron/supporter marker,
+         NOT an identity-verification ("verified") signal. The label text
+         doubles as the badge's TalkBack announcement. -->
+    <string name="supporter_badge_label">Supporter</string>
+
     <!-- PostCard author + repost-attribution lines.
          postcard_handle and postcard_relative_time are rendered as separate
          Text composables in AuthorLine so the handle can truncate with

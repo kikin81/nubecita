@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -165,12 +166,17 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
                 coEvery { it.toggleLike(any(), any()) } returns Result.success(Unit)
                 coEvery { it.toggleRepost(any(), any()) } returns Result.success(Unit)
             }
+        val entitlementRepository =
+            mockk<EntitlementRepository>(relaxed = true).also {
+                every { it.isPro } returns MutableStateFlow(false)
+            }
         val viewModel =
             ProfileViewModel(
                 route = Profile(handle = header.handle),
                 repository = fakeRepo,
                 sessionStateProvider = sessionProvider,
                 postInteractionsCache = cache,
+                entitlementRepository = entitlementRepository,
             )
 
         val profileRoot: NavKey = Profile(handle = header.handle)

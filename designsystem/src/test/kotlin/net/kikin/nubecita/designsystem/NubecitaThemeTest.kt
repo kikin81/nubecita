@@ -90,6 +90,7 @@ class NubecitaThemeTest {
     private fun sampleSemanticColors(
         likeAccent: Color = Color(0xFFEC4899),
         repostAccent: Color = Color(0xFF20BC70),
+        supporterAccent: Color = Color(0xFFD9A521),
     ): NubecitaSemanticColors =
         NubecitaSemanticColors(
             success = NubecitaPalette.Success40,
@@ -103,5 +104,6 @@ class NubecitaThemeTest {
             onVideoOverlay = NubecitaPalette.Neutral100,
             likeAccent = likeAccent,
             repostAccent = repostAccent,
+            supporterAccent = supporterAccent,
         )
 }

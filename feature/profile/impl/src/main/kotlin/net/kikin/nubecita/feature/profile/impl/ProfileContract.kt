@@ -38,6 +38,15 @@ data class ProfileScreenViewState(
     /** Sticky-once header error; coexists with non-null `header` after a refresh fails. */
     val headerError: ProfileError? = null,
     val ownProfile: Boolean = false,
+    /**
+     * Whether the signed-in device holds the Nubecita Pro entitlement,
+     * mirrored from `EntitlementRepository.isPro`. Independent of which
+     * profile is being viewed — it tracks the *viewer's* Pro status, so
+     * it lives as its own flat flag rather than being folded into the
+     * actor-keyed header. The badge-visibility decision combines it with
+     * [ownProfile]; see [showSupporterBadge].
+     */
+    val isProSupporter: Boolean = false,
     val viewerRelationship: ViewerRelationship = ViewerRelationship.None,
     val selectedTab: ProfileTab = ProfileTab.Posts,
     val postsStatus: TabLoadStatus = TabLoadStatus.Idle,
@@ -47,7 +56,18 @@ data class ProfileScreenViewState(
     val lastLikeTapPostUri: String? = null,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
     val lastRepostTapPostUri: String? = null,
-) : UiState
+) : UiState {
+    /**
+     * Whether to render the Pro "Supporter" badge on the hero. True only
+     * when the viewer is Pro AND viewing their OWN profile — Tier 1 is
+     * self-visible only (no backend, no public/networked badge yet), so a
+     * non-Pro user, and anyone viewing someone else's profile, sees
+     * nothing. Derived (not stored) so the gate has one definition the
+     * hero reads directly; the four-way `isPro × own/other` truth table is
+     * pinned in `ProfileViewModelTest`.
+     */
+    val showSupporterBadge: Boolean get() = ownProfile && isProSupporter
+}
 
 /**
  * Which of the three tab bodies is currently rendering. The default
