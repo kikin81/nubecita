@@ -23,9 +23,9 @@
 
 ## 3. `PipController` choke-point — beads nubecita-q5ge.3
 
-- [ ] 3.1 Add `PipController` in `:core:video` (or `:core:pip`): `isEnabled = deviceSupports && isPro` as `StateFlow`, plus `isInPip` field
-- [ ] 3.2 `Context.supportsPip()` feature-detect (SDK ≥ 26 + `FEATURE_PICTURE_IN_PICTURE`)
-- [ ] 3.3 Unit tests: `isEnabled` truth table (device × pro); reacts to `isPro` changes
+- [x] 3.1 Add `PipController` in `:core:video`: `isEnabled = deviceSupports && isPro` as `StateFlow` (seeded from current `isPro`), plus `isInPip` field + `setInPip`
+- [x] 3.2 `Context.supportsPip()` feature-detect (SDK ≥ 26 + `FEATURE_PICTURE_IN_PICTURE`), provided as a `@PipDeviceSupport` boolean so the controller stays platform-free/testable
+- [x] 3.3 Unit tests: `isEnabled` truth table (device × pro); reacts to `isPro` changes; `isInPip` default + set
 
 ## 4. Manifest PiP attrs + Activity PiP bridge — beads nubecita-q5ge.4
 
