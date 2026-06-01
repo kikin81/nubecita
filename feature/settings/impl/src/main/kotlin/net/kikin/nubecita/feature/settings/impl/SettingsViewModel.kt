@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.settings.impl
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -10,9 +11,14 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.billing.BillingRepository
+import net.kikin.nubecita.core.billing.EntitlementRepository
+import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.core.profile.avatarHueFor
+import net.kikin.nubecita.data.models.ActiveSubscription
+import net.kikin.nubecita.data.models.SubscriptionPlanId
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -43,6 +49,8 @@ internal class SettingsViewModel
         private val authRepository: AuthRepository,
         sessionStateProvider: SessionStateProvider,
         private val actorProfileRepository: ActorProfileRepository,
+        private val entitlementRepository: EntitlementRepository,
+        private val billingRepository: BillingRepository,
     ) : MviViewModel<SettingsViewState, SettingsEvent, SettingsEffect>(
             SettingsViewState(),
         ) {
@@ -77,6 +85,23 @@ internal class SettingsViewModel
                     }
                     fetchProfile(signedIn.did)
                 }.launchIn(viewModelScope)
+
+            // Mirror the Pro entitlement into flat state for the "Nubecita Pro"
+            // section. isPro is a hot StateFlow (starts false, never throws).
+            entitlementRepository.isPro
+                .onEach { isPro -> setState { copy(isPro = isPro) } }
+                .launchIn(viewModelScope)
+
+            // The active subscription drives the manage-subscription sku and the
+            // current-plan label. collectLatest cancels an in-flight price
+            // resolution if a newer subscription arrives, so a slower older
+            // loadPlans() can't overwrite the newer plan/price (latest-wins).
+            viewModelScope.launch {
+                entitlementRepository.activeSubscription.collectLatest { active ->
+                    setState { copy(manageSku = active?.productId) }
+                    resolvePlanLabel(active)
+                }
+            }
         }
 
         override fun handleEvent(event: SettingsEvent) {
@@ -93,6 +118,73 @@ internal class SettingsViewModel
                     sendEffect(SettingsEffect.ShowSwitchAccountComingSoon)
                 SettingsEvent.NotificationsTapped ->
                     sendEffect(SettingsEffect.OpenSystemNotificationSettings)
+                SettingsEvent.ProUpsellTapped ->
+                    sendEffect(SettingsEffect.OpenPaywall)
+                SettingsEvent.ManageSubscriptionTapped ->
+                    sendEffect(SettingsEffect.OpenManageSubscription(sku = uiState.value.manageSku))
+                SettingsEvent.RestorePurchasesTapped ->
+                    runRestore()
+            }
+        }
+
+        /**
+         * Resolve the current-plan caption inputs for the Pro section. The
+         * active subscription carries the plan id but not its price, so we
+         * cross-reference `loadPlans()` for the store-localized price of that
+         * plan and expose `period` + `formattedPrice` structurally (the screen
+         * composes the localized caption). Best-effort: a null plan id
+         * (unrecognized base plan) or a failed offering load leaves both null,
+         * and the row falls back to a neutral "Active" caption.
+         */
+        private suspend fun resolvePlanLabel(active: ActiveSubscription?) {
+            val planId = active?.planId
+            if (planId == null) {
+                setState { copy(currentPlanPeriod = null, currentPlanFormattedPrice = null) }
+                return
+            }
+            // Suspends inline under the collectLatest collector — a newer
+            // subscription emission cancels this (and the loadPlans() call)
+            // before it can write stale state.
+            billingRepository
+                .loadPlans()
+                .onSuccess { offering ->
+                    val plan = if (planId == SubscriptionPlanId.Annual) offering.annual else offering.monthly
+                    setState {
+                        copy(
+                            currentPlanPeriod = plan.period,
+                            currentPlanFormattedPrice = plan.formattedPrice,
+                        )
+                    }
+                }.onFailure {
+                    // Keep the section usable without the price — the row
+                    // shows "Active". No user-facing error for a label.
+                    Timber.tag(TAG).w(it, "Pro plan-label resolution failed")
+                    setState { copy(currentPlanPeriod = null, currentPlanFormattedPrice = null) }
+                }
+        }
+
+        private fun runRestore() {
+            if (uiState.value.isRestoring) return
+            setState { copy(isRestoring = true) }
+            viewModelScope.launch {
+                try {
+                    when (val result = billingRepository.restorePurchases()) {
+                        is RestoreResult.Completed ->
+                            sendEffect(
+                                if (result.isPro) {
+                                    SettingsEffect.ShowRestoreSuccess
+                                } else {
+                                    SettingsEffect.ShowNothingToRestore
+                                },
+                            )
+                        is RestoreResult.Error -> {
+                            Timber.tag(TAG).w("Settings restore failed: %s", result.message)
+                            sendEffect(SettingsEffect.ShowRestoreError)
+                        }
+                    }
+                } finally {
+                    setState { copy(isRestoring = false) }
+                }
             }
         }
 

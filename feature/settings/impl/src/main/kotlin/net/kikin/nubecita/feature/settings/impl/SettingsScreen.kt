@@ -52,11 +52,14 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsSection
@@ -84,6 +87,7 @@ import net.kikin.nubecita.feature.settings.impl.ui.SwitchAccountRow
 internal fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onNavigateTo: (NavKey) -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -91,6 +95,13 @@ internal fun SettingsScreen(
     val signOutErrorMsg = stringResource(R.string.settings_signout_error)
     val switchAccountComingSoonMsg =
         stringResource(R.string.settings_switch_account_coming_soon)
+    val restoreSuccessMsg = stringResource(R.string.settings_pro_restore_success)
+    val restoreNothingMsg = stringResource(R.string.settings_pro_restore_nothing)
+    val restoreErrorMsg = stringResource(R.string.settings_pro_restore_error)
+    // Stable reference for the nav callback read inside the restarting effects
+    // collector (ktlint compose:lambda-param-in-effect) — same pattern as the
+    // rememberUpdatedState(onEvent) in SettingsContent.
+    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -151,6 +162,40 @@ internal fun SettingsScreen(
                         // No system activity available — silent no-op.
                     }
                 }
+                SettingsEffect.OpenPaywall ->
+                    // Nav is a screen concern: push PaywallRoute onto MainShell's
+                    // inner back stack via the host-wired callback. The VM never
+                    // touches LocalMainShellNavState (same as profile sub-routes).
+                    currentOnNavigateTo(PaywallRoute)
+                is SettingsEffect.OpenManageSubscription -> {
+                    // Deep-link to the Play manage-subscription page. The screen
+                    // owns the package name; the VM supplied the sku (if known).
+                    // Same Custom Tab launch + narrow catch as LaunchUri.
+                    try {
+                        CustomTabsIntent
+                            .Builder()
+                            .setShowTitle(true)
+                            .build()
+                            .launchUrl(context, Uri.parse(manageSubscriptionUrl(effect.sku, context.packageName)))
+                    } catch (_: ActivityNotFoundException) {
+                        // No browser available — silent no-op.
+                    }
+                }
+                SettingsEffect.ShowRestoreSuccess ->
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(restoreSuccessMsg)
+                    }
+                SettingsEffect.ShowNothingToRestore ->
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(restoreNothingMsg)
+                    }
+                SettingsEffect.ShowRestoreError ->
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(restoreErrorMsg)
+                    }
             }
         }
     }
@@ -371,6 +416,66 @@ internal fun SettingsContent(
             )
         }
 
+    // Nubecita Pro section. Two faces driven by state.isPro: an upsell row
+    // (non-Pro) that opens the paywall, or the current-plan info + manage +
+    // restore rows (Pro). The current-plan caption is composed here from the
+    // resolved period + store-localized price (localized via stringResource;
+    // the VM exposes them structurally) and falls back to a neutral "Active".
+    val proSectionLabel = stringResource(R.string.settings_pro_section_label)
+    val proUpsellLabel = stringResource(R.string.settings_pro_upsell_label)
+    val proUpsellSupporting = stringResource(R.string.settings_pro_upsell_supporting)
+    val proMemberLabel = stringResource(R.string.settings_pro_member_label)
+    val proManageLabel = stringResource(R.string.settings_pro_manage_label)
+    val proRestoreLabel = stringResource(R.string.settings_pro_restore_label)
+    val planPrice = state.currentPlanFormattedPrice
+    val proCurrentPlanCaption =
+        when {
+            state.currentPlanPeriod == BillingPeriod.Annual && planPrice != null ->
+                stringResource(R.string.settings_pro_current_plan_annual, planPrice)
+            state.currentPlanPeriod == BillingPeriod.Monthly && planPrice != null ->
+                stringResource(R.string.settings_pro_current_plan_monthly, planPrice)
+            else -> stringResource(R.string.settings_pro_current_plan_active)
+        }
+    val proRows =
+        remember(
+            state.isPro,
+            proCurrentPlanCaption,
+            proUpsellLabel,
+            proUpsellSupporting,
+            proMemberLabel,
+            proManageLabel,
+            proRestoreLabel,
+        ) {
+            if (state.isPro) {
+                persistentListOf(
+                    SettingsRow.Info(
+                        icon = NubecitaIconName.WorkspacePremium,
+                        label = proMemberLabel,
+                        supportingText = proCurrentPlanCaption,
+                    ),
+                    SettingsRow.Action(
+                        icon = null,
+                        label = proManageLabel,
+                        onClick = { currentOnEvent(SettingsEvent.ManageSubscriptionTapped) },
+                    ),
+                    SettingsRow.Action(
+                        icon = null,
+                        label = proRestoreLabel,
+                        onClick = { currentOnEvent(SettingsEvent.RestorePurchasesTapped) },
+                    ),
+                )
+            } else {
+                persistentListOf(
+                    SettingsRow.Action(
+                        icon = NubecitaIconName.WorkspacePremium,
+                        label = proUpsellLabel,
+                        supportingText = proUpsellSupporting,
+                        onClick = { currentOnEvent(SettingsEvent.ProUpsellTapped) },
+                    ),
+                )
+            }
+        }
+
     Column(
         modifier =
             modifier
@@ -393,6 +498,10 @@ internal fun SettingsContent(
             avatarHue = state.avatarHue,
             onTap = { onEvent(SettingsEvent.SwitchAccountTapped) },
         )
+        // Nubecita Pro section sits up top (under the identity rows) for
+        // upsell visibility; always rendered (upsell row when non-Pro,
+        // manage/restore rows when Pro).
+        SettingsSection(rows = proRows, label = proSectionLabel)
         // Canonical section roster (spec: feature-settings — "Settings
         // screen renders sections in a canonical fixed order"). Sections
         // that don't have content yet are omitted entirely so the empty-
@@ -420,6 +529,32 @@ internal fun SettingsContent(
         )
     }
 }
+
+/**
+ * Build the Google Play manage-subscription deep link. With a known [sku] it
+ * lands directly on that subscription; without one it opens the package's
+ * subscription list. [packageName] is the screen-owned app package (the VM has
+ * no Context). Renders through a Chrome Custom Tab like the other external
+ * links, and the Play Store app intercepts the https URL when installed.
+ */
+private fun manageSubscriptionUrl(
+    sku: String?,
+    packageName: String,
+): String =
+    // Built via Uri.Builder so query values are percent-encoded — Play SKUs can
+    // carry reserved characters (e.g. the `subId:basePlanId` colon form), and
+    // raw interpolation would emit an ambiguous URL.
+    Uri
+        .Builder()
+        .scheme("https")
+        .authority("play.google.com")
+        .appendPath("store")
+        .appendPath("account")
+        .appendPath("subscriptions")
+        .appendQueryParameter("package", packageName)
+        .apply { if (!sku.isNullOrBlank()) appendQueryParameter("sku", sku) }
+        .build()
+        .toString()
 
 // Runtime-read versionName + versionCode via PackageManager so :feature:settings:impl
 // doesn't need its own BuildConfig. The (String, Int) overload is deprecated on

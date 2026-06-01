@@ -12,10 +12,17 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.billing.BillingRepository
+import net.kikin.nubecita.core.billing.EntitlementRepository
+import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.profile.ActorProfile
 import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.data.models.ActiveSubscription
+import net.kikin.nubecita.data.models.BillingPeriod
+import net.kikin.nubecita.data.models.SubscriptionOfferingFixtures
+import net.kikin.nubecita.data.models.SubscriptionPlanId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -43,10 +50,24 @@ internal class SettingsViewModelTest {
                 every { state } returns MutableStateFlow(SessionState.SignedOut)
             },
         actorProfile: ActorProfileRepository = mockk(relaxed = true),
+        isPro: Boolean = false,
+        activeSub: ActiveSubscription? = null,
+        billing: BillingRepository =
+            mockk(relaxed = true) {
+                coEvery { loadPlans() } returns Result.success(SubscriptionOfferingFixtures.proOffering())
+                coEvery { restorePurchases() } returns RestoreResult.Completed(isPro = false)
+            },
+        entitlement: EntitlementRepository =
+            mockk(relaxed = true) {
+                every { this@mockk.isPro } returns MutableStateFlow(isPro)
+                every { activeSubscription } returns MutableStateFlow(activeSub)
+            },
     ) = SettingsViewModel(
         authRepository = auth,
         sessionStateProvider = session,
         actorProfileRepository = actorProfile,
+        entitlementRepository = entitlement,
+        billingRepository = billing,
     )
 
     @Test
@@ -238,6 +259,129 @@ internal class SettingsViewModelTest {
             // renders, with "Hi!" + initials disc).
             assertNull(vm.uiState.value.displayName)
             assertNull(vm.uiState.value.avatarUrl)
+        }
+
+    @Test
+    fun `non-Pro state mirrors isPro false and ProUpsellTapped emits OpenPaywall`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true), isPro = false)
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.isPro)
+
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.ProUpsellTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.OpenPaywall, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `Pro state resolves the annual plan caption and manage sku`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                createVm(
+                    auth = mockk(relaxed = true),
+                    isPro = true,
+                    activeSub = ActiveSubscription(planId = SubscriptionPlanId.Annual, productId = "pro_sub:annual"),
+                )
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertTrue(state.isPro)
+            // Period + store-localized price resolved via the loadPlans() cross-reference
+            // (the fixture offering's annual plan is "$19.99").
+            assertEquals(BillingPeriod.Annual, state.currentPlanPeriod)
+            assertEquals("$19.99", state.currentPlanFormattedPrice)
+            assertEquals("pro_sub:annual", state.manageSku)
+        }
+
+    @Test
+    fun `an unrecognized plan id leaves the period null but keeps the manage sku`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                createVm(
+                    auth = mockk(relaxed = true),
+                    isPro = true,
+                    activeSub = ActiveSubscription(planId = null, productId = "pro_sub:weekly"),
+                )
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.currentPlanPeriod)
+            assertNull(vm.uiState.value.currentPlanFormattedPrice)
+            assertEquals("pro_sub:weekly", vm.uiState.value.manageSku)
+        }
+
+    @Test
+    fun `ManageSubscriptionTapped emits OpenManageSubscription carrying the active sku`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                createVm(
+                    auth = mockk(relaxed = true),
+                    isPro = true,
+                    activeSub = ActiveSubscription(planId = SubscriptionPlanId.Monthly, productId = "pro_sub:monthly"),
+                )
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.ManageSubscriptionTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.OpenManageSubscription(sku = "pro_sub:monthly"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `RestorePurchasesTapped that finds Pro emits ShowRestoreSuccess`() =
+        runTest(mainDispatcher.dispatcher) {
+            val billing =
+                mockk<BillingRepository>(relaxed = true) {
+                    coEvery { restorePurchases() } returns RestoreResult.Completed(isPro = true)
+                }
+            val vm = createVm(auth = mockk(relaxed = true), billing = billing)
+
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.RestorePurchasesTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.ShowRestoreSuccess, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertFalse(vm.uiState.value.isRestoring)
+        }
+
+    @Test
+    fun `RestorePurchasesTapped that finds nothing emits ShowNothingToRestore`() =
+        runTest(mainDispatcher.dispatcher) {
+            val billing =
+                mockk<BillingRepository>(relaxed = true) {
+                    coEvery { restorePurchases() } returns RestoreResult.Completed(isPro = false)
+                }
+            val vm = createVm(auth = mockk(relaxed = true), billing = billing)
+
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.RestorePurchasesTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.ShowNothingToRestore, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `RestorePurchasesTapped error emits ShowRestoreError and clears the in-flight flag`() =
+        runTest(mainDispatcher.dispatcher) {
+            val billing =
+                mockk<BillingRepository>(relaxed = true) {
+                    coEvery { restorePurchases() } returns RestoreResult.Error("billing unavailable")
+                }
+            val vm = createVm(auth = mockk(relaxed = true), billing = billing)
+
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.RestorePurchasesTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.ShowRestoreError, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertFalse(vm.uiState.value.isRestoring)
         }
 
     @Test

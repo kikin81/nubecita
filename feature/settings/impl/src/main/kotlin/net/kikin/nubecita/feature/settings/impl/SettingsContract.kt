@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.settings.impl
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.BillingPeriod
 
 /**
  * MVI state for the Settings screen.
@@ -40,6 +41,34 @@ data class SettingsViewState(
     val avatarHue: Int = 0,
     val confirmDialogOpen: Boolean = false,
     val status: SettingsStatus = SettingsStatus.Idle,
+    /**
+     * Nubecita Pro entitlement, mirrored from `EntitlementRepository.isPro`.
+     * Drives the "Nubecita Pro" section's two faces: false → an upsell row
+     * that opens the paywall; true → manage-subscription + restore rows.
+     */
+    val isPro: Boolean = false,
+    /**
+     * The active plan's billing period, for the Pro section's current-plan
+     * caption ("Annual" / "Monthly"). Null until resolved or when the active
+     * base plan isn't recognized — the row then shows a neutral "Active"
+     * caption. Kept structured (not a pre-built string) so the screen composes
+     * the localized caption via `stringResource`; the VM has no Context.
+     */
+    val currentPlanPeriod: BillingPeriod? = null,
+    /**
+     * The active plan's store-localized price string (e.g. `"$19.99"`), paired
+     * with [currentPlanPeriod] to render "Annual · $19.99/yr". Null until a
+     * one-shot `loadPlans()` cross-reference resolves it (or on failure).
+     */
+    val currentPlanFormattedPrice: String? = null,
+    /**
+     * Store product id of the active Pro subscription, used as the `sku` in the
+     * Play manage-subscription deep link. Null → the deep link falls back to the
+     * package-level Play subscriptions page.
+     */
+    val manageSku: String? = null,
+    /** True while a Restore-purchases request is in flight (single-flight guard + row spinner). */
+    val isRestoring: Boolean = false,
 ) : UiState
 
 /**
@@ -90,6 +119,27 @@ sealed interface SettingsEvent : UiEvent {
      * [SettingsEffect.OpenSystemNotificationSettings].
      */
     data object NotificationsTapped : SettingsEvent
+
+    /**
+     * User tapped the "Nubecita Pro" upsell row (non-Pro). VM responds with
+     * [SettingsEffect.OpenPaywall]; the screen pushes `PaywallRoute` onto the
+     * MainShell inner back stack (nav is a screen concern, never the VM's).
+     */
+    data object ProUpsellTapped : SettingsEvent
+
+    /**
+     * User tapped "Manage subscription" (Pro). VM responds with
+     * [SettingsEffect.OpenManageSubscription] carrying the active sku; the
+     * screen builds the Play deep link (it owns the package name) and launches.
+     */
+    data object ManageSubscriptionTapped : SettingsEvent
+
+    /**
+     * User tapped "Restore purchases" (Pro). VM calls
+     * `BillingRepository.restorePurchases()` and surfaces the outcome as a
+     * snackbar effect; entitlement changes propagate via the `isPro` stream.
+     */
+    data object RestorePurchasesTapped : SettingsEvent
 }
 
 /**
@@ -127,4 +177,34 @@ sealed interface SettingsEffect : UiEffect {
      * the intent and calls `context.startActivity(...)`.
      */
     data object OpenSystemNotificationSettings : SettingsEffect
+
+    /**
+     * Push the Nubecita Pro paywall (`PaywallRoute`) onto MainShell's inner
+     * back stack. The VM never holds the nav state — the screen collects this
+     * and calls its `onNavigateTo(PaywallRoute)` callback (wired by the nav
+     * module to `LocalMainShellNavState.current.add(...)`), matching the
+     * profile → sub-route pattern.
+     */
+    data object OpenPaywall : SettingsEffect
+
+    /**
+     * Open the Google Play manage-subscription page. The screen builds
+     * `https://play.google.com/store/account/subscriptions?package=<pkg>` (it
+     * owns the package name) and appends `&sku=<sku>` when [sku] is non-null to
+     * deep-link straight to this subscription; a null [sku] lands on the
+     * package's subscription list. Launched via the same CustomTabsIntent path
+     * as [LaunchUri].
+     */
+    data class OpenManageSubscription(
+        val sku: String?,
+    ) : SettingsEffect
+
+    /** Restore found an active subscription — confirm with a snackbar. */
+    data object ShowRestoreSuccess : SettingsEffect
+
+    /** Restore completed but found nothing to restore — friendly snackbar, not an error. */
+    data object ShowNothingToRestore : SettingsEffect
+
+    /** Restore failed (network/provider) — error snackbar. */
+    data object ShowRestoreError : SettingsEffect
 }

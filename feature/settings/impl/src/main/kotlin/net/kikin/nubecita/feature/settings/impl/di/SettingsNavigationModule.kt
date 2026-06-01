@@ -32,7 +32,13 @@ internal object SettingsNavigationModule {
         {
             entry<Settings> {
                 val navState = LocalMainShellNavState.current
-                SettingsScreen(onBack = { navState.removeLast() })
+                SettingsScreen(
+                    onBack = { navState.removeLast() },
+                    // Pushes sub-routes (today: PaywallRoute from the Pro upsell
+                    // row) onto the same inner back stack. The VM emits the
+                    // NavKey via an effect; the screen forwards it here.
+                    onNavigateTo = { navState.add(it) },
+                )
             }
         }
 }

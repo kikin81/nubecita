@@ -17,9 +17,16 @@ dependencies {
     api(project(":feature:settings:api"))
 
     implementation(project(":core:auth"))
+    // EntitlementRepository.isPro / activeSubscription + BillingRepository
+    // (restore, plan-price lookup) for the "Nubecita Pro" settings section.
+    implementation(project(":core:billing"))
     implementation(project(":core:common"))
     implementation(project(":core:profile"))
+    implementation(project(":data:models"))
     implementation(project(":designsystem"))
+    // PaywallRoute NavKey — pushed onto MainShell's inner back stack when a
+    // non-Pro user taps the "Nubecita Pro" upsell row. :api only.
+    implementation(project(":feature:paywall:api"))
     implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.kotlinx.collections.immutable)

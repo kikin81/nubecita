@@ -15,6 +15,7 @@ import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.data.models.SubscriptionPlanId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -100,6 +101,61 @@ internal class RevenueCatMappersTest {
                 every { entitlements } returns mockk<EntitlementInfos> { every { active } returns emptyMap() }
             }
         assertFalse(info.hasProEntitlement())
+    }
+
+    @Test
+    fun `activeProSubscription maps the pro entitlement's base plan and product id`() {
+        val info = customerInfoWithPro(productPlanIdentifier = "annual", productIdentifier = "pro_sub:annual")
+
+        val active = info.activeProSubscription()
+        assertEquals(SubscriptionPlanId.Annual, active?.planId)
+        assertEquals("pro_sub:annual", active?.productId)
+    }
+
+    @Test
+    fun `activeProSubscription maps a monthly base plan case-insensitively`() {
+        val info = customerInfoWithPro(productPlanIdentifier = "MONTHLY", productIdentifier = "pro_sub:monthly")
+        assertEquals(SubscriptionPlanId.Monthly, info.activeProSubscription()?.planId)
+    }
+
+    @Test
+    fun `activeProSubscription yields a null plan for an unrecognized base plan`() {
+        // A future / renamed base plan must degrade to a neutral label, not crash
+        // or mis-map. productId still flows through for the deep link.
+        val info = customerInfoWithPro(productPlanIdentifier = "weekly", productIdentifier = "pro_sub:weekly")
+        val active = info.activeProSubscription()
+        assertNull(active?.planId)
+        assertEquals("pro_sub:weekly", active?.productId)
+    }
+
+    @Test
+    fun `activeProSubscription tolerates a null base plan identifier`() {
+        val info = customerInfoWithPro(productPlanIdentifier = null, productIdentifier = "pro_legacy")
+        assertNull(info.activeProSubscription()?.planId)
+        assertEquals("pro_legacy", info.activeProSubscription()?.productId)
+    }
+
+    @Test
+    fun `activeProSubscription is null when pro is not active`() {
+        val info =
+            mockk<CustomerInfo> {
+                every { entitlements } returns mockk<EntitlementInfos> { every { active } returns emptyMap() }
+            }
+        assertNull(info.activeProSubscription())
+    }
+
+    private fun customerInfoWithPro(
+        productPlanIdentifier: String?,
+        productIdentifier: String,
+    ): CustomerInfo {
+        val pro =
+            mockk<EntitlementInfo> {
+                every { this@mockk.productPlanIdentifier } returns productPlanIdentifier
+                every { this@mockk.productIdentifier } returns productIdentifier
+            }
+        return mockk<CustomerInfo> {
+            every { entitlements } returns mockk<EntitlementInfos> { every { active } returns mapOf("pro" to pro) }
+        }
     }
 
     @Test
