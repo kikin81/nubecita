@@ -12,7 +12,11 @@ public sealed interface RestoreResult {
         val isPro: Boolean,
     ) : RestoreResult
 
-    /** The restore call itself failed; [message] is an already-localized reason. */
+    /**
+     * The restore call itself failed. [message] is a developer-facing diagnostic
+     * reason for logging — NOT user-ready copy; the UI maps failures to its own
+     * localized messaging and should not surface this verbatim.
+     */
     public data class Error(
         val message: String,
     ) : RestoreResult

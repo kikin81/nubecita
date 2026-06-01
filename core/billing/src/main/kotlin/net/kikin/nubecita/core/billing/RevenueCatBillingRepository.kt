@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.billing
 
 import android.app.Activity
+import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.PurchaseParams
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesTransactionException
@@ -22,6 +23,13 @@ import javax.inject.Singleton
  * Play purchase / restore flows. Entitlement *state* is observed separately
  * through [RevenueCatEntitlementRepository]; a completed [purchase] or a
  * [restorePurchases] that finds Pro reaches `isPro` via that listener.
+ *
+ * Every entry point first checks [Purchases.isConfigured]: on the bench flavor
+ * (no configure) or a keyless build (`RevenueCatInitializer` skips configure),
+ * `Purchases.sharedInstance` would otherwise throw
+ * `UninitializedPropertyAccessException` synchronously — outside the SDK's
+ * `Result`/exception model — and crash the caller. Guarding keeps the boundary's
+ * "inert, not crashing" promise and lets the paywall show its error state.
  */
 @Singleton
 internal class RevenueCatBillingRepository
@@ -29,8 +37,9 @@ internal class RevenueCatBillingRepository
     constructor(
         @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : BillingRepository {
-        override suspend fun loadPlans(): Result<SubscriptionOffering> =
-            withContext(ioDispatcher) {
+        override suspend fun loadPlans(): Result<SubscriptionOffering> {
+            if (!Purchases.isConfigured) return Result.failure(IllegalStateException(BILLING_UNAVAILABLE))
+            return withContext(ioDispatcher) {
                 Purchases.sharedInstance
                     .awaitOfferingsResult()
                     .fold(
@@ -38,25 +47,19 @@ internal class RevenueCatBillingRepository
                         onFailure = { Result.failure(it) },
                     )
             }
+        }
 
         override suspend fun purchase(
             activity: Activity,
             plan: SubscriptionPlan,
         ): PurchaseResult {
+            if (!Purchases.isConfigured) return PurchaseResult.Error(BILLING_UNAVAILABLE)
             // Resolve the SubscriptionPlan back to the live RevenueCat Package the
-            // purchase API requires. Re-reading offerings keeps purchase() honest
-            // about current availability rather than trusting a stale plan.
-            val offerings =
-                Purchases.sharedInstance
-                    .awaitOfferingsResult()
-                    .getOrElse { return PurchaseResult.Error(it.message ?: "Could not load plans") }
-            val current = offerings.current ?: return PurchaseResult.Error("No current offering")
+            // purchase API requires (the :data:models plan can't carry a provider
+            // type). Re-reading offerings keeps purchase() honest about current
+            // availability rather than trusting a stale plan.
             val rcPackage =
-                when (plan.id) {
-                    SubscriptionPlanId.Monthly -> current.monthly
-                    SubscriptionPlanId.Annual -> current.annual
-                } ?: return PurchaseResult.Error("Selected plan is unavailable")
-
+                resolvePackage(plan.id) ?: return PurchaseResult.Error("Selected plan is unavailable")
             return try {
                 Purchases.sharedInstance.awaitPurchase(PurchaseParams.Builder(activity, rcPackage).build())
                 PurchaseResult.Success
@@ -65,8 +68,9 @@ internal class RevenueCatBillingRepository
             }
         }
 
-        override suspend fun restorePurchases(): RestoreResult =
-            withContext(ioDispatcher) {
+        override suspend fun restorePurchases(): RestoreResult {
+            if (!Purchases.isConfigured) return RestoreResult.Error(BILLING_UNAVAILABLE)
+            return withContext(ioDispatcher) {
                 Purchases.sharedInstance
                     .awaitRestoreResult()
                     .fold(
@@ -74,4 +78,23 @@ internal class RevenueCatBillingRepository
                         onFailure = { RestoreResult.Error(it.message ?: "Restore failed") },
                     )
             }
+        }
+
+        /** Look up the live [Package] for [planId] in the current offering, off the main thread. */
+        private suspend fun resolvePackage(planId: SubscriptionPlanId): Package? =
+            withContext(ioDispatcher) {
+                val current =
+                    Purchases.sharedInstance
+                        .awaitOfferingsResult()
+                        .getOrNull()
+                        ?.current ?: return@withContext null
+                when (planId) {
+                    SubscriptionPlanId.Monthly -> current.monthly
+                    SubscriptionPlanId.Annual -> current.annual
+                }
+            }
+
+        private companion object {
+            const val BILLING_UNAVAILABLE = "Billing is not available"
+        }
     }
