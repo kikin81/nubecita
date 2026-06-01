@@ -12,6 +12,7 @@ import net.kikin.nubecita.MainActivity
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,6 +36,14 @@ import java.util.concurrent.atomic.AtomicReference
 class PipNoRecreateTest {
     @get:Rule
     val hiltRule = HiltAndroidRule(this)
+
+    @Before
+    fun setUp() {
+        // Initialize the Hilt test component before launching the
+        // @AndroidEntryPoint MainActivity, matching the repo's Hilt
+        // instrumentation-test convention (e.g. FeedScreenInstrumentationTest).
+        hiltRule.inject()
+    }
 
     @Test
     fun enteringPip_doesNotRecreateActivity() {
