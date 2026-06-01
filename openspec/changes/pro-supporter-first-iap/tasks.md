@@ -37,8 +37,8 @@
 
 ## 5. `SharedVideoPlayer` `isInPip` seam — beads nubecita-q5ge.5 (load-bearing)
 
-- [ ] 5.1 Inject `isInPip: () -> Boolean` (default `{ false }`) into `SharedVideoPlayer`; gate `appBackgroundObserver.onStop` auto-pause on it
-- [ ] 5.2 Unit test: `onStop` auto-pause is suppressed when `isInPip()` true; still pauses when false
+- [x] 5.1 Inject `isInPip: () -> Boolean` (default `{ false }`) into `SharedVideoPlayer` + `createSharedVideoPlayer`; gate `appBackgroundObserver.onStop` auto-pause on it. Production wires `{ pipController.isInPip.value }` via `VideoPlayerModule` (no Hilt cycle — `PipController` doesn't depend on `SharedVideoPlayer`)
+- [x] 5.2 Unit test: `onStop` auto-pause is suppressed when `isInPip()` true; still pauses when false (default-`{ false }` path covered by the existing `appBackgrounded_onStop_pausesPlayingVideo`)
 
 ## 6. PiP Compose wiring — beads nubecita-q5ge.6
 

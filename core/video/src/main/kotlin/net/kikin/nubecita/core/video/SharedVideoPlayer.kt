@@ -55,15 +55,28 @@ class SharedVideoPlayer
         // through a LifecycleRegistry; production passes
         // ProcessLifecycleOwner.get().lifecycle via createSharedVideoPlayer.
         lifecycle: Lifecycle,
+        // Whether the app is currently in Picture-in-Picture. Defaults to
+        // `{ false }` so non-PiP callers (and existing tests) keep the original
+        // background-pause behavior; production wires it to
+        // `PipController.isInPip` (design D6). Read as a lambda, not a captured
+        // boolean, because the PiP state changes after this holder is built.
+        private val isInPip: () -> Boolean = { false },
     ) {
         // Pause playback when the whole app goes to the background so audio
-        // doesn't keep playing — the app has no background-play / PiP support
-        // (that's a separate epic). Pause-only: returning to the foreground
-        // leaves playback paused; the user taps play. Only pauses an
-        // already-constructed player (never builds one just to pause it).
+        // doesn't keep playing. Pause-only: returning to the foreground leaves
+        // playback paused; the user taps play. Only pauses an already-constructed
+        // player (never builds one just to pause it).
+        //
+        // EXCEPT in Picture-in-Picture (Pro perk): entering PiP stops the
+        // Activity and fires ON_STOP, but the PiP window IS the foreground for
+        // playback — pausing here would defeat the whole feature. A real dismiss
+        // leaves PiP first (`isInPip()` flips false via the Activity bridge), so
+        // the subsequent ON_STOP pauses as normal. This is the load-bearing seam
+        // for `pro-picture-in-picture` (design D6).
         private val appBackgroundObserver =
             object : DefaultLifecycleObserver {
                 override fun onStop(owner: LifecycleOwner) {
+                    if (isInPip()) return
                     cachedExoPlayer?.pause()
                 }
             }
@@ -490,6 +503,7 @@ fun createSharedVideoPlayer(
     scope: CoroutineScope,
     idleReleaseMs: Long = DEFAULT_IDLE_RELEASE_MS,
     lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
+    isInPip: () -> Boolean = { false },
 ): SharedVideoPlayer {
     val appContext = context.applicationContext
     return SharedVideoPlayer(
@@ -516,6 +530,7 @@ fun createSharedVideoPlayer(
         },
         scope = scope,
         lifecycle = lifecycle,
+        isInPip = isInPip,
         // The ExoPlayer is lazily constructed inside `playerFactory` on
         // the first `requirePlayer()` (called from bind() / setMode()),
         // and `verifyApplicationThread()` rejects any access from a

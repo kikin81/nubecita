@@ -58,6 +58,36 @@ class SharedVideoPlayerTest {
         }
 
     @Test
+    fun appBackgrounded_onStop_doesNotPauseWhileInPip() =
+        runTest {
+            val owner = resumedTestLifecycle()
+            val player = mockk<ExoPlayer>(relaxed = true)
+            val testDispatcher = coroutineContext[kotlinx.coroutines.CoroutineDispatcher]!!
+            val holder =
+                SharedVideoPlayer(
+                    playerFactory = { _ -> player },
+                    trackSelectorFactory = { mockk(relaxed = true) },
+                    scope = this,
+                    mainDispatcher = testDispatcher,
+                    idleReleaseMs = 30_000L,
+                    lifecycle = owner.registry,
+                    isInPip = { true },
+                )
+            runCurrent()
+            holder.play()
+            clearMocks(player, answers = false)
+
+            // Entering PiP stops the Activity, firing ON_STOP — but the PiP window
+            // IS the foreground for playback, so the background auto-pause must be
+            // suppressed (design D6). A real dismiss exits PiP first (isInPip →
+            // false), so the following ON_STOP still pauses — covered by
+            // appBackgrounded_onStop_pausesPlayingVideo (default isInPip = { false }).
+            owner.registry.currentState = Lifecycle.State.CREATED
+
+            verify(exactly = 0) { player.pause() }
+        }
+
+    @Test
     fun appReturnsToForeground_staysPaused_noAutoResume() =
         runTest {
             val owner = resumedTestLifecycle()
