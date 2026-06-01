@@ -63,9 +63,12 @@ import net.kikin.nubecita.feature.paywall.impl.ui.PaywallPlanPicker
  * inside `MainShell`; the `?.let` guard keeps the tap a silent no-op in the
  * pathological null case rather than crashing.
  *
- * [onDismiss] pops the paywall off the inner back stack. It's invoked by
- * the close affordance and by the [PaywallEffect.Dismiss] effect (a
- * completed purchase / a restore that grants Pro).
+ * [onDismiss] pops the paywall off the back stack — invoked by the close
+ * affordance and by the [PaywallEffect.Dismiss] effect, which now fires only
+ * on a **restore** that grants Pro. [onPurchaseSuccess] handles a **fresh
+ * purchase** ([PaywallEffect.PurchaseSucceeded]): the host replaces the paywall
+ * with the thank-you screen (nubecita-ykpc), so a purchase routes there rather
+ * than dismissing.
  */
 @Composable
 internal fun PaywallScreen(

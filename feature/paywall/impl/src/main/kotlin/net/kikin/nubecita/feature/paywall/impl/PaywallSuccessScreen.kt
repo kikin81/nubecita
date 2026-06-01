@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -133,7 +134,9 @@ internal fun PaywallSuccessContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(text = "🎉", fontSize = 72.sp)
+                // Decorative — clear semantics so TalkBack skips the emoji
+                // ("party popper") and lands on the headline/subline instead.
+                Text(text = "🎉", fontSize = 72.sp, modifier = Modifier.clearAndSetSemantics {})
                 Text(
                     text = stringResource(R.string.paywall_success_headline),
                     style = MaterialTheme.typography.headlineMedium,
