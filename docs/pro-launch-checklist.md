@@ -2,7 +2,7 @@
 
 Runbook for **nubecita-q5ge.11** (epic **nubecita-q5ge**, design `openspec/changes/pro-supporter-first-iap/design.md`). Most steps are **manual web-console work** (Play Console, RevenueCat dashboard, Google payments) that cannot be scripted; this doc is the ordered, reviewable source of truth for them. Check items off as they land.
 
-> **Status (2026-06-01):** A–D complete; **E** (payments/tax + listing badge) is almost certainly already satisfied (active paid base plans require it) — confirm; the remaining gate is **F1 / nubecita-q5ge.12** (sandbox purchase smoke). Do not ship to production until F1 is ✅. The free app must stay fully functional; never gate moderation/safety.
+> **Status (2026-06-01):** A–D complete. Two gates remain before shipping: **E** (payments/tax + listing badge — almost certainly already satisfied, since active paid base plans require it, but still a hard prerequisite that must be **confirmed**) and **F1 / nubecita-q5ge.12** (sandbox purchase smoke). **Do not ship to production until E is confirmed AND F1 is ✅.** The free app must stay fully functional; never gate moderation/safety.
 
 ## Reference state (verified 2026-06-01 via RevenueCat MCP)
 
@@ -55,7 +55,7 @@ Runbook for **nubecita-q5ge.11** (epic **nubecita-q5ge**, design `openspec/chang
 - [ ] **F1.** Sandbox / license-tester purchase grants `isPro = true` in-app and unlocks PiP + the Supporter badge — **nubecita-q5ge.12** (`run-instrumented`). Now unblocked (A–B done).
 - [ ] **F2.** Restore purchases works on a second device / reinstall (same Play account).
 - [ ] **F3.** Cancellation reflects in-app after the period ends (`isPro` → false); an active PiP session is **not** force-closed mid-use (design risk note).
-- [ ] **F4.** RC→Firebase events arrive in GA4 for a sandbox purchase. App-side `setFirebaseAppInstanceID` linkage is **nubecita-q5ge.13**.
+- [ ] **F4.** RC→Firebase events arrive in GA4 for a sandbox purchase. The app-side step — linking RevenueCat's anonymous app-user id to the Firebase app-instance id so events attribute to the right user — is **nubecita-q5ge.13** (the RevenueCat SDK exposes a helper for this; confirm the exact API against the pinned SDK version when implementing).
 
 ## Out of scope (deferred, per design Non-Goals)
 
