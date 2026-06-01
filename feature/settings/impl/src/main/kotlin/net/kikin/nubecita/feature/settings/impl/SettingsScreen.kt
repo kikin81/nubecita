@@ -540,10 +540,21 @@ internal fun SettingsContent(
 private fun manageSubscriptionUrl(
     sku: String?,
     packageName: String,
-): String {
-    val base = "https://play.google.com/store/account/subscriptions?package=$packageName"
-    return if (sku.isNullOrBlank()) base else "$base&sku=$sku"
-}
+): String =
+    // Built via Uri.Builder so query values are percent-encoded — Play SKUs can
+    // carry reserved characters (e.g. the `subId:basePlanId` colon form), and
+    // raw interpolation would emit an ambiguous URL.
+    Uri
+        .Builder()
+        .scheme("https")
+        .authority("play.google.com")
+        .appendPath("store")
+        .appendPath("account")
+        .appendPath("subscriptions")
+        .appendQueryParameter("package", packageName)
+        .apply { if (!sku.isNullOrBlank()) appendQueryParameter("sku", sku) }
+        .build()
+        .toString()
 
 // Runtime-read versionName + versionCode via PackageManager so :feature:settings:impl
 // doesn't need its own BuildConfig. The (String, Int) overload is deprecated on

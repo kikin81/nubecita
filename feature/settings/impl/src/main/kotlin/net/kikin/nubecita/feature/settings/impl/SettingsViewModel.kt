@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.settings.impl
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -92,13 +93,15 @@ internal class SettingsViewModel
                 .launchIn(viewModelScope)
 
             // The active subscription drives the manage-subscription sku and the
-            // current-plan label. It's a StateFlow (already conflated + distinct),
-            // so each distinct emission triggers at most one price resolution.
-            entitlementRepository.activeSubscription
-                .onEach { active ->
+            // current-plan label. collectLatest cancels an in-flight price
+            // resolution if a newer subscription arrives, so a slower older
+            // loadPlans() can't overwrite the newer plan/price (latest-wins).
+            viewModelScope.launch {
+                entitlementRepository.activeSubscription.collectLatest { active ->
                     setState { copy(manageSku = active?.productId) }
                     resolvePlanLabel(active)
-                }.launchIn(viewModelScope)
+                }
+            }
         }
 
         override fun handleEvent(event: SettingsEvent) {
@@ -133,30 +136,31 @@ internal class SettingsViewModel
          * (unrecognized base plan) or a failed offering load leaves both null,
          * and the row falls back to a neutral "Active" caption.
          */
-        private fun resolvePlanLabel(active: ActiveSubscription?) {
+        private suspend fun resolvePlanLabel(active: ActiveSubscription?) {
             val planId = active?.planId
             if (planId == null) {
                 setState { copy(currentPlanPeriod = null, currentPlanFormattedPrice = null) }
                 return
             }
-            viewModelScope.launch {
-                billingRepository
-                    .loadPlans()
-                    .onSuccess { offering ->
-                        val plan = if (planId == SubscriptionPlanId.Annual) offering.annual else offering.monthly
-                        setState {
-                            copy(
-                                currentPlanPeriod = plan.period,
-                                currentPlanFormattedPrice = plan.formattedPrice,
-                            )
-                        }
-                    }.onFailure {
-                        // Keep the section usable without the price — the row
-                        // shows "Active". No user-facing error for a label.
-                        Timber.tag(TAG).w(it, "Pro plan-label resolution failed")
-                        setState { copy(currentPlanPeriod = null, currentPlanFormattedPrice = null) }
+            // Suspends inline under the collectLatest collector — a newer
+            // subscription emission cancels this (and the loadPlans() call)
+            // before it can write stale state.
+            billingRepository
+                .loadPlans()
+                .onSuccess { offering ->
+                    val plan = if (planId == SubscriptionPlanId.Annual) offering.annual else offering.monthly
+                    setState {
+                        copy(
+                            currentPlanPeriod = plan.period,
+                            currentPlanFormattedPrice = plan.formattedPrice,
+                        )
                     }
-            }
+                }.onFailure {
+                    // Keep the section usable without the price — the row
+                    // shows "Active". No user-facing error for a label.
+                    Timber.tag(TAG).w(it, "Pro plan-label resolution failed")
+                    setState { copy(currentPlanPeriod = null, currentPlanFormattedPrice = null) }
+                }
         }
 
         private fun runRestore() {

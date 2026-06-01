@@ -5,7 +5,7 @@ import androidx.compose.runtime.Immutable
 /**
  * The Pro subscription the signed-in user currently owns, as resolved from the
  * billing provider's active entitlement. Distinct from [SubscriptionPlan]
- * (a *purchasable* plan inside an [SubscriptionOffering]): this describes what
+ * (a *purchasable* plan inside a [SubscriptionOffering]): this describes what
  * the user *already has*, surfaced by Settings' "Nubecita Pro" section to label
  * the current plan and build the manage-subscription deep link.
  *
