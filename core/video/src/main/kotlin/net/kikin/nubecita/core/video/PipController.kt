@@ -28,7 +28,7 @@ internal annotation class PipDeviceSupport
 
 /**
  * Whether the device supports Picture-in-Picture. `FEATURE_PICTURE_IN_PICTURE`
- * exists from API 24 and phone PiP from API 26; the project's `minSdk` is 26, so
+ * exists from API 24 and phone PiP from API 26; the project's `minSdk` is 28, so
  * the SDK gate is belt-and-suspenders and the system feature is the real signal.
  */
 internal fun Context.supportsPip(): Boolean =
