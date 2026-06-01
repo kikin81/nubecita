@@ -23,9 +23,20 @@ act of support, and re-confetti on every restore would feel off.
 - **In:** the success screen, its route, the purchase-success → success-route
   flow change, confetti + haptics, reduce-motion handling, tests.
 - **Out (v1):**
-  - No analytics event. The terminal purchase/revenue event is owned by
+  - No custom analytics event. The terminal purchase/revenue event is owned by
     RevenueCat's server-side GA4 integration (see nubecita-q5ge.13); a
     client `pro_welcome_shown` event is a deferred nicety, not needed here.
+  - **Screen-view tracking: explicitly NOT tracked.** The host
+    `NavKey → AnalyticsScreen` mapper (`NavKeyAnalytics.toAnalyticsScreenOrNull`)
+    returns `null` for unmapped routes, so `PaywallSuccessRoute` would *not*
+    auto-fire a `screen_view` — and `PaywallRoute` itself is already untracked.
+    To keep that intent explicit (and because `NavKeyAnalyticsTest` must be
+    updated for every new route), add `is PaywallSuccessRoute -> null` in the
+    mapper's "deliberately NOT tracked" branch (compile-referenced, so a rename
+    breaks it) plus a `NavKeyAnalyticsTest` assertion. A `paywall` /
+    `paywall_success` `screen_view` pair is a clean future addition if a GA4
+    funnel is wanted, but is out of scope here for consistency with the
+    untracked paywall.
   - No plan-aware copy (annual vs monthly) — one generic thank-you.
   - Restore is unchanged (no celebration).
 
@@ -76,14 +87,36 @@ Centered content column:
 - **Confetti burst** — hand-rolled Compose. A `Canvas` over the content draws
   ~120 particles; each has a launch angle, velocity, and a brand-palette color;
   position is `origin + velocity·t + ½·gravity·t²` with alpha fading to 0, all
-  driven by **one** `Animatable` `progress` 0→1 over ~1.2s (one-shot, started in
-  a `LaunchedEffect`). Emanates from the emoji. Decorative
-  (`contentDescription = null`); no recomposition storm (single animated float,
-  particles are `remember`ed).
+  driven by **one** `Animatable` `progress` 0→1 over ~1.2s (one-shot).
+  Emanates from the emoji. Decorative (`contentDescription = null`).
+  - **Particle params are deterministic and stable.** Launch angle / velocity /
+    color are generated **once** in a `remember { ... }` (NOT recomputed per
+    frame) — only `progress` animates over the fixed set. Generation uses a
+    **fixed `Random(seed)`** so the burst is reproducible (required for the
+    pinned-frame screenshot baseline; a varying burst would make the baseline
+    flaky). The content composable also accepts an explicit `progress`
+    parameter so a screenshot can render a fixed frame.
+  - **Invalidation stays in the draw phase.** `progress` (the `Animatable.value`)
+    is read **only inside the `Canvas` draw lambda** (`DrawScope`) — never in
+    the composable body — so each frame invalidates *draw*, not *composition*.
+    Reading `.value` in the parent scope would recompose the whole screen every
+    frame; this keeps it to a redraw of the `Canvas` only.
 - A **subtle haptic** pulse fired once on entry via `LocalHapticFeedback`
   (a confirm/long-press style feedback — exact `HapticFeedbackType` pinned
   against the project's Compose version at implementation). No `VIBRATE`
   permission, no `Vibrator`.
+- **Window insets.** As a `@MainShell` sub-route the bottom bar is hidden
+  (phones) / on the rail (tablets), so this screen owns its insets (per the
+  CLAUDE.md sub-route insets contract). The bottom-pinned **Continue** button
+  gets `Modifier.navigationBarsPadding()` (or consumes the Scaffold's
+  `safeDrawing` inner padding) so it clears the gesture-nav pill and stays a
+  full hit target — never drawn under the system bar.
+- **Plays exactly once per route instance.** The confetti animation + haptic are
+  guarded by `var hasPlayed by rememberSaveable { mutableStateOf(false) }` so a
+  configuration change (rotation, split-screen, dark-mode toggle) — which tears
+  down and recreates this stateless composition — does **not** replay the burst
+  or re-fire the haptic. `rememberSaveable` survives the config change for the
+  life of this route entry.
 - A bottom-pinned **Continue** button (`NubecitaPrimaryButton` or the M3
   equivalent already used) → `onContinue()`.
 
@@ -120,6 +153,12 @@ guarded by the nav state holder.
   - `RestoreResult.Completed(isPro = true)` still emits `Dismiss`.
   - (The nav replace is a screen-Composable concern, exercised via the existing
     instrumentation pattern, not the VM unit test.)
+- **`NavKeyAnalyticsTest`** (unit): add `PaywallSuccessRoute → null` to pin that
+  it is intentionally untracked (matches the new mapper branch).
+- **Device note (not asserted):** haptic behavior varies by OEM, the user's
+  "touch feedback" setting, and Battery Saver — some devices soften or suppress
+  `LocalHapticFeedback`. Fail-silent is the intended behavior; do not assert the
+  haptic in tests, and sanity-check the feel on a couple of physical devices.
 
 ## Module boundaries
 
