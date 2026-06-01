@@ -22,6 +22,24 @@ public interface PipBridge {
     public val isEnabled: StateFlow<Boolean>
 
     /**
+     * Whether this device physically supports Picture-in-Picture, independent of
+     * the Pro entitlement (constant for the process). The explicit pop-out
+     * affordance keys its *visibility* on this — there's no point offering (or
+     * upselling) PiP on a device that can't do it — while [isEnabled] decides
+     * whether a tap enters PiP (Pro) or routes to the paywall (not Pro).
+     */
+    public val isPipSupported: Boolean
+
+    /**
+     * Enter Picture-in-Picture now, in response to the explicit pop-out button
+     * (nubecita-q5ge.8) — distinct from the automatic entry (auto-enter /
+     * `onUserLeaveHint`) wired in q5ge.4/.6. No-op if the device doesn't support
+     * PiP. Callers gate the Pro check on [isEnabled]; this just performs the
+     * entry with the current player params.
+     */
+    public fun enterPip()
+
+    /**
      * Publish the current PiP parameters. [aspectRatio] is the decoded
      * `width / height` (or null if unknown — the impl clamps/falls back);
      * [isPlaying] drives the play/pause action and, on API 31+, whether
@@ -40,6 +58,10 @@ public object NoOpPipBridge : PipBridge {
     // asStateFlow() so it can't be cast back to MutableStateFlow and mutated —
     // the no-op stays genuinely inert.
     override val isEnabled: StateFlow<Boolean> = MutableStateFlow(false).asStateFlow()
+
+    override val isPipSupported: Boolean = false
+
+    override fun enterPip(): Unit = Unit
 
     override fun updateParams(
         aspectRatio: Float?,

@@ -70,6 +70,32 @@ private fun VideoPlayerContentReadyPlayingScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "ready-popout-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Preview(name = "ready-popout-dark", showBackground = true, heightDp = CANVAS_HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun VideoPlayerContentReadyPopOutScreenshot() {
+    // Pop-out / enter-PiP affordance shown (PiP-capable device) — locks the
+    // glyph into the transport row between mute and play/pause (nubecita-q5ge.8).
+    NubecitaCanvasPreviewTheme {
+        VideoPlayerContent(
+            state =
+                VideoPlayerState(
+                    loadStatus = VideoPlayerLoadStatus.Ready,
+                    aspectRatio = 16f / 9f,
+                    isPlaying = true,
+                    isMuted = false,
+                    positionMs = 5_400L,
+                    durationMs = 30_000L,
+                    chromeVisible = true,
+                ),
+            player = null,
+            onEvent = {},
+            onPopOut = {},
+        )
+    }
+}
+
+@PreviewTest
 @Preview(name = "ready-paused-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
 @Preview(name = "ready-paused-dark", showBackground = true, heightDp = CANVAS_HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable

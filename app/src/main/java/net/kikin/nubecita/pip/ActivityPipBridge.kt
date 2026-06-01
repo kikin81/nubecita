@@ -61,6 +61,8 @@ class ActivityPipBridge(
     // (design D4) and is never mistaken for an "offer PiP" gate.
     private val deviceSupportsPip: Boolean = activity.supportsPip()
 
+    override val isPipSupported: Boolean get() = deviceSupportsPip
+
     private val pipModeListener =
         Consumer<PictureInPictureModeChangedInfo> { info ->
             pipController.setInPip(info.isInPictureInPictureMode)
@@ -102,6 +104,23 @@ class ActivityPipBridge(
         activity.removeOnPictureInPictureModeChangedListener(pipModeListener)
         runCatching { activity.unregisterReceiver(toggleReceiver) }
             .onFailure { Timber.tag(TAG).w(it, "PiP receiver already unregistered") }
+    }
+
+    override fun enterPip() {
+        // Explicit pop-out button (design D5; nubecita-q5ge.8). Unlike
+        // onUserLeaveHint, this is a deliberate user action, so we enter
+        // regardless of play state (the caller already checked isEnabled for
+        // the Pro gate). Build params from the current player so the in-window
+        // play/pause action + aspect are correct on entry.
+        if (!deviceSupportsPip) return
+        val params =
+            buildParams(
+                aspectRatio = sharedVideoPlayer.videoAspectRatio.value,
+                isPlaying = sharedVideoPlayer.isPlaying.value,
+                sourceRectHint = null,
+            )
+        runCatching { activity.enterPictureInPictureMode(params) }
+            .onFailure { Timber.tag(TAG).w(it, "manual enterPictureInPictureMode failed") }
     }
 
     override fun updateParams(

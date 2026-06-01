@@ -14,6 +14,8 @@ dependencies {
     implementation(project(":core:feed-mapping"))
     implementation(project(":core:video"))
     implementation(project(":data:models"))
+    // PaywallRoute — the non-Pro pop-out tap routes to the paywall (nubecita-q5ge.8).
+    implementation(project(":feature:paywall:api"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.media3.ui.compose)

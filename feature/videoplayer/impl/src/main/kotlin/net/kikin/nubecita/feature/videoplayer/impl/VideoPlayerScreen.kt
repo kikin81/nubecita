@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
+import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
 
 /**
@@ -65,12 +66,45 @@ internal fun VideoPlayerScreen(
         }
     }
 
+    // Explicit pop-out affordance (nubecita-q5ge.8). Shown only where the device
+    // supports PiP; the tap either enters PiP (Pro) or upsells the paywall
+    // (not Pro). Driven from here, not the VM (design D5). The paywall push uses
+    // the OUTER navigator — PaywallRoute is dual-registered @OuterShell so it
+    // renders over the (also @OuterShell) player.
+    val onPopOut: (() -> Unit)? =
+        if (pipBridge.isPipSupported) {
+            {
+                resolvePopOut(
+                    pipEnabled = pipEnabled,
+                    enterPip = pipBridge::enterPip,
+                    navigateToPaywall = { navigator.goTo(PaywallRoute) },
+                )
+            }
+        } else {
+            null
+        }
+
     VideoPlayerContent(
         state = state,
         player = player,
         onEvent = viewModel::handleEvent,
         isInPip = isInPip,
         onSourceRectChange = { sourceRect = it },
+        onPopOut = onPopOut,
         modifier = modifier,
     )
+}
+
+/**
+ * Resolve a pop-out tap: a Pro user (PiP [pipEnabled]) enters Picture-in-Picture;
+ * everyone else is routed to the paywall (nubecita-q5ge.8). Extracted as a pure
+ * function so the branch is unit-testable without an Activity / PiP harness —
+ * design D5 keeps this decision in the Compose layer, never the ViewModel.
+ */
+internal fun resolvePopOut(
+    pipEnabled: Boolean,
+    enterPip: () -> Unit,
+    navigateToPaywall: () -> Unit,
+) {
+    if (pipEnabled) enterPip() else navigateToPaywall()
 }

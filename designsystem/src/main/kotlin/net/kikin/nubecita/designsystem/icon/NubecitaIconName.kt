@@ -67,6 +67,7 @@ enum class NubecitaIconName(
     Pause("\uE034"),
     Person("\uF0D3"),
     PersonAdd("\uEA4D"),
+    PictureInPictureAlt("\uE911"),
     PlayArrow("\uE037"),
     Public("\uE80B"),
     Repeat("\uE040"),

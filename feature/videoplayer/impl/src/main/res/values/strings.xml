@@ -7,6 +7,8 @@
     <string name="video_player_unmute_content_description">Unmute</string>
     <string name="video_player_back_content_description">Close player</string>
     <string name="video_player_seek_content_description">Scrub video position</string>
+    <!-- Pop-out / enter Picture-in-Picture affordance (nubecita-q5ge.8). -->
+    <string name="video_player_pip_content_description">Play in a floating window</string>
 
     <!-- Resolving + error states. -->
     <string name="video_player_loading_content_description">Loading video</string>

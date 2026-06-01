@@ -51,6 +51,11 @@ internal fun VideoPlayerChrome(
     state: VideoPlayerState,
     onEvent: (VideoPlayerEvent) -> Unit,
     modifier: Modifier = Modifier,
+    // The pop-out / enter-PiP affordance (nubecita-q5ge.8). Null hides it — the
+    // screen passes a handler only on PiP-capable devices. The handler itself
+    // (PiP entry for Pro, paywall for non-Pro) lives in the screen, not the VM
+    // (design D5), so it's a plain callback rather than a VideoPlayerEvent.
+    onPopOut: (() -> Unit)? = null,
 ) {
     Box(modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)) {
         // Top band: back button.
@@ -116,6 +121,18 @@ internal fun VideoPlayerChrome(
                             ),
                         tint = Color.White,
                     )
+                }
+                if (onPopOut != null) {
+                    IconButton(
+                        onClick = onPopOut,
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        NubecitaIcon(
+                            name = NubecitaIconName.PictureInPictureAlt,
+                            contentDescription = stringResource(R.string.video_player_pip_content_description),
+                            tint = Color.White,
+                        )
+                    }
                 }
                 IconButton(
                     onClick = { onEvent(VideoPlayerEvent.PlayPauseClicked) },
