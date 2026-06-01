@@ -16,6 +16,13 @@ dependencies {
     api(project(":data:models"))
     api(libs.kotlinx.coroutines.core)
 
+    implementation(project(":core:common"))
+    // RevenueCat is the provider and stays an `implementation` detail — it is
+    // never exposed past this module's public interfaces (design D1). Pinned to
+    // 10.7.0 (Play Billing 8.3.0); see nubecita-q5ge.2.
+    implementation(libs.revenuecat.purchases)
+    implementation(libs.timber)
+
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)

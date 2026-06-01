@@ -13,7 +13,12 @@ public sealed interface PurchaseResult {
     /** The user dismissed the purchase flow before completing it. */
     public data object Cancelled : PurchaseResult
 
-    /** The purchase failed; [message] is a human-readable, already-localized reason. */
+    /**
+     * The purchase failed. [message] is a developer-facing diagnostic reason
+     * (often the provider's English string) for logging — NOT user-ready copy.
+     * The paywall maps failures to its own localized messaging and should not
+     * surface this verbatim.
+     */
     public data class Error(
         val message: String,
     ) : PurchaseResult
