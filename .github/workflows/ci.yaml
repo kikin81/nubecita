@@ -136,7 +136,7 @@ jobs:
 
       - name: Coverage report
         if: github.event_name == 'pull_request'
-        uses: madrapps/jacoco-report@v1.7.2
+        uses: madrapps/jacoco-report@v1.8.0
         with:
           paths: build/reports/jacoco/aggregated/jacocoTestReportAggregated.xml
           token: ${{ secrets.GITHUB_TOKEN }}
