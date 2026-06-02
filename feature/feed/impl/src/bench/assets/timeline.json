@@ -5,52 +5,6 @@
     {
       "type": "Single",
       "post": {
-        "id": "at://did:plc:gif00000000000000000000/app.bsky.feed.post/3kfeedgif01",
-        "cid": "bafyreigif0000000000000000000000000000000000000000000001",
-        "author": {
-          "did": "did:plc:gif00000000000000000000",
-          "handle": "gifs.bsky.social",
-          "displayName": "GIF Tester",
-          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
-        },
-        "createdAt": "2026-05-26T17:04:30Z",
-        "text": "gif posts loop inline now",
-        "facets": [],
-        "embed": {
-          "type": "Gif",
-          "gifUrl": "file:///android_asset/img/gifs/loop.gif",
-          "aspectRatio": 1.0,
-          "altText": "looping demo gif",
-          "thumbUrl": "file:///android_asset/img/gifs/loop.gif"
-        }
-      }
-    },
-    {
-      "type": "Single",
-      "post": {
-        "id": "at://did:plc:gif00000000000000000000/app.bsky.feed.post/3kfeedgif02",
-        "cid": "bafyreigif0000000000000000000000000000000000000000000002",
-        "author": {
-          "did": "did:plc:gif00000000000000000000",
-          "handle": "gifs.bsky.social",
-          "displayName": "GIF Tester",
-          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
-        },
-        "createdAt": "2026-05-26T17:04:20Z",
-        "text": "another looping clip",
-        "facets": [],
-        "embed": {
-          "type": "Gif",
-          "gifUrl": "file:///android_asset/img/gifs/loop.gif",
-          "aspectRatio": 0.8,
-          "altText": "looping demo gif",
-          "thumbUrl": "file:///android_asset/img/gifs/loop.gif"
-        }
-      }
-    },
-    {
-      "type": "Single",
-      "post": {
         "id": "at://did:plc:alice000000000000000000/app.bsky.feed.post/3kfeed0001",
         "cid": "bafyreialice000000000000000000000000000000000000000000001",
         "author": {
@@ -76,6 +30,46 @@
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
           "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:gifa000000000000000000000/app.bsky.feed.post/3kfeedgifa1",
+        "cid": "bafyreigifa00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:gifa000000000000000000000",
+          "handle": "memes.bsky.social",
+          "displayName": "Meme Stream",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        "createdAt": "2026-05-27T16:52:00Z",
+        "text": "the only acceptable reaction to a green CI run on a friday afternoon",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop-a.gif",
+          "aspectRatio": 1.167,
+          "altText": "looping reaction gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop-a.gif"
+        },
+        "stats": {
+          "replyCount": 3,
+          "repostCount": 8,
+          "likeCount": 121,
+          "quoteCount": 1
+        },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlikegifa",
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
@@ -120,6 +114,46 @@
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
           "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike1",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:gifb000000000000000000000/app.bsky.feed.post/3kfeedgifb1",
+        "cid": "bafyreigifb00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:gifb000000000000000000000",
+          "handle": "reactions.bsky.social",
+          "displayName": "Reaction Cam",
+          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+        },
+        "createdAt": "2026-05-27T16:40:00Z",
+        "text": "me watching the macrobench trace finally go flat",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop-b.gif",
+          "aspectRatio": 1.167,
+          "altText": "looping reaction gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop-b.gif"
+        },
+        "stats": {
+          "replyCount": 6,
+          "repostCount": 2,
+          "likeCount": 67,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": null,
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
@@ -289,6 +323,46 @@
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
           "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:gifc000000000000000000000/app.bsky.feed.post/3kfeedgifc1",
+        "cid": "bafyreigifc00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:gifc000000000000000000000",
+          "handle": "gifs.bsky.social",
+          "displayName": "GIF Tester",
+          "avatarUrl": "file:///android_asset/img/avatars/gabe.jpg"
+        },
+        "createdAt": "2026-05-27T01:10:00Z",
+        "text": "every time someone asks if we can just reuse the video player for gifs",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop-c.gif",
+          "aspectRatio": 1.167,
+          "altText": "looping reaction gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop-c.gif"
+        },
+        "stats": {
+          "replyCount": 11,
+          "repostCount": 5,
+          "likeCount": 154,
+          "quoteCount": 2
+        },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlikegifc",
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
@@ -503,6 +577,46 @@
     {
       "type": "Single",
       "post": {
+        "id": "at://did:plc:gifd000000000000000000000/app.bsky.feed.post/3kfeedgifd1",
+        "cid": "bafyreigifd00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:gifd000000000000000000000",
+          "handle": "loops.bsky.social",
+          "displayName": "Loop Bot",
+          "avatarUrl": "file:///android_asset/img/avatars/hugo.jpg"
+        },
+        "createdAt": "2026-05-27T08:05:00Z",
+        "text": "saturday plans loading",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop-d.gif",
+          "aspectRatio": 1.167,
+          "altText": "looping reaction gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop-d.gif"
+        },
+        "stats": {
+          "replyCount": 1,
+          "repostCount": 0,
+          "likeCount": 29,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": null,
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
         "id": "at://did:plc:bob0000000000000000000000/app.bsky.feed.post/3kfeed0010",
         "cid": "bafyreibob000000000000000000000000000000000000000000000010",
         "author": {
@@ -703,6 +817,46 @@
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
           "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike13",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:gife000000000000000000000/app.bsky.feed.post/3kfeedgife1",
+        "cid": "bafyreigife00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:gife000000000000000000000",
+          "handle": "memes.bsky.social",
+          "displayName": "Meme Stream",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        "createdAt": "2026-05-27T15:20:00Z",
+        "text": "ninety-second bench journey on a pixel 10? chef's kiss",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop-e.gif",
+          "aspectRatio": 1.167,
+          "altText": "looping reaction gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop-e.gif"
+        },
+        "stats": {
+          "replyCount": 4,
+          "repostCount": 3,
+          "likeCount": 88,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
