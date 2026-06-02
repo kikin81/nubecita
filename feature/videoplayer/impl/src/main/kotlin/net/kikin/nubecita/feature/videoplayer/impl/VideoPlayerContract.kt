@@ -4,6 +4,9 @@ import androidx.compose.runtime.Immutable
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.ViewerStateUi
 
 /**
  * MVI state for the fullscreen video player.
@@ -42,6 +45,17 @@ internal data class VideoPlayerState(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val chromeVisible: Boolean = true,
+    /**
+     * The resolved post's social metadata (nubecita-6rdb.2). Null until
+     * the post resolves; populated together when [loadStatus] reaches
+     * [VideoPlayerLoadStatus.Ready]. These come from the same `PostUi`
+     * the feed/post-detail render, so the author chip + action group
+     * (later tasks) read identical data and the optimistic interaction
+     * cache stays consistent across surfaces.
+     */
+    val author: AuthorUi? = null,
+    val stats: PostStatsUi? = null,
+    val viewer: ViewerStateUi? = null,
 ) : UiState
 
 /**

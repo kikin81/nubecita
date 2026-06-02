@@ -2,9 +2,11 @@ package net.kikin.nubecita.feature.videoplayer.impl
 
 import androidx.media3.common.PlaybackException
 import app.cash.turbine.test
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,22 +17,27 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
-import net.kikin.nubecita.feature.videoplayer.impl.data.FakeVideoPostResolver
-import net.kikin.nubecita.feature.videoplayer.impl.data.ResolvedVideoPost
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class VideoPlayerViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
-    private val resolver = FakeVideoPostResolver()
+    private val postRepository = mockk<PostRepository>()
 
     private lateinit var isPlayingFlow: MutableStateFlow<Boolean>
     private lateinit var positionMsFlow: MutableStateFlow<Long>
@@ -67,16 +74,9 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun init_resolveSucceeds_bindsPlayerSetModeFullscreen_andEntersReady() =
         runTest {
-            resolver.stub(
-                postUri = AT_URI,
-                resolved =
-                    ResolvedVideoPost(
-                        playlistUrl = "https://video.cdn/hls/a.m3u8",
-                        posterUrl = "https://video.cdn/poster/a.jpg",
-                        durationSeconds = 30,
-                        altText = null,
-                        aspectRatio = 16f / 9f,
-                    ),
+            stubVideo(
+                playlistUrl = "https://video.cdn/hls/a.m3u8",
+                posterUrl = "https://video.cdn/poster/a.jpg",
             )
 
             val vm = newVm()
@@ -94,17 +94,7 @@ internal class VideoPlayerViewModelTest {
         runTest {
             // Instance-transfer payoff: holder already has the right URL set BEFORE VM creation.
             boundPlaylistUrlFlow.value = "https://video.cdn/hls/a.m3u8"
-            resolver.stub(
-                postUri = AT_URI,
-                resolved =
-                    ResolvedVideoPost(
-                        playlistUrl = "https://video.cdn/hls/a.m3u8",
-                        posterUrl = null,
-                        durationSeconds = 30,
-                        altText = null,
-                        aspectRatio = 16f / 9f,
-                    ),
-            )
+            stubVideo(playlistUrl = "https://video.cdn/hls/a.m3u8")
 
             newVm()
             runCurrent()
@@ -118,7 +108,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun init_resolveFailsWithIOException_entersErrorNetwork() =
         runTest {
-            resolver.stubFailure(AT_URI, IOException("disconnected"))
+            stubFailure(IOException("disconnected"))
 
             val vm = newVm()
             runCurrent()
@@ -129,25 +119,53 @@ internal class VideoPlayerViewModelTest {
         }
 
     @Test
+    fun init_postWithoutVideoEmbed_entersError_andDoesNotBind() =
+        runTest {
+            // getPost succeeds but the post isn't a video post — a non-video
+            // URI was routed here. The VM must error out, never bind/play.
+            coEvery { postRepository.getPost(AT_URI) } returns
+                Result.success(postUi(embed = EmbedUi.Empty))
+
+            val vm = newVm()
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is VideoPlayerLoadStatus.Error)
+            assertTrue((status as VideoPlayerLoadStatus.Error).error is VideoPlayerError.Unknown)
+            verify(exactly = 0) { holder.bind(any(), any()) }
+            verify(exactly = 0) { holder.attachSurface() }
+        }
+
+    @Test
+    fun init_resolveSuccess_populatesAuthorStatsViewerIntoState() =
+        runTest {
+            stubVideo(
+                author = AUTHOR,
+                stats = PostStatsUi(replyCount = 42, repostCount = 128, likeCount = 2400),
+                viewer = ViewerStateUi(isLikedByViewer = true, likeUri = "at://did:plc:abc/app.bsky.feed.like/1"),
+            )
+
+            val vm = newVm()
+            runCurrent()
+
+            assertEquals(AUTHOR, vm.uiState.value.author)
+            assertEquals(PostStatsUi(replyCount = 42, repostCount = 128, likeCount = 2400), vm.uiState.value.stats)
+            assertEquals(
+                ViewerStateUi(isLikedByViewer = true, likeUri = "at://did:plc:abc/app.bsky.feed.like/1"),
+                vm.uiState.value.viewer,
+            )
+        }
+
+    @Test
     fun retryClicked_afterError_reResolvesAndBinds() =
         runTest {
-            resolver.stubFailure(AT_URI, IOException("disconnected"))
+            stubFailure(IOException("disconnected"))
             val vm = newVm()
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error)
 
             // Swap stub to success.
-            resolver.stub(
-                postUri = AT_URI,
-                resolved =
-                    ResolvedVideoPost(
-                        playlistUrl = "https://video.cdn/hls/a.m3u8",
-                        posterUrl = null,
-                        durationSeconds = 30,
-                        altText = null,
-                        aspectRatio = 16f / 9f,
-                    ),
-            )
+            stubVideo(playlistUrl = "https://video.cdn/hls/a.m3u8")
 
             vm.handleEvent(VideoPlayerEvent.RetryClicked)
             runCurrent()
@@ -160,7 +178,7 @@ internal class VideoPlayerViewModelTest {
     fun retryClicked_doesNotDoubleAttachSurface() =
         runTest {
             // First success: attach happens once.
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
             verify(exactly = 1) { holder.attachSurface() }
@@ -179,7 +197,7 @@ internal class VideoPlayerViewModelTest {
     fun retryClicked_afterPlaybackError_callsPrepareCurrentWhenAlreadyBound() =
         runTest {
             // Initial bind + Ready.
-            stubReady()
+            stubVideo()
             boundPlaylistUrlFlow.value = "https://video.cdn/hls/a.m3u8"
             val vm = newVm()
             runCurrent()
@@ -210,17 +228,7 @@ internal class VideoPlayerViewModelTest {
             // Resolver hands back a 16:9 lexicon hint (the FeedMapping
             // fallback when app.bsky.embed.video#view.aspectRatio is
             // absent).
-            resolver.stub(
-                postUri = AT_URI,
-                resolved =
-                    ResolvedVideoPost(
-                        playlistUrl = "https://video.cdn/hls/a.m3u8",
-                        posterUrl = null,
-                        durationSeconds = 30,
-                        altText = null,
-                        aspectRatio = 16f / 9f,
-                    ),
-            )
+            stubVideo(aspectRatio = 16f / 9f)
             val vm = newVm()
             runCurrent()
             assertEquals(16f / 9f, vm.uiState.value.aspectRatio)
@@ -236,16 +244,9 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun init_resolveSuccess_propagatesAltTextIntoState() =
         runTest {
-            resolver.stub(
-                postUri = AT_URI,
-                resolved =
-                    ResolvedVideoPost(
-                        playlistUrl = "https://video.cdn/hls/a.m3u8",
-                        posterUrl = "https://video.cdn/poster/a.jpg",
-                        durationSeconds = 30,
-                        altText = "Two cats wrestling on a couch",
-                        aspectRatio = 16f / 9f,
-                    ),
+            stubVideo(
+                posterUrl = "https://video.cdn/poster/a.jpg",
+                altText = "Two cats wrestling on a couch",
             )
 
             val vm = newVm()
@@ -257,7 +258,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun init_resolveFails_doesNotArmChromeAutoHide() =
         runTest {
-            resolver.stubFailure(AT_URI, IOException("disconnected"))
+            stubFailure(IOException("disconnected"))
             val vm = newVm()
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error)
@@ -275,7 +276,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun playPauseClicked_whenPlaying_callsPauseAndResetsAutoHide() =
         runTest {
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
             isPlayingFlow.value = true
@@ -291,7 +292,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun playPauseClicked_whenPaused_callsPlay() =
         runTest {
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
             isPlayingFlow.value = false
@@ -307,7 +308,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun seekTo_callsHolderSeekTo_andResetsAutoHide() =
         runTest {
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
 
@@ -321,7 +322,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun chrome_autoHidesAfter3Seconds() =
         runTest {
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
             assertEquals(true, vm.uiState.value.chromeVisible)
@@ -335,7 +336,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun toggleChrome_flipsVisible_andStopsAutoHideWhenHiding() =
         runTest {
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
 
@@ -356,7 +357,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun backClicked_emitsNavigateBackEffect() =
         runTest {
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
 
@@ -372,7 +373,7 @@ internal class VideoPlayerViewModelTest {
     fun playerError_clearedAfterReachingReady_autoRecoversToReady() =
         runTest {
             // Reach Ready, surfaceAttached = true.
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
             assertEquals(VideoPlayerLoadStatus.Ready, vm.uiState.value.loadStatus)
@@ -399,7 +400,7 @@ internal class VideoPlayerViewModelTest {
     fun resolverError_doesNotAutoRecoverFromHolderFlowEmissions() =
         runTest {
             // Resolver-failure path: surfaceAttached = false, loadStatus = Error.
-            resolver.stubFailure(AT_URI, IOException("disconnected"))
+            stubFailure(IOException("disconnected"))
             val vm = newVm()
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error)
@@ -420,7 +421,7 @@ internal class VideoPlayerViewModelTest {
     @Test
     fun playerError_fromHolderFlow_mapsToErrorLoadStatus() =
         runTest {
-            stubReady()
+            stubVideo()
             val vm = newVm()
             runCurrent()
             assertEquals(VideoPlayerLoadStatus.Ready, vm.uiState.value.loadStatus)
@@ -441,28 +442,75 @@ internal class VideoPlayerViewModelTest {
             assertEquals(VideoPlayerError.Network, (status as VideoPlayerLoadStatus.Error).error)
         }
 
-    private fun stubReady() {
-        resolver.stub(
-            postUri = AT_URI,
-            resolved =
-                ResolvedVideoPost(
-                    playlistUrl = "https://video.cdn/hls/a.m3u8",
-                    posterUrl = null,
-                    durationSeconds = 30,
-                    altText = null,
-                    aspectRatio = 16f / 9f,
+    // --- Stub helpers ---------------------------------------------------
+
+    /** Stub [PostRepository.getPost] to return a video post for [AT_URI]. */
+    private fun stubVideo(
+        playlistUrl: String = "https://video.cdn/hls/a.m3u8",
+        posterUrl: String? = null,
+        altText: String? = null,
+        aspectRatio: Float = 16f / 9f,
+        author: AuthorUi = AUTHOR,
+        stats: PostStatsUi = PostStatsUi(),
+        viewer: ViewerStateUi = ViewerStateUi(),
+    ) {
+        coEvery { postRepository.getPost(AT_URI) } returns
+            Result.success(
+                postUi(
+                    embed =
+                        EmbedUi.Video(
+                            posterUrl = posterUrl,
+                            playlistUrl = playlistUrl,
+                            aspectRatio = aspectRatio,
+                            durationSeconds = 30,
+                            altText = altText,
+                        ),
+                    author = author,
+                    stats = stats,
+                    viewer = viewer,
                 ),
-        )
+            )
     }
+
+    private fun stubFailure(error: Throwable) {
+        coEvery { postRepository.getPost(AT_URI) } returns Result.failure(error)
+    }
+
+    private fun postUi(
+        embed: EmbedUi,
+        author: AuthorUi = AUTHOR,
+        stats: PostStatsUi = PostStatsUi(),
+        viewer: ViewerStateUi = ViewerStateUi(),
+    ): PostUi =
+        PostUi(
+            id = AT_URI,
+            cid = CID,
+            author = author,
+            createdAt = Instant.parse("2026-05-16T12:00:00Z"),
+            text = "Golden hour over the bay.",
+            facets = persistentListOf(),
+            embed = embed,
+            stats = stats,
+            viewer = viewer,
+            repostedBy = null,
+        )
 
     private fun newVm(): VideoPlayerViewModel =
         VideoPlayerViewModel(
             route = VideoPlayerRoute(postUri = AT_URI),
             sharedVideoPlayer = holder,
-            resolver = resolver,
+            postRepository = postRepository,
         )
 
     private companion object {
         const val AT_URI = "at://did:plc:abc/app.bsky.feed.post/3abc"
+        const val CID = "bafyreifakefakefakefakefakefakefakefakefakefake"
+        val AUTHOR =
+            AuthorUi(
+                did = "did:plc:abc",
+                handle = "sana.nubecita.app",
+                displayName = "Sana Okafor",
+                avatarUrl = null,
+            )
     }
 }
