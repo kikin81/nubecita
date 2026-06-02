@@ -1,0 +1,56 @@
+name: Upload Play screenshots
+
+# Pushes the committed framed marketing screenshots to the Play Console
+# listing. Runs ONLY when the committed images change on main (or via manual
+# dispatch) — deliberately decoupled from the per-feat/fix semantic-release
+# `internal` upload, so identical screenshots aren't re-uploaded dozens of
+# times a day (and a Console-side edit isn't clobbered on every release).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "fastlane/metadata/android/**/images/**"
+  workflow_dispatch:
+
+# Never run two listing-mutating uploads at once; don't cancel an in-flight
+# upload (a half-applied screenshot set is worse than waiting).
+concurrency:
+  group: play-screenshots
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Upload screenshots to Play listing
+    runs-on: ubuntu-latest
+    # `environment: release` exposes the WIF secrets (same binding the release
+    # AAB-upload job uses); `id-token: write` lets google-github-actions/auth
+    # mint the federated credential supply reads via ADC.
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Set up Ruby
+        # bundler-cache reads .ruby-version + Gemfile.lock and runs bundle
+        # install so `bundle exec fastlane` works. No JDK/Android SDK/Gradle —
+        # this lane only reads committed images and calls the Play API.
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Authenticate to Google Cloud (WIF)
+        # Same service account the release upload uses; it holds Play Console
+        # Android Publisher permissions. The Appfile omits :json_key so supply
+        # falls through to ADC (GOOGLE_APPLICATION_CREDENTIALS).
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Upload marketing screenshots
+        run: bundle exec fastlane upload_screenshots

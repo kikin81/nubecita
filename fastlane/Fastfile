@@ -33,6 +33,37 @@ def nubecita_metadata_android_dir
     UI.user_error!("Could not locate fastlane/metadata/android from #{Dir.pwd}")
 end
 
+# Stage the committed framed marketing screenshots (every device bucket) into
+# <dest_metadata>/<locale>/images/<bucket>/, stripping the `_framed` suffix so
+# Play receives clean filenames. Only `*_framed.jpg` are committed (raw PNG
+# captures are gitignored), so this never double-uploads. Fails loudly on a
+# PARTIAL bucket: a capture lane runs exit_on_test_failure:false, so a failed
+# journey method could leave a screen missing, and uploading that would ship an
+# incomplete listing. Returns the number of images staged.
+def nubecita_stage_marketing_screenshots(dest_metadata, locale: "en-US")
+  base = File.join(nubecita_metadata_android_dir, locale, "images")
+  titles = File.join(base, "phoneScreenshots", "title.strings")
+  expected = File.readlines(titles).map { |line| line[/^\s*"([^"]+)"\s*=/, 1] }.compact
+  staged = 0
+  Dir.glob(File.join(base, "*Screenshots")).each do |bucket_dir|
+    framed = Dir.glob(File.join(bucket_dir, "*_framed.jpg"))
+    next if framed.empty?
+    missing = expected - framed.map { |f| File.basename(f).sub(/_framed\.jpg\z/, "") }
+    unless missing.empty?
+      UI.user_error!(
+        "Marketing screenshots incomplete in #{File.basename(bucket_dir)}: missing " \
+          "#{missing.join(', ')}. Re-run `fastlane screenshots` / `screenshots_tablet`, " \
+          "or delete the bucket to skip it."
+      )
+    end
+    dest_dir = File.join(dest_metadata, locale, "images", File.basename(bucket_dir))
+    FileUtils.mkdir_p(dest_dir)
+    framed.each { |src| FileUtils.cp(src, File.join(dest_dir, File.basename(src).sub("_framed", ""))) }
+    staged += framed.size
+  end
+  staged
+end
+
 platform :android do
   desc "Build a signed release AAB and upload it to the Play Console internal track."
   lane :internal do
@@ -65,10 +96,16 @@ platform :android do
     # treat that string as a locale, and call
     # `get_edit_listing(language: "android")` — which Play Console rejects with
     # a 400 "Invalid request". We synthesize a single en-US changelog in a
-    # per-run tmpdir, and stage the committed marketing screenshots alongside
-    # it, so the fields that leave this lane are: the AAB, the release note, and
-    # the framed Play-listing screenshots. Listing TEXT (title/description) and
-    # the icon/feature graphic stay skip_upload_*'d.
+    # per-run tmpdir so the only field that leaves this lane is the release
+    # note — listing metadata, images, and screenshots are all skip_upload_*'d.
+    #
+    # Screenshots are deliberately NOT uploaded here. semantic-release fires
+    # this lane on every feat/fix (10+×/day), and re-uploading identical
+    # screenshots each time is wasteful and would clobber any Console-side
+    # edits. The committed marketing screenshots are pushed by the separate
+    # `upload_screenshots` lane, run from
+    # `.github/workflows/screenshots-upload.yaml` only when the committed images
+    # actually change on main.
     Dir.mktmpdir("nubecita-fastlane-metadata") do |metadata_path|
       changelog_dir = File.join(metadata_path, "en-US", "changelogs")
       FileUtils.mkdir_p(changelog_dir)
@@ -77,43 +114,6 @@ platform :android do
         release_notes.to_s[0, PLAY_CHANGELOG_MAX_CHARS]
       )
 
-      # Stage the committed framed marketing screenshots into the tmpdir,
-      # stripping the `_framed` suffix so Play receives clean filenames. These
-      # are produced (occasionally, on an emulator) by the `screenshots` lane
-      # and committed to the repo — the release runs in CI with no device, so
-      # it just uploads what's checked in. Only `*_framed.png` are committed
-      # (raw captures are gitignored), so this never double-uploads.
-      # Guard against silently shipping a PARTIAL listing: the capture lanes run
-      # with exit_on_test_failure:false, so a failed journey method can leave a
-      # bucket missing a screen. Any bucket with SOME framed shots must have one
-      # per title.strings key before we mutate the live Play listing.
-      titles = File.join(nubecita_metadata_android_dir, "en-US", "images", "phoneScreenshots", "title.strings")
-      expected = File.readlines(titles).map { |line| line[/^\s*"([^"]+)"\s*=/, 1] }.compact
-      Dir.glob(File.join(nubecita_metadata_android_dir, "en-US", "images", "*Screenshots")).each do |bucket_dir|
-        present = Dir.glob(File.join(bucket_dir, "*_framed.jpg")).map { |f| File.basename(f).sub(/_framed\.jpg\z/, "") }
-        next if present.empty?
-        missing = expected - present
-        next if missing.empty?
-        UI.user_error!(
-          "Marketing screenshots incomplete in #{File.basename(bucket_dir)}: missing " \
-            "#{missing.join(', ')}. Re-run `fastlane screenshots` / `screenshots_tablet`, " \
-            "or delete the bucket to skip it."
-        )
-      end
-
-      # Every device bucket (phoneScreenshots, tenInchScreenshots, …) — stage
-      # each into the matching tmpdir folder so supply uploads phone + tablet.
-      framed =
-        Dir.glob(
-          File.join(nubecita_metadata_android_dir, "en-US", "images", "*Screenshots", "*_framed.jpg")
-        )
-      framed.each do |src|
-        bucket = File.basename(File.dirname(src)) # e.g. phoneScreenshots / tenInchScreenshots
-        dest_dir = File.join(metadata_path, "en-US", "images", bucket)
-        FileUtils.mkdir_p(dest_dir)
-        FileUtils.cp(src, File.join(dest_dir, File.basename(src).sub("_framed", "")))
-      end
-
       upload_to_play_store(
         track: "internal",
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
@@ -121,10 +121,33 @@ platform :android do
         skip_upload_apk: true,
         skip_upload_metadata: true,
         skip_upload_images: true,
-        # Upload screenshots only when we actually staged some — an empty set
-        # with skip_upload_screenshots:false would CLEAR the live listing's
-        # screenshots, which we never want as a silent side effect.
-        skip_upload_screenshots: framed.empty?,
+        skip_upload_screenshots: true,
+      )
+    end
+  end
+
+  desc "Upload the committed framed marketing screenshots to the Play listing."
+  desc "Run from .github/workflows/screenshots-upload.yaml on image changes — NOT on every release."
+  lane :upload_screenshots do
+    Dir.mktmpdir("nubecita-fastlane-screenshots") do |metadata_path|
+      staged = nubecita_stage_marketing_screenshots(metadata_path)
+      if staged.zero?
+        UI.important("No committed *_framed.jpg screenshots found — nothing to upload.")
+        next
+      end
+      UI.message("Uploading #{staged} marketing screenshot(s) to the Play listing.")
+
+      # Listing images only: no AAB/APK (no release created), no listing text,
+      # no icon/feature graphic. metadata_path points at the staged tmpdir tree.
+      upload_to_play_store(
+        track: "internal",
+        skip_upload_apk: true,
+        skip_upload_aab: true,
+        skip_upload_metadata: true,
+        skip_upload_changelogs: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: false,
+        metadata_path: metadata_path,
       )
     end
   end
