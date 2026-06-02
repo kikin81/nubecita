@@ -92,7 +92,7 @@ private val JOINED_FORMATTER: DateTimeFormatter =
  * mutate the relationship without invalidating the header — the two
  * fields have independent lifetimes.
  */
-internal data class ProfileHeaderWithViewer(
+data class ProfileHeaderWithViewer(
     val header: ProfileHeaderUi,
     val viewerRelationship: ViewerRelationship,
 )

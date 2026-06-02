@@ -17,7 +17,7 @@ package net.kikin.nubecita.feature.profile.impl.data
  *  - [Removed] — the user cleared the image. The key is dropped from
  *    the record so the profile no longer references any blob.
  */
-internal sealed interface ImageChange {
+sealed interface ImageChange {
     /** Keep the existing blob ref (or absence) untouched — no upload. */
     data object Unchanged : ImageChange
 
