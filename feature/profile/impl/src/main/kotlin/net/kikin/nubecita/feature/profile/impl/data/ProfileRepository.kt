@@ -13,7 +13,7 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
  * `app.bsky.actor.getProfile` + `app.bsky.feed.getAuthorFeed` fetch
  * surface scoped to `:feature:profile:impl`.
  *
- * Internal: no other module imports this interface. If a second
+ * No other module imports this interface today. If a second
  * consumer needs `getProfile` later (e.g. a hover card or
  * notification author preview), the change that adds the consumer
  * also promotes this to a `:core:profile` or `:core:actor` module.
@@ -26,7 +26,7 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
  * remains unchanged. See `openspec/.../design.md` Decision 4 +
  * Bead-C brainstorming note on multi-account readiness.
  */
-internal interface ProfileRepository {
+interface ProfileRepository {
     /**
      * Emits once after every successful [updateProfile] write. A live
      * own-profile [net.kikin.nubecita.feature.profile.impl.ProfileViewModel]
@@ -104,7 +104,7 @@ internal interface ProfileRepository {
  * One paginated page of [TabItemUi] entries for a single profile tab.
  * `nextCursor == null` signals end-of-feed.
  */
-internal data class ProfileTabPage(
+data class ProfileTabPage(
     val items: ImmutableList<TabItemUi> = persistentListOf(),
     val nextCursor: String? = null,
 )

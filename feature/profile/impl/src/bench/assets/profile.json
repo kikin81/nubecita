@@ -1,0 +1,428 @@
+{
+  "header": {
+    "did": "did:plc:benchnubecita0000000000000",
+    "handle": "bench.nubecita.app",
+    "displayName": "Nubecita Bench",
+    "avatarUrl": "file:///android_asset/img/brand/app-icon.png",
+    "bannerUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+    "bio": "Deterministic bench fixture for Nubecita. Zero network, 100% stable screenshots, fully local.",
+    "location": "San Francisco, CA",
+    "website": "https://nubecita.app",
+    "joinedDisplay": "Joined June 2026",
+    "postsCount": 12,
+    "followersCount": 420,
+    "followsCount": 69
+  },
+  "posts": [
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/post1",
+      "cid": "bafyreibenchpost1",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T12:00:00Z",
+      "text": "First bench post! Testing simple text rendering in the profile tab.",
+      "embed": {
+        "type": "Empty"
+      },
+      "stats": {
+        "replyCount": 3,
+        "repostCount": 1,
+        "likeCount": 24,
+        "quoteCount": 0
+      },
+      "viewer": {
+        "isLikedByViewer": false,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/post2",
+      "cid": "bafyreibenchpost2",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T13:30:00Z",
+      "text": "Enjoying a fresh cup of coffee this afternoon. Ethiopian light roast.",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+            "altText": "A cup of coffee on the desk",
+            "aspectRatio": 1.333
+          }
+        ]
+      },
+      "stats": {
+        "replyCount": 5,
+        "repostCount": 3,
+        "likeCount": 89,
+        "quoteCount": 0
+      },
+      "viewer": {
+        "isLikedByViewer": true,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/post3",
+      "cid": "bafyreibenchpost3",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T14:45:00Z",
+      "text": "Inspecting the layout parameters on the new video player. Here is a test clip.",
+      "embed": {
+        "type": "Video",
+        "posterUrl": "file:///android_asset/img/posts/video-poster-1.jpg",
+        "playlistUrl": "asset:///video/clip-1.mp4",
+        "aspectRatio": 1.7777778,
+        "durationSeconds": 12,
+        "altText": "A test video clip preview"
+      },
+      "stats": {
+        "replyCount": 11,
+        "repostCount": 4,
+        "likeCount": 102,
+        "quoteCount": 1
+      },
+      "viewer": {
+        "isLikedByViewer": false,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/post4",
+      "cid": "bafyreibenchpost4",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T15:15:00Z",
+      "text": "Stunning ridge views from my trail hike earlier today.",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+            "altText": "Mountain ridge overlook",
+            "aspectRatio": 1.5
+          }
+        ]
+      },
+      "stats": {
+        "replyCount": 2,
+        "repostCount": 0,
+        "likeCount": 15,
+        "quoteCount": 0
+      },
+      "viewer": {
+        "isLikedByViewer": false,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/post5",
+      "cid": "bafyreibenchpost5",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T16:00:00Z",
+      "text": "Check out this beautiful wildflower I spotted on the path.",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/ridge-flower.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/ridge-flower.jpg",
+            "altText": "Mountain wildflower",
+            "aspectRatio": 1.0
+          }
+        ]
+      },
+      "stats": {
+        "replyCount": 1,
+        "repostCount": 0,
+        "likeCount": 8,
+        "quoteCount": 0
+      },
+      "viewer": {
+        "isLikedByViewer": false,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/post6",
+      "cid": "bafyreibenchpost6",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T16:40:00Z",
+      "text": "Just another simple text post to fill the feed space and check scroll pacing.",
+      "embed": {
+        "type": "Empty"
+      },
+      "stats": {
+        "replyCount": 0,
+        "repostCount": 0,
+        "likeCount": 4,
+        "quoteCount": 0
+      },
+      "viewer": {
+        "isLikedByViewer": false,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    }
+  ],
+  "replies": [
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/reply1",
+      "cid": "bafyreibenchreply1",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T12:30:00Z",
+      "text": "Replying to a feedback thread about the new profile tab layouts. Looking solid!",
+      "embed": {
+        "type": "Empty"
+      },
+      "stats": {
+        "replyCount": 1,
+        "repostCount": 0,
+        "likeCount": 10,
+        "quoteCount": 0
+      },
+      "viewer": {
+        "isLikedByViewer": false,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/reply2",
+      "cid": "bafyreibenchreply2",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T14:00:00Z",
+      "text": "I think the San Marzano tomatoes need more sunlight, but the truss is looking good.",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+            "altText": "San Marzano tomatoes",
+            "aspectRatio": 1.333
+          }
+        ]
+      },
+      "stats": {
+        "replyCount": 2,
+        "repostCount": 1,
+        "likeCount": 35,
+        "quoteCount": 0
+      },
+      "viewer": {
+        "isLikedByViewer": false,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/reply3",
+      "cid": "bafyreibenchreply3",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T17:00:00Z",
+      "text": "Definitely checking out that roastery tour next weekend.",
+      "embed": {
+        "type": "Empty"
+      },
+      "stats": {
+        "replyCount": 0,
+        "repostCount": 0,
+        "likeCount": 2,
+        "quoteCount": 0
+      },
+      "viewer": {
+        "isLikedByViewer": false,
+        "isRepostedByViewer": false,
+        "isFollowingAuthor": false
+      }
+    }
+  ],
+  "media": [
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/media1",
+      "cid": "bafyreibenchmedia1",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T12:00:00Z",
+      "text": "Ridge climb view.",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+            "altText": "Ridge view",
+            "aspectRatio": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/media2",
+      "cid": "bafyreibenchmedia2",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T12:30:00Z",
+      "text": "Ridge trail climb details.",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+            "altText": "Ridge trail",
+            "aspectRatio": 0.75
+          }
+        ]
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/media3",
+      "cid": "bafyreibenchmedia3",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T13:00:00Z",
+      "text": "Coffee beans Yirgacheffe",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+            "altText": "Coffee dripper",
+            "aspectRatio": 1.333
+          }
+        ]
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/media4",
+      "cid": "bafyreibenchmedia4",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T13:30:00Z",
+      "text": "Tomato plants growing.",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+            "altText": "Tomatoes",
+            "aspectRatio": 1.333
+          }
+        ]
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/media5",
+      "cid": "bafyreibenchmedia5",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T14:00:00Z",
+      "text": "Synthesizer live soundcheck session.",
+      "embed": {
+        "type": "Video",
+        "posterUrl": "file:///android_asset/img/posts/video-poster-2.jpg",
+        "playlistUrl": "asset:///video/clip-2.mp4",
+        "aspectRatio": 1.7777778,
+        "durationSeconds": 14,
+        "altText": "Live soundcheck video preview"
+      }
+    },
+    {
+      "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/media6",
+      "cid": "bafyreibenchmedia6",
+      "author": {
+        "did": "did:plc:benchnubecita0000000000000",
+        "handle": "bench.nubecita.app",
+        "displayName": "Nubecita Bench",
+        "avatarUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      "createdAt": "2026-06-01T14:30:00Z",
+      "text": "Sketchbook drawing from 2019.",
+      "embed": {
+        "type": "Images",
+        "items": [
+          {
+            "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+            "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+            "altText": "Sketchbook",
+            "aspectRatio": 0.7
+          }
+        ]
+      }
+    }
+  ]
+}

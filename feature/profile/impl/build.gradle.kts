@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -13,6 +14,12 @@ android {
         // shared runner keeps the module ready for future @HiltAndroidTest classes
         // without a second build.gradle edit.
         testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
+    }
+
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
     }
 }
 
