@@ -157,9 +157,9 @@ platform :android do
   lane :screenshots do |options|
     # Bench flavor → deterministic, already-signed-in fake data with bundled
     # android_asset images. Build the two APKs the Screenfile points at, then
-    # let screengrab install them, run FeedScreenshotJourney, and pull the PNGs
-    # into fastlane/metadata/android/<locale>/images/. Upload to Play is a
-    # deliberate separate step (review the shots first) — not wired here yet.
+    # let screengrab install them, run MarketingScreenshotJourney, and pull the
+    # PNGs into fastlane/metadata/android/<locale>/images/. Upload to Play is a
+    # separate step (the `upload_screenshots` lane / screenshots-upload.yaml).
     # Scope to :app — the unqualified task names would also build every
     # feature module's bench androidTest, and those access internal composables
     # only reachable from their productionDebug test variant (they fail to
@@ -241,11 +241,13 @@ platform :android do
     gradle(task: ":app:assembleBenchDebug")
     gradle(task: ":app:assembleBenchDebugAndroidTest")
 
-    # Kill animations for crisp captures. (POST_NOTIFICATIONS is handled inside
-    # the journey via GrantPermissionRule, so a fresh install won't pop the
-    # dialog that otherwise covers the feed.)
-    sh("adb -s #{serial} shell settings put global window_animation_scale 0 || true")
-    sh("adb -s #{serial} shell settings put global transition_animation_scale 0 || true")
+    # Kill all three animation scales for crisp captures. (POST_NOTIFICATIONS is
+    # handled inside the journey via GrantPermissionRule, so a fresh install
+    # won't pop the dialog that otherwise covers the feed.)
+    dev = serial.shellescape
+    %w[window_animation_scale transition_animation_scale animator_duration_scale].each do |scale|
+      sh("adb -s #{dev} shell settings put global #{scale} 0 || true")
+    end
 
     capture_android_screenshots(
       app_package_name: "net.kikin.nubecita",

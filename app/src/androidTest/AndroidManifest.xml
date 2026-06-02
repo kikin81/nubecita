@@ -7,8 +7,8 @@
         LocaleTestRule switch the in-app locale per screenshot pass;
         DISABLE_KEYGUARD keeps the lock screen out of captures. They live in
         the androidTest manifest only, so they never reach the shipped APK.
-        FeedScreenshotJourney captures via the UiAutomator screenshot strategy
-        (UiAutomation#takeScreenshot), which needs no storage permission.
+        MarketingScreenshotJourney captures via the UiAutomator screenshot
+        strategy (UiAutomation#takeScreenshot), which needs no storage permission.
     -->
     <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />

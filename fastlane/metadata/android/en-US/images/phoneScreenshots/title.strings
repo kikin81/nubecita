@@ -1,6 +1,8 @@
 /* Play Store marketing headlines, keyed by screenshot filename (sans .png).
    Kept to 3–5 words so frameit's title font stays crisp on small store
-   thumbnails. Spanish equivalents live in ../../es-ES/.../title.strings. */
+   thumbnails. To localize, add a sibling per-locale bucket (e.g.
+   ../../es-ES/images/phoneScreenshots/title.strings) and capture with that
+   locale; only en-US ships today. */
 "01_feed" = "Beautifully expressive timelines.";
 "02_discover" = "Experience a lighter Bluesky.";
 "03_chat" = "Keep the conversation private.";

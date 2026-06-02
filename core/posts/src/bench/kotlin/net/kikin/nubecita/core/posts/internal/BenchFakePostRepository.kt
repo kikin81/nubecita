@@ -28,7 +28,7 @@ import kotlin.time.Instant
  * sibling bench `PostRepositoryModule` for the variant-split rationale.
  */
 @Singleton
-class BenchFakePostRepository
+internal class BenchFakePostRepository
     @Inject
     constructor(
         @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,

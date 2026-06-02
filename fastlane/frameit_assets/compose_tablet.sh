@@ -7,7 +7,7 @@
 # title.strings so phone + tablet stay in sync on one source.
 #
 # Input : <metadata>/<locale>/images/tenInchScreenshots/NN_name.png  (raw captures)
-# Output: <metadata>/<locale>/images/tenInchScreenshots/NN_name_framed.png
+# Output: <metadata>/<locale>/images/tenInchScreenshots/NN_name_framed.jpg
 #
 # Usage: compose_tablet.sh [locale]   (locale defaults to en-US)
 # Requires ImageMagick 7 (`magick`) — `brew install imagemagick`.
