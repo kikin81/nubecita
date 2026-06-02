@@ -40,6 +40,12 @@ internal class QuotedEmbedUiTest {
                 QuotedEmbedUi.QuotedThreadChip,
                 QuotedEmbedUi.RecordWithMedia(media = QuotedEmbedUi.Images(items = persistentListOf())),
                 QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.somethingNew"),
+                QuotedEmbedUi.Gif(
+                    gifUrl = "https://static.klipy.com/example.gif",
+                    thumbUrl = null,
+                    aspectRatio = 1f,
+                    alt = null,
+                ),
             )
         val labels =
             variants.map { embed ->
@@ -51,23 +57,24 @@ internal class QuotedEmbedUiTest {
                     QuotedEmbedUi.QuotedThreadChip -> "thread-chip"
                     is QuotedEmbedUi.RecordWithMedia -> "record-with-media"
                     is QuotedEmbedUi.Unsupported -> "unsupported"
+                    is QuotedEmbedUi.Gif -> "gif"
                 }
             }
         assertEquals(
-            listOf("empty", "images", "video", "external", "thread-chip", "record-with-media", "unsupported"),
+            listOf("empty", "images", "video", "external", "thread-chip", "record-with-media", "unsupported", "gif"),
             labels,
         )
     }
 
     /**
      * The [QuotedEmbedUi.MediaEmbed] marker constrains the
-     * [QuotedEmbedUi.RecordWithMedia.media] slot to exactly three
+     * [QuotedEmbedUi.RecordWithMedia.media] slot to exactly four
      * variants. The exhaustive `when` below — with no `else` arm —
      * fails to compile if a future variant joins the marker without
      * an arm here, or if a variant is removed from the marker.
      */
     @Test
-    fun `MediaEmbed marker has exactly three implementers`() {
+    fun `MediaEmbed marker has exactly four implementers`() {
         val variants: List<QuotedEmbedUi.MediaEmbed> =
             listOf(
                 QuotedEmbedUi.Images(items = persistentListOf()),
@@ -85,6 +92,12 @@ internal class QuotedEmbedUiTest {
                     description = "",
                     thumbUrl = null,
                 ),
+                QuotedEmbedUi.Gif(
+                    gifUrl = "https://static.klipy.com/example.gif",
+                    thumbUrl = null,
+                    aspectRatio = 1f,
+                    alt = null,
+                ),
             )
         val labels =
             variants.map { media ->
@@ -92,9 +105,10 @@ internal class QuotedEmbedUiTest {
                     is QuotedEmbedUi.Images -> "images"
                     is QuotedEmbedUi.Video -> "video"
                     is QuotedEmbedUi.External -> "external"
+                    is QuotedEmbedUi.Gif -> "gif"
                 }
             }
-        assertEquals(listOf("images", "video", "external"), labels)
+        assertEquals(listOf("images", "video", "external", "gif"), labels)
     }
 
     @Test

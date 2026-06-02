@@ -120,7 +120,7 @@ fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     when (this) {
         null -> EmbedUi.Empty
         is ImagesView -> toEmbedUiImages()
-        is ExternalView -> toEmbedUiExternal()
+        is ExternalView -> toEmbedUiExternalOrGif()
         is RecordView -> toRecordOrUnavailable()
         is VideoView -> toEmbedUiVideo() ?: EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
         is RecordWithMediaView -> toEmbedUiRecordWithMedia()
@@ -210,14 +210,50 @@ fun VideoView.toEmbedUiVideo(): EmbedUi.Video? =
         )
     }
 
-fun ExternalView.toEmbedUiExternal(): EmbedUi.External =
-    EmbedUi.External(
-        uri = external.uri.raw,
-        domain = displayDomainOf(external.uri.raw),
-        title = external.title,
-        description = external.description,
-        thumbUrl = external.thumb?.raw,
-    )
+// Returns EmbedUi.MediaEmbed (not the concrete External) so a GIF external
+// embed (Klipy/Tenor/.gif) projects to EmbedUi.Gif for inline animated render;
+// everything else stays the link-card External. Both callers (top-level + the
+// record-with-media media slot) accept MediaEmbed.
+fun ExternalView.toEmbedUiExternalOrGif(): EmbedUi.MediaEmbed {
+    val uri = external.uri.raw
+    return if (isGifExternalUri(uri)) {
+        EmbedUi.Gif(
+            gifUrl = uri,
+            thumbUrl = external.thumb?.raw,
+            aspectRatio = gifAspectRatioOrNull(uri),
+            alt = external.title.ifBlank { external.description }.takeIf { it.isNotBlank() },
+        )
+    } else {
+        EmbedUi.External(
+            uri = uri,
+            domain = displayDomainOf(uri),
+            title = external.title,
+            description = external.description,
+            thumbUrl = external.thumb?.raw,
+        )
+    }
+}
+
+/** Quoted-post counterpart of [toEmbedUiExternalOrGif] — GIF externals become [QuotedEmbedUi.Gif]. */
+private fun ExternalView.toQuotedExternalOrGif(): QuotedEmbedUi.MediaEmbed {
+    val uri = external.uri.raw
+    return if (isGifExternalUri(uri)) {
+        QuotedEmbedUi.Gif(
+            gifUrl = uri,
+            thumbUrl = external.thumb?.raw,
+            aspectRatio = gifAspectRatioOrNull(uri),
+            alt = external.title.ifBlank { external.description }.takeIf { it.isNotBlank() },
+        )
+    } else {
+        QuotedEmbedUi.External(
+            uri = uri,
+            domain = displayDomainOf(uri),
+            title = external.title,
+            description = external.description,
+            thumbUrl = external.thumb?.raw,
+        )
+    }
+}
 
 /**
  * Decodes a [RecordViewRecord] into [EmbedUi.Record]. Returns `null`
@@ -302,7 +338,7 @@ private fun RecordWithMediaView.toEmbedUiRecordWithMedia(): EmbedUi {
  * composition through to [EmbedUi.Unsupported].
  *
  * Routes through the same wrapper-construction helpers
- * ([toEmbedUiImages], [toEmbedUiVideo], [toEmbedUiExternal]) used by
+ * ([toEmbedUiImages], [toEmbedUiVideo], [toEmbedUiExternalOrGif]) used by
  * the parent [toEmbedUi] dispatch — single source of truth for
  * wrapper construction, no risk of drift between the two paths.
  */
@@ -310,7 +346,7 @@ private fun RecordWithMediaViewMediaUnion.toMediaEmbed(): EmbedUi.MediaEmbed? =
     when (this) {
         is ImagesView -> toEmbedUiImages()
         is VideoView -> toEmbedUiVideo()
-        is ExternalView -> toEmbedUiExternal()
+        is ExternalView -> toEmbedUiExternalOrGif()
         else -> null
     }
 
@@ -349,14 +385,7 @@ private fun RecordWithMediaViewMediaUnion.toQuotedMediaEmbed(): QuotedEmbedUi.Me
                     altText = p.altText,
                 )
             }
-        is ExternalView ->
-            QuotedEmbedUi.External(
-                uri = external.uri.raw,
-                domain = displayDomainOf(external.uri.raw),
-                title = external.title,
-                description = external.description,
-                thumbUrl = external.thumb?.raw,
-            )
+        is ExternalView -> toQuotedExternalOrGif()
         else -> null
     }
 
@@ -381,14 +410,7 @@ private fun RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi =
                     altText = p.altText,
                 )
             } ?: QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
-        is ExternalView ->
-            QuotedEmbedUi.External(
-                uri = external.uri.raw,
-                domain = displayDomainOf(external.uri.raw),
-                title = external.title,
-                description = external.description,
-                thumbUrl = external.thumb?.raw,
-            )
+        is ExternalView -> toQuotedExternalOrGif()
         is RecordView -> QuotedEmbedUi.QuotedThreadChip
         is RecordWithMediaView -> toQuotedEmbedUiRecordWithMedia()
         is RecordViewRecordEmbedsUnion.Unknown -> QuotedEmbedUi.Unsupported(typeUri = type)

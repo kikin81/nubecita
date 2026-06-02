@@ -319,6 +319,7 @@ dependencies {
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.coil.core)
+    implementation(libs.coil.gif)
     implementation(libs.coil.network.okhttp)
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.appcheck.playintegrity)

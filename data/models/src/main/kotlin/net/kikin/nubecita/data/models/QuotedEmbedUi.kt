@@ -66,6 +66,17 @@ public sealed interface QuotedEmbedUi {
     ) : MediaEmbed
 
     /**
+     * A GIF external embed inside a quoted post. Same field-set as
+     * [EmbedUi.Gif] — see that variant's KDoc.
+     */
+    public data class Gif(
+        val gifUrl: String,
+        val thumbUrl: String?,
+        val aspectRatio: Float?,
+        val alt: String?,
+    ) : MediaEmbed
+
+    /**
      * Recursion-bound sentinel — the quoted post itself quotes
      * another post. The render layer renders a "View thread"
      * placeholder; the mapper does NOT recurse into the

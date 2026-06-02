@@ -100,6 +100,12 @@ internal class PostUiTest {
                     media = EmbedUi.Images(items = persistentListOf()),
                 ),
                 EmbedUi.Unsupported(typeUri = "app.bsky.embed.somethingNew"),
+                EmbedUi.Gif(
+                    gifUrl = "https://static.klipy.com/example.gif",
+                    thumbUrl = null,
+                    aspectRatio = 1f,
+                    alt = null,
+                ),
             )
         val labels =
             variants.map { embed ->
@@ -112,10 +118,11 @@ internal class PostUiTest {
                     is EmbedUi.RecordUnavailable -> "record-unavailable"
                     is EmbedUi.RecordWithMedia -> "record-with-media"
                     is EmbedUi.Unsupported -> "unsupported"
+                    is EmbedUi.Gif -> "gif"
                 }
             }
         assertEquals(
-            listOf("empty", "images", "video", "external", "record", "record-unavailable", "record-with-media", "unsupported"),
+            listOf("empty", "images", "video", "external", "record", "record-unavailable", "record-with-media", "unsupported", "gif"),
             labels,
         )
     }

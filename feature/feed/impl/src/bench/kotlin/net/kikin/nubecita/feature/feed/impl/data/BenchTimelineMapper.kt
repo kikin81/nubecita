@@ -135,6 +135,15 @@ internal object BenchTimelineMapper {
                 )
             BenchEmbedDto.Type.Video -> toEmbedUiVideoOrUnsupported()
             BenchEmbedDto.Type.External -> toEmbedUiExternalOrUnsupported()
+            BenchEmbedDto.Type.Gif ->
+                gifUrl?.let { url ->
+                    EmbedUi.Gif(
+                        gifUrl = url,
+                        thumbUrl = thumbUrl,
+                        aspectRatio = aspectRatio?.toFloat(),
+                        alt = altText,
+                    )
+                } ?: EmbedUi.Unsupported(typeUri = "app.bsky.embed.external")
         }
 
     /**

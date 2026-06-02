@@ -102,6 +102,7 @@ androidx-test-espresso-intents = { module = "androidx.test.espresso:espresso-int
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
 coil-bom = { module = "io.coil-kt.coil3:coil-bom", version.ref = "coil" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose" }
+coil-gif = { module = "io.coil-kt.coil3:coil-gif" }
 coil-core = { module = "io.coil-kt.coil3:coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }

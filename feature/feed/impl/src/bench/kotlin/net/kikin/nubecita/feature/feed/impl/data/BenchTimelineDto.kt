@@ -170,6 +170,7 @@ internal data class BenchEmbedDto(
     val title: String? = null,
     val description: String? = null,
     val thumbUrl: String? = null,
+    val gifUrl: String? = null,
 ) {
     @Serializable
     internal enum class Type {
@@ -184,6 +185,9 @@ internal data class BenchEmbedDto(
 
         @SerialName("External")
         External,
+
+        @SerialName("Gif")
+        Gif,
     }
 }
 

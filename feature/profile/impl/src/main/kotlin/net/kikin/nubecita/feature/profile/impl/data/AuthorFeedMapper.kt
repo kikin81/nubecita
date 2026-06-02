@@ -105,7 +105,11 @@ private fun EmbedUi.toMediaThumbUrlOrNull(): String? =
         is EmbedUi.Images -> items.firstOrNull()?.thumbOrFullsize()
         is EmbedUi.Video -> posterUrl
         is EmbedUi.RecordWithMedia -> media.toMediaThumbUrlOrNull()
-        EmbedUi.Empty, is EmbedUi.External, is EmbedUi.Record,
+        // GIFs are intentionally excluded from the Media grid. A Media-cell tap
+        // routes through ProfileViewModel to MediaViewer, which only resolves
+        // EmbedUi.Images and would dead-end a GIF as MediaViewerError.NoImages
+        // ("This post has no images"). Re-add once a GIF tap path exists.
+        EmbedUi.Empty, is EmbedUi.External, is EmbedUi.Gif, is EmbedUi.Record,
         is EmbedUi.RecordUnavailable, is EmbedUi.Unsupported,
         -> null
     }

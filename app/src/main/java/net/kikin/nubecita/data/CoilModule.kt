@@ -4,6 +4,7 @@ import android.content.Context
 import coil3.ImageLoader
 import coil3.disk.DiskCache
 import coil3.disk.directory
+import coil3.gif.AnimatedImageDecoder
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
@@ -25,8 +26,13 @@ internal object CoilModule {
         ImageLoader
             .Builder(context)
             .crossfade(true)
-            .components { add(OkHttpNetworkFetcherFactory()) }
-            .memoryCache {
+            .components {
+                add(OkHttpNetworkFetcherFactory())
+                // Animated GIF/WebP support for inline GIF embeds (nubecita-q01y).
+                // minSdk 28 ⇒ the hardware AnimatedImageDecoder (framework
+                // ImageDecoder/AnimatedImageDrawable), not the slow software path.
+                add(AnimatedImageDecoder.Factory())
+            }.memoryCache {
                 MemoryCache
                     .Builder()
                     .maxSizePercent(context, MEMORY_CACHE_PERCENT)

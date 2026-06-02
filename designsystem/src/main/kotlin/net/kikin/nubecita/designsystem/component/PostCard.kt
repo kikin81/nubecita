@@ -284,6 +284,10 @@ private fun EmbedSlot(
                 onTap = callbacks.onExternalEmbedTap,
             )
         }
+        is EmbedUi.Gif -> {
+            Spacer(Modifier.height(10.dp))
+            PostCardGifEmbed(gifUrl = embed.gifUrl, aspectRatio = embed.aspectRatio, alt = embed.alt)
+        }
         is EmbedUi.Record -> {
             Spacer(Modifier.height(10.dp))
             PostCardQuotedPost(
