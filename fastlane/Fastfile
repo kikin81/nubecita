@@ -137,10 +137,15 @@ platform :android do
       end
       UI.message("Uploading #{staged} marketing screenshot(s) to the Play listing.")
 
-      # Listing images only: no AAB/APK (no release created), no listing text,
-      # no icon/feature graphic. metadata_path points at the staged tmpdir tree.
+      # Listing screenshots only. NOTE: store-listing images are APP-LEVEL, not
+      # track-scoped — the Play Developer API keys images by (language, image
+      # type) with no track dimension, so there is no "internal-track
+      # screenshot". This updates the app's single store listing directly. We
+      # pass NO `track:`: with the AAB/APK/changelog uploads skipped no release
+      # is created, so the param would be a no-op — and `track: "internal"`
+      # would falsely imply the screenshots are scoped to the internal track.
+      # Listing TEXT and the icon/feature graphic stay skipped too.
       upload_to_play_store(
-        track: "internal",
         skip_upload_apk: true,
         skip_upload_aab: true,
         skip_upload_metadata: true,
