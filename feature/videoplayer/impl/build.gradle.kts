@@ -9,15 +9,14 @@ android {
 dependencies {
     api(project(":feature:videoplayer:api"))
 
-    implementation(project(":core:auth"))
     implementation(project(":core:common"))
-    implementation(project(":core:feed-mapping"))
+    // Single-post read surface (full PostUi: video embed + author/stats/viewer);
+    // replaces the module-local getPosts resolver (nubecita-6rdb.2).
+    implementation(project(":core:posts"))
     implementation(project(":core:video"))
     implementation(project(":data:models"))
     // PaywallRoute — the non-Pro pop-out tap routes to the paywall (nubecita-q5ge.8).
     implementation(project(":feature:paywall:api"))
-    implementation(libs.atproto.models)
-    implementation(libs.atproto.runtime)
     implementation(libs.media3.ui.compose)
     implementation(libs.timber)
 

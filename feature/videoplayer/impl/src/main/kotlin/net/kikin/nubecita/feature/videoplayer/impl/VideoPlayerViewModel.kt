@@ -12,10 +12,11 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
-import net.kikin.nubecita.feature.videoplayer.impl.data.VideoPostResolver
 
 /**
  * Presenter for the fullscreen video player.
@@ -31,11 +32,16 @@ import net.kikin.nubecita.feature.videoplayer.impl.data.VideoPostResolver
  * `ChatScreenInstrumentationTest.kt` for the failure mode the assisted-
  * inject route prevents.)
  *
- * On init: resolves the post URI via [VideoPostResolver] (network
- * round-trip), checks if the holder is already bound to the resolved
- * URL (instance-transfer payoff if true), and either skips the rebind
- * or calls [SharedVideoPlayer.bind] before flipping the mode to
- * [PlaybackMode.Fullscreen].
+ * On init: resolves the post via [PostRepository.getPost] (network
+ * round-trip) — the project's single `getPosts` read surface, which
+ * returns a fully-mapped `PostUi` carrying both the video embed and the
+ * post's social metadata (author / stats / viewer). The VM extracts the
+ * `EmbedUi.Video` for playback and projects the social fields into
+ * [VideoPlayerState]; it checks if the holder is already bound to the
+ * resolved URL (instance-transfer payoff if true), and either skips the
+ * rebind or calls [SharedVideoPlayer.bind] before flipping the mode to
+ * [PlaybackMode.Fullscreen]. A resolved post with no video embed is a
+ * resolution error (the caller routed a non-video URI here).
  *
  * Observes [SharedVideoPlayer]'s state flows (isPlaying, positionMs,
  * durationMs, playbackError) and projects them into the flat
@@ -58,7 +64,7 @@ internal class VideoPlayerViewModel
     constructor(
         @Assisted private val route: VideoPlayerRoute,
         val sharedVideoPlayer: SharedVideoPlayer,
-        private val resolver: VideoPostResolver,
+        private val postRepository: PostRepository,
     ) : MviViewModel<VideoPlayerState, VideoPlayerEvent, VideoPlayerEffect>(VideoPlayerState()) {
         @AssistedFactory
         interface Factory {
@@ -186,15 +192,33 @@ internal class VideoPlayerViewModel
         private fun resolveAndBind(force: Boolean = false) {
             setState { copy(loadStatus = VideoPlayerLoadStatus.Resolving) }
             viewModelScope.launch {
-                resolver
-                    .resolve(postUri)
-                    .onSuccess { resolved ->
+                postRepository
+                    .getPost(postUri)
+                    .onSuccess { post ->
+                        val video = post.embed as? EmbedUi.Video
+                        if (video == null) {
+                            // The post resolved but isn't a video post — the
+                            // caller routed a non-video URI to the fullscreen
+                            // player. Treat as a resolution error (no Retry
+                            // will change the embed type, but the error layout
+                            // is the right surface). Mirrors the old resolver's
+                            // IllegalStateException → Unknown mapping.
+                            setState {
+                                copy(
+                                    loadStatus =
+                                        VideoPlayerLoadStatus.Error(
+                                            VideoPlayerError.Unknown(cause = NO_VIDEO_EMBED),
+                                        ),
+                                )
+                            }
+                            return@onSuccess
+                        }
                         val alreadyBound =
-                            sharedVideoPlayer.boundPlaylistUrl.value == resolved.playlistUrl
+                            sharedVideoPlayer.boundPlaylistUrl.value == video.playlistUrl
                         if (!alreadyBound) {
                             sharedVideoPlayer.bind(
-                                playlistUrl = resolved.playlistUrl,
-                                posterUrl = resolved.posterUrl,
+                                playlistUrl = video.playlistUrl,
+                                posterUrl = video.posterUrl,
                             )
                         } else if (force) {
                             // Retry path with the same URL: ask ExoPlayer
@@ -217,12 +241,17 @@ internal class VideoPlayerViewModel
                         setState {
                             copy(
                                 loadStatus = VideoPlayerLoadStatus.Ready,
-                                posterUrl = resolved.posterUrl,
-                                altText = resolved.altText,
+                                posterUrl = video.posterUrl,
+                                altText = video.altText,
                                 aspectRatio =
                                     sharedVideoPlayer.videoAspectRatio.value
                                         ?: aspectRatio
-                                        ?: resolved.aspectRatio,
+                                        ?: video.aspectRatio,
+                                // Social metadata from the resolved post —
+                                // populated together on Ready (nubecita-6rdb.2).
+                                author = post.author,
+                                stats = post.stats,
+                                viewer = post.viewer,
                             )
                         }
                         // Arm the auto-hide timer the first time the
@@ -268,6 +297,7 @@ internal class VideoPlayerViewModel
 
         private companion object {
             const val CHROME_AUTO_HIDE_MS: Long = 3_000L
+            const val NO_VIDEO_EMBED: String = "Post has no video embed"
         }
 
         // Tiny helper for combine destructuring readability — the 4-flow
