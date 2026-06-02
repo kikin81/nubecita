@@ -171,10 +171,32 @@ class SharedVideoPlayer
             val ts = cachedTrackSelector ?: trackSelectorFactory().also { cachedTrackSelector = it }
             val built = playerFactory(ts)
             built.addListener(playerStateListener)
+            // Apply the loop policy for the current mode at construction: the
+            // holder rests in FeedPreview, so a fresh / idle-rebuilt player must
+            // loop from the first bind. setMode early-returns when the mode is
+            // unchanged, so it can't establish this for the resting state.
+            built.repeatMode = repeatModeFor(_mode.value)
             cachedExoPlayer = built
             _player.value = built
             return built
         }
+
+        /**
+         * Loop in [PlaybackMode.FeedPreview] so a short silent clip — e.g. an
+         * uploaded GIF, which Bluesky transcodes to a sub-second muted MP4 with
+         * no GIF marker (the embed is `app.bsky.embed.video` / `video/mp4`) —
+         * keeps playing instead of ending on a dead/black frame, matching the
+         * official app's in-feed GIF behavior. [PlaybackMode.Fullscreen] plays
+         * once with controls. Conceptually: feed autoplay is a looping preview;
+         * fullscreen is real playback. `repeatMode` is a player flag set on mode
+         * transitions only — never in the scroll/compose path — so it adds no
+         * per-frame cost and preserves the single-player invariant.
+         */
+        private fun repeatModeFor(mode: PlaybackMode): Int =
+            when (mode) {
+                PlaybackMode.FeedPreview -> androidx.media3.common.Player.REPEAT_MODE_ONE
+                PlaybackMode.Fullscreen -> androidx.media3.common.Player.REPEAT_MODE_OFF
+            }
 
         private var refcount: Int = 0
         private var idleReleaseJob: Job? = null
@@ -325,6 +347,8 @@ class SharedVideoPlayer
             if (_mode.value == target) return
             val attrs = audioAttributes
             val p = requirePlayer()
+            // Feed preview loops (GIF-like); fullscreen plays once. See repeatModeFor.
+            p.repeatMode = repeatModeFor(target)
             when (target) {
                 PlaybackMode.Fullscreen -> {
                     p.setAudioAttributes(attrs, true)

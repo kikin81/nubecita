@@ -125,6 +125,29 @@ class SharedVideoPlayerTest {
         }
 
     @Test
+    fun repeatMode_loopsInFeedPreview_playsOnceInFullscreen() =
+        runTest {
+            val (holder, player) = newHolder(testScope = this)
+            runCurrent()
+
+            // Materializing the player in the resting FeedPreview mode must set
+            // it to loop, so a short silent clip (a GIF Bluesky transcoded to a
+            // sub-second MP4) keeps playing instead of dying on a black frame.
+            holder.play()
+            verify { player.repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE }
+
+            // Tapping into the fullscreen player switches to real playback: once.
+            clearMocks(player, answers = false)
+            holder.setMode(PlaybackMode.Fullscreen)
+            verify { player.repeatMode = androidx.media3.common.Player.REPEAT_MODE_OFF }
+
+            // Returning to the feed restores the looping preview.
+            clearMocks(player, answers = false)
+            holder.setMode(PlaybackMode.FeedPreview)
+            verify { player.repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE }
+        }
+
+    @Test
     fun bind_firstCall_setsMediaItemAndPrepares() =
         runTest {
             val (holder, player) = newHolder(testScope = this)
