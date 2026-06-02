@@ -197,7 +197,7 @@ internal class VideoPlayerViewModel
                 // A surface tap always returns the chrome to Shown and restarts
                 // the ladder (design: "any tap returns to Shown"); the ladder
                 // takes it back down on idle. There is no tap-to-hide.
-                VideoPlayerEvent.ToggleChrome -> showChrome()
+                VideoPlayerEvent.SurfaceTapped -> showChrome()
                 VideoPlayerEvent.BackClicked -> {
                     sendEffect(VideoPlayerEffect.NavigateBack)
                 }

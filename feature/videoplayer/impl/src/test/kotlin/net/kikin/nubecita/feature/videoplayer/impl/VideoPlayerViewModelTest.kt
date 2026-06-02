@@ -415,7 +415,7 @@ internal class VideoPlayerViewModelTest {
             assertEquals(ChromeVisibility.Hidden, vm.uiState.value.chromeVisibility)
 
             // A surface tap returns it to Shown and restarts the ladder.
-            vm.handleEvent(VideoPlayerEvent.ToggleChrome)
+            vm.handleEvent(VideoPlayerEvent.SurfaceTapped)
             runCurrent()
             assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
 

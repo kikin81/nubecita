@@ -126,7 +126,12 @@ internal sealed interface VideoPlayerEvent : UiEvent {
         val positionMs: Long,
     ) : VideoPlayerEvent
 
-    data object ToggleChrome : VideoPlayerEvent
+    /**
+     * The user tapped the video surface. Reveals the chrome (→ Shown) and
+     * restarts the auto-hide ladder — there is no tap-to-hide; the ladder
+     * takes the chrome back down on idle.
+     */
+    data object SurfaceTapped : VideoPlayerEvent
 
     data object BackClicked : VideoPlayerEvent
 

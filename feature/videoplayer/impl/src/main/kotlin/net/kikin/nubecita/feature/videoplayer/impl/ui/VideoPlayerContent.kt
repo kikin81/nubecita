@@ -38,7 +38,7 @@ import kotlin.math.roundToInt
  *    transitions instead of a black flash.
  *  - [VideoPlayerLoadStatus.Error]: centered title/body + retry button.
  *
- * Tap-to-toggle chrome is delivered as `VideoPlayerEvent.ToggleChrome`
+ * A surface tap reveals the chrome (`VideoPlayerEvent.SurfaceTapped`)
  * via the outer Box's clickable modifier. The [MutableInteractionSource]
  * uses `indication = null` so there's no ripple on the video surface.
  */
@@ -66,7 +66,7 @@ internal fun VideoPlayerContent(
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
-                    onClick = { onEvent(VideoPlayerEvent.ToggleChrome) },
+                    onClick = { onEvent(VideoPlayerEvent.SurfaceTapped) },
                 ),
     ) {
         when (state.loadStatus) {
