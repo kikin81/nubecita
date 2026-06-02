@@ -135,17 +135,31 @@ platform :android do
         UI.important("No committed *_framed.jpg screenshots found — nothing to upload.")
         next
       end
-      UI.message("Uploading #{staged} marketing screenshot(s) to the Play listing.")
+      # supply uploads listing metadata (incl. screenshots) INSIDE a
+      # version-codes loop (supply/uploader.rb#perform_upload_meta): even though
+      # store images are APP-LEVEL (the Play API keys them by language + image
+      # type, with no track), supply hard-requires a version_code whose release
+      # exists to anchor the edit, or it dies with "Could not find release for
+      # version code '' to update changelog". So we look up what is ACTUALLY
+      # live on the internal track (where the release lane uploads the AAB) and
+      # anchor to that — NOT a gradle/build version, which this decoupled
+      # screenshots workflow can't guarantee has reached Play yet. The track +
+      # version_code below only satisfy supply's anchor; the screenshots still
+      # update the single global store listing. Listing TEXT + icon/feature
+      # graphic stay skipped.
+      version_codes = google_play_track_version_codes(track: "internal")
+      if version_codes.empty?
+        UI.important(
+          "No release on the internal track yet — nothing to anchor a listing edit to. " \
+            "Skipping screenshot upload.",
+        )
+        next
+      end
 
-      # Listing screenshots only. NOTE: store-listing images are APP-LEVEL, not
-      # track-scoped — the Play Developer API keys images by (language, image
-      # type) with no track dimension, so there is no "internal-track
-      # screenshot". This updates the app's single store listing directly. We
-      # pass NO `track:`: with the AAB/APK/changelog uploads skipped no release
-      # is created, so the param would be a no-op — and `track: "internal"`
-      # would falsely imply the screenshots are scoped to the internal track.
-      # Listing TEXT and the icon/feature graphic stay skipped too.
+      UI.message("Uploading #{staged} marketing screenshot(s), anchored to internal version code #{version_codes.max}.")
       upload_to_play_store(
+        track: "internal",
+        version_code: version_codes.max,
         skip_upload_apk: true,
         skip_upload_aab: true,
         skip_upload_metadata: true,
