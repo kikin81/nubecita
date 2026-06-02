@@ -158,6 +158,21 @@ internal class VideoPlayerViewModel
                     }
                     scheduleChromeAutoHide()
                 }
+                VideoPlayerEvent.SkipBack -> {
+                    val target = (uiState.value.positionMs - SKIP_INCREMENT_MS).coerceAtLeast(0L)
+                    sharedVideoPlayer.seekTo(target)
+                    scheduleChromeAutoHide()
+                }
+                VideoPlayerEvent.SkipForward -> {
+                    // Clamp to duration only once it's known; while durationMs is
+                    // still 0 (duration probe lagging) just advance by the
+                    // increment so an early tap isn't pinned to 0.
+                    val duration = uiState.value.durationMs
+                    val advanced = uiState.value.positionMs + SKIP_INCREMENT_MS
+                    val target = if (duration > 0L) advanced.coerceAtMost(duration) else advanced
+                    sharedVideoPlayer.seekTo(target)
+                    scheduleChromeAutoHide()
+                }
                 VideoPlayerEvent.MuteClicked -> {
                     sharedVideoPlayer.toggleMute()
                     setState { copy(isMuted = !isMuted) }
@@ -297,6 +312,7 @@ internal class VideoPlayerViewModel
 
         private companion object {
             const val CHROME_AUTO_HIDE_MS: Long = 3_000L
+            const val SKIP_INCREMENT_MS: Long = 10_000L
             const val NO_VIDEO_EMBED: String = "Post has no video embed"
         }
 
