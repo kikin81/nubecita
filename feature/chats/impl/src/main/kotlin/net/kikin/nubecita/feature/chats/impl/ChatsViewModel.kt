@@ -24,7 +24,7 @@ import javax.inject.Inject
  * on it.
  */
 @HiltViewModel
-internal class ChatsViewModel
+class ChatsViewModel
     @Inject
     constructor(
         private val repository: ChatRepository,

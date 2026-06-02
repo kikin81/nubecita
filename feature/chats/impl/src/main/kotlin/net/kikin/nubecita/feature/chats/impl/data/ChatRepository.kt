@@ -12,7 +12,7 @@ import net.kikin.nubecita.feature.chats.impl.MessageUi
  * - The Chats tab home (`listConvos`).
  * - The chat thread screen (`resolveConvo` + `getMessages`).
  */
-internal interface ChatRepository {
+interface ChatRepository {
     suspend fun listConvos(
         cursor: String? = null,
         limit: Int = LIST_CONVOS_PAGE_LIMIT,
@@ -47,12 +47,12 @@ internal interface ChatRepository {
     ): Result<MessageUi>
 }
 
-internal data class ConvoListPage(
+data class ConvoListPage(
     val items: ImmutableList<ConvoListItemUi> = persistentListOf(),
     val nextCursor: String? = null,
 )
 
-internal data class ConvoResolution(
+data class ConvoResolution(
     val convoId: String,
     val otherUserHandle: String,
     val otherUserDisplayName: String?,
@@ -60,7 +60,7 @@ internal data class ConvoResolution(
     val otherUserAvatarHue: Int,
 )
 
-internal data class MessagePage(
+data class MessagePage(
     val messages: ImmutableList<MessageUi> = persistentListOf(),
     val nextCursor: String? = null,
 )

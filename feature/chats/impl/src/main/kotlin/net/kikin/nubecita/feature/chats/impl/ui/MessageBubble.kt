@@ -45,7 +45,7 @@ import net.kikin.nubecita.feature.chats.impl.R
  *  1..count-2                    → both tail-side corners 4dp.
  *  index == count-1, count > 1   → outer bottom corners 16dp, inner top-tail 4dp.
  */
-internal fun messageBubbleShape(
+fun messageBubbleShape(
     index: Int,
     count: Int,
     isOutgoing: Boolean,

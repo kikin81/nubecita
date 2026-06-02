@@ -39,7 +39,7 @@ internal const val DELETED_MESSAGE_SNIPPET: String = "__deleted__"
  *   the "other member" out of the convo's members list and to determine
  *   whether the last message was sent by the viewer.
  */
-internal fun ConvoView.toConvoListItemUi(viewerDid: String): ConvoListItemUi {
+fun ConvoView.toConvoListItemUi(viewerDid: String): ConvoListItemUi {
     val other =
         members.firstOrNull { it.did.raw != viewerDid }
             ?: members.firstOrNull()

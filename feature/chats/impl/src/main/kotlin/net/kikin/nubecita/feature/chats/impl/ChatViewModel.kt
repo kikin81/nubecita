@@ -30,7 +30,7 @@ import kotlin.time.Clock
  * Refresh / retry events re-run the chain. Single-flight via [inFlightLoad].
  */
 @HiltViewModel(assistedFactory = ChatViewModel.Factory::class)
-internal class ChatViewModel
+class ChatViewModel
     @AssistedInject
     constructor(
         @Assisted private val chat: Chat,
