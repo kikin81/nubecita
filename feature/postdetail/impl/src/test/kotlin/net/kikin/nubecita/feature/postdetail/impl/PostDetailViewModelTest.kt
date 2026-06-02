@@ -12,15 +12,15 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.posts.PostThreadRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
-import net.kikin.nubecita.feature.postdetail.impl.data.PostThreadRepository
-import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

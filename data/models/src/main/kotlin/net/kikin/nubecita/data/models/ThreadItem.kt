@@ -1,15 +1,13 @@
-package net.kikin.nubecita.feature.postdetail.impl.data
+package net.kikin.nubecita.data.models
 
 import androidx.compose.runtime.Immutable
-import net.kikin.nubecita.data.models.PostUi
 
 /**
- * One row in the post-detail screen's flattened thread.
+ * One row in a flattened post thread.
  *
  * The lexicon's `app.bsky.feed.defs#threadViewPost` is a recursive
- * parent / replies tree rooted at the focused post. The mapper
- * ([net.kikin.nubecita.feature.postdetail.impl.data.toThreadItems]) flattens
- * the tree into a top-to-bottom list:
+ * parent / replies tree rooted at the focused post. `:core:posts`'
+ * `PostThreadRepository` flattens the tree into a top-to-bottom list:
  *
  *   root-most ancestor → ... → immediate parent → focus → top-level
  *   replies → nested replies (depth-first)
@@ -18,26 +16,25 @@ import net.kikin.nubecita.data.models.PostUi
  * `app.bsky.feed.defs#notFoundPost` — appear inline at the position
  * they occupied in the source tree. The two unavailable variants
  * surface no `PostUi` (the lexicon never carries a renderable post for
- * them); the screen renders a thin "post unavailable" stub.
+ * them); the render layer renders a thin "post unavailable" stub.
  *
- * The `key` lambda input for `LazyColumn` encodes each variant's role
- * so the same `PostUi.id` appearing as both an ancestor of one screen
- * and the focus of another (after the user navigates "up" through the
- * chain) doesn't collide in the LazyList recycler.
+ * The [key] property for `LazyColumn` encodes each variant's role so the
+ * same `PostUi.id` appearing as both an ancestor of one screen and the
+ * focus of another (after the user navigates "up" through the chain)
+ * doesn't collide in the LazyList recycler.
  *
- * Design note: this sealed type is screen-local, NOT a shared model.
- * It lives in `:feature:postdetail:impl` and is internal — the
- * `:feature:postdetail:api` boundary only exposes the `PostDetailRoute`
- * NavKey; callers that need detail rendering go through the screen
- * Composable, not through the ThreadItem list.
+ * Shared model (`:data:models`): produced by `:core:posts`'
+ * `PostThreadRepository` and consumed by both the post-detail screen and
+ * the fullscreen player's comments sheet (nubecita-6rdb.3). Like the
+ * other `:data:models` types it is `@Immutable` and Compose-stable.
  */
 @Immutable
-internal sealed interface ThreadItem {
-    val key: String
+public sealed interface ThreadItem {
+    public val key: String
 
     /** A post above the focus in the parent chain. */
     @Immutable
-    data class Ancestor(
+    public data class Ancestor(
         val post: PostUi,
     ) : ThreadItem {
         override val key: String get() = "ancestor:${post.id}"
@@ -45,7 +42,7 @@ internal sealed interface ThreadItem {
 
     /** The focused post — the one the user tapped to open this screen. */
     @Immutable
-    data class Focus(
+    public data class Focus(
         val post: PostUi,
     ) : ThreadItem {
         override val key: String get() = "focus:${post.id}"
@@ -60,7 +57,7 @@ internal sealed interface ThreadItem {
      * in m28.5.2 that indents nested replies.
      */
     @Immutable
-    data class Reply(
+    public data class Reply(
         val post: PostUi,
         val depth: Int,
     ) : ThreadItem {
@@ -76,7 +73,7 @@ internal sealed interface ThreadItem {
      * visual treatment.
      */
     @Immutable
-    data class Fold(
+    public data class Fold(
         val above: String,
     ) : ThreadItem {
         override val key: String get() = "fold:$above"
@@ -92,7 +89,7 @@ internal sealed interface ThreadItem {
      * present, so this field is non-nullable.
      */
     @Immutable
-    data class Blocked(
+    public data class Blocked(
         val uri: String,
         val authorDid: String,
     ) : ThreadItem {
@@ -104,7 +101,7 @@ internal sealed interface ThreadItem {
      * never existed. URI preserved for the same reasons as [Blocked].
      */
     @Immutable
-    data class NotFound(
+    public data class NotFound(
         val uri: String,
     ) : ThreadItem {
         override val key: String get() = "notfound:$uri"

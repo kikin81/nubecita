@@ -10,8 +10,10 @@ dependencies {
     api(project(":feature:postdetail:api"))
 
     implementation(project(":core:auth"))
-    implementation(project(":core:feed-mapping"))
     implementation(project(":core:post-interactions"))
+    // Thread read surface (PostThreadRepository → ThreadItem); lifted here
+    // from this module (nubecita-6rdb.3).
+    implementation(project(":core:posts"))
     implementation(project(":data:models"))
     implementation(project(":feature:mediaviewer:api"))
     // Report NavKey + Report.forPost factory — pushed onto the inner
@@ -28,9 +30,7 @@ dependencies {
     // player escapes MainShell's NavigationSuiteScaffold chrome.
     implementation(project(":feature:videoplayer:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
-    implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
-    implementation(libs.kotlinx.serialization.json)
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))

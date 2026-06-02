@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.postdetail.impl.data
+package net.kikin.nubecita.core.posts.internal
 
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetPostThreadRequest
@@ -8,6 +8,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.posts.PostThreadRepository
+import net.kikin.nubecita.data.models.ThreadItem
 import timber.log.Timber
 import javax.inject.Inject
 

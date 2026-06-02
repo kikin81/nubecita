@@ -14,10 +14,10 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
-import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 import kotlin.time.Clock
 import kotlin.time.Instant
 

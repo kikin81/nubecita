@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.postdetail.impl.data
+package net.kikin.nubecita.core.posts.internal
 
 import io.github.kikin81.atproto.app.bsky.feed.BlockedPost
 import io.github.kikin81.atproto.app.bsky.feed.GetPostThreadResponseThreadUnion
@@ -10,6 +10,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
+import net.kikin.nubecita.data.models.ThreadItem
 
 /**
  * Maps `app.bsky.feed.getPostThread`'s `thread` open-union response onto

@@ -17,11 +17,11 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
+import net.kikin.nubecita.core.posts.PostThreadRepository
+import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
-import net.kikin.nubecita.feature.postdetail.impl.data.PostThreadRepository
-import net.kikin.nubecita.feature.postdetail.impl.data.ThreadItem
 import java.io.IOException
 
 /**

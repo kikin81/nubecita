@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.postdetail.impl.data
+package net.kikin.nubecita.core.posts.internal
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewBasic
 import io.github.kikin81.atproto.app.bsky.feed.BlockedAuthor
@@ -16,6 +16,7 @@ import io.github.kikin81.atproto.runtime.Handle
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import net.kikin.nubecita.data.models.ThreadItem
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
