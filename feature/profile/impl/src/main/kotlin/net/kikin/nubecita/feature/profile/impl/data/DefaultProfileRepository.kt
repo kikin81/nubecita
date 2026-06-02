@@ -36,6 +36,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.image.BLUESKY_BLOB_LIMIT_BYTES
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import timber.log.Timber
@@ -345,15 +346,41 @@ internal class DefaultProfileRepository
             change: ImageChange.Replaced,
         ): Blob =
             try {
+                // Per-step logging mirrors DefaultPostingRepository.uploadOne so a
+                // failed profile-photo upload is diagnosable from logcat (tag
+                // ProfileRepository): the byte sizes rule the "blob too big" theory
+                // in or out, and the failure branch logs the REAL cause at the site
+                // (updateProfile()'s top-level catch only prints the BlobUploadFailed
+                // wrapper, burying the actual error as a "Caused by").
+                Timber.tag(TAG).d(
+                    "uploadImage — crop bytes=%d, mime=%s",
+                    change.bytes.size,
+                    change.mimeType,
+                )
                 val encoded = encoder.encodeForUpload(bytes = change.bytes, sourceMimeType = change.mimeType)
-                repo
-                    .uploadBlob(
-                        input = encoded.bytes,
-                        inputContentType = ContentType.parse(encoded.mimeType),
-                    ).blob
+                Timber.tag(TAG).d(
+                    "uploadImage — encoded to %d bytes (cap %d), mime=%s, uploading…",
+                    encoded.bytes.size,
+                    BLUESKY_BLOB_LIMIT_BYTES,
+                    encoded.mimeType,
+                )
+                val blob =
+                    repo
+                        .uploadBlob(
+                            input = encoded.bytes,
+                            inputContentType = ContentType.parse(encoded.mimeType),
+                        ).blob
+                Timber.tag(TAG).d("uploadImage — ok, blob.size=%d", blob.size)
+                blob
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
+                Timber.tag(TAG).e(
+                    throwable,
+                    "uploadImage — FAILED: %s: %s",
+                    throwable.javaClass.name,
+                    throwable.message,
+                )
                 throw ProfileUpdateError.BlobUploadFailed(throwable)
             }
 
