@@ -21,7 +21,9 @@ once, for every feature.
 
 ## The opt-in (all a feature does)
 
-Tag the route's `entry` with `adaptiveDialog()` (`:core:common:navigation`):
+Tag the route's `entry` with `adaptiveDialog()` (module `:core:common`, package
+`net.kikin.nubecita.core.common.navigation` —
+`core/common/src/main/kotlin/.../navigation/AdaptiveDialogMetadata.kt`):
 
 ```kotlin
 import net.kikin.nubecita.core.common.navigation.adaptiveDialog
@@ -41,7 +43,8 @@ and the screen/ViewModel stay feature-`internal`.
 
 ## How it works
 
-`AdaptiveDialogSceneStrategy` (`:app/shell/adaptive/AdaptiveDialogSceneStrategy.kt`)
+`AdaptiveDialogSceneStrategy` (module `:app` —
+`app/src/main/java/net/kikin/nubecita/shell/adaptive/AdaptiveDialogSceneStrategy.kt`)
 is a width-gated `OverlayScene` strategy:
 
 - **Compact (`< 600dp`)** → `calculateScene` returns `null`, so the entry falls
@@ -80,12 +83,12 @@ Compact width gate, with the scrim/card chrome the built-in lacks.
 
 ## Where things live
 
-| Piece | Module | Role |
+| Piece | Module | File |
 |---|---|---|
-| `adaptiveDialog()` + `AdaptiveDialogKey` | `:core:common:navigation` | Pure metadata opt-in (feature modules reference this) |
-| `AdaptiveDialogSceneStrategy` / `AdaptiveDialogScene` / `rememberAdaptiveDialogSceneStrategy` | `:app/shell/adaptive` | The `OverlayScene` + width gate + Dialog chrome |
-| `MainShell` `sceneStrategies` wiring | `:app/shell` | Registers the strategy on the inner `NavDisplay` |
-| Reference opt-in | `:feature:profile:impl/di/EditProfileNavigationModule` | One metadata tag |
+| `adaptiveDialog()` + `AdaptiveDialogKey` (pure metadata opt-in feature modules reference) | `:core:common` | `core/common/src/main/kotlin/net/kikin/nubecita/core/common/navigation/AdaptiveDialogMetadata.kt` |
+| `AdaptiveDialogSceneStrategy` / `AdaptiveDialogScene` / `rememberAdaptiveDialogSceneStrategy` (the `OverlayScene` + width gate + Dialog chrome) | `:app` | `app/src/main/java/net/kikin/nubecita/shell/adaptive/AdaptiveDialogSceneStrategy.kt` |
+| `MainShell` `sceneStrategies` wiring (registers the strategy on the inner `NavDisplay`) | `:app` | `app/src/main/java/net/kikin/nubecita/shell/MainShell.kt` |
+| Reference opt-in (one metadata tag) | `:feature:profile:impl` | `.../feature/profile/impl/di/EditProfileNavigationModule.kt` |
 
 ## Versioning note
 
