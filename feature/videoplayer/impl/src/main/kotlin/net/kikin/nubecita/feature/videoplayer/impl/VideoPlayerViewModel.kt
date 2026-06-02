@@ -302,7 +302,13 @@ internal class VideoPlayerViewModel
         private fun showChrome() {
             chromeLadderJob?.cancel()
             setState { copy(chromeVisibility = ChromeVisibility.Shown) }
-            if (uiState.value.isPlaying) {
+            // Read the holder's flow directly, NOT uiState.value.isPlaying: the
+            // latter is projected by a *separate* combine collector, so when the
+            // isPlaying collector calls showChrome() on a play transition the
+            // projected value may not have updated yet, leaving the ladder
+            // un-armed (chrome stuck on Shown while playing). The StateFlow value
+            // is always current.
+            if (sharedVideoPlayer.isPlaying.value) {
                 chromeLadderJob =
                     viewModelScope.launch {
                         delay(PEEK_DELAY_MS)
