@@ -48,6 +48,7 @@ internal class BenchFakeChatRepository
                         val stream = context.assets.open(CHATS_ASSET_PATH)
                         val dto =
                             stream.use { input ->
+                                @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
                                 JSON.decodeFromStream(BenchConvoListDto.serializer(), input)
                             }
                         val viewerDid = currentViewerDid()
@@ -59,12 +60,16 @@ internal class BenchFakeChatRepository
                             val msgUis = convoDto.messages.map { BenchChatsMapper.toMessage(it, viewerDid) }
                             messagesCache[convoDto.convoId] = msgUis
                         }
+                        // Only mark initialized after a successful load so a
+                        // failed parse (e.g. fixture not yet packaged) retries
+                        // on the next call rather than pinning an empty cache —
+                        // mirrors BenchFakeFeedRepository's cache-on-success shape.
+                        isInitialized = true
                     } catch (e: FileNotFoundException) {
                         Timber.tag(TAG).e(e, "chats.json asset not found")
                     } catch (e: Exception) {
                         Timber.tag(TAG).e(e, "Failed to load bench chats")
                     }
-                    isInitialized = true
                 }
             }
 
