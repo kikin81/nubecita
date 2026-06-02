@@ -33,7 +33,12 @@ repos:
         # for an app of any size — fingerprint-style content where the size
         # is inherent, not a smell. Excluding them here keeps the 500 KB
         # budget intact for everything else.
-        exclude: '^.+/src/.+/generated/baselineProfiles/.+-prof\.txt$'
+        #
+        # Also exclude fastlane/frameit_assets/* — the title font (Arial-Bold.ttf)
+        # and brand backdrop are intentional binary inputs to the marketing-
+        # screenshot framing pipeline; the framed outputs themselves are JPGs
+        # kept comfortably under the budget.
+        exclude: '^(.+/src/.+/generated/baselineProfiles/.+-prof\.txt|fastlane/frameit_assets/.+\.(ttf|png))$'
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: mixed-line-ending

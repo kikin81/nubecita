@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        fastlane screengrab permissions. CHANGE_CONFIGURATION lets
+        LocaleTestRule switch the in-app locale per screenshot pass;
+        DISABLE_KEYGUARD keeps the lock screen out of captures. They live in
+        the androidTest manifest only, so they never reach the shipped APK.
+        FeedScreenshotJourney captures via the UiAutomator screenshot strategy
+        (UiAutomation#takeScreenshot), which needs no storage permission.
+    -->
+    <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+
     <application>
         <!--
             Strip NubecitaFcmService from the merged test manifest.

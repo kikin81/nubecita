@@ -12,6 +12,21 @@ android {
         // the @TestInstallIn-replaced component graph.
         testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
     }
+
+    // The `environment` flavor dimension splits the production
+    // NotificationsRepositoryModule (real `app.bsky.notification.*` XRPC calls
+    // via `DefaultNotificationsRepository`) from a bench-flavor parallel that
+    // binds a deterministic, network-free `BenchFakeNotificationsRepository`.
+    // The `:app` module's `bench` flavor consumes the matching variant via the
+    // missingDimensionStrategy plumbing in `AndroidLibraryConventionPlugin`;
+    // everything that imports `:feature:notifications:impl` resolves the
+    // production variant by default. Mirrors the split established in
+    // `:feature:feed:impl`.
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
 }
 
 dependencies {

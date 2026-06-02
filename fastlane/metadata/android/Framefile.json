@@ -1,0 +1,19 @@
+{
+  "device_frame_version": "latest",
+  "default": {
+    "background": "./../../frameit_assets/background.png",
+    "padding": 100,
+    "title": {
+      "font": "./../../frameit_assets/Arial-Bold.ttf",
+      "color": "#FFFFFF"
+    },
+    "title_below_image": false,
+    "show_complete_frame": true,
+    "font_scale_factor": 0.08
+  },
+  "data": [
+    {
+      "filter": "feed"
+    }
+  ]
+}

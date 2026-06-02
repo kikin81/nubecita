@@ -1,4 +1,5 @@
 require "fileutils"
+require "shellwords"
 require "tmpdir"
 
 # fastlane regenerates fastlane/README.md on every run by default, which
@@ -19,6 +20,18 @@ REQUIRED_KEYSTORE_ENV = %w[KEYSTORE_FILE KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWOR
 # defensively so a long placeholder / unbounded env var doesn't fail
 # the upload mid-request with a hard-to-debug "field too long" error.
 PLAY_CHANGELOG_MAX_CHARS = 500
+
+# Resolve fastlane/metadata/android robustly. Plain Ruby in a lane body runs
+# with CWD = the fastlane/ dir, while fastlane ACTIONS (gradle, frameit, …)
+# chdir to the project root — so a single relative path can't serve both.
+# Probe both layouts instead of guessing.
+def nubecita_metadata_android_dir
+  [
+    File.join(Dir.pwd, "metadata", "android"),             # CWD = fastlane/
+    File.join(Dir.pwd, "fastlane", "metadata", "android"), # CWD = project root
+  ].find { |d| File.directory?(d) } ||
+    UI.user_error!("Could not locate fastlane/metadata/android from #{Dir.pwd}")
+end
 
 platform :android do
   desc "Build a signed release AAB and upload it to the Play Console internal track."
@@ -52,9 +65,10 @@ platform :android do
     # treat that string as a locale, and call
     # `get_edit_listing(language: "android")` — which Play Console rejects with
     # a 400 "Invalid request". We synthesize a single en-US changelog in a
-    # per-run tmpdir so the only field that leaves this lane is the release
-    # note — listing metadata, images, and screenshots are all skip_upload_*'d
-    # below.
+    # per-run tmpdir, and stage the committed marketing screenshots alongside
+    # it, so the fields that leave this lane are: the AAB, the release note, and
+    # the framed Play-listing screenshots. Listing TEXT (title/description) and
+    # the icon/feature graphic stay skip_upload_*'d.
     Dir.mktmpdir("nubecita-fastlane-metadata") do |metadata_path|
       changelog_dir = File.join(metadata_path, "en-US", "changelogs")
       FileUtils.mkdir_p(changelog_dir)
@@ -63,6 +77,25 @@ platform :android do
         release_notes.to_s[0, PLAY_CHANGELOG_MAX_CHARS]
       )
 
+      # Stage the committed framed marketing screenshots into the tmpdir,
+      # stripping the `_framed` suffix so Play receives clean filenames. These
+      # are produced (occasionally, on an emulator) by the `screenshots` lane
+      # and committed to the repo — the release runs in CI with no device, so
+      # it just uploads what's checked in. Only `*_framed.png` are committed
+      # (raw captures are gitignored), so this never double-uploads.
+      # Every device bucket (phoneScreenshots, tenInchScreenshots, …) — stage
+      # each into the matching tmpdir folder so supply uploads phone + tablet.
+      framed =
+        Dir.glob(
+          File.join(nubecita_metadata_android_dir, "en-US", "images", "*Screenshots", "*_framed.jpg")
+        )
+      framed.each do |src|
+        bucket = File.basename(File.dirname(src)) # e.g. phoneScreenshots / tenInchScreenshots
+        dest_dir = File.join(metadata_path, "en-US", "images", bucket)
+        FileUtils.mkdir_p(dest_dir)
+        FileUtils.cp(src, File.join(dest_dir, File.basename(src).sub("_framed", "")))
+      end
+
       upload_to_play_store(
         track: "internal",
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
@@ -70,8 +103,141 @@ platform :android do
         skip_upload_apk: true,
         skip_upload_metadata: true,
         skip_upload_images: true,
-        skip_upload_screenshots: true,
+        # Upload screenshots only when we actually staged some — an empty set
+        # with skip_upload_screenshots:false would CLEAR the live listing's
+        # screenshots, which we never want as a silent side effect.
+        skip_upload_screenshots: framed.empty?,
       )
     end
+  end
+
+  desc "Capture + frame all Play Store marketing screenshots from the bench flavor."
+  desc "Pass device:<adb serial> to disambiguate when multiple devices are attached."
+  lane :screenshots do |options|
+    # Bench flavor → deterministic, already-signed-in fake data with bundled
+    # android_asset images. Build the two APKs the Screenfile points at, then
+    # let screengrab install them, run FeedScreenshotJourney, and pull the PNGs
+    # into fastlane/metadata/android/<locale>/images/. Upload to Play is a
+    # deliberate separate step (review the shots first) — not wired here yet.
+    # Scope to :app — the unqualified task names would also build every
+    # feature module's bench androidTest, and those access internal composables
+    # only reachable from their productionDebug test variant (they fail to
+    # compile under bench). screengrab only needs :app's two APKs.
+    gradle(task: ":app:assembleBenchDebug")
+    gradle(task: ":app:assembleBenchDebugAndroidTest")
+
+    # Config is passed inline (not via a Screenfile): the
+    # capture_android_screenshots *action* doesn't read fastlane/Screenfile the
+    # way the standalone `screengrab` CLI does, so an explicit app_apk_path is
+    # required — otherwise screengrab auto-discovers every APK under app/build
+    # and can't pick one non-interactively.
+    capture_android_screenshots(
+      app_package_name: "net.kikin.nubecita",
+      tests_package_name: "net.kikin.nubecita.test",
+      # Bench-flavor debug APKs: signed-in fake session + deterministic
+      # timeline with bundled android_asset images.
+      app_apk_path: "app/build/outputs/apk/bench/debug/app-bench-debug.apk",
+      tests_apk_path: "app/build/outputs/apk/androidTest/bench/debug/app-bench-debug-androidTest.apk",
+      # Run only the marketing journey, not the unrelated :app androidTests.
+      use_tests_in_classes: ["net.kikin.nubecita.screenshots.MarketingScreenshotJourney"],
+      # The module runner swaps in HiltTestApplication so the @AndroidEntryPoint
+      # MainActivity launches under the bench Hilt graph.
+      test_instrumentation_runner: "net.kikin.nubecita.core.testing.android.HiltTestRunner",
+      locales: ["en-US"],
+      clear_previous_screenshots: true,
+      reinstall_app: true,
+      # Don't abort the whole run (and skip the pull) if one journey method
+      # fails — keep the screens that did capture.
+      exit_on_test_failure: false,
+      # nil → screengrab's default single-device selection; required only when
+      # more than one emulator/device is attached.
+      specific_device: options[:device],
+    )
+
+    # Strip screengrab's timestamp suffix (01_feed_1780383507366.png →
+    # 01_feed.png) so frameit's title.strings keys stay stable across runs.
+    Dir.glob(File.join(nubecita_metadata_android_dir, "*", "images", "*Screenshots", "*.png")).each do |path|
+      next if File.basename(path).include?("_framed")
+      cleaned = File.basename(path, ".png").sub(/_\d{6,}\z/, "")
+      dest = File.join(File.dirname(path), "#{cleaned}.png")
+      File.rename(path, dest) unless path == dest
+    end
+
+    frame_marketing_screenshots
+  end
+
+  desc "Wrap raw captures in a device frame + backdrop + localized title (fastlane frameit)."
+  lane :frame_marketing_screenshots do
+    # frameit (frame_screenshots) reads fastlane/metadata/android/Framefile.json
+    # for the backdrop/title styling and each locale's images/*/title.strings for
+    # the headline, then composites the screenshot into a device frame.
+    #
+    # HARD REQUIREMENT — capture resolution must match a frameit device in
+    # device_types.rb, else it aborts with "Unsupported screen size". The bench
+    # journey is captured on a Pixel-5-class display (1080x2340 @ 432dpi); the
+    # default `gphone16k` AVD is 1280x2856 (NOT supported). Override before
+    # capture with:
+    #   adb -s <serial> shell wm size 1080x2340 && adb -s <serial> shell wm density 432
+    # (reset afterwards with `wm size reset` / `wm density reset`), or use a
+    # Pixel 5 AVD. Requires ImageMagick (`brew install imagemagick`).
+    frame_screenshots(path: "./fastlane/metadata/android")
+
+    # frameit emits 24-bit *_framed.png; convert to high-quality JPG (Play
+    # accepts JPEG and these have no transparency) so the committed marketing
+    # assets stay well under the repo's 500 KB large-file limit. The PNGs are
+    # gitignored intermediates.
+    Dir.glob(File.join(nubecita_metadata_android_dir, "*", "images", "*Screenshots", "*_framed.png")).each do |png|
+      sh("magick #{png.shellescape} -quality 90 #{png.sub(/\.png\z/, '.jpg').shellescape}")
+      File.delete(png)
+    end
+  end
+
+  desc "Capture + backdrop-frame the TABLET (tenInch) marketing screenshots."
+  desc "Run against a tablet device/emulator: pass device:<adb serial>."
+  lane :screenshots_tablet do |options|
+    serial = options[:device] || UI.user_error!("Pass device:<adb serial> for a tablet device.")
+
+    gradle(task: ":app:assembleBenchDebug")
+    gradle(task: ":app:assembleBenchDebugAndroidTest")
+
+    # Kill animations for crisp captures. (POST_NOTIFICATIONS is handled inside
+    # the journey via GrantPermissionRule, so a fresh install won't pop the
+    # dialog that otherwise covers the feed.)
+    sh("adb -s #{serial} shell settings put global window_animation_scale 0 || true")
+    sh("adb -s #{serial} shell settings put global transition_animation_scale 0 || true")
+
+    capture_android_screenshots(
+      app_package_name: "net.kikin.nubecita",
+      tests_package_name: "net.kikin.nubecita.test",
+      app_apk_path: "app/build/outputs/apk/bench/debug/app-bench-debug.apk",
+      tests_apk_path: "app/build/outputs/apk/androidTest/bench/debug/app-bench-debug-androidTest.apk",
+      use_tests_in_classes: ["net.kikin.nubecita.screenshots.MarketingScreenshotJourney"],
+      test_instrumentation_runner: "net.kikin.nubecita.core.testing.android.HiltTestRunner",
+      locales: ["en-US"],
+      # Don't wipe the phone bucket — tablet captures are relocated below.
+      clear_previous_screenshots: false,
+      reinstall_app: true,
+      exit_on_test_failure: false,
+      specific_device: serial,
+    )
+
+    # screengrab routes every capture to phoneScreenshots regardless of device;
+    # relocate the freshly-captured (timestamped) tablet shots into the tenInch
+    # bucket, stripping the timestamp so the composite + titles line up.
+    base = nubecita_metadata_android_dir
+    phone = File.join(base, "en-US", "images", "phoneScreenshots")
+    ten = File.join(base, "en-US", "images", "tenInchScreenshots")
+    FileUtils.mkdir_p(ten)
+    Dir.glob(File.join(phone, "*.png")).each do |f|
+      name = File.basename(f)
+      next if name.include?("_framed")
+      next unless name =~ /_\d{6,}\.png\z/ # only the just-captured, timestamped tablet shots
+      FileUtils.mv(f, File.join(ten, name.sub(/_\d{6,}(\.png)\z/, '\1')))
+    end
+
+    # Backdrop + headline (no bezel) via ImageMagick — frameit has no modern
+    # tablet frame. Script lives next to the brand assets.
+    script = File.expand_path("../../frameit_assets/compose_tablet.sh", base)
+    sh("bash #{script.shellescape} en-US")
   end
 end

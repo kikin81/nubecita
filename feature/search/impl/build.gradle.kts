@@ -17,6 +17,22 @@ android {
         // @TestInstallIn-replaced component graph (vrba.9 tap-through tests).
         testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
     }
+
+    // The `environment` flavor dimension splits the production search
+    // repository modules (real `app.bsky.feed.searchPosts` /
+    // `app.bsky.unspecced.getPopularFeedGenerators` XRPC calls via
+    // `DefaultSearchPostsRepository` / `DefaultSearchFeedsRepository`) from a
+    // bench-flavor parallel that binds in-memory `BenchFakeSearchPostsRepository`
+    // / `BenchFakeSearchFeedsRepository`. The `:app` module's `bench` flavor
+    // consumes the matching variant via the missingDimensionStrategy plumbing
+    // in `AndroidLibraryConventionPlugin`; everything that imports
+    // `:feature:search:impl` resolves the production variant by default. Mirrors
+    // `:feature:feed:impl`'s split (crmi.6 Section A2, `bd show nubecita-xh99`).
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
 }
 
 dependencies {

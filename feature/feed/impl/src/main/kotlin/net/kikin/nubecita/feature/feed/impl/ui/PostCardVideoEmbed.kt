@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -228,6 +229,7 @@ private fun PostCardVideoEmbedAutoplay(
         modifier =
             modifier
                 .fillMaxWidth()
+                .testTag("feed_video_embed")
                 .aspectRatio(video.aspectRatio)
                 .clip(MaterialTheme.shapes.large)
                 .let { base ->
