@@ -1,5 +1,5 @@
 {
-  "_comment": "Deterministic fixture timeline for the :app bench flavor. Loaded by FakeFeedRepository on first fetchPage() call. Field names mirror data/models/*.kt Kotlin property names. Sealed types use a 'type' discriminator following kotlinx.serialization defaults. Timestamps end at 2026-05-27T17:00:00Z and span the prior 24h. See bd nubecita-crmi.6 Section E stage 1.",
+  "_comment": "Deterministic fixture timeline for the :app bench flavor. Loaded by FakeFeedRepository on first fetchPage() call. Field names mirror data/models/*.kt Kotlin property names. Sealed types use a 'type' discriminator following kotlinx.serialization defaults. Timestamps end at 2026-05-27T17:00:00Z and span the prior 24h. See bd nubecita-crmi.6 Section E stage 1. INVARIANT: the first 4 items must NOT be Gif embeds. The fastlane marketing hero (MarketingScreenshotJourney.a01Feed) captures the initial feed viewport, and an animated GIF there would freeze on a random frame, making the Play Store screenshot non-deterministic. GIF posts start at index 4 (still in the macrobench scroll path). Guarded by BenchTimelineFixtureTest.",
   "cursor": null,
   "items": [
     {
@@ -30,46 +30,6 @@
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
           "likeUri": null,
-          "repostUri": null,
-          "isAuthorMutedByViewer": false,
-          "isAuthorBlockedByViewer": false,
-          "isAuthorBlockingViewer": false
-        },
-        "repostedBy": null
-      }
-    },
-    {
-      "type": "Single",
-      "post": {
-        "id": "at://did:plc:gifa000000000000000000000/app.bsky.feed.post/3kfeedgifa1",
-        "cid": "bafyreigifa00000000000000000000000000000000000000000001",
-        "author": {
-          "did": "did:plc:gifa000000000000000000000",
-          "handle": "memes.bsky.social",
-          "displayName": "Meme Stream",
-          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
-        },
-        "createdAt": "2026-05-27T16:52:00Z",
-        "text": "the only acceptable reaction to a green CI run on a friday afternoon",
-        "facets": [],
-        "embed": {
-          "type": "Gif",
-          "gifUrl": "file:///android_asset/img/gifs/loop-a.gif",
-          "aspectRatio": 1.167,
-          "altText": "looping reaction gif",
-          "thumbUrl": "file:///android_asset/img/gifs/loop-a.gif"
-        },
-        "stats": {
-          "replyCount": 3,
-          "repostCount": 8,
-          "likeCount": 121,
-          "quoteCount": 1
-        },
-        "viewer": {
-          "isLikedByViewer": true,
-          "isRepostedByViewer": false,
-          "isFollowingAuthor": true,
-          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlikegifa",
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
@@ -114,46 +74,6 @@
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
           "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike1",
-          "repostUri": null,
-          "isAuthorMutedByViewer": false,
-          "isAuthorBlockedByViewer": false,
-          "isAuthorBlockingViewer": false
-        },
-        "repostedBy": null
-      }
-    },
-    {
-      "type": "Single",
-      "post": {
-        "id": "at://did:plc:gifb000000000000000000000/app.bsky.feed.post/3kfeedgifb1",
-        "cid": "bafyreigifb00000000000000000000000000000000000000000001",
-        "author": {
-          "did": "did:plc:gifb000000000000000000000",
-          "handle": "reactions.bsky.social",
-          "displayName": "Reaction Cam",
-          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
-        },
-        "createdAt": "2026-05-27T16:40:00Z",
-        "text": "me watching the macrobench trace finally go flat",
-        "facets": [],
-        "embed": {
-          "type": "Gif",
-          "gifUrl": "file:///android_asset/img/gifs/loop-b.gif",
-          "aspectRatio": 1.167,
-          "altText": "looping reaction gif",
-          "thumbUrl": "file:///android_asset/img/gifs/loop-b.gif"
-        },
-        "stats": {
-          "replyCount": 6,
-          "repostCount": 2,
-          "likeCount": 67,
-          "quoteCount": 0
-        },
-        "viewer": {
-          "isLikedByViewer": false,
-          "isRepostedByViewer": false,
-          "isFollowingAuthor": false,
-          "likeUri": null,
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
@@ -242,6 +162,46 @@
     {
       "type": "Single",
       "post": {
+        "id": "at://did:plc:gifa000000000000000000000/app.bsky.feed.post/3kfeedgifa1",
+        "cid": "bafyreigifa00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:gifa000000000000000000000",
+          "handle": "memes.bsky.social",
+          "displayName": "Meme Stream",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        "createdAt": "2026-05-27T16:52:00Z",
+        "text": "the only acceptable reaction to a green CI run on a friday afternoon",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop-a.gif",
+          "aspectRatio": 1.167,
+          "altText": "looping reaction gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop-a.gif"
+        },
+        "stats": {
+          "replyCount": 3,
+          "repostCount": 8,
+          "likeCount": 121,
+          "quoteCount": 1
+        },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlikegifa",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
         "id": "at://did:plc:diego00000000000000000000/app.bsky.feed.post/3kfeed0004",
         "cid": "bafyreidiego000000000000000000000000000000000000000000004",
         "author": {
@@ -287,6 +247,46 @@
           "isRepostedByViewer": false,
           "isFollowingAuthor": true,
           "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike4",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:gifb000000000000000000000/app.bsky.feed.post/3kfeedgifb1",
+        "cid": "bafyreigifb00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:gifb000000000000000000000",
+          "handle": "reactions.bsky.social",
+          "displayName": "Reaction Cam",
+          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+        },
+        "createdAt": "2026-05-27T16:40:00Z",
+        "text": "me watching the macrobench trace finally go flat",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop-b.gif",
+          "aspectRatio": 1.167,
+          "altText": "looping reaction gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop-b.gif"
+        },
+        "stats": {
+          "replyCount": 6,
+          "repostCount": 2,
+          "likeCount": 67,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": false,
+          "likeUri": null,
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
