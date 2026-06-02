@@ -297,7 +297,11 @@ private fun VideoPlayerSeekBar(
             LinearWavyProgressIndicator(
                 progress = { sliderState.value },
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                // Played wave = primary, matching M3 Expressive's default
+                // indicator color and the design (the play button is primary
+                // too). The thumb stays white so the playhead reads against the
+                // wave; the remaining track is a light line over the scrim.
+                color = MaterialTheme.colorScheme.primary,
                 trackColor = Color.White.copy(alpha = 0.3f),
                 amplitude = { waveAmplitude },
             )
