@@ -118,6 +118,28 @@ public sealed interface EmbedUi {
     ) : MediaEmbed
 
     /**
+     * A GIF posted as an `app.bsky.embed.external` (Klipy/Tenor/Giphy, or any
+     * `.gif` URL). Rendered inline as a looping animated image via Coil's
+     * `AnimatedImageDecoder` — NOT the video pipeline: the shared single
+     * ExoPlayer can only drive one video, so N GIFs in a thread would freeze.
+     * Coil gives each GIF an independent drawable; only on-screen ones animate
+     * (the LazyColumn item disposes the request when it scrolls off).
+     *
+     * - [gifUrl] the animated source (the external `uri`, an `image/gif`).
+     * - [thumbUrl] the static poster (the external `thumb`), null if absent.
+     * - [aspectRatio] width/height when derivable (Klipy/Tenor carry `ww`/`hh`
+     *   query params); null when unknown — the render caps height rather than
+     *   guess, to avoid a layout jump.
+     * - [alt] alt text / title for accessibility; null when the source had none.
+     */
+    public data class Gif(
+        val gifUrl: String,
+        val thumbUrl: String?,
+        val aspectRatio: Float?,
+        val alt: String?,
+    ) : MediaEmbed
+
+    /**
      * Bluesky `app.bsky.embed.record#viewRecord`.
      *
      * A quoted post that resolved successfully — the lexicon

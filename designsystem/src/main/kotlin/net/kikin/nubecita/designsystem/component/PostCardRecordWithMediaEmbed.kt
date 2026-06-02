@@ -92,6 +92,10 @@ public fun PostCardRecordWithMediaEmbed(
                     )
                     true
                 }
+                is EmbedUi.Gif -> {
+                    PostCardGifEmbed(gifUrl = media.gifUrl, aspectRatio = media.aspectRatio, alt = media.alt)
+                    true
+                }
                 is EmbedUi.Video ->
                     if (videoEmbedSlot != null) {
                         videoEmbedSlot(media)

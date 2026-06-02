@@ -5,6 +5,52 @@
     {
       "type": "Single",
       "post": {
+        "id": "at://did:plc:gif00000000000000000000/app.bsky.feed.post/3kfeedgif01",
+        "cid": "bafyreigif0000000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:gif00000000000000000000",
+          "handle": "gifs.bsky.social",
+          "displayName": "GIF Tester",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        "createdAt": "2026-05-26T17:04:30Z",
+        "text": "gif posts loop inline now",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop.gif",
+          "aspectRatio": 1.0,
+          "altText": "looping demo gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop.gif"
+        }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:gif00000000000000000000/app.bsky.feed.post/3kfeedgif02",
+        "cid": "bafyreigif0000000000000000000000000000000000000000000002",
+        "author": {
+          "did": "did:plc:gif00000000000000000000",
+          "handle": "gifs.bsky.social",
+          "displayName": "GIF Tester",
+          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+        },
+        "createdAt": "2026-05-26T17:04:20Z",
+        "text": "another looping clip",
+        "facets": [],
+        "embed": {
+          "type": "Gif",
+          "gifUrl": "file:///android_asset/img/gifs/loop.gif",
+          "aspectRatio": 0.8,
+          "altText": "looping demo gif",
+          "thumbUrl": "file:///android_asset/img/gifs/loop.gif"
+        }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
         "id": "at://did:plc:alice000000000000000000/app.bsky.feed.post/3kfeed0001",
         "cid": "bafyreialice000000000000000000000000000000000000000000001",
         "author": {

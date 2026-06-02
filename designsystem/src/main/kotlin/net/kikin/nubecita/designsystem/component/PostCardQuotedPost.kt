@@ -186,6 +186,10 @@ private fun QuotedEmbedSlot(
                 onTap = null,
             )
         }
+        is QuotedEmbedUi.Gif -> {
+            Spacer(Modifier.height(8.dp))
+            PostCardGifEmbed(gifUrl = embed.gifUrl, aspectRatio = embed.aspectRatio, alt = embed.alt)
+        }
         is QuotedEmbedUi.Video -> {
             if (quotedVideoEmbedSlot != null) {
                 Spacer(Modifier.height(8.dp))
@@ -248,6 +252,10 @@ private fun QuotedRecordWithMediaSlot(
                         // onTap owns the whole quoted region's click target.
                         onTap = null,
                     )
+                    true
+                }
+                is QuotedEmbedUi.Gif -> {
+                    PostCardGifEmbed(gifUrl = media.gifUrl, aspectRatio = media.aspectRatio, alt = media.alt)
                     true
                 }
                 is QuotedEmbedUi.Video ->

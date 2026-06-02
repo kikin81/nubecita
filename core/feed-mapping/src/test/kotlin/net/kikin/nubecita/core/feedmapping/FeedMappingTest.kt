@@ -71,6 +71,16 @@ internal class FeedMappingTest {
     }
 
     @Test
+    fun `klipy external embed projects to EmbedUi Gif`() {
+        val postView = decodePostView(POST_WITH_KLIPY_GIF_EMBED)
+        val mapped = postView.toPostUiCore()
+        assertNotNull(mapped)
+        val gif = assertInstanceOf(EmbedUi.Gif::class.java, mapped!!.embed)
+        assertEquals("https://static.klipy.com/x/Y.gif?hh=498&ww=463", gif.gifUrl)
+        assertEquals(463f / 498f, gif.aspectRatio!!, 0.0001f)
+    }
+
+    @Test
     fun `video embed projects to EmbedUi Video with parsed aspect ratio`() {
         val postView = decodePostView(POST_WITH_VIDEO_EMBED)
         val mapped = postView.toPostUiCore()
@@ -192,6 +202,31 @@ internal class FeedMappingTest {
                   "uri": "https://www.example.com/article",
                   "title": "Example title",
                   "description": "Example description"
+                }
+              }
+            }
+        """
+
+        const val POST_WITH_KLIPY_GIF_EMBED = """
+            {
+              "uri": "at://did:plc:fake/app.bsky.feed.post/g1",
+              "cid": "bafyreifakecid000000000000000000000000000000000",
+              "author": {
+                "did": "did:plc:fake",
+                "handle": "fake.bsky.social"
+              },
+              "indexedAt": "2026-04-26T12:00:00Z",
+              "record": {
+                "${'$'}type": "app.bsky.feed.post",
+                "text": "gif",
+                "createdAt": "2026-04-26T12:00:00Z"
+              },
+              "embed": {
+                "${'$'}type": "app.bsky.embed.external#view",
+                "external": {
+                  "uri": "https://static.klipy.com/x/Y.gif?hh=498&ww=463",
+                  "title": "a gif",
+                  "description": ""
                 }
               }
             }
