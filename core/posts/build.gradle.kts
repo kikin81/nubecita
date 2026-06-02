@@ -20,6 +20,10 @@ dependencies {
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+    // PostThreadMapperTest builds app.bsky.feed wire fixtures whose embed
+    // records are raw JsonObjects (buildJsonObject) — lifted in with the
+    // thread mapper (nubecita-6rdb.3).
+    testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
 }
