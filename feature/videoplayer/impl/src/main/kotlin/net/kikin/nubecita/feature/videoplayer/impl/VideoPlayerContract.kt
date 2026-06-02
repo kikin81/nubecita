@@ -87,6 +87,12 @@ internal sealed interface VideoPlayerLoadStatus {
 internal sealed interface VideoPlayerEvent : UiEvent {
     data object PlayPauseClicked : VideoPlayerEvent
 
+    /** Seek back 10s, clamped to the start of the clip. */
+    data object SkipBack : VideoPlayerEvent
+
+    /** Seek forward 10s, clamped to the clip duration. */
+    data object SkipForward : VideoPlayerEvent
+
     data object MuteClicked : VideoPlayerEvent
 
     data class SeekTo(

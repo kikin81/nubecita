@@ -320,6 +320,69 @@ internal class VideoPlayerViewModelTest {
         }
 
     @Test
+    fun skipForward_advances10s_andResetsAutoHide() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+            positionMsFlow.value = 60_000L
+            durationMsFlow.value = 200_000L
+            runCurrent()
+
+            vm.handleEvent(VideoPlayerEvent.SkipForward)
+            runCurrent()
+
+            verify { holder.seekTo(70_000L) }
+            assertEquals(true, vm.uiState.value.chromeVisible)
+        }
+
+    @Test
+    fun skipForward_clampsAtDuration() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+            positionMsFlow.value = 195_000L
+            durationMsFlow.value = 200_000L
+            runCurrent()
+
+            vm.handleEvent(VideoPlayerEvent.SkipForward)
+            runCurrent()
+
+            verify { holder.seekTo(200_000L) }
+        }
+
+    @Test
+    fun skipBack_rewinds10s() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+            positionMsFlow.value = 60_000L
+            runCurrent()
+
+            vm.handleEvent(VideoPlayerEvent.SkipBack)
+            runCurrent()
+
+            verify { holder.seekTo(50_000L) }
+        }
+
+    @Test
+    fun skipBack_clampsAtZero() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+            positionMsFlow.value = 5_000L
+            runCurrent()
+
+            vm.handleEvent(VideoPlayerEvent.SkipBack)
+            runCurrent()
+
+            verify { holder.seekTo(0L) }
+        }
+
+    @Test
     fun chrome_autoHidesAfter3Seconds() =
         runTest {
             stubVideo()

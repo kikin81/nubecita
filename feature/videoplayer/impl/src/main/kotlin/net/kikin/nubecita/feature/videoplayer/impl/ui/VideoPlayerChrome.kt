@@ -11,8 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconButtonShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -43,9 +49,12 @@ import java.util.Locale
  * 3s auto-hide is managed by [VideoPlayerViewModel]; this composable
  * just renders the controls assuming it's visible.
  *
- * Layout: top row (back button), bottom column (seek bar with elapsed
- * /total + transport-row with mute + play/pause).
+ * Layout: top row (back button), a centered transport cluster (skip-back
+ * 10s · large morphing play/pause · skip-forward 10s), and a bottom column
+ * (seek bar with elapsed/total + a row with the time labels, mute, and the
+ * optional pop-out affordance).
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun VideoPlayerChrome(
     state: VideoPlayerState,
@@ -57,6 +66,16 @@ internal fun VideoPlayerChrome(
     // (design D5), so it's a plain callback rather than a VideoPlayerEvent.
     onPopOut: (() -> Unit)? = null,
 ) {
+    // Remembered so the morph button's `shapes` is a stable instance —
+    // IconButtonShapes isn't @Stable, so allocating it inline would defeat
+    // skipping and re-run the button on every position tick (120hz target).
+    val playPauseShapes =
+        remember {
+            IconButtonShapes(
+                shape = CircleShape,
+                pressedShape = RoundedCornerShape(PLAY_PAUSE_PRESSED_CORNER),
+            )
+        }
     Box(modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)) {
         // Top band: back button.
         IconButton(
@@ -74,6 +93,62 @@ internal fun VideoPlayerChrome(
             )
         }
 
+        // Center band: skip-back 10s · large morphing play/pause · skip-forward 10s.
+        Row(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FilledIconButton(
+                onClick = { onEvent(VideoPlayerEvent.SkipBack) },
+                modifier = Modifier.size(SKIP_BUTTON_SIZE),
+                shape = CircleShape,
+                colors = translucentSkipColors(),
+            ) {
+                NubecitaIcon(
+                    name = NubecitaIconName.Replay10,
+                    contentDescription = stringResource(R.string.video_player_skip_back_content_description),
+                    opticalSize = SKIP_ICON_SIZE,
+                    tint = Color.White,
+                )
+            }
+            // The one element that breaks from the surrounding circular shape
+            // language: a large filled primary button that morphs round→squircle
+            // on press (design panel C). The `shapes` overload animates between
+            // `shape` and `pressedShape` from the interaction source.
+            FilledIconButton(
+                onClick = { onEvent(VideoPlayerEvent.PlayPauseClicked) },
+                modifier = Modifier.size(PLAY_PAUSE_BUTTON_SIZE),
+                shapes = playPauseShapes,
+            ) {
+                NubecitaIcon(
+                    name = if (state.isPlaying) NubecitaIconName.Pause else NubecitaIconName.PlayArrow,
+                    contentDescription =
+                        stringResource(
+                            if (state.isPlaying) {
+                                R.string.video_player_pause_content_description
+                            } else {
+                                R.string.video_player_play_content_description
+                            },
+                        ),
+                    opticalSize = PLAY_PAUSE_ICON_SIZE,
+                )
+            }
+            FilledIconButton(
+                onClick = { onEvent(VideoPlayerEvent.SkipForward) },
+                modifier = Modifier.size(SKIP_BUTTON_SIZE),
+                shape = CircleShape,
+                colors = translucentSkipColors(),
+            ) {
+                NubecitaIcon(
+                    name = NubecitaIconName.Forward10,
+                    contentDescription = stringResource(R.string.video_player_skip_forward_content_description),
+                    opticalSize = SKIP_ICON_SIZE,
+                    tint = Color.White,
+                )
+            }
+        }
+
         // Bottom band: seek bar + transport row.
         Column(
             modifier =
@@ -89,7 +164,8 @@ internal fun VideoPlayerChrome(
                 onSeek = { onEvent(VideoPlayerEvent.SeekTo(it)) },
                 modifier = Modifier.fillMaxWidth(),
             )
-            // Transport row: time labels + spacer + mute + play/pause.
+            // Transport row: time labels + spacer + mute + optional pop-out.
+            // Play/pause now lives in the centered transport cluster above.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -134,27 +210,31 @@ internal fun VideoPlayerChrome(
                         )
                     }
                 }
-                IconButton(
-                    onClick = { onEvent(VideoPlayerEvent.PlayPauseClicked) },
-                    modifier = Modifier.size(44.dp),
-                ) {
-                    NubecitaIcon(
-                        name = if (state.isPlaying) NubecitaIconName.Pause else NubecitaIconName.PlayArrow,
-                        contentDescription =
-                            stringResource(
-                                if (state.isPlaying) {
-                                    R.string.video_player_pause_content_description
-                                } else {
-                                    R.string.video_player_play_content_description
-                                },
-                            ),
-                        tint = Color.White,
-                    )
-                }
             }
         }
     }
 }
+
+// Centered transport cluster sizing. The play/pause is intentionally larger
+// than the skip buttons so it reads as the primary control; the pressed corner
+// drives the round→squircle morph.
+private val SKIP_BUTTON_SIZE = 52.dp
+private val SKIP_ICON_SIZE = 28.dp
+private val PLAY_PAUSE_BUTTON_SIZE = 72.dp
+private val PLAY_PAUSE_ICON_SIZE = 36.dp
+private val PLAY_PAUSE_PRESSED_CORNER = 27.dp
+
+/**
+ * Translucent dark-on-white fill for the skip buttons (design token
+ * `rgba(255,255,255,0.16)` over the scrim) with a white glyph — distinct
+ * from the primary-filled play/pause so the hierarchy reads correctly.
+ */
+@Composable
+private fun translucentSkipColors() =
+    IconButtonDefaults.filledIconButtonColors(
+        containerColor = Color.White.copy(alpha = 0.16f),
+        contentColor = Color.White,
+    )
 
 /**
  * Seek bar with drag-only commit semantics: `onValueChange` is many

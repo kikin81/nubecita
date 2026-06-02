@@ -3,6 +3,8 @@
     <!-- Chrome content descriptions for accessibility. -->
     <string name="video_player_play_content_description">Play</string>
     <string name="video_player_pause_content_description">Pause</string>
+    <string name="video_player_skip_back_content_description">Skip back 10 seconds</string>
+    <string name="video_player_skip_forward_content_description">Skip forward 10 seconds</string>
     <string name="video_player_mute_content_description">Mute</string>
     <string name="video_player_unmute_content_description">Unmute</string>
     <string name="video_player_back_content_description">Close player</string>
