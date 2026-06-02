@@ -198,6 +198,20 @@ Because the bottom navigation bar is hidden on phone sub-routes and placed on th
 
 **Outer-shell** screens (Login, Onboarding — `@OuterShell`, no `NavigationSuiteScaffold`) are unaffected and handle the IME themselves via `Scaffold(contentWindowInsets = WindowInsets.safeDrawing)` / `safeDrawingPadding()`.
 
+### Adaptive layouts (phone full-screen / tablet dialog)
+
+The canonical "two layouts" need — a route that is **full-screen on phone (Compact) and a centered dialog on tablet/foldable (Medium/Expanded)** — is handled by a **Navigation 3 scene strategy**, NOT a hand-rolled per-feature launcher + overlay state + `CompositionLocal` + Dialog host. (That pattern was ~10 files per surface and is an anti-pattern here — don't reintroduce it.)
+
+To make any `@MainShell` sub-route adaptive, tag its `entry` with `adaptiveDialog()` (from `:core:common:navigation`) — that is the **entire** opt-in:
+
+```kotlin
+entry<EditProfile>(metadata = adaptiveDialog()) { route -> /* the normal full-screen screen */ }
+```
+
+The shared `AdaptiveDialogSceneStrategy` (`:app/shell/adaptive`, wired into `MainShell`'s `NavDisplay(sceneStrategies = …)` **before** the list-detail strategy — overlay strategies must come first) reads that metadata and renders the entry as a centered `Dialog` (scrim + 640dp card) at Medium/Expanded, and **declines** (`calculateScene` returns `null`) at Compact so it falls through to the full-screen single-pane scene. The push site is a plain `navState.add(route)` at every width — no width check, no launcher. The screen/ViewModel stay feature-`internal`; the previous destination stays composed underneath (`OverlayScene.overlaidEntries`), so a screen behind the dialog keeps its state and observers live (e.g. the profile's `ownProfileUpdates` refresh while the editor is open).
+
+Reference impl: `EditProfileNavigationModule` (one metadata tag). The composer still uses the older hand-rolled launcher/overlay pattern pending migration (`nubecita-11st`) — mirror the scene-strategy approach, not the composer, for any new adaptive surface. Full contract + the Google I/O 2026 "scene strategies over per-form-factor layouts" rationale + the alpha-version note: `docs/adaptive-layouts.md`. Background recipes live in the `/navigation-3` and `/adaptive` Claude CLI skills (nav3 Dialog / BottomSheet / list-detail scene recipes).
+
 ### Design system conventions
 
 #### Surface token roles
