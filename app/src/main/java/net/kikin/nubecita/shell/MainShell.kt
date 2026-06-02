@@ -56,6 +56,7 @@ import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
 import net.kikin.nubecita.navigation.NavigationEntryPoint
+import net.kikin.nubecita.shell.adaptive.rememberAdaptiveDialogSceneStrategy
 import net.kikin.nubecita.shell.composer.ComposerLauncherState
 import net.kikin.nubecita.shell.composer.ComposerOverlay
 import net.kikin.nubecita.shell.composer.rememberComposerLauncher
@@ -227,6 +228,12 @@ fun MainShell(modifier: Modifier = Modifier) {
                     else -> baseDirective.defaultPanePreferredWidth
                 },
         )
+    // Adaptive dialog overlay: any entry tagged with `adaptiveDialog()` metadata
+    // (e.g. EditProfile) renders as a centered Dialog at Medium / Expanded and
+    // full-screen at Compact. Listed BEFORE the list-detail strategy below —
+    // overlay scene strategies must come first (they decline on Compact and
+    // fall through to the single-pane scene).
+    val dialogStrategy = rememberAdaptiveDialogSceneStrategy<NavKey>()
     val sceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(
             directive = listDetailDirective,
@@ -316,7 +323,7 @@ fun MainShell(modifier: Modifier = Modifier) {
             NavDisplay(
                 backStack = mainShellNavState.backStack,
                 onBack = { mainShellNavState.removeLast() },
-                sceneStrategies = listOf(sceneStrategy),
+                sceneStrategies = listOf(dialogStrategy, sceneStrategy),
                 // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
                 // it itself. Supply only the public decorators required for hiltViewModel()
                 // and saved state to work inside NavEntries.
