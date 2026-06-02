@@ -207,8 +207,11 @@ class MarketingScreenshotJourney {
             device.findObject(By.res(FEED_LIST))?.scroll(Direction.DOWN, 0.8f)
             device.waitForIdle()
         }
-        return device.findObject(By.res(resId))
-            ?: throw AssertionError("'$resId' not found after ${SCROLL_TRIES} feed scrolls")
+        // Final attempt waits a full window: a tile that just scrolled into view
+        // may not have composed its node yet, and a non-blocking findObject would
+        // miss it and fail spuriously on slower devices.
+        return device.wait(Until.findObject(By.res(resId)), WAIT_MS)
+            ?: throw AssertionError("'$resId' not found after $SCROLL_TRIES feed scrolls")
     }
 
     private companion object {

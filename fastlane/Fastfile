@@ -83,6 +83,24 @@ platform :android do
       # and committed to the repo — the release runs in CI with no device, so
       # it just uploads what's checked in. Only `*_framed.png` are committed
       # (raw captures are gitignored), so this never double-uploads.
+      # Guard against silently shipping a PARTIAL listing: the capture lanes run
+      # with exit_on_test_failure:false, so a failed journey method can leave a
+      # bucket missing a screen. Any bucket with SOME framed shots must have one
+      # per title.strings key before we mutate the live Play listing.
+      titles = File.join(nubecita_metadata_android_dir, "en-US", "images", "phoneScreenshots", "title.strings")
+      expected = File.readlines(titles).map { |line| line[/^\s*"([^"]+)"\s*=/, 1] }.compact
+      Dir.glob(File.join(nubecita_metadata_android_dir, "en-US", "images", "*Screenshots")).each do |bucket_dir|
+        present = Dir.glob(File.join(bucket_dir, "*_framed.jpg")).map { |f| File.basename(f).sub(/_framed\.jpg\z/, "") }
+        next if present.empty?
+        missing = expected - present
+        next if missing.empty?
+        UI.user_error!(
+          "Marketing screenshots incomplete in #{File.basename(bucket_dir)}: missing " \
+            "#{missing.join(', ')}. Re-run `fastlane screenshots` / `screenshots_tablet`, " \
+            "or delete the bucket to skip it."
+        )
+      end
+
       # Every device bucket (phoneScreenshots, tenInchScreenshots, …) — stage
       # each into the matching tmpdir folder so supply uploads phone + tablet.
       framed =
