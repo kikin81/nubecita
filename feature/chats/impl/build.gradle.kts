@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -12,6 +13,12 @@ android {
         // the @TestInstallIn-replaced component graph. Mirrors the setup in
         // :feature:composer:impl and :feature:feed:impl.
         testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
+    }
+
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
     }
 }
 

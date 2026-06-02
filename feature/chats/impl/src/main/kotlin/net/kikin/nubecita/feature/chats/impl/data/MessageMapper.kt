@@ -25,7 +25,7 @@ import kotlin.time.Instant
  *
  * Order is preserved; the lexicon returns newest-first.
  */
-internal fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: String): ImmutableList<MessageUi> {
+fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: String): ImmutableList<MessageUi> {
     if (isEmpty()) return persistentListOf()
     return mapNotNull { union ->
         when (union) {
@@ -52,7 +52,7 @@ internal fun List<GetMessagesResponseMessagesUnion>.toMessageUis(viewerDid: Stri
  * `MessageView`). A server-fetched/confirmed message is never deleted here, so
  * `isDeleted = false`.
  */
-internal fun MessageView.toMessageUi(viewerDid: String): MessageUi =
+fun MessageView.toMessageUi(viewerDid: String): MessageUi =
     MessageUi(
         id = id,
         senderDid = sender.did.raw,

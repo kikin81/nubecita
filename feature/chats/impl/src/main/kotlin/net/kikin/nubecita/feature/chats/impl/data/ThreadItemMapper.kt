@@ -33,7 +33,7 @@ private val MONTH_DAY_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern
  * shape resolver's `isFirst` / `isLast` reasoning matches screen-top semantics
  * under `LazyColumn(reverseLayout = true)`.
  */
-internal fun List<MessageUi>.toThreadItems(
+fun List<MessageUi>.toThreadItems(
     now: Instant,
     zone: ZoneId = ZoneId.systemDefault(),
 ): ImmutableList<ThreadItem> {

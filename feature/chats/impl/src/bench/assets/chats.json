@@ -1,0 +1,169 @@
+{
+  "_comment": "Deterministic mock conversations and messages for the bench flavor. Loaded by BenchFakeChatRepository.",
+  "convos": [
+    {
+      "convoId": "convo_alice",
+      "otherUserDid": "did:plc:alice000000000000000000",
+      "otherUserHandle": "alice.bsky.social",
+      "displayName": "Alice Chen",
+      "avatarUrl": "file:///android_asset/img/avatars/alice.jpg",
+      "lastMessageSnippet": "Awesome. Let me know when the PR is ready to review!",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T16:55:00Z",
+      "messages": [
+        {
+          "id": "msg_alice_3",
+          "senderDid": "did:plc:alice000000000000000000",
+          "text": "Awesome. Let me know when the PR is ready to review!",
+          "sentAt": "2026-05-27T16:55:00Z"
+        },
+        {
+          "id": "msg_alice_2",
+          "senderDid": "did:plc:benchnubecita0000000000000",
+          "text": "Yeah, just finished reviewing. They look super solid.",
+          "sentAt": "2026-05-27T16:53:00Z"
+        },
+        {
+          "id": "msg_alice_1",
+          "senderDid": "did:plc:alice000000000000000000",
+          "text": "Hey! Did you check out the new design token mappings?",
+          "sentAt": "2026-05-27T16:50:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_bob",
+      "otherUserDid": "did:plc:bob0000000000000000000000",
+      "otherUserHandle": "bob.dev",
+      "displayName": "Bob Iglesias",
+      "avatarUrl": "file:///android_asset/img/avatars/bob.jpg",
+      "lastMessageSnippet": "Ethiopian Yirgacheffe roaster arrived today. morning brew is amazing.",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T15:30:00Z",
+      "messages": [
+        {
+          "id": "msg_bob_1",
+          "senderDid": "did:plc:bob0000000000000000000000",
+          "text": "Ethiopian Yirgacheffe roaster arrived today. morning brew is amazing.",
+          "sentAt": "2026-05-27T15:30:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_carmen",
+      "otherUserDid": "did:plc:carmen0000000000000000000",
+      "otherUserHandle": "carmen.codes",
+      "displayName": "Carmen Lopez",
+      "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg",
+      "lastMessageSnippet": "Staring at type-safe routes, send help.",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T14:20:00Z",
+      "messages": [
+        {
+          "id": "msg_carmen_1",
+          "senderDid": "did:plc:carmen0000000000000000000",
+          "text": "Staring at type-safe routes, send help.",
+          "sentAt": "2026-05-27T14:20:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_diego",
+      "otherUserDid": "did:plc:diego00000000000000000000",
+      "otherUserHandle": "diego.outdoors",
+      "displayName": "Diego Marin",
+      "avatarUrl": "file:///android_asset/img/avatars/diego.jpg",
+      "lastMessageSnippet": "Are you coming for the ridge hike Saturday?",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T12:15:00Z",
+      "messages": [
+        {
+          "id": "msg_diego_1",
+          "senderDid": "did:plc:diego00000000000000000000",
+          "text": "Are you coming for the ridge hike Saturday?",
+          "sentAt": "2026-05-27T12:15:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_elena",
+      "otherUserDid": "did:plc:elena00000000000000000000",
+      "otherUserHandle": "elena.draws",
+      "displayName": "Elena Ortega",
+      "avatarUrl": "file:///android_asset/img/avatars/elena.jpg",
+      "lastMessageSnippet": "Found that old 2019 sketchbook concept!",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T11:05:00Z",
+      "messages": [
+        {
+          "id": "msg_elena_1",
+          "senderDid": "did:plc:elena00000000000000000000",
+          "text": "Found that old 2019 sketchbook concept!",
+          "sentAt": "2026-05-27T11:05:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_fede",
+      "otherUserDid": "did:plc:fede00000000000000000000",
+      "otherUserHandle": "fede.gardens",
+      "displayName": "Federico Vega",
+      "avatarUrl": "file:///android_asset/img/avatars/fede.jpg",
+      "lastMessageSnippet": "Tomato trusses look great. Bone meal was the key.",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T09:40:00Z",
+      "messages": [
+        {
+          "id": "msg_fede_1",
+          "senderDid": "did:plc:fede00000000000000000000",
+          "text": "Tomato trusses look great. Bone meal was the key.",
+          "sentAt": "2026-05-27T09:40:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_gabe",
+      "otherUserDid": "did:plc:gabe00000000000000000000",
+      "otherUserHandle": "gabe.reads",
+      "displayName": "Gabriela Soto",
+      "avatarUrl": "file:///android_asset/img/avatars/gabe.jpg",
+      "lastMessageSnippet": "Interesting article on embedded DBs, WAL is neat.",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T08:12:00Z",
+      "messages": [
+        {
+          "id": "msg_gabe_1",
+          "senderDid": "did:plc:gabe00000000000000000000",
+          "text": "Interesting article on embedded DBs, WAL is neat.",
+          "sentAt": "2026-05-27T08:12:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_hugo",
+      "otherUserDid": "did:plc:hugo00000000000000000000",
+      "otherUserHandle": "hugo.audio",
+      "displayName": "Hugo Park",
+      "avatarUrl": "file:///android_asset/img/avatars/hugo.jpg",
+      "lastMessageSnippet": "We should treat the room before buying new monitors.",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T07:01:00Z",
+      "messages": [
+        {
+          "id": "msg_hugo_1",
+          "senderDid": "did:plc:hugo00000000000000000000",
+          "text": "We should treat the room before buying new monitors.",
+          "sentAt": "2026-05-27T07:01:00Z"
+        }
+      ]
+    }
+  ]
+}

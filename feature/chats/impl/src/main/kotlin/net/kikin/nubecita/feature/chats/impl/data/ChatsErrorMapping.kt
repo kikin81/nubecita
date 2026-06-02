@@ -56,7 +56,7 @@ private const val NOT_FOLLOWED_BY_SENDER_MARKER = "notfollowedbysender"
  * [ChatsError] variant. Predates [toChatError]; kept for the existing
  * convo-list ViewModel.
  */
-internal fun Throwable.toChatsError(): ChatsError =
+fun Throwable.toChatsError(): ChatsError =
     when (this) {
         is IOException -> ChatsError.Network
         is NoSessionException -> ChatsError.Unknown("not-signed-in")
@@ -84,7 +84,7 @@ internal fun Throwable.toChatsError(): ChatsError =
  * (retryable from the composer's inline retry affordance). No send-specific
  * variant is added — there is no distinct send-failure UX in scope.
  */
-internal fun Throwable.toChatError(): ChatError =
+fun Throwable.toChatError(): ChatError =
     when (this) {
         is IOException -> ChatError.Network
         is NoSessionException -> ChatError.Unknown("not-signed-in")
