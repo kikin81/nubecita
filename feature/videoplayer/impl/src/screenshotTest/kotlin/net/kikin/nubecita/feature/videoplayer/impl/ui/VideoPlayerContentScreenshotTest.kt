@@ -75,8 +75,8 @@ private fun VideoPlayerContentReadyPlayingScreenshot() {
 @Composable
 private fun VideoPlayerContentReadyPopOutScreenshot() {
     // Pop-out / enter-PiP affordance shown (PiP-capable device) — locks the
-    // glyph into the bottom transport row next to mute (nubecita-q5ge.8). The
-    // play/pause + skip controls render in the centered cluster (nubecita-6rdb.4).
+    // glyph into the mute + PiP utility row under play/pause (nubecita-6rdb.6);
+    // when onPopOut is null (other previews) mute sits there alone.
     NubecitaCanvasPreviewTheme {
         VideoPlayerContent(
             state =
