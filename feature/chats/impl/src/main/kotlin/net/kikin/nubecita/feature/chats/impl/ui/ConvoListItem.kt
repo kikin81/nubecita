@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -83,7 +84,9 @@ internal fun ConvoListItem(
         leadingContent = { Avatar(item = item, modifier = Modifier.size(48.dp)) },
         supportingContent = { SubtitleText(item = item) },
         trailingContent = { TrailingTimestamp(item = item) },
-        modifier = modifier,
+        // Stable tag for the screengrab marketing journey to tap into a DM
+        // thread; every row shares it, the journey taps the first match.
+        modifier = modifier.testTag("chat_convo_item"),
     ) {
         // Trailing `content` lambda is the headline slot — same convention as
         // ListItem / SegmentedListItem in compose-material3 alpha19. The named

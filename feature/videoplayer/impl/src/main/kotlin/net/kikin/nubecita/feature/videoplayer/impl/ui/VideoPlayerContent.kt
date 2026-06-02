@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.testTag
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -92,6 +93,11 @@ internal fun VideoPlayerContent(
                         Modifier
                             .align(Alignment.Center)
                             .fillMaxSize()
+                            // Tag lives on the READY-state surface only (not the
+                            // root Box) so the screengrab journey's await fails
+                            // loudly on a resolver/playback error instead of
+                            // green-lighting the "Something went wrong" screen.
+                            .testTag("video_player")
                             .then(
                                 if (state.aspectRatio != null) {
                                     Modifier.aspectRatio(state.aspectRatio)

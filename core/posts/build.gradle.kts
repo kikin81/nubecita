@@ -5,6 +5,21 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.core.posts"
+
+    // The `environment` flavor dimension splits the production
+    // PostRepositoryModule (real `app.bsky.feed.getPosts` XRPC call via
+    // `DefaultPostRepository`) from a bench-flavor parallel that binds a
+    // deterministic, network-free `BenchFakePostRepository`. The `:app`
+    // module's `bench` flavor consumes the matching variant via the
+    // missingDimensionStrategy plumbing in `AndroidLibraryConventionPlugin`;
+    // everything that imports `:core:posts` resolves the production variant
+    // by default. Mirrors the precedent established in `:feature:feed:impl`
+    // (crmi.6 Section A2) and `:core:auth` (Section A1, #330).
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
 }
 
 dependencies {

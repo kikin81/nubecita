@@ -74,3 +74,11 @@ vendor/bundle/
 .bundle/
 fastlane/report.xml
 fastlane/test_output/
+
+# Marketing screenshots: commit ONLY the final framed images, as JPG
+# (*_framed.jpg) — small enough for the repo and accepted by Play. Raw PNG
+# captures and frameit's intermediate *_framed.png are reproducible from
+# `bundle exec fastlane screenshots` / `screenshots_tablet`, so ignore every
+# PNG in the screenshot dirs plus the HTML overview.
+fastlane/metadata/android/*/images/*Screenshots/*.png
+fastlane/metadata/android/screenshots.html

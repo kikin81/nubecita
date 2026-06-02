@@ -340,6 +340,12 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.espresso.intents)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.uiautomator)
+    // fastlane screengrab: marketing screenshot capture driven by the bench
+    // flavor (deterministic, logged-in fake data). Test-only — never ships in
+    // the app APK. The `screenshots` fastlane lane runs the bench androidTest.
+    androidTestImplementation(libs.screengrab)
 
     // Baseline profile producer wiring — :benchmark's
     // `BaselineProfileGenerator` writes startup-prof.txt + baseline-prof.txt

@@ -18,6 +18,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
@@ -95,7 +96,7 @@ private fun LoadedBody(
     onEvent: (SearchFeedsEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(modifier = modifier.fillMaxSize(), state = listState) {
+    LazyColumn(modifier = modifier.fillMaxSize().testTag("search_feeds_list"), state = listState) {
         items(items = items, key = { it.uri }) { feed ->
             FeedRow(feed = feed)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
