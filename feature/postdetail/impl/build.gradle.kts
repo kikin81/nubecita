@@ -29,6 +29,9 @@ dependencies {
     // outer Navigator (the route is `@OuterShell`-qualified) so the
     // player escapes MainShell's NavigationSuiteScaffold chrome.
     implementation(project(":feature:videoplayer:api"))
+    // Chrome Custom Tab launcher for tappable external (web link) embeds in
+    // thread posts — mirrors :feature:feed:impl's onExternalEmbedTap (nubecita-thom).
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.runtime)
     implementation(libs.timber)
