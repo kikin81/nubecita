@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
+import net.kikin.nubecita.feature.videoplayer.impl.ChromeVisibility
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerLoadStatus
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerState
@@ -61,7 +62,7 @@ private fun VideoPlayerContentReadyPlayingScreenshot() {
                     isMuted = false,
                     positionMs = 5_400L,
                     durationMs = 30_000L,
-                    chromeVisible = true,
+                    chromeVisibility = ChromeVisibility.Shown,
                 ),
             player = null,
             onEvent = {},
@@ -87,7 +88,7 @@ private fun VideoPlayerContentReadyPopOutScreenshot() {
                     isMuted = false,
                     positionMs = 5_400L,
                     durationMs = 30_000L,
-                    chromeVisible = true,
+                    chromeVisibility = ChromeVisibility.Shown,
                 ),
             player = null,
             onEvent = {},
@@ -111,7 +112,32 @@ private fun VideoPlayerContentReadyPausedScreenshot() {
                     isMuted = false,
                     positionMs = 5_400L,
                     durationMs = 30_000L,
-                    chromeVisible = true,
+                    chromeVisibility = ChromeVisibility.Shown,
+                ),
+            player = null,
+            onEvent = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "ready-peeking-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Preview(name = "ready-peeking-dark", showBackground = true, heightDp = CANVAS_HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun VideoPlayerContentReadyPeekingScreenshot() {
+    // Peeking rung (nubecita-6rdb.7): lighter scrim, the center transport
+    // cluster is dropped, but the back button + seek bar + time stay.
+    NubecitaCanvasPreviewTheme {
+        VideoPlayerContent(
+            state =
+                VideoPlayerState(
+                    loadStatus = VideoPlayerLoadStatus.Ready,
+                    aspectRatio = 16f / 9f,
+                    isPlaying = true,
+                    isMuted = false,
+                    positionMs = 5_400L,
+                    durationMs = 30_000L,
+                    chromeVisibility = ChromeVisibility.Peeking,
                 ),
             player = null,
             onEvent = {},
@@ -134,7 +160,7 @@ private fun VideoPlayerContentReadyChromeHiddenScreenshot() {
                     isMuted = true,
                     positionMs = 12_000L,
                     durationMs = 30_000L,
-                    chromeVisible = false,
+                    chromeVisibility = ChromeVisibility.Hidden,
                 ),
             player = null,
             onEvent = {},
@@ -147,9 +173,9 @@ private fun VideoPlayerContentReadyChromeHiddenScreenshot() {
 @Preview(name = "pip-chrome-suppressed-dark", showBackground = true, heightDp = CANVAS_HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun VideoPlayerContentPipScreenshot() {
-    // In PiP the chrome is suppressed even though `chromeVisible = true` — the
+    // In PiP the chrome is suppressed even though the rung is Shown — the
     // floating window shows only the video. Distinct from ready-chrome-hidden
-    // (which hides via chromeVisible = false); this locks the isInPip override.
+    // (Hidden rung); this locks the isInPip override.
     NubecitaCanvasPreviewTheme {
         VideoPlayerContent(
             state =
@@ -160,7 +186,7 @@ private fun VideoPlayerContentPipScreenshot() {
                     isMuted = false,
                     positionMs = 5_400L,
                     durationMs = 30_000L,
-                    chromeVisible = true,
+                    chromeVisibility = ChromeVisibility.Shown,
                 ),
             player = null,
             onEvent = {},

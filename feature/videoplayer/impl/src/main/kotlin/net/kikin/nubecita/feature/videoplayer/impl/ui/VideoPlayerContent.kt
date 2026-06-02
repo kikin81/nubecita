@@ -2,9 +2,6 @@
 
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,6 +20,7 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.feature.videoplayer.impl.ChromeVisibility
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerLoadStatus
@@ -35,7 +33,7 @@ import kotlin.math.roundToInt
  *    centered CircularProgressIndicator over black.
  *  - [VideoPlayerLoadStatus.Ready]: three Z-layers per the surface-
  *    composition rule: poster image (lowest) → Media3 PlayerSurface
- *    (middle) → AnimatedVisibility chrome overlay (top). Stacking
+ *    (middle) → chrome overlay (top). Stacking
  *    ensures a smooth poster reveal during PlayerSurface attach/detach
  *    transitions instead of a black flash.
  *  - [VideoPlayerLoadStatus.Error]: centered title/body + retry button.
@@ -119,14 +117,11 @@ internal fun VideoPlayerContent(
                         )
                     }
                 }
-                AnimatedVisibility(
-                    // Chrome (back button, seek bar, controls) is always hidden in
-                    // PiP — the floating window shows only the video.
-                    visible = state.chromeVisible && !isInPip,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
+                // Chrome is suppressed entirely in PiP (the floating window shows
+                // only the video); otherwise VideoPlayerChrome renders the active
+                // ChromeVisibility rung (Shown / Peeking / Hidden) with its own
+                // per-element fades and scrim.
+                if (!isInPip) {
                     VideoPlayerChrome(
                         state = state,
                         onEvent = onEvent,
@@ -177,7 +172,7 @@ private fun VideoPlayerContentReadyChromeVisiblePreview() {
                     isMuted = false,
                     positionMs = 5_400L,
                     durationMs = 30_000L,
-                    chromeVisible = true,
+                    chromeVisibility = ChromeVisibility.Shown,
                 ),
             player = null,
             onEvent = {},
@@ -200,7 +195,7 @@ private fun VideoPlayerContentReadyChromeHiddenPreview() {
                     isMuted = true,
                     positionMs = 12_000L,
                     durationMs = 30_000L,
-                    chromeVisible = false,
+                    chromeVisibility = ChromeVisibility.Hidden,
                 ),
             player = null,
             onEvent = {},

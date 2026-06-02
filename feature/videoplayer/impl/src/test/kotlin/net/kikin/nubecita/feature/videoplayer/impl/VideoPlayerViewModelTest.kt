@@ -26,6 +26,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
+import net.kikin.nubecita.feature.videoplayer.impl.ChromeVisibility
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -256,21 +257,20 @@ internal class VideoPlayerViewModelTest {
         }
 
     @Test
-    fun init_resolveFails_doesNotArmChromeAutoHide() =
+    fun init_resolveFails_doesNotArmChromeLadder() =
         runTest {
             stubFailure(IOException("disconnected"))
             val vm = newVm()
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is VideoPlayerLoadStatus.Error)
-            assertEquals(true, vm.uiState.value.chromeVisible)
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
 
-            // No Ready state has been reached, so the auto-hide timer must
-            // not have armed during init — chrome stays visible even past
-            // the 3s mark, otherwise the retry button would vanish before
-            // the user could tap it.
-            advanceTimeBy(5_000L)
+            // isPlaying never goes true on a resolver failure, so the auto-hide
+            // ladder never arms — chrome stays Shown even past both rung delays,
+            // otherwise the retry button would vanish before the user could tap it.
+            advanceTimeBy(8_000L)
             runCurrent()
-            assertEquals(true, vm.uiState.value.chromeVisible)
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
         }
 
     @Test
@@ -286,7 +286,7 @@ internal class VideoPlayerViewModelTest {
             runCurrent()
 
             verify { holder.pause() }
-            assertEquals(true, vm.uiState.value.chromeVisible)
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
         }
 
     @Test
@@ -316,7 +316,7 @@ internal class VideoPlayerViewModelTest {
             runCurrent()
 
             verify { holder.seekTo(12_345L) }
-            assertEquals(true, vm.uiState.value.chromeVisible)
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
         }
 
     @Test
@@ -333,7 +333,7 @@ internal class VideoPlayerViewModelTest {
             runCurrent()
 
             verify { holder.seekTo(70_000L) }
-            assertEquals(true, vm.uiState.value.chromeVisible)
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
         }
 
     @Test
@@ -383,38 +383,67 @@ internal class VideoPlayerViewModelTest {
         }
 
     @Test
-    fun chrome_autoHidesAfter3Seconds() =
+    fun chromeLadder_advancesShownPeekingHiddenWhilePlaying() =
         runTest {
             stubVideo()
             val vm = newVm()
             runCurrent()
-            assertEquals(true, vm.uiState.value.chromeVisible)
+            // Playback starts → reveal + arm the ladder.
+            isPlayingFlow.value = true
+            runCurrent()
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
 
             advanceTimeBy(3_000L)
             runCurrent()
+            assertEquals(ChromeVisibility.Peeking, vm.uiState.value.chromeVisibility)
 
-            assertEquals(false, vm.uiState.value.chromeVisible)
+            advanceTimeBy(3_000L)
+            runCurrent()
+            assertEquals(ChromeVisibility.Hidden, vm.uiState.value.chromeVisibility)
         }
 
     @Test
-    fun toggleChrome_flipsVisible_andStopsAutoHideWhenHiding() =
+    fun tap_returnsChromeToShown_andRestartsLadder() =
         runTest {
             stubVideo()
             val vm = newVm()
             runCurrent()
+            isPlayingFlow.value = true
+            runCurrent()
+            advanceTimeBy(6_000L) // Shown → Peeking → Hidden
+            runCurrent()
+            assertEquals(ChromeVisibility.Hidden, vm.uiState.value.chromeVisibility)
 
+            // A surface tap returns it to Shown and restarts the ladder.
             vm.handleEvent(VideoPlayerEvent.ToggleChrome)
             runCurrent()
-            assertEquals(false, vm.uiState.value.chromeVisible)
-
-            // Now toggle back on — auto-hide should re-arm.
-            vm.handleEvent(VideoPlayerEvent.ToggleChrome)
-            runCurrent()
-            assertEquals(true, vm.uiState.value.chromeVisible)
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
 
             advanceTimeBy(3_000L)
             runCurrent()
-            assertEquals(false, vm.uiState.value.chromeVisible)
+            assertEquals(ChromeVisibility.Peeking, vm.uiState.value.chromeVisibility)
+        }
+
+    @Test
+    fun pause_pinsChromeShown_cancellingLadder() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+            isPlayingFlow.value = true
+            runCurrent()
+            advanceTimeBy(3_000L)
+            runCurrent()
+            assertEquals(ChromeVisibility.Peeking, vm.uiState.value.chromeVisibility)
+
+            // Pause pins Shown and cancels the ladder — controls stay up.
+            isPlayingFlow.value = false
+            runCurrent()
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
+
+            advanceTimeBy(8_000L)
+            runCurrent()
+            assertEquals(ChromeVisibility.Shown, vm.uiState.value.chromeVisibility)
         }
 
     @Test
