@@ -375,11 +375,20 @@ internal class DefaultProfileRepository
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
+                // Redaction discipline (class KDoc): log the error identity, not
+                // the raw `message` — an XrpcError's message embeds the request
+                // URL + the viewer's DID. For XrpcError the structured errorName
+                // + status are non-PII and the most diagnostic signal anyway
+                // (payload-too-large vs auth vs rate-limit); the throwable's
+                // stacktrace is still attached for the cause chain, same as the
+                // other logs in this file.
+                val xrpcDetail =
+                    (throwable as? XrpcError)?.let { " errorName=${it.errorName} status=${it.status}" } ?: ""
                 Timber.tag(TAG).e(
                     throwable,
-                    "uploadImage — FAILED: %s: %s",
+                    "uploadImage — FAILED: %s%s",
                     throwable.javaClass.name,
-                    throwable.message,
+                    xrpcDetail,
                 )
                 throw ProfileUpdateError.BlobUploadFailed(throwable)
             }
