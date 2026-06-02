@@ -1,9 +1,11 @@
 package net.kikin.nubecita.feature.postdetail.impl
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Configuration
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -71,6 +73,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
 import kotlin.time.Clock
 import kotlin.time.Instant
+import android.net.Uri as AndroidUri
 
 /**
  * Hilt-aware post-detail screen.
@@ -126,7 +129,7 @@ internal fun PostDetailScreen(
 
     val haptics = rememberPostHaptics()
     val callbacks =
-        remember(viewModel, haptics) {
+        remember(viewModel, haptics, context) {
             PostCallbacks(
                 onTap = { viewModel.handleEvent(PostDetailEvent.OnPostTapped(it.id)) },
                 onAuthorTap = { viewModel.handleEvent(PostDetailEvent.OnAuthorTapped(it.did)) },
@@ -149,6 +152,22 @@ internal fun PostDetailScreen(
                 // Long-press already fires the system long-press haptic via
                 // combinedClickable — don't double-tap the motor.
                 onShareLongPress = { viewModel.handleEvent(PostDetailEvent.OnShareLongPressed(it)) },
+                onExternalEmbedTap = { uri ->
+                    // Opening a URL is a stateless platform action, so do it
+                    // inline (no VM round-trip) exactly like FeedScreen. Narrowed
+                    // catch: silent no-op only for the "no CCT-capable browser
+                    // installed" case; other launch failures propagate so genuine
+                    // bugs surface in logcat instead of a blanket catch.
+                    try {
+                        CustomTabsIntent
+                            .Builder()
+                            .setShowTitle(true)
+                            .build()
+                            .launchUrl(context, AndroidUri.parse(uri))
+                    } catch (_: ActivityNotFoundException) {
+                        // No browser available — silent no-op.
+                    }
+                },
                 onQuotedPostTap = { quoted ->
                     viewModel.handleEvent(PostDetailEvent.OnQuotedPostTapped(quoted.uri))
                 },
