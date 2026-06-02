@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,9 +20,11 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconButtonShapes
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -237,13 +240,20 @@ private fun translucentSkipColors() =
     )
 
 /**
- * Seek bar with drag-only commit semantics: `onValueChange` is many
- * times per gesture (every touch frame on Material's Slider), but
- * `seekTo` on Media3 can be expensive for HLS-backed playback (segment
- * fetch, decoder flush). Track the drag fraction locally and only fire
- * [onSeek] on `onValueChangeFinished` so a single scrub gesture
- * produces a single seek.
+ * Wavy seek bar (design D3): a Material 3 `Slider` whose track slot is a
+ * [LinearWavyProgressIndicator] — the played portion renders as a wave, the
+ * remaining portion as a flat track. The slider keeps the thumb, gesture, and
+ * accessibility; only the track painting changes, so the drag-to-commit
+ * semantics are unchanged.
+ *
+ * Drag-only commit: `onValueChange` fires many times per gesture (every touch
+ * frame), but `seekTo` on Media3 can be expensive for HLS-backed playback
+ * (segment fetch, decoder flush). Track the drag fraction locally and only
+ * fire [onSeek] on `onValueChangeFinished` so a single scrub gesture produces a
+ * single seek. The wave amplitude eases to 0 while scrubbing so the playhead
+ * reads cleanly, then eases back.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun VideoPlayerSeekBar(
     positionMs: Long,
@@ -262,6 +272,11 @@ private fun VideoPlayerSeekBar(
         } else {
             0f
         }
+    // Flatten the wave (amplitude → 0) while the user scrubs, then ease it back.
+    val waveAmplitude by animateFloatAsState(
+        targetValue = if (draggingFraction != null) 0f else 1f,
+        label = "seekBarAmplitude",
+    )
     Slider(
         value = draggingFraction ?: positionFraction,
         onValueChange = { fraction ->
@@ -277,6 +292,20 @@ private fun VideoPlayerSeekBar(
             }
         },
         valueRange = 0f..1f,
+        colors = SliderDefaults.colors(thumbColor = Color.White),
+        track = { sliderState ->
+            LinearWavyProgressIndicator(
+                progress = { sliderState.value },
+                modifier = Modifier.fillMaxWidth(),
+                // Played wave = primary, matching M3 Expressive's default
+                // indicator color and the design (the play button is primary
+                // too). The thumb stays white so the playhead reads against the
+                // wave; the remaining track is a light line over the scrim.
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = Color.White.copy(alpha = 0.3f),
+                amplitude = { waveAmplitude },
+            )
+        },
         modifier = modifier.semantics { contentDescription = seekContentDescription },
     )
 }
