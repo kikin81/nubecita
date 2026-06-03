@@ -70,6 +70,13 @@ internal fun ConvoListItem(
     selected: Boolean = false,
 ) {
     SegmentedListItem(
+        // The single-selection overload (vs the plain onClick one): passing
+        // [selected] makes the framework drive BOTH the selected container tone
+        // and the accessibility semantics (`selected` + RadioButton role), so
+        // TalkBack announces the open thread as selected. A manual containerColor
+        // swap would paint the right pixels but leave the row semantically
+        // unselected.
+        selected = selected,
         onClick = { onTap(item.otherUserDid) },
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         // segmentedColors() leaves the resting containerColor transparent —
@@ -79,18 +86,14 @@ internal fun ConvoListItem(
         // (m3.material.io/blog/tone-based-surface-color-m3): surfaceContainer
         // is the canonical "list section" tier — one step up from `surface`.
         //
-        // [selected] (the open thread in the tablet list-detail layout) lifts the
-        // row to secondaryContainer — the M3 selected-item tone — so the active
-        // conversation reads as picked against the surfaceContainer rows around
-        // it. Always false on phones, where the list isn't visible beside a thread.
+        // selectedContainerColor lifts the open thread (tablet list-detail) to
+        // secondaryContainer — the M3 selected-item tone — so it reads as picked
+        // against the surrounding rows. [selected] is always false on phones,
+        // where the list isn't visible beside a thread.
         colors =
             ListItemDefaults.segmentedColors(
-                containerColor =
-                    if (selected) {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainer
-                    },
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             ),
         leadingContent = { Avatar(item = item, modifier = Modifier.size(48.dp)) },
         supportingContent = { SubtitleText(item = item) },

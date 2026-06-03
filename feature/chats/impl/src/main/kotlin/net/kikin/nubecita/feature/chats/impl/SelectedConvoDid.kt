@@ -16,4 +16,4 @@ import net.kikin.nubecita.feature.chats.api.Chat
  * (single-pane shows only the detail), so a non-null result there is
  * simply never painted — no width gate needed at the call site.
  */
-internal fun selectedConvoDid(backStack: List<NavKey>): String? = backStack.filterIsInstance<Chat>().lastOrNull()?.otherUserDid
+internal fun selectedConvoDid(backStack: List<NavKey>): String? = (backStack.lastOrNull { it is Chat } as? Chat)?.otherUserDid
