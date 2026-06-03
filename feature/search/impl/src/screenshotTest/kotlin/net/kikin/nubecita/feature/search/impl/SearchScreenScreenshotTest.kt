@@ -18,11 +18,11 @@ import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 // `ui/PostsTabContentScreenshotTest` + `ui/PeopleTabContentScreenshotTest`.
 // On-device verification covers the integrated swipe + tab-state path.
 //
-// vrba.10 note: the integrated [SearchPhase.Typeahead] variant
-// ([SearchTypeaheadScreen]) also hoists `hiltViewModel<>()`, so its
-// stateless body [SearchTypeaheadContent] is screenshot-tested
-// directly in `ui/SearchTypeaheadContentScreenshotTest`. The
-// SearchScreen variants here cover Discover only.
+// SearchBar note: the expanded typing overlay ([ExpandedFullScreenSearchBar]
+// hosting the recents list or [SearchTypeaheadScreen]) renders in a popup
+// window that layoutlib cannot capture, so it is NOT screenshot-tested. The
+// typeahead body is covered directly in `ui/SearchTypeaheadContentScreenshotTest`;
+// the variants here cover the collapsed search bar over the Discover body.
 
 @PreviewTest
 @Preview(name = "search-screen-empty-light", showBackground = true, heightDp = 600)
@@ -57,6 +57,30 @@ private fun SearchScreenWithChipsScreenshot() {
                 currentQuery = "",
                 phase = SearchPhase.Discover,
                 recentSearches = persistentListOf("kotlin", "compose", "room"),
+                onEvent = {},
+                onClearQueryRequest = {},
+            )
+        }
+    }
+}
+
+// Collapsed search bar carrying a query (the trailing clear-X shows when the
+// field is non-blank). Phase stays Discover so the body has no Hilt-bound
+// result tabs; this isolates the collapsed pill's typed state — the coverage
+// the deleted SearchInputRow "typed" baseline used to provide.
+@PreviewTest
+@Preview(name = "search-screen-query-light", showBackground = true, heightDp = 600)
+@Preview(name = "search-screen-query-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun SearchScreenCollapsedWithQueryScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        Surface {
+            SearchScreenContent(
+                textFieldState = TextFieldState(initialText = "kotlin"),
+                isQueryBlank = false,
+                currentQuery = "kotlin",
+                phase = SearchPhase.Discover,
+                recentSearches = persistentListOf(),
                 onEvent = {},
                 onClearQueryRequest = {},
             )

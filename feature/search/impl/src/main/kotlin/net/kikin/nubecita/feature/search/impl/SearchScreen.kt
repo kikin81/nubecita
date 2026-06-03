@@ -17,14 +17,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,7 +32,6 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
-import net.kikin.nubecita.feature.search.impl.ui.SearchInputRow
 
 /**
  * Stateful Search tab home. Hoists [SearchViewModel] and forwards
@@ -91,18 +89,19 @@ internal fun SearchScreen(
  * for unstable lambda allocations.
  *
  * Layout: a [Scaffold] hosts a [SnackbarHost] for per-tab append
- * errors. Inside the Scaffold a [Column] renders the input row
- * followed by a body branched on [phase]:
+ * errors. Inside the Scaffold a [Column] renders the [SearchBarSection]
+ * (the collapsed pill + the expanded typing overlay) followed by a body
+ * branched on [phase]:
  *  - [SearchPhase.Discover]: [RecentSearchChipStrip] when there are
  *    recents, otherwise nothing.
- *  - [SearchPhase.Typeahead]: [SearchTypeaheadScreen] (vrba.10) — the
- *    mid-query grouped suggestions surface with a "Search for {q}"
- *    CTA at the top.
  *  - [SearchPhase.Results]: [SecondaryTabRow] + [HorizontalPager]
  *    hosting [SearchPostsScreen] (page 0), [SearchActorsScreen]
  *    (page 1), and [SearchFeedsScreen] (page 2).
  *    `beyondViewportPageCount = 1` keeps adjacent per-tab VMs alive
  *    across tab switches so results are preserved.
+ *
+ * The mid-query typeahead surface ([SearchTypeaheadScreen]) is no longer
+ * a body phase — it renders inside [SearchBarSection]'s expanded overlay.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -127,18 +126,21 @@ internal fun SearchScreenContent(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
     val tabScope = rememberCoroutineScope()
 
-    // Search-tab re-tap: focus the SearchInputRow's TextField and pop the
-    // soft keyboard. MainShell emits on `LocalTabReTapSignal` whenever
-    // the user taps the active bottom-nav item; the default empty signal
-    // (no provider in previews / screenshot tests) never emits so this
-    // is a runtime no-op in those contexts. Issue #267 / nubecita-vrba.13.
-    val searchFieldFocusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
+    // The expand/collapse state of the search bar. Owned here (not the VM):
+    // it is Compose-runtime animation state, like scroll position. Defaults
+    // to Collapsed.
+    val searchBarState = rememberSearchBarState()
+    val searchBarScope = rememberCoroutineScope()
+
+    // Search-tab re-tap: expand the search bar (which focuses the field and
+    // pops the soft keyboard). MainShell emits on `LocalTabReTapSignal`
+    // whenever the user taps the active bottom-nav item; the default empty
+    // signal (no provider in previews / screenshot tests) never emits so
+    // this is a runtime no-op in those contexts. Issue #267 / nubecita-vrba.13.
     val tabReTapSignal = LocalTabReTapSignal.current
-    LaunchedEffect(tabReTapSignal, searchFieldFocusRequester, keyboardController) {
+    LaunchedEffect(tabReTapSignal, searchBarState) {
         tabReTapSignal.collect {
-            searchFieldFocusRequester.requestFocus()
-            keyboardController?.show()
+            searchBarScope.launch { searchBarState.animateToExpanded() }
         }
     }
 
@@ -275,11 +277,20 @@ internal fun SearchScreenContent(
                     .fillMaxSize()
                     .padding(innerPadding),
         ) {
-            SearchInputRow(
+            SearchBarSection(
                 textFieldState = textFieldState,
+                searchBarState = searchBarState,
                 isQueryBlank = isQueryBlank,
+                currentQuery = currentQuery,
+                recentSearches = recentSearches,
+                // Reverting an unsubmitted edit on collapse targets the last
+                // submitted query (Results) or blank (Discover), so the pill
+                // text and the body stay in sync.
+                revertTarget = revertTargetFor(phase),
                 onSubmit = onSubmit,
-                focusRequester = searchFieldFocusRequester,
+                onChipTap = onChipTap,
+                onChipRemove = onChipRemove,
+                onClearAll = onClearAll,
             )
             when (phase) {
                 SearchPhase.Discover ->
@@ -291,16 +302,14 @@ internal fun SearchScreenContent(
                             onClearAll = onClearAll,
                         )
                     }
-                is SearchPhase.Typeahead ->
-                    SearchTypeaheadScreen(
-                        currentQuery = phase.query,
-                        onCommitQuery = onSubmit,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                    )
                 is SearchPhase.Results -> {
+                    // The result tabs query the *submitted* query, never the live
+                    // text. Editing in the expanded overlay updates `currentQuery`
+                    // (for the overlay typeahead) while these tabs stay composed
+                    // underneath — feeding them `currentQuery` would re-run the
+                    // search for unsubmitted text. `phase.query` is the last
+                    // submitted query.
+                    val submittedQuery = phase.query
                     SearchResultsTabBar(
                         selectedTabIndex = pagerState.currentPage,
                         onSelectTab = { page -> tabScope.launch { pagerState.animateScrollToPage(page) } },
@@ -316,20 +325,20 @@ internal fun SearchScreenContent(
                         when (page) {
                             0 ->
                                 SearchPostsScreen(
-                                    currentQuery = currentQuery,
+                                    currentQuery = submittedQuery,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onPostsAppendError,
                                     onShowOverflowComingSoon = onPostsOverflowComingSoon,
                                 )
                             1 ->
                                 SearchActorsScreen(
-                                    currentQuery = currentQuery,
+                                    currentQuery = submittedQuery,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onActorsAppendError,
                                 )
                             2 ->
                                 SearchFeedsScreen(
-                                    currentQuery = currentQuery,
+                                    currentQuery = submittedQuery,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onFeedsAppendError,
                                 )

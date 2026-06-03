@@ -86,9 +86,12 @@ class SearchViewModelTest {
 
             advanceTimeBy(DEBOUNCE_MS + 1)
 
+            // Typing (without submitting) tracks currentQuery for the overlay
+            // typeahead, but the body phase stays Discover — typeahead is an
+            // overlay concern now, not a body state.
             assertEquals("kotlin", vm.uiState.value.currentQuery)
             assertEquals(false, vm.uiState.value.isQueryBlank)
-            assertEquals(SearchPhase.Typeahead("kotlin"), vm.uiState.value.phase)
+            assertEquals(SearchPhase.Discover, vm.uiState.value.phase)
         }
 
     @Test
@@ -110,7 +113,7 @@ class SearchViewModelTest {
         }
 
     @Test
-    fun typing_afterSubmit_returnsPhaseToTypeahead() =
+    fun typing_afterSubmit_keepsResultsBody_andUpdatesCurrentQuery() =
         runTest {
             val vm = SearchViewModel(repo)
             runCurrent()
@@ -121,13 +124,16 @@ class SearchViewModelTest {
             runCurrent()
             assertEquals(SearchPhase.Results("kotlin"), vm.uiState.value.phase)
 
-            // User edits the field after submitting — phase should swap
-            // back to Typeahead until the next submission.
+            // User edits the field after submitting. The body keeps showing
+            // the results for the last submitted query ("kotlin"); the live
+            // text drives the overlay typeahead via currentQuery. The body
+            // phase only changes on a resubmit or a clear.
             vm.textFieldState.setTextAndPlaceCursorAtEnd("kotli")
             Snapshot.sendApplyNotifications()
             advanceTimeBy(DEBOUNCE_MS + 1)
 
-            assertEquals(SearchPhase.Typeahead("kotli"), vm.uiState.value.phase)
+            assertEquals(SearchPhase.Results("kotlin"), vm.uiState.value.phase)
+            assertEquals("kotli", vm.uiState.value.currentQuery)
         }
 
     @Test
@@ -146,13 +152,15 @@ class SearchViewModelTest {
             advanceTimeBy(DEBOUNCE_MS + 1)
             assertEquals(SearchPhase.Discover, vm.uiState.value.phase)
 
-            // Re-typing the same string after a clear must land in
-            // Typeahead, NOT jump straight to Results.
+            // Re-typing after a clear (no submission yet) keeps the body in
+            // Discover — it must NOT jump straight to Results. The overlay
+            // shows the typeahead for the live text.
             vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
             Snapshot.sendApplyNotifications()
             advanceTimeBy(DEBOUNCE_MS + 1)
 
-            assertEquals(SearchPhase.Typeahead("kotlin"), vm.uiState.value.phase)
+            assertEquals(SearchPhase.Discover, vm.uiState.value.phase)
+            assertEquals("kotlin", vm.uiState.value.currentQuery)
         }
 
     @Test

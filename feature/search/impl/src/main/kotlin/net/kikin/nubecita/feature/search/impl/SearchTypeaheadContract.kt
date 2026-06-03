@@ -10,11 +10,10 @@ import net.kikin.nubecita.data.models.ActorUi
 /**
  * MVI state for the mid-query Search typeahead screen (vrba.10).
  *
- * The screen renders BETWEEN the recent-search chip strip and the
- * full results page — whenever the parent [SearchViewModel]'s phase
- * is [SearchPhase.Typeahead]. The primary "Search for {q}" CTA at
- * the top is rendered unconditionally; everything below is driven
- * by [status].
+ * The screen renders inside the expanded search overlay whenever the
+ * live query is non-blank (see [SearchBarSection]). The primary
+ * "Search for {q}" CTA at the top is rendered unconditionally;
+ * everything below is driven by [status].
  *
  * Match-highlighting reads the query off each [SearchTypeaheadStatus]
  * variant's `query` payload (the variant captures the exact query the

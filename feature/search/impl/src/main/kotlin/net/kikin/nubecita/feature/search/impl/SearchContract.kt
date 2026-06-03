@@ -8,19 +8,19 @@ import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 
 /**
- * MVI state for the Search tab home (input row + chip strip / typeahead / results).
+ * MVI state for the Search tab home (search bar + chip strip / results).
  *
- * [currentQuery] is the debounced, trimmed view of [SearchViewModel.textFieldState];
- * the typeahead screen (vrba.10) and the per-tab Screens (vrba.6 / vrba.7) subscribe
- * via the screen Composable.
+ * [currentQuery] is the debounced, trimmed view of [SearchViewModel.textFieldState].
+ * It drives the expanded overlay's typeahead surface (recents when blank,
+ * [SearchTypeaheadScreen] when non-blank); the per-tab Screens (vrba.6 / vrba.7)
+ * subscribe via the screen Composable.
  *
  * [recentSearches] mirrors the LRU list owned by `RecentSearchRepository`.
  * It is empty when the user has no recent searches; the chip-strip composable
  * does not render in that case.
  *
- * [phase] is the mutually-exclusive lifecycle sum that drives the body
- * branching in [SearchScreenContent]. See [SearchPhase] KDoc for the
- * Discover → Typeahead → Results transitions.
+ * [phase] is the mutually-exclusive lifecycle sum that drives the *body*
+ * (the surface beneath the collapsed search bar). See [SearchPhase] KDoc.
  */
 @Immutable
 data class SearchScreenViewState(
@@ -31,30 +31,25 @@ data class SearchScreenViewState(
 ) : UiState
 
 /**
- * Mutually-exclusive lifecycle for the Search tab home body. Drives
- * [SearchScreenContent]'s `when (phase)` branching:
+ * Mutually-exclusive lifecycle for the Search tab home *body* — the surface
+ * beneath the collapsed search bar. Drives [SearchScreenContent]'s
+ * `when (phase)` branching:
  *
- * - [Discover]: query is blank → render the recent-search chip strip
- *   (or an empty body if no recents).
- * - [Typeahead]: query is non-blank and has not yet been submitted →
- *   render the grouped typeahead suggestions screen (vrba.10) with
- *   the primary "Search for {q}" CTA at the top.
- * - [Results]: query has been submitted (IME action, CTA, recent
- *   chip tap) → render the SecondaryTabRow + HorizontalPager hosting
- *   the per-tab Screens (Posts / People).
+ * - [Discover]: no query has been submitted → render the recent-search chip
+ *   strip (or an empty body if no recents).
+ * - [Results]: a query has been submitted (IME action, "Search for {q}" CTA,
+ *   recent chip tap) → render the SecondaryTabRow + HorizontalPager hosting
+ *   the per-tab Screens (Posts / People / Feeds).
  *
- * Editing the text after submission re-enters [Typeahead] until the
- * next submission, mirroring the Bluesky web search behavior.
+ * Typeahead is intentionally NOT a body phase: while the user is typing, the
+ * search bar is expanded and the typeahead suggestions render inside the
+ * expanded overlay (driven by [SearchScreenViewState.currentQuery]). The body
+ * underneath keeps showing the last submitted query's results, or Discover.
  */
 @Immutable
 sealed interface SearchPhase {
     @Immutable
     data object Discover : SearchPhase
-
-    @Immutable
-    data class Typeahead(
-        val query: String,
-    ) : SearchPhase
 
     @Immutable
     data class Results(
