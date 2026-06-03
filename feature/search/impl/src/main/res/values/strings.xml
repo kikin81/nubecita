@@ -9,6 +9,12 @@
     <!-- Content description for the trailing X that clears the current input. -->
     <string name="search_input_clear_content_desc">Clear search</string>
 
+    <!-- Content description for the leading back arrow shown while the search bar is expanded. -->
+    <string name="search_input_back_content_desc">Back</string>
+
+    <!-- Section label above the recent searches inside the expanded search overlay. -->
+    <string name="search_recent_section_label">Recent</string>
+
     <!-- Content description for the trailing X on an individual recent-search chip. -->
     <string name="search_recent_remove_content_desc">Remove recent search</string>
 

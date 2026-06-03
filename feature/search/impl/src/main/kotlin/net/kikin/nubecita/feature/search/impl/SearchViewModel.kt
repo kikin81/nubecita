@@ -29,9 +29,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * `init` launches two collectors:
  *   - `snapshotFlow { textFieldState.text.toString() }.debounce(DEBOUNCE)
  *     .distinctUntilChanged()` updates [SearchScreenViewState.currentQuery]
- *     and recomputes [SearchScreenViewState.phase] against the internal
- *     [submittedQuery] so typing after a submit returns to
- *     [SearchPhase.Typeahead] until the next submission.
+ *     (which drives the expanded overlay's typeahead) and recomputes the
+ *     body [SearchScreenViewState.phase] from [submittedQuery].
  *   - [RecentSearchRepository.observeRecent] updates
  *     [SearchScreenViewState.recentSearches].
  *
@@ -40,8 +39,9 @@ import kotlin.time.Duration.Companion.milliseconds
  * the derived [SearchPhase]. Submission paths ([SearchEvent.SubmitClicked]
  * and [SearchEvent.RecentChipTapped]) update it synchronously and
  * atomically flip [SearchScreenViewState.phase] to [SearchPhase.Results]
- * so the body doesn't flicker through a stale Typeahead frame while the
- * 250ms debounce window catches up.
+ * so the body doesn't flicker through a stale Discover frame while the
+ * 250ms debounce window catches up. Typeahead is an overlay concern,
+ * driven by the live [SearchScreenViewState.currentQuery], not a body phase.
  */
 @OptIn(FlowPreview::class)
 @HiltViewModel
@@ -54,8 +54,8 @@ internal class SearchViewModel
 
         /**
          * The query the user most recently submitted (IME, CTA, chip tap).
-         * Cleared back to `""` when the field goes blank so re-typing the
-         * same string after a clear lands in Typeahead first, not Results.
+         * Cleared back to `""` when the field goes blank so the body returns
+         * to Discover after a clear, rather than showing stale results.
          */
         private var submittedQuery: String = ""
 
@@ -72,7 +72,7 @@ internal class SearchViewModel
                         copy(
                             currentQuery = trimmed,
                             isQueryBlank = trimmed.isEmpty(),
-                            phase = phaseFor(trimmed),
+                            phase = phaseForBody(),
                         )
                     }
                 }.launchIn(viewModelScope)
@@ -105,10 +105,10 @@ internal class SearchViewModel
             val text = textFieldState.text.toString().trim()
             if (text.isEmpty()) return
             submittedQuery = text
-            // Atomic phase flip so the body doesn't render Typeahead for
-            // one frame between the synchronous submit and the debounced
-            // currentQuery emission. The debounced emission that follows
-            // computes the same SearchPhase.Results value and is a no-op.
+            // Atomic phase flip so the body switches to Results immediately
+            // on submit rather than waiting for the debounced currentQuery
+            // emission. The debounced emission that follows computes the same
+            // SearchPhase.Results value and is a no-op.
             setState {
                 copy(
                     currentQuery = text,
@@ -119,11 +119,19 @@ internal class SearchViewModel
             viewModelScope.launch { recentSearches.record(text) }
         }
 
-        private fun phaseFor(trimmed: String): SearchPhase =
-            when {
-                trimmed.isEmpty() -> SearchPhase.Discover
-                trimmed == submittedQuery -> SearchPhase.Results(trimmed)
-                else -> SearchPhase.Typeahead(trimmed)
+        /**
+         * The body beneath the collapsed search bar shows the result tabs
+         * for the last submitted query, or the Discover (recent chips)
+         * surface when nothing has been submitted. Typeahead is no longer a
+         * body state — it lives only in the expanded overlay, driven by the
+         * live [SearchScreenViewState.currentQuery]. So the body phase depends
+         * solely on [submittedQuery], not on the in-flight text.
+         */
+        private fun phaseForBody(): SearchPhase =
+            if (submittedQuery.isEmpty()) {
+                SearchPhase.Discover
+            } else {
+                SearchPhase.Results(submittedQuery)
             }
 
         private companion object {
