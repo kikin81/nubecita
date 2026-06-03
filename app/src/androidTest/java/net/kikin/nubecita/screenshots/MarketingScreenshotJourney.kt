@@ -167,10 +167,13 @@ class MarketingScreenshotJourney {
      * pop the navigation stack and ruin the capture.
      */
     private fun hideKeyboardIfShown() {
-        val keyboardShown =
-            InstrumentationRegistry.getInstrumentation().uiAutomation.windows.any {
-                it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
-            }
+        val windows = InstrumentationRegistry.getInstrumentation().uiAutomation.windows
+        val keyboardShown = windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        // The returned infos are caller-owned pooled instances on API 28–32 (our
+        // minSdk floor); release them so the journey doesn't leak across its eight
+        // captures. recycle() is a documented no-op from API 33 on.
+        @Suppress("DEPRECATION")
+        windows.forEach { it.recycle() }
         if (keyboardShown) {
             device.pressBack()
             device.waitForIdle()
