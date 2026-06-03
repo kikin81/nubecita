@@ -140,6 +140,14 @@ sealed interface SettingsEvent : UiEvent {
      * snackbar effect; entitlement changes propagate via the `isPro` stream.
      */
     data object RestorePurchasesTapped : SettingsEvent
+
+    /**
+     * User tapped the "Follow the developer" row (About section). VM responds
+     * with [SettingsEffect.NavigateToDeveloperProfile]; the screen pushes the
+     * developer's `Profile` NavKey onto the MainShell inner back stack (nav is
+     * a screen concern, never the VM's — same as [ProUpsellTapped]).
+     */
+    data object FollowDeveloperTapped : SettingsEvent
 }
 
 /**
@@ -207,4 +215,13 @@ sealed interface SettingsEffect : UiEffect {
 
     /** Restore failed (network/provider) — error snackbar. */
     data object ShowRestoreError : SettingsEffect
+
+    /**
+     * Push the developer's `Profile` route onto MainShell's inner back stack.
+     * Payload-free (the developer's DID is a screen-owned constant, mirroring
+     * how [OpenPaywall] keeps `PaywallRoute` on the screen side); the screen
+     * collects this and calls `onNavigateTo(Profile(handle = <dev DID>))`,
+     * wired by the nav module to `LocalMainShellNavState.current.add(...)`.
+     */
+    data object NavigateToDeveloperProfile : SettingsEffect
 }

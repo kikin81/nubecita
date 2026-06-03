@@ -22,6 +22,11 @@
     <string name="settings_version_row_label">Version</string>
     <string name="settings_version_unknown">unknown</string>
 
+    <!-- About-section row linking to the developer's Bluesky profile. Tapping
+         it pushes the developer's Profile route onto the MainShell back stack
+         (NavigateToDeveloperProfile effect). -->
+    <string name="settings_follow_developer_row_label">Follow the developer</string>
+
     <!-- Settings home identity header (Google Play-style sheet). Greeting
          receives the signed-in user's displayName; no_name variant fires
          when displayName is absent or blank. Manage-Account pill opens

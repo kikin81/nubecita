@@ -195,6 +195,19 @@ internal class SettingsViewModelTest {
         }
 
     @Test
+    fun `FollowDeveloperTapped emits NavigateToDeveloperProfile`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.FollowDeveloperTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.NavigateToDeveloperProfile, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `init observes session flow and populates handle plus header on SignedIn`() =
         runTest(mainDispatcher.dispatcher) {
             val signedIn = SessionState.SignedIn(handle = "alice.bsky.social", did = "did:plc:alice")

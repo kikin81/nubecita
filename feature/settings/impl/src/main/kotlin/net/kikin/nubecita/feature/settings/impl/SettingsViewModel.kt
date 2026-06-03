@@ -124,6 +124,8 @@ internal class SettingsViewModel
                     sendEffect(SettingsEffect.OpenManageSubscription(sku = uiState.value.manageSku))
                 SettingsEvent.RestorePurchasesTapped ->
                     runRestore()
+                SettingsEvent.FollowDeveloperTapped ->
+                    sendEffect(SettingsEffect.NavigateToDeveloperProfile)
             }
         }
 
