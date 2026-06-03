@@ -49,8 +49,10 @@ import net.kikin.nubecita.core.image.internal.drawCropScene
  * A hand-rolled fixed-frame crop surface. Decodes [sourceUri] to a downscaled,
  * EXIF-oriented working bitmap, holds it behind a fixed frame ([shape]) the
  * user pans and pinch-zooms, and — constrained so the image always covers the
- * frame — extracts the framed region on confirm, WebP-compressed under the
- * Bluesky blob cap, via [onCrop] `(bytes, mimeType)`.
+ * frame — extracts the framed region on confirm, JPEG-compressed under the
+ * Bluesky blob cap (this surface only feeds `app.bsky.actor.profile`
+ * avatar/banner, whose lexicon accepts only PNG/JPEG — not WebP), via [onCrop]
+ * `(bytes, mimeType)`.
  *
  * Built on Compose foundation only (`detectTransformGestures` + a single
  * `Canvas`) and `android.graphics`; no telephoto, no third-party crop library.
