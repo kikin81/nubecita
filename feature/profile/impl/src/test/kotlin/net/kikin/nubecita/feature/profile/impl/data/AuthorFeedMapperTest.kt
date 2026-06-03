@@ -29,10 +29,13 @@ internal class AuthorFeedMapperTest {
         }
 
     @Test
-    fun `toTabItems deduplicates items with the same postUri`() {
-        // Synthetic JSON with two identical posts. This happens when a user
-        // reposts their own post; getAuthorFeed (Posts tab) returns both.
-        // LazyColumn keys must be unique or the screen crashes mid-scroll.
+    fun `toTabItems keeps an authors original post and their own repost as distinct entries`() {
+        // Synthetic JSON with the same post twice: once as the original
+        // (no reason) and once as the author's own repost (reasonRepost).
+        // getAuthorFeed returns both, and bsky.app renders both. They share
+        // one postUri but MUST produce two entries with distinct LazyColumn
+        // keys — folding the reposter DID into `key` keeps Compose from
+        // crashing on a duplicate slot key without dropping the repost.
         val duplicateJson =
             """
             {
@@ -75,14 +78,29 @@ internal class AuthorFeedMapperTest {
         val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), duplicateJson)
         val items = response.feed.toTabItems(ProfileTab.Posts)
 
-        // Should be deduplicated to 1 item.
-        assertEquals(1, items.size)
-        assertEquals("at://did:plc:alice/app.bsky.feed.post/1", items.first().postUri)
+        // Both entries survive — same post, distinct slot keys.
+        assertEquals(2, items.size)
+        assertEquals(
+            listOf(
+                "at://did:plc:alice/app.bsky.feed.post/1",
+                "at://did:plc:alice/app.bsky.feed.post/1",
+            ),
+            items.map { it.postUri },
+        )
+        assertEquals(
+            listOf(
+                "at://did:plc:alice/app.bsky.feed.post/1",
+                "repost:did:plc:alice:at://did:plc:alice/app.bsky.feed.post/1",
+            ),
+            items.map { it.key },
+        )
     }
 
     @Test
-    fun `toTabItems Media tab also deduplicates items with the same postUri`() {
-        // Synthetic JSON with two posts carrying the same media.
+    fun `toTabItems Media tab keeps an authors original media post and their own repost as distinct entries`() {
+        // Synthetic JSON with the same media post twice: original + the
+        // author's own repost. Both render in the grid (matching bsky.app);
+        // distinct keys keep the grid from crashing on a duplicate slot key.
         val duplicateMediaJson =
             """
             {
@@ -133,10 +151,16 @@ internal class AuthorFeedMapperTest {
         val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), duplicateMediaJson)
         val items = response.feed.toTabItems(ProfileTab.Media)
 
-        // Should be deduplicated to 1 item.
-        assertEquals(1, items.size)
-        assertTrue(items.first() is TabItemUi.MediaCell)
-        assertEquals("at://did:plc:alice/app.bsky.feed.post/m1", items.first().postUri)
+        // Both media entries survive — same post, distinct slot keys.
+        assertEquals(2, items.size)
+        assertTrue(items.all { it is TabItemUi.MediaCell })
+        assertEquals(
+            listOf(
+                "at://did:plc:alice/app.bsky.feed.post/m1",
+                "repost:did:plc:alice:at://did:plc:alice/app.bsky.feed.post/m1",
+            ),
+            items.map { it.key },
+        )
     }
 
     @Test

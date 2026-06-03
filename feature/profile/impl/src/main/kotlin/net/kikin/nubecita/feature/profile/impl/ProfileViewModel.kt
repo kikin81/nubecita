@@ -29,7 +29,7 @@ import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
-import net.kikin.nubecita.feature.profile.impl.data.dedupeByPostUri
+import net.kikin.nubecita.feature.profile.impl.data.dedupeByKey
 import java.io.IOException
 
 /**
@@ -256,7 +256,7 @@ internal class ProfileViewModel
                             postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
                             val merged =
                                 page.items
-                                    .dedupeByPostUri()
+                                    .dedupeByKey()
                                     .map { it.applyInteraction(postInteractionsCache.state.value) }
                                     .toImmutableList()
                             setTabStatus(tab) { page.toLoaded(items = merged) }
@@ -350,7 +350,7 @@ internal class ProfileViewModel
                             postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
                             val merged =
                                 page.items
-                                    .dedupeByPostUri()
+                                    .dedupeByKey()
                                     .map { it.applyInteraction(postInteractionsCache.state.value) }
                                     .toImmutableList()
                             setTabStatus(tab) { page.toLoaded(items = merged) }
@@ -398,7 +398,7 @@ internal class ProfileViewModel
                                 if (latest is TabLoadStatus.Loaded &&
                                     latest.cursor == current.cursor
                                 ) {
-                                    val deduped = (latest.items + mergedNewItems).dedupeByPostUri().toImmutableList()
+                                    val deduped = (latest.items + mergedNewItems).dedupeByKey().toImmutableList()
                                     latest.copy(
                                         items = deduped,
                                         isAppending = false,

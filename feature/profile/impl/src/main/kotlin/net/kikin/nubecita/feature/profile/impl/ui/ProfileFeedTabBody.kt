@@ -79,7 +79,7 @@ internal fun LazyListScope.profileFeedTabBody(
             } else {
                 items(
                     items = status.items,
-                    key = { it.postUri },
+                    key = { it.key },
                     contentType = { item ->
                         when (item) {
                             is TabItemUi.Post -> "post"

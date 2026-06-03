@@ -77,9 +77,11 @@ internal fun LazyListScope.profileMediaTabBody(
                 val rows = cells.chunked(MEDIA_GRID_COLUMNS).map { it.toImmutableList() }
                 items(
                     items = rows,
-                    // first cell's postUri uniquely identifies the row
-                    // inside this page — cheaper than joining 1-3 URIs.
-                    key = { row -> row.first().postUri },
+                    // first cell's per-entry key uniquely identifies the
+                    // row inside this page — cheaper than joining 1-3 keys.
+                    // Uses `key` (not `postUri`) so an author's own repost
+                    // of a media post doesn't collide with the original.
+                    key = { row -> row.first().key },
                     contentType = { "media-row" },
                 ) { row ->
                     MediaGridRow(row = row, onMediaTap = onMediaTap)

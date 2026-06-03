@@ -45,27 +45,21 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
 internal fun List<FeedViewPost>.toTabItems(tab: ProfileTab): ImmutableList<TabItemUi> =
     when (tab) {
         ProfileTab.Posts ->
-            mapNotNull { it.toPostTabItemOrNull() }.dedupeByKey().toImmutableList()
+            mapNotNull { it.toPostTabItemOrNull() }.toImmutableList()
         ProfileTab.Replies ->
             filter { it.reply != null }
                 .mapNotNull { it.toPostTabItemOrNull() }
-                .dedupeByKey()
                 .toImmutableList()
         ProfileTab.Media ->
-            mapNotNull { it.toMediaCellOrNull() }.dedupeByKey().toImmutableList()
+            mapNotNull { it.toMediaCellOrNull() }.toImmutableList()
     }
-
-private fun List<TabItemUi>.dedupeByKey(): List<TabItemUi> {
-    if (size < 2) return this
-    val seen = HashSet<String>(size)
-    return filter { item -> seen.add(item.postUri) }
-}
 
 private fun FeedViewPost.toPostTabItemOrNull(): TabItemUi.Post? {
     val core = post.toPostUiCore() ?: return null
-    val repostedBy = (reason as? ReasonRepost)?.by?.let { it.displayName ?: it.handle.raw }
+    val repost = reason as? ReasonRepost
+    val repostedBy = repost?.by?.let { it.displayName ?: it.handle.raw }
     val postUi = if (repostedBy != null) core.copy(repostedBy = repostedBy) else core
-    return TabItemUi.Post(postUi)
+    return TabItemUi.Post(postUi, reposterDid = repost?.by?.did?.raw)
 }
 
 private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
@@ -75,6 +69,7 @@ private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
         postUri = core.id,
         thumbUrl = thumb,
         isVideo = core.embed.isVideoMedia(),
+        reposterDid = (reason as? ReasonRepost)?.by?.did?.raw,
     )
 }
 
