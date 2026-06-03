@@ -12,6 +12,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -54,7 +55,17 @@ internal fun ChatsScreenContent(
         containerColor = MaterialTheme.colorScheme.surface,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.chats_title)) })
+            TopAppBar(
+                title = { Text(stringResource(R.string.chats_title)) },
+                actions = {
+                    IconButton(onClick = { onEvent(ChatsEvent.SettingsTapped) }) {
+                        NubecitaIcon(
+                            name = NubecitaIconName.Settings,
+                            contentDescription = stringResource(R.string.chat_settings_gear_content_description),
+                        )
+                    }
+                },
+            )
         },
         floatingActionButton = {
             // A non-DM-enrolled account can't start a chat, so don't offer "new chat" —

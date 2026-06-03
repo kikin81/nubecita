@@ -50,4 +50,18 @@
     <string name="new_chat_back_content_description">Back</string>
     <string name="new_chat_fab_content_description">New message</string>
     <string name="new_chat_cannot_message">Can\'t be messaged</string>
+
+    <!-- Chat settings screen ("Who can message you") — the account-global
+         chat.bsky.actor.declaration allowIncoming preference. Reached from the
+         inbox toolbar gear; full-screen on phones, dialog on tablets. -->
+    <string name="chat_settings_title">Who can message you</string>
+    <string name="chat_settings_gear_content_description">Chat settings</string>
+    <string name="chat_settings_close_content_description">Close</string>
+    <string name="chat_settings_description">You can keep replying in conversations you\'re already in, whatever you choose.</string>
+    <string name="chat_settings_option_everyone">Everyone</string>
+    <string name="chat_settings_option_following">People you follow</string>
+    <string name="chat_settings_option_none">No one</string>
+    <string name="chat_settings_save_error">Couldn\'t save. Check your network and try again.</string>
+    <string name="chat_settings_load_error">Couldn\'t load your chat settings.</string>
+    <string name="chat_settings_retry">Retry</string>
 </resources>

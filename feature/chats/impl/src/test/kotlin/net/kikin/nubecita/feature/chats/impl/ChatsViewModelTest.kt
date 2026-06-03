@@ -80,6 +80,19 @@ internal class ChatsViewModelTest {
         }
 
     @Test
+    fun `SettingsTapped emits NavigateToChatSettings`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.effects.test {
+                vm.handleEvent(ChatsEvent.SettingsTapped)
+                assertEquals(ChatsEffect.NavigateToChatSettings, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `RetryClicked re-issues listConvos`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository(nextListResult = Result.failure(IOException("net down")))

@@ -28,6 +28,7 @@ internal fun ChatsScreen(
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
     selectedOtherUserDid: String? = null,
+    onNavigateToChatSettings: () -> Unit = {},
     viewModel: ChatsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -39,11 +40,13 @@ internal fun ChatsScreen(
     val notEnrolledErrorMsg = stringResource(R.string.chats_error_not_enrolled_body)
     val unknownErrorMsg = stringResource(R.string.chats_error_unknown_body)
     val currentOnNavigateToChat by rememberUpdatedState(onNavigateToChat)
+    val currentOnNavigateToChatSettings by rememberUpdatedState(onNavigateToChatSettings)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 is ChatsEffect.NavigateToChat -> currentOnNavigateToChat(effect.otherUserDid)
+                ChatsEffect.NavigateToChatSettings -> currentOnNavigateToChatSettings()
                 is ChatsEffect.ShowRefreshError -> {
                     val message =
                         when (effect.error) {
