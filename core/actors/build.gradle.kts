@@ -5,6 +5,20 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.core.actors"
+
+    // The `environment` flavor dimension splits the production
+    // `ActorRepository` (network-backed `DefaultActorRepository`) from a
+    // bench parallel that binds a deterministic fake
+    // (`BenchFakeActorRepository`), so the search typeahead dropdown and the
+    // People results tab have people on the bench build. Consumers resolve
+    // the `production` variant by default via the `missingDimensionStrategy`
+    // plumbing in `AndroidLibraryConventionPlugin`; the bench app flavor
+    // consumes the matching variant. Mirrors `:core:posts`.
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
 }
 
 dependencies {

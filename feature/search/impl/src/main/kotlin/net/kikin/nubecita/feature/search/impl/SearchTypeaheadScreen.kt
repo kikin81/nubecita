@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,10 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
-import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.impl.ui.ActorRow
 import net.kikin.nubecita.feature.search.impl.ui.SearchForCtaButton
 import net.kikin.nubecita.feature.search.impl.ui.TypeaheadSectionHeader
@@ -34,9 +33,10 @@ import net.kikin.nubecita.feature.search.impl.ui.TypeaheadSectionHeader
 /**
  * Stateful Search typeahead screen (vrba.10). Hoists
  * [SearchTypeaheadViewModel], wires the parent's debounced query via
- * [LaunchedEffect], and routes [SearchTypeaheadEffect.NavigateToProfile]
- * to [LocalMainShellNavState] — mirroring the [SearchActorsScreen]
- * pattern so tap-through nav stays uniform across the search surface.
+ * [LaunchedEffect], and delegates [SearchTypeaheadEffect.NavigateToProfile]
+ * to [onActorSelected] — the overlay owner ([SearchBarSection]) collapses
+ * the expanded search bar and then navigates, because collapsing disposes
+ * this screen (it renders inside the overlay). nubecita-m4jc.
  *
  * The "Search for {q}" CTA's commit path goes through [onCommitQuery]
  * (a callback up to the parent [SearchScreen], not a VM effect), the
@@ -54,16 +54,20 @@ import net.kikin.nubecita.feature.search.impl.ui.TypeaheadSectionHeader
 internal fun SearchTypeaheadScreen(
     currentQuery: String,
     onCommitQuery: () -> Unit,
+    onSelectActor: (handle: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchTypeaheadViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val navState = LocalMainShellNavState.current
     // Bound method reference is allocated fresh each call; without this
     // remember, SearchTypeaheadContent sees a "new" onEvent every parent
     // recomposition and can't skip. Mirrors the SearchScreen pattern at
     // `SearchScreen.kt`: `val onEvent = remember(viewModel) { viewModel::handleEvent }`.
     val onEvent = remember(viewModel) { viewModel::handleEvent }
+    // rememberUpdatedState: the effect below keys on `Unit` (lives for the
+    // screen's lifetime), so capturing the latest [onSelectActor] avoids a
+    // stale lambda. Mirrors SearchPostsScreen's `currentOnShowAppendError`.
+    val currentOnSelectActor by rememberUpdatedState(onSelectActor)
 
     LaunchedEffect(currentQuery) {
         viewModel.setQuery(currentQuery)
@@ -73,7 +77,13 @@ internal fun SearchTypeaheadScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is SearchTypeaheadEffect.NavigateToProfile ->
-                    navState.add(Profile(handle = effect.handle))
+                    // Delegate to the overlay owner ([SearchBarSection]) rather
+                    // than navigating here: tapping a person must collapse the
+                    // expanded search bar BEFORE pushing Profile, and the
+                    // collapse disposes this typeahead screen (it lives inside
+                    // the overlay) — so the collapse+navigate must run in a
+                    // scope that outlives this screen. nubecita-m4jc.
+                    currentOnSelectActor(effect.handle)
             }
         }
     }
