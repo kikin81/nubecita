@@ -493,6 +493,54 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `LoadMore drops items with duplicate postUri from the new page`() =
+        runTest(mainDispatcher.dispatcher) {
+            val postA = TabItemUi.Post(samplePostUi(id = "at://post-A"))
+            val postB = TabItemUi.Post(samplePostUi(id = "at://post-B"))
+            val initialPage =
+                ProfileTabPage(
+                    items = persistentListOf(postA),
+                    nextCursor = "c1",
+                )
+
+            // Server returns postA again (duplicate) and a new postB in the next page.
+            // Reproduces the race / server-overlap shape that would otherwise crash LazyColumn.
+            val nextPage =
+                ProfileTabPage(
+                    items = persistentListOf(postA, postB),
+                    nextCursor = null,
+                )
+
+            val repo =
+                FakeProfileRepository(
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to Result.success(initialPage),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            // Setup repo for next call
+            repo.tabResults =
+                mapOf(
+                    ProfileTab.Posts to Result.success(nextPage),
+                    ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                    ProfileTab.Media to Result.success(EMPTY_PAGE),
+                )
+
+            vm.handleEvent(ProfileEvent.LoadMore(ProfileTab.Posts))
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
+            // MUST only have postA once, followed by postB.
+            assertEquals(2, loaded.items.size)
+            assertEquals(listOf("at://post-A", "at://post-B"), loaded.items.map { it.postUri })
+        }
+
+    @Test
     fun `RetryTab re-launches initial tab load for the named tab`() =
         runTest(mainDispatcher.dispatcher) {
             // First call fails (initial load), second call succeeds (the retry).

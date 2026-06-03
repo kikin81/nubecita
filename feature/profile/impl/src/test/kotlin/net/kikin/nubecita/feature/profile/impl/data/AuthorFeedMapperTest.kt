@@ -1,6 +1,9 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
+import io.github.kikin81.atproto.app.bsky.feed.GetAuthorFeedResponse
+import kotlinx.serialization.json.Json
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
+import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -19,6 +22,123 @@ import org.junit.jupiter.api.Test
  * a duplicated suite is low.
  */
 internal class AuthorFeedMapperTest {
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
+
+    @Test
+    fun `toTabItems deduplicates items with the same postUri`() {
+        // Synthetic JSON with two identical posts. This happens when a user
+        // reposts their own post; getAuthorFeed (Posts tab) returns both.
+        // LazyColumn keys must be unique or the screen crashes mid-scroll.
+        val duplicateJson =
+            """
+            {
+              "feed": [
+                {
+                  "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid1",
+                    "author": { "did": "did:plc:alice", "handle": "alice.bsky.social" },
+                    "indexedAt": "2026-06-02T12:00:00Z",
+                    "record": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "original post",
+                      "createdAt": "2026-06-02T12:00:00Z"
+                    }
+                  }
+                },
+                {
+                  "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/1",
+                    "cid": "cid1",
+                    "author": { "did": "did:plc:alice", "handle": "alice.bsky.social" },
+                    "indexedAt": "2026-06-02T13:00:00Z",
+                    "record": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "original post",
+                      "createdAt": "2026-06-02T12:00:00Z"
+                    }
+                  },
+                  "reason": {
+                    "${'$'}type": "app.bsky.feed.defs#reasonRepost",
+                    "by": { "did": "did:plc:alice", "handle": "alice.bsky.social" },
+                    "indexedAt": "2026-06-02T13:00:00Z"
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), duplicateJson)
+        val items = response.feed.toTabItems(ProfileTab.Posts)
+
+        // Should be deduplicated to 1 item.
+        assertEquals(1, items.size)
+        assertEquals("at://did:plc:alice/app.bsky.feed.post/1", items.first().postUri)
+    }
+
+    @Test
+    fun `toTabItems Media tab also deduplicates items with the same postUri`() {
+        // Synthetic JSON with two posts carrying the same media.
+        val duplicateMediaJson =
+            """
+            {
+              "feed": [
+                {
+                  "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/m1",
+                    "cid": "cid1",
+                    "author": { "did": "did:plc:alice", "handle": "alice.bsky.social" },
+                    "indexedAt": "2026-06-02T12:00:00Z",
+                    "record": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "post with image",
+                      "createdAt": "2026-06-02T12:00:00Z"
+                    },
+                    "embed": {
+                      "${'$'}type": "app.bsky.embed.images#view",
+                      "images": [{ "thumb": "https://cdn/t1.jpg", "fullsize": "https://cdn/f1.jpg", "alt": "" }]
+                    }
+                  }
+                },
+                {
+                  "post": {
+                    "uri": "at://did:plc:alice/app.bsky.feed.post/m1",
+                    "cid": "cid1",
+                    "author": { "did": "did:plc:alice", "handle": "alice.bsky.social" },
+                    "indexedAt": "2026-06-02T13:00:00Z",
+                    "record": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "post with image",
+                      "createdAt": "2026-06-02T12:00:00Z"
+                    },
+                    "embed": {
+                      "${'$'}type": "app.bsky.embed.images#view",
+                      "images": [{ "thumb": "https://cdn/t1.jpg", "fullsize": "https://cdn/f1.jpg", "alt": "" }]
+                    }
+                  },
+                  "reason": {
+                    "${'$'}type": "app.bsky.feed.defs#reasonRepost",
+                    "by": { "did": "did:plc:alice", "handle": "alice.bsky.social" },
+                    "indexedAt": "2026-06-02T13:00:00Z"
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), duplicateMediaJson)
+        val items = response.feed.toTabItems(ProfileTab.Media)
+
+        // Should be deduplicated to 1 item.
+        assertEquals(1, items.size)
+        assertTrue(items.first() is TabItemUi.MediaCell)
+        assertEquals("at://did:plc:alice/app.bsky.feed.post/m1", items.first().postUri)
+    }
+
     @Test
     fun `Posts tab maps to posts_no_replies`() {
         assertEquals("posts_no_replies", ProfileTab.Posts.toAuthorFeedFilter())

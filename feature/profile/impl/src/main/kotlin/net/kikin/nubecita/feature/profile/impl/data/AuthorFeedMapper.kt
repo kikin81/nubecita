@@ -45,14 +45,21 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
 internal fun List<FeedViewPost>.toTabItems(tab: ProfileTab): ImmutableList<TabItemUi> =
     when (tab) {
         ProfileTab.Posts ->
-            mapNotNull { it.toPostTabItemOrNull() }.toImmutableList()
+            mapNotNull { it.toPostTabItemOrNull() }.dedupeByKey().toImmutableList()
         ProfileTab.Replies ->
             filter { it.reply != null }
                 .mapNotNull { it.toPostTabItemOrNull() }
+                .dedupeByKey()
                 .toImmutableList()
         ProfileTab.Media ->
-            mapNotNull { it.toMediaCellOrNull() }.toImmutableList()
+            mapNotNull { it.toMediaCellOrNull() }.dedupeByKey().toImmutableList()
     }
+
+private fun List<TabItemUi>.dedupeByKey(): List<TabItemUi> {
+    if (size < 2) return this
+    val seen = HashSet<String>(size)
+    return filter { item -> seen.add(item.postUri) }
+}
 
 private fun FeedViewPost.toPostTabItemOrNull(): TabItemUi.Post? {
     val core = post.toPostUiCore() ?: return null
