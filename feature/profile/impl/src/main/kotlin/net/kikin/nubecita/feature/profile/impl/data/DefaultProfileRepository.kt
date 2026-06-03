@@ -36,7 +36,6 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
-import net.kikin.nubecita.core.image.BLUESKY_BLOB_LIMIT_BYTES
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import timber.log.Timber
@@ -346,50 +345,19 @@ internal class DefaultProfileRepository
             change: ImageChange.Replaced,
         ): Blob =
             try {
-                // Per-step logging mirrors DefaultPostingRepository.uploadOne so a
-                // failed profile-photo upload is diagnosable from logcat (tag
-                // ProfileRepository): the byte sizes rule the "blob too big" theory
-                // in or out, and the failure branch logs the REAL cause at the site
-                // (updateProfile()'s top-level catch only prints the BlobUploadFailed
-                // wrapper, burying the actual error as a "Caused by").
-                Timber.tag(TAG).d(
-                    "uploadImage — crop bytes=%d, mime=%s",
-                    change.bytes.size,
-                    change.mimeType,
-                )
                 val encoded = encoder.encodeForUpload(bytes = change.bytes, sourceMimeType = change.mimeType)
-                Timber.tag(TAG).d(
-                    "uploadImage — encoded to %d bytes (cap %d), mime=%s, uploading…",
-                    encoded.bytes.size,
-                    BLUESKY_BLOB_LIMIT_BYTES,
-                    encoded.mimeType,
-                )
-                val blob =
-                    repo
-                        .uploadBlob(
-                            input = encoded.bytes,
-                            inputContentType = ContentType.parse(encoded.mimeType),
-                        ).blob
-                Timber.tag(TAG).d("uploadImage — ok, blob.size=%d", blob.size)
-                blob
+                repo
+                    .uploadBlob(
+                        input = encoded.bytes,
+                        inputContentType = ContentType.parse(encoded.mimeType),
+                    ).blob
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
-                // Redaction discipline (class KDoc): log the error identity, not
-                // the raw `message` — an XrpcError's message embeds the request
-                // URL + the viewer's DID. For XrpcError the structured errorName
-                // + status are non-PII and the most diagnostic signal anyway
-                // (payload-too-large vs auth vs rate-limit); the throwable's
-                // stacktrace is still attached for the cause chain, same as the
-                // other logs in this file.
-                val xrpcDetail =
-                    (throwable as? XrpcError)?.let { " errorName=${it.errorName} status=${it.status}" } ?: ""
-                Timber.tag(TAG).e(
-                    throwable,
-                    "uploadImage — FAILED: %s%s",
-                    throwable.javaClass.name,
-                    xrpcDetail,
-                )
+                // Deliberately not logged here: nothing about a user's image upload
+                // (byte sizes, mime, blob ids) should reach logcat. The failure
+                // still surfaces via updateProfile()'s top-level catch, which logs
+                // only the error identity (`throwable.javaClass.name`).
                 throw ProfileUpdateError.BlobUploadFailed(throwable)
             }
 
