@@ -29,6 +29,7 @@ internal class ChatSettingsViewModel
         /** Last value the server accepted; the revert target on a failed write. */
         private var lastConfirmed: AllowIncoming? = null
         private var saveJob: Job? = null
+        private var loadJob: Job? = null
 
         init {
             load()
@@ -43,16 +44,21 @@ internal class ChatSettingsViewModel
 
         private fun load() {
             setState { copy(status = ChatSettingsLoadStatus.Loading) }
-            viewModelScope.launch {
-                repository
-                    .getAllowIncoming()
-                    .onSuccess { value ->
-                        lastConfirmed = value
-                        setState { copy(status = ChatSettingsLoadStatus.Loaded(selected = value)) }
-                    }.onFailure {
-                        setState { copy(status = ChatSettingsLoadStatus.LoadError) }
-                    }
-            }
+            // Single-flight (latest-wins): cancel any prior in-flight load — e.g.
+            // a fast double-tap on Retry — so a superseded slow response can't
+            // race ahead and overwrite the newer load's result.
+            loadJob?.cancel()
+            loadJob =
+                viewModelScope.launch {
+                    repository
+                        .getAllowIncoming()
+                        .onSuccess { value ->
+                            lastConfirmed = value
+                            setState { copy(status = ChatSettingsLoadStatus.Loaded(selected = value)) }
+                        }.onFailure {
+                            setState { copy(status = ChatSettingsLoadStatus.LoadError) }
+                        }
+                }
         }
 
         private fun onOptionSelected(value: AllowIncoming) {
