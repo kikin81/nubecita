@@ -36,7 +36,7 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
  * `ProfileScreenContent`, which takes typed state + callbacks. 1.5.0
  * broadened the rule to trace lambda captures, making the pattern
  * unsuppressible without refactoring every screen. Matches the
- * precedent on `ComposerScreen` / `ComposerOverlayContent`.
+ * precedent on `ComposerScreen` and the other MVI Root/Content screens.
  */
 @Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable

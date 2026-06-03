@@ -23,7 +23,7 @@ import androidx.compose.runtime.compositionLocalOf
  * Allowlisted in `.editorconfig`'s `compose_allowed_composition_locals`
  * so ktlint's `compose:compositionlocal-allowlist` rule lets it through,
  * matching the convention used by [LocalMainShellNavState] /
- * [LocalTabReTapSignal] / [LocalComposerLauncher].
+ * [LocalTabReTapSignal].
  */
 @Suppress("ktlint:compose:compositionlocal-allowlist")
 val LocalAppNavigator: ProvidableCompositionLocal<Navigator> =

@@ -128,7 +128,7 @@ internal sealed interface PostDetailEvent : UiEvent {
     /**
      * Tap on the floating reply composer FAB. Resolves the focus URI
      * out of state at the VM and emits [PostDetailEffect.NavigateToComposer]
-     * which the screen routes to `LocalComposerLauncher`. Per-post
+     * which the screen routes to a `ComposerRoute` push. Per-post
      * reply taps on a PostCard's action row don't pass through the VM
      * at all — the screen invokes `onReplyClick` directly, same shape
      * as `FeedScreen`. Idempotent against the load lifecycle: if the
@@ -233,10 +233,9 @@ internal sealed interface PostDetailEffect : UiEffect {
 
     /**
      * Open the reply composer keyed to the given parent post URI. The
-     * screen invokes `LocalComposerLauncher` (passed in as
-     * `onReplyClick`) which dispatches based on window width — a
-     * `ComposerRoute` push at Compact width, a centered Dialog overlay
-     * at Medium / Expanded.
+     * screen's `onReplyClick` pushes a `ComposerRoute(replyToUri)`; its
+     * entry is tagged `adaptiveDialog()`, so it's full-screen at Compact
+     * width and a centered Dialog at Medium / Expanded.
      */
     @Immutable
     data class NavigateToComposer(

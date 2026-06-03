@@ -9,10 +9,10 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
-import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.FeedHost
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
@@ -41,7 +41,6 @@ internal object FeedNavigationModule {
                     ),
             ) {
                 val navState = LocalMainShellNavState.current
-                val launchComposer = LocalComposerLauncher.current
                 // MediaViewer is registered on the OUTER NavDisplay
                 // (@OuterShell), so push it via LocalAppNavigator — pushing
                 // onto MainShell's inner back stack crashes with
@@ -79,20 +78,16 @@ internal object FeedNavigationModule {
                     // Nav3 modular-hilt recipe and matches the other
                     // nav callbacks above.
                     onNavigateTo = { key -> navState.add(key) },
-                    // Width-class-conditional composer launch. At Compact width
-                    // the launcher pushes ComposerRoute onto the tab stack; at
-                    // Medium / Expanded widths it toggles MainShell's overlay
-                    // state to Open, rendering the composer in a centered
-                    // Dialog. This callsite doesn't need to know which path
-                    // fires — that's MainShell's call.
-                    onComposeClick = { launchComposer(null) },
-                    // Per-post reply tap target on every PostCard. The path
-                    // does NOT pass through FeedViewModel — the screen-
-                    // level handler invokes `launchComposer(replyToUri)`
-                    // directly. Same width-conditional dispatch as
-                    // `onComposeClick`: full-screen route at Compact,
-                    // centered Dialog overlay at Medium/Expanded.
-                    onReplyClick = { uri -> launchComposer(uri) },
+                    // Just push ComposerRoute — its entry is tagged
+                    // `adaptiveDialog()`, so AdaptiveDialogSceneStrategy renders
+                    // it full-screen at Compact and as a centered Dialog at
+                    // Medium/Expanded. No width branching here.
+                    onComposeClick = { navState.add(ComposerRoute()) },
+                    // Per-post reply tap target on every PostCard. Does NOT pass
+                    // through FeedViewModel — the screen-level handler pushes
+                    // ComposerRoute(replyToUri) directly; same adaptive dialog
+                    // presentation as onComposeClick.
+                    onReplyClick = { uri -> navState.add(ComposerRoute(replyToUri = uri)) },
                 )
             }
         }

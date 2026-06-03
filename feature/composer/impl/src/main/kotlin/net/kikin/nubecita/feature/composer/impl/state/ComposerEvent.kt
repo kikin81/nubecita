@@ -16,7 +16,7 @@ import net.kikin.nubecita.data.models.ActorUi
  * IME never round-trips through the reducer — see `ComposerViewModel`'s
  * Kdoc for the rationale.
  */
-sealed interface ComposerEvent : UiEvent {
+internal sealed interface ComposerEvent : UiEvent {
     /**
      * The picker returned URIs. Reducer appends up to the 4-image
      * cap; URIs beyond the cap are silently dropped (the picker also

@@ -106,7 +106,7 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)
-class ComposerViewModel
+internal class ComposerViewModel
     @AssistedInject
     constructor(
         @Assisted private val route: ComposerRoute,

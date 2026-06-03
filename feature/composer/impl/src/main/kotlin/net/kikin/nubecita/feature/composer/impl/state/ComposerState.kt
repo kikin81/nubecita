@@ -62,7 +62,7 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
  *   `snapshotFlow` collector; transitions occur outside the
  *   `handleEvent` reducer path.
  */
-data class ComposerState(
+internal data class ComposerState(
     val graphemeCount: Int = 0,
     val isOverLimit: Boolean = false,
     val attachments: ImmutableList<ComposerAttachment> = persistentListOf(),

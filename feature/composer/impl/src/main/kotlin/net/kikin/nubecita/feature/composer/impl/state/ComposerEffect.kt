@@ -12,7 +12,7 @@ import net.kikin.nubecita.core.posting.ComposerError
  * `LocalMainShellNavState` is reachable only via `CompositionLocal`,
  * which a ViewModel can't access.
  */
-sealed interface ComposerEffect : UiEffect {
+internal sealed interface ComposerEffect : UiEffect {
     /**
      * Pop the composer from its host. At Compact width, the screen
      * Composable invokes `LocalMainShellNavState.current.removeLast()`.
