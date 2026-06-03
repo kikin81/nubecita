@@ -10,6 +10,7 @@ import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
+import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -222,6 +223,16 @@ fun MainShell(modifier: Modifier = Modifier) {
     val sceneStrategy =
         rememberListDetailSceneStrategy<NavKey>(
             directive = listDetailDirective,
+            // SPIKE (nubecita-wye2): override the default
+            // PopUntilScaffoldValueChange. With the default, a pushed sub-route
+            // that does not change the scaffold's pane configuration makes the
+            // scene's calculateOnBackResult() fall to (previousScaffoldValue =
+            // null, previousEntries = emptyList()), which DISABLES both the
+            // scene's internal NavigationBackHandler and NavDisplay's outer one
+            // — so system back exited the app (nubecita-y61s). PopLatest treats
+            // every back as "pop one entry", keeping previousScaffoldValue
+            // non-null so the scene's own handler fires onBack() exactly once.
+            backNavigationBehavior = BackNavigationBehavior.PopLatest,
             // User-draggable divider between list and detail panes.
             // `paneExpansionState = null` lets the scene strategy create a
             // default expansion state internally. Visual handle follows the
