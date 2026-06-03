@@ -34,7 +34,7 @@ import net.kikin.nubecita.feature.search.impl.ui.TypeaheadSectionHeader
  * Stateful Search typeahead screen (vrba.10). Hoists
  * [SearchTypeaheadViewModel], wires the parent's debounced query via
  * [LaunchedEffect], and delegates [SearchTypeaheadEffect.NavigateToProfile]
- * to [onActorSelected] — the overlay owner ([SearchBarSection]) collapses
+ * to [onSelectActor] — the overlay owner ([SearchBarSection]) collapses
  * the expanded search bar and then navigates, because collapsing disposes
  * this screen (it renders inside the overlay). nubecita-m4jc.
  *

@@ -32,8 +32,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 
 /**
@@ -78,6 +80,18 @@ internal fun SearchScreen(
         currentWindowAdaptiveInfoV2()
             .windowSizeClass
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    // Navigation is owned here at the stateful boundary, not in the body:
+    // tapping a person in the typeahead pushes their Profile. Reading
+    // `LocalMainShellNavState` here (rather than inside `SearchBarSection`,
+    // which is always composed) keeps the stateless body — and its
+    // screenshot previews — free of the nav CompositionLocal, the same way
+    // `isAtLeastMedium` is computed here so the body stays width-independent.
+    // The collapse-before-navigate sequencing still lives in
+    // `SearchBarSection`'s scope (nubecita-m4jc); this only supplies the
+    // terminal `navState.add(Profile(...))`.
+    val navState = LocalMainShellNavState.current
+    val onNavigateToActor =
+        remember(navState) { { handle: String -> navState.add(Profile(handle = handle)) } }
     SearchScreenContent(
         textFieldState = viewModel.textFieldState,
         isQueryBlank = state.isQueryBlank,
@@ -87,6 +101,7 @@ internal fun SearchScreen(
         onEvent = onEvent,
         onClearQueryRequest = onClearQueryRequest,
         isAtLeastMedium = isAtLeastMedium,
+        onNavigateToActor = onNavigateToActor,
         modifier = modifier,
     )
 }
@@ -127,6 +142,10 @@ internal fun SearchScreenContent(
     onClearQueryRequest: () -> Unit,
     modifier: Modifier = Modifier,
     isAtLeastMedium: Boolean = false,
+    // Defaults to a no-op so preview / screenshot-test composables drive the
+    // layout without supplying a navigator — mirrors `isAtLeastMedium`. The
+    // stateful [SearchScreen] passes the real `navState.add(Profile(...))`.
+    onNavigateToActor: (handle: String) -> Unit = {},
 ) {
     val onSubmit = remember(onEvent) { { onEvent(SearchEvent.SubmitClicked) } }
     val onChipTap = remember(onEvent) { { query: String -> onEvent(SearchEvent.RecentChipTapped(query)) } }
@@ -305,6 +324,7 @@ internal fun SearchScreenContent(
                 onChipRemove = onChipRemove,
                 onClearAll = onClearAll,
                 isAtLeastMedium = isAtLeastMedium,
+                onNavigateToActor = onNavigateToActor,
             )
             when (phase) {
                 SearchPhase.Discover ->

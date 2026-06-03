@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.flowOf
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.data.models.ActorUi
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,9 +51,15 @@ internal class BenchFakeActorRepository
         ): Flow<List<ActorUi>> = flowOf(PEOPLE.filter { it.did != selfDid }.take(limit))
 
         private fun match(query: String): List<ActorUi> {
-            val q = query.trim().lowercase()
+            // Locale.ROOT keeps matching deterministic and locale-independent
+            // (default-locale lowercase mis-folds e.g. Turkish I/i).
+            val q = query.trim().lowercase(Locale.ROOT)
             if (q.isEmpty()) return PEOPLE
-            val hits = PEOPLE.filter { it.handle.lowercase().contains(q) || (it.displayName?.lowercase()?.contains(q) == true) }
+            val hits =
+                PEOPLE.filter {
+                    it.handle.lowercase(Locale.ROOT).contains(q) ||
+                        (it.displayName?.lowercase(Locale.ROOT)?.contains(q) == true)
+                }
             return hits.ifEmpty { PEOPLE }
         }
 

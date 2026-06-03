@@ -34,10 +34,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
-import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
-import net.kikin.nubecita.feature.profile.api.Profile
 
 /**
  * The text the field reverts to when the search bar collapses without a
@@ -87,25 +85,28 @@ internal fun SearchBarSection(
     onChipRemove: (String) -> Unit,
     onClearAll: () -> Unit,
     isAtLeastMedium: Boolean,
+    onNavigateToActor: (handle: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val navState = LocalMainShellNavState.current
     val isExpanded = searchBarState.targetValue == SearchBarValue.Expanded
     val collapse: () -> Unit = { scope.launch { searchBarState.animateToCollapsed() } }
 
     // Tapping a person in the typeahead must collapse the expanded bar BEFORE
-    // navigating to Profile, otherwise the bar stays Expanded and the overlay's
-    // own back handler hijacks the back gesture from Profile (you get bounced
-    // back to Profile and can't return to Search — nubecita-m4jc). The collapse
-    // is awaited here, in SearchBarSection's scope (which outlives the overlay /
-    // the typeahead screen), then the nav fires. The animation completes while
-    // the Search entry is still composed, so the saved SearchBarState is
-    // Collapsed when Profile is pushed.
+    // navigating, otherwise the bar stays Expanded and the overlay's own back
+    // handler hijacks the back gesture from the pushed screen (you get bounced
+    // back and can't return to Search — nubecita-m4jc). The collapse is awaited
+    // here, in SearchBarSection's scope (which outlives the overlay / the
+    // typeahead screen), then [onNavigateToActor] fires. The animation
+    // completes while the Search entry is still composed, so the saved
+    // SearchBarState is Collapsed when the destination is pushed. Navigation
+    // itself is owned by the stateful SearchScreen and passed in, so this
+    // composable (always composed, even collapsed) never touches the nav
+    // CompositionLocal — keeping the stateless body's previews navigator-free.
     val onSelectActor: (String) -> Unit = { handle ->
         scope.launch {
             searchBarState.animateToCollapsed()
-            navState.add(Profile(handle = handle))
+            onNavigateToActor(handle)
         }
     }
 
