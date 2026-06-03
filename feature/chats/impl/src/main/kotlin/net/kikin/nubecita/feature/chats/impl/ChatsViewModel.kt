@@ -33,6 +33,10 @@ class ChatsViewModel
     constructor(
         private val repository: ChatRepository,
     ) : MviViewModel<ChatsScreenViewState, ChatsEvent, ChatsEffect>(ChatsScreenViewState()) {
+        // Capture the cache stream once: a single StateFlow instance reused for
+        // both the combine below and the .value reads in refresh(), so the VM
+        // never depends on observeConvos() returning the same instance per call.
+        private val convos = repository.observeConvos()
         private val refreshPhase = MutableStateFlow<RefreshPhase>(RefreshPhase.InitialLoading)
         private var refreshJob: Job? = null
 
@@ -40,7 +44,7 @@ class ChatsViewModel
             // Derive the screen status from (cached items × refresh phase). The
             // cache is the source of truth for items; the phase drives the
             // loading / refreshing / error lifecycle around them.
-            combine(repository.observeConvos(), refreshPhase) { items, phase ->
+            combine(convos, refreshPhase) { items, phase ->
                 when {
                     items != null ->
                         ChatsLoadStatus.Loaded(
@@ -70,7 +74,7 @@ class ChatsViewModel
             // Refreshing over an existing list shows the spinner atop it; a refresh
             // with no items yet is the initial load.
             refreshPhase.value =
-                if (repository.observeConvos().value != null) {
+                if (convos.value != null) {
                     RefreshPhase.Refreshing
                 } else {
                     RefreshPhase.InitialLoading
@@ -82,7 +86,7 @@ class ChatsViewModel
                         .onSuccess { refreshPhase.value = RefreshPhase.Idle }
                         .onFailure { throwable ->
                             val error = throwable.toChatsError()
-                            if (repository.observeConvos().value != null) {
+                            if (convos.value != null) {
                                 // Refresh-time failure with items present: keep them,
                                 // drop the indicator, surface a transient snackbar.
                                 refreshPhase.value = RefreshPhase.Idle
