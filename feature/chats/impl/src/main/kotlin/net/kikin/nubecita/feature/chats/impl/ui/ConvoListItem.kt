@@ -67,6 +67,7 @@ internal fun ConvoListItem(
     count: Int,
     onTap: (otherUserDid: String) -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
 ) {
     SegmentedListItem(
         onClick = { onTap(item.otherUserDid) },
@@ -77,9 +78,19 @@ internal fun ConvoListItem(
         // Tone choice per Material 3 Expressive's tone-based-surface guidance
         // (m3.material.io/blog/tone-based-surface-color-m3): surfaceContainer
         // is the canonical "list section" tier — one step up from `surface`.
+        //
+        // [selected] (the open thread in the tablet list-detail layout) lifts the
+        // row to secondaryContainer — the M3 selected-item tone — so the active
+        // conversation reads as picked against the surfaceContainer rows around
+        // it. Always false on phones, where the list isn't visible beside a thread.
         colors =
             ListItemDefaults.segmentedColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                containerColor =
+                    if (selected) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer
+                    },
             ),
         leadingContent = { Avatar(item = item, modifier = Modifier.size(48.dp)) },
         supportingContent = { SubtitleText(item = item) },

@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.feed.impl.di
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.ui.res.stringResource
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -11,7 +12,9 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
-import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
+import net.kikin.nubecita.designsystem.R
+import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.FeedHost
@@ -37,7 +40,12 @@ internal object FeedNavigationModule {
                 // detail pane until a `detailPane()`-tagged entry is pushed.
                 metadata =
                     ListDetailSceneStrategy.listPane(
-                        detailPlaceholder = { PostDetailPaneEmptyState() },
+                        detailPlaceholder = {
+                            DetailPaneEmptyState(
+                                icon = NubecitaIconName.Article,
+                                message = stringResource(R.string.nubecita_detail_pane_select_post),
+                            )
+                        },
                     ),
             ) {
                 val navState = LocalMainShellNavState.current

@@ -44,6 +44,10 @@ internal fun ChatsScreenContent(
     onEvent: (ChatsEvent) -> Unit,
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
+    // The open conversation's otherUserDid (or null) — highlights the matching
+    // list row in the tablet list-detail layout. Null on phones / when no
+    // thread is open.
+    selectedOtherUserDid: String? = null,
 ) {
     Scaffold(
         modifier = modifier,
@@ -89,6 +93,7 @@ internal fun ChatsScreenContent(
                             LoadedBody(
                                 items = status.items,
                                 onTap = { did -> onEvent(ChatsEvent.ConvoTapped(did)) },
+                                selectedOtherUserDid = selectedOtherUserDid,
                             )
                         }
                     }
@@ -139,6 +144,7 @@ private fun EmptyBody() {
 private fun LoadedBody(
     items: kotlinx.collections.immutable.ImmutableList<ConvoListItemUi>,
     onTap: (otherUserDid: String) -> Unit,
+    selectedOtherUserDid: String?,
 ) {
     // Arrangement.spacedBy(ListItemDefaults.SegmentedGap) — the framework's
     // canonical gap between rows in a segmented section. Lets the rounded-
@@ -166,6 +172,7 @@ private fun LoadedBody(
                 index = index,
                 count = items.size,
                 onTap = onTap,
+                selected = item.otherUserDid == selectedOtherUserDid,
             )
         }
     }
