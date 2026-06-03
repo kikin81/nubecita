@@ -228,13 +228,35 @@ data class ProfileHeaderUi(
  * rendering, not on the tab itself.
  */
 sealed interface TabItemUi {
+    /**
+     * The AT URI of the underlying post. Used for navigation, the
+     * post-interaction cache, and the media viewer. NOT unique across
+     * feed entries: an author's original post and their own repost of it
+     * share one [postUri]. Use [key] for the `LazyColumn` slot key.
+     */
     val postUri: String
+
+    /**
+     * Unique per *feed entry* — the `LazyColumn` slot key.
+     *
+     * `getAuthorFeed` can return the same post twice (the original plus
+     * the author's own repost of it), and Compose throws
+     * `IllegalArgumentException: Key … was already used` on duplicate slot
+     * keys — crashing the profile mid-scroll. The repost entry folds the
+     * reposter DID into the key, so both entries get distinct slots and
+     * render side by side (matching bsky.app) instead of one being
+     * dropped.
+     */
+    val key: String
 
     /** Standalone post or reply — rendered by `:designsystem.PostCard`. */
     data class Post(
         val post: PostUi,
+        /** DID of the reposter when this entry is a repost (`reason is ReasonRepost`); null for an original post. */
+        val reposterDid: String? = null,
     ) : TabItemUi {
         override val postUri: String get() = post.id
+        override val key: String get() = reposterDid?.let { "repost:$it:${post.id}" } ?: post.id
     }
 
     /**
@@ -250,7 +272,11 @@ sealed interface TabItemUi {
         override val postUri: String,
         val thumbUrl: String?,
         val isVideo: Boolean = false,
-    ) : TabItemUi
+        /** DID of the reposter when this entry is a repost (`reason is ReasonRepost`); null for an original post. */
+        val reposterDid: String? = null,
+    ) : TabItemUi {
+        override val key: String get() = reposterDid?.let { "repost:$it:$postUri" } ?: postUri
+    }
 }
 
 /**

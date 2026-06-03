@@ -29,6 +29,7 @@ import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
+import net.kikin.nubecita.feature.profile.impl.data.dedupeByKey
 import java.io.IOException
 
 /**
@@ -253,7 +254,11 @@ internal class ProfileViewModel
                         .fetchTab(actor, tab)
                         .onSuccess { page ->
                             postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
-                            val merged = page.items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
+                            val merged =
+                                page.items
+                                    .dedupeByKey()
+                                    .map { it.applyInteraction(postInteractionsCache.state.value) }
+                                    .toImmutableList()
                             setTabStatus(tab) { page.toLoaded(items = merged) }
                         }.onFailure { throwable ->
                             setTabStatus(tab) { TabLoadStatus.InitialError(throwable.toProfileError()) }
@@ -343,7 +348,11 @@ internal class ProfileViewModel
                         .fetchTab(actor, tab)
                         .onSuccess { page ->
                             postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
-                            val merged = page.items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
+                            val merged =
+                                page.items
+                                    .dedupeByKey()
+                                    .map { it.applyInteraction(postInteractionsCache.state.value) }
+                                    .toImmutableList()
                             setTabStatus(tab) { page.toLoaded(items = merged) }
                         }.onFailure {
                             // On refresh failure, restore the prior Loaded items
@@ -375,7 +384,10 @@ internal class ProfileViewModel
                         .fetchTab(actor, tab, cursor = current.cursor)
                         .onSuccess { page ->
                             postInteractionsCache.seed(page.items.filterIsInstance<TabItemUi.Post>().map { it.post })
-                            val mergedNewItems = page.items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
+                            val mergedNewItems =
+                                page.items
+                                    .map { it.applyInteraction(postInteractionsCache.state.value) }
+                                    .toImmutableList()
                             setTabStatus(tab) { latest ->
                                 // Refresh-vs-append race guard: only apply
                                 // the append if the snapshot we captured at
@@ -386,8 +398,9 @@ internal class ProfileViewModel
                                 if (latest is TabLoadStatus.Loaded &&
                                     latest.cursor == current.cursor
                                 ) {
+                                    val deduped = (latest.items + mergedNewItems).dedupeByKey().toImmutableList()
                                     latest.copy(
-                                        items = (latest.items + mergedNewItems).toImmutableList(),
+                                        items = deduped,
                                         isAppending = false,
                                         hasMore = page.nextCursor != null,
                                         cursor = page.nextCursor,

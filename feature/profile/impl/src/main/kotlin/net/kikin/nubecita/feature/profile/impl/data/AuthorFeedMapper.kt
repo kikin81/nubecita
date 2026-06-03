@@ -56,9 +56,10 @@ internal fun List<FeedViewPost>.toTabItems(tab: ProfileTab): ImmutableList<TabIt
 
 private fun FeedViewPost.toPostTabItemOrNull(): TabItemUi.Post? {
     val core = post.toPostUiCore() ?: return null
-    val repostedBy = (reason as? ReasonRepost)?.by?.let { it.displayName ?: it.handle.raw }
+    val repost = reason as? ReasonRepost
+    val repostedBy = repost?.by?.let { it.displayName ?: it.handle.raw }
     val postUi = if (repostedBy != null) core.copy(repostedBy = repostedBy) else core
-    return TabItemUi.Post(postUi)
+    return TabItemUi.Post(postUi, reposterDid = repost?.by?.did?.raw)
 }
 
 private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
@@ -68,6 +69,7 @@ private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
         postUri = core.id,
         thumbUrl = thumb,
         isVideo = core.embed.isVideoMedia(),
+        reposterDid = (reason as? ReasonRepost)?.by?.did?.raw,
     )
 }
 

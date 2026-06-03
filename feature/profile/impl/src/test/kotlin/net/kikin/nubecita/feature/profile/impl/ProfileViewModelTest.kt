@@ -493,6 +493,90 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `LoadMore drops items with duplicate postUri from the new page`() =
+        runTest(mainDispatcher.dispatcher) {
+            val postA = TabItemUi.Post(samplePostUi(id = "at://post-A"))
+            val postB = TabItemUi.Post(samplePostUi(id = "at://post-B"))
+            val initialPage =
+                ProfileTabPage(
+                    items = persistentListOf(postA),
+                    nextCursor = "c1",
+                )
+
+            // Server returns postA again (duplicate) and a new postB in the next page.
+            // Reproduces the race / server-overlap shape that would otherwise crash LazyColumn.
+            val nextPage =
+                ProfileTabPage(
+                    items = persistentListOf(postA, postB),
+                    nextCursor = null,
+                )
+
+            val repo =
+                FakeProfileRepository(
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to Result.success(initialPage),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            // Setup repo for next call
+            repo.tabResults =
+                mapOf(
+                    ProfileTab.Posts to Result.success(nextPage),
+                    ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                    ProfileTab.Media to Result.success(EMPTY_PAGE),
+                )
+
+            vm.handleEvent(ProfileEvent.LoadMore(ProfileTab.Posts))
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
+            // MUST only have postA once, followed by postB.
+            assertEquals(2, loaded.items.size)
+            assertEquals(listOf("at://post-A", "at://post-B"), loaded.items.map { it.postUri })
+        }
+
+    @Test
+    fun `initial load keeps an authors original post and their own repost as two entries`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Same post twice: the original (no reposter) and the author's
+            // own repost (reposterDid set). They share a postUri but have
+            // distinct keys, so the dedup keeps both — matching bsky.app and
+            // avoiding the duplicate-slot-key crash without dropping a row.
+            val original = TabItemUi.Post(samplePostUi(id = "at://post-A"))
+            val selfRepost = TabItemUi.Post(samplePostUi(id = "at://post-A"), reposterDid = "did:plc:fake")
+            val repo =
+                FakeProfileRepository(
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(original, selfRepost),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
+            assertEquals(2, loaded.items.size)
+            assertEquals(listOf("at://post-A", "at://post-A"), loaded.items.map { it.postUri })
+            assertEquals(
+                listOf("at://post-A", "repost:did:plc:fake:at://post-A"),
+                loaded.items.map { it.key },
+            )
+        }
+
+    @Test
     fun `RetryTab re-launches initial tab load for the named tab`() =
         runTest(mainDispatcher.dispatcher) {
             // First call fails (initial load), second call succeeds (the retry).
