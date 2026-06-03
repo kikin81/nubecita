@@ -28,7 +28,7 @@ On-device spike (Pixel_Tablet, bench build, 2026-06-03) findings:
 ## Decisions
 
 ### D1 — Search becomes a `listPane()` anchor
-Tag `entry<Search>` with `ListDetailSceneStrategy.listPane(detailPlaceholder = { DetailPaneEmptyState(icon = Article, message = …) })` and add `material3-adaptive-navigation3` to `:feature:search:impl` (alias already in the catalog, used by `:feature:feed:impl`). This is the load-bearing change; the spike confirmed that without it a pushed `detailPane()` entry orphans full-screen on Medium/Expanded. Provide a string resource for the placeholder message (e.g. `search_detail_pane_select_post`).
+Tag `entry<Search>` with `ListDetailSceneStrategy.listPane(detailPlaceholder = { DetailPaneEmptyState(icon = Article, message = …) })` and add `material3-adaptive-navigation3` to `:feature:search:impl` (alias already in the catalog, used by `:feature:feed:impl`). This is the load-bearing change; the spike confirmed that without it a pushed `detailPane()` entry orphans full-screen on Medium/Expanded. Reuse the existing shared `:designsystem` placeholder string `R.string.nubecita_detail_pane_select_post` ("Select a post to read") that Feed/Profile already use — no new string resource.
 
 ### D2 — Width-gated expanded container (fills the PR1 seam)
 `SearchBarSection` selects the expanded composable by width class at one call site:
@@ -38,7 +38,7 @@ when {
     else                       -> ExpandedFullScreenSearchBar(state, inputField) { OverlayContent(...) }
 }
 ```
-The width class is read at the screen boundary (`SearchScreenContent` via `currentWindowAdaptiveInfo()` / the same source `MainShell` uses) and passed into `SearchBarSection` — not into the ViewModel. `SearchBarState` (plain `rememberSearchBarState()`) works for both; the contained state holder is not needed. `@OptIn(ExperimentalMaterial3ExpressiveApi::class)` is added alongside `ExperimentalMaterial3Api`.
+The width class is read at the screen boundary (`SearchScreenContent` via `currentWindowAdaptiveInfoV2()` / the same source `MainShell` uses) and passed into `SearchBarSection` — not into the ViewModel. `SearchBarState` (plain `rememberSearchBarState()`) works for both; the contained state holder is not needed. `@OptIn(ExperimentalMaterial3ExpressiveApi::class)` is added alongside `ExperimentalMaterial3Api`.
 
 ### D3 — `replaceTop` for post selection
 Search's result screens push `PostDetailRoute` via `navState.replaceTop(...)` instead of `add(...)`, so the detail pane swaps on each selection and Back returns to results (matches Chats' `replaceTop`). On Compact, `replaceTop` degrades to a normal push, preserving phone behavior. Actor taps keep `navState.add(Profile(...))` unchanged.

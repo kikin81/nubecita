@@ -3,12 +3,12 @@
 ## 1. Search as a list pane
 
 - [ ] 1.1 Add `implementation(libs.androidx.compose.material3.adaptive.navigation3)` to `feature/search/impl/build.gradle.kts` (keep deps sorted; run `:app:checkSortDependencies`).
-- [ ] 1.2 Add a placeholder string `search_detail_pane_select_post` ("Select a post to read" or similar).
+- [x] 1.2 Reuse the shared `:designsystem` string `R.string.nubecita_detail_pane_select_post` ("Select a post to read") that Feed/Profile already use — no new string.
 - [ ] 1.3 In `di/SearchNavigationModule.kt`, tag `entry<Search>` with `ListDetailSceneStrategy.listPane(detailPlaceholder = { DetailPaneEmptyState(icon = NubecitaIconName.Article, message = stringResource(...)) })`; add `@OptIn(ExperimentalMaterial3AdaptiveApi::class)`.
 
 ## 2. Width-gated expanded container
 
-- [ ] 2.1 In `SearchScreenContent`, read the window width class (same source as `MainShell`, e.g. `currentWindowAdaptiveInfo().windowSizeClass`) and pass an `isAtLeastMedium: Boolean` (or the size class) into `SearchBarSection`.
+- [ ] 2.1 In `SearchScreenContent`, read the window width class (same source as `MainShell`, e.g. `currentWindowAdaptiveInfoV2().windowSizeClass`) and pass an `isAtLeastMedium: Boolean` (or the size class) into `SearchBarSection`.
 - [ ] 2.2 In `SearchBarSection`, replace the single `ExpandedFullScreenSearchBar` call with the width branch: Medium/Expanded → `ExpandedDockedSearchBar(state, inputField) { SearchOverlayContent(...) }`; else → `ExpandedFullScreenSearchBar(...)`. Add `@OptIn(ExperimentalMaterial3ExpressiveApi::class)`. Update the KDoc (drop the `// PR2` placeholder note).
 - [ ] 2.3 Verify the collapsed pill, `inputField`, `SearchBarState` (plain `rememberSearchBarState()`), and overlay content are shared/unchanged across both branches.
 
