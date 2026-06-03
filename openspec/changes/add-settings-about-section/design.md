@@ -37,12 +37,18 @@ Both the GitHub link and per-library URLs route through the existing handler (Cu
 
 **D6 — MVI shape per CLAUDE.md.** Flat, UI-ready `AboutState { thanks: ImmutableList<ThanksRowUi>, isLoadingThanks: Boolean }`; effects `NavigateTo` / `NavigateToProfile` / `LaunchUri` collected once in the screen Composable. The licenses screen is effectively stateless (data loaded by `LibrariesContainer`), so it needs no VM beyond emitting `LaunchUri`.
 
+**D7 — Presentation: full-screen on phone, one content-swapping dialog on tablet (Play Store modal).**
+`Settings`, `About`, and `AboutLicenses` are all tagged `adaptiveDialog()`. On Compact the strategy declines, so each route is a full-screen push. On Medium/Expanded the routes form a *single* dialog whose content swaps (Settings → About → licenses) within one card + scrim, with a back affordance — like the Play Store settings modal on tablet. The per-feature opt-in is just the `adaptiveDialog()` tag; **no per-feature custom navigation logic**.
+
+This requires the shared `AdaptiveDialogSceneStrategy` to coalesce a consecutive run of `adaptiveDialog` entries into one persistent dialog scene (stable scene key + `AnimatedContent` over the top entry — the same technique nav3's `ListDetailScene` uses), rather than today's behavior of stacking a separate dialog+scrim per entry. That enhancement (and tagging `Settings` itself as a dialog) is a shared-infra change touching every existing dialog surface, so it is **split into prerequisite bd `nubecita-bq29`** and lands as its own PR before this feature. This change only *consumes* it by tagging the three routes. *Alternatives considered:* a nested `NavDisplay` inside the dialog (per-feature custom, rejected); leaving About full-screen on tablet over the Settings dialog (breaks the "keep the dialog shape" requirement, rejected).
+
 ## Risks / Trade-offs
 
 - **aboutlibraries `15.0.0-b03` is a major-version *beta*.** It may not be compatible with the current AGP / Kotlin / Compose, and `libraryRow` is brand-new. → Mitigation: verify it builds (`:app:assembleDebug`) as the *first* implementation step; if incompatible, fall back to the latest stable aboutlibraries and render via `aboutlibraries-core` (D4 alternative b) or pin a compatible version.
 - **Live avatar fetch can fail / be slow on the About screen.** → Mitigation: per-row graceful fallback (handle + blurb + placeholder avatar); `isLoadingThanks` drives a lightweight placeholder; never block the screen.
 - **`:feature:settings:impl` gains a `:core:actors` dependency.** → Low risk; it's an existing `:core` repository module already used by search/feed.
 - **Contributor data is hardcoded (DIDs + blurbs).** → Acceptable; it's a curated credits list, not user data. DIDs (not handles) are stored so a handle change doesn't break the link.
+- **Tablet presentation depends on prerequisite bd `nubecita-bq29`** (the coalescing dialog-scene enhancement). → Mitigation: bq29 lands first as its own PR; this feature is `blocked-by` it. If bq29 slips, this feature can ship with the routes still tagged `adaptiveDialog()` — they'd render correctly on phone (full-screen) and as the pre-coalescing behavior on tablet — but the "single content-swapping dialog" UX only appears once bq29 merges.
 
 ## Migration Plan
 

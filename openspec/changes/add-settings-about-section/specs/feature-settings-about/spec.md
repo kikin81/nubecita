@@ -8,6 +8,19 @@ The Settings screen SHALL present an "About" row that navigates to the About sub
 - **THEN** the About sub-screen is pushed onto the MainShell back stack
 - **AND** pressing back returns to the Settings screen
 
+### Requirement: Adaptive presentation of the Settings/About surfaces
+The Settings, About, and About-licenses routes SHALL present full-screen on Compact widths and as a single shared, content-swapping dialog on Medium/Expanded widths (the contributor opting in only via the `adaptiveDialog` tag, with no per-feature navigation logic).
+
+#### Scenario: Phone pushes full-screen pages
+- **WHEN** the user is on a Compact-width device and navigates Settings → About → Open source licenses
+- **THEN** each destination is presented as a full-screen page pushed onto the back stack
+
+#### Scenario: Tablet swaps content within one dialog
+- **WHEN** the user is on a Medium or Expanded width device and navigates Settings → About → Open source licenses
+- **THEN** the content is swapped within a single centered dialog (one scrim and card), not stacked as multiple dialogs
+- **AND** a back affordance returns to the previous content within the same dialog
+- **AND** dismissing the first dialog level closes the dialog and returns to the underlying screen
+
 ### Requirement: About screen header and source link
 The About screen SHALL display the application name and version, and SHALL provide a link to the project's public source repository.
 

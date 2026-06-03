@@ -1,5 +1,7 @@
 # Tasks — add-settings-about-section (bd nubecita-jkg8)
 
+> **Prerequisite:** bd `nubecita-bq29` (coalescing adaptive-dialog scene) lands first as its own PR — it delivers the "single content-swapping dialog on tablet" behavior and tags `Settings` as a dialog. This feature only *consumes* it by tagging the new routes `adaptiveDialog()` (task 2.4).
+
 ## 1. aboutlibraries plugin wiring (do first — de-risks the beta)
 
 - [ ] 1.1 Add `aboutlibraries` to `gradle/libs.versions.toml`: version `15.0.0-b03`, the `com.mikepenz.aboutlibraries.plugin` plugin alias, and the `aboutlibraries-compose` (+ `-core` if needed) library coordinates.
@@ -11,6 +13,7 @@
 - [ ] 2.1 Add `About : NavKey` and `AboutLicenses : NavKey` (`@Serializable data object`) to `:feature:settings:api`.
 - [ ] 2.2 Register both as `@MainShell` `@IntoSet` `EntryProviderInstaller` entries in `SettingsNavigationModule`, wiring `onBack = { navState.removeLast() }` and `onNavigateTo = { navState.add(it) }` (mirror the existing `Settings` entry).
 - [ ] 2.3 Add an "About" `SettingsRow.Action` to the Settings screen + a `SettingsEvent`/`SettingsEffect.NavigateTo(About)` path so tapping it pushes `About`.
+- [ ] 2.4 Tag both new entries with `metadata = adaptiveDialog()` so they present full-screen on phone and swap content within the Settings dialog on tablet (relies on prerequisite bd `nubecita-bq29`; `Settings` itself is tagged there).
 
 ## 3. About screen + ViewModel
 
