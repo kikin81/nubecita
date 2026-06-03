@@ -1,5 +1,8 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
+    // Generates the open-source library metadata (from the dependency graph)
+    // consumed by the About → Open source licenses screen.
+    alias(libs.plugins.aboutlibraries)
 }
 
 android {
@@ -16,6 +19,9 @@ android {
 dependencies {
     api(project(":feature:settings:api"))
 
+    // ActorRepository.getActor(did) — hydrates the About "Special Thanks"
+    // rows with live avatar / display name / handle.
+    implementation(project(":core:actors"))
     implementation(project(":core:auth"))
     // EntitlementRepository.isPro / activeSubscription + BillingRepository
     // (restore, plan-price lookup) for the "Nubecita Pro" settings section.
@@ -31,6 +37,7 @@ dependencies {
     // taps the "Follow the developer" row (opens the developer's profile).
     // :api only (never :feature:profile:impl).
     implementation(project(":feature:profile:api"))
+    implementation(libs.aboutlibraries.compose.m3)
     implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.kotlinx.collections.immutable)
