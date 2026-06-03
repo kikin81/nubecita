@@ -1,16 +1,19 @@
 package net.kikin.nubecita.feature.chats.impl
 
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
-import net.kikin.nubecita.feature.chats.impl.data.ConvoListPage
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Instant
 
 internal class FakeChatRepository(
-    var nextListResult: Result<ConvoListPage> = Result.success(ConvoListPage(items = persistentListOf())),
+    var nextRefreshResult: Result<ImmutableList<ConvoListItemUi>> = Result.success(persistentListOf()),
     var nextResolveResult: Result<ConvoResolution> =
         Result.success(
             ConvoResolution(
@@ -29,24 +32,28 @@ internal class FakeChatRepository(
      * so a test can observe the optimistic `Sending` row before reconcile.
      */
     var sendGate: CompletableDeferred<Unit>? = null
-    val listCalls = AtomicInteger(0)
+    val refreshCalls = AtomicInteger(0)
     val resolveCalls = AtomicInteger(0)
     val messagesCalls = AtomicInteger(0)
     val sendCalls = AtomicInteger(0)
-    var lastListCursor: String? = null
     var lastResolvedDid: String? = null
     var lastMessagesConvoId: String? = null
     var lastMessagesCursor: String? = null
     var lastSendConvoId: String? = null
     var lastSendText: String? = null
 
-    override suspend fun listConvos(
-        cursor: String?,
-        limit: Int,
-    ): Result<ConvoListPage> {
-        listCalls.incrementAndGet()
-        lastListCursor = cursor
-        return nextListResult
+    private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+
+    override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos.asStateFlow()
+
+    override suspend fun refreshConvos(): Result<Unit> {
+        refreshCalls.incrementAndGet()
+        return nextRefreshResult.map { items -> convos.value = items }
+    }
+
+    /** Drive the cache directly (simulating a [sendMessage] patch or an external update). */
+    fun emitConvos(items: ImmutableList<ConvoListItemUi>?) {
+        convos.value = items
     }
 
     override suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution> {

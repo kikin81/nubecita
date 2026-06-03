@@ -7,8 +7,13 @@ import io.github.kikin81.atproto.chat.bsky.convo.ListConvosRequest
 import io.github.kikin81.atproto.chat.bsky.convo.MessageInput
 import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
 import io.github.kikin81.atproto.runtime.Did
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
@@ -16,6 +21,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.profile.avatarHueFor
+import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
 import javax.inject.Inject
@@ -27,27 +33,28 @@ internal class DefaultChatRepository
         private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ChatRepository {
-        override suspend fun listConvos(
-            cursor: String?,
-            limit: Int,
-        ): Result<ConvoListPage> =
+        // Single source of truth for the convo list, shared across both screens
+        // (this repository is @Singleton-bound). null = not loaded yet.
+        private val convosCache = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+
+        override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convosCache.asStateFlow()
+
+        override suspend fun refreshConvos(): Result<Unit> =
             withContext(dispatcher) {
                 runCatching {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         ConvoService(client).listConvos(
-                            ListConvosRequest(cursor = cursor, limit = limit.toLong()),
+                            ListConvosRequest(cursor = null, limit = LIST_CONVOS_PAGE_LIMIT.toLong()),
                         )
-                    ConvoListPage(
-                        items =
-                            response.convos
-                                .map { it.toConvoListItemUi(viewerDid = viewerDid) }
-                                .toImmutableList(),
-                        nextCursor = response.cursor,
-                    )
+                    convosCache.value =
+                        response.convos
+                            .map { it.toConvoListItemUi(viewerDid = viewerDid) }
+                            .toImmutableList()
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(throwable, "listConvos failed: %s", throwable.javaClass.name)
+                    // Leave the cache untouched so a failed refresh keeps the prior list.
+                    Timber.tag(TAG).e(throwable, "refreshConvos failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -118,11 +125,18 @@ internal class DefaultChatRepository
                                 message = MessageInput(text = text),
                             ),
                         )
-                    response.toMessageUi(viewerDid = viewerDid)
+                    response.toMessageUi(viewerDid = viewerDid).also { patchConvoOnSend(convoId, it) }
                 }.onFailure { throwable ->
                     Timber.tag(TAG).e(throwable, "sendMessage failed: %s", throwable.javaClass.name)
                 }
             }
+
+        private fun patchConvoOnSend(
+            convoId: String,
+            message: MessageUi,
+        ) {
+            convosCache.update { current -> patchConvosOnSend(current, convoId, message) }
+        }
 
         private fun currentViewerDid(): String {
             val signedIn =
