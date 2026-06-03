@@ -1,6 +1,7 @@
 package net.kikin.nubecita.screenshots
 
 import android.Manifest
+import android.view.accessibility.AccessibilityWindowInfo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -147,9 +148,35 @@ class MarketingScreenshotJourney {
     ) {
         ActivityScenario.launch(MainActivity::class.java).use {
             navigate()
+            // Marketing shots must show the screen, not the IME. Search auto-focuses
+            // its field (and calls keyboardController.show()), and a soft keyboard
+            // raised on one screen persists at the window level into later captures.
+            // Dismiss it before settling so the keyboard never bleeds into a frame.
+            hideKeyboardIfShown()
             device.waitForIdle()
             Thread.sleep(SETTLE_MS)
             Screengrab.screenshot(name)
+        }
+    }
+
+    /**
+     * Dismiss the soft keyboard iff it is currently shown. Detects the IME via the
+     * accessibility window list ([AccessibilityWindowInfo.TYPE_INPUT_METHOD]) and
+     * only then dispatches a single back press — which the system routes to the IME
+     * to hide it. The guard matters: a back press with no keyboard up would instead
+     * pop the navigation stack and ruin the capture.
+     */
+    private fun hideKeyboardIfShown() {
+        val windows = InstrumentationRegistry.getInstrumentation().uiAutomation.windows
+        val keyboardShown = windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        // The returned infos are caller-owned pooled instances on API 28–32 (our
+        // minSdk floor); release them so the journey doesn't leak across its eight
+        // captures. recycle() is a documented no-op from API 33 on.
+        @Suppress("DEPRECATION")
+        windows.forEach { it.recycle() }
+        if (keyboardShown) {
+            device.pressBack()
+            device.waitForIdle()
         }
     }
 
