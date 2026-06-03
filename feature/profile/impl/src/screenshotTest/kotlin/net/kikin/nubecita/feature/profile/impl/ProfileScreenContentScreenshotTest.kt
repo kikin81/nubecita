@@ -17,6 +17,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
@@ -34,8 +35,10 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.designsystem.R
+import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
 import net.kikin.nubecita.designsystem.component.PostCallbacks
-import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.profile.api.Profile
 import kotlin.time.Clock
@@ -375,7 +378,7 @@ private fun ProfileScreenScrolledAwayScreenshot() {
  * Renders [ProfileScreenContent] inside a Navigation 3 [NavDisplay] driven
  * by [rememberListDetailSceneStrategy], mirroring the production wiring in
  * [MainShell]. At widthDp = 800 the two-pane directive splits the canvas:
- * Profile fills the list pane; [PostDetailPaneEmptyState] fills the detail
+ * Profile fills the list pane; [DetailPaneEmptyState] fills the detail
  * pane. Compact-only fixtures remain in the variants above.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
@@ -448,7 +451,12 @@ private fun ProfileScreenMediumTwoPaneEmptyScreenshot() {
                         entry<Profile>(
                             metadata =
                                 ListDetailSceneStrategy.listPane(
-                                    detailPlaceholder = { PostDetailPaneEmptyState() },
+                                    detailPlaceholder = {
+                                        DetailPaneEmptyState(
+                                            icon = NubecitaIconName.Article,
+                                            message = stringResource(R.string.nubecita_detail_pane_select_post),
+                                        )
+                                    },
                                 ),
                         ) {
                             CompositionLocalProvider(LocalClock provides FixtureClock) {

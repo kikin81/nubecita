@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.profile.impl.di
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
@@ -12,7 +13,9 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
-import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
+import net.kikin.nubecita.designsystem.R
+import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
@@ -48,7 +51,12 @@ internal object ProfileNavigationModule {
             entry<Profile>(
                 metadata =
                     ListDetailSceneStrategy.listPane(
-                        detailPlaceholder = { PostDetailPaneEmptyState() },
+                        detailPlaceholder = {
+                            DetailPaneEmptyState(
+                                icon = NubecitaIconName.Article,
+                                message = stringResource(R.string.nubecita_detail_pane_select_post),
+                            )
+                        },
                     ),
             ) { route ->
                 val navState = LocalMainShellNavState.current

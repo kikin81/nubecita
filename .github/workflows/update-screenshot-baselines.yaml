@@ -92,13 +92,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Regenerate baselines
-        # Mirror the explicit per-module pattern from ci.yaml's
-        # `Validate screenshot tests` step — `updateDebugScreenshotTest`
-        # for non-flavored modules + the explicit production-flavor
-        # task for `:feature:feed:impl` (the bench-flavor variant
-        # fails to compile due to `internal` visibility on tested
-        # symbols).
-        run: ./gradlew updateDebugScreenshotTest :feature:feed:impl:updateProductionDebugScreenshotTest
+        # `updateScreenshots` is the flavor-agnostic lifecycle alias the
+        # `nubecita.android.library.compose` convention plugin registers in
+        # every Compose library + feature module; it fans out to the right
+        # canonical debug-variant update task per module (plain `Debug` for
+        # non-flavored, `ProductionDebug` for `environment`-flavored). Mirrors
+        # ci.yaml's `validateScreenshots` step so the same module set is
+        # regenerated as is validated — no hand-listing of flavored modules.
+        run: ./gradlew updateScreenshots
 
       - name: Commit and push
         run: |
@@ -110,9 +111,14 @@ jobs:
           # literally without the `:(glob)` magic prefix, and quoting
           # suppresses shell expansion either way). `--all` makes deletion
           # staging explicit so removed baselines (e.g. a deleted test)
-          # propagate into the commit too.
+          # propagate into the commit too. Both the non-flavored
+          # (`screenshotTestDebug`) and flavored (`screenshotTestProductionDebug`)
+          # reference dirs are staged — the latter holds feed/chats/profile/
+          # search baselines, which the old `screenshotTestDebug`-only find
+          # silently skipped.
           find . -type d \
-            -path '*/src/screenshotTestDebug/reference' \
+            \( -path '*/src/screenshotTestDebug/reference' \
+               -o -path '*/src/screenshotTestProductionDebug/reference' \) \
             -exec git add --all {} +
           if git diff --cached --quiet; then
             echo "No baseline changes to commit."

@@ -27,6 +27,7 @@ internal fun ChatsScreen(
     onNavigateToChat: (otherUserDid: String) -> Unit,
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
+    selectedOtherUserDid: String? = null,
     viewModel: ChatsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -62,6 +63,7 @@ internal fun ChatsScreen(
         snackbarHostState = snackbarHostState,
         onEvent = viewModel::handleEvent,
         onNewChat = onNewChat,
+        selectedOtherUserDid = selectedOtherUserDid,
         modifier = modifier,
     )
 }

@@ -88,6 +88,26 @@ private fun ChatsScreenLoadedScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "chats-loaded-selected-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-loaded-selected-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsScreenLoadedSelectedScreenshot() {
+    // Tablet list-detail layout: the open thread ("bob") highlights as the
+    // selected row (secondaryContainer) against the surfaceContainer rows.
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaCanvasPreviewTheme {
+            ChatsScreenContent(
+                state = LOADED_STATE,
+                snackbarHostState = remember { SnackbarHostState() },
+                onEvent = {},
+                onNewChat = {},
+                selectedOtherUserDid = "did:plc:bob",
+            )
+        }
+    }
+}
+
+@PreviewTest
 @Preview(name = "chats-loaded-refreshing-light", showBackground = true, heightDp = 600)
 @Preview(name = "chats-loaded-refreshing-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable

@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -26,7 +27,8 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
-import net.kikin.nubecita.designsystem.component.PostDetailPaneEmptyState
+import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.profile.api.Profile
 import org.junit.Before
 import org.junit.Rule
@@ -36,7 +38,7 @@ import org.junit.Test
  * Verifies the Medium-width two-pane behavior driven by
  * [ListDetailSceneStrategy]. On a forced Medium-bucket width the strategy
  * splits the canvas so that the list pane and the detail-pane placeholder
- * ([PostDetailPaneEmptyState]) render simultaneously.
+ * ([DetailPaneEmptyState]) render simultaneously.
  *
  * Width is injected via a synthetic [WindowAdaptiveInfo] rather than
  * overriding `LocalConfiguration.screenWidthDp`, because
@@ -117,7 +119,15 @@ class ProfileScreenAdaptiveInstrumentationTest {
                             entry<Profile>(
                                 metadata =
                                     ListDetailSceneStrategy.listPane(
-                                        detailPlaceholder = { PostDetailPaneEmptyState() },
+                                        detailPlaceholder = {
+                                            DetailPaneEmptyState(
+                                                icon = NubecitaIconName.Article,
+                                                message =
+                                                    stringResource(
+                                                        net.kikin.nubecita.designsystem.R.string.nubecita_detail_pane_select_post,
+                                                    ),
+                                            )
+                                        },
                                     ),
                             ) {
                                 Box(

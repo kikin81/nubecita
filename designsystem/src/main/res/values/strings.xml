@@ -103,9 +103,10 @@
          to activate"), which is meaningless. -->
     <string name="video_poster_default_content_description">Play video</string>
 
-    <!-- ListDetailSceneStrategy detail-pane empty state. Used by any feature
-         whose entry carries `listPane(detailPlaceholder = { PostDetailPaneEmptyState() })`.
-         Bead F (nubecita-s6p.6) promoted this from :feature:feed:impl when
-         Profile became the second caller. -->
+    <!-- ListDetailSceneStrategy detail-pane empty states. Used by any feature
+         whose entry carries `listPane(detailPlaceholder = { DetailPaneEmptyState(icon, message) })`.
+         Post-list surfaces (Feed, Profile, Search) use _select_post; Chats uses
+         _select_conversation. -->
     <string name="nubecita_detail_pane_select_post">Select a post to read</string>
+    <string name="nubecita_detail_pane_select_conversation">Select a conversation</string>
 </resources>
