@@ -18,7 +18,7 @@ import net.kikin.nubecita.core.posting.ComposerError
  * loaded — the Submit reducer is the gate that enforces "must be
  * Loaded before Submitting").
  */
-sealed interface ComposerSubmitStatus {
+internal sealed interface ComposerSubmitStatus {
     /** Initial / not-yet-submitting / between-error-and-retry. */
     data object Idle : ComposerSubmitStatus
 

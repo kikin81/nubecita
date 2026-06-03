@@ -109,7 +109,7 @@ import kotlin.math.max
  */
 @Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
-fun ComposerScreen(
+internal fun ComposerScreen(
     onNavigateBack: () -> Unit,
     onSubmitSuccess: (newPostUri: AtUri, replyToUri: String?) -> Unit,
     viewModel: ComposerViewModel,
@@ -355,7 +355,7 @@ fun ComposerScreen(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComposerScreenContent(
+internal fun ComposerScreenContent(
     state: ComposerState,
     textFieldState: TextFieldState,
     snackbarHostState: SnackbarHostState,
