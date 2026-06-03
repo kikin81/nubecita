@@ -52,6 +52,7 @@ dependencies {
     // back stack. The api module ships just the NavKey — :feature:search:impl
     // never depends on :impl, matching the Chats / Feed / Postdetail pattern.
     implementation(project(":feature:profile:api"))
+    implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.timber)

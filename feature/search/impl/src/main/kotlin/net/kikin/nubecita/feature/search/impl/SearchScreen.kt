@@ -17,6 +17,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
@@ -51,6 +54,7 @@ import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
  * ComposeViewModelForwarding's data-flow analysis; conflicts with
  * ComposeViewModelInjection on stateful screens that hoist state).
  */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun SearchScreen(
@@ -67,6 +71,13 @@ internal fun SearchScreen(
         remember(viewModel) {
             { viewModel.textFieldState.clearText() }
         }
+    // Width class drives the expanded-search container (full-screen vs docked).
+    // Computed here at the stateful boundary so the stateless body and its
+    // screenshot tests stay width-independent (they use the `false` default).
+    val isAtLeastMedium =
+        currentWindowAdaptiveInfoV2()
+            .windowSizeClass
+            .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     SearchScreenContent(
         textFieldState = viewModel.textFieldState,
         isQueryBlank = state.isQueryBlank,
@@ -75,6 +86,7 @@ internal fun SearchScreen(
         recentSearches = state.recentSearches,
         onEvent = onEvent,
         onClearQueryRequest = onClearQueryRequest,
+        isAtLeastMedium = isAtLeastMedium,
         modifier = modifier,
     )
 }
@@ -114,6 +126,7 @@ internal fun SearchScreenContent(
     onEvent: (SearchEvent) -> Unit,
     onClearQueryRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    isAtLeastMedium: Boolean = false,
 ) {
     val onSubmit = remember(onEvent) { { onEvent(SearchEvent.SubmitClicked) } }
     val onChipTap = remember(onEvent) { { query: String -> onEvent(SearchEvent.RecentChipTapped(query)) } }
@@ -291,6 +304,7 @@ internal fun SearchScreenContent(
                 onChipTap = onChipTap,
                 onChipRemove = onChipRemove,
                 onClearAll = onClearAll,
+                isAtLeastMedium = isAtLeastMedium,
             )
             when (phase) {
                 SearchPhase.Discover ->
