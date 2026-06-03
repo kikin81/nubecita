@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780389970636,
+  "lastUpdate": 1780476776323,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -311,6 +311,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1128.537,
             "range": "+/- 12.3%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2dc9e0cadd1a799893ce374469bbbdd8fffb0639",
+          "message": "chore(screenshots): hide soft keyboard in marketing captures (#421)\n\n* chore(screenshots): hide soft keyboard in marketing captures\n\nThe previous Play Store captures showed the soft keyboard covering the\nlower third of the Search (and any IME-raising) screens. The marketing\njourney now dismisses the IME before each shot: hideKeyboardIfShown()\ndetects the input-method window via the accessibility window list and\nonly then dispatches a single back press, so the guard never pops the\nnav stack when no keyboard is up.\n\nRegenerate all phone + tenInch framed screenshots from the bench flavor\nwith the keyboard hidden.\n\n* chore(screenshots): recycle IME window infos in keyboard check\n\nAddress Copilot review: UiAutomation.windows returns caller-owned pooled\nAccessibilityWindowInfo instances on API 28–32 (our minSdk). Recycle them\nafter the IME check so the journey doesn't leak across its eight captures;\nrecycle() is a no-op from API 33 on, hence the @Suppress.",
+          "timestamp": "2026-06-03T07:54:47Z",
+          "url": "https://github.com/kikin81/nubecita/commit/2dc9e0cadd1a799893ce374469bbbdd8fffb0639"
+        },
+        "date": 1780476774188,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 7.5%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1219.275,
+            "range": "+/- 6.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1199.295,
+            "range": "+/- 6.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1015.449,
+            "range": "+/- 14.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 936.529,
+            "range": "+/- 24.5%",
             "unit": "ms"
           }
         ]
