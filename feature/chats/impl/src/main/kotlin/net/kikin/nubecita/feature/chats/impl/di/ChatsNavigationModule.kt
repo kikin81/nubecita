@@ -12,13 +12,17 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.chats.api.Chat
+import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.NewChat
 import net.kikin.nubecita.feature.chats.impl.ChatScreen
+import net.kikin.nubecita.feature.chats.impl.ChatSettingsScreen
+import net.kikin.nubecita.feature.chats.impl.ChatSettingsViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
 import net.kikin.nubecita.feature.chats.impl.NewChatScreen
@@ -66,11 +70,23 @@ internal object ChatsNavigationModule {
                     onNavigateToChat = { did -> navState.replaceTop(Chat(otherUserDid = did)) },
                     onNewChat = { navState.add(NewChat) },
                     selectedOtherUserDid = selectedDid,
+                    onNavigateToChatSettings = { navState.add(ChatSettings) },
                 )
             }
             entry<NewChat> {
                 val navState = LocalMainShellNavState.current
                 NewChatScreen(onBack = { navState.removeLast() })
+            }
+            // adaptiveDialog(): full-screen on Compact, centered Dialog on
+            // Medium / Expanded — the AdaptiveDialogSceneStrategy in :app reads
+            // this metadata. Plain @HiltViewModel (no assisted factory): the
+            // account-global declaration carries no per-route arguments.
+            entry<ChatSettings>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                ChatSettingsScreen(
+                    viewModel = hiltViewModel<ChatSettingsViewModel>(),
+                    onNavigateBack = { navState.removeLast() },
+                )
             }
             entry<Chat>(
                 // Detail pane of the list-detail strategy — renders in the right

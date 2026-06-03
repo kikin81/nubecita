@@ -40,6 +40,7 @@ class ChatsViewModel
                 ChatsEvent.Refresh -> launchLoad()
                 ChatsEvent.RetryClicked -> launchLoad()
                 is ChatsEvent.ConvoTapped -> sendEffect(ChatsEffect.NavigateToChat(event.otherUserDid))
+                ChatsEvent.SettingsTapped -> sendEffect(ChatsEffect.NavigateToChatSettings)
             }
         }
 

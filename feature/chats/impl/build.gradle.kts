@@ -55,6 +55,10 @@ dependencies {
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+    // Ktor MockEngine for the ChatSettingsRepository getRecord/putRecord
+    // write-path tests — stands up a real XrpcClient over deterministic
+    // responses (same pattern as :feature:profile:impl).
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
 

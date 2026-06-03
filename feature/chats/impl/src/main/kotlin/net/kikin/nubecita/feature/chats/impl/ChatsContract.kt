@@ -95,12 +95,18 @@ sealed interface ChatsEvent : UiEvent {
     ) : ChatsEvent
 
     data object RetryClicked : ChatsEvent
+
+    /** User tapped the inbox toolbar's settings gear. */
+    data object SettingsTapped : ChatsEvent
 }
 
 sealed interface ChatsEffect : UiEffect {
     data class NavigateToChat(
         val otherUserDid: String,
     ) : ChatsEffect
+
+    /** Push the account-global chat settings route onto the back stack. */
+    data object NavigateToChatSettings : ChatsEffect
 
     /**
      * Sticky errors are rendered inline via `ChatsLoadStatus.InitialError`,

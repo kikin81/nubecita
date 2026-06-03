@@ -35,3 +35,13 @@ data class Chat(
  */
 @Serializable
 data object NewChat : NavKey
+
+/**
+ * Account-global chat settings ("Who can message you"). A `@MainShell`
+ * sub-route pushed from the inbox toolbar's gear; tagged `adaptiveDialog()` so
+ * it renders full-screen on Compact and as a centered Dialog on Medium /
+ * Expanded. Carries no arguments — the `allowIncoming` declaration it edits is
+ * a single account-wide preference, not per-conversation.
+ */
+@Serializable
+data object ChatSettings : NavKey
