@@ -137,7 +137,13 @@ class DefaultChatSettingsRepositoryTest {
             assertTrue(result.isSuccess, "expected success, got: ${result.exceptionOrNull()}")
             val body = putBody.await()
             assertTrue(body.contains("\"allowIncoming\":\"all\""), "wire value not written: $body")
-            assertTrue(body.contains("chat.bsky.actor.declaration"), "\$type not stamped on create: $body")
+            // Assert the explicit $type key/value in the record body — not a bare
+            // NSID substring, which would also match the request's `collection`
+            // field and pass even if $type stamping regressed.
+            assertTrue(
+                body.contains("\"\$type\":\"chat.bsky.actor.declaration\""),
+                "\$type not stamped on create: $body",
+            )
             assertFalse(body.contains("swapRecord"), "create path must omit swapRecord: $body")
         }
 
