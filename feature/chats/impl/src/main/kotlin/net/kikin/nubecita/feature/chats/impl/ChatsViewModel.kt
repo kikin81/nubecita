@@ -3,6 +3,10 @@ package net.kikin.nubecita.feature.chats.impl
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
@@ -12,16 +16,16 @@ import javax.inject.Inject
 /**
  * Presenter for the Chats tab home.
  *
- * On construction, kicks off a `listConvos` call. Subsequent Refresh
- * and RetryClicked events re-issue the call. Refresh is single-flighted
- * (a second Refresh while the first is in flight is dropped, not
- * queued) so rapid pull-to-refresh gestures can't fan out into
- * multiple concurrent requests.
+ * Items come from the repository's reactive convo cache ([ChatRepository.observeConvos]) —
+ * the single source of truth shared with the thread screen. The screen's
+ * [ChatsLoadStatus] is `combine`d from that cache and a local [refreshPhase]
+ * lifecycle: the cache supplies the list, the phase supplies loading /
+ * refreshing / initial-error. Because the cache is shared and hot, sending a
+ * message from a thread (which patches the cache) updates this list live without
+ * a refetch.
  *
- * `ConvoTapped` emits a `NavigateToChat(otherUserDid)` effect that the
- * screen collector translates into a `MainShellNavState.add(Chat(did))`
- * call. The Chat NavKey itself lands in nn3.2 — this VM doesn't depend
- * on it.
+ * [Refresh] / [RetryClicked] trigger [ChatRepository.refreshConvos], single-flighted so
+ * rapid pull-to-refresh can't fan out into concurrent requests.
  */
 @HiltViewModel
 class ChatsViewModel
@@ -29,48 +33,77 @@ class ChatsViewModel
     constructor(
         private val repository: ChatRepository,
     ) : MviViewModel<ChatsScreenViewState, ChatsEvent, ChatsEffect>(ChatsScreenViewState()) {
-        private var inFlightLoad: Job? = null
+        private val refreshPhase = MutableStateFlow<RefreshPhase>(RefreshPhase.InitialLoading)
+        private var refreshJob: Job? = null
 
         init {
-            launchLoad()
+            // Derive the screen status from (cached items × refresh phase). The
+            // cache is the source of truth for items; the phase drives the
+            // loading / refreshing / error lifecycle around them.
+            combine(repository.observeConvos(), refreshPhase) { items, phase ->
+                when {
+                    items != null ->
+                        ChatsLoadStatus.Loaded(
+                            items = items,
+                            isRefreshing = phase == RefreshPhase.Refreshing,
+                        )
+                    phase is RefreshPhase.InitialError -> ChatsLoadStatus.InitialError(phase.error)
+                    else -> ChatsLoadStatus.Loading
+                }
+            }.onEach { status -> setState { copy(status = status) } }
+                .launchIn(viewModelScope)
+
+            refresh()
         }
 
         override fun handleEvent(event: ChatsEvent) {
             when (event) {
-                ChatsEvent.Refresh -> launchLoad()
-                ChatsEvent.RetryClicked -> launchLoad()
+                ChatsEvent.Refresh -> refresh()
+                ChatsEvent.RetryClicked -> refresh()
                 is ChatsEvent.ConvoTapped -> sendEffect(ChatsEffect.NavigateToChat(event.otherUserDid))
                 ChatsEvent.SettingsTapped -> sendEffect(ChatsEffect.NavigateToChatSettings)
             }
         }
 
-        private fun launchLoad() {
-            if (inFlightLoad?.isActive == true) return // single-flight on rapid Refresh.
-            val current = uiState.value.status
-            // Preserve the Loaded items + flip isRefreshing so the screen can render the spinner over the
-            // existing list rather than blanking. The initial Loading state stays unchanged otherwise.
-            if (current is ChatsLoadStatus.Loaded) {
-                setState { copy(status = current.copy(isRefreshing = true)) }
-            }
-            inFlightLoad =
+        private fun refresh() {
+            if (refreshJob?.isActive == true) return // single-flight on rapid Refresh.
+            // Refreshing over an existing list shows the spinner atop it; a refresh
+            // with no items yet is the initial load.
+            refreshPhase.value =
+                if (repository.observeConvos().value != null) {
+                    RefreshPhase.Refreshing
+                } else {
+                    RefreshPhase.InitialLoading
+                }
+            refreshJob =
                 viewModelScope.launch {
                     repository
-                        .listConvos()
-                        .onSuccess { page ->
-                            setState { copy(status = ChatsLoadStatus.Loaded(items = page.items)) }
-                        }.onFailure { throwable ->
+                        .refreshConvos()
+                        .onSuccess { refreshPhase.value = RefreshPhase.Idle }
+                        .onFailure { throwable ->
                             val error = throwable.toChatsError()
-                            val prior = uiState.value.status
-                            if (prior is ChatsLoadStatus.Loaded) {
-                                // Refresh-time failure: keep existing items visible, drop the
-                                // refresh indicator, surface a transient snackbar.
-                                setState { copy(status = prior.copy(isRefreshing = false)) }
+                            if (repository.observeConvos().value != null) {
+                                // Refresh-time failure with items present: keep them,
+                                // drop the indicator, surface a transient snackbar.
+                                refreshPhase.value = RefreshPhase.Idle
                                 sendEffect(ChatsEffect.ShowRefreshError(error))
                             } else {
-                                setState { copy(status = ChatsLoadStatus.InitialError(error)) }
+                                refreshPhase.value = RefreshPhase.InitialError(error)
                             }
                         }
-                    inFlightLoad = null
                 }
+        }
+
+        /** Lifecycle of the refresh request, combined with the cache to form the screen status. */
+        private sealed interface RefreshPhase {
+            data object InitialLoading : RefreshPhase
+
+            data object Refreshing : RefreshPhase
+
+            data object Idle : RefreshPhase
+
+            data class InitialError(
+                val error: ChatsError,
+            ) : RefreshPhase
         }
     }

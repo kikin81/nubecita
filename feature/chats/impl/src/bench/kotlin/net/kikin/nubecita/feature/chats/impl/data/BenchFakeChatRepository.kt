@@ -2,8 +2,12 @@ package net.kikin.nubecita.feature.chats.impl.data
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -39,6 +43,17 @@ internal class BenchFakeChatRepository
         private val messagesCache = ConcurrentHashMap<String, List<MessageUi>>()
         private val didToConvoId = ConcurrentHashMap<String, String>()
 
+        // Reactive published view of [convosCache], so the bench inbox updates
+        // live on send just like production. null = not yet refreshed.
+        private val convosFlow = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+
+        private fun publishConvos() {
+            convosFlow.value =
+                convosCache.values
+                    .sortedWith(compareByDescending<ConvoListItemUi> { it.sentAt }.thenBy { it.convoId })
+                    .toImmutableList()
+        }
+
         private suspend fun ensureLoaded() =
             withContext(dispatcher) {
                 if (isInitialized) return@withContext
@@ -73,23 +88,12 @@ internal class BenchFakeChatRepository
                 }
             }
 
-        override suspend fun listConvos(
-            cursor: String?,
-            limit: Int,
-        ): Result<ConvoListPage> {
+        override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convosFlow.asStateFlow()
+
+        override suspend fun refreshConvos(): Result<Unit> {
             ensureLoaded()
-            val sortedConvos =
-                convosCache.values
-                    .sortedWith(
-                        compareByDescending<ConvoListItemUi> { it.sentAt }
-                            .thenBy { it.convoId },
-                    ).toImmutableList()
-            return Result.success(
-                ConvoListPage(
-                    items = sortedConvos,
-                    nextCursor = null,
-                ),
-            )
+            publishConvos()
+            return Result.success(Unit)
         }
 
         override suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution> {
@@ -188,6 +192,9 @@ internal class BenchFakeChatRepository
                         lastMessageIsAttachment = false,
                         sentAt = now,
                     )
+                // Republish so an open inbox reflects the send live (only when the
+                // list has been refreshed at least once — convosFlow is non-null).
+                if (convosFlow.value != null) publishConvos()
             }
 
             return Result.success(newMsg)
