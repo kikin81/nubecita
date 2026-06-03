@@ -1,11 +1,11 @@
 # feature-search Specification
 
 ## Purpose
-TBD - created by archiving change search-m3-expressive-searchbar. Update Purpose after archive.
+The Search tab's input affordance and adaptive presentation: the Material 3 Expressive `SearchBar` (collapsed pill + expanded typing overlay), the query lifecycle (recents / typeahead / results), and the list-detail behavior (single-pane on Compact; two-pane on Medium/Expanded with a pane-scoped expanded search). Established by the merged "Search panes" changes `search-m3-expressive-searchbar` (#420) and `search-adaptive-list-detail` (#423).
 ## Requirements
 ### Requirement: Search input uses the M3 Expressive SearchBar
 
-The Search tab SHALL present its query input as a Material 3 Expressive `SearchBar` — a collapsed full-corner pill — instead of a bespoke `OutlinedTextField`. The collapsed pill SHALL sit at the top of the Search tab body. A single shared input field (`SearchBarDefaults.InputField` bound to the ViewModel's `TextFieldState` and the screen's `SearchBarState`) SHALL back both the collapsed pill and the expanded overlay. The migration SHALL NOT add a new dependency and MAY opt into `@ExperimentalMaterial3Api`.
+The Search tab SHALL present its query input as a Material 3 Expressive `SearchBar` — a collapsed full-corner pill — instead of a bespoke `OutlinedTextField`. The collapsed pill SHALL sit at the top of the Search tab body. A single shared input field (`SearchBarDefaults.InputField` bound to the ViewModel's `TextFieldState` and the screen's `SearchBarState`) SHALL back both the collapsed pill and the expanded overlay. The search bar surfaces MAY opt into the experimental Material 3 APIs (`@ExperimentalMaterial3Api` / `@ExperimentalMaterial3ExpressiveApi`).
 
 #### Scenario: Collapsed pill is shown at rest
 
@@ -22,14 +22,14 @@ The Search tab SHALL present its query input as a Material 3 Expressive `SearchB
 - **WHEN** the query text is non-blank
 - **THEN** a trailing clear (X) affordance is shown that clears the text field
 
-### Requirement: Tapping the bar opens a full-screen typing overlay
+### Requirement: Tapping the bar opens a typing overlay
 
-Tapping the collapsed `SearchBar` SHALL expand it into an `ExpandedFullScreenSearchBar` overlay that hosts the active input field and the query-assist content. On Compact width the overlay SHALL be the full-screen variant. The expanded container SHALL be selected at a single width-class-keyed call site; the Medium/Expanded branch is reserved for a later change and for this change SHALL fall through to the full-screen variant.
+Tapping the collapsed `SearchBar` SHALL expand it into a typing overlay that hosts the active input field and the query-assist content. The expanded container SHALL be selected by window width class at a single call site; the per-width variant (full-screen on Compact, docked on Medium/Expanded) is specified by the "Expanded search is width-gated and pane-scoped on tablets" requirement.
 
 #### Scenario: Expand on tap
 
 - **WHEN** the user taps the collapsed search bar
-- **THEN** the search bar animates to expanded and the full-screen overlay is shown
+- **THEN** the search bar animates to expanded and the typing overlay is shown
 - **AND** the soft keyboard is requested
 
 #### Scenario: Collapse via back affordance reverts unsubmitted text
