@@ -413,9 +413,13 @@ internal fun SettingsContent(
     val aboutRows =
         remember(followDeveloperLabel, versionRowLabel, versionLabel) {
             persistentListOf(
-                // Opens the developer's Bluesky profile (Link semantics: a
-                // navigation destination). PersonAdd reads as "follow".
-                SettingsRow.Link(
+                // Action, not Link: this opens an *in-app* Profile route (pushed
+                // onto MainShell's back stack), matching the Pro-upsell row.
+                // SettingsRow.Link is reserved for *external* destinations (web /
+                // OS-settings deep links) and is slated to grow an "open in new"
+                // badge, which would misrepresent this in-app navigation.
+                // PersonAdd reads as "follow".
+                SettingsRow.Action(
                     icon = NubecitaIconName.PersonAdd,
                     label = followDeveloperLabel,
                     onClick = { currentOnEvent(SettingsEvent.FollowDeveloperTapped) },
