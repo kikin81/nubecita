@@ -60,6 +60,7 @@ import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsSection
@@ -167,6 +168,13 @@ internal fun SettingsScreen(
                     // inner back stack via the host-wired callback. The VM never
                     // touches LocalMainShellNavState (same as profile sub-routes).
                     currentOnNavigateTo(PaywallRoute)
+                SettingsEffect.NavigateToDeveloperProfile ->
+                    // Push the developer's profile onto MainShell's inner back
+                    // stack. The DID is a screen-owned constant (the VM stays
+                    // free of :feature:profile:api), mirroring the PaywallRoute
+                    // push above. DID over handle so the link survives any
+                    // future handle change.
+                    currentOnNavigateTo(Profile(handle = DEVELOPER_DID))
                 is SettingsEffect.OpenManageSubscription -> {
                     // Deep-link to the Play manage-subscription page. The screen
                     // owns the package name; the VM supplied the sku (if known).
@@ -374,6 +382,7 @@ internal fun SettingsContent(
     val signOutLabel = stringResource(R.string.settings_signout)
     val notificationsRowLabel = stringResource(R.string.settings_notifications_row_label)
     val versionRowLabel = stringResource(R.string.settings_version_row_label)
+    val followDeveloperLabel = stringResource(R.string.settings_follow_developer_row_label)
 
     val notificationsRows =
         remember(notificationsRowLabel) {
@@ -402,8 +411,15 @@ internal fun SettingsContent(
             )
         }
     val aboutRows =
-        remember(versionRowLabel, versionLabel) {
+        remember(followDeveloperLabel, versionRowLabel, versionLabel) {
             persistentListOf(
+                // Opens the developer's Bluesky profile (Link semantics: a
+                // navigation destination). PersonAdd reads as "follow".
+                SettingsRow.Link(
+                    icon = NubecitaIconName.PersonAdd,
+                    label = followDeveloperLabel,
+                    onClick = { currentOnEvent(SettingsEvent.FollowDeveloperTapped) },
+                ),
                 // Non-interactive: the version is informational. Info renders
                 // the same visual rhythm (Surface tone + segmented shape) as
                 // the surrounding action rows but has no click handler, no
@@ -529,6 +545,11 @@ internal fun SettingsContent(
         )
     }
 }
+
+// The developer's stable AT Protocol DID (franciscovelazquez.com). Used as the
+// actor for the "Follow the developer" row's Profile push. A DID rather than a
+// handle so the link keeps resolving if the handle ever changes.
+private const val DEVELOPER_DID = "did:plc:q4zug2rt47ntodpsxlkfbkmy"
 
 /**
  * Build the Google Play manage-subscription deep link. With a known [sku] it
