@@ -8,6 +8,7 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.settings.impl.SettingsScreen
 
@@ -16,6 +17,11 @@ import net.kikin.nubecita.feature.settings.impl.SettingsScreen
  * inner back stack from the You-tab Profile via
  * `navState.add(Settings)`; the back arrow inside [SettingsScreen]
  * pops the same inner stack.
+ *
+ * Tagged [adaptiveDialog] so Settings presents full-screen on Compact and
+ * as a centered dialog on Medium/Expanded. Sub-routes opened from here that
+ * are also tagged `adaptiveDialog` (e.g. About) coalesce into the *same*
+ * dialog and swap content on tablet; on phone they push as full-screen pages.
  *
  * Graduated out of `:feature:profile:impl/ProfileNavigationModule` in
  * nubecita-77l. Section sub-routes added by post-77l tasks (Push
@@ -30,7 +36,7 @@ internal object SettingsNavigationModule {
     @MainShell
     fun provideSettingsEntries(): EntryProviderInstaller =
         {
-            entry<Settings> {
+            entry<Settings>(metadata = adaptiveDialog()) {
                 val navState = LocalMainShellNavState.current
                 SettingsScreen(
                     onBack = { navState.removeLast() },
