@@ -63,7 +63,10 @@ internal fun SearchPostsScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is SearchPostsEffect.NavigateToPost ->
-                    navState.add(PostDetailRoute(postUri = effect.uri))
+                    // replaceTop (not add): on Medium/Expanded the tapped post
+                    // swaps the detail pane and system back returns to the
+                    // results list; on Compact it degrades to a normal push.
+                    navState.replaceTop(PostDetailRoute(postUri = effect.uri))
                 is SearchPostsEffect.ShowAppendError ->
                     currentOnShowAppendError(effect.error)
                 SearchPostsEffect.NavigateToClearQuery ->

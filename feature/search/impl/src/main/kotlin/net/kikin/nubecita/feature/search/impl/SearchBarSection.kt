@@ -13,8 +13,10 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.material3.ExpandedDockedSearchBar
 import androidx.compose.material3.ExpandedFullScreenSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
@@ -63,12 +65,13 @@ internal fun revertTargetFor(phase: SearchPhase): String = (phase as? SearchPhas
  *    bar and reverts the field to [revertTarget] (the last submitted query,
  *    or blank), so the pill text and the body stay consistent.
  *
- * PR2 (`nubecita-h5zd.2`) swaps [ExpandedFullScreenSearchBar] for a
- * pane-scoped variant (`ExpandedDockedSearchBar` /
- * `ExpandedFullScreenContainedSearchBar`) on Medium/Expanded widths so the
- * detail pane stays visible; single-pane (PR1) always uses full-screen.
+ * The expanded container is width-gated by [isAtLeastMedium]: Compact uses
+ * [ExpandedFullScreenSearchBar] (full-window); Medium/Expanded uses
+ * [ExpandedDockedSearchBar], a popup scoped to the list-pane region so the
+ * list-detail detail pane stays visible. The collapsed pill, [inputField],
+ * [searchBarState], and overlay content are shared across both widths.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SearchBarSection(
     textFieldState: TextFieldState,
@@ -81,6 +84,7 @@ internal fun SearchBarSection(
     onChipTap: (String) -> Unit,
     onChipRemove: (String) -> Unit,
     onClearAll: () -> Unit,
+    isAtLeastMedium: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -141,18 +145,15 @@ internal fun SearchBarSection(
         inputField = inputField,
         modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
-    ExpandedFullScreenSearchBar(
-        state = searchBarState,
-        inputField = inputField,
-    ) {
+    // Shared expanded-overlay content, identical across widths. Submitting
+    // from inside the overlay (tapping a recent row or the "Search for {q}"
+    // CTA) collapses the bar so the results show; removing a chip / clearing
+    // all keeps the overlay open.
+    val overlayContent: @Composable ColumnScope.() -> Unit = {
         SearchOverlayContent(
             isQueryBlank = isQueryBlank,
             currentQuery = currentQuery,
             recentSearches = recentSearches,
-            // Submitting from inside the overlay (tapping a recent row or the
-            // "Search for {q}" CTA) must collapse the bar so the results show;
-            // only the IME path did so before. Removing a chip / clearing all
-            // keeps the overlay open.
             onChipTap = {
                 onChipTap(it)
                 collapse()
@@ -164,6 +165,16 @@ internal fun SearchBarSection(
                 collapse()
             },
         )
+    }
+    // Width-gated expanded container: docked (pane-scoped) on Medium/Expanded
+    // so the list-detail detail pane stays visible (the Gmail behavior, and
+    // Google's documented tablet recommendation); full-screen on Compact.
+    // The contained full-screen variant is deliberately NOT used — it covers
+    // the whole window even inside a list-detail pane (verified on-device).
+    if (isAtLeastMedium) {
+        ExpandedDockedSearchBar(state = searchBarState, inputField = inputField) { overlayContent() }
+    } else {
+        ExpandedFullScreenSearchBar(state = searchBarState, inputField = inputField) { overlayContent() }
     }
 }
 
