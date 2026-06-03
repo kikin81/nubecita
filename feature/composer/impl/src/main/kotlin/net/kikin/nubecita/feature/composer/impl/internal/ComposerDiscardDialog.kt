@@ -45,8 +45,8 @@ import net.kikin.nubecita.feature.composer.impl.R
  * Layoutlib (Compose Preview / screenshot tests) can't host
  * `BasicAlertDialog` or `Popup` because those require an
  * Activity-hosted `Window`; previews and screenshot fixtures render
- * [ComposerDiscardDialogContent] directly instead. This mirrors the
- * `ComposerOverlayCard` pattern.
+ * [ComposerDiscardDialogContent] directly instead (the standard
+ * split-out-the-windowed-chrome pattern for screenshot-testability).
  *
  * The action list is data-driven ([ComposerDialogAction]); V1 ships
  * exactly `Cancel` + `Discard` but the eventual third "Save draft"

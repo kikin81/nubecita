@@ -10,9 +10,9 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
-import net.kikin.nubecita.core.common.navigation.LocalComposerLauncher
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.postdetail.impl.PostDetailScreen
@@ -59,7 +59,6 @@ internal object PostDetailNavigationModule {
                 // the bottom nav visible behind the fullscreen canvas.
                 // Push via the outer Navigator instead.
                 val appNavigator = LocalAppNavigator.current
-                val launchComposer = LocalComposerLauncher.current
                 val viewModel =
                     hiltViewModel<PostDetailViewModel, PostDetailViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
@@ -78,12 +77,11 @@ internal object PostDetailNavigationModule {
                     onNavigateToVideoPlayer = { uri ->
                         appNavigator.goTo(VideoPlayerRoute(postUri = uri))
                     },
-                    // Width-class-conditional composer launch, mirroring
-                    // FeedNavigationModule. Wired to both the FAB (via
-                    // PostDetailEffect.NavigateToComposer) and the per-
-                    // post reply taps (PostCallbacks.onReply skips the VM
-                    // and calls this directly, same as Feed).
-                    onReplyClick = { uri -> launchComposer(uri) },
+                    // Push ComposerRoute(replyToUri) — tagged `adaptiveDialog()`,
+                    // so it's full-screen at Compact and a centered Dialog at
+                    // Medium/Expanded (same as Feed). The reply tap skips the VM
+                    // and pushes directly.
+                    onReplyClick = { uri -> navState.add(ComposerRoute(replyToUri = uri)) },
                     // Generic tab-internal sub-route push — pushed onto
                     // MainShell's inner back stack so the @MainShell
                     // entry provider for the key resolves it (e.g. the

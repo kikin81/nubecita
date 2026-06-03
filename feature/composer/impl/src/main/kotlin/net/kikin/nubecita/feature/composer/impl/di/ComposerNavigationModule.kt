@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.ComposerScreen
 import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
@@ -19,12 +20,11 @@ import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
  * `@MainShell`-qualified [EntryProviderInstaller] that registers
  * [ComposerRoute] inside `MainShell`'s inner `NavDisplay`.
  *
- * Per the spec's *Composer registers as an `@MainShell` Nav3 entry
- * for Compact-width hosting* requirement: this entry is the
- * Compact-width hosting path. At Medium/Expanded widths the composer
- * is overlaid as a `Dialog` via the `MainShell`-scoped composer
- * launcher (introduced in `nubecita-wtq.7`); the entry registered
- * here is unused on those widths.
+ * Tagged with `adaptiveDialog()` metadata, so the `AdaptiveDialogSceneStrategy`
+ * (in `:app`) presents this **same** entry full-screen at Compact width and as
+ * a centered `Dialog` at Medium/Expanded — no separate overlay/launcher. Callers
+ * just `navState.add(ComposerRoute(...))` at any width (see the adaptive-layout
+ * convention in CLAUDE.md / `docs/adaptive-layouts.md`).
  *
  * The entry block:
  *
@@ -50,7 +50,7 @@ internal object ComposerNavigationModule {
     @MainShell
     fun provideComposerEntries(): EntryProviderInstaller =
         {
-            entry<ComposerRoute> { route ->
+            entry<ComposerRoute>(metadata = adaptiveDialog()) { route ->
                 val navState = LocalMainShellNavState.current
                 val composerSubmitEventsEmitter = LocalComposerSubmitEventsEmitter.current
                 val viewModel =

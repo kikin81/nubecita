@@ -103,8 +103,8 @@ import kotlin.math.max
  * through any callback expression that captures the VM — including
  * remembered lambdas like the ones below — making the pattern
  * unsuppressible without ripping out the Root/Content split across
- * every screen. Matches the precedent on `ComposerOverlayContent` in
- * `:app`. Revisit if a project-wide refactor away from Root/Content
+ * every screen. Same Root/Content forwarding-suppress as the other MVI
+ * screens. Revisit if a project-wide refactor away from Root/Content
  * is ever scoped.
  */
 @Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")

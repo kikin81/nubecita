@@ -75,9 +75,11 @@ class FeedScreenInstrumentationTest {
      * Pin-down for unified-composer step 10 (nubecita-wtq.10): the per-post
      * reply icon on every PostCard fires the screen-level `onReplyClick`
      * lambda with `PostUi.id` (the post's AT URI), and does NOT pass through
-     * `FeedViewModel`. The host (`FeedNavigationModule`) wires this lambda
-     * to `LocalComposerLauncher.current` for the width-conditional dispatch
-     * (route push at Compact, Dialog overlay at Medium / Expanded).
+     * `FeedViewModel`. The host (`FeedNavigationModule`) wires this lambda to
+     * `navState.add(ComposerRoute(replyToUri))`; the composer entry is tagged
+     * `adaptiveDialog()`, so it's full-screen at Compact and a centered Dialog
+     * at Medium / Expanded. This test pins the screen→host boundary (the URI
+     * the lambda emits), which the presentation change does not affect.
      *
      * Asserts:
      *  - the affordance is present on every loaded post (3 posts → 3 reply

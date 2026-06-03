@@ -15,6 +15,10 @@ dependencies {
     // from this module (nubecita-6rdb.3).
     implementation(project(":core:posts"))
     implementation(project(":data:models"))
+    // ComposerRoute NavKey — pushed onto the inner back stack from a reply tap
+    // in a thread post (tagged adaptiveDialog() so it presents as a dialog on
+    // tablets). :api only.
+    implementation(project(":feature:composer:api"))
     implementation(project(":feature:mediaviewer:api"))
     // Report NavKey + Report.forPost factory — pushed onto the inner
     // back stack from the PostCard overflow "Report post" row inside
