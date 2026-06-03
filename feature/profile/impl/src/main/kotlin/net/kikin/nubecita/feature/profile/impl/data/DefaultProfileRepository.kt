@@ -354,6 +354,10 @@ internal class DefaultProfileRepository
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
+                // Deliberately not logged here: nothing about a user's image upload
+                // (byte sizes, mime, blob ids) should reach logcat. The failure
+                // still surfaces via updateProfile()'s top-level catch, which logs
+                // only the error identity (`throwable.javaClass.name`).
                 throw ProfileUpdateError.BlobUploadFailed(throwable)
             }
 

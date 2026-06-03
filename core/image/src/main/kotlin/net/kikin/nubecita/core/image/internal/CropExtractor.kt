@@ -18,7 +18,7 @@ import kotlin.math.max
  * Split out from the composable so it has no Compose dependency and the
  * pipeline reads top-to-bottom: decode an EXIF-oriented working bitmap →
  * invert the frame transform to a pixel rect → `createBitmap` that region →
- * WebP-compress under the blob cap. `ImageDecoder` applies EXIF orientation
+ * JPEG-compress under the blob cap. `ImageDecoder` applies EXIF orientation
  * during decode, so [CropGeometry] only ever sees oriented dimensions and
  * the extracted region needs no rotation fix-up (unlike `BitmapRegionDecoder`,
  * which ignores EXIF — the reason we decode-then-`createBitmap` instead).
@@ -55,7 +55,7 @@ internal object CropExtractor {
 
     /**
      * Crop [working] to the region currently under the frame and compress it
-     * to WebP under [maxBytes]. [canvasW]/[canvasH] are the crop surface size
+     * to JPEG under [maxBytes]. [canvasW]/[canvasH] are the crop surface size
      * (px); [scale]/[offset] are the live gesture state in the same screen-px
      * space; [frameInset] matches the displayed frame. Returns `(bytes, mime)`.
      */
@@ -91,11 +91,18 @@ internal object CropExtractor {
     }
 
     /**
-     * WebP-compress [bitmap] at descending quality until it fits under
+     * JPEG-compress [bitmap] at descending quality until it fits under
      * [maxBytes], or at the lowest quality as a last resort. A cropped
      * working-bitmap region (≤ [WORKING_MAX_DIM] px) compresses well under
      * the 1 MB cap at high quality, so this is the cheap counterpart to
      * `BitmapImageEncoder`'s full decode-and-downsample ladder.
+     *
+     * JPEG (not WebP) because this crop only feeds `app.bsky.actor.profile`
+     * avatar/banner, whose lexicon accepts **only** `image/png` / `image/jpeg`
+     * — a WebP blob uploads fine but `putRecord` rejects it with
+     * `InvalidRequest … got "image/webp"` (HTTP 400). (`app.bsky.embed.images`
+     * in the composer DOES accept WebP, which is why `BitmapImageEncoder`
+     * defaults to it.)
      */
     private fun compressUnderCap(
         bitmap: Bitmap,
@@ -114,18 +121,11 @@ internal object CropExtractor {
         quality: Int,
     ): ByteArray {
         val out = ByteArrayOutputStream(INITIAL_BUFFER_BYTES)
-        val format =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                Bitmap.CompressFormat.WEBP_LOSSY
-            } else {
-                @Suppress("DEPRECATION")
-                Bitmap.CompressFormat.WEBP
-            }
-        bitmap.compress(format, quality, out)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
         return out.toByteArray()
     }
 
-    private const val OUTPUT_MIME = "image/webp"
+    private const val OUTPUT_MIME = "image/jpeg"
     private val QUALITY_LADDER = listOf(92, 85, 75, 65, 55, 45)
     private const val INITIAL_BUFFER_BYTES = 256 * 1024
 }
