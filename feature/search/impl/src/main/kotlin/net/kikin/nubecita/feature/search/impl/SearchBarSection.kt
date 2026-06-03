@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.search.impl
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -86,6 +85,7 @@ internal fun SearchBarSection(
 ) {
     val scope = rememberCoroutineScope()
     val isExpanded = searchBarState.targetValue == SearchBarValue.Expanded
+    val collapse: () -> Unit = { scope.launch { searchBarState.animateToCollapsed() } }
 
     val inputField =
         @Composable {
@@ -93,8 +93,12 @@ internal fun SearchBarSection(
                 textFieldState = textFieldState,
                 searchBarState = searchBarState,
                 onSearch = {
+                    // Only collapse when there is something to search for; a
+                    // blank IME-Search is a no-op that should keep the overlay
+                    // open (still showing recents) rather than dead-end-collapse.
+                    val hasQuery = textFieldState.text.isNotBlank()
                     onSubmit()
-                    scope.launch { searchBarState.animateToCollapsed() }
+                    if (hasQuery) collapse()
                 },
                 placeholder = { Text(stringResource(R.string.search_input_hint)) },
                 leadingIcon = {
@@ -102,7 +106,7 @@ internal fun SearchBarSection(
                         IconButton(
                             onClick = {
                                 textFieldState.setTextAndPlaceCursorAtEnd(revertTarget)
-                                scope.launch { searchBarState.animateToCollapsed() }
+                                collapse()
                             },
                         ) {
                             NubecitaIcon(
@@ -145,10 +149,20 @@ internal fun SearchBarSection(
             isQueryBlank = isQueryBlank,
             currentQuery = currentQuery,
             recentSearches = recentSearches,
-            onChipTap = onChipTap,
+            // Submitting from inside the overlay (tapping a recent row or the
+            // "Search for {q}" CTA) must collapse the bar so the results show;
+            // only the IME path did so before. Removing a chip / clearing all
+            // keeps the overlay open.
+            onChipTap = {
+                onChipTap(it)
+                collapse()
+            },
             onChipRemove = onChipRemove,
             onClearAll = onClearAll,
-            onCommitQuery = onSubmit,
+            onCommitQuery = {
+                onSubmit()
+                collapse()
+            },
         )
     }
 }
@@ -244,13 +258,7 @@ private fun RecentSearchOverlayList(
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f).padding(vertical = 16.dp),
                 )
-                Box(
-                    modifier =
-                        Modifier
-                            .clickable { onItemRemove(query) }
-                            .padding(12.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
+                IconButton(onClick = { onItemRemove(query) }) {
                     NubecitaIcon(
                         name = NubecitaIconName.Close,
                         contentDescription = stringResource(R.string.search_recent_remove_content_desc),

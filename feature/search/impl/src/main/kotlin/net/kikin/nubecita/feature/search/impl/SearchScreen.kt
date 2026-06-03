@@ -303,6 +303,13 @@ internal fun SearchScreenContent(
                         )
                     }
                 is SearchPhase.Results -> {
+                    // The result tabs query the *submitted* query, never the live
+                    // text. Editing in the expanded overlay updates `currentQuery`
+                    // (for the overlay typeahead) while these tabs stay composed
+                    // underneath — feeding them `currentQuery` would re-run the
+                    // search for unsubmitted text. `phase.query` is the last
+                    // submitted query.
+                    val submittedQuery = phase.query
                     SearchResultsTabBar(
                         selectedTabIndex = pagerState.currentPage,
                         onSelectTab = { page -> tabScope.launch { pagerState.animateScrollToPage(page) } },
@@ -318,20 +325,20 @@ internal fun SearchScreenContent(
                         when (page) {
                             0 ->
                                 SearchPostsScreen(
-                                    currentQuery = currentQuery,
+                                    currentQuery = submittedQuery,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onPostsAppendError,
                                     onShowOverflowComingSoon = onPostsOverflowComingSoon,
                                 )
                             1 ->
                                 SearchActorsScreen(
-                                    currentQuery = currentQuery,
+                                    currentQuery = submittedQuery,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onActorsAppendError,
                                 )
                             2 ->
                                 SearchFeedsScreen(
-                                    currentQuery = currentQuery,
+                                    currentQuery = submittedQuery,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onFeedsAppendError,
                                 )
