@@ -85,11 +85,30 @@ internal fun SearchBarSection(
     onChipRemove: (String) -> Unit,
     onClearAll: () -> Unit,
     isAtLeastMedium: Boolean,
+    onNavigateToActor: (handle: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val isExpanded = searchBarState.targetValue == SearchBarValue.Expanded
     val collapse: () -> Unit = { scope.launch { searchBarState.animateToCollapsed() } }
+
+    // Tapping a person in the typeahead must collapse the expanded bar BEFORE
+    // navigating, otherwise the bar stays Expanded and the overlay's own back
+    // handler hijacks the back gesture from the pushed screen (you get bounced
+    // back and can't return to Search — nubecita-m4jc). The collapse is awaited
+    // here, in SearchBarSection's scope (which outlives the overlay / the
+    // typeahead screen), then [onNavigateToActor] fires. The animation
+    // completes while the Search entry is still composed, so the saved
+    // SearchBarState is Collapsed when the destination is pushed. Navigation
+    // itself is owned by the stateful SearchScreen and passed in, so this
+    // composable (always composed, even collapsed) never touches the nav
+    // CompositionLocal — keeping the stateless body's previews navigator-free.
+    val onSelectActor: (String) -> Unit = { handle ->
+        scope.launch {
+            searchBarState.animateToCollapsed()
+            onNavigateToActor(handle)
+        }
+    }
 
     val inputField =
         @Composable {
@@ -164,6 +183,7 @@ internal fun SearchBarSection(
                 onSubmit()
                 collapse()
             },
+            onSelectActor = onSelectActor,
         )
     }
     // Width-gated expanded container: docked (pane-scoped) on Medium/Expanded
@@ -193,6 +213,7 @@ private fun ColumnScope.SearchOverlayContent(
     onChipRemove: (String) -> Unit,
     onClearAll: () -> Unit,
     onCommitQuery: () -> Unit,
+    onSelectActor: (String) -> Unit,
 ) {
     if (isQueryBlank) {
         RecentSearchOverlayList(
@@ -206,6 +227,7 @@ private fun ColumnScope.SearchOverlayContent(
         SearchTypeaheadScreen(
             currentQuery = currentQuery,
             onCommitQuery = onCommitQuery,
+            onSelectActor = onSelectActor,
             modifier = Modifier.fillMaxWidth().weight(1f),
         )
     }
