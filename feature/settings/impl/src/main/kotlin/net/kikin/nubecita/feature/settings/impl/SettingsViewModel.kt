@@ -126,6 +126,8 @@ internal class SettingsViewModel
                     runRestore()
                 SettingsEvent.FollowDeveloperTapped ->
                     sendEffect(SettingsEffect.NavigateToDeveloperProfile)
+                SettingsEvent.AboutTapped ->
+                    sendEffect(SettingsEffect.OpenAbout)
             }
         }
 
