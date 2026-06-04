@@ -27,7 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mikepenz.aboutlibraries.Libs
-import com.mikepenz.aboutlibraries.util.withContext
+import com.mikepenz.aboutlibraries.util.withJson
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -56,13 +56,16 @@ internal fun AboutLicensesScreen(
 ) {
     val context = LocalContext.current
     // The generated JSON is small and this screen is rarely opened, so building
-    // once in remember is acceptable. `withContext` here is the aboutlibraries
-    // Libs.Builder extension (loads the generated metadata), not the coroutine.
+    // once in remember is acceptable. Load via the explicit `R.raw.aboutlibraries`
+    // id (NOT `withContext(context)`, which resolves the resource by name via
+    // reflection): a real R reference is tracked by the resource shrinker, so
+    // `isShrinkResources` doesn't strip the JSON from minified release builds
+    // (which previously crashed the licenses screen — nubecita-jkg8).
     val rows: ImmutableList<LicenseRowUi> =
         remember(context) {
             Libs
                 .Builder()
-                .withContext(context)
+                .withJson(context, R.raw.aboutlibraries)
                 .build()
                 .libraries
                 .map { library ->
