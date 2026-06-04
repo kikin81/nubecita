@@ -37,6 +37,7 @@ import net.kikin.nubecita.core.common.time.rememberRelativeTimeText
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
+import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
@@ -102,6 +103,8 @@ fun PostCard(
     animateLikeTap: Boolean = false,
     animateRepostTap: Boolean = false,
     bodyMatch: String? = null,
+    isMediaRevealed: Boolean = false,
+    onRevealMedia: () -> Unit = {},
 ) {
     // PostCard uses NubecitaAvatar (40dp) with 20dp horizontal + 14dp vertical
     // padding, so the avatar center is at x = 20 + 20 = 40dp, NOT the
@@ -155,6 +158,8 @@ fun PostCard(
                         videoEmbedSlot = videoEmbedSlot,
                         quotedVideoEmbedSlot = quotedVideoEmbedSlot,
                         onImageClick = onImageClick,
+                        isMediaRevealed = isMediaRevealed,
+                        onRevealMedia = onRevealMedia,
                     )
                     Spacer(Modifier.height(8.dp))
                     ActionRow(
@@ -257,12 +262,22 @@ private fun EmbedSlot(
     videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)?,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)?,
     onImageClick: ((imageIndex: Int) -> Unit)?,
+    isMediaRevealed: Boolean,
+    onRevealMedia: () -> Unit,
 ) {
+    // Build a cover from a media embed's precomputed warning + the per-post
+    // reveal state. Null → render the media (no warning, or already revealed).
+    // Video + quoted-post media covers land with the surface-wiring slice (they
+    // require the host video slot to thread the cover); top-level image / link /
+    // gif media are covered here.
+    val coverFor = { warning: MediaContentWarning? ->
+        warning.takeIf { !isMediaRevealed }?.let { MediaCover(it, onRevealMedia) }
+    }
     when (embed) {
         EmbedUi.Empty -> Unit
         is EmbedUi.Images -> {
             Spacer(Modifier.height(10.dp))
-            PostCardImageEmbed(items = embed.items, onImageClick = onImageClick)
+            PostCardImageEmbed(items = embed.items, onImageClick = onImageClick, cover = coverFor(embed.contentWarning))
         }
         is EmbedUi.Video -> {
             // No spacer when the host hasn't supplied a slot — the
@@ -282,11 +297,17 @@ private fun EmbedSlot(
                 description = embed.description,
                 thumbUrl = embed.thumbUrl,
                 onTap = callbacks.onExternalEmbedTap,
+                cover = coverFor(embed.contentWarning),
             )
         }
         is EmbedUi.Gif -> {
             Spacer(Modifier.height(10.dp))
-            PostCardGifEmbed(gifUrl = embed.gifUrl, aspectRatio = embed.aspectRatio, alt = embed.alt)
+            PostCardGifEmbed(
+                gifUrl = embed.gifUrl,
+                aspectRatio = embed.aspectRatio,
+                alt = embed.alt,
+                cover = coverFor(embed.contentWarning),
+            )
         }
         is EmbedUi.Record -> {
             Spacer(Modifier.height(10.dp))

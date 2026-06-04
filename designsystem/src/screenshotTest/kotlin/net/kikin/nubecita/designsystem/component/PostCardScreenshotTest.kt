@@ -14,8 +14,10 @@ import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.ContentWarningCategory
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
+import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -115,6 +117,43 @@ private fun PostCardWithImageScreenshot() {
                     ),
             ),
     )
+}
+
+// Moderation: a post whose image carries a content warning. `isMediaRevealed`
+// drives the cover (the per-post reveal state a list hoists in the wiring
+// slice); false → the cover scrim, true → the image renders normally.
+private fun coveredImagePost() =
+    screenshotPost(
+        embed =
+            EmbedUi.Images(
+                items =
+                    persistentListOf(
+                        ImageUi(
+                            fullsizeUrl = "https://example.com/preview.jpg",
+                            thumbUrl = "https://example.com/preview.jpg",
+                            altText = "Preview image",
+                            aspectRatio = 1.5f,
+                        ),
+                    ),
+                contentWarning = MediaContentWarning(ContentWarningCategory.ADULT_CONTENT, overridable = true),
+            ),
+    )
+
+@PreviewTest
+@Preview(name = "image-covered-light", showBackground = true)
+@Preview(name = "image-covered-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostCardImageCoveredScreenshot() {
+    PostCard(post = coveredImagePost(), isMediaRevealed = false)
+}
+
+@PreviewTest
+@Preview(name = "image-revealed-light", showBackground = true)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostCardImageRevealedScreenshot() {
+    PostCard(post = coveredImagePost(), isMediaRevealed = true)
 }
 
 // Multi-image carousel coverage. Two fixtures lock the carousel branch
