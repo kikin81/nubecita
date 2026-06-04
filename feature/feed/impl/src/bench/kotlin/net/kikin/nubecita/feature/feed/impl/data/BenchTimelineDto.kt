@@ -171,6 +171,16 @@ internal data class BenchEmbedDto(
     val description: String? = null,
     val thumbUrl: String? = null,
     val gifUrl: String? = null,
+    // Optional NSFW content-warning cover for this media embed (mirrors the
+    // moderation decision production computes). One of the
+    // ContentWarningCategory names — ADULT_CONTENT / SEXUALLY_SUGGESTIVE /
+    // GRAPHIC_MEDIA / NON_SEXUAL_NUDITY — or null for no cover. The bench feed
+    // builds PostUi directly (no moderation pass), so this sets the cover
+    // explicitly to demo the feature; keep such posts toward the END of
+    // timeline.json so the Play-listing marketing screenshots (captured from the
+    // top of the bench feed) never include covered content.
+    val contentWarning: String? = null,
+    val contentWarningOverridable: Boolean = true,
 ) {
     @Serializable
     internal enum class Type {

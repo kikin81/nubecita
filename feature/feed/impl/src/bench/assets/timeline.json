@@ -977,6 +977,62 @@
         },
         "repostedBy": null
       }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:nsfw00000000000000000001/app.bsky.feed.post/3kfeed1701",
+        "cid": "bafyreinsfw00000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:nsfw00000000000000000001",
+          "handle": "artcollective.bsky.social",
+          "displayName": "Atelier Noir",
+          "avatarUrl": null
+        },
+        "createdAt": "2026-05-27T09:10:00Z",
+        "text": "New figure-study series drops this weekend at the gallery. Labelled for sensitivity — tap to view if you're comfortable.",
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "altText": "Sensitive artwork preview (covered).",
+              "aspectRatio": 1.333
+            }
+          ],
+          "contentWarning": "ADULT_CONTENT",
+          "contentWarningOverridable": true
+        }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:nsfw00000000000000000002/app.bsky.feed.post/3kfeed1702",
+        "cid": "bafyreinsfw00000000000000000000000000000000000000000002",
+        "author": {
+          "did": "did:plc:nsfw00000000000000000002",
+          "handle": "frontline.report",
+          "displayName": "Frontline Report",
+          "avatarUrl": null
+        },
+        "createdAt": "2026-05-27T08:40:00Z",
+        "text": "On-the-ground footage from this morning. Marked graphic — viewer discretion advised.",
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "altText": "Graphic media preview (covered).",
+              "aspectRatio": 1.333
+            }
+          ],
+          "contentWarning": "GRAPHIC_MEDIA",
+          "contentWarningOverridable": true
+        }
+      }
     }
   ]
 }

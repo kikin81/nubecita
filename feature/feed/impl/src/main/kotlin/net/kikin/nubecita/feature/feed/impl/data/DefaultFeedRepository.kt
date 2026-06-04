@@ -10,8 +10,11 @@ import io.github.kikin81.atproto.runtime.XrpcClient
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -19,6 +22,8 @@ class DefaultFeedRepository
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
+        private val moderationPreferences: ModerationPreferencesRepository,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : FeedRepository {
         override suspend fun getTimeline(
@@ -84,8 +89,14 @@ class DefaultFeedRepository
                 runCatching {
                     val client = xrpcClientProvider.authenticated()
                     val (feed, nextCursor) = block(client)
+                    // Read the cached prefs + viewer DID once per page; the
+                    // mapper drops hard-filtered timeline posts and covers
+                    // warned media off the render path. A cold cache reads the
+                    // fail-safe DEFAULT (adult off).
+                    val prefs = moderationPreferences.prefs.value
+                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
                     TimelinePage(
-                        feedItems = feed.toFeedItemsUi(),
+                        feedItems = feed.toFeedItemsUi(prefs, viewerDid),
                         nextCursor = nextCursor,
                         wirePosts = feed.toImmutableList(),
                     )

@@ -3,12 +3,15 @@ package net.kikin.nubecita.feature.feed.impl.data
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.ContentWarningCategory
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.ImageUi
+import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.data.models.withMediaContentWarning
 import timber.log.Timber
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -126,25 +129,43 @@ internal object BenchTimelineMapper {
             isAuthorBlockingViewer = isAuthorBlockingViewer,
         )
 
-    private fun BenchEmbedDto.toEmbedUi(): EmbedUi =
-        when (type) {
-            BenchEmbedDto.Type.Empty -> EmbedUi.Empty
-            BenchEmbedDto.Type.Images ->
-                EmbedUi.Images(
-                    items = (items ?: emptyList()).map { it.toImageUi() }.toPersistentList(),
-                )
-            BenchEmbedDto.Type.Video -> toEmbedUiVideoOrUnsupported()
-            BenchEmbedDto.Type.External -> toEmbedUiExternalOrUnsupported()
-            BenchEmbedDto.Type.Gif ->
-                gifUrl?.let { url ->
-                    EmbedUi.Gif(
-                        gifUrl = url,
-                        thumbUrl = thumbUrl,
-                        aspectRatio = aspectRatio?.toFloat(),
-                        alt = altText,
+    private fun BenchEmbedDto.toEmbedUi(): EmbedUi {
+        val base =
+            when (type) {
+                BenchEmbedDto.Type.Empty -> EmbedUi.Empty
+                BenchEmbedDto.Type.Images ->
+                    EmbedUi.Images(
+                        items = (items ?: emptyList()).map { it.toImageUi() }.toPersistentList(),
                     )
-                } ?: EmbedUi.Unsupported(typeUri = "app.bsky.embed.external")
-        }
+                BenchEmbedDto.Type.Video -> toEmbedUiVideoOrUnsupported()
+                BenchEmbedDto.Type.External -> toEmbedUiExternalOrUnsupported()
+                BenchEmbedDto.Type.Gif ->
+                    gifUrl?.let { url ->
+                        EmbedUi.Gif(
+                            gifUrl = url,
+                            thumbUrl = thumbUrl,
+                            aspectRatio = aspectRatio?.toFloat(),
+                            alt = altText,
+                        )
+                    } ?: EmbedUi.Unsupported(typeUri = "app.bsky.embed.external")
+            }
+        // Apply the optional NSFW cover — production computes this from labels;
+        // the bench fixture sets it explicitly. withMediaContentWarning is a
+        // no-op for null / non-media embeds.
+        return base.withMediaContentWarning(toContentWarning())
+    }
+
+    private fun BenchEmbedDto.toContentWarning(): MediaContentWarning? {
+        val category =
+            when (contentWarning) {
+                "ADULT_CONTENT" -> ContentWarningCategory.ADULT_CONTENT
+                "SEXUALLY_SUGGESTIVE" -> ContentWarningCategory.SEXUALLY_SUGGESTIVE
+                "GRAPHIC_MEDIA" -> ContentWarningCategory.GRAPHIC_MEDIA
+                "NON_SEXUAL_NUDITY" -> ContentWarningCategory.NON_SEXUAL_NUDITY
+                else -> return null
+            }
+        return MediaContentWarning(category, overridable = contentWarningOverridable)
+    }
 
     /**
      * Required-field-missing Video → [EmbedUi.Unsupported] rather than
