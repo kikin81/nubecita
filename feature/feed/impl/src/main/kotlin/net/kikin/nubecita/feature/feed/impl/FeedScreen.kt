@@ -52,6 +52,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -77,6 +78,8 @@ import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -754,10 +757,15 @@ private fun LoadedFeedContent(
     coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
     // Per-list reveal state: ids of posts whose covered (NSFW-labelled) media the
-    // viewer chose to "Show anyway". rememberSaveable so a config change / back-nav
-    // keeps revealed media revealed. Terminates at the screen — the VM never sees
-    // it (a Compose-runtime concern, like scroll state).
-    var revealedMedia by rememberSaveable { mutableStateOf(emptySet<String>()) }
+    // viewer chose to "Show anyway". Terminates at the screen — the VM never sees
+    // it (a Compose-runtime concern, like scroll state). PersistentSet (not a plain
+    // Set) keeps the param @Stable; an explicit listSaver round-trips it through a
+    // Bundle as an ArrayList — autoSaver can't reliably save a kotlin Set (its
+    // concrete impl differs empty-vs-nonempty), which would crash at save time on a
+    // config change — so reveals survive rotation.
+    var revealedMedia by rememberSaveable(
+        stateSaver = listSaver(save = { it.toList() }, restore = { it.toPersistentSet() }),
+    ) { mutableStateOf(persistentSetOf<String>()) }
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -923,7 +931,7 @@ private fun LoadedFeedContent(
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
                                 isMediaRevealed = item.post.id in revealedMedia,
-                                onRevealMedia = { revealedMedia = revealedMedia + item.post.id },
+                                onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
                             )
                         }
                     is FeedItemUi.ReplyCluster ->
@@ -948,7 +956,7 @@ private fun LoadedFeedContent(
                             lastLikeTapPostUri = lastLikeTapPostUri,
                             lastRepostTapPostUri = lastRepostTapPostUri,
                             revealedMedia = revealedMedia,
-                            onRevealMedia = { id -> revealedMedia = revealedMedia + id },
+                            onRevealMedia = { id -> revealedMedia = revealedMedia.add(id) },
                         )
                     is FeedItemUi.SelfThreadChain -> {
                         // Same-author chain: render N PostCards stacked
@@ -986,7 +994,7 @@ private fun LoadedFeedContent(
                                         animateLikeTap = chainPost.id == lastLikeTapPostUri,
                                         animateRepostTap = chainPost.id == lastRepostTapPostUri,
                                         isMediaRevealed = chainPost.id in revealedMedia,
-                                        onRevealMedia = { revealedMedia = revealedMedia + chainPost.id },
+                                        onRevealMedia = { revealedMedia = revealedMedia.add(chainPost.id) },
                                     )
                                 }
                             }

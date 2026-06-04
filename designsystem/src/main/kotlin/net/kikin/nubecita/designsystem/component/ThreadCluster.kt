@@ -10,7 +10,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -79,7 +81,7 @@ fun ThreadCluster(
     onImageClick: ((post: PostUi, imageIndex: Int) -> Unit)? = null,
     lastLikeTapPostUri: String? = null,
     lastRepostTapPostUri: String? = null,
-    revealedMedia: Set<String> = emptySet(),
+    revealedMedia: ImmutableSet<String> = persistentSetOf(),
     onRevealMedia: (postId: String) -> Unit = {},
 ) {
     // When the reply is direct to the root post, replyRef.parent and
