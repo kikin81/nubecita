@@ -63,6 +63,7 @@ private fun ImageSingleCoveredPreview() {
 
 @PreviewTest
 @Preview(name = "image multi covered, light", showBackground = true)
+@Preview(name = "image multi covered, dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ImageMultiCoveredPreview() {
     NubecitaTheme(dynamicColor = false) {
@@ -72,6 +73,7 @@ private fun ImageMultiCoveredPreview() {
 
 @PreviewTest
 @Preview(name = "external covered, light", showBackground = true)
+@Preview(name = "external covered, dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun ExternalCoveredPreview() {
     NubecitaTheme(dynamicColor = false) {
@@ -89,6 +91,7 @@ private fun ExternalCoveredPreview() {
 
 @PreviewTest
 @Preview(name = "gif covered, light", showBackground = true)
+@Preview(name = "gif covered, dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun GifCoveredPreview() {
     NubecitaTheme(dynamicColor = false) {

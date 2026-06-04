@@ -70,10 +70,16 @@ fun PostCardImageEmbed(
         // `model = null` to Coil — nothing is fetched or decoded — but they still
         // lay out at their natural size, so the cover (matchParentSize) reserves
         // exactly the media's footprint and reveal causes no layout jump.
+        //
+        // Suppress the per-image click while covered: otherwise a tap on a
+        // covered image (post-detail wires onImageClick to the fullscreen viewer)
+        // would open the media that's supposed to be hidden. Reveal is the only
+        // way past the cover, via its "Show anyway" button.
+        val effectiveImageClick = onImageClick.takeIf { cover == null }
         when (items.size) {
             0 -> Unit
-            1 -> SingleImage(items[0], onClick = onImageClick?.let { handler -> { handler(0) } }, covered = cover != null)
-            else -> MultiImageCarousel(items, onImageClick = onImageClick, covered = cover != null)
+            1 -> SingleImage(items[0], onClick = effectiveImageClick?.let { handler -> { handler(0) } }, covered = cover != null)
+            else -> MultiImageCarousel(items, onImageClick = effectiveImageClick, covered = cover != null)
         }
         if (cover != null) {
             MediaContentWarningCover(cover, Modifier.matchParentSize().clip(IMAGE_SHAPE))
