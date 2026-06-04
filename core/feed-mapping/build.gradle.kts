@@ -8,6 +8,11 @@ android {
 }
 
 dependencies {
+    // ModerationPrefs / MediaModerationDecision appear in the public signature
+    // of the moderation helpers (applyModeration, toMediaContentWarning), so
+    // repository consumers see them transitively. The `production` variant
+    // resolves via the convention plugin's missingDimensionStrategy.
+    api(project(":core:moderation"))
     // PostUi / EmbedUi / AuthorUi / ViewerStateUi appear in the public
     // signatures of the helpers, so consumers must see the data-models
     // types transitively. Same-shape `api` exposure as :data:models'

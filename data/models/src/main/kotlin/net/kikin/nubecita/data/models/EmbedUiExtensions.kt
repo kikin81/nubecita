@@ -26,3 +26,35 @@ public val EmbedUi.quotedRecord: QuotedPostUi?
             is EmbedUi.RecordWithMedia -> (record as? EmbedUi.Record)?.quotedPost
             else -> null
         }
+
+/**
+ * Returns a copy of this media embed with [warning] applied (pass `null` to
+ * clear). Exhaustive over the four [EmbedUi.MediaEmbed] variants, so a new
+ * media kind becomes a compile error here.
+ */
+public fun EmbedUi.MediaEmbed.withContentWarning(warning: MediaContentWarning?): EmbedUi.MediaEmbed =
+    when (this) {
+        is EmbedUi.Images -> copy(contentWarning = warning)
+        is EmbedUi.Video -> copy(contentWarning = warning)
+        is EmbedUi.External -> copy(contentWarning = warning)
+        is EmbedUi.Gif -> copy(contentWarning = warning)
+    }
+
+/**
+ * Returns a copy of this embed with [warning] applied to its media slot.
+ *
+ * - A direct media embed (images / video / gif / external) is covered.
+ * - A [EmbedUi.RecordWithMedia] covers only its `media` half — the quoted
+ *   record carries its own separate labels and is left untouched.
+ * - Every non-media embed ([EmbedUi.Empty], [EmbedUi.Record],
+ *   [EmbedUi.RecordUnavailable], [EmbedUi.Unsupported]) is returned unchanged.
+ *
+ * This is the single seam the moderation layer (`:core:feed-mapping`) uses to
+ * stamp a precomputed decision onto a post; it does no resolving itself.
+ */
+public fun EmbedUi.withMediaContentWarning(warning: MediaContentWarning?): EmbedUi =
+    when (this) {
+        is EmbedUi.MediaEmbed -> withContentWarning(warning)
+        is EmbedUi.RecordWithMedia -> copy(media = media.withContentWarning(warning))
+        else -> this
+    }

@@ -45,10 +45,16 @@ public sealed interface EmbedUi {
     /**
      * Marker sealed interface — the set of variants that can occupy
      * [RecordWithMedia]'s `media` slot. Implemented by [Images],
-     * [Video], and [External] only; matches the lexicon's
+     * [Video], [External], and [Gif] only; matches the lexicon's
      * `RecordWithMediaViewMediaUnion` known members exactly.
+     *
+     * Carries the precomputed [contentWarning]: the moderation layer
+     * (`:core:feed-mapping`) stamps a cover onto the media slot off the
+     * render path, so a `null` here means "render the media normally".
      */
-    public sealed interface MediaEmbed : EmbedUi
+    public sealed interface MediaEmbed : EmbedUi {
+        public val contentWarning: MediaContentWarning?
+    }
 
     /** No embed on this post. */
     public data object Empty : EmbedUi
@@ -56,6 +62,7 @@ public sealed interface EmbedUi {
     /** 1–4 images. */
     public data class Images(
         val items: ImmutableList<ImageUi>,
+        override val contentWarning: MediaContentWarning? = null,
     ) : MediaEmbed
 
     /**
@@ -87,6 +94,7 @@ public sealed interface EmbedUi {
         val aspectRatio: Float,
         val durationSeconds: Int?,
         val altText: String?,
+        override val contentWarning: MediaContentWarning? = null,
     ) : MediaEmbed
 
     /**
@@ -115,6 +123,7 @@ public sealed interface EmbedUi {
         val title: String,
         val description: String,
         val thumbUrl: String?,
+        override val contentWarning: MediaContentWarning? = null,
     ) : MediaEmbed
 
     /**
@@ -137,6 +146,7 @@ public sealed interface EmbedUi {
         val thumbUrl: String?,
         val aspectRatio: Float?,
         val alt: String?,
+        override val contentWarning: MediaContentWarning? = null,
     ) : MediaEmbed
 
     /**
