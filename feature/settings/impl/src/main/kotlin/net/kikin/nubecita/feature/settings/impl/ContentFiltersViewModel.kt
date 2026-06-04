@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.moderation.ContentLabel
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Backs the Content filters screen. The UI is a pure projection of
@@ -37,7 +38,17 @@ internal class ContentFiltersViewModel
             repository.prefs
                 .onEach { prefs -> setState { prefs.toContentFiltersState() } }
                 .launchIn(viewModelScope)
-            viewModelScope.launch { runCatching { repository.refresh() } }
+            viewModelScope.launch {
+                // Pull the latest; a failure leaves the cached/default (adult-off)
+                // value. Let cancellation propagate — don't swallow it.
+                try {
+                    repository.refresh()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Silent no-op — the cached/default prefs remain.
+                }
+            }
         }
 
         override fun handleEvent(event: ContentFiltersEvent) {
@@ -51,7 +62,15 @@ internal class ContentFiltersViewModel
 
         private fun persist(write: suspend () -> Unit) {
             viewModelScope.launch {
-                runCatching { write() }.onFailure { sendEffect(ContentFiltersEffect.ShowSaveError) }
+                // Only a real write failure surfaces a save error; cancellation
+                // (e.g. navigating away mid-write) must propagate, not snackbar.
+                try {
+                    write()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    sendEffect(ContentFiltersEffect.ShowSaveError)
+                }
             }
         }
     }

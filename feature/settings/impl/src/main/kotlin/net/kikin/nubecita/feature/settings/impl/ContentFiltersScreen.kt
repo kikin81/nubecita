@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -65,9 +66,17 @@ internal fun ContentFiltersScreen(
     val currentSaveError by rememberUpdatedState(saveErrorMessage)
 
     LaunchedEffect(viewModel) {
+        // Capture the effect scope so each snackbar shows in its own child job:
+        // dismissing the current snackbar to show a fresh one must not cancel
+        // the collector itself (mirrors SettingsScreen's effect collector).
+        val effectScope = this
         viewModel.effects.collect { effect ->
             when (effect) {
-                ContentFiltersEffect.ShowSaveError -> snackbarHostState.showSnackbar(currentSaveError)
+                ContentFiltersEffect.ShowSaveError ->
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(currentSaveError)
+                    }
             }
         }
     }
