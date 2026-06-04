@@ -39,6 +39,15 @@ interface ModerationPreferencesRepository {
     /** Re-read `app.bsky.actor.getPreferences` and publish to [prefs]. */
     suspend fun refresh()
 
+    /**
+     * Reset [prefs] back to the fail-safe [ModerationPrefs.DEFAULT] (adult
+     * content **off**). Called on sign-out so a subsequent account never reads
+     * the previous account's preferences in the window before its own [refresh]
+     * completes — without this, account A's "adult on" would briefly leak to
+     * account B (the repo is an app-scoped singleton that outlives the session).
+     */
+    fun resetToDefault()
+
     /** Toggle the adult-content master gate (read-modify-write of the array). */
     suspend fun setAdultContentEnabled(enabled: Boolean)
 
@@ -80,6 +89,14 @@ internal class DefaultModerationPreferencesRepository
         override suspend fun refresh() {
             val parsed = parseModerationPrefs(fetchPreferencesArray())
             writeMutex.withLock { _prefs.value = parsed }
+        }
+
+        // A plain StateFlow write — atomic and last-write-wins. The coordinator
+        // calls this on SignedOut, after collectLatest has already cancelled any
+        // in-flight refresh, so there is no concurrent publish to order against;
+        // the next account's refresh re-publishes over this DEFAULT.
+        override fun resetToDefault() {
+            _prefs.value = ModerationPrefs.DEFAULT
         }
 
         override suspend fun setAdultContentEnabled(enabled: Boolean) = update { it.copy(adultContentEnabled = enabled) }

@@ -54,6 +54,12 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
  * before the play affordance — even when the gradient fallback is
  * showing instead of a real poster. Role.Button is attached to the
  * tap target so TalkBack reads "double-tap to activate".
+ *
+ * **Content warning.** When [cover] is non-null the poster is NOT fetched
+ * (`model = null`) and the play badge is hidden; the warning scrim replaces
+ * the media until the viewer reveals it (the host clears [cover] by flipping
+ * its reveal state). The tap-to-open gesture is suppressed while covered so a
+ * tap can't bypass the warning into the fullscreen player.
  */
 @Composable
 fun VideoPosterEmbed(
@@ -62,6 +68,7 @@ fun VideoPosterEmbed(
     altText: String?,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
+    cover: MediaCover? = null,
 ) {
     // Fall back to a generic label when the lexicon's altText is null so
     // TalkBack never lands on an unlabeled `Role.Button`. Resolved at
@@ -74,20 +81,26 @@ fun VideoPosterEmbed(
                 .fillMaxWidth()
                 .aspectRatio(aspectRatio)
                 .clip(MaterialTheme.shapes.large)
-                .clickable(role = Role.Button, onClick = onTap)
+                // Suppress the open-player gesture while covered so a tap can't
+                // bypass the warning.
+                .then(if (cover == null) Modifier.clickable(role = Role.Button, onClick = onTap) else Modifier)
                 .semantics { contentDescription = resolvedDescription },
     ) {
-        if (posterUrl != null) {
+        if (posterUrl != null && cover == null) {
             NubecitaAsyncImage(
                 model = posterUrl,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
-        } else {
+        } else if (cover == null) {
             GradientPosterFallback(modifier = Modifier.fillMaxSize())
         }
-        PlayBadge(modifier = Modifier.align(Alignment.Center))
+        if (cover != null) {
+            MediaContentWarningCover(cover, Modifier.matchParentSize())
+        } else {
+            PlayBadge(modifier = Modifier.align(Alignment.Center))
+        }
     }
 }
 

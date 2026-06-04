@@ -97,7 +97,7 @@ fun PostCard(
     callbacks: PostCallbacks = PostCallbacks.None,
     connectAbove: Boolean = false,
     connectBelow: Boolean = false,
-    videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
+    videoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
     onImageClick: ((imageIndex: Int) -> Unit)? = null,
     animateLikeTap: Boolean = false,
@@ -259,7 +259,7 @@ private fun BodyText(
 private fun EmbedSlot(
     embed: EmbedUi,
     callbacks: PostCallbacks,
-    videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)?,
+    videoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)?,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)?,
     onImageClick: ((imageIndex: Int) -> Unit)?,
     isMediaRevealed: Boolean,
@@ -267,9 +267,10 @@ private fun EmbedSlot(
 ) {
     // Build a cover from a media embed's precomputed warning + the per-post
     // reveal state. Null → render the media (no warning, or already revealed).
-    // Video + quoted-post media covers land with the surface-wiring slice (they
-    // require the host video slot to thread the cover); top-level image / link /
-    // gif media are covered here.
+    // Top-level image / link / gif / video and a RecordWithMedia's media half
+    // are all covered here; the video cover is handed to the host video slot so
+    // the poster never fetches while covered. The quoted record's OWN media is
+    // not covered yet — quoted-post labels aren't moderated (deferred follow-up).
     val coverFor = { warning: MediaContentWarning? ->
         warning.takeIf { !isMediaRevealed }?.let { MediaCover(it, onRevealMedia) }
     }
@@ -285,7 +286,7 @@ private fun EmbedSlot(
             // whitespace for a non-existent surface.
             if (videoEmbedSlot != null) {
                 Spacer(Modifier.height(10.dp))
-                videoEmbedSlot(embed)
+                videoEmbedSlot(embed, coverFor(embed.contentWarning))
             }
         }
         is EmbedUi.External -> {
@@ -342,6 +343,10 @@ private fun EmbedSlot(
                 onExternalMediaTap = callbacks.onExternalEmbedTap,
                 videoEmbedSlot = videoEmbedSlot,
                 quotedVideoEmbedSlot = quotedVideoEmbedSlot,
+                // The media half (this post's own attachment) is covered per the
+                // precomputed warning; the quoted record's own media is not (its
+                // labels aren't moderated yet — deferred follow-up).
+                mediaCover = coverFor(embed.media.contentWarning),
             )
         }
         is EmbedUi.Unsupported -> {
@@ -785,7 +790,7 @@ private fun PostCardWithVideoEmbedPreview() {
                             altText = null,
                         ),
                 ),
-            videoEmbedSlot = { _ ->
+            videoEmbedSlot = { _, _ ->
                 androidx.compose.foundation.layout.Box(
                     modifier =
                         androidx.compose.ui.Modifier

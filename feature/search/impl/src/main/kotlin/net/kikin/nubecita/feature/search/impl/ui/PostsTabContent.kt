@@ -13,14 +13,20 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
@@ -133,6 +139,11 @@ private fun LoadedBody(
                 },
             )
         }
+    // Per-list reveal state for covered (NSFW-labelled) media — same shape as the
+    // feed: a @Stable PersistentSet, rememberSaveable via an explicit listSaver.
+    var revealedMedia by rememberSaveable(
+        stateSaver = listSaver(save = { it.toList() }, restore = { it.toPersistentSet() }),
+    ) { mutableStateOf(persistentSetOf<String>()) }
     LazyColumn(
         modifier = modifier.fillMaxSize().testTag("search_posts_list"),
         state = listState,
@@ -148,6 +159,8 @@ private fun LoadedBody(
                 post = item.post,
                 bodyMatch = currentQuery.takeIf { it.isNotBlank() },
                 callbacks = callbacks,
+                isMediaRevealed = item.post.id in revealedMedia,
+                onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
             )
         }
         if (isAppending) {

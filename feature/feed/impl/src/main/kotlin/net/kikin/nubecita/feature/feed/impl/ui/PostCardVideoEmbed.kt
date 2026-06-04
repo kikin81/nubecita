@@ -36,6 +36,8 @@ import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.MediaContentWarningCover
+import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.extendedShape
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -82,6 +84,7 @@ internal fun PostCardVideoEmbed(
     video: EmbedUi.Video,
     modifier: Modifier = Modifier,
     onTap: (() -> Unit)? = null,
+    cover: MediaCover? = null,
 ) {
     Box(
         modifier =
@@ -93,12 +96,19 @@ internal fun PostCardVideoEmbed(
                     // Inner clickable absorbs the tap so it doesn't bubble
                     // up to PostCard's outer `clickable { callbacks.onTap }`
                     // (which routes to PostDetail). Skipped when [onTap]
-                    // is null (preview / screenshot tests).
-                    if (onTap != null) base.clickable(onClick = onTap) else base
+                    // is null (preview / screenshot tests) or while the media
+                    // is covered (a tap must not bypass the warning).
+                    if (onTap != null && cover == null) base.clickable(onClick = onTap) else base
                 },
     ) {
-        PosterLayer(video = video)
-        DurationChipIfPresent(durationSeconds = video.durationSeconds)
+        if (cover != null) {
+            // Covered: never fetch the poster or show the duration chip; the
+            // scrim replaces the media until the viewer reveals it.
+            MediaContentWarningCover(cover, Modifier.matchParentSize())
+        } else {
+            PosterLayer(video = video)
+            DurationChipIfPresent(durationSeconds = video.durationSeconds)
+        }
     }
 }
 
@@ -136,11 +146,14 @@ internal fun PostCardVideoEmbed(
     coordinator: FeedVideoPlayerCoordinator,
     modifier: Modifier = Modifier,
     onTap: (() -> Unit)? = null,
+    cover: MediaCover? = null,
 ) {
-    if (LocalInspectionMode.current) {
-        // Inspection mode (IDE @Preview, screenshot tests) — render the
-        // phase-B variant; layoutlib can't construct PlayerSurface.
-        PostCardVideoEmbed(video = video, modifier = modifier, onTap = onTap)
+    if (cover != null || LocalInspectionMode.current) {
+        // Covered media never autoplays (no coordinator bind — we must not
+        // play sensitive content under a warning) and inspection mode
+        // (IDE @Preview, screenshot tests) can't construct PlayerSurface;
+        // both fall through to the phase-B render, which draws the cover.
+        PostCardVideoEmbed(video = video, modifier = modifier, onTap = onTap, cover = cover)
     } else {
         PostCardVideoEmbedAutoplay(
             video = video,

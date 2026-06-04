@@ -8,14 +8,18 @@ import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPost
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPostParentUnion
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPostRepliesUnion
+import io.github.kikin81.atproto.com.atproto.label.Label
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
 import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Handle
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.ThreadItem
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -26,7 +30,7 @@ internal class PostThreadMapperTest {
     fun `top-level threadViewPost with no parent and no replies yields single Focus`() {
         val thread = threadViewPost(uri = "at://focus", text = "focus body")
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(1, items.size)
         val focus = items.single()
@@ -43,7 +47,7 @@ internal class PostThreadMapperTest {
                 parent = threadViewPost(uri = "at://parent", text = "parent"),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         val ancestor = items[0] as ThreadItem.Ancestor
@@ -68,7 +72,7 @@ internal class PostThreadMapperTest {
                 parent = parent,
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(3, items.size)
         assertEquals("at://gp", (items[0] as ThreadItem.Ancestor).post.id)
@@ -89,7 +93,7 @@ internal class PostThreadMapperTest {
                     ),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(3, items.size)
         assertTrue(items[0] is ThreadItem.Focus)
@@ -122,7 +126,7 @@ internal class PostThreadMapperTest {
                     ),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         // focus, r1 (d=1), r1c1 (d=2), r1c2 (d=2), r2 (d=1)
         assertEquals(5, items.size)
@@ -154,7 +158,7 @@ internal class PostThreadMapperTest {
                 parent = blockedPost(uri = "at://blocked-parent"),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         val blocked = items[0] as ThreadItem.Blocked
@@ -172,7 +176,7 @@ internal class PostThreadMapperTest {
                 parent = notFoundPost(uri = "at://nf-parent"),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         val notFound = items[0] as ThreadItem.NotFound
@@ -189,7 +193,7 @@ internal class PostThreadMapperTest {
                 replies = listOf(blockedPost(uri = "at://blocked-reply")),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         assertTrue(items[0] is ThreadItem.Focus)
@@ -207,7 +211,7 @@ internal class PostThreadMapperTest {
                 replies = listOf(notFoundPost(uri = "at://nf-reply")),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         assertTrue(items[0] is ThreadItem.Focus)
@@ -219,7 +223,7 @@ internal class PostThreadMapperTest {
     fun `top-level blockedPost yields single Blocked item`() {
         val thread = blockedPost(uri = "at://blocked-focus")
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(1, items.size)
         val blocked = items.single() as ThreadItem.Blocked
@@ -231,7 +235,7 @@ internal class PostThreadMapperTest {
     fun `top-level notFoundPost yields single NotFound item`() {
         val thread = notFoundPost(uri = "at://nf-focus")
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(1, items.size)
         val notFound = items.single() as ThreadItem.NotFound
@@ -253,9 +257,54 @@ internal class PostThreadMapperTest {
                     ),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertTrue(items.isEmpty())
+    }
+
+    // ---------- moderation wiring (twmt.4) ----------
+
+    // Post-detail is NOT a list surface: applyModeration runs with
+    // dropFiltered=false, so even a HARD-filtered (porn + adult-off) post must
+    // stay in the thread — dropping it would tear a hole in the reply chain.
+
+    @Test
+    fun `a hard-filtered focus stays in the thread and is not dropped`() {
+        val thread =
+            threadViewPost(
+                uri = "at://did:plc:test/app.bsky.feed.post/focus",
+                text = "labeled focus",
+                labels = labels("porn"),
+            )
+
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
+
+        assertEquals(1, items.size)
+        assertTrue(items.single() is ThreadItem.Focus, "the focus must survive moderation in post-detail")
+    }
+
+    @Test
+    fun `a hard-filtered reply stays in the thread and is not dropped`() {
+        val thread =
+            threadViewPost(
+                uri = "at://did:plc:test/app.bsky.feed.post/focus",
+                text = "clean focus",
+                replies =
+                    listOf(
+                        threadViewPost(
+                            uri = "at://did:plc:test/app.bsky.feed.post/reply",
+                            text = "labeled reply",
+                            labels = labels("porn"),
+                        ),
+                    ),
+            )
+
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
+
+        // Focus + the labeled reply both present — the reply is covered, not cut.
+        assertEquals(2, items.size)
+        assertTrue(items[0] is ThreadItem.Focus)
+        assertTrue(items[1] is ThreadItem.Reply, "a hard-filtered reply must stay in the thread")
     }
 
     // ---------- fixture helpers ----------
@@ -265,16 +314,18 @@ internal class PostThreadMapperTest {
         text: String,
         parent: ThreadViewPostParentUnion? = null,
         replies: List<ThreadViewPostRepliesUnion>? = null,
+        labels: List<Label>? = null,
     ): ThreadViewPost =
         ThreadViewPost(
             parent = parent,
-            post = postView(uri = uri, record = postRecord(text = text)),
+            post = postView(uri = uri, record = postRecord(text = text), labels = labels),
             replies = replies,
         )
 
     private fun postView(
         uri: String,
         record: JsonObject,
+        labels: List<Label>? = null,
     ): PostView =
         PostView(
             author =
@@ -287,6 +338,13 @@ internal class PostThreadMapperTest {
             indexedAt = Datetime("2026-04-25T12:00:00Z"),
             record = record,
             uri = AtUri(uri),
+            labels = labels,
+        )
+
+    private fun labels(value: String): List<Label> =
+        Json.decodeFromString(
+            ListSerializer(Label.serializer()),
+            """[{"src":"did:plc:labeler","uri":"at://did:plc:test/app.bsky.feed.post/x","val":"$value","cts":"2026-04-25T12:00:00Z"}]""",
         )
 
     private fun postRecord(

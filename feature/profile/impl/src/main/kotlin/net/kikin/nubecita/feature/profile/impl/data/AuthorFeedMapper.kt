@@ -4,8 +4,11 @@ import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.ReasonRepost
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.feedmapping.applyModeration
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.thumbOrFullsize
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
@@ -41,29 +44,57 @@ import net.kikin.nubecita.feature.profile.impl.TabItemUi
  * Same delegation pattern as `:feature:postdetail:impl/data/PostThreadMapper`:
  * the embed + post-core conversion lives in `:core:feed-mapping`; only
  * the per-tab projection lives here.
+ *
+ * Content moderation runs here, off the render path, against the cached
+ * [prefs] + [viewerDid]: every tab uses `dropFiltered = true` (profile feeds
+ * are list surfaces). Posts/Replies render PostCards, so warned media is
+ * *covered* (the warning is baked onto the embed). The Media grid renders raw
+ * thumbnails with no cover affordance, so a *covered* post is dropped from it
+ * too — never show an uncovered NSFW thumbnail in the grid.
  */
-internal fun List<FeedViewPost>.toTabItems(tab: ProfileTab): ImmutableList<TabItemUi> =
+internal fun List<FeedViewPost>.toTabItems(
+    tab: ProfileTab,
+    prefs: ModerationPrefs,
+    viewerDid: String?,
+): ImmutableList<TabItemUi> =
     when (tab) {
         ProfileTab.Posts ->
-            mapNotNull { it.toPostTabItemOrNull() }.toImmutableList()
+            mapNotNull { it.toPostTabItemOrNull(prefs, viewerDid) }.toImmutableList()
         ProfileTab.Replies ->
             filter { it.reply != null }
-                .mapNotNull { it.toPostTabItemOrNull() }
+                .mapNotNull { it.toPostTabItemOrNull(prefs, viewerDid) }
                 .toImmutableList()
         ProfileTab.Media ->
-            mapNotNull { it.toMediaCellOrNull() }.toImmutableList()
+            mapNotNull { it.toMediaCellOrNull(prefs, viewerDid) }.toImmutableList()
     }
 
-private fun FeedViewPost.toPostTabItemOrNull(): TabItemUi.Post? {
-    val core = post.toPostUiCore() ?: return null
+private fun FeedViewPost.toPostTabItemOrNull(
+    prefs: ModerationPrefs,
+    viewerDid: String?,
+): TabItemUi.Post? {
+    val core =
+        post
+            .toPostUiCore()
+            ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
+            ?: return null
     val repost = reason as? ReasonRepost
     val repostedBy = repost?.by?.let { it.displayName ?: it.handle.raw }
     val postUi = if (repostedBy != null) core.copy(repostedBy = repostedBy) else core
     return TabItemUi.Post(postUi, reposterDid = repost?.by?.did?.raw)
 }
 
-private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
-    val core: PostUi = post.toPostUiCore() ?: return null
+private fun FeedViewPost.toMediaCellOrNull(
+    prefs: ModerationPrefs,
+    viewerDid: String?,
+): TabItemUi.MediaCell? {
+    val core: PostUi =
+        post
+            .toPostUiCore()
+            ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
+            ?: return null
+    // The grid has no cover affordance, so a covered (warned-but-not-filtered)
+    // post is dropped rather than shown as an uncovered thumbnail.
+    if (core.embed.mediaContentWarning() != null) return null
     val thumb = core.embed.toMediaThumbUrlOrNull() ?: return null
     return TabItemUi.MediaCell(
         postUri = core.id,
@@ -72,6 +103,18 @@ private fun FeedViewPost.toMediaCellOrNull(): TabItemUi.MediaCell? {
         reposterDid = (reason as? ReasonRepost)?.by?.did?.raw,
     )
 }
+
+/**
+ * The content warning baked onto this embed's media slot by `applyModeration`,
+ * or `null` when none. Reads the direct [EmbedUi.MediaEmbed] cover or the
+ * `media` half of a [EmbedUi.RecordWithMedia].
+ */
+private fun EmbedUi.mediaContentWarning(): MediaContentWarning? =
+    when (this) {
+        is EmbedUi.MediaEmbed -> contentWarning
+        is EmbedUi.RecordWithMedia -> media.contentWarning
+        else -> null
+    }
 
 /**
  * True when the embed surfaces a playable video — either as a direct

@@ -21,6 +21,10 @@ internal class FakeModerationPreferencesRepository
 
         override suspend fun refresh() = Unit
 
+        override fun resetToDefault() {
+            _prefs.value = ModerationPrefs.DEFAULT
+        }
+
         override suspend fun setAdultContentEnabled(enabled: Boolean) {
             _prefs.value = _prefs.value.copy(adultContentEnabled = enabled)
         }

@@ -44,6 +44,8 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:database"))
     implementation(project(":core:feed-mapping"))
+    // ModerationPreferencesRepository + applyModeration — drop/cover NSFW results.
+    implementation(project(":core:moderation"))
     // Tap-to-open the post hit pushes a PostDetailRoute onto the MainShell
     // back stack. The api module ships just the NavKey — :feature:search:impl
     // never depends on :impl, matching the Chats / Feed / Profile pattern.

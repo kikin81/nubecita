@@ -101,6 +101,7 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.data.models.quotedRecord
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.BlockedPostCard
+import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.NotFoundPostCard
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
@@ -853,22 +854,24 @@ private fun LoadedFeedContent(
                 // using that lambda as a `remember` key then defeated the
                 // stability goal (function values compare by reference, so
                 // the key would churn each recomposition).
-                val videoSlot: @Composable (EmbedUi.Video) -> Unit =
+                val videoSlot: @Composable (EmbedUi.Video, MediaCover?) -> Unit =
                     remember(leaf.id, coordinator, onVideoTap) {
                         val onParentVideoTap: (() -> Unit)? =
                             onVideoTap?.let { tap -> { tap(leaf.id) } }
-                        val slot: @Composable (EmbedUi.Video) -> Unit = { video ->
+                        val slot: @Composable (EmbedUi.Video, MediaCover?) -> Unit = { video, cover ->
                             if (coordinator != null) {
                                 PostCardVideoEmbed(
                                     video = video,
                                     postId = leaf.id,
                                     coordinator = coordinator,
                                     onTap = onParentVideoTap,
+                                    cover = cover,
                                 )
                             } else {
                                 PostCardVideoEmbed(
                                     video = video,
                                     onTap = onParentVideoTap,
+                                    cover = cover,
                                 )
                             }
                         }

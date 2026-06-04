@@ -69,7 +69,7 @@ private fun PostCardRecordWithMediaWithVideoScreenshot() {
         PostCardRecordWithMediaEmbed(
             record = EmbedUi.Record(quotedPost = FIXED_QUOTED),
             media = FIXED_VIDEO_MEDIA,
-            videoEmbedSlot = { video -> PostCardVideoEmbed(video = video) },
+            videoEmbedSlot = { video, cover -> PostCardVideoEmbed(video = video, cover = cover) },
         )
     }
 }

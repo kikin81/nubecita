@@ -25,6 +25,10 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.image.EncodedImage
 import net.kikin.nubecita.core.image.ImageEncoder
+import net.kikin.nubecita.core.moderation.ContentLabel
+import net.kikin.nubecita.core.moderation.LabelVisibility
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -548,11 +552,31 @@ class DefaultProfileRepositoryUpdateProfileTest {
 
                         override suspend fun refresh() = Unit
                     },
+                moderationPreferences = inertModerationPrefs(),
                 encoder = encoder,
                 dispatcher = UnconfinedTestDispatcher(),
             )
         return engine to repo
     }
+
+    // updateProfile never reads moderation prefs; an inert DEFAULT repo
+    // satisfies the constructor without touching the gate. fetchTab moderation
+    // is covered separately in AuthorFeedMapperTest.
+    private fun inertModerationPrefs(): ModerationPreferencesRepository =
+        object : ModerationPreferencesRepository {
+            override val prefs = MutableStateFlow(ModerationPrefs.DEFAULT)
+
+            override suspend fun refresh() = Unit
+
+            override fun resetToDefault() = Unit
+
+            override suspend fun setAdultContentEnabled(enabled: Boolean) = Unit
+
+            override suspend fun setVisibility(
+                label: ContentLabel,
+                visibility: LabelVisibility,
+            ) = Unit
+        }
 
     private fun passthroughEncoder(): ImageEncoder =
         object : ImageEncoder {
