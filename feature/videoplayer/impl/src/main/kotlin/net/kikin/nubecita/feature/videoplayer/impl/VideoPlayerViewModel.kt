@@ -45,10 +45,12 @@ import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
  *
  * Observes [SharedVideoPlayer]'s state flows (isPlaying, positionMs,
  * durationMs, playbackError) and projects them into the flat
- * [VideoPlayerState] via a single `combine` operator. Chrome auto-hide
- * is a screen-local timer; the initial timer arms on first entry to
- * [VideoPlayerLoadStatus.Ready] (not in init), so a slow resolver doesn't
- * hide the controls before the user ever sees them.
+ * [VideoPlayerState] via a single `combine` operator. The chrome's
+ * [ChromeVisibility] auto-hide ladder (Shown → Peeking → Hidden) is a
+ * screen-local timeline armed off play/pause transitions (a separate
+ * `isPlaying` collector): playback start reveals + arms it, any
+ * interaction restarts it, and pausing pins it to Shown — so a slow
+ * resolver or a paused/errored screen never hides the controls.
  *
  * Restores `PlaybackMode.FeedPreview` on `viewModelScope.cancellation`
  * via the registered `addCloseable { … }` — this is the symmetric
@@ -73,8 +75,7 @@ internal class VideoPlayerViewModel
 
         private val postUri: String = route.postUri
 
-        private var autoHideJob: Job? = null
-        private var autoHideArmed: Boolean = false
+        private var chromeLadderJob: Job? = null
 
         // Tracks whether this VM has incremented the holder's refcount so
         // a successful Retry doesn't double-attach. `onCleared` always
@@ -146,6 +147,17 @@ internal class VideoPlayerViewModel
                     }
                 }
             }.launchIn(viewModelScope)
+
+            // Drive the chrome auto-hide ladder off play/pause transitions:
+            // playing → reveal + arm the Shown → Peeking → Hidden timeline;
+            // paused → pin Shown (cancel the timeline). isPlaying is a StateFlow,
+            // so it already only emits on change — the per-tick position updates
+            // live in the separate combine above and never restart the ladder.
+            // On a resolver failure isPlaying never goes true, so the chrome stays
+            // Shown and the Retry button remains reachable.
+            sharedVideoPlayer.isPlaying
+                .onEach { playing -> if (playing) showChrome() else pinChromeShown() }
+                .launchIn(viewModelScope)
         }
 
         override fun handleEvent(event: VideoPlayerEvent) {
@@ -156,12 +168,12 @@ internal class VideoPlayerViewModel
                     } else {
                         sharedVideoPlayer.play()
                     }
-                    scheduleChromeAutoHide()
+                    showChrome()
                 }
                 VideoPlayerEvent.SkipBack -> {
                     val target = (uiState.value.positionMs - SKIP_INCREMENT_MS).coerceAtLeast(0L)
                     sharedVideoPlayer.seekTo(target)
-                    scheduleChromeAutoHide()
+                    showChrome()
                 }
                 VideoPlayerEvent.SkipForward -> {
                     // Clamp to duration only once it's known; while durationMs is
@@ -171,22 +183,21 @@ internal class VideoPlayerViewModel
                     val advanced = uiState.value.positionMs + SKIP_INCREMENT_MS
                     val target = if (duration > 0L) advanced.coerceAtMost(duration) else advanced
                     sharedVideoPlayer.seekTo(target)
-                    scheduleChromeAutoHide()
+                    showChrome()
                 }
                 VideoPlayerEvent.MuteClicked -> {
                     sharedVideoPlayer.toggleMute()
                     setState { copy(isMuted = !isMuted) }
-                    scheduleChromeAutoHide()
+                    showChrome()
                 }
                 is VideoPlayerEvent.SeekTo -> {
                     sharedVideoPlayer.seekTo(event.positionMs)
-                    scheduleChromeAutoHide()
+                    showChrome()
                 }
-                VideoPlayerEvent.ToggleChrome -> {
-                    val next = !uiState.value.chromeVisible
-                    setState { copy(chromeVisible = next) }
-                    if (next) scheduleChromeAutoHide() else cancelChromeAutoHide()
-                }
+                // A surface tap always returns the chrome to Shown and restarts
+                // the ladder (design: "any tap returns to Shown"); the ladder
+                // takes it back down on idle. There is no tap-to-hide.
+                VideoPlayerEvent.SurfaceTapped -> showChrome()
                 VideoPlayerEvent.BackClicked -> {
                     sendEffect(VideoPlayerEffect.NavigateBack)
                 }
@@ -269,14 +280,6 @@ internal class VideoPlayerViewModel
                                 viewer = post.viewer,
                             )
                         }
-                        // Arm the auto-hide timer the first time the
-                        // screen reaches Ready (subsequent Ready entries
-                        // — e.g. retry — don't re-arm; the user's
-                        // interactions are the only thing that does).
-                        if (!autoHideArmed) {
-                            autoHideArmed = true
-                            scheduleChromeAutoHide()
-                        }
                     }.onFailure { throwable ->
                         setState {
                             copy(
@@ -290,19 +293,37 @@ internal class VideoPlayerViewModel
             }
         }
 
-        private fun scheduleChromeAutoHide() {
-            autoHideJob?.cancel()
-            setState { copy(chromeVisible = true) }
-            autoHideJob =
-                viewModelScope.launch {
-                    delay(CHROME_AUTO_HIDE_MS)
-                    setState { copy(chromeVisible = false) }
-                }
+        /**
+         * Reveal the chrome (→ Shown) and, while playing, arm the
+         * Shown → Peeking → Hidden idle timeline. Cancels any in-flight
+         * timeline first so an interaction restarts the countdown. When
+         * paused the timeline is not armed, so the chrome stays Shown.
+         */
+        private fun showChrome() {
+            chromeLadderJob?.cancel()
+            setState { copy(chromeVisibility = ChromeVisibility.Shown) }
+            // Read the holder's flow directly, NOT uiState.value.isPlaying: the
+            // latter is projected by a *separate* combine collector, so when the
+            // isPlaying collector calls showChrome() on a play transition the
+            // projected value may not have updated yet, leaving the ladder
+            // un-armed (chrome stuck on Shown while playing). The StateFlow value
+            // is always current.
+            if (sharedVideoPlayer.isPlaying.value) {
+                chromeLadderJob =
+                    viewModelScope.launch {
+                        delay(PEEK_DELAY_MS)
+                        setState { copy(chromeVisibility = ChromeVisibility.Peeking) }
+                        delay(HIDE_DELAY_MS)
+                        setState { copy(chromeVisibility = ChromeVisibility.Hidden) }
+                    }
+            }
         }
 
-        private fun cancelChromeAutoHide() {
-            autoHideJob?.cancel()
-            autoHideJob = null
+        /** Cancel the idle timeline and pin the chrome to Shown (used on pause). */
+        private fun pinChromeShown() {
+            chromeLadderJob?.cancel()
+            chromeLadderJob = null
+            setState { copy(chromeVisibility = ChromeVisibility.Shown) }
         }
 
         override fun onCleared() {
@@ -311,7 +332,10 @@ internal class VideoPlayerViewModel
         }
 
         private companion object {
-            const val CHROME_AUTO_HIDE_MS: Long = 3_000L
+            // Idle dwell on each rung of the auto-hide ladder while playing:
+            // Shown → (PEEK_DELAY) → Peeking → (HIDE_DELAY) → Hidden.
+            const val PEEK_DELAY_MS: Long = 3_000L
+            const val HIDE_DELAY_MS: Long = 3_000L
             const val SKIP_INCREMENT_MS: Long = 10_000L
             const val NO_VIDEO_EMBED: String = "Post has no video embed"
         }

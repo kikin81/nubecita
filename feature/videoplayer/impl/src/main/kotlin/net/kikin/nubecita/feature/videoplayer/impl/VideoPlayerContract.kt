@@ -11,10 +11,11 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 /**
  * MVI state for the fullscreen video player.
  *
- * Flat fields ([isMuted], [chromeVisible], [positionMs], [durationMs])
- * are independent and can change orthogonally. [loadStatus] is the
- * mutually-exclusive lifecycle sum per CLAUDE.md's MVI carve-out:
- * Idle / Resolving / Ready / Error.
+ * Flat fields ([isMuted], [positionMs], [durationMs]) are independent and
+ * can change orthogonally. [loadStatus] and [chromeVisibility] are the
+ * mutually-exclusive status sums per CLAUDE.md's MVI carve-out: the load
+ * lifecycle (Idle / Resolving / Ready / Error) and the chrome auto-hide
+ * ladder (Shown / Peeking / Hidden) respectively.
  *
  * [posterUrl] carries the resolved post's video poster image so the
  * Content composable can render `NubecitaAsyncImage(posterUrl)` UNDER
@@ -44,7 +45,13 @@ internal data class VideoPlayerState(
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
-    val chromeVisible: Boolean = true,
+    /**
+     * The chrome's auto-hide rung (nubecita-6rdb.7). Mutually exclusive —
+     * the VM advances Shown → Peeking → Hidden on idle timers while
+     * playing, any interaction returns it to Shown, and pausing pins it
+     * to Shown.
+     */
+    val chromeVisibility: ChromeVisibility = ChromeVisibility.Shown,
     /**
      * The resolved post's social metadata (nubecita-6rdb.2). Null until
      * the post resolves; populated together when [loadStatus] reaches
@@ -57,6 +64,26 @@ internal data class VideoPlayerState(
     val stats: PostStatsUi? = null,
     val viewer: ViewerStateUi? = null,
 ) : UiState
+
+/**
+ * The chrome's three auto-hide rungs (design panel 4). Mutually
+ * exclusive so an invalid combination (e.g. hidden-with-counts) is
+ * unrepresentable.
+ *
+ * - [Shown]: full chrome + full scrim — back, transport cluster, mute/PiP
+ *   utility row, seek bar, time labels.
+ * - [Peeking]: lighter scrim; the center transport cluster is dropped but
+ *   the seek bar + time + back stay, so the user can still scrub.
+ * - [Hidden]: no scrim/chrome except a centered tap-to-play button and a
+ *   thin bottom progress hairline.
+ */
+internal sealed interface ChromeVisibility {
+    @Immutable data object Shown : ChromeVisibility
+
+    @Immutable data object Peeking : ChromeVisibility
+
+    @Immutable data object Hidden : ChromeVisibility
+}
 
 /**
  * Mutually-exclusive load lifecycle for the fullscreen surface.
@@ -99,7 +126,12 @@ internal sealed interface VideoPlayerEvent : UiEvent {
         val positionMs: Long,
     ) : VideoPlayerEvent
 
-    data object ToggleChrome : VideoPlayerEvent
+    /**
+     * The user tapped the video surface. Reveals the chrome (→ Shown) and
+     * restarts the auto-hide ladder — there is no tap-to-hide; the ladder
+     * takes the chrome back down on idle.
+     */
+    data object SurfaceTapped : VideoPlayerEvent
 
     data object BackClicked : VideoPlayerEvent
 

@@ -1,13 +1,19 @@
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -33,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -41,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.videoplayer.impl.ChromeVisibility
 import net.kikin.nubecita.feature.videoplayer.impl.R
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
@@ -48,16 +57,21 @@ import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerState
 import java.util.Locale
 
 /**
- * Chrome overlay for the fullscreen player. Tap-to-toggle visibility +
- * 3s auto-hide is managed by [VideoPlayerViewModel]; this composable
- * just renders the controls assuming it's visible.
+ * Chrome overlay for the fullscreen player. Renders one of three
+ * [ChromeVisibility] rungs — the VM drives the Shown → Peeking → Hidden
+ * auto-hide ladder (nubecita-6rdb.7):
  *
- * Layout: top row (back button), a centered transport cluster (skip-back
- * 10s · large morphing play/pause · skip-forward 10s), and a bottom column
- * (seek bar with elapsed/total + a row with the time labels, mute, and the
- * optional pop-out affordance).
+ *  - **Shown**: full scrim + back button + transport cluster (skip ·
+ *    morphing play/pause · skip) + mute/PiP utility row + seek bar + time.
+ *  - **Peeking**: lighter scrim + back button + seek bar + time; the
+ *    center transport cluster is dropped so the video is less obscured
+ *    while the user can still scrub.
+ *  - **Hidden**: no scrim — just a centered tap-to-play button and a thin
+ *    bottom progress hairline.
+ *
+ * Per-element [AnimatedVisibility] cross-fades the rungs; the scrim alpha
+ * animates between them.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun VideoPlayerChrome(
     state: VideoPlayerState,
@@ -69,6 +83,132 @@ internal fun VideoPlayerChrome(
     // (design D5), so it's a plain callback rather than a VideoPlayerEvent.
     onPopOut: (() -> Unit)? = null,
 ) {
+    val visibility = state.chromeVisibility
+    val controlsShown = visibility == ChromeVisibility.Shown
+    val chromeShown = visibility != ChromeVisibility.Hidden
+    val hidden = visibility == ChromeVisibility.Hidden
+
+    Box(modifier = modifier) {
+        // Scrim spans edge-to-edge (under the system bars); the controls below
+        // respect the safe insets.
+        VideoPlayerScrim(visibility = visibility, modifier = Modifier.fillMaxSize())
+
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.systemBars),
+        ) {
+            // Back button — Shown + Peeking.
+            AnimatedVisibility(
+                visible = chromeShown,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopStart),
+            ) {
+                IconButton(
+                    onClick = { onEvent(VideoPlayerEvent.BackClicked) },
+                    modifier = Modifier.padding(8.dp).size(44.dp),
+                ) {
+                    NubecitaIcon(
+                        name = NubecitaIconName.Close,
+                        contentDescription = stringResource(R.string.video_player_back_content_description),
+                        tint = Color.White,
+                    )
+                }
+            }
+
+            // Transport cluster + mute/PiP utility row — Shown only.
+            AnimatedVisibility(
+                visible = controlsShown,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.Center),
+            ) {
+                TransportCluster(state = state, onEvent = onEvent, onPopOut = onPopOut)
+            }
+
+            // Hidden rung: a single centered tap-to-play button.
+            AnimatedVisibility(
+                visible = hidden,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.Center),
+            ) {
+                HiddenPlayButton(state = state, onEvent = onEvent)
+            }
+
+            // Bottom band (seek bar + time) — Shown + Peeking.
+            AnimatedVisibility(
+                visible = chromeShown,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                BottomBand(state = state, onEvent = onEvent)
+            }
+
+            // Hidden rung: a thin bottom progress hairline.
+            AnimatedVisibility(
+                visible = hidden,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                ProgressHairline(positionMs = state.positionMs, durationMs = state.durationMs)
+            }
+        }
+    }
+}
+
+/**
+ * Dark vertical-gradient scrim behind the controls so the white-on-video
+ * chrome stays legible. Alpha animates by rung — full at Shown, lighter at
+ * Peeking, gone at Hidden.
+ */
+@Composable
+private fun VideoPlayerScrim(
+    visibility: ChromeVisibility,
+    modifier: Modifier = Modifier,
+) {
+    val scrimAlpha by animateFloatAsState(
+        targetValue =
+            when (visibility) {
+                ChromeVisibility.Shown -> 1f
+                ChromeVisibility.Peeking -> 0.5f
+                ChromeVisibility.Hidden -> 0f
+            },
+        label = "scrimAlpha",
+    )
+    // Constant gradient — remembered so the per-frame recomposition while
+    // scrimAlpha animates doesn't re-allocate the brush.
+    val scrimBrush =
+        remember {
+            Brush.verticalGradient(
+                0f to Color.Black.copy(alpha = 0.55f),
+                0.3f to Color.Transparent,
+                0.7f to Color.Transparent,
+                1f to Color.Black.copy(alpha = 0.65f),
+            )
+        }
+    Box(modifier = modifier.alpha(scrimAlpha).background(scrimBrush))
+}
+
+/**
+ * The Shown-rung transport: skip-back 10s · large morphing play/pause ·
+ * skip-forward 10s, with a mute + PiP utility row beneath the play/pause
+ * (nubecita-6rdb.6, design option a). The pop-out shows only on PiP-capable
+ * devices (`onPopOut != null`); otherwise mute sits alone, centered. PiP
+ * keeps its device × Pro gating + resolvePopOut routing (design D5).
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun TransportCluster(
+    state: VideoPlayerState,
+    onEvent: (VideoPlayerEvent) -> Unit,
+    onPopOut: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     // Remembered so the morph button's `shapes` is a stable instance —
     // IconButtonShapes isn't @Stable, so allocating it inline would defeat
     // skipping and re-run the button on every position tick (120hz target).
@@ -79,161 +219,204 @@ internal fun VideoPlayerChrome(
                 pressedShape = RoundedCornerShape(PLAY_PAUSE_PRESSED_CORNER),
             )
         }
-    Box(modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)) {
-        // Top band: back button.
-        IconButton(
-            onClick = { onEvent(VideoPlayerEvent.BackClicked) },
-            modifier =
-                Modifier
-                    .align(Alignment.TopStart)
-                    .padding(8.dp)
-                    .size(44.dp),
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            NubecitaIcon(
-                name = NubecitaIconName.Close,
-                contentDescription = stringResource(R.string.video_player_back_content_description),
-                tint = Color.White,
-            )
-        }
-
-        // Center band: the transport cluster plus a mute/PiP utility row beneath
-        // the play/pause. Mute + pop-out are grouped here as *player* controls —
-        // kept close to the transport, distinct from the post actions — rather
-        // than in the bottom row (nubecita-6rdb.6, design option a).
-        Column(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Transport: skip-back 10s · large morphing play/pause · skip-forward 10s.
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            FilledIconButton(
+                onClick = { onEvent(VideoPlayerEvent.SkipBack) },
+                modifier = Modifier.size(SKIP_BUTTON_SIZE),
+                shape = CircleShape,
+                colors = translucentSkipColors(),
             ) {
-                FilledIconButton(
-                    onClick = { onEvent(VideoPlayerEvent.SkipBack) },
-                    modifier = Modifier.size(SKIP_BUTTON_SIZE),
-                    shape = CircleShape,
-                    colors = translucentSkipColors(),
-                ) {
-                    NubecitaIcon(
-                        name = NubecitaIconName.Replay10,
-                        contentDescription = stringResource(R.string.video_player_skip_back_content_description),
-                        opticalSize = SKIP_ICON_SIZE,
-                        tint = Color.White,
-                    )
-                }
-                // The one element that breaks from the surrounding circular shape
-                // language: a large filled primary button that morphs round→squircle
-                // on press (design panel C). The `shapes` overload animates between
-                // `shape` and `pressedShape` from the interaction source.
-                FilledIconButton(
-                    onClick = { onEvent(VideoPlayerEvent.PlayPauseClicked) },
-                    modifier = Modifier.size(PLAY_PAUSE_BUTTON_SIZE),
-                    shapes = playPauseShapes,
-                ) {
-                    NubecitaIcon(
-                        name = if (state.isPlaying) NubecitaIconName.Pause else NubecitaIconName.PlayArrow,
-                        contentDescription =
-                            stringResource(
-                                if (state.isPlaying) {
-                                    R.string.video_player_pause_content_description
-                                } else {
-                                    R.string.video_player_play_content_description
-                                },
-                            ),
-                        opticalSize = PLAY_PAUSE_ICON_SIZE,
-                    )
-                }
-                FilledIconButton(
-                    onClick = { onEvent(VideoPlayerEvent.SkipForward) },
-                    modifier = Modifier.size(SKIP_BUTTON_SIZE),
-                    shape = CircleShape,
-                    colors = translucentSkipColors(),
-                ) {
-                    NubecitaIcon(
-                        name = NubecitaIconName.Forward10,
-                        contentDescription = stringResource(R.string.video_player_skip_forward_content_description),
-                        opticalSize = SKIP_ICON_SIZE,
-                        tint = Color.White,
-                    )
-                }
+                NubecitaIcon(
+                    name = NubecitaIconName.Replay10,
+                    contentDescription = stringResource(R.string.video_player_skip_back_content_description),
+                    opticalSize = SKIP_ICON_SIZE,
+                    tint = Color.White,
+                )
             }
-            // Utility row: mute + optional pop-out (PiP), centered under the
-            // play/pause. The pop-out shows only on PiP-capable devices
-            // (onPopOut != null); otherwise mute sits alone, centered. PiP keeps
-            // its device × Pro gating + resolvePopOut routing (design D5) — only
-            // the placement moves here.
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            // The one element that breaks from the surrounding circular shape
+            // language: a large filled primary button that morphs round→squircle
+            // on press (design panel C).
+            FilledIconButton(
+                onClick = { onEvent(VideoPlayerEvent.PlayPauseClicked) },
+                modifier = Modifier.size(PLAY_PAUSE_BUTTON_SIZE),
+                shapes = playPauseShapes,
             ) {
+                NubecitaIcon(
+                    name = if (state.isPlaying) NubecitaIconName.Pause else NubecitaIconName.PlayArrow,
+                    contentDescription =
+                        stringResource(
+                            if (state.isPlaying) {
+                                R.string.video_player_pause_content_description
+                            } else {
+                                R.string.video_player_play_content_description
+                            },
+                        ),
+                    opticalSize = PLAY_PAUSE_ICON_SIZE,
+                )
+            }
+            FilledIconButton(
+                onClick = { onEvent(VideoPlayerEvent.SkipForward) },
+                modifier = Modifier.size(SKIP_BUTTON_SIZE),
+                shape = CircleShape,
+                colors = translucentSkipColors(),
+            ) {
+                NubecitaIcon(
+                    name = NubecitaIconName.Forward10,
+                    contentDescription = stringResource(R.string.video_player_skip_forward_content_description),
+                    opticalSize = SKIP_ICON_SIZE,
+                    tint = Color.White,
+                )
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(
+                onClick = { onEvent(VideoPlayerEvent.MuteClicked) },
+                modifier = Modifier.size(44.dp),
+            ) {
+                NubecitaIcon(
+                    name = if (state.isMuted) NubecitaIconName.VolumeOff else NubecitaIconName.VolumeUp,
+                    contentDescription =
+                        stringResource(
+                            if (state.isMuted) {
+                                R.string.video_player_unmute_content_description
+                            } else {
+                                R.string.video_player_mute_content_description
+                            },
+                        ),
+                    tint = Color.White,
+                )
+            }
+            if (onPopOut != null) {
                 IconButton(
-                    onClick = { onEvent(VideoPlayerEvent.MuteClicked) },
+                    onClick = onPopOut,
                     modifier = Modifier.size(44.dp),
                 ) {
                     NubecitaIcon(
-                        name = if (state.isMuted) NubecitaIconName.VolumeOff else NubecitaIconName.VolumeUp,
-                        contentDescription =
-                            stringResource(
-                                if (state.isMuted) {
-                                    R.string.video_player_unmute_content_description
-                                } else {
-                                    R.string.video_player_mute_content_description
-                                },
-                            ),
+                        name = NubecitaIconName.PictureInPictureAlt,
+                        contentDescription = stringResource(R.string.video_player_pip_content_description),
                         tint = Color.White,
                     )
                 }
-                if (onPopOut != null) {
-                    IconButton(
-                        onClick = onPopOut,
-                        modifier = Modifier.size(44.dp),
-                    ) {
-                        NubecitaIcon(
-                            name = NubecitaIconName.PictureInPictureAlt,
-                            contentDescription = stringResource(R.string.video_player_pip_content_description),
-                            tint = Color.White,
-                        )
-                    }
-                }
             }
         }
+    }
+}
 
-        // Bottom band: seek bar + transport row.
-        Column(
+/**
+ * The Hidden-rung tap-to-play: a single translucent play/pause button,
+ * centered. Less prominent than the Shown rung's primary-filled morph
+ * button — the Hidden rung is "get out of the way of the video".
+ */
+@Composable
+private fun HiddenPlayButton(
+    state: VideoPlayerState,
+    onEvent: (VideoPlayerEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilledIconButton(
+        onClick = { onEvent(VideoPlayerEvent.PlayPauseClicked) },
+        modifier = modifier.size(PLAY_PAUSE_BUTTON_SIZE),
+        shape = CircleShape,
+        colors = translucentSkipColors(),
+    ) {
+        NubecitaIcon(
+            name = if (state.isPlaying) NubecitaIconName.Pause else NubecitaIconName.PlayArrow,
+            contentDescription =
+                stringResource(
+                    if (state.isPlaying) {
+                        R.string.video_player_pause_content_description
+                    } else {
+                        R.string.video_player_play_content_description
+                    },
+                ),
+            opticalSize = PLAY_PAUSE_ICON_SIZE,
+            tint = Color.White,
+        )
+    }
+}
+
+/** Bottom band for the Shown + Peeking rungs: wavy seek bar + time labels. */
+@Composable
+private fun BottomBand(
+    state: VideoPlayerState,
+    onEvent: (VideoPlayerEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        VideoPlayerSeekBar(
+            positionMs = state.positionMs,
+            durationMs = state.durationMs,
+            onSeek = { onEvent(VideoPlayerEvent.SeekTo(it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Time labels: elapsed left, total right (nubecita-6rdb.6).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = formatPositionMs(state.positionMs),
+                color = Color.White,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Box(modifier = Modifier.weight(1f))
+            Text(
+                text = formatPositionMs(state.durationMs),
+                color = Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
+    }
+}
+
+/**
+ * The Hidden-rung progress hairline: a thin 2dp bar pinned to the bottom
+ * edge showing the played fraction, so the user keeps a sense of position
+ * even with the full chrome hidden.
+ */
+@Composable
+private fun ProgressHairline(
+    positionMs: Long,
+    durationMs: Long,
+    modifier: Modifier = Modifier,
+) {
+    val fraction =
+        if (durationMs > 0L) {
+            (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(Color.White.copy(alpha = 0.3f)),
+    ) {
+        Box(
             modifier =
                 Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            VideoPlayerSeekBar(
-                positionMs = state.positionMs,
-                durationMs = state.durationMs,
-                onSeek = { onEvent(VideoPlayerEvent.SeekTo(it)) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            // Time labels: elapsed left, total right. Mute + pop-out moved to
-            // the utility row under play/pause (nubecita-6rdb.6).
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = formatPositionMs(state.positionMs),
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                Box(modifier = Modifier.weight(1f))
-                Text(
-                    text = formatPositionMs(state.durationMs),
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
-        }
+                    .fillMaxHeight()
+                    .fillMaxWidth(fraction)
+                    .background(Color.White),
+        )
     }
 }
 
