@@ -32,7 +32,11 @@ data class FeedState(
     val feedItems: ImmutableList<FeedItemUi> = persistentListOf(),
     val nextCursor: String? = null,
     val endReached: Boolean = false,
-    val loadStatus: FeedLoadStatus = FeedLoadStatus.Idle,
+    // Cold start opens on the shimmer, never the terminal "No posts" empty
+    // screen: the VM only settles to [FeedLoadStatus.Idle] after a fetch
+    // returns. An empty + Idle feed therefore unambiguously means "loaded, no
+    // posts" (lq9t.3.6).
+    val loadStatus: FeedLoadStatus = FeedLoadStatus.InitialLoading,
     /**
      * URI of the post whose like was most recently toggled by a user
      * tap in this session, or `null` if none. The screen reads this

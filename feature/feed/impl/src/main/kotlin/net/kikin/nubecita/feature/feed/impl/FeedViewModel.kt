@@ -205,17 +205,25 @@ class FeedViewModel
             // continuation can't write a stale page after the reset below.
             loadJob?.cancel()
             loadJob = null
-            // Drop any slice from a previously-bound feed so load() doesn't
-            // short-circuit on its "feedItems already present" guard and
-            // render the wrong feed's posts.
+            // Drop any slice from a previously-bound feed and open on the
+            // shimmer (InitialLoading), never the "No posts" empty screen, while
+            // the new feed loads.
             setState {
                 copy(
                     feedItems = persistentListOf(),
                     nextCursor = null,
                     endReached = false,
-                    loadStatus = FeedLoadStatus.Idle,
+                    loadStatus = FeedLoadStatus.InitialLoading,
                 )
             }
+            // Drive the fetch from bind() itself. The screen ALSO dispatches a
+            // `Load` from a `LaunchedEffect`, but the two effects fire in an
+            // unspecified order at cold start; if `Load` ran first and bind()
+            // then cancelled it, nothing would restart the fetch and the feed
+            // would hang on an empty shimmer. Starting here makes bind the
+            // single source of truth for the initial fetch; the screen's `Load`
+            // no-ops (a job is already in flight).
+            startInitialFetch()
         }
 
         /**
@@ -232,24 +240,32 @@ class FeedViewModel
             }
 
         private fun load() {
-            // Allow initial load (from Idle, the default) and Retry from
-            // InitialError. Any other status (InitialLoading, Refreshing,
-            // Appending) means a fetch is already in flight — second Load
-            // is a no-op so the UI can dispatch on every recomposition
-            // without N concurrent fetches racing on setState.
-            val status = uiState.value.loadStatus
-            if (status != FeedLoadStatus.Idle && status !is FeedLoadStatus.InitialError) return
             // Don't re-fetch when a loaded slice is already present.
             // `LaunchedEffect(Unit) { Load }` in FeedScreen re-fires every
             // time the screen re-enters composition (composer route pops,
             // tab switch back, etc.); without this guard each re-entry
             // wholesale-replaces `feedItems` and erases scroll position,
             // any optimistic mutations (like / repost / replyCount), and
-            // the cursor cluster-context dedupe state. Pull-to-refresh
-            // continues to flow through `Refresh`; retry from
-            // `InitialError` still proceeds because `feedItems` is empty
-            // in that state.
+            // the cursor cluster-context dedupe state.
             if (uiState.value.feedItems.isNotEmpty()) return
+            // A fetch is already in flight (the initial fetch started by bind(),
+            // a refresh, or a load-more all share loadJob) — second Load is a
+            // no-op so the UI can dispatch on every recomposition without N
+            // concurrent fetches racing on setState. This is the single "in
+            // flight" signal, independent of which status is showing. Retry from
+            // InitialError still proceeds because that job has already finished.
+            if (loadJob?.isActive == true) return
+            startInitialFetch()
+        }
+
+        /**
+         * Launch the initial-page fetch on the bound feed and project the
+         * outcome. Shared by [bind] (cold start / feed switch) and [load]
+         * (unbound pane + retry). Sets [FeedLoadStatus.InitialLoading] so the
+         * shimmer shows for the whole fetch, then settles to [Idle] on success
+         * or [FeedLoadStatus.InitialError] on failure.
+         */
+        private fun startInitialFetch() {
             setState { copy(loadStatus = FeedLoadStatus.InitialLoading) }
             loadJob =
                 viewModelScope.launch {
