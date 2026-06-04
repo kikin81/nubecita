@@ -85,4 +85,25 @@
     <string name="about_thanks_vmlara">My brother, and the very first tablet tester.</string>
     <string name="about_thanks_zenos">Friend, gamer, and Samsung battle-tester.</string>
     <string name="about_thanks_cameronbanga">Friend and iOS engineer behind Skyscraper.</string>
+
+    <!-- Content filters -->
+    <string name="settings_content_moderation_section">Content &amp; moderation</string>
+    <string name="settings_content_filters_label">Content filters</string>
+    <string name="content_filters_title">Content filters</string>
+    <string name="content_filters_back_content_desc">Back</string>
+    <string name="content_filters_description">Choose what happens when a post carries one of these content labels.</string>
+    <string name="content_filters_enable_adult">Enable adult content</string>
+    <string name="content_filters_enable_adult_supporting">You must be 18 or older to enable.</string>
+    <string name="content_filters_show">Show</string>
+    <string name="content_filters_warn">Warn</string>
+    <string name="content_filters_hide">Hide</string>
+    <string name="content_filters_cat_porn">Adult Content</string>
+    <string name="content_filters_cat_porn_desc">Explicit sexual images.</string>
+    <string name="content_filters_cat_sexual">Sexually Suggestive</string>
+    <string name="content_filters_cat_sexual_desc">Does not include nudity.</string>
+    <string name="content_filters_cat_graphic">Graphic Media</string>
+    <string name="content_filters_cat_graphic_desc">Explicit or potentially disturbing media.</string>
+    <string name="content_filters_cat_nudity">Non-sexual Nudity</string>
+    <string name="content_filters_cat_nudity_desc">Artistic or educational nudity.</string>
+    <string name="content_filters_save_error">Couldn\'t save your change. Check your network and try again.</string>
 </resources>

@@ -24,6 +24,8 @@ dependencies {
     // (restore, plan-price lookup) for the "Nubecita Pro" settings section.
     implementation(project(":core:billing"))
     implementation(project(":core:common"))
+    // ModerationPreferencesRepository — backs the Content filters screen.
+    implementation(project(":core:moderation"))
     implementation(project(":core:profile"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
