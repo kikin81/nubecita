@@ -564,7 +564,7 @@ internal fun SettingsContent(
         //   3. Notifications        — system-settings deep-link today
         //                              (v1 content); in-app per-reason
         //                              toggles arrive in a later epic.
-        //   4. Content & moderation — filled by nubecita-37to.5
+        //   4. Content & moderation — Content filters row (nubecita-twmt.2)
         //   5. Account              — Sign Out lives here today
         //   6. About                — Version row lives here today
         //   7. Data usage           — filled by nubecita-37to.8
