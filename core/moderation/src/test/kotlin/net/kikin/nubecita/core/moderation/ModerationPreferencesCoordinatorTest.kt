@@ -81,6 +81,26 @@ internal class ModerationPreferencesCoordinatorTest {
         }
 
     @Test
+    fun `resets to default on sign-out so prefs do not leak across accounts`() =
+        runTest {
+            val session = FakeSessionStateProvider(SessionState.SignedIn(handle = "alice.test", did = "did:plc:alice"))
+            val repo = CountingModerationPreferencesRepository()
+            val coordinator = newCoordinator(session, repo)
+
+            coordinator.start()
+            testScheduler.runCurrent()
+            assertEquals(0, repo.resetCount)
+
+            session.state.value = SessionState.SignedOut
+            testScheduler.runCurrent()
+
+            // Sign-out must clear account A's prefs back to DEFAULT before any
+            // account B reads them.
+            assertEquals(1, repo.resetCount)
+            assertEquals(1, repo.refreshCount)
+        }
+
+    @Test
     fun `start is idempotent`() =
         runTest {
             val session = FakeSessionStateProvider(SessionState.SignedIn(handle = "alice.test", did = "did:plc:alice"))
@@ -147,12 +167,18 @@ private class CountingModerationPreferencesRepository(
 ) : ModerationPreferencesRepository {
     var refreshCount = 0
         private set
+    var resetCount = 0
+        private set
 
     override val prefs: StateFlow<ModerationPrefs> = MutableStateFlow(ModerationPrefs.DEFAULT)
 
     override suspend fun refresh() {
         refreshCount++
         if (throwOnRefresh) error("boom")
+    }
+
+    override fun resetToDefault() {
+        resetCount++
     }
 
     override suspend fun setAdultContentEnabled(enabled: Boolean) = Unit

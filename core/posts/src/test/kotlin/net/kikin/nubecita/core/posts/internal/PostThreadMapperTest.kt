@@ -8,11 +8,14 @@ import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPost
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPostParentUnion
 import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPostRepliesUnion
+import io.github.kikin81.atproto.com.atproto.label.Label
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
 import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Handle
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -259,6 +262,51 @@ internal class PostThreadMapperTest {
         assertTrue(items.isEmpty())
     }
 
+    // ---------- moderation wiring (twmt.4) ----------
+
+    // Post-detail is NOT a list surface: applyModeration runs with
+    // dropFiltered=false, so even a HARD-filtered (porn + adult-off) post must
+    // stay in the thread — dropping it would tear a hole in the reply chain.
+
+    @Test
+    fun `a hard-filtered focus stays in the thread and is not dropped`() {
+        val thread =
+            threadViewPost(
+                uri = "at://did:plc:test/app.bsky.feed.post/focus",
+                text = "labeled focus",
+                labels = labels("porn"),
+            )
+
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
+
+        assertEquals(1, items.size)
+        assertTrue(items.single() is ThreadItem.Focus, "the focus must survive moderation in post-detail")
+    }
+
+    @Test
+    fun `a hard-filtered reply stays in the thread and is not dropped`() {
+        val thread =
+            threadViewPost(
+                uri = "at://did:plc:test/app.bsky.feed.post/focus",
+                text = "clean focus",
+                replies =
+                    listOf(
+                        threadViewPost(
+                            uri = "at://did:plc:test/app.bsky.feed.post/reply",
+                            text = "labeled reply",
+                            labels = labels("porn"),
+                        ),
+                    ),
+            )
+
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
+
+        // Focus + the labeled reply both present — the reply is covered, not cut.
+        assertEquals(2, items.size)
+        assertTrue(items[0] is ThreadItem.Focus)
+        assertTrue(items[1] is ThreadItem.Reply, "a hard-filtered reply must stay in the thread")
+    }
+
     // ---------- fixture helpers ----------
 
     private fun threadViewPost(
@@ -266,16 +314,18 @@ internal class PostThreadMapperTest {
         text: String,
         parent: ThreadViewPostParentUnion? = null,
         replies: List<ThreadViewPostRepliesUnion>? = null,
+        labels: List<Label>? = null,
     ): ThreadViewPost =
         ThreadViewPost(
             parent = parent,
-            post = postView(uri = uri, record = postRecord(text = text)),
+            post = postView(uri = uri, record = postRecord(text = text), labels = labels),
             replies = replies,
         )
 
     private fun postView(
         uri: String,
         record: JsonObject,
+        labels: List<Label>? = null,
     ): PostView =
         PostView(
             author =
@@ -288,6 +338,13 @@ internal class PostThreadMapperTest {
             indexedAt = Datetime("2026-04-25T12:00:00Z"),
             record = record,
             uri = AtUri(uri),
+            labels = labels,
+        )
+
+    private fun labels(value: String): List<Label> =
+        Json.decodeFromString(
+            ListSerializer(Label.serializer()),
+            """[{"src":"did:plc:labeler","uri":"at://did:plc:test/app.bsky.feed.post/x","val":"$value","cts":"2026-04-25T12:00:00Z"}]""",
         )
 
     private fun postRecord(

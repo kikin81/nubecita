@@ -2,10 +2,14 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.feed.GetAuthorFeedResponse
 import kotlinx.serialization.json.Json
+import net.kikin.nubecita.core.moderation.ContentLabel
+import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPrefs
+import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -210,6 +214,101 @@ internal class AuthorFeedMapperTest {
     fun `buildGetProfileRequest wraps actor`() {
         val req = buildGetProfileRequest(actor = "did:plc:alice")
         assertEquals("did:plc:alice", req.actor.raw)
+    }
+
+    // --- moderation wiring (twmt.4) ---
+
+    // A single image post carrying one self-label. `labelValue` drives the
+    // moderation decision against the prefs the test supplies.
+    private fun labeledImagePostFeed(labelValue: String): String =
+        """
+        {
+          "feed": [
+            {
+              "post": {
+                "uri": "at://did:plc:bob/app.bsky.feed.post/m2",
+                "cid": "cid2",
+                "author": { "did": "did:plc:bob", "handle": "bob.bsky.social" },
+                "indexedAt": "2026-06-02T12:00:00Z",
+                "record": {
+                  "${'$'}type": "app.bsky.feed.post",
+                  "text": "labeled media",
+                  "createdAt": "2026-06-02T12:00:00Z"
+                },
+                "embed": {
+                  "${'$'}type": "app.bsky.embed.images#view",
+                  "images": [{ "thumb": "https://cdn/t2.jpg", "fullsize": "https://cdn/f2.jpg", "alt": "" }]
+                },
+                "labels": [
+                  {
+                    "src": "did:plc:labeler",
+                    "uri": "at://did:plc:bob/app.bsky.feed.post/m2",
+                    "val": "$labelValue",
+                    "cts": "2026-06-02T12:00:00Z"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+        """.trimIndent()
+
+    @Test
+    fun `Media tab drops a warned media post rather than show an uncovered thumbnail`() {
+        // nudity is NOT adult-gated, so a per-category WARN override resolves to a
+        // cover (kept-but-warned), not a hard filter — the case that exercises the
+        // grid's covered-drop path specifically (not the applyModeration drop).
+        val prefs =
+            ModerationPrefs(
+                adultContentEnabled = false,
+                visibilities = ModerationPrefs.DEFAULT.visibilities + (ContentLabel.NUDITY to LabelVisibility.WARN),
+            )
+        val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), labeledImagePostFeed("nudity"))
+
+        val items = response.feed.toTabItems(ProfileTab.Media, prefs, viewerDid = null)
+
+        assertTrue(items.isEmpty(), "a covered media post must be dropped from the grid, not shown uncovered")
+    }
+
+    @Test
+    fun `Posts tab keeps a warned media post and covers its media`() {
+        val prefs =
+            ModerationPrefs(
+                adultContentEnabled = false,
+                visibilities = ModerationPrefs.DEFAULT.visibilities + (ContentLabel.NUDITY to LabelVisibility.WARN),
+            )
+        val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), labeledImagePostFeed("nudity"))
+
+        val items = response.feed.toTabItems(ProfileTab.Posts, prefs, viewerDid = null)
+
+        assertEquals(1, items.size, "post-list surfaces cover warned media, they don't drop it")
+        val embed = (items[0] as TabItemUi.Post).post.embed
+        assertNotNull(
+            (embed as? EmbedUi.Images)?.contentWarning,
+            "the warned image embed must carry a content-warning cover",
+        )
+    }
+
+    @Test
+    fun `Posts tab drops a hard-filtered post`() {
+        // porn under the default (adult-off) gate resolves to a forced hide →
+        // dropFiltered = true removes it from the list surface entirely.
+        val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), labeledImagePostFeed("porn"))
+
+        val items = response.feed.toTabItems(ProfileTab.Posts, ModerationPrefs.DEFAULT, viewerDid = null)
+
+        assertTrue(items.isEmpty(), "a hard-filtered post must not appear in a profile list")
+    }
+
+    @Test
+    fun `the author's own filtered post is exempt and kept`() {
+        // Viewer == author: never filtered. Same porn label + adult-off prefs that
+        // drop a stranger's post above must keep the viewer's own post.
+        val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), labeledImagePostFeed("porn"))
+
+        val items = response.feed.toTabItems(ProfileTab.Posts, ModerationPrefs.DEFAULT, viewerDid = "did:plc:bob")
+
+        assertEquals(1, items.size, "the viewer's own labeled content is exempt from moderation")
     }
 
     @Test

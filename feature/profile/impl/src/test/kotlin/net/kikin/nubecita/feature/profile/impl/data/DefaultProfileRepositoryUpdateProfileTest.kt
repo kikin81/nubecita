@@ -568,6 +568,8 @@ class DefaultProfileRepositoryUpdateProfileTest {
 
             override suspend fun refresh() = Unit
 
+            override fun resetToDefault() = Unit
+
             override suspend fun setAdultContentEnabled(enabled: Boolean) = Unit
 
             override suspend fun setVisibility(

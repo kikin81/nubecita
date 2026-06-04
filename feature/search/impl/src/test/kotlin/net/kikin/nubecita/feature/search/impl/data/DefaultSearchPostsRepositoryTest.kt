@@ -97,6 +97,19 @@ class DefaultSearchPostsRepositoryTest {
     }
 
     @Test
+    fun searchPosts_dropsHardFilteredPost() =
+        runTest {
+            // A porn-labeled post under the inert DEFAULT (adult-off) prefs +
+            // signed-out viewer resolves to a forced hide. Search is a list
+            // surface (dropFiltered = true), so it must not appear in the page.
+            val (_, repo) = newRepo { _ -> okJson(SEARCH_POSTS_RESPONSE_ONE_LABELED) }
+
+            val page = repo.searchPosts(query = "kotlin", cursor = null, limit = 25).getOrThrow()
+
+            assertTrue(page.items.isEmpty(), "a hard-filtered search hit must be dropped")
+        }
+
+    @Test
     fun searchPosts_emptyResultNullCursor_returnsEmptyPage() =
         runTest {
             val (_, repo) =
@@ -248,6 +261,8 @@ class DefaultSearchPostsRepositoryTest {
 
             override suspend fun refresh() = Unit
 
+            override fun resetToDefault() = Unit
+
             override suspend fun setAdultContentEnabled(enabled: Boolean) = Unit
 
             override suspend fun setVisibility(
@@ -313,6 +328,41 @@ class DefaultSearchPostsRepositoryTest {
                   "record": {
                     "${'$'}type": "app.bsky.feed.post"
                   }
+                }
+              ]
+            }
+        """
+
+        /**
+         * One well-formed post carrying a `porn` self-label. Under DEFAULT
+         * (adult-off) prefs the moderation pass forces a hide, so the page must
+         * come back empty (dropFiltered = true on this list surface).
+         */
+        const val SEARCH_POSTS_RESPONSE_ONE_LABELED = """
+            {
+              "posts": [
+                {
+                  "uri": "at://did:plc:fake/app.bsky.feed.post/p1",
+                  "cid": "bafyreifakecid000000000000000000000000000000000",
+                  "author": {
+                    "did": "did:plc:fake",
+                    "handle": "fake.bsky.social",
+                    "displayName": "Fake User"
+                  },
+                  "indexedAt": "2026-04-26T12:00:00Z",
+                  "record": {
+                    "${'$'}type": "app.bsky.feed.post",
+                    "text": "labeled",
+                    "createdAt": "2026-04-26T12:00:00Z"
+                  },
+                  "labels": [
+                    {
+                      "src": "did:plc:labeler",
+                      "uri": "at://did:plc:fake/app.bsky.feed.post/p1",
+                      "val": "porn",
+                      "cts": "2026-04-26T12:00:00Z"
+                    }
+                  ]
                 }
               ]
             }

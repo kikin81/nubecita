@@ -31,7 +31,10 @@ import javax.inject.Singleton
  *   failure is logged (error identity only) and swallowed — the repo keeps its
  *   current (fail-safe DEFAULT or last-good) value, and the next session
  *   emission retries.
- * - [SessionState.SignedOut] / [SessionState.Loading] → no-op.
+ * - [SessionState.SignedOut] → [ModerationPreferencesRepository.resetToDefault]
+ *   so the next account never reads the previous account's prefs in the window
+ *   before its own refresh lands (the repo is an app-scoped singleton).
+ * - [SessionState.Loading] → no-op.
  *
  * **Cold-start + re-login.** [SessionStateProvider.state] is a `StateFlow`, so a
  * fresh subscription receives the current value on first collect — no separate
@@ -54,24 +57,35 @@ class ModerationPreferencesCoordinator
         /**
          * Starts collecting the session-state flow. Idempotent — calling twice
          * (e.g. from a re-entered `Application.onCreate` during a hot-restart)
-         * is a no-op.
+         * is a no-op. The check-then-act on [collectJob] is unsynchronized: the
+         * only caller is the app's single-threaded `AppInitializer` pass, so two
+         * concurrent `start()`s never race.
          */
         fun start() {
             if (collectJob?.isActive == true) return
             collectJob =
                 scope.launch {
                     sessionStateProvider.state.collectLatest { state ->
-                        if (state is SessionState.SignedIn) {
-                            try {
-                                repository.refresh()
-                            } catch (cancellation: kotlinx.coroutines.CancellationException) {
-                                throw cancellation
-                            } catch (throwable: Throwable) {
-                                // Keep the fail-safe DEFAULT / last-good prefs; the next
-                                // session emission retries. Log only the error identity
-                                // (the response may carry account-shaped data).
-                                Timber.tag(TAG).e(throwable, "moderation prefs refresh failed: %s", throwable.javaClass.name)
-                            }
+                        when (state) {
+                            is SessionState.SignedIn ->
+                                try {
+                                    repository.refresh()
+                                } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                                    throw cancellation
+                                } catch (throwable: Throwable) {
+                                    // Keep the fail-safe DEFAULT / last-good prefs; the next
+                                    // session emission retries. Log only the error identity
+                                    // (the response may carry account-shaped data).
+                                    Timber.tag(TAG).e(
+                                        throwable,
+                                        "moderation prefs refresh failed: %s",
+                                        throwable.javaClass.name,
+                                    )
+                                }
+                            // Fail safe on sign-out so the next account can't read this
+                            // account's prefs before its own refresh lands.
+                            is SessionState.SignedOut -> repository.resetToDefault()
+                            is SessionState.Loading -> Unit
                         }
                     }
                 }
