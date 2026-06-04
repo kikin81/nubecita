@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -20,6 +20,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -212,10 +213,12 @@ private fun CategoryBlock(
 }
 
 /**
- * Single-select Show/Warn/Hide picker, built on M3 Expressive's [ButtonGroup]
- * with `toggleableItem` children (mirrors `ProfilePillTabs`). Tapping the
- * already-selected segment is a no-op; the whole group is disabled (greyed)
- * when [enabled] is false (an adult category with the master gate off).
+ * Single-select Show/Warn/Hide picker, built as an M3 Expressive **connected
+ * button group**: a row of [ToggleButton]s whose leading / middle / trailing
+ * segments take asymmetric connected shapes ([ButtonGroupDefaults]) so they read
+ * as one joined control. Tapping the already-selected segment is a no-op; every
+ * segment is disabled (greyed) when [enabled] is false (an adult category with
+ * the master gate off).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -225,23 +228,28 @@ private fun LabelVisibilityGroup(
     onSelect: (LabelVisibility) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Resolve labels in the composable body — ButtonGroup's content is a
-    // non-composable builder scope (like LazyColumn's), so `stringResource`
-    // can't be called inside the `toggleableItem` registrations.
     val options = VISIBILITY_ORDER.map { it to stringResource(it.labelRes()) }
-    ButtonGroup(
-        overflowIndicator = {},
-        expandedRatio = 0.025f,
+    Row(
         modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
     ) {
-        options.forEach { (visibility, label) ->
-            toggleableItem(
+        options.forEachIndexed { index, (visibility, label) ->
+            ToggleButton(
                 checked = visibility == selected,
-                label = label,
+                // Single-select: tapping the active segment fires
+                // onCheckedChange(false), which we ignore (no "none selected").
                 onCheckedChange = { newChecked -> if (newChecked) onSelect(visibility) },
                 enabled = enabled,
-                weight = 1f,
-            )
+                modifier = Modifier.weight(1f),
+                shapes =
+                    when (index) {
+                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                        options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                    },
+            ) {
+                Text(label)
+            }
         }
     }
 }
