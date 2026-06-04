@@ -85,6 +85,19 @@ private fun PostCardEmptyBodyScreenshot() {
     )
 }
 
+// Threadgate (lq9t.3.1): the appview reports the viewer can't reply, so the
+// reply CTA renders dimmed + inert while the other actions stay live.
+@PreviewTest
+@Preview(name = "reply-disabled-light", showBackground = true)
+@Preview(name = "reply-disabled-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostCardReplyDisabledScreenshot() {
+    PostCard(
+        post = screenshotPost(viewer = ViewerStateUi(canViewerReply = false)),
+    )
+}
+
 @PreviewTest
 @Preview(name = "typical-light", showBackground = true)
 @Preview(name = "typical-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)

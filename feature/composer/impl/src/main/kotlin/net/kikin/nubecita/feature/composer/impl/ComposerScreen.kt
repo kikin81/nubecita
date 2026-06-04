@@ -130,6 +130,7 @@ internal fun ComposerScreen(
     val networkErrorMessage = stringResource(R.string.composer_error_network)
     val unauthorizedErrorMessage = stringResource(R.string.composer_error_unauthorized)
     val parentNotFoundErrorMessage = stringResource(R.string.composer_error_parent_not_found)
+    val replyNotAllowedErrorMessage = stringResource(R.string.composer_error_reply_not_allowed)
     val genericErrorMessage = stringResource(R.string.composer_error_generic)
     val uploadFailedTemplate = stringResource(R.string.composer_error_upload_failed)
 
@@ -260,6 +261,7 @@ internal fun ComposerScreen(
                             is ComposerError.Network -> networkErrorMessage
                             ComposerError.Unauthorized -> unauthorizedErrorMessage
                             ComposerError.ParentNotFound -> parentNotFoundErrorMessage
+                            ComposerError.ReplyNotAllowed -> replyNotAllowedErrorMessage
                             is ComposerError.RecordCreationFailed -> genericErrorMessage
                             // attachmentIndex is 0-based internally; users
                             // expect 1-based ordinals ("Image 1 failed",

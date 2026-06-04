@@ -54,6 +54,14 @@ sealed class ComposerError(
     data object ParentNotFound : ComposerError("Reply parent is no longer available")
 
     /**
+     * The reply target's author restricted who can reply (an
+     * `app.bsky.feed.threadgate`) and this viewer isn't allowed. Surfaced
+     * defensively at composer launch in case the gate changed after the user
+     * tapped reply — the appview's `viewer.replyDisabled` is the source of truth.
+     */
+    data object ReplyNotAllowed : ComposerError("You can't reply to this post")
+
+    /**
      * No active session, or the session's tokens couldn't be refreshed.
      * The UI routes this to the sign-in flow; retrying without re-auth
      * is futile.

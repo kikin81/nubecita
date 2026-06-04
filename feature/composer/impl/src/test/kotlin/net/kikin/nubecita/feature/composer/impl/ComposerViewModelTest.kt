@@ -157,6 +157,39 @@ class ComposerViewModelTest {
         }
 
     @Test
+    fun replyMode_parentNotReplyable_emitsShowError() =
+        runTest {
+            // Threadgate defence: the parent resolved but the appview says this
+            // viewer can't reply (gate changed since the user tapped reply).
+            val gate = CompletableDeferred<Result<ParentPostUi>>()
+            coEvery { parentFetchSource.fetchParent(AtUri(PARENT_URI)) } coAnswers { gate.await() }
+
+            val vm = newVm(replyToUri = PARENT_URI)
+
+            vm.effects.test {
+                gate.complete(Result.success(aParentPostUi(canViewerReply = false)))
+                assertEquals(ComposerEffect.ShowError(ComposerError.ReplyNotAllowed), awaitItem())
+                cancelAndConsumeRemainingEvents()
+            }
+        }
+
+    @Test
+    fun replyMode_parentNotReplyable_blocksSubmit() =
+        runTest {
+            coEvery { parentFetchSource.fetchParent(AtUri(PARENT_URI)) } returns
+                Result.success(aParentPostUi(canViewerReply = false))
+
+            val vm = newVm(replyToUri = PARENT_URI)
+            setComposerText(vm, "a reply that should never be sent")
+
+            vm.handleEvent(ComposerEvent.Submit)
+
+            // The gate blocks submit: no network create, status stays Idle.
+            coVerify(exactly = 0) { postingRepository.createPost(any(), any(), any()) }
+            assertEquals(ComposerSubmitStatus.Idle, vm.uiState.value.submitStatus)
+        }
+
+    @Test
     fun textChange_updatesGraphemeCountAndOverLimitFlag() =
         runTest {
             val vm = newVm(replyToUri = null)
@@ -580,13 +613,14 @@ class ComposerViewModelTest {
 
     private fun att(): ComposerAttachment = ComposerAttachment(uri = mockk(relaxed = true), mimeType = "image/jpeg")
 
-    private fun aParentPostUi(): ParentPostUi =
+    private fun aParentPostUi(canViewerReply: Boolean = true): ParentPostUi =
         ParentPostUi(
             parentRef = StrongRef(uri = AtUri(PARENT_URI), cid = Cid("bafparent")),
             rootRef = StrongRef(uri = AtUri(ROOT_URI), cid = Cid("bafroot")),
             authorHandle = "alice.test",
             authorDisplayName = "Alice",
             text = "parent post body",
+            canViewerReply = canViewerReply,
         )
 
     private companion object {

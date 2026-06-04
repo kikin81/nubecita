@@ -40,6 +40,9 @@
     -->
     <string name="composer_error_upload_failed" tools:ignore="PluralsCandidate">Image %1$d failed to upload.</string>
     <string name="composer_error_parent_not_found">This post is no longer available.</string>
+    <!-- Shown when the reply target's author has limited who can reply and this
+         viewer isn't allowed (threadgate changed after they tapped reply). -->
+    <string name="composer_error_reply_not_allowed">You can\'t reply to this post.</string>
 
     <!-- Typeahead empty-state row (shown inside the @-mention suggestion
          card when the lookup ran but matched zero actors). `%1$s` is the

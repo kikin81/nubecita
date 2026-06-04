@@ -56,4 +56,14 @@ public data class ViewerStateUi(
      * they don't themselves block, and vice versa.
      */
     val isAuthorBlockingViewer: Boolean = false,
+    /**
+     * Whether the viewer is allowed to reply to this post. Sourced from the
+     * INVERSE of the post viewer's `replyDisabled` (AT Protocol
+     * `app.bsky.feed.defs#viewerState`), which the appview computes server-side
+     * from the post's `app.bsky.feed.threadgate` (mention / following / follower
+     * / list rules). We trust the server flag rather than reimplementing the
+     * rules client-side. Defaults to `true` (fail open) — most posts carry no
+     * threadgate, so `replyDisabled` is absent and replies are allowed.
+     */
+    val canViewerReply: Boolean = true,
 )

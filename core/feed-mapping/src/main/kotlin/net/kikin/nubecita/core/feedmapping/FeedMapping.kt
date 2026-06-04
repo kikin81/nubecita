@@ -183,6 +183,8 @@ fun ViewerState?.toViewerStateUi(authorViewer: ActorViewerState? = null): Viewer
         isAuthorMutedByViewer = authorViewer?.muted == true,
         isAuthorBlockedByViewer = authorViewer?.blocking != null,
         isAuthorBlockingViewer = authorViewer?.blockedBy == true,
+        // Server-computed threadgate result; fail open when absent (no gate).
+        canViewerReply = this?.replyDisabled != true,
     )
 
 /**
