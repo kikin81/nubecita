@@ -269,6 +269,10 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:billing"))
     implementation(project(":core:common"))
+    // ModerationPreferencesCoordinator — the production bootstrap wires its
+    // start() into the AppInitializer set so content-filter prefs refresh once
+    // the session is signed in.
+    implementation(project(":core:moderation"))
     // :core:posting types (ComposerError, ComposerAttachment) surface in
     // :feature:composer:impl's public ComposerScreenContent signature —
     // :app needs them on its compile classpath to construct overlay
