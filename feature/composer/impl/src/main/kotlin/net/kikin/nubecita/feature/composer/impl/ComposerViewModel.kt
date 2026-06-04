@@ -443,6 +443,12 @@ internal class ComposerViewModel
                 result.fold(
                     onSuccess = { post ->
                         setState { copy(replyParentLoad = ParentLoadStatus.Loaded(post)) }
+                        // Threadgate defence: if the gate changed since the user
+                        // tapped reply, tell them once. canSubmit also blocks the
+                        // send so a queued submit can't slip through.
+                        if (!post.canViewerReply) {
+                            sendEffect(ComposerEffect.ShowError(ComposerError.ReplyNotAllowed))
+                        }
                     },
                     onFailure = { throwable ->
                         val cause = (throwable as? ComposerError) ?: ComposerError.RecordCreationFailed(throwable)
@@ -472,7 +478,12 @@ internal class ComposerViewModel
                     state.submitStatus is ComposerSubmitStatus.Success
             if (submitInFlight) return false
             // Reply mode requires the parent to be Loaded.
-            if (state.replyToUri != null && state.replyParentLoad !is ParentLoadStatus.Loaded) return false
+            val parentLoad = state.replyParentLoad
+            if (state.replyToUri != null && parentLoad !is ParentLoadStatus.Loaded) return false
+            // …and the threadgate must permit this viewer to reply. The appview
+            // would reject the submit anyway; blocking here avoids the confusing
+            // round-trip failure the launch gate exists to prevent.
+            if (parentLoad is ParentLoadStatus.Loaded && !parentLoad.post.canViewerReply) return false
             return true
         }
 

@@ -379,7 +379,18 @@ private fun ActionRow(
         PostStat(
             name = NubecitaIconName.ChatBubble,
             count = post.stats.replyCount.toLong(),
-            accessibilityLabel = stringResource(R.string.postcard_action_reply),
+            accessibilityLabel =
+                stringResource(
+                    if (post.viewer.canViewerReply) {
+                        R.string.postcard_action_reply
+                    } else {
+                        R.string.postcard_action_reply_disabled
+                    },
+                ),
+            // Threadgate: the appview says this viewer can't reply, so the CTA is
+            // inert + dimmed and the onReply callback never fires — no doomed
+            // composer launch.
+            enabled = post.viewer.canViewerReply,
             onClick = { callbacks.onReply(post) },
         )
         PostStat(

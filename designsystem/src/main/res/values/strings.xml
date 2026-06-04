@@ -47,6 +47,9 @@
          on/off state alongside the noun ("Like, switch, on, double tap
          to toggle"). -->
     <string name="postcard_action_reply">Reply</string>
+    <!-- Content description for the reply action when the post's author has
+         restricted who can reply (threadgate) and this viewer is not allowed. -->
+    <string name="postcard_action_reply_disabled">Replies are limited</string>
     <string name="postcard_action_repost">Repost</string>
     <string name="postcard_action_like">Like</string>
     <string name="postcard_action_share">Share post</string>

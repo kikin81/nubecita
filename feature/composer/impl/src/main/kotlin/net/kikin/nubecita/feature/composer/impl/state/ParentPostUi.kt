@@ -26,4 +26,12 @@ data class ParentPostUi(
     val authorHandle: String,
     val authorDisplayName: String?,
     val text: String,
+    /**
+     * Whether the viewer is allowed to reply to this parent — the inverse of the
+     * post viewer's `replyDisabled` (the appview's server-computed threadgate
+     * result). Defaults to `true` (fail open). The composer checks this at launch
+     * and short-circuits with a snackbar if the gate changed after the user
+     * tapped reply (the PostCard CTA is the primary gate; this is defensive).
+     */
+    val canViewerReply: Boolean = true,
 )

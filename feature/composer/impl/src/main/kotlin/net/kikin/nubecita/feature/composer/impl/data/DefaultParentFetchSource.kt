@@ -144,6 +144,8 @@ internal class DefaultParentFetchSource
                 authorHandle = author.handle.raw,
                 authorDisplayName = author.displayName?.takeIf { it.isNotBlank() },
                 text = record.text,
+                // Server-computed threadgate result; fail open when absent.
+                canViewerReply = viewer?.replyDisabled != true,
             )
         }
 

@@ -24,6 +24,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -63,6 +66,12 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
  * `LocalHapticFeedback` plumbing needed. Pair with [onLongClickLabel]
  * so TalkBack announces what long-press will do (e.g. "Copy link")
  * instead of a generic "press and hold."
+ *
+ * [enabled] `false` renders a non-interactive, dimmed cell (M3 0.38 disabled
+ * alpha) carrying [accessibilityLabel] as a `disabled()` semantics node — used
+ * for the reply CTA on a threadgated post where the appview reports the viewer
+ * cannot reply. The [onClick] / [onLongClick] gestures are dropped, so a tap
+ * can't reach a host callback that would open a doomed composer.
  */
 @Composable
 internal fun PostStat(
@@ -76,6 +85,7 @@ internal fun PostStat(
     onLongClickLabel: String? = null,
     active: Boolean = false,
     toggleable: Boolean = false,
+    enabled: Boolean = true,
     activeColor: Color = MaterialTheme.colorScheme.primary,
     iconAnimation: PostStatIconAnimation = PostStatIconAnimation.None,
     animateUserDelta: Boolean = false,
@@ -83,9 +93,14 @@ internal fun PostStat(
     val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
     // Cross-fade the tint on every cell so the active → inactive flip
     // doesn't snap. tween is short (200ms) so the gesture still feels
-    // immediate.
+    // immediate. A disabled cell is dimmed to the M3 0.38 disabled alpha.
     val tint by animateColorAsState(
-        targetValue = if (active) activeColor else inactiveColor,
+        targetValue =
+            when {
+                !enabled -> inactiveColor.copy(alpha = DISABLED_ALPHA)
+                active -> activeColor
+                else -> inactiveColor
+            },
         animationSpec = tween(durationMillis = TINT_ANIM_MS),
         label = "PostStat-tint",
     )
@@ -133,6 +148,15 @@ internal fun PostStat(
     }
     val interactionModifier =
         when {
+            // Disabled: no gesture at all. clearAndSetSemantics substitutes the
+            // whole subtree's semantics with exactly the label + disabled flag,
+            // so TalkBack announces "<label>, disabled" and does NOT leak the
+            // raw count ("12") that the descendant Text would otherwise add.
+            !enabled ->
+                Modifier.clearAndSetSemantics {
+                    contentDescription = accessibilityLabel
+                    disabled()
+                }
             toggleable ->
                 Modifier.toggleable(
                     value = active,
@@ -196,6 +220,9 @@ private val STAT_ICON_SIZE = 18.dp
 
 /** Tint cross-fade duration in ms. */
 private const val TINT_ANIM_MS = 200
+
+/** M3 disabled-content alpha applied to a non-interactive [PostStat] cell. */
+private const val DISABLED_ALPHA = 0.38f
 
 /** Peak scale during the heart-pop overshoot. 1.18 ≈ +18%. */
 private const val POP_SCALE_PEAK = 1.18f
