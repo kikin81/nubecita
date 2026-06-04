@@ -28,8 +28,14 @@ public sealed interface QuotedEmbedUi {
      * [Video], and [External] only; matches the lexicon's
      * `RecordWithMediaViewMediaUnion` known members exactly.
      * Mirrors [EmbedUi.MediaEmbed]'s role at the outer level.
+     *
+     * Carries the precomputed [contentWarning] like [EmbedUi.MediaEmbed]: a
+     * quoted post with a sensitive-media label gets its media covered inside
+     * the quote card. `null` means render the quoted media normally.
      */
-    public sealed interface MediaEmbed : QuotedEmbedUi
+    public sealed interface MediaEmbed : QuotedEmbedUi {
+        public val contentWarning: MediaContentWarning?
+    }
 
     /** The quoted post has no embed. */
     public data object Empty : QuotedEmbedUi
@@ -37,6 +43,7 @@ public sealed interface QuotedEmbedUi {
     /** 1–4 images. Same payload as [EmbedUi.Images]. */
     public data class Images(
         val items: ImmutableList<ImageUi>,
+        override val contentWarning: MediaContentWarning? = null,
     ) : MediaEmbed
 
     /**
@@ -50,6 +57,7 @@ public sealed interface QuotedEmbedUi {
         val aspectRatio: Float,
         val durationSeconds: Int?,
         val altText: String?,
+        override val contentWarning: MediaContentWarning? = null,
     ) : MediaEmbed
 
     /**
@@ -63,6 +71,7 @@ public sealed interface QuotedEmbedUi {
         val title: String,
         val description: String,
         val thumbUrl: String?,
+        override val contentWarning: MediaContentWarning? = null,
     ) : MediaEmbed
 
     /**
@@ -74,6 +83,7 @@ public sealed interface QuotedEmbedUi {
         val thumbUrl: String?,
         val aspectRatio: Float?,
         val alt: String?,
+        override val contentWarning: MediaContentWarning? = null,
     ) : MediaEmbed
 
     /**

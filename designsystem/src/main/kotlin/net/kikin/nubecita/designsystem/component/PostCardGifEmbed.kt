@@ -1,6 +1,8 @@
 package net.kikin.nubecita.designsystem.component
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +37,7 @@ fun PostCardGifEmbed(
     aspectRatio: Float?,
     alt: String?,
     modifier: Modifier = Modifier,
+    cover: MediaCover? = null,
 ) {
     val sized =
         modifier
@@ -46,12 +49,18 @@ fun PostCardGifEmbed(
                     base.heightIn(min = MIN_GIF_HEIGHT, max = MAX_GIF_HEIGHT)
                 }
             }.clip(RoundedCornerShape(16.dp))
-    NubecitaAsyncImage(
-        model = gifUrl,
-        contentDescription = alt,
-        modifier = sized,
-        contentScale = ContentScale.Crop,
-    )
+    Box(sized) {
+        NubecitaAsyncImage(
+            // Covered → no model, so Coil never fetches/decodes the GIF.
+            model = if (cover != null) null else gifUrl,
+            contentDescription = alt,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        if (cover != null) {
+            MediaContentWarningCover(cover, Modifier.matchParentSize())
+        }
+    }
 }
 
 private val MIN_GIF_HEIGHT = 160.dp
