@@ -11,9 +11,11 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.settings.api.About
 import net.kikin.nubecita.feature.settings.api.AboutLicenses
+import net.kikin.nubecita.feature.settings.api.ContentFilters
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.settings.impl.AboutLicensesScreen
 import net.kikin.nubecita.feature.settings.impl.AboutScreen
+import net.kikin.nubecita.feature.settings.impl.ContentFiltersScreen
 import net.kikin.nubecita.feature.settings.impl.SettingsScreen
 
 /**
@@ -63,6 +65,15 @@ internal object SettingsNavigationModule {
             entry<AboutLicenses>(metadata = adaptiveDialog()) {
                 val navState = LocalMainShellNavState.current
                 AboutLicensesScreen(onBack = { navState.removeLast() })
+            }
+            // Content filters — adaptiveDialog() so it coalesces into the
+            // Settings dialog on tablet and pushes full-screen on phone.
+            entry<ContentFilters>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                ContentFiltersScreen(
+                    onBack = { navState.removeLast() },
+                    onNavigateTo = { navState.add(it) },
+                )
             }
         }
 }

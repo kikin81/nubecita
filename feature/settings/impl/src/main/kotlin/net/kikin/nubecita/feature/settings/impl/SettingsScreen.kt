@@ -62,6 +62,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.settings.api.About
+import net.kikin.nubecita.feature.settings.api.ContentFilters
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsSection
@@ -180,6 +181,9 @@ internal fun SettingsScreen(
                     // Push the About sub-route (screen owns the NavKey, like
                     // PaywallRoute above).
                     currentOnNavigateTo(About)
+                SettingsEffect.OpenContentFilters ->
+                    // Push the Content filters sub-route (screen owns the NavKey).
+                    currentOnNavigateTo(ContentFilters)
                 is SettingsEffect.OpenManageSubscription -> {
                     // Deep-link to the Play manage-subscription page. The screen
                     // owns the package name; the VM supplied the sku (if known).
@@ -509,6 +513,21 @@ internal fun SettingsContent(
             }
         }
 
+    // Content & moderation section (canonical slot 4). Opens the in-app
+    // Content filters sub-route (adult gate + per-category Show/Warn/Hide).
+    val contentFiltersLabel = stringResource(R.string.settings_content_filters_label)
+    val contentModerationSectionLabel = stringResource(R.string.settings_content_moderation_section)
+    val contentModerationRows =
+        remember(contentFiltersLabel) {
+            persistentListOf(
+                SettingsRow.Action(
+                    icon = null,
+                    label = contentFiltersLabel,
+                    onClick = { currentOnEvent(SettingsEvent.ContentFiltersTapped) },
+                ),
+            )
+        }
+
     Column(
         modifier =
             modifier
@@ -545,11 +564,12 @@ internal fun SettingsContent(
         //   3. Notifications        — system-settings deep-link today
         //                              (v1 content); in-app per-reason
         //                              toggles arrive in a later epic.
-        //   4. Content & moderation — filled by nubecita-37to.5
+        //   4. Content & moderation — Content filters row (nubecita-twmt.2)
         //   5. Account              — Sign Out lives here today
         //   6. About                — Version row lives here today
         //   7. Data usage           — filled by nubecita-37to.8
         SettingsSection(rows = notificationsRows)
+        SettingsSection(rows = contentModerationRows, label = contentModerationSectionLabel)
         SettingsSection(rows = accountRows)
         SettingsSection(rows = aboutRows)
     }

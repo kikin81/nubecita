@@ -154,6 +154,13 @@ sealed interface SettingsEvent : UiEvent {
      * the screen pushes the `About` NavKey onto the MainShell inner back stack.
      */
     data object AboutTapped : SettingsEvent
+
+    /**
+     * User tapped the "Content filters" row (Content & moderation section). VM
+     * responds with [SettingsEffect.OpenContentFilters]; the screen pushes the
+     * `ContentFilters` NavKey onto the MainShell inner back stack.
+     */
+    data object ContentFiltersTapped : SettingsEvent
 }
 
 /**
@@ -237,4 +244,11 @@ sealed interface SettingsEffect : UiEffect {
      * collects this and calls `onNavigateTo(About)`.
      */
     data object OpenAbout : SettingsEffect
+
+    /**
+     * Push the `ContentFilters` route onto MainShell's inner back stack.
+     * Payload-free (the screen owns the `ContentFilters` NavKey, like
+     * [OpenAbout]); the screen collects this and calls `onNavigateTo(ContentFilters)`.
+     */
+    data object OpenContentFilters : SettingsEffect
 }
