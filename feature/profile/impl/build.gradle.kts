@@ -34,6 +34,9 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":core:image"))
+    // ModerationPreferencesRepository + applyModeration — drop/cover NSFW posts
+    // across the Posts/Replies/Media profile tabs.
+    implementation(project(":core:moderation"))
     implementation(project(":core:post-interactions"))
     implementation(project(":core:profile"))
     implementation(project(":data:models"))

@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.feed.GetAuthorFeedResponse
 import kotlinx.serialization.json.Json
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -76,7 +77,7 @@ internal class AuthorFeedMapperTest {
             """.trimIndent()
 
         val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), duplicateJson)
-        val items = response.feed.toTabItems(ProfileTab.Posts)
+        val items = response.feed.toTabItems(ProfileTab.Posts, ModerationPrefs.DEFAULT, viewerDid = null)
 
         // Both entries survive — same post, distinct slot keys.
         assertEquals(2, items.size)
@@ -149,7 +150,7 @@ internal class AuthorFeedMapperTest {
             """.trimIndent()
 
         val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), duplicateMediaJson)
-        val items = response.feed.toTabItems(ProfileTab.Media)
+        val items = response.feed.toTabItems(ProfileTab.Media, ModerationPrefs.DEFAULT, viewerDid = null)
 
         // Both media entries survive — same post, distinct slot keys.
         assertEquals(2, items.size)

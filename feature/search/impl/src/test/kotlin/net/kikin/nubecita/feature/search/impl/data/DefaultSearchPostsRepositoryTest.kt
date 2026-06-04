@@ -15,9 +15,16 @@ import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.moderation.ContentLabel
+import net.kikin.nubecita.core.moderation.LabelVisibility
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -225,10 +232,36 @@ class DefaultSearchPostsRepositoryTest {
         val repo =
             DefaultSearchPostsRepository(
                 xrpcClientProvider = provider,
+                moderationPreferences = inertModerationPrefs(),
+                sessionStateProvider = inertSessionProvider(),
                 dispatcher = Dispatchers.Unconfined,
             )
         return engine to repo
     }
+
+    // Inert moderation prefs (DEFAULT — adult off) + signed-out session so the
+    // mapping/cursor assertions exercise the projection path without a real
+    // moderation gate or viewer DID. Mirrors :feature:feed:impl's repo test.
+    private fun inertModerationPrefs(): ModerationPreferencesRepository =
+        object : ModerationPreferencesRepository {
+            override val prefs = MutableStateFlow(ModerationPrefs.DEFAULT)
+
+            override suspend fun refresh() = Unit
+
+            override suspend fun setAdultContentEnabled(enabled: Boolean) = Unit
+
+            override suspend fun setVisibility(
+                label: ContentLabel,
+                visibility: LabelVisibility,
+            ) = Unit
+        }
+
+    private fun inertSessionProvider(): SessionStateProvider =
+        object : SessionStateProvider {
+            override val state = MutableStateFlow<SessionState>(SessionState.SignedOut)
+
+            override suspend fun refresh() = Unit
+        }
 
     private fun MockRequestHandleScope.okJson(body: String): HttpResponseData =
         respond(

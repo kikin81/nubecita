@@ -6,9 +6,14 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
-import net.kikin.nubecita.core.feedmapping.toFlatFeedItemUiSingle
+import net.kikin.nubecita.core.feedmapping.applyModeration
+import net.kikin.nubecita.core.feedmapping.toPostUiCore
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
+import net.kikin.nubecita.data.models.FeedItemUi
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,6 +37,8 @@ internal class DefaultSearchPostsRepository
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
+        private val moderationPreferences: ModerationPreferencesRepository,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : SearchPostsRepository {
         override suspend fun searchPosts(
@@ -60,12 +67,20 @@ internal class DefaultSearchPostsRepository
                                 sort = sort.name.lowercase(),
                             ),
                         )
+                    // Drop hard-filtered (NSFW) results and cover warned media,
+                    // off the render path, against the cached prefs + viewer DID.
+                    val prefs = moderationPreferences.prefs.value
+                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
                     Result.success(
                         SearchPostsPage(
                             items =
                                 response.posts
-                                    .mapNotNull { it.toFlatFeedItemUiSingle() }
-                                    .toImmutableList(),
+                                    .mapNotNull { post ->
+                                        post
+                                            .toPostUiCore()
+                                            ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
+                                            ?.let(FeedItemUi::Single)
+                                    }.toImmutableList(),
                             nextCursor = response.cursor,
                         ),
                     )

@@ -37,6 +37,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.image.ImageEncoder
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import timber.log.Timber
 import javax.inject.Inject
@@ -65,6 +66,7 @@ internal class DefaultProfileRepository
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
         private val sessionStateProvider: SessionStateProvider,
+        private val moderationPreferences: ModerationPreferencesRepository,
         private val encoder: ImageEncoder,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ProfileRepository {
@@ -100,8 +102,12 @@ internal class DefaultProfileRepository
                         FeedService(client).getAuthorFeed(
                             buildAuthorFeedRequest(actor, tab, cursor, limit),
                         )
+                    // Drop hard-filtered posts and cover warned media off the
+                    // render path, against the cached prefs + viewer DID.
+                    val prefs = moderationPreferences.prefs.value
+                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
                     ProfileTabPage(
-                        items = response.feed.toTabItems(tab),
+                        items = response.feed.toTabItems(tab, prefs, viewerDid),
                         nextCursor = response.cursor,
                     )
                 }.onFailure { throwable ->

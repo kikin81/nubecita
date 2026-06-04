@@ -4,6 +4,8 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
@@ -50,6 +52,8 @@ internal fun LazyListScope.profileFeedTabBody(
     onRetry: () -> Unit,
     lastLikeTapPostUri: String? = null,
     lastRepostTapPostUri: String? = null,
+    revealedMedia: ImmutableSet<String> = persistentSetOf(),
+    onRevealMedia: (postId: String) -> Unit = {},
 ) {
     val keyPrefix =
         when (tab) {
@@ -138,6 +142,8 @@ internal fun LazyListScope.profileFeedTabBody(
                                 quotedVideoEmbedSlot = quotedVideoSlot,
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
+                                isMediaRevealed = item.post.id in revealedMedia,
+                                onRevealMedia = { onRevealMedia(item.post.id) },
                             )
                         }
                         is TabItemUi.MediaCell -> {

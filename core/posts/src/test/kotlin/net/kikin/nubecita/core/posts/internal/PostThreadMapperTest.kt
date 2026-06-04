@@ -16,6 +16,7 @@ import io.github.kikin81.atproto.runtime.Handle
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.ThreadItem
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -26,7 +27,7 @@ internal class PostThreadMapperTest {
     fun `top-level threadViewPost with no parent and no replies yields single Focus`() {
         val thread = threadViewPost(uri = "at://focus", text = "focus body")
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(1, items.size)
         val focus = items.single()
@@ -43,7 +44,7 @@ internal class PostThreadMapperTest {
                 parent = threadViewPost(uri = "at://parent", text = "parent"),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         val ancestor = items[0] as ThreadItem.Ancestor
@@ -68,7 +69,7 @@ internal class PostThreadMapperTest {
                 parent = parent,
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(3, items.size)
         assertEquals("at://gp", (items[0] as ThreadItem.Ancestor).post.id)
@@ -89,7 +90,7 @@ internal class PostThreadMapperTest {
                     ),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(3, items.size)
         assertTrue(items[0] is ThreadItem.Focus)
@@ -122,7 +123,7 @@ internal class PostThreadMapperTest {
                     ),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         // focus, r1 (d=1), r1c1 (d=2), r1c2 (d=2), r2 (d=1)
         assertEquals(5, items.size)
@@ -154,7 +155,7 @@ internal class PostThreadMapperTest {
                 parent = blockedPost(uri = "at://blocked-parent"),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         val blocked = items[0] as ThreadItem.Blocked
@@ -172,7 +173,7 @@ internal class PostThreadMapperTest {
                 parent = notFoundPost(uri = "at://nf-parent"),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         val notFound = items[0] as ThreadItem.NotFound
@@ -189,7 +190,7 @@ internal class PostThreadMapperTest {
                 replies = listOf(blockedPost(uri = "at://blocked-reply")),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         assertTrue(items[0] is ThreadItem.Focus)
@@ -207,7 +208,7 @@ internal class PostThreadMapperTest {
                 replies = listOf(notFoundPost(uri = "at://nf-reply")),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(2, items.size)
         assertTrue(items[0] is ThreadItem.Focus)
@@ -219,7 +220,7 @@ internal class PostThreadMapperTest {
     fun `top-level blockedPost yields single Blocked item`() {
         val thread = blockedPost(uri = "at://blocked-focus")
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(1, items.size)
         val blocked = items.single() as ThreadItem.Blocked
@@ -231,7 +232,7 @@ internal class PostThreadMapperTest {
     fun `top-level notFoundPost yields single NotFound item`() {
         val thread = notFoundPost(uri = "at://nf-focus")
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(1, items.size)
         val notFound = items.single() as ThreadItem.NotFound
@@ -253,7 +254,7 @@ internal class PostThreadMapperTest {
                     ),
             )
 
-        val items = thread.toThreadItems()
+        val items = thread.toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertTrue(items.isEmpty())
     }

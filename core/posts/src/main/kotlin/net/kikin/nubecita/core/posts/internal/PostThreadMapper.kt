@@ -9,7 +9,9 @@ import io.github.kikin81.atproto.app.bsky.feed.ThreadViewPostRepliesUnion
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.feedmapping.applyModeration
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.ThreadItem
 
 /**
@@ -41,21 +43,36 @@ import net.kikin.nubecita.data.models.ThreadItem
  * Per-post projection (record decode, embed dispatch, author / viewer
  * mapping) is delegated to `:core:feed-mapping`'s [toPostUiCore] —
  * single source of truth shared with `:feature:feed:impl`.
+ *
+ * Content moderation runs here, off the render path, against the cached
+ * [prefs] + [viewerDid], using `dropFiltered = false`: post-detail is NOT a
+ * list surface, so a hard-filtered focus / ancestor / reply is KEPT in the
+ * thread (never dropped) and its media is covered instead — the cover's
+ * `overridable` flag then governs whether it can be revealed. Dropping a post
+ * here would tear a hole in the reply chain.
  */
-internal fun GetPostThreadResponseThreadUnion.toThreadItems(): ImmutableList<ThreadItem> =
+internal fun GetPostThreadResponseThreadUnion.toThreadItems(
+    prefs: ModerationPrefs,
+    viewerDid: String?,
+): ImmutableList<ThreadItem> =
     when (this) {
         is BlockedPost -> persistentListOf(ThreadItem.Blocked(uri = uri.raw, authorDid = author.did.raw))
         is NotFoundPost -> persistentListOf(ThreadItem.NotFound(uri = uri.raw))
-        is ThreadViewPost -> flattenThreadViewPost()
+        is ThreadViewPost -> flattenThreadViewPost(prefs, viewerDid)
         else -> persistentListOf()
     }
 
-private fun ThreadViewPost.flattenThreadViewPost(): ImmutableList<ThreadItem> {
-    val focusPost = post.toPostUiCore() ?: return persistentListOf()
+private fun ThreadViewPost.flattenThreadViewPost(
+    prefs: ModerationPrefs,
+    viewerDid: String?,
+): ImmutableList<ThreadItem> {
+    val focusPost =
+        post.toPostUiCore()?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = false)
+            ?: return persistentListOf()
     val out = mutableListOf<ThreadItem>()
-    out += collectAncestors(parent)
+    out += collectAncestors(parent, prefs, viewerDid)
     out += ThreadItem.Focus(post = focusPost)
-    replies?.forEach { reply -> out += reply.toReplyItems(depth = 1) }
+    replies?.forEach { reply -> out += reply.toReplyItems(depth = 1, prefs = prefs, viewerDid = viewerDid) }
     return out.toImmutableList()
 }
 
@@ -67,13 +84,20 @@ private fun ThreadViewPost.flattenThreadViewPost(): ImmutableList<ThreadItem> {
  * variants don't carry a `parent` field), and the open-union
  * `Unknown` fallback also terminates the walk.
  */
-private fun collectAncestors(start: ThreadViewPostParentUnion?): List<ThreadItem> {
+private fun collectAncestors(
+    start: ThreadViewPostParentUnion?,
+    prefs: ModerationPrefs,
+    viewerDid: String?,
+): List<ThreadItem> {
     val ancestors = mutableListOf<ThreadItem>()
     var cursor: ThreadViewPostParentUnion? = start
     while (cursor != null) {
         when (val node = cursor) {
             is ThreadViewPost -> {
-                node.post.toPostUiCore()?.let { ancestors += ThreadItem.Ancestor(post = it) }
+                node.post
+                    .toPostUiCore()
+                    ?.applyModeration(node.post.labels, viewerDid, prefs, dropFiltered = false)
+                    ?.let { ancestors += ThreadItem.Ancestor(post = it) }
                 cursor = node.parent
             }
             is BlockedPost -> {
@@ -97,16 +121,23 @@ private fun collectAncestors(start: ThreadViewPostParentUnion?): List<ThreadItem
  * value and increments per level of nesting — top-level replies get
  * `depth = 1`, replies-to-replies get `depth = 2`, etc.
  */
-private fun ThreadViewPostRepliesUnion.toReplyItems(depth: Int): List<ThreadItem> =
+private fun ThreadViewPostRepliesUnion.toReplyItems(
+    depth: Int,
+    prefs: ModerationPrefs,
+    viewerDid: String?,
+): List<ThreadItem> =
     when (this) {
         is ThreadViewPost -> {
-            val replyPost = post.toPostUiCore()
+            val replyPost =
+                post.toPostUiCore()?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = false)
             if (replyPost == null) {
                 emptyList()
             } else {
                 buildList {
                     add(ThreadItem.Reply(post = replyPost, depth = depth))
-                    replies?.forEach { child -> addAll(child.toReplyItems(depth = depth + 1)) }
+                    replies?.forEach { child ->
+                        addAll(child.toReplyItems(depth = depth + 1, prefs = prefs, viewerDid = viewerDid))
+                    }
                 }
             }
         }

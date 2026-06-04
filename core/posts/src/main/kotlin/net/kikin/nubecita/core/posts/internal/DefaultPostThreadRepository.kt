@@ -6,8 +6,11 @@ import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.posts.PostThreadRepository
 import net.kikin.nubecita.data.models.ThreadItem
 import timber.log.Timber
@@ -17,6 +20,8 @@ internal class DefaultPostThreadRepository
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
+        private val moderationPreferences: ModerationPreferencesRepository,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PostThreadRepository {
         override suspend fun getPostThread(uri: String): Result<ImmutableList<ThreadItem>> =
@@ -27,7 +32,11 @@ internal class DefaultPostThreadRepository
                         FeedService(client).getPostThread(
                             GetPostThreadRequest(uri = AtUri(uri)),
                         )
-                    response.thread.toThreadItems()
+                    // Cover (never drop) warned media against the cached prefs +
+                    // viewer DID — post-detail keeps every post in the thread.
+                    val prefs = moderationPreferences.prefs.value
+                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+                    response.thread.toThreadItems(prefs, viewerDid)
                 }.onFailure { throwable ->
                     // Mirrors the diagnostic logging convention in
                     // :feature:feed:impl/data/DefaultFeedRepository — emits the

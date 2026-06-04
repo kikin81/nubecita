@@ -37,8 +37,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +54,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
@@ -428,6 +434,13 @@ private fun LoadedThread(
     // Without sharing, the indicator would render against an independent
     // state and never animate.
     val pullState = rememberPullToRefreshState()
+    // Per-thread reveal state for covered (NSFW-labelled) media. Post-detail
+    // covers (never drops) warned media, so every ancestor / focus / reply
+    // PostCard can be revealed independently. Same @Stable PersistentSet +
+    // listSaver shape as the feed.
+    var revealedMedia by rememberSaveable(
+        stateSaver = listSaver(save = { it.toList() }, restore = { it.toPersistentSet() }),
+    ) { mutableStateOf(persistentSetOf<String>()) }
     // Bottom contentPadding clearance for the FAB so the bottom-most reply
     // can scroll fully above the floating composer affordance at end-of-
     // thread scroll position. Per design.md Decision 3 occlusion safeguard
@@ -482,6 +495,8 @@ private fun LoadedThread(
                             quotedVideoEmbedSlot = quotedVideoSlot,
                             animateLikeTap = item.post.id == lastLikeTapPostUri,
                             animateRepostTap = item.post.id == lastRepostTapPostUri,
+                            isMediaRevealed = item.post.id in revealedMedia,
+                            onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
                         )
                     }
                     is ThreadItem.Focus -> {
@@ -510,6 +525,8 @@ private fun LoadedThread(
                                 quotedVideoEmbedSlot = quotedVideoSlot,
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
+                                isMediaRevealed = item.post.id in revealedMedia,
+                                onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
                             )
                         }
                     }
@@ -523,6 +540,8 @@ private fun LoadedThread(
                             quotedVideoEmbedSlot = quotedVideoSlot,
                             animateLikeTap = item.post.id == lastLikeTapPostUri,
                             animateRepostTap = item.post.id == lastRepostTapPostUri,
+                            isMediaRevealed = item.post.id in revealedMedia,
+                            onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
                         )
                     }
                     is ThreadItem.Blocked ->

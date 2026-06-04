@@ -20,12 +20,18 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
@@ -72,6 +78,14 @@ internal fun ProfileScreenContent(
         remember(onEvent) {
             { uri: String -> onEvent(ProfileEvent.OnVideoTapped(uri)) }
         }
+    // Per-screen reveal state for covered (NSFW-labelled) media — shared across
+    // the Posts and Replies tabs (same @Stable PersistentSet, rememberSaveable
+    // via an explicit listSaver). The Media grid drops covered media outright,
+    // so it needs no reveal state.
+    var revealedMedia by rememberSaveable(
+        stateSaver = listSaver(save = { it.toList() }, restore = { it.toPersistentSet() }),
+    ) { mutableStateOf(persistentSetOf<String>()) }
+    val onRevealMedia = remember { { id: String -> revealedMedia = revealedMedia.add(id) } }
 
     Scaffold(
         modifier = modifier,
@@ -151,6 +165,8 @@ internal fun ProfileScreenContent(
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Posts)) },
                             lastLikeTapPostUri = state.lastLikeTapPostUri,
                             lastRepostTapPostUri = state.lastRepostTapPostUri,
+                            revealedMedia = revealedMedia,
+                            onRevealMedia = onRevealMedia,
                         )
                     ProfileTab.Replies ->
                         profileFeedTabBody(
@@ -162,6 +178,8 @@ internal fun ProfileScreenContent(
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Replies)) },
                             lastLikeTapPostUri = state.lastLikeTapPostUri,
                             lastRepostTapPostUri = state.lastRepostTapPostUri,
+                            revealedMedia = revealedMedia,
+                            onRevealMedia = onRevealMedia,
                         )
                     ProfileTab.Media ->
                         profileMediaTabBody(
