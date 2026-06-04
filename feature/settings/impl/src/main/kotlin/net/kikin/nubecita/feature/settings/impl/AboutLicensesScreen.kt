@@ -36,8 +36,12 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
 /** One open-source library row — a screenshot-friendly projection of the
- * aboutlibraries `Library` model so the stateless content needs no SDK type. */
+ * aboutlibraries `Library` model so the stateless content needs no SDK type.
+ * [id] is the library's unique maven coordinate, used as the LazyColumn key
+ * ([name] is a display label and is NOT unique — multiple libraries share one,
+ * e.g. "Annotation"). */
 internal data class LicenseRowUi(
+    val id: String,
     val name: String,
     val license: String,
     val url: String?,
@@ -70,13 +74,18 @@ internal fun AboutLicensesScreen(
                 .libraries
                 .map { library ->
                     LicenseRowUi(
+                        id = library.uniqueId,
                         name = library.name,
                         license = library.licenses.joinToString { it.name },
                         // Treat a present-but-blank website as no link so the row
                         // stays non-clickable (avoids launching an empty Custom Tab).
                         url = library.website?.takeIf { it.isNotBlank() },
                     )
-                }.toImmutableList()
+                }
+                // Guarantee unique LazyColumn keys: aboutlibraries can list the
+                // same coordinate more than once, and the key MUST be unique.
+                .distinctBy { it.id }
+                .toImmutableList()
         }
 
     AboutLicensesContent(
@@ -123,7 +132,7 @@ internal fun AboutLicensesContent(
         },
     ) { innerPadding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            items(items = rows, key = { it.name }) { row ->
+            items(items = rows, key = { it.id }) { row ->
                 Column(
                     modifier =
                         Modifier
@@ -163,9 +172,9 @@ private fun AboutLicensesContentPreview() {
             AboutLicensesContent(
                 rows =
                     persistentListOf(
-                        LicenseRowUi("Coil", "Apache-2.0", "https://coil-kt.github.io"),
-                        LicenseRowUi("Media3", "Apache-2.0", "https://developer.android.com/media/media3"),
-                        LicenseRowUi("atproto-kotlin", "MIT", null),
+                        LicenseRowUi("io.coil-kt:coil", "Coil", "Apache-2.0", "https://coil-kt.github.io"),
+                        LicenseRowUi("androidx.media3:media3", "Media3", "Apache-2.0", "https://developer.android.com/media/media3"),
+                        LicenseRowUi("io.github.kikin81.atproto:models", "atproto-kotlin", "MIT", null),
                     ),
                 onBack = {},
                 onRowClick = {},
