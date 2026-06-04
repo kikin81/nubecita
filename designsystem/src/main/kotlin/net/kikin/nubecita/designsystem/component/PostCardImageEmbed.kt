@@ -63,11 +63,27 @@ fun PostCardImageEmbed(
     items: ImmutableList<ImageUi>,
     modifier: Modifier = Modifier,
     onImageClick: ((imageIndex: Int) -> Unit)? = null,
+    cover: MediaCover? = null,
 ) {
-    when (items.size) {
-        0 -> Unit
-        1 -> SingleImage(items[0], modifier, onClick = onImageClick?.let { handler -> { handler(0) } })
-        else -> MultiImageCarousel(items, modifier, onImageClick)
+    Box(modifier) {
+        // While covered, the image cells receive `covered = true` and pass
+        // `model = null` to Coil — nothing is fetched or decoded — but they still
+        // lay out at their natural size, so the cover (matchParentSize) reserves
+        // exactly the media's footprint and reveal causes no layout jump.
+        //
+        // Suppress the per-image click while covered: otherwise a tap on a
+        // covered image (post-detail wires onImageClick to the fullscreen viewer)
+        // would open the media that's supposed to be hidden. Reveal is the only
+        // way past the cover, via its "Show anyway" button.
+        val effectiveImageClick = onImageClick.takeIf { cover == null }
+        when (items.size) {
+            0 -> Unit
+            1 -> SingleImage(items[0], onClick = effectiveImageClick?.let { handler -> { handler(0) } }, covered = cover != null)
+            else -> MultiImageCarousel(items, onImageClick = effectiveImageClick, covered = cover != null)
+        }
+        if (cover != null) {
+            MediaContentWarningCover(cover, Modifier.matchParentSize().clip(IMAGE_SHAPE))
+        }
     }
 }
 
@@ -76,6 +92,7 @@ private fun SingleImage(
     image: ImageUi,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    covered: Boolean = false,
 ) {
     val clickModifier =
         if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
@@ -87,7 +104,7 @@ private fun SingleImage(
         // on tall single-image posts. The multi-image carousel below
         // CAN use thumb because it's clamped to a fixed 180dp slide.
         // Matches the per-variant guidance in [ImageUi]'s KDoc.
-        model = image.fullsizeUrl,
+        model = if (covered) null else image.fullsizeUrl,
         contentDescription = image.altText,
         modifier =
             modifier
@@ -132,6 +149,7 @@ private fun MultiImageCarousel(
     items: ImmutableList<ImageUi>,
     modifier: Modifier = Modifier,
     onImageClick: ((imageIndex: Int) -> Unit)? = null,
+    covered: Boolean = false,
 ) {
     val state = rememberCarouselState(itemCount = { items.size })
     HorizontalMultiBrowseCarousel(
@@ -158,7 +176,7 @@ private fun MultiImageCarousel(
                     .then(clickModifier),
         ) {
             NubecitaAsyncImage(
-                model = image.carouselSlideUrl,
+                model = if (covered) null else image.carouselSlideUrl,
                 contentDescription = image.altText,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,

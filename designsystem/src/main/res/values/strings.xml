@@ -109,4 +109,16 @@
          _select_conversation. -->
     <string name="nubecita_detail_pane_select_post">Select a post to read</string>
     <string name="nubecita_detail_pane_select_conversation">Select a conversation</string>
+
+    <!-- MediaContentWarningCover — the scrim shown over sensitive (NSFW-labelled)
+         media until the viewer taps "Show anyway". media_warning_sensitive is the
+         header; the category line names which label triggered it; media_warning_show
+         is the reveal CTA (hidden when the hide is non-overridable, i.e. the forced
+         adult-gate-off case). -->
+    <string name="media_warning_sensitive">Sensitive content</string>
+    <string name="media_warning_show">Show anyway</string>
+    <string name="media_warning_cat_adult">Adult Content</string>
+    <string name="media_warning_cat_suggestive">Sexually Suggestive</string>
+    <string name="media_warning_cat_graphic">Graphic Media</string>
+    <string name="media_warning_cat_nudity">Non-sexual Nudity</string>
 </resources>

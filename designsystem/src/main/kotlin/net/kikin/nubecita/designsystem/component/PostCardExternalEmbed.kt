@@ -2,9 +2,11 @@ package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,6 +58,7 @@ fun PostCardExternalEmbed(
     thumbUrl: String?,
     onTap: ((uri: String) -> Unit)?,
     modifier: Modifier = Modifier,
+    cover: MediaCover? = null,
 ) {
     val surfaceModifier =
         if (onTap == null) {
@@ -70,21 +73,25 @@ fun PostCardExternalEmbed(
     ) {
         Column {
             if (thumbUrl != null) {
-                NubecitaAsyncImage(
-                    model = thumbUrl,
-                    contentDescription = null,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(THUMB_ASPECT)
-                            .clip(
-                                RoundedCornerShape(
-                                    topStart = 16.dp,
-                                    topEnd = 16.dp,
-                                ),
-                            ),
-                    contentScale = ContentScale.Crop,
-                )
+                // The thumbnail is the only "media" on a link card; cover just it
+                // (a text-only external link carries no sensitive media). The
+                // title/description/domain text stays visible.
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(THUMB_ASPECT)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                ) {
+                    NubecitaAsyncImage(
+                        model = if (cover != null) null else thumbUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                    if (cover != null) {
+                        MediaContentWarningCover(cover, Modifier.matchParentSize())
+                    }
+                }
             }
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
