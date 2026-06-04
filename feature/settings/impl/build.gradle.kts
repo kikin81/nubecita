@@ -19,9 +19,6 @@ android {
 dependencies {
     api(project(":feature:settings:api"))
 
-    // ActorRepository.getActor(did) — hydrates the About "Special Thanks"
-    // rows with live avatar / display name / handle.
-    implementation(project(":core:actors"))
     implementation(project(":core:auth"))
     // EntitlementRepository.isPro / activeSubscription + BillingRepository
     // (restore, plan-price lookup) for the "Nubecita Pro" settings section.

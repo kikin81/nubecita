@@ -69,7 +69,9 @@ internal fun AboutLicensesScreen(
                     LicenseRowUi(
                         name = library.name,
                         license = library.licenses.joinToString { it.name },
-                        url = library.website,
+                        // Treat a present-but-blank website as no link so the row
+                        // stays non-clickable (avoids launching an empty Custom Tab).
+                        url = library.website?.takeIf { it.isNotBlank() },
                     )
                 }.toImmutableList()
         }

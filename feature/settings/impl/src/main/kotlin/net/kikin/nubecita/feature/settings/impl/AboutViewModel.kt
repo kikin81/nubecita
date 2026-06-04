@@ -6,32 +6,31 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import net.kikin.nubecita.core.actors.ActorRepository
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.core.profile.ActorProfile
+import net.kikin.nubecita.core.profile.ActorProfileRepository
 import javax.inject.Inject
 
 /**
  * Backs the About screen. Holds the curated [Contributor] list (DID + fallback
- * handle + blurb) and hydrates each one's live avatar / display name / handle
- * from [ActorRepository]. Each row catches its own fetch failure and falls back
- * to the curated handle + a null avatar, so one unreachable profile never blanks
- * the section. Navigation/external-link intents are emitted as effects and
- * resolved by the screen (the VM never touches `LocalMainShellNavState`).
+ * handle + blurb) and hydrates each one's live avatar / display name / handle by
+ * **fetching** their profile from the network ([ActorProfileRepository.fetchProfile],
+ * not the local actor cache — the curated DIDs are unlikely to already be cached).
+ * Each row resolves independently and falls back to the curated handle + a null
+ * avatar on failure, so one unreachable profile never blanks the section.
+ * Navigation/external-link intents are emitted as effects and resolved by the
+ * screen (the VM never touches `LocalMainShellNavState`).
  */
 @HiltViewModel
 internal class AboutViewModel
     @Inject
     constructor(
-        private val actorRepository: ActorRepository,
+        private val actorProfileRepository: ActorProfileRepository,
     ) : MviViewModel<AboutState, AboutEvent, AboutEffect>(
             AboutState(
-                thanks = CONTRIBUTORS.map { it.toRow(actor = null) }.toImmutableList(),
+                thanks = CONTRIBUTORS.map { it.toRow(profile = null) }.toImmutableList(),
                 isLoadingThanks = true,
             ),
         ) {
@@ -40,18 +39,26 @@ internal class AboutViewModel
         }
 
         private fun hydrateThanks() {
-            val rowFlows =
-                CONTRIBUTORS.map { contributor ->
-                    actorRepository
-                        .getActor(contributor.did)
-                        .map { actor -> contributor.toRow(actor) }
-                        // Per-row fallback: a failed/empty fetch keeps the curated
-                        // handle + blurb and a null avatar; the row still renders.
-                        .catch { emit(contributor.toRow(actor = null)) }
-                }
-            combine(rowFlows) { rows -> rows.toList().toImmutableList() }
-                .onEach { rows -> setState { copy(thanks = rows, isLoadingThanks = false) } }
-                .launchIn(viewModelScope)
+            viewModelScope.launch {
+                CONTRIBUTORS
+                    .map { contributor ->
+                        launch {
+                            // Per-row, independent: a failed fetch leaves the curated
+                            // handle + blurb and a null avatar; the row still renders.
+                            val profile = actorProfileRepository.fetchProfile(contributor.did).getOrNull()
+                            setState {
+                                copy(
+                                    thanks =
+                                        thanks
+                                            .map { row ->
+                                                if (row.did == contributor.did) contributor.toRow(profile) else row
+                                            }.toImmutableList(),
+                                )
+                            }
+                        }
+                    }.joinAll()
+                setState { copy(isLoadingThanks = false) }
+            }
         }
 
         override fun handleEvent(event: AboutEvent) {
@@ -67,12 +74,12 @@ internal class AboutViewModel
             val fallbackHandle: String,
             @StringRes val blurbRes: Int,
         ) {
-            fun toRow(actor: ActorUi?): ThanksRowUi =
+            fun toRow(profile: ActorProfile?): ThanksRowUi =
                 ThanksRowUi(
                     did = did,
-                    handle = actor?.handle ?: fallbackHandle,
-                    displayName = actor?.displayName,
-                    avatarUrl = actor?.avatarUrl,
+                    handle = profile?.handle ?: fallbackHandle,
+                    displayName = profile?.displayName,
+                    avatarUrl = profile?.avatarUrl,
                     blurbRes = blurbRes,
                 )
         }

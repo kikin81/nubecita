@@ -1,14 +1,12 @@
 package net.kikin.nubecita.feature.settings.impl
 
 import app.cash.turbine.test
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.profile.ActorProfile
+import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
-import net.kikin.nubecita.data.models.ActorUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -20,8 +18,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 class AboutViewModelTest {
     private val stavfxDid = "did:plc:q46tlww4otcbawdeynycankw"
 
-    private fun actorFor(did: String): ActorUi =
-        ActorUi(
+    private fun profileFor(did: String): ActorProfile =
+        ActorProfile(
             did = did,
             handle = "$did.example",
             displayName = "Name $did",
@@ -29,10 +27,10 @@ class AboutViewModelTest {
         )
 
     @Test
-    fun `hydrates every thanks row from the actor repository`() =
+    fun `hydrates every thanks row by fetching the profile`() =
         runTest {
-            val repo = mockk<ActorRepository>()
-            every { repo.getActor(any()) } answers { flowOf(actorFor(firstArg())) }
+            val repo = mockk<ActorProfileRepository>()
+            coEvery { repo.fetchProfile(any()) } answers { Result.success(profileFor(firstArg())) }
 
             val vm = AboutViewModel(repo)
 
@@ -48,9 +46,9 @@ class AboutViewModelTest {
     @Test
     fun `falls back to the curated handle when a profile fetch fails`() =
         runTest {
-            val repo = mockk<ActorRepository>()
-            every { repo.getActor(any()) } answers { flowOf(actorFor(firstArg())) }
-            every { repo.getActor(stavfxDid) } returns flow { throw RuntimeException("boom") }
+            val repo = mockk<ActorProfileRepository>()
+            coEvery { repo.fetchProfile(any()) } answers { Result.success(profileFor(firstArg())) }
+            coEvery { repo.fetchProfile(stavfxDid) } returns Result.failure(RuntimeException("boom"))
 
             val vm = AboutViewModel(repo)
 
@@ -68,8 +66,8 @@ class AboutViewModelTest {
     @Test
     fun `source tap launches the github url`() =
         runTest {
-            val repo = mockk<ActorRepository>()
-            every { repo.getActor(any()) } answers { flowOf(actorFor(firstArg())) }
+            val repo = mockk<ActorProfileRepository>()
+            coEvery { repo.fetchProfile(any()) } answers { Result.success(profileFor(firstArg())) }
             val vm = AboutViewModel(repo)
 
             vm.effects.test {
@@ -81,8 +79,8 @@ class AboutViewModelTest {
     @Test
     fun `thanks row tap navigates to that profile and licenses tap opens licenses`() =
         runTest {
-            val repo = mockk<ActorRepository>()
-            every { repo.getActor(any()) } answers { flowOf(actorFor(firstArg())) }
+            val repo = mockk<ActorProfileRepository>()
+            coEvery { repo.fetchProfile(any()) } answers { Result.success(profileFor(firstArg())) }
             val vm = AboutViewModel(repo)
 
             vm.effects.test {
