@@ -64,10 +64,10 @@ private fun AboutLicensesContentScreenshot() {
             AboutLicensesContent(
                 rows =
                     persistentListOf(
-                        LicenseRowUi("Coil", "Apache-2.0", "https://coil-kt.github.io"),
-                        LicenseRowUi("Media3", "Apache-2.0", "https://developer.android.com/media/media3"),
-                        LicenseRowUi("atproto-kotlin", "MIT", null),
-                        LicenseRowUi("Hilt", "Apache-2.0", "https://dagger.dev/hilt"),
+                        LicenseRowUi("io.coil-kt:coil", "Coil", "Apache-2.0", "https://coil-kt.github.io"),
+                        LicenseRowUi("androidx.media3:media3", "Media3", "Apache-2.0", "https://developer.android.com/media/media3"),
+                        LicenseRowUi("io.github.kikin81.atproto:models", "atproto-kotlin", "MIT", null),
+                        LicenseRowUi("com.google.dagger:hilt-android", "Hilt", "Apache-2.0", "https://dagger.dev/hilt"),
                     ),
                 onBack = {},
                 onRowClick = {},
