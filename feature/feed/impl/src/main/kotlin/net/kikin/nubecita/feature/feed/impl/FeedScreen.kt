@@ -753,6 +753,11 @@ private fun LoadedFeedContent(
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
+    // Per-list reveal state: ids of posts whose covered (NSFW-labelled) media the
+    // viewer chose to "Show anyway". rememberSaveable so a config change / back-nav
+    // keeps revealed media revealed. Terminates at the screen — the VM never sees
+    // it (a Compose-runtime concern, like scroll state).
+    var revealedMedia by rememberSaveable { mutableStateOf(emptySet<String>()) }
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -917,6 +922,8 @@ private fun LoadedFeedContent(
                                 onImageClick = { idx -> onImageTap(item.post, idx) },
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
+                                isMediaRevealed = item.post.id in revealedMedia,
+                                onRevealMedia = { revealedMedia = revealedMedia + item.post.id },
                             )
                         }
                     is FeedItemUi.ReplyCluster ->
@@ -940,6 +947,8 @@ private fun LoadedFeedContent(
                             onImageClick = onImageTap,
                             lastLikeTapPostUri = lastLikeTapPostUri,
                             lastRepostTapPostUri = lastRepostTapPostUri,
+                            revealedMedia = revealedMedia,
+                            onRevealMedia = { id -> revealedMedia = revealedMedia + id },
                         )
                     is FeedItemUi.SelfThreadChain -> {
                         // Same-author chain: render N PostCards stacked
@@ -976,6 +985,8 @@ private fun LoadedFeedContent(
                                         onImageClick = { idx -> onImageTap(chainPost, idx) },
                                         animateLikeTap = chainPost.id == lastLikeTapPostUri,
                                         animateRepostTap = chainPost.id == lastRepostTapPostUri,
+                                        isMediaRevealed = chainPost.id in revealedMedia,
+                                        onRevealMedia = { revealedMedia = revealedMedia + chainPost.id },
                                     )
                                 }
                             }

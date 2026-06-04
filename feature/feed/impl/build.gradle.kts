@@ -54,6 +54,9 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":core:feeds"))
+    // ModerationPreferencesRepository (cached prefs) + applyModeration, to
+    // drop/cover NSFW-labelled posts as the timeline maps.
+    implementation(project(":core:moderation"))
     implementation(project(":core:post-interactions"))
     implementation(project(":core:preferences"))
     implementation(project(":core:video"))

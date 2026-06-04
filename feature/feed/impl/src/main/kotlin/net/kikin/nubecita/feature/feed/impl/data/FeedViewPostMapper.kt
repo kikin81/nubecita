@@ -7,10 +7,24 @@ import io.github.kikin81.atproto.app.bsky.feed.ReplyRef
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.feedmapping.applyModeration
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 import timber.log.Timber
+
+/**
+ * Project a [PostView] into a moderated [PostUi]: map it, then apply the
+ * precomputed content-moderation decision against the viewer's [prefs].
+ * [dropFiltered] `true` (the timeline leaf) drops a hard-filtered post (returns
+ * null); `false` (reply-context root/parent) keeps it but covers its media.
+ */
+private fun PostView.toModeratedPostUi(
+    prefs: ModerationPrefs,
+    viewerDid: String?,
+    dropFiltered: Boolean,
+): PostUi? = toPostUiCore()?.applyModeration(labels, viewerDid, prefs, dropFiltered)
 
 /**
  * Maps a [FeedViewPost] (the wire model returned by `app.bsky.feed.getTimeline`)
@@ -28,8 +42,12 @@ import timber.log.Timber
  * filter then drops the entry. The function MUST NOT throw — every
  * spec-conforming `FeedViewPost` produces a non-null `PostUi`.
  */
-fun FeedViewPost.toPostUiOrNull(): PostUi? {
-    val core = post.toPostUiCore() ?: return null
+fun FeedViewPost.toPostUiOrNull(
+    prefs: ModerationPrefs = ModerationPrefs.DEFAULT,
+    viewerDid: String? = null,
+): PostUi? {
+    // dropFiltered = true: a hard-filtered timeline post is removed from the feed.
+    val core = post.toModeratedPostUi(prefs, viewerDid, dropFiltered = true) ?: return null
     val repostedBy = (reason as? ReasonRepost)?.by?.let { it.displayName ?: it.handle.raw }
     return if (repostedBy != null) core.copy(repostedBy = repostedBy) else core
 }
@@ -54,8 +72,11 @@ fun FeedViewPost.toPostUiOrNull(): PostUi? {
  * rendering the parent post inline — the context is implicit. Detailed
  * rationale in the openspec change `add-feed-cross-author-thread-cluster`.
  */
-fun FeedViewPost.toFeedItemUiOrNull(): FeedItemUi? {
-    val leaf = toPostUiOrNull() ?: return null
+fun FeedViewPost.toFeedItemUiOrNull(
+    prefs: ModerationPrefs = ModerationPrefs.DEFAULT,
+    viewerDid: String? = null,
+): FeedItemUi? {
+    val leaf = toPostUiOrNull(prefs, viewerDid) ?: return null
     val replyRef = reply ?: return FeedItemUi.Single(leaf)
 
     val parentPostView = replyRef.parent as? PostView
@@ -71,8 +92,10 @@ fun FeedViewPost.toFeedItemUiOrNull(): FeedItemUi? {
             return FeedItemUi.Single(leaf)
         }
 
-    val parent = parentPostView.toPostUiCore() ?: return FeedItemUi.Single(leaf)
-    val root = rootPostView.toPostUiCore() ?: return FeedItemUi.Single(leaf)
+    // dropFiltered = false: reply context stays in the cluster; only its media
+    // is covered if filtered, so the conversation thread remains intact.
+    val parent = parentPostView.toModeratedPostUi(prefs, viewerDid, dropFiltered = false) ?: return FeedItemUi.Single(leaf)
+    val root = rootPostView.toModeratedPostUi(prefs, viewerDid, dropFiltered = false) ?: return FeedItemUi.Single(leaf)
 
     return FeedItemUi.ReplyCluster(
         root = root,
@@ -130,7 +153,10 @@ private fun ReplyRef.hasEllipsisRelativeToRoot(rootAuthorDid: String): Boolean {
  * existing tail of `feedItems`. The mapper stays a pure per-page
  * function.
  */
-fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
+fun List<FeedViewPost>.toFeedItemsUi(
+    prefs: ModerationPrefs = ModerationPrefs.DEFAULT,
+    viewerDid: String? = null,
+): ImmutableList<FeedItemUi> {
     if (isEmpty()) return persistentListOf()
 
     val out = mutableListOf<FeedItemUi>()
@@ -147,7 +173,7 @@ fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
                 // reply context). The chain accumulator buffered the post
                 // hoping it would link to a successor; since it didn't,
                 // re-project from the wire to recover the canonical shape.
-                pendingChainPrev?.toFeedItemUiOrNull()?.let { out += it }
+                pendingChainPrev?.toFeedItemUiOrNull(prefs, viewerDid)?.let { out += it }
             }
             else -> out += FeedItemUi.SelfThreadChain(posts = pendingChain.toImmutableList())
         }
@@ -156,7 +182,8 @@ fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi> {
     }
 
     for (wire in this) {
-        val postUi = wire.toPostUiOrNull() ?: continue // malformed record — skip per FeedRepository contract
+        // malformed record OR hard-filtered post — skipped (dropped from feed).
+        val postUi = wire.toPostUiOrNull(prefs, viewerDid) ?: continue
         val prev = pendingChainPrev
         if (prev != null && linksTo(prev = prev, next = wire)) {
             pendingChain += postUi

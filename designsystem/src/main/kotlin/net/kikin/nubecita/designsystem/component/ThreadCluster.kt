@@ -79,6 +79,8 @@ fun ThreadCluster(
     onImageClick: ((post: PostUi, imageIndex: Int) -> Unit)? = null,
     lastLikeTapPostUri: String? = null,
     lastRepostTapPostUri: String? = null,
+    revealedMedia: Set<String> = emptySet(),
+    onRevealMedia: (postId: String) -> Unit = {},
 ) {
     // When the reply is direct to the root post, replyRef.parent and
     // replyRef.root point to the SAME post. Without this collapse the
@@ -106,6 +108,8 @@ fun ThreadCluster(
                 onImageClick = onImageClick?.let { handler -> { idx -> handler(root, idx) } },
                 animateLikeTap = root.id == lastLikeTapPostUri,
                 animateRepostTap = root.id == lastRepostTapPostUri,
+                isMediaRevealed = root.id in revealedMedia,
+                onRevealMedia = { onRevealMedia(root.id) },
             )
             if (hasEllipsis) {
                 ThreadFold(gutterX = 40.dp, onClick = onFoldTap)
@@ -119,6 +123,8 @@ fun ThreadCluster(
                     onImageClick = onImageClick?.let { handler -> { idx -> handler(parent, idx) } },
                     animateLikeTap = parent.id == lastLikeTapPostUri,
                     animateRepostTap = parent.id == lastRepostTapPostUri,
+                    isMediaRevealed = parent.id in revealedMedia,
+                    onRevealMedia = { onRevealMedia(parent.id) },
                 )
             }
             PostCard(
@@ -131,6 +137,8 @@ fun ThreadCluster(
                 onImageClick = onImageClick?.let { handler -> { idx -> handler(leaf, idx) } },
                 animateLikeTap = leaf.id == lastLikeTapPostUri,
                 animateRepostTap = leaf.id == lastRepostTapPostUri,
+                isMediaRevealed = leaf.id in revealedMedia,
+                onRevealMedia = { onRevealMedia(leaf.id) },
             )
         }
     }
