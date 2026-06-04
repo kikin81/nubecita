@@ -95,6 +95,35 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `a fresh VM starts in InitialLoading so the shimmer shows from the first frame`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics)
+
+            // Cold-start regression guard (lq9t.3.6): before any fetch resolves,
+            // the status must be InitialLoading (shimmer), never Idle (which
+            // projects to the "No posts" empty screen).
+            assertEquals(FeedLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
+        }
+
+    @Test
+    fun `a real feed-switch Bind starts the fetch itself without a separate Load`() =
+        runTest(mainDispatcher.dispatcher) {
+            // A non-default Bind (feed switch) must drive the fetch itself so the
+            // cold-start Bind-vs-Load effect ordering can't strand the feed on an
+            // empty shimmer (if Load ran first and bind() then cancelled it).
+            val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics)
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
+            advanceUntilIdle()
+
+            assertEquals(1, repo.calls.size)
+            assertEquals("getFeed", repo.calls.single().method)
+            assertEquals(FeedLoadStatus.Idle, vm.uiState.value.loadStatus)
+        }
+
+    @Test
     fun `Bind Following dispatches Load to getTimeline`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =

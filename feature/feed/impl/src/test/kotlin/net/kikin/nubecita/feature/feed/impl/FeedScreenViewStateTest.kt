@@ -26,8 +26,18 @@ internal class FeedScreenViewStateTest {
 
     @Test
     fun `empty + Idle maps to Empty`() {
+        // Idle is the SETTLED state — reached only after a load completes. An
+        // Idle empty feed therefore means "loaded, no posts" → the empty state.
         val viewState = FeedState(loadStatus = FeedLoadStatus.Idle).toViewState()
         assertEquals(FeedScreenViewState.Empty, viewState)
+    }
+
+    @Test
+    fun `the default FeedState shows the loading shimmer, not the empty state`() {
+        // Cold-start regression guard (lq9t.3.6): the never-loaded default must
+        // render the shimmer, NOT the terminal "No posts" empty screen — the VM
+        // only settles to Idle after a fetch returns.
+        assertEquals(FeedScreenViewState.InitialLoading, FeedState().toViewState())
     }
 
     @Test
