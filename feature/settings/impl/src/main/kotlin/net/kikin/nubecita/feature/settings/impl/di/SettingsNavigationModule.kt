@@ -9,7 +9,11 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.adaptiveDialog
+import net.kikin.nubecita.feature.settings.api.About
+import net.kikin.nubecita.feature.settings.api.AboutLicenses
 import net.kikin.nubecita.feature.settings.api.Settings
+import net.kikin.nubecita.feature.settings.impl.AboutLicensesScreen
+import net.kikin.nubecita.feature.settings.impl.AboutScreen
 import net.kikin.nubecita.feature.settings.impl.SettingsScreen
 
 /**
@@ -41,10 +45,24 @@ internal object SettingsNavigationModule {
                 SettingsScreen(
                     onBack = { navState.removeLast() },
                     // Pushes sub-routes (today: PaywallRoute from the Pro upsell
-                    // row) onto the same inner back stack. The VM emits the
+                    // row, About) onto the same inner back stack. The VM emits the
                     // NavKey via an effect; the screen forwards it here.
                     onNavigateTo = { navState.add(it) },
                 )
+            }
+            // About + its licenses sub-screen. Both adaptiveDialog() so on
+            // tablet they coalesce into the Settings dialog and swap content;
+            // on phone they push full-screen.
+            entry<About>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                AboutScreen(
+                    onBack = { navState.removeLast() },
+                    onNavigateTo = { navState.add(it) },
+                )
+            }
+            entry<AboutLicenses>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                AboutLicensesScreen(onBack = { navState.removeLast() })
             }
         }
 }

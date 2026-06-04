@@ -61,6 +61,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.settings.api.About
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsSection
@@ -175,6 +176,10 @@ internal fun SettingsScreen(
                     // push above. DID over handle so the link survives any
                     // future handle change.
                     currentOnNavigateTo(Profile(handle = DEVELOPER_DID))
+                SettingsEffect.OpenAbout ->
+                    // Push the About sub-route (screen owns the NavKey, like
+                    // PaywallRoute above).
+                    currentOnNavigateTo(About)
                 is SettingsEffect.OpenManageSubscription -> {
                     // Deep-link to the Play manage-subscription page. The screen
                     // owns the package name; the VM supplied the sku (if known).
@@ -383,6 +388,7 @@ internal fun SettingsContent(
     val notificationsRowLabel = stringResource(R.string.settings_notifications_row_label)
     val versionRowLabel = stringResource(R.string.settings_version_row_label)
     val followDeveloperLabel = stringResource(R.string.settings_follow_developer_row_label)
+    val aboutLabel = stringResource(R.string.settings_about_label)
 
     val notificationsRows =
         remember(notificationsRowLabel) {
@@ -411,7 +417,7 @@ internal fun SettingsContent(
             )
         }
     val aboutRows =
-        remember(followDeveloperLabel, versionRowLabel, versionLabel) {
+        remember(followDeveloperLabel, aboutLabel, versionRowLabel, versionLabel) {
             persistentListOf(
                 // Action, not Link: this opens an *in-app* Profile route (pushed
                 // onto MainShell's back stack), matching the Pro-upsell row.
@@ -423,6 +429,13 @@ internal fun SettingsContent(
                     icon = NubecitaIconName.PersonAdd,
                     label = followDeveloperLabel,
                     onClick = { currentOnEvent(SettingsEvent.FollowDeveloperTapped) },
+                ),
+                // Opens the in-app About sub-route (source, special thanks,
+                // open-source licenses). Action — in-app navigation, not external.
+                SettingsRow.Action(
+                    icon = null,
+                    label = aboutLabel,
+                    onClick = { currentOnEvent(SettingsEvent.AboutTapped) },
                 ),
                 // Non-interactive: the version is informational. Info renders
                 // the same visual rhythm (Surface tone + segmented shape) as

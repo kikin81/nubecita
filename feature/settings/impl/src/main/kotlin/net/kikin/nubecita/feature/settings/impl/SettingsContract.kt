@@ -148,6 +148,12 @@ sealed interface SettingsEvent : UiEvent {
      * a screen concern, never the VM's — same as [ProUpsellTapped]).
      */
     data object FollowDeveloperTapped : SettingsEvent
+
+    /**
+     * User tapped the "About" row. VM responds with [SettingsEffect.OpenAbout];
+     * the screen pushes the `About` NavKey onto the MainShell inner back stack.
+     */
+    data object AboutTapped : SettingsEvent
 }
 
 /**
@@ -224,4 +230,11 @@ sealed interface SettingsEffect : UiEffect {
      * wired by the nav module to `LocalMainShellNavState.current.add(...)`.
      */
     data object NavigateToDeveloperProfile : SettingsEffect
+
+    /**
+     * Push the `About` route onto MainShell's inner back stack. Payload-free
+     * (the screen owns the `About` NavKey, like [OpenPaywall]); the screen
+     * collects this and calls `onNavigateTo(About)`.
+     */
+    data object OpenAbout : SettingsEffect
 }

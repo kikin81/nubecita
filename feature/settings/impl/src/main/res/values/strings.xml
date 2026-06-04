@@ -69,4 +69,20 @@
     <string name="settings_pro_restore_success">Purchases restored.</string>
     <string name="settings_pro_restore_nothing">No purchases found to restore.</string>
     <string name="settings_pro_restore_error">Couldn\'t restore purchases. Check your network and try again.</string>
+
+    <!-- About -->
+    <string name="settings_about_label">About</string>
+    <string name="about_app_name">Nubecita</string>
+    <string name="about_title">About</string>
+    <string name="about_app_tagline">A fast, native Bluesky client for Android.</string>
+    <string name="about_source_label">Source on GitHub</string>
+    <string name="about_source_content_desc">Open the Nubecita source code on GitHub</string>
+    <string name="about_thanks_section">Special thanks</string>
+    <string name="about_licenses_label">Open source licenses</string>
+    <string name="about_licenses_title">Open source licenses</string>
+    <string name="about_back_content_desc">Back</string>
+    <string name="about_thanks_stavfx">Friend and Android dev — designed the Nubecita app icon.</string>
+    <string name="about_thanks_vmlara">My brother, and the very first tablet tester.</string>
+    <string name="about_thanks_zenos">Friend, gamer, and Samsung battle-tester.</string>
+    <string name="about_thanks_cameronbanga">Friend and iOS engineer behind Skyscraper.</string>
 </resources>
