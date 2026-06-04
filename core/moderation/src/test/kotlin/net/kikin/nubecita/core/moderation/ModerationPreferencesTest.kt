@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test
 class ModerationPreferencesTest {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun parse(body: String): ModerationPrefs = parseModerationPrefs(json.decodeFromString(JsonArray.serializer(), body), json)
+    private fun parse(body: String): ModerationPrefs = parseModerationPrefs(json.decodeFromString(JsonArray.serializer(), body))
 
     private fun array(body: String): JsonArray = json.decodeFromString(JsonArray.serializer(), body)
 
@@ -158,7 +158,7 @@ class ModerationPreferencesTest {
                         ContentLabel.NUDITY to LabelVisibility.WARN,
                     ),
             )
-        val roundTripped = parseModerationPrefs(mergeModerationPrefs(JsonArray(emptyList()), prefs), json)
+        val roundTripped = parseModerationPrefs(mergeModerationPrefs(JsonArray(emptyList()), prefs))
         assertEquals(prefs.adultContentEnabled, roundTripped.adultContentEnabled)
         ContentLabel.entries.forEach { category ->
             assertEquals(prefs.visibilityFor(category), roundTripped.visibilityFor(category), "round-trip $category")

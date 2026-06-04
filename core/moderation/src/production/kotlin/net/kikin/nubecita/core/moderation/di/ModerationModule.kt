@@ -8,12 +8,15 @@ import net.kikin.nubecita.core.moderation.DefaultModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import javax.inject.Singleton
 
+// The module class stays public so a downstream `androidTest` can reference it
+// in `@TestInstallIn(replaces = [ModerationModule::class])`; only the @Binds
+// method is `internal` (Kotlin `internal` is module-scoped).
 @Module
 @InstallIn(SingletonComponent::class)
-internal abstract class ModerationModule {
+abstract class ModerationModule {
     @Binds
     @Singleton
-    abstract fun bindModerationPreferencesRepository(
+    internal abstract fun bindModerationPreferencesRepository(
         impl: DefaultModerationPreferencesRepository,
     ): ModerationPreferencesRepository
 }

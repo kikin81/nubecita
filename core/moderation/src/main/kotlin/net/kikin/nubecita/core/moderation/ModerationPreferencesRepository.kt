@@ -5,6 +5,8 @@ import io.github.kikin81.atproto.runtime.UnitResponseSerializer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -68,11 +70,16 @@ internal class DefaultModerationPreferencesRepository
     ) : ModerationPreferencesRepository {
         private val json = Json { ignoreUnknownKeys = true }
 
+        // Serializes the read-modify-write in [update] (and [refresh]'s publish)
+        // so concurrent setters can't clobber each other with a stale read.
+        private val writeMutex = Mutex()
+
         private val _prefs = MutableStateFlow(ModerationPrefs.DEFAULT)
         override val prefs: StateFlow<ModerationPrefs> = _prefs.asStateFlow()
 
         override suspend fun refresh() {
-            _prefs.value = parseModerationPrefs(fetchPreferencesArray(), json)
+            val parsed = parseModerationPrefs(fetchPreferencesArray())
+            writeMutex.withLock { _prefs.value = parsed }
         }
 
         override suspend fun setAdultContentEnabled(enabled: Boolean) = update { it.copy(adultContentEnabled = enabled) }
@@ -83,16 +90,19 @@ internal class DefaultModerationPreferencesRepository
         ) = update { it.copy(visibilities = it.visibilities + (label to visibility)) }
 
         /**
-         * Read-modify-write: re-read the live array (so we never clobber a
-         * change made elsewhere since the last refresh), apply [transform],
-         * write the merged array back, then publish the new prefs.
+         * Read-modify-write under [writeMutex]: re-read the live array (so we
+         * never clobber a change made elsewhere since the last refresh), apply
+         * [transform], write the merged array back, then publish the new prefs.
+         * The mutex makes concurrent [setAdultContentEnabled] / [setVisibility]
+         * calls atomic — without it, two stale reads would race and lose an update.
          */
-        private suspend fun update(transform: (ModerationPrefs) -> ModerationPrefs) {
-            val original = fetchPreferencesArray()
-            val updated = transform(parseModerationPrefs(original, json))
-            writePreferencesArray(mergeModerationPrefs(original, updated))
-            _prefs.value = updated
-        }
+        private suspend fun update(transform: (ModerationPrefs) -> ModerationPrefs) =
+            writeMutex.withLock {
+                val original = fetchPreferencesArray()
+                val updated = transform(parseModerationPrefs(original))
+                writePreferencesArray(mergeModerationPrefs(original, updated))
+                _prefs.value = updated
+            }
 
         private suspend fun fetchPreferencesArray(): JsonArray {
             val response =
@@ -126,10 +136,7 @@ internal class DefaultModerationPreferencesRepository
  * categories with no entry fall back to [ModerationPrefs.DEFAULT] via
  * [ModerationPrefs.visibilityFor]. No I/O — unit-tested in isolation.
  */
-internal fun parseModerationPrefs(
-    preferences: JsonArray,
-    json: Json,
-): ModerationPrefs {
+internal fun parseModerationPrefs(preferences: JsonArray): ModerationPrefs {
     var adultEnabled = false
     val visibilities = mutableMapOf<ContentLabel, LabelVisibility>()
 

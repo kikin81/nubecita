@@ -71,11 +71,12 @@ object ContentModerator {
         }
 
     /**
-     * The set of label values currently in effect: non-negated values minus any
-     * that carry a negation (a `neg` label retracts a prior label of that value).
-     * We honor labels from any source for the four known content categories
-     * (self-labels and Bluesky's default labeler) — custom-labeler subscription
-     * scoping is out of v1 scope.
+     * The set of label values currently in effect. Negation is resolved
+     * order-independently: a value is dropped if ANY label in the list negates
+     * it, regardless of position (set difference, not a sequential "last write
+     * wins"). All sources are honored equally — [ModerationLabel.src] is carried
+     * for future custom-labeler subscription scoping but is deliberately NOT
+     * consulted in v1, so self-labels and the default labeler are treated alike.
      */
     private fun activeValues(labels: List<ModerationLabel>): Set<String> {
         val negated =
