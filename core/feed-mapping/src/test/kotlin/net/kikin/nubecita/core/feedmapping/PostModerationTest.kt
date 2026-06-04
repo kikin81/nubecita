@@ -140,9 +140,10 @@ internal class PostModerationTest {
     }
 
     @Test
-    fun `no labels returns the post unchanged`() {
+    fun `null and empty labels take the fast path and return the post unchanged`() {
         val original = post()
         assertSame(original, original.applyModeration(null, viewer, adultOff, dropFiltered = true))
+        assertSame(original, original.applyModeration(emptyList(), viewer, adultOff, dropFiltered = true))
     }
 
     @Test

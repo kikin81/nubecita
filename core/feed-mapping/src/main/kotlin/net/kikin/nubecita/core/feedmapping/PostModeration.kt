@@ -61,9 +61,12 @@ public fun MediaModerationDecision.toMediaContentWarning(): MediaContentWarning?
  *   never filtered or covered (enforced inside [ContentModerator]).
  * @param prefs the resolved content-filter preferences (from the cached
  *   `ModerationPreferencesRepository` stream).
- * @param dropFiltered `true` for feed / search / profile lists (a hard
- *   `Filter` removes the post by returning `null`); `false` for post-detail,
- *   where the same post stays and its media is covered instead.
+ * @param dropFiltered `true` for feed / search / profile lists — ANY `Filter`
+ *   (i.e. any resolved HIDE, whether the forced adult-gate-off hide or a
+ *   user-chosen per-category hide) removes the post by returning `null`. `false`
+ *   for post-detail, where the same post stays and its media is covered instead;
+ *   the decision's `overridable` flag then governs whether that cover can be
+ *   revealed, NOT whether the post is dropped.
  *
  * @return `null` when the post is filtered out of a list; otherwise the post
  *   with its media embed covered per the decision (`Show` returns it unchanged).
@@ -74,6 +77,9 @@ public fun PostUi.applyModeration(
     prefs: ModerationPrefs,
     dropFiltered: Boolean,
 ): PostUi? {
+    // Fast path: the common case is an unlabeled post — skip the resolver (and
+    // its set allocations) entirely, since no labels can only resolve to Show.
+    if (labels.isNullOrEmpty()) return this
     val decision = ContentModerator.decide(labels.toModerationLabels(), author.did, viewerDid, prefs)
     if (dropFiltered && decision is MediaModerationDecision.Filter) return null
     val warning = decision.toMediaContentWarning() ?: return this // Show — no cover, no copy
