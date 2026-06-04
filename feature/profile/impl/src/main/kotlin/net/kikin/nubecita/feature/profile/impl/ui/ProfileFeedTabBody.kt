@@ -10,6 +10,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.quotedRecord
+import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.VideoPosterEmbed
@@ -98,15 +99,16 @@ internal fun LazyListScope.profileFeedTabBody(
                             // closures stay stable across recompositions —
                             // same shape as FeedScreen's slot wiring.
                             val parentPostUri = item.post.id
-                            val videoSlot: @Composable (EmbedUi.Video) -> Unit =
+                            val videoSlot: @Composable (EmbedUi.Video, MediaCover?) -> Unit =
                                 remember(parentPostUri, onVideoTap) {
                                     val tap = { onVideoTap(parentPostUri) }
-                                    val slot: @Composable (EmbedUi.Video) -> Unit = { video ->
+                                    val slot: @Composable (EmbedUi.Video, MediaCover?) -> Unit = { video, cover ->
                                         VideoPosterEmbed(
                                             posterUrl = video.posterUrl,
                                             aspectRatio = video.aspectRatio,
                                             altText = video.altText,
                                             onTap = tap,
+                                            cover = cover,
                                         )
                                     }
                                     slot

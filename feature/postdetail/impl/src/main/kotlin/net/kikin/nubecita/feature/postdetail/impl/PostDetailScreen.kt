@@ -69,6 +69,7 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.data.models.quotedRecord
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.BlockedPostCard
+import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.NotFoundPostCard
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
@@ -580,17 +581,18 @@ private fun LoadedThread(
 private fun rememberThreadPostVideoSlots(
     post: PostUi,
     onVideoTap: (postUri: String) -> Unit,
-): Pair<@Composable (EmbedUi.Video) -> Unit, (@Composable (QuotedEmbedUi.Video) -> Unit)?> {
+): Pair<@Composable (EmbedUi.Video, MediaCover?) -> Unit, (@Composable (QuotedEmbedUi.Video) -> Unit)?> {
     val parentUri = post.id
-    val videoSlot: @Composable (EmbedUi.Video) -> Unit =
+    val videoSlot: @Composable (EmbedUi.Video, MediaCover?) -> Unit =
         remember(parentUri, onVideoTap) {
             val tap = { onVideoTap(parentUri) }
-            val slot: @Composable (EmbedUi.Video) -> Unit = { video ->
+            val slot: @Composable (EmbedUi.Video, MediaCover?) -> Unit = { video, cover ->
                 VideoPosterEmbed(
                     posterUrl = video.posterUrl,
                     aspectRatio = video.aspectRatio,
                     altText = video.altText,
                     onTap = tap,
+                    cover = cover,
                 )
             }
             slot

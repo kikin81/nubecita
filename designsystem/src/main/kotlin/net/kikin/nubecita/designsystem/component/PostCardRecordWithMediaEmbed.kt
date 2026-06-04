@@ -66,8 +66,12 @@ public fun PostCardRecordWithMediaEmbed(
     modifier: Modifier = Modifier,
     onQuotedPostTap: (() -> Unit)? = null,
     onExternalMediaTap: ((uri: String) -> Unit)? = null,
-    videoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
+    videoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
+    // Cover for the MEDIA half (this post's own attachment), precomputed by the
+    // host from `media.contentWarning` + reveal state. The quoted record below
+    // is NOT covered — its labels aren't moderated yet (deferred follow-up).
+    mediaCover: MediaCover? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         // Track whether the media branch actually rendered something. If
@@ -78,7 +82,7 @@ public fun PostCardRecordWithMediaEmbed(
         val mediaRendered: Boolean =
             when (media) {
                 is EmbedUi.Images -> {
-                    PostCardImageEmbed(items = media.items)
+                    PostCardImageEmbed(items = media.items, cover = mediaCover)
                     true
                 }
                 is EmbedUi.External -> {
@@ -89,16 +93,22 @@ public fun PostCardRecordWithMediaEmbed(
                         description = media.description,
                         thumbUrl = media.thumbUrl,
                         onTap = onExternalMediaTap,
+                        cover = mediaCover,
                     )
                     true
                 }
                 is EmbedUi.Gif -> {
-                    PostCardGifEmbed(gifUrl = media.gifUrl, aspectRatio = media.aspectRatio, alt = media.alt)
+                    PostCardGifEmbed(
+                        gifUrl = media.gifUrl,
+                        aspectRatio = media.aspectRatio,
+                        alt = media.alt,
+                        cover = mediaCover,
+                    )
                     true
                 }
                 is EmbedUi.Video ->
                     if (videoEmbedSlot != null) {
-                        videoEmbedSlot(media)
+                        videoEmbedSlot(media, mediaCover)
                         true
                     } else {
                         false

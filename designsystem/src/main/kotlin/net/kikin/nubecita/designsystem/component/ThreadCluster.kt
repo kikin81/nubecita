@@ -75,7 +75,7 @@ fun ThreadCluster(
     // read MaterialTheme so previews / standalone callers Just Work.
     color: Color = MaterialTheme.colorScheme.surfaceContainer,
     shape: Shape = MaterialTheme.shapes.medium,
-    leafVideoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
+    leafVideoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)? = null,
     leafQuotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
     onFoldTap: () -> Unit = {},
     onImageClick: ((post: PostUi, imageIndex: Int) -> Unit)? = null,
