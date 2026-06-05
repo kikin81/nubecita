@@ -7,14 +7,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import net.kikin.nubecita.core.auth.XrpcClientProvider
@@ -79,8 +78,6 @@ internal class DefaultPostAudienceDefaultRepository
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
     ) : PostAudienceDefaultRepository {
-        private val json = Json { ignoreUnknownKeys = true }
-
         private val writeMutex = Mutex()
 
         private val _default = MutableStateFlow(PostAudience.DEFAULT)
@@ -96,22 +93,21 @@ internal class DefaultPostAudienceDefaultRepository
         }
 
         override suspend fun setDefault(audience: PostAudience) {
-            // Optimistic: publish first so the picker reflects the choice with no
-            // round-trip; reconcile against the live array under the mutex. Unlike
-            // the moderation repo (independent toggles, re-applied after re-read),
-            // the default is a single atomic value, so concurrent calls resolve
-            // last-write-wins and we write the known `audience` directly. On
-            // failure we revert ONLY if no newer write superseded us; a rare
-            // double-failure can leave a stale optimistic value that the next
-            // refresh reconciles. Cancellation rethrows without reverting (the
-            // next refresh reconciles).
+            // Optimistic: the publish below is the single publish point — the
+            // default is one atomic value (unlike the moderation repo, which
+            // re-reads and re-applies independent toggles under the lock), so
+            // concurrent calls resolve last-write-wins and we don't republish
+            // after the write (republishing would briefly roll a newer write
+            // back to ours). The mutex only serializes the server read-modify-
+            // write. On failure we revert ONLY if no newer write superseded us;
+            // a rare double-failure can leave a stale optimistic value that the
+            // next refresh reconciles. Cancellation rethrows without reverting.
             val previous = _default.value
             _default.value = audience
             try {
                 writeMutex.withLock {
                     val original = fetchPreferencesArray()
                     writePreferencesArray(mergePostAudienceDefault(original, audience))
-                    _default.value = audience
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -162,7 +158,7 @@ internal fun parsePostAudienceDefault(preferences: JsonArray): PostAudience {
     val entry =
         preferences
             .filterIsInstance<JsonObject>()
-            .firstOrNull { it["\$type"]?.jsonPrimitive?.content == POST_INTERACTION_PREF_TYPE }
+            .firstOrNull { it.typeTag() == POST_INTERACTION_PREF_TYPE }
             ?: return PostAudience.DEFAULT
 
     val reply =
@@ -203,7 +199,7 @@ internal fun mergePostAudienceDefault(
     audience: PostAudience,
 ): JsonArray {
     val preserved =
-        original.filterNot { it is JsonObject && it["\$type"]?.jsonPrimitive?.content == POST_INTERACTION_PREF_TYPE }
+        original.filterNot { it is JsonObject && it.typeTag() == POST_INTERACTION_PREF_TYPE }
 
     return buildJsonArray {
         preserved.forEach(::add)
@@ -229,7 +225,12 @@ internal fun mergePostAudienceDefault(
     }
 }
 
-private fun JsonArray.ruleTypes(): Set<String> = filterIsInstance<JsonObject>().mapNotNull { it["\$type"]?.jsonPrimitive?.content }.toSet()
+// Safe `$type` read: `as?` (not `jsonPrimitive`, which throws) so a malformed
+// or foreign entry whose `$type` is not a string can't crash parsing of the
+// shared multi-writer preferences array.
+private fun JsonObject.typeTag(): String? = (this["\$type"] as? JsonPrimitive)?.content
+
+private fun JsonArray.ruleTypes(): Set<String> = filterIsInstance<JsonObject>().mapNotNull { it.typeTag() }.toSet()
 
 private fun JsonArray?.orEmptyRuleTypes(): Set<String> = this?.ruleTypes().orEmpty()
 
