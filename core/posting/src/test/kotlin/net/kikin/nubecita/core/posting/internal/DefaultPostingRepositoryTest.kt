@@ -693,6 +693,42 @@ class DefaultPostingRepositoryTest {
             assertTrue(threadgate.contains("\"allow\":[]"), "all-false combination == empty allow: $threadgate")
         }
 
+    @Test
+    fun threadgateFailure_stillAttemptsPostgate() =
+        runTest {
+            // Independent best-effort: a threadgate write failure must NOT prevent
+            // the postgate write (Nobody + quotes-off wants both gates).
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        val body = request.body.toBodyString()
+                        bodies.add(body)
+                        if (body.contains("app.bsky.feed.threadgate")) {
+                            throw java.io.IOException("simulated threadgate write failure")
+                        }
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "lock it down",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience = PostAudience(ReplyAudience.Nobody, allowQuotes = false),
+                )
+
+            assertTrue(result.isSuccess)
+            assertTrue(bodies.any { it.contains("app.bsky.feed.threadgate") }, "threadgate attempted")
+            assertTrue(
+                bodies.any { it.contains("app.bsky.feed.postgate") },
+                "postgate must still be attempted despite the threadgate failure",
+            )
+        }
+
     private fun MockRequestHandleScope.okJson(json: String): HttpResponseData =
         respond(
             ByteReadChannel(json),
