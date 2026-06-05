@@ -48,6 +48,7 @@ enum class NubecitaIconName(
     Favorite("\uE87E"),
     FormatQuote("\uE244"),
     Forward10("\uE056"),
+    Globe("\uE64C"),
     Home("\uE9B2"),
     Inbox("\uE156"),
     IosShare("\uE6B8"),
