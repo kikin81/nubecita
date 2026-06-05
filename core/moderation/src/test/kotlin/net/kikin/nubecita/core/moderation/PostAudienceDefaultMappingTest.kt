@@ -1,10 +1,15 @@
 package net.kikin.nubecita.core.moderation
 
-import kotlinx.serialization.json.addJsonObject
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponse
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PostInteractionSettingsPref
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.SavedFeedsPrefV2
+import io.github.kikin81.atproto.app.bsky.feed.PostgateDisableRule
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateFollowerRule
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateFollowingRule
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateMentionRule
+import kotlinx.serialization.json.Json
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.ReplyAudience
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,142 +19,116 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Pure mapping between the raw `postInteractionSettingsPref` entry and
- * [PostAudience]. The wire semantics are exactly those documented on the SDK's
- * `PostInteractionSettingsPref`: for `threadgateAllowRules`, *absent* = anyone,
- * *empty* = no one, *non-empty* = the listed groups; for `postgateEmbeddingRules`,
- * *absent or empty* = anyone can quote.
+ * Pure mapping between the typed `postInteractionSettingsPref` entry and
+ * [PostAudience]. Fixtures are decoded through the SDK serializer (so they
+ * exercise the real wire shape) into the typed `preferences` list. The wire
+ * semantics match the SDK's `PostInteractionSettingsPref`: `threadgateAllowRules`
+ * *absent* = anyone, *empty* = no one, *non-empty* = the listed groups;
+ * `postgateEmbeddingRules` *absent or empty* = anyone can quote.
  */
 internal class PostAudienceDefaultMappingTest {
-    private companion object {
-        const val PREF = "app.bsky.actor.defs#postInteractionSettingsPref"
-        const val MENTION = "app.bsky.feed.threadgate#mentionRule"
-        const val FOLLOWING = "app.bsky.feed.threadgate#followingRule"
-        const val FOLLOWER = "app.bsky.feed.threadgate#followerRule"
-        const val DISABLE = "app.bsky.feed.postgate#disableRule"
-        const val LIST = "app.bsky.feed.threadgate#listRule"
-    }
+    private val json = Json { ignoreUnknownKeys = true }
 
-    private fun ruleTypes(
-        obj: kotlinx.serialization.json.JsonObject,
-        field: String,
-    ): Set<String> =
-        (obj[field] as? kotlinx.serialization.json.JsonArray)
-            ?.map { (it as kotlinx.serialization.json.JsonObject)["\$type"]!!.jsonPrimitive.content }
-            ?.toSet()
-            .orEmpty()
+    private fun prefsOf(body: String): List<GetPreferencesResponsePreferencesUnion> = json.decodeFromString(GetPreferencesResponse.serializer(), body).preferences
+
+    private fun List<PutPreferencesRequestPreferencesUnion>.postInteraction(): PostInteractionSettingsPref = filterIsInstance<PostInteractionSettingsPref>().single()
 
     // ---- parse ----
 
     @Test
     fun parse_noEntry_isDefault() {
-        assertEquals(PostAudience.DEFAULT, parsePostAudienceDefault(buildJsonArray {}))
+        assertEquals(PostAudience.DEFAULT, parsePostAudienceDefault(prefsOf("""{"preferences":[]}""")))
     }
 
     @Test
     fun parse_entryWithBothFieldsAbsent_isEveryoneQuotesOn() {
-        val arr = buildJsonArray { addJsonObject { put("\$type", PREF) } }
-        val audience = parsePostAudienceDefault(arr)
+        val audience =
+            parsePostAudienceDefault(
+                prefsOf("""{"preferences":[{"${'$'}type":"app.bsky.actor.defs#postInteractionSettingsPref"}]}"""),
+            )
         assertEquals(ReplyAudience.Everyone, audience.reply)
         assertTrue(audience.allowQuotes)
     }
 
     @Test
     fun parse_emptyThreadgateAllow_isNobody() {
-        val arr =
-            buildJsonArray {
-                addJsonObject {
-                    put("\$type", PREF)
-                    putJsonArray("threadgateAllowRules") {}
-                }
-            }
-        assertEquals(ReplyAudience.Nobody, parsePostAudienceDefault(arr).reply)
+        val prefs =
+            prefsOf(
+                """{"preferences":[{"${'$'}type":"app.bsky.actor.defs#postInteractionSettingsPref","threadgateAllowRules":[]}]}""",
+            )
+        assertEquals(ReplyAudience.Nobody, parsePostAudienceDefault(prefs).reply)
     }
 
     @Test
     fun parse_nonEmptyThreadgateAllow_isCombinationOfPresentRules() {
-        val arr =
-            buildJsonArray {
-                addJsonObject {
-                    put("\$type", PREF)
-                    putJsonArray("threadgateAllowRules") {
-                        addJsonObject { put("\$type", FOLLOWER) }
-                        addJsonObject { put("\$type", MENTION) }
-                    }
-                }
-            }
+        val prefs =
+            prefsOf(
+                """
+                {"preferences":[{"${'$'}type":"app.bsky.actor.defs#postInteractionSettingsPref","threadgateAllowRules":[
+                  {"${'$'}type":"app.bsky.feed.threadgate#followerRule"},
+                  {"${'$'}type":"app.bsky.feed.threadgate#mentionRule"}]}]}
+                """.trimIndent(),
+            )
         assertEquals(
             ReplyAudience.Combination(followers = true, following = false, mentioned = true),
-            parsePostAudienceDefault(arr).reply,
+            parsePostAudienceDefault(prefs).reply,
         )
     }
 
     @Test
     fun parse_unknownThreadgateRule_isDiscardedKeepingKnownGroups() {
-        // A list rule (deferred — not modelled) alongside known rules is dropped;
-        // the known groups still resolve. Documents the intentional lossy read.
-        val arr =
-            buildJsonArray {
-                addJsonObject {
-                    put("\$type", PREF)
-                    putJsonArray("threadgateAllowRules") {
-                        addJsonObject { put("\$type", FOLLOWER) }
-                        addJsonObject { put("\$type", LIST) }
-                        addJsonObject { put("\$type", MENTION) }
-                    }
-                }
-            }
+        // A list rule (deferred — not in our model) alongside known rules is
+        // dropped; the known groups still resolve. Documents the lossy read.
+        val prefs =
+            prefsOf(
+                """
+                {"preferences":[{"${'$'}type":"app.bsky.actor.defs#postInteractionSettingsPref","threadgateAllowRules":[
+                  {"${'$'}type":"app.bsky.feed.threadgate#followerRule"},
+                  {"${'$'}type":"app.bsky.feed.threadgate#listRule","list":"at://did:plc:x/app.bsky.graph.list/a"},
+                  {"${'$'}type":"app.bsky.feed.threadgate#mentionRule"}]}]}
+                """.trimIndent(),
+            )
         assertEquals(
             ReplyAudience.Combination(followers = true, following = false, mentioned = true),
-            parsePostAudienceDefault(arr).reply,
+            parsePostAudienceDefault(prefs).reply,
         )
     }
 
     @Test
     fun parse_postgateDisableRule_disallowsQuotes() {
-        val arr =
-            buildJsonArray {
-                addJsonObject {
-                    put("\$type", PREF)
-                    putJsonArray("postgateEmbeddingRules") { addJsonObject { put("\$type", DISABLE) } }
-                }
-            }
-        assertFalse(parsePostAudienceDefault(arr).allowQuotes)
+        val prefs =
+            prefsOf(
+                """
+                {"preferences":[{"${'$'}type":"app.bsky.actor.defs#postInteractionSettingsPref","postgateEmbeddingRules":[
+                  {"${'$'}type":"app.bsky.feed.postgate#disableRule"}]}]}
+                """.trimIndent(),
+            )
+        assertFalse(parsePostAudienceDefault(prefs).allowQuotes)
     }
 
     @Test
     fun parse_emptyPostgateRules_allowsQuotes() {
-        // SDK: empty postgateEmbeddingRules == anyone can embed.
-        val arr =
-            buildJsonArray {
-                addJsonObject {
-                    put("\$type", PREF)
-                    putJsonArray("postgateEmbeddingRules") {}
-                }
-            }
-        assertTrue(parsePostAudienceDefault(arr).allowQuotes)
+        val prefs =
+            prefsOf(
+                """{"preferences":[{"${'$'}type":"app.bsky.actor.defs#postInteractionSettingsPref","postgateEmbeddingRules":[]}]}""",
+            )
+        assertTrue(parsePostAudienceDefault(prefs).allowQuotes)
     }
 
     // ---- merge ----
 
     @Test
     fun merge_everyoneQuotesOn_omitsBothFields() {
-        val out = mergePostAudienceDefault(buildJsonArray {}, PostAudience.DEFAULT)
-        val entry =
-            out.single { (it as kotlinx.serialization.json.JsonObject)["\$type"]!!.jsonPrimitive.content == PREF }
-                as kotlinx.serialization.json.JsonObject
-        assertNull(entry["threadgateAllowRules"], "Everyone must omit threadgateAllowRules (anyone)")
-        assertNull(entry["postgateEmbeddingRules"], "quotes-on must omit postgateEmbeddingRules")
+        val entry = mergePostAudienceDefault(emptyList(), PostAudience.DEFAULT).postInteraction()
+        assertNull(entry.threadgateAllowRules, "Everyone must omit threadgateAllowRules (anyone)")
+        assertNull(entry.postgateEmbeddingRules, "quotes-on must omit postgateEmbeddingRules")
     }
 
     @Test
     fun merge_nobody_writesEmptyThreadgateAllow() {
-        val out = mergePostAudienceDefault(buildJsonArray {}, PostAudience(ReplyAudience.Nobody, allowQuotes = true))
         val entry =
-            out.single { (it as kotlinx.serialization.json.JsonObject)["\$type"]!!.jsonPrimitive.content == PREF }
-                as kotlinx.serialization.json.JsonObject
-        val rules = entry["threadgateAllowRules"] as kotlinx.serialization.json.JsonArray
-        assertTrue(rules.isEmpty(), "Nobody == empty threadgateAllowRules")
+            mergePostAudienceDefault(emptyList(), PostAudience(ReplyAudience.Nobody, allowQuotes = true)).postInteraction()
+        assertTrue(entry.threadgateAllowRules?.isEmpty() == true, "Nobody == empty threadgateAllowRules")
     }
 
     @Test
@@ -159,32 +138,29 @@ internal class PostAudienceDefaultMappingTest {
                 ReplyAudience.Combination(followers = true, following = false, mentioned = true),
                 allowQuotes = false,
             )
-        val out = mergePostAudienceDefault(buildJsonArray {}, audience)
-        val entry =
-            out.single { (it as kotlinx.serialization.json.JsonObject)["\$type"]!!.jsonPrimitive.content == PREF }
-                as kotlinx.serialization.json.JsonObject
-        assertEquals(setOf(FOLLOWER, MENTION), ruleTypes(entry, "threadgateAllowRules"))
-        assertEquals(setOf(DISABLE), ruleTypes(entry, "postgateEmbeddingRules"))
+        val entry = mergePostAudienceDefault(emptyList(), audience).postInteraction()
+        val threadgate = entry.threadgateAllowRules!!
+        assertTrue(threadgate.any { it is ThreadgateFollowerRule })
+        assertTrue(threadgate.any { it is ThreadgateMentionRule })
+        assertFalse(threadgate.any { it is ThreadgateFollowingRule })
+        assertTrue(entry.postgateEmbeddingRules!!.any { it is PostgateDisableRule })
     }
 
     @Test
     fun merge_preservesForeignEntries() {
         val original =
-            buildJsonArray {
-                addJsonObject {
-                    put("\$type", "app.bsky.actor.defs#savedFeedsPrefV2")
-                    putJsonArray("items") {}
-                }
-                // A stale post-interaction entry that must be replaced, not duplicated.
-                addJsonObject {
-                    put("\$type", PREF)
-                    putJsonArray("threadgateAllowRules") { addJsonObject { put("\$type", FOLLOWER) } }
-                }
-            }
-        val out = mergePostAudienceDefault(original, PostAudience.DEFAULT)
-        val types = out.map { (it as kotlinx.serialization.json.JsonObject)["\$type"]!!.jsonPrimitive.content }
-        assertTrue(types.contains("app.bsky.actor.defs#savedFeedsPrefV2"), "foreign entry preserved")
-        assertEquals(1, types.count { it == PREF }, "exactly one post-interaction entry (replaced, not duplicated)")
+            prefsOf(
+                """
+                {"preferences":[
+                  {"${'$'}type":"app.bsky.actor.defs#savedFeedsPrefV2","items":[]},
+                  {"${'$'}type":"app.bsky.actor.defs#postInteractionSettingsPref",
+                   "threadgateAllowRules":[{"${'$'}type":"app.bsky.feed.threadgate#followerRule"}]}]}
+                """.trimIndent(),
+            )
+        val merged = mergePostAudienceDefault(original, PostAudience.DEFAULT)
+        // Foreign saved-feeds entry preserved; exactly one (replaced) post-interaction entry.
+        assertTrue(merged.any { it is SavedFeedsPrefV2 }, "foreign entry preserved")
+        assertEquals(1, merged.count { it is PostInteractionSettingsPref })
     }
 
     @Test
@@ -197,7 +173,12 @@ internal class PostAudienceDefaultMappingTest {
             PostAudience(ReplyAudience.Combination(true, true, false), allowQuotes = true),
             PostAudience(ReplyAudience.Combination(false, false, true), allowQuotes = false),
         ).forEach { audience ->
-            assertEquals(audience, parsePostAudienceDefault(mergePostAudienceDefault(buildJsonArray {}, audience)))
+            // The merged PostInteractionSettingsPref implements both unions, so it
+            // is also a GET-union member parse can read back.
+            val asGet =
+                mergePostAudienceDefault(emptyList(), audience)
+                    .filterIsInstance<GetPreferencesResponsePreferencesUnion>()
+            assertEquals(audience, parsePostAudienceDefault(asGet))
         }
     }
 }

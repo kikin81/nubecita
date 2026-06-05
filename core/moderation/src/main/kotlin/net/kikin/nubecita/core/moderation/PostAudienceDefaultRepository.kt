@@ -1,21 +1,22 @@
 package net.kikin.nubecita.core.moderation
 
-import io.github.kikin81.atproto.runtime.NoXrpcParams
-import io.github.kikin81.atproto.runtime.UnitResponseSerializer
+import io.github.kikin81.atproto.app.bsky.actor.ActorService
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesRequest
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PostInteractionSettingsPref
+import io.github.kikin81.atproto.app.bsky.actor.PostInteractionSettingsPrefPostgateEmbeddingRulesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PostInteractionSettingsPrefThreadgateAllowRulesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequest
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
+import io.github.kikin81.atproto.app.bsky.feed.PostgateDisableRule
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateFollowerRule
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateFollowingRule
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateMentionRule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.addJsonObject
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.ReplyAudience
@@ -57,21 +58,18 @@ interface PostAudienceDefaultRepository {
 }
 
 /**
- * Default implementation backed by the AT Protocol preferences array.
- *
- * The SDK mis-models the `preferences` field as a `JsonObject` rather than an
- * array (TODO(atproto-kotlin#132): drop this raw-JSON path once codegen emits
- * `List<union>` for it), so — exactly like [DefaultModerationPreferencesRepository] —
- * we decode the raw response object, operate on the `preferences` array
- * ourselves, and write back a hand-built `{"preferences":[…]}` body. The read-modify-write
- * touches the WHOLE array so foreign entries (saved feeds, content-label prefs,
- * …) are preserved; only the single `postInteractionSettingsPref` entry we own
- * is replaced.
+ * Default implementation backed by the typed `app.bsky.actor.getPreferences` /
+ * `putPreferences` array (the `preferences` field became a proper typed
+ * `List<union>` in atproto-kotlin 9.2.0; see issue #132). The read-modify-write
+ * touches the WHOLE array so foreign entries — saved feeds, content-label prefs,
+ * unmodeled future kinds (carried as the union's `Unknown(type, raw)` member) —
+ * are preserved; only the single `postInteractionSettingsPref` entry we own is
+ * replaced.
  *
  * Writes are **optimistic**: [setDefault] publishes the new value immediately,
  * then reconciles against the live array under [writeMutex]; a failure reverts
  * to the previous value (unless a newer write already superseded it). Mirrors
- * the moderation repo's `update {}`.
+ * the moderation repo's pattern.
  */
 @Singleton
 internal class DefaultPostAudienceDefaultRepository
@@ -85,7 +83,7 @@ internal class DefaultPostAudienceDefaultRepository
         override val default: StateFlow<PostAudience> = _default.asStateFlow()
 
         override suspend fun refresh() {
-            val parsed = parsePostAudienceDefault(fetchPreferencesArray())
+            val parsed = parsePostAudienceDefault(fetchPreferences())
             writeMutex.withLock { _default.value = parsed }
         }
 
@@ -95,59 +93,39 @@ internal class DefaultPostAudienceDefaultRepository
 
         override suspend fun setDefault(audience: PostAudience) {
             // Optimistic: the publish below is the single publish point — the
-            // default is one atomic value (unlike the moderation repo, which
-            // re-reads and re-applies independent toggles under the lock), so
-            // concurrent calls resolve last-write-wins and we don't republish
-            // after the write (republishing would briefly roll a newer write
-            // back to ours). The mutex only serializes the server read-modify-
-            // write. On failure we revert ONLY if no newer write superseded us;
-            // a rare double-failure can leave a stale optimistic value that the
-            // next refresh reconciles. Cancellation rethrows without reverting.
+            // default is one atomic value, so concurrent calls resolve
+            // last-write-wins and we don't republish after the write. The mutex
+            // only serializes the server read-modify-write. On failure we revert
+            // ONLY if no newer write superseded us; a rare double-failure can
+            // leave a stale optimistic value that the next refresh reconciles.
+            // Cancellation rethrows without reverting.
             val previous = _default.value
             _default.value = audience
             try {
                 writeMutex.withLock {
-                    val original = fetchPreferencesArray()
-                    writePreferencesArray(mergePostAudienceDefault(original, audience))
+                    val original = fetchPreferences()
+                    writePreferences(mergePostAudienceDefault(original, audience))
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
-                // Revert only if no newer write has superseded our optimistic value.
                 if (_default.value == audience) _default.value = previous
                 throw throwable
             }
         }
 
-        private suspend fun fetchPreferencesArray(): JsonArray {
-            val response =
-                xrpcClientProvider.authenticated().query(
-                    GET_PREFERENCES_NSID,
-                    NoXrpcParams,
-                    NoXrpcParams.serializer(),
-                    JsonObject.serializer(),
-                )
-            return response["preferences"] as? JsonArray ?: JsonArray(emptyList())
-        }
+        private suspend fun fetchPreferences(): List<GetPreferencesResponsePreferencesUnion> = ActorService(xrpcClientProvider.authenticated()).getPreferences(GetPreferencesRequest()).preferences
 
-        private suspend fun writePreferencesArray(preferences: JsonArray) {
-            val body = buildJsonObject { put("preferences", preferences) }
-            xrpcClientProvider.authenticated().procedure(
-                PUT_PREFERENCES_NSID,
-                NoXrpcParams,
-                NoXrpcParams.serializer(),
-                body,
-                JsonObject.serializer(),
-                UnitResponseSerializer,
-            )
+        private suspend fun writePreferences(preferences: List<PutPreferencesRequestPreferencesUnion>) {
+            ActorService(xrpcClientProvider.authenticated()).putPreferences(PutPreferencesRequest(preferences))
         }
     }
 
 /**
- * Pure projection of the raw `preferences` array into the default [PostAudience].
+ * Pure projection of the typed `preferences` list into the default [PostAudience].
  *
- * Reads the single global `postInteractionSettingsPref` entry. Per the lexicon:
- * `threadgateAllowRules` *absent* → anyone replies ([ReplyAudience.Everyone]);
+ * Reads the single [PostInteractionSettingsPref] entry. Per the lexicon:
+ * `threadgateAllowRules` *absent* (`null`) → anyone replies ([ReplyAudience.Everyone]);
  * *empty* → no one ([ReplyAudience.Nobody]); *non-empty* → the listed groups
  * ([ReplyAudience.Combination]). `postgateEmbeddingRules` *absent or empty* →
  * quotes allowed; containing the disable rule → quotes off. An absent entry
@@ -155,94 +133,63 @@ internal class DefaultPostAudienceDefaultRepository
  * deferred list rule) are ignored — only the three managed groups are read, so
  * a list-scoped default round-trips lossily until lists are supported. No I/O.
  */
-internal fun parsePostAudienceDefault(preferences: JsonArray): PostAudience {
-    val entry =
-        preferences
-            .filterIsInstance<JsonObject>()
-            .firstOrNull { it.typeTag() == POST_INTERACTION_PREF_TYPE }
-            ?: return PostAudience.DEFAULT
+internal fun parsePostAudienceDefault(preferences: List<GetPreferencesResponsePreferencesUnion>): PostAudience {
+    val entry = preferences.filterIsInstance<PostInteractionSettingsPref>().firstOrNull() ?: return PostAudience.DEFAULT
 
     val reply =
-        when (val rules = entry["threadgateAllowRules"]) {
+        when (val rules = entry.threadgateAllowRules) {
             null -> ReplyAudience.Everyone
-            is JsonArray ->
+            else ->
                 if (rules.isEmpty()) {
                     ReplyAudience.Nobody
                 } else {
-                    val types = rules.ruleTypes()
                     ReplyAudience.Combination(
-                        followers = THREADGATE_FOLLOWER_RULE in types,
-                        following = THREADGATE_FOLLOWING_RULE in types,
-                        mentioned = THREADGATE_MENTION_RULE in types,
+                        followers = rules.any { it is ThreadgateFollowerRule },
+                        following = rules.any { it is ThreadgateFollowingRule },
+                        mentioned = rules.any { it is ThreadgateMentionRule },
                     )
                 }
-            // A malformed/unknown shape (JsonNull, primitive) is treated as
-            // absent → anyone. This is a default for *new* posts, not an
-            // enforcement gate, so falling back to the open default is safe.
-            else -> ReplyAudience.Everyone
         }
 
-    val allowQuotes = POSTGATE_DISABLE_RULE !in (entry["postgateEmbeddingRules"] as? JsonArray).orEmptyRuleTypes()
+    val allowQuotes = entry.postgateEmbeddingRules?.none { it is PostgateDisableRule } ?: true
 
     return PostAudience(reply = reply, allowQuotes = allowQuotes)
 }
 
 /**
- * Pure merge: produce a new `preferences` array that drops the existing
- * `postInteractionSettingsPref` entry from [original] (preserving every other
- * entry in place) and appends a fresh one reflecting [audience]. Following the
- * lexicon, [ReplyAudience.Everyone] omits `threadgateAllowRules` (anyone) and
- * allowed quotes omit `postgateEmbeddingRules` (anyone) — never written as empty
- * arrays, which would mean "no one". No I/O.
+ * Pure merge: produce a new `preferences` list that drops the existing
+ * [PostInteractionSettingsPref] entry (preserving every other entry — known
+ * members pass straight through since they implement both the GET and PUT union;
+ * `Unknown` members are remapped verbatim) and appends a fresh entry reflecting
+ * [audience]. Following the lexicon, [ReplyAudience.Everyone] omits
+ * `threadgateAllowRules` (anyone) and allowed quotes omit `postgateEmbeddingRules`
+ * (anyone) — never written as empty lists, which would mean "no one". No I/O.
  */
 internal fun mergePostAudienceDefault(
-    original: JsonArray,
+    original: List<GetPreferencesResponsePreferencesUnion>,
     audience: PostAudience,
-): JsonArray {
-    val preserved =
-        original.filterNot { it is JsonObject && it.typeTag() == POST_INTERACTION_PREF_TYPE }
+): List<PutPreferencesRequestPreferencesUnion> =
+    original
+        .filterNot { it is PostInteractionSettingsPref }
+        .map { it.asPutPreference() } + buildPostInteractionSettingsPref(audience)
 
-    return buildJsonArray {
-        preserved.forEach(::add)
-        addJsonObject {
-            put("\$type", POST_INTERACTION_PREF_TYPE)
+private fun buildPostInteractionSettingsPref(audience: PostAudience): PostInteractionSettingsPref =
+    PostInteractionSettingsPref(
+        postgateEmbeddingRules =
+            if (audience.allowQuotes) {
+                null
+            } else {
+                listOf<PostInteractionSettingsPrefPostgateEmbeddingRulesUnion>(PostgateDisableRule())
+            },
+        threadgateAllowRules =
             when (val reply = audience.reply) {
-                ReplyAudience.Everyone -> Unit // omit threadgateAllowRules → anyone
-                ReplyAudience.Nobody -> putJsonArray("threadgateAllowRules") {} // empty → no one
+                ReplyAudience.Everyone -> null
+                ReplyAudience.Nobody -> emptyList()
                 is ReplyAudience.Combination ->
-                    // An all-false combination yields an empty array (== Nobody);
-                    // the picker prevents it, and that read-back is the correct
-                    // interpretation, so we don't special-case it here.
-                    putJsonArray("threadgateAllowRules") {
-                        if (reply.followers) addRule(THREADGATE_FOLLOWER_RULE)
-                        if (reply.following) addRule(THREADGATE_FOLLOWING_RULE)
-                        if (reply.mentioned) addRule(THREADGATE_MENTION_RULE)
+                    buildList<PostInteractionSettingsPrefThreadgateAllowRulesUnion> {
+                        if (reply.followers) add(ThreadgateFollowerRule())
+                        if (reply.following) add(ThreadgateFollowingRule())
+                        if (reply.mentioned) add(ThreadgateMentionRule())
                     }
-            }
-            if (!audience.allowQuotes) {
-                putJsonArray("postgateEmbeddingRules") { addRule(POSTGATE_DISABLE_RULE) }
-            }
-        }
-    }
-}
-
-// Safe `$type` read: `as?` (not `jsonPrimitive`, which throws) so a malformed
-// or foreign entry whose `$type` is not a string can't crash parsing of the
-// shared multi-writer preferences array.
-private fun JsonObject.typeTag(): String? = (this["\$type"] as? JsonPrimitive)?.content
-
-private fun JsonArray.ruleTypes(): Set<String> = filterIsInstance<JsonObject>().mapNotNull { it.typeTag() }.toSet()
-
-private fun JsonArray?.orEmptyRuleTypes(): Set<String> = this?.ruleTypes().orEmpty()
-
-private fun kotlinx.serialization.json.JsonArrayBuilder.addRule(type: String) {
-    addJsonObject { put("\$type", type) }
-}
-
-private const val GET_PREFERENCES_NSID = "app.bsky.actor.getPreferences"
-private const val PUT_PREFERENCES_NSID = "app.bsky.actor.putPreferences"
-private const val POST_INTERACTION_PREF_TYPE = "app.bsky.actor.defs#postInteractionSettingsPref"
-private const val THREADGATE_MENTION_RULE = "app.bsky.feed.threadgate#mentionRule"
-private const val THREADGATE_FOLLOWING_RULE = "app.bsky.feed.threadgate#followingRule"
-private const val THREADGATE_FOLLOWER_RULE = "app.bsky.feed.threadgate#followerRule"
-private const val POSTGATE_DISABLE_RULE = "app.bsky.feed.postgate#disableRule"
+            },
+    )

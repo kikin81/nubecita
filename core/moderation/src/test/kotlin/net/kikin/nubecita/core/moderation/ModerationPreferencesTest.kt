@@ -1,27 +1,32 @@
 package net.kikin.nubecita.core.moderation
 
+import io.github.kikin81.atproto.app.bsky.actor.AdultContentPref
+import io.github.kikin81.atproto.app.bsky.actor.ContentLabelPref
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponse
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.SavedFeedsPrefV2
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Pure parse/merge contract for the `app.bsky.actor` preferences array. These
- * functions are the read-modify-write core of [DefaultModerationPreferencesRepository];
- * the network plumbing around them is exercised by [ModerationPreferencesBoundaryTest].
+ * Pure parse/merge contract for the typed `app.bsky.actor` preferences list.
+ * These functions are the read-modify-write core of
+ * [DefaultModerationPreferencesRepository]; the network plumbing around them is
+ * exercised by [ModerationPreferencesBoundaryTest]. Fixtures are decoded through
+ * the SDK serializer so they exercise the real typed-union shape.
  */
 class ModerationPreferencesTest {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun parse(body: String): ModerationPrefs = parseModerationPrefs(json.decodeFromString(JsonArray.serializer(), body))
+    private fun prefsOf(arrayBody: String): List<GetPreferencesResponsePreferencesUnion> = json.decodeFromString(GetPreferencesResponse.serializer(), """{"preferences":$arrayBody}""").preferences
 
-    private fun array(body: String): JsonArray = json.decodeFromString(JsonArray.serializer(), body)
+    private fun parse(arrayBody: String): ModerationPrefs = parseModerationPrefs(prefsOf(arrayBody))
+
+    private fun List<PutPreferencesRequestPreferencesUnion>.globalLabels(): List<ContentLabelPref> = filterIsInstance<ContentLabelPref>().filter { it.labelerDid == null }
 
     // --- parse ---
 
@@ -29,7 +34,6 @@ class ModerationPreferencesTest {
     fun `empty array yields adult-off and no explicit visibilities`() {
         val prefs = parse("[]")
         assertFalse(prefs.adultContentEnabled)
-        // Absent entries resolve via DEFAULT.
         assertEquals(LabelVisibility.HIDE, prefs.visibilityFor(ContentLabel.PORN))
         assertEquals(LabelVisibility.SHOW, prefs.visibilityFor(ContentLabel.NUDITY))
     }
@@ -49,8 +53,23 @@ class ModerationPreferencesTest {
         assertTrue(prefs.adultContentEnabled)
         assertEquals(LabelVisibility.WARN, prefs.visibilityFor(ContentLabel.PORN))
         assertEquals(LabelVisibility.HIDE, prefs.visibilityFor(ContentLabel.NUDITY))
-        // Unset categories still fall back to DEFAULT.
         assertEquals(LabelVisibility.WARN, prefs.visibilityFor(ContentLabel.SEXUAL))
+    }
+
+    @Test
+    fun `duplicate adult gates resolve last-wins`() {
+        // The gate is a server singleton; if duplicates ever appear, the last
+        // entry wins (matching the prior loop-assignment behavior).
+        val prefs =
+            parse(
+                """
+                [
+                  {"${'$'}type":"app.bsky.actor.defs#adultContentPref","enabled":false},
+                  {"${'$'}type":"app.bsky.actor.defs#adultContentPref","enabled":true}
+                ]
+                """.trimIndent(),
+            )
+        assertTrue(prefs.adultContentEnabled)
     }
 
     @Test
@@ -64,7 +83,6 @@ class ModerationPreferencesTest {
 
     @Test
     fun `labeler-scoped content prefs are ignored`() {
-        // A label pref scoped to a specific labeler must NOT configure our global gate.
         val prefs =
             parse(
                 """
@@ -88,19 +106,19 @@ class ModerationPreferencesTest {
                 """.trimIndent(),
             )
         assertFalse(prefs.adultContentEnabled)
-        // No managed entry touched.
         assertEquals(LabelVisibility.HIDE, prefs.visibilityFor(ContentLabel.PORN))
     }
 
     // --- merge ---
 
     @Test
-    fun `merge preserves foreign entries and replaces managed ones`() {
+    fun `merge preserves foreign entries (known and unknown) and replaces managed ones`() {
         val original =
-            array(
+            prefsOf(
                 """
                 [
-                  {"${'$'}type":"app.bsky.actor.defs#savedFeedsPrefV2","items":[{"id":"x"}]},
+                  {"${'$'}type":"app.bsky.actor.defs#savedFeedsPrefV2","items":[]},
+                  {"${'$'}type":"app.bsky.actor.defs#someFuturePref","custom":"keep-me"},
                   {"${'$'}type":"app.bsky.actor.defs#adultContentPref","enabled":false},
                   {"${'$'}type":"app.bsky.actor.defs#contentLabelPref","label":"porn","visibility":"hide"},
                   {"${'$'}type":"app.bsky.actor.defs#contentLabelPref","label":"porn",
@@ -117,32 +135,22 @@ class ModerationPreferencesTest {
                 ),
             )
 
-        val byType = merged.map { (it as JsonObject)["\$type"]!!.jsonPrimitive.content }
-
-        // Foreign saved-feeds entry survives untouched.
-        assertEquals(1, byType.count { it == "app.bsky.actor.defs#savedFeedsPrefV2" })
+        // Foreign known entry (saved feeds) survives untouched.
+        assertEquals(1, merged.count { it is SavedFeedsPrefV2 })
+        // Foreign UNKNOWN entry survives via the Unknown(type, raw) remap.
+        val unknown =
+            merged
+                .filterIsInstance<PutPreferencesRequestPreferencesUnion.Unknown>()
+                .single { it.type == "app.bsky.actor.defs#someFuturePref" }
+        assertEquals("keep-me", unknown.raw["custom"]?.toString()?.trim('"'))
         // The labeler-scoped porn pref is preserved (we only own the global one).
-        val labelerScoped =
-            merged.map { it as JsonObject }.filter {
-                it["\$type"]?.jsonPrimitive?.content == "app.bsky.actor.defs#contentLabelPref" &&
-                    it["labelerDid"] != null
-            }
+        val labelerScoped = merged.filterIsInstance<ContentLabelPref>().filter { it.labelerDid != null }
         assertEquals(1, labelerScoped.size)
-        assertEquals("did:plc:keepme", labelerScoped.single()["labelerDid"]!!.jsonPrimitive.content)
-
         // Exactly one global adult-content pref, now enabled.
-        val adult = merged.map { it as JsonObject }.single { it["\$type"]?.jsonPrimitive?.content == "app.bsky.actor.defs#adultContentPref" }
-        assertTrue(adult["enabled"]!!.jsonPrimitive.booleanOrNull == true)
-
-        // All four global content-label prefs are written exactly once each.
-        val global =
-            merged.map { it as JsonObject }.filter {
-                it["\$type"]?.jsonPrimitive?.content == "app.bsky.actor.defs#contentLabelPref" &&
-                    it["labelerDid"] == null
-            }
-        assertEquals(4, global.size)
-        val pornGlobal = global.single { it["label"]!!.jsonPrimitive.content == "porn" }
-        assertEquals("warn", pornGlobal["visibility"]!!.jsonPrimitive.content)
+        assertTrue(merged.filterIsInstance<AdultContentPref>().single().enabled)
+        // All four global content-label prefs written exactly once each; porn = warn.
+        assertEquals(4, merged.globalLabels().size)
+        assertEquals("warn", merged.globalLabels().single { it.label == "porn" }.visibility)
     }
 
     @Test
@@ -158,7 +166,10 @@ class ModerationPreferencesTest {
                         ContentLabel.NUDITY to LabelVisibility.WARN,
                     ),
             )
-        val roundTripped = parseModerationPrefs(mergeModerationPrefs(JsonArray(emptyList()), prefs))
+        // The merged prefs implement both unions, so they are also GET-union
+        // members parse can read back.
+        val asGet = mergeModerationPrefs(emptyList(), prefs).filterIsInstance<GetPreferencesResponsePreferencesUnion>()
+        val roundTripped = parseModerationPrefs(asGet)
         assertEquals(prefs.adultContentEnabled, roundTripped.adultContentEnabled)
         ContentLabel.entries.forEach { category ->
             assertEquals(prefs.visibilityFor(category), roundTripped.visibilityFor(category), "round-trip $category")
@@ -167,10 +178,10 @@ class ModerationPreferencesTest {
 
     @Test
     fun `merge drops a pre-existing managed entry exactly once`() {
-        // Two stray global porn prefs in the source array must both be removed
-        // and replaced by the single canonical one.
+        // Two stray global porn prefs in the source must both be removed and
+        // replaced by the single canonical one.
         val original =
-            array(
+            prefsOf(
                 """
                 [
                   {"${'$'}type":"app.bsky.actor.defs#contentLabelPref","label":"porn","visibility":"hide"},
@@ -179,12 +190,6 @@ class ModerationPreferencesTest {
                 """.trimIndent(),
             )
         val merged = mergeModerationPrefs(original, ModerationPrefs.DEFAULT)
-        val pornGlobal =
-            merged.map { it as JsonObject }.filter {
-                it["\$type"]?.jsonPrimitive?.content == "app.bsky.actor.defs#contentLabelPref" &&
-                    it["label"]?.jsonPrimitive?.content == "porn"
-            }
-        assertEquals(1, pornGlobal.size)
-        assertNull(pornGlobal.single()["labelerDid"])
+        assertEquals(1, merged.globalLabels().count { it.label == "porn" })
     }
 }
