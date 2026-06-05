@@ -7,6 +7,7 @@ import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreference
 import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeedsPrefV2
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -142,7 +143,7 @@ class ModerationPreferencesTest {
             merged
                 .filterIsInstance<PutPreferencesRequestPreferencesUnion.Unknown>()
                 .single { it.type == "app.bsky.actor.defs#someFuturePref" }
-        assertEquals("keep-me", unknown.raw["custom"]?.toString()?.trim('"'))
+        assertEquals("keep-me", unknown.raw["custom"]?.jsonPrimitive?.content)
         // The labeler-scoped porn pref is preserved (we only own the global one).
         val labelerScoped = merged.filterIsInstance<ContentLabelPref>().filter { it.labelerDid != null }
         assertEquals(1, labelerScoped.size)
