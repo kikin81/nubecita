@@ -78,6 +78,22 @@
     <string name="composer_language_picker_done">Done</string>
     <string name="composer_language_picker_cancel">Cancel</string>
 
+    <!-- Audience picker — who can reply / quote a new post, plus the
+         save-as-default and reset affordances and the confirm/dismiss footer. -->
+    <string name="composer_audience_title">Who can interact?</string>
+    <string name="composer_audience_reply_section">Who can reply</string>
+    <string name="composer_audience_anyone">Anyone</string>
+    <string name="composer_audience_nobody">Nobody</string>
+    <string name="composer_audience_followers">Your followers</string>
+    <string name="composer_audience_following">People you follow</string>
+    <string name="composer_audience_mentioned">People you mention</string>
+    <string name="composer_audience_lists">Select from your lists</string>
+    <string name="composer_audience_allow_quotes">Allow quote posts</string>
+    <string name="composer_audience_save_default">Save these options for next time</string>
+    <string name="composer_audience_reset">Reset</string>
+    <string name="composer_audience_picker_done">Done</string>
+    <string name="composer_audience_picker_cancel">Cancel</string>
+
     <!-- Language chip — shown on the empty-selection ("explicit no
          language") state. Distinct from the null-selection state,
          which renders the device-locale display name to mirror what
