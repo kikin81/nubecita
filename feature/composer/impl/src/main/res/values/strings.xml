@@ -94,6 +94,14 @@
     <string name="composer_audience_picker_done">Done</string>
     <string name="composer_audience_picker_cancel">Cancel</string>
 
+    <!-- Audience chip — the composer-options-row tap target that opens the
+         picker. Shows "Visible to all" for the wide-open default, else
+         "Interaction limited". Save-error is a non-blocking snackbar shown when
+         persisting the chosen audience as the account default fails. -->
+    <string name="composer_audience_chip_default">Visible to all</string>
+    <string name="composer_audience_chip_limited">Interaction limited</string>
+    <string name="composer_audience_save_error">Couldn\'t save as default. It still applies to this post.</string>
+
     <!-- Language chip — shown on the empty-selection ("explicit no
          language") state. Distinct from the null-selection state,
          which renders the device-locale display name to mirror what

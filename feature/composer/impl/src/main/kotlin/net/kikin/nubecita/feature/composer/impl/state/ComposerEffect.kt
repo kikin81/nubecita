@@ -59,4 +59,12 @@ internal sealed interface ComposerEffect : UiEffect {
         val newPostUri: AtUri,
         val replyToUri: String?,
     ) : ComposerEffect
+
+    /**
+     * Saving the post-audience as the account default failed. The local audience
+     * selection still stands (the picker's choice is applied to this post); only
+     * the synced "save for next time" didn't persist. The screen surfaces a
+     * non-blocking Snackbar. No payload — a single generic string suffices.
+     */
+    data object ShowAudienceSaveError : ComposerEffect
 }

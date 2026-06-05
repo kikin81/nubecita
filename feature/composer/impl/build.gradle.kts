@@ -22,6 +22,9 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:image"))
+    // PostAudienceDefaultRepository (the synced post-audience default) lives in
+    // :core:moderation alongside the other app.bsky.actor preferences.
+    implementation(project(":core:moderation"))
     implementation(project(":core:posting"))
     implementation(libs.androidx.activity.compose)
     // currentWindowAdaptiveInfoV2() + WindowSizeClass — used by

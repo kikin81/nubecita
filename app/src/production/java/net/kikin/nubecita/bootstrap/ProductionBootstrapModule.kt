@@ -8,6 +8,7 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.BuildConfig
 import net.kikin.nubecita.core.billing.RevenueCatInitializer
 import net.kikin.nubecita.core.moderation.ModerationPreferencesCoordinator
+import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
@@ -54,6 +55,15 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun provideModerationPreferencesInitializer(
         coordinator: ModerationPreferencesCoordinator,
+    ): AppInitializer = AppInitializer { coordinator.start() }
+
+    // Refresh the viewer's post-audience default on sign-in (so the composer
+    // pre-fills with the synced value) and reset it on sign-out. Production-only,
+    // like the moderation coordinator above.
+    @Provides
+    @IntoSet
+    fun providePostAudienceDefaultInitializer(
+        coordinator: PostAudienceDefaultCoordinator,
     ): AppInitializer = AppInitializer { coordinator.start() }
 
     // RevenueCat lives only in the production flavor: configure runs here, so the

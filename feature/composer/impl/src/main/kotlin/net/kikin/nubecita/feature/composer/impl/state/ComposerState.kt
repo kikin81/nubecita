@@ -4,6 +4,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.core.posting.ComposerAttachment
+import net.kikin.nubecita.core.posting.PostAudience
 
 /**
  * Flat, UI-ready state for the unified composer screen.
@@ -83,6 +84,14 @@ internal data class ComposerState(
      * `List<String>` events to `ImmutableList` at the state boundary.
      */
     val selectedLangs: ImmutableList<String>? = null,
+    /**
+     * Who may reply / quote this (top-level) post. Seeded at VM init from the
+     * synced [net.kikin.nubecita.core.posting.PostAudience] default and updated
+     * by `AudienceSelectionConfirmed`. Passed to `createPost`; the audience chip
+     * reads it for its "Visible to all" / "Interaction limited" label and is
+     * hidden entirely in reply mode ([replyToUri] non-null).
+     */
+    val audience: PostAudience = PostAudience.DEFAULT,
     val submitStatus: ComposerSubmitStatus = ComposerSubmitStatus.Idle,
     val typeahead: TypeaheadStatus = TypeaheadStatus.Idle,
 ) : UiState

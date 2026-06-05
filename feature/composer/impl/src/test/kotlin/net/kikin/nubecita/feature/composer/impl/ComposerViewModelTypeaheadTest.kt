@@ -4,10 +4,12 @@ import androidx.compose.foundation.text.input.placeCursorAtEnd
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshots.Snapshot
 import app.cash.turbine.test
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -17,6 +19,7 @@ import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.posting.LocaleProvider
+import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -320,6 +323,10 @@ class ComposerViewModelTypeaheadTest {
             localeProvider =
                 object : LocaleProvider {
                     override fun primaryLanguageTag(): String = "en-US"
+                },
+            postAudienceDefaultRepository =
+                mockk(relaxed = true) {
+                    every { default } returns MutableStateFlow(PostAudience.DEFAULT)
                 },
         )
 
