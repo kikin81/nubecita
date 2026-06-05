@@ -19,11 +19,12 @@ Epic: **nubecita-33bw**. Layers 1/2/4 are largely independent; 3 depends on 1; 5
 - [ ] Unit-test each UI→record mapping (Everyone→none, Nobody→empty allow, Combination→exact rules, quotes-off→postgate) and that a gate-write failure doesn't fail the post.
 
 ## 4. Saved-default repository (depends on 1) — nubecita-33bw.4
-- [ ] Add a repository over `postInteractionSettingsPref`, mirroring `ModerationPreferencesRepository` (raw-JSON read-modify-write, `writeMutex`, seeded `MutableStateFlow<PostAudience>(DEFAULT)`, `refresh()`, `resetToDefault()`, optimistic+revert `update {}`).
-- [ ] Wire `resetToDefault()` on sign-out (same coordinator path as moderation).
-- [ ] Unit-test read/write preserving foreign entries, optimistic+revert, DEFAULT seed (both fields omitted).
+- [x] Add `PostAudienceDefaultRepository` over `postInteractionSettingsPref`, mirroring `ModerationPreferencesRepository` (raw-JSON read-modify-write, `writeMutex`, seeded `MutableStateFlow<PostAudience>(DEFAULT)`, `refresh()`, `resetToDefault()`, optimistic+revert). Placed in `:core:moderation` (shared `getPreferences` array plumbing + flavor split); production `@Binds` + bench fake.
+- [x] Unit-test parse/merge (preserving foreign entries, lexicon absent/empty semantics, round-trip), the `getPreferences`/`putPreferences` boundary over a Ktor `MockEngine`, optimistic publish + revert-on-failure, DEFAULT seed.
+- [ ] (moved to layer 5) Wire `resetToDefault()` on sign-out + `refresh()` on sign-in via a coordinator — deferred to where the composer consumes the default and the session-lifecycle refresh becomes observable.
 
 ## 5. Chip + composer wiring (depends on 1, 2, 4) — nubecita-33bw.5
+- [ ] Wire `PostAudienceDefaultRepository.refresh()` on sign-in / `resetToDefault()` on sign-out via a coordinator (mirror `ModerationPreferencesCoordinator`), registered in the production `ProductionBootstrapModule` `@IntoSet AppInitializer`.
 - [ ] Add `ComposerAudienceChip` (mirror `ComposerLanguageChip`) in `ComposerOptionsChipRow`, gated on `replyToUri == null`, label "Visible to all"/"Interaction limited".
 - [ ] Add `ComposerState.audience`, `ComposerEvent.AudienceSelectionConfirmed`, the VM reducer arm, pass `audience` into `createPost`, and pre-fill initial state from the saved-default repo (append-only constructor param).
 - [ ] Add `showAudiencePicker` state in `ComposerScreen` and render the picker block; map the best-effort gate result to a snackbar.
