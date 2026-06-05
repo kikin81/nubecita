@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -29,6 +30,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -248,6 +250,14 @@ internal fun VideoPlayerChrome(
 // the seek-bar smoothing only needs to *match* the poll cadence, not depend on it.
 private const val POSITION_TICK_MS = 250
 
+// Fraction-of-track delta above which a position change is treated as a seek /
+// skip / loop wrap (snap the playhead) rather than a playback tick (glide). A
+// 250ms tick advances by 0.25s/duration — far below 8% for any clip longer than
+// ~3s — so normal playback always glides while deliberate jumps snap. The
+// failure mode is graceful: a mis-classified delta just snaps instead of
+// gliding (or vice-versa), never sticks.
+private const val SEEK_SNAP_THRESHOLD = 0.08f
+
 private val SKIP_BUTTON_SIZE = 52.dp
 private val SKIP_ICON_SIZE = 28.dp
 private val PLAY_PAUSE_BUTTON_SIZE = 72.dp
@@ -307,17 +317,28 @@ private fun VideoPlayerSeekBar(
     )
     // Smooth the playhead between the 250ms position-polling ticks
     // (SharedVideoPlayer.POSITION_POLLING_INTERVAL_MS) — without this the handle
-    // steps a quarter-second at a time. A linear tween matched to the poll
-    // interval lands each interpolation exactly as the next tick arrives, so the
-    // motion reads as continuous with no lag or rubber-banding. Bypassed while
-    // scrubbing (draggingFraction wins) so a drag stays 1:1 with the finger.
-    val animatedPositionFraction by animateFloatAsState(
-        targetValue = positionFraction,
-        animationSpec = tween(durationMillis = POSITION_TICK_MS, easing = LinearEasing),
-        label = "seekBarPosition",
-    )
+    // steps a quarter-second at a time. Drive it from an Animatable so we can be
+    // selective: GLIDE small forward deltas (a normal playback tick) with a
+    // linear tween matched to the poll interval, but SNAP large jumps (a scrub
+    // seek, a skip, or a loop wrap). Snapping the large jumps is what keeps a
+    // seek from rubber-banding — gliding toward a not-yet-settled polled position
+    // would slide the handle backward to the pre-seek spot first. The snap path
+    // also covers the paused/ended case (position isn't advancing). The displayed
+    // value is the finger while scrubbing (1:1), else the animated position.
+    val animatedPosition = remember { Animatable(positionFraction) }
+    LaunchedEffect(positionFraction, isPlaying) {
+        val isPlaybackTick = isPlaying && kotlin.math.abs(positionFraction - animatedPosition.value) < SEEK_SNAP_THRESHOLD
+        if (isPlaybackTick) {
+            animatedPosition.animateTo(
+                targetValue = positionFraction,
+                animationSpec = tween(durationMillis = POSITION_TICK_MS, easing = LinearEasing),
+            )
+        } else {
+            animatedPosition.snapTo(positionFraction)
+        }
+    }
     Slider(
-        value = draggingFraction ?: animatedPositionFraction,
+        value = draggingFraction ?: animatedPosition.value,
         onValueChange = { fraction ->
             if (durationMs > 0L) {
                 draggingFraction = fraction.coerceIn(0f, 1f)
