@@ -60,9 +60,10 @@ interface PostAudienceDefaultRepository {
  * Default implementation backed by the AT Protocol preferences array.
  *
  * The SDK mis-models the `preferences` field as a `JsonObject` rather than an
- * array, so — exactly like [DefaultModerationPreferencesRepository] — we decode
- * the raw response object, operate on the `preferences` array ourselves, and
- * write back a hand-built `{"preferences":[…]}` body. The read-modify-write
+ * array (TODO(atproto-kotlin#132): drop this raw-JSON path once codegen emits
+ * `List<union>` for it), so — exactly like [DefaultModerationPreferencesRepository] —
+ * we decode the raw response object, operate on the `preferences` array
+ * ourselves, and write back a hand-built `{"preferences":[…]}` body. The read-modify-write
  * touches the WHOLE array so foreign entries (saved feeds, content-label prefs,
  * …) are preserved; only the single `postInteractionSettingsPref` entry we own
  * is replaced.
