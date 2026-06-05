@@ -442,16 +442,27 @@ internal class PostDetailViewModelTest {
         }
 
     @Test
-    fun `OnFocusImageClicked emits NavigateToMediaViewer with the focus URI and image index`() =
+    fun `OnFocusImageClicked emits NavigateToMediaViewer with the focus post's canonical URI`() =
         runTest(mainDispatcher.dispatcher) {
-            val vm = newVm(FakeRepo(), focusUri = "at://focus")
+            // Deep links open post-detail with a handle-based route URI; the media
+            // viewer's getPost only resolves DID-based URIs, so the tap must carry
+            // the focus post's canonical id, not route.postUri (else "Post not
+            // found"). Assert the two differ and the canonical one is emitted.
+            val canonicalUri = "at://did:plc:abcdefghijklmnopqrstuvwx/app.bsky.feed.post/3lkb"
+            val routeUri = "at://alice.bsky.social/app.bsky.feed.post/3lkb"
+            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost(canonicalUri)))
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, focusUri = routeUri)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
 
             vm.effects.test {
                 vm.handleEvent(PostDetailEvent.OnFocusImageClicked(imageIndex = 2))
                 val effect = awaitItem()
                 assertTrue(effect is PostDetailEffect.NavigateToMediaViewer)
                 val nav = effect as PostDetailEffect.NavigateToMediaViewer
-                assertEquals("at://focus", nav.postUri)
+                assertEquals(canonicalUri, nav.postUri)
                 assertEquals(2, nav.imageIndex)
             }
         }

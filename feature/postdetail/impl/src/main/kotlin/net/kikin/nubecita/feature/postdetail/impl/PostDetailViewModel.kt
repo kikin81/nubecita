@@ -86,9 +86,17 @@ internal class PostDetailViewModel
                     }
                 }
                 is PostDetailEvent.OnFocusImageClicked ->
+                    // Use the focus post's canonical (DID-based) id, not
+                    // route.postUri. When post-detail is opened from a deep link
+                    // the route URI is handle-based (PostDeepLinkKey builds
+                    // at://<handle>/...), and the media viewer's getPost(handle)
+                    // 404s ("Post not found") because the appview's getPosts only
+                    // resolves DID-based at-uris. The image tap only fires from the
+                    // loaded focus post, so focusPost is non-null here; fall back to
+                    // route.postUri defensively if it somehow isn't.
                     sendEffect(
                         PostDetailEffect.NavigateToMediaViewer(
-                            postUri = route.postUri,
+                            postUri = uiState.value.focusPost?.id ?: route.postUri,
                             imageIndex = event.imageIndex,
                         ),
                     )

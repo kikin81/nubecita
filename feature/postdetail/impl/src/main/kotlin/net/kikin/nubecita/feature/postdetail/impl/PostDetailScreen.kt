@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -481,7 +482,9 @@ private fun LoadedThread(
         },
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            // Stable tag (surfaced as a bare resource-id via testTagsAsResourceId)
+            // so the marketing screenshot journey can await the loaded thread.
+            modifier = Modifier.fillMaxSize().testTag(POST_DETAIL_LIST_TEST_TAG),
             contentPadding = mergedContentPadding,
         ) {
             items(items = items, key = { it.key }) { item ->
@@ -766,6 +769,13 @@ private fun PostDetailScreenPreviewHost(state: PostDetailState) {
  * any custom drawing.
  */
 private val FOCUS_CONTAINER_CORNER_RADIUS = 24.dp
+
+/**
+ * Stable `testTag` on the loaded thread's `LazyColumn`. Surfaced as a bare
+ * resource-id via `testTagsAsResourceId` so UiAutomator (the marketing
+ * screenshot journey) can await a fully-loaded post-detail before capturing.
+ */
+internal const val POST_DETAIL_LIST_TEST_TAG: String = "post_detail_list"
 
 /**
  * Bottom contentPadding added to the LazyColumn so the bottom-most reply

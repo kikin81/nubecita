@@ -1,6 +1,8 @@
 package net.kikin.nubecita.screenshots
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -141,6 +143,40 @@ class MarketingScreenshotJourney {
             awaitTag(PROFILE_LIST)
         }
 
+    /**
+     * 09 — Post detail: a deep link straight into the bench gallery post
+     * (`BenchFakePostThreadRepository`). Renders the multi-image focus post +
+     * replies; on tablets this fills the list-detail detail pane instead of the
+     * empty "select post" placeholder. Launches via the VIEW deep-link intent
+     * (the same path adb uses), so no feed-row tap / post-row tag is needed.
+     */
+    @Test
+    fun a09PostDetail() =
+        captureDeepLink("09_post_detail", POST_DEEPLINK_URI) {
+            awaitTag(POST_DETAIL_LIST)
+        }
+
+    /**
+     * Like [capture], but launches [MainActivity] with a VIEW deep-link [uri]
+     * (MainActivity.handleIntent routes it through the registered matchers to a
+     * back-stack destination). Drives post-detail without needing a feed-row tap.
+     */
+    private fun captureDeepLink(
+        name: String,
+        uri: String,
+        navigate: () -> Unit,
+    ) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).setPackage(context.packageName)
+        ActivityScenario.launch<MainActivity>(intent).use {
+            navigate()
+            hideKeyboardIfShown()
+            device.waitForIdle()
+            Thread.sleep(SETTLE_MS)
+            Screengrab.screenshot(name)
+        }
+    }
+
     /** Launch a fresh activity, run [navigate], let images settle, then shoot [name]. */
     private fun capture(
         name: String,
@@ -255,6 +291,12 @@ class MarketingScreenshotJourney {
         const val SEARCH_POSTS_LIST = "search_posts_list"
         const val SEARCH_FEEDS_LIST = "search_feeds_list"
         const val PROFILE_LIST = "profile_list"
+        const val POST_DETAIL_LIST = "post_detail_list"
+
+        // Deep link into the bench gallery post (BenchFakePostThreadRepository /
+        // benchGalleryPost). The rkey is a valid 13-char TID so the post
+        // deep-link matcher (isValidRkey) accepts it.
+        const val POST_DEEPLINK_URI = "https://bsky.app/profile/jess.trails/post/ridgewalk2357"
         const val WAIT_MS = 10_000L
         const val SETTLE_MS = 1_200L
         const val FOCUS_SETTLE_MS = 400L
