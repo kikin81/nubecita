@@ -1,16 +1,13 @@
 package net.kikin.nubecita.core.feeds
 
+import io.github.kikin81.atproto.app.bsky.actor.ActorService
 import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesRequest
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeed
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeedsPrefV2
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetFeedGeneratorsRequest
 import io.github.kikin81.atproto.runtime.AtUri
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import javax.inject.Inject
 
@@ -53,31 +50,9 @@ internal class DefaultFeedsDataSource
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
     ) : FeedsDataSource {
-        // `getPreferences` returns an array of `$type`-tagged preference
-        // objects under `preferences`; we only care about savedFeedsPrefV2
-        // and must tolerate every other (un-modeled) preference kind.
-        private val json = Json { ignoreUnknownKeys = true }
-
         override suspend fun getSavedFeedItems(): List<SavedFeed>? {
-            val client = xrpcClientProvider.authenticated()
-            // The generated `ActorService.getPreferences` / `GetPreferencesResponse`
-            // model the `preferences` FIELD as a `JsonObject`, but the canonical
-            // `app.bsky.actor.getPreferences` body has `preferences` as an ARRAY of
-            // `$type`-tagged objects. Deserializing the real body through the SDK
-            // response type throws `JsonDecodingException` ("Expected start of the
-            // object '{', but had '['" at $.preferences), so the typed call can
-            // never succeed for a real account. We instead decode the response as a
-            // raw top-level `JsonObject` (the body itself IS an object) and read the
-            // `preferences` array ourselves. `JsonObject.serializer()` is built-in,
-            // so no serialization compiler plugin is needed in this module.
-            val response =
-                client.query(
-                    GET_PREFERENCES_NSID,
-                    GetPreferencesRequest(),
-                    GetPreferencesRequest.serializer(),
-                    JsonObject.serializer(),
-                )
-            return extractSavedFeedItems(response, json)
+            val response = ActorService(xrpcClientProvider.authenticated()).getPreferences(GetPreferencesRequest())
+            return extractSavedFeedItems(response.preferences)
         }
 
         override suspend fun getFeedGenerators(uris: List<String>): List<GeneratorMeta> {
@@ -98,32 +73,12 @@ internal class DefaultFeedsDataSource
     }
 
 /**
- * Locates the single `app.bsky.actor.defs#savedFeedsPrefV2` entry inside a raw
- * `getPreferences` response [body] and returns its `items` in stored order, or
- * `null` when no such entry exists.
- *
- * The response shape is `{ "preferences": [ { "$type": …, … }, … ] }` — note
- * `preferences` is an ARRAY (the generated SDK type mis-models it as an object,
- * which is why we decode the raw [JsonObject] body here). Each element is
- * `$type`-tagged; we scan for the savedFeedsPrefV2 discriminator, decode that
- * element with the generated [SavedFeedsPrefV2] serializer, and read its
- * `items`. Pure (no I/O) so the decoding contract is unit-tested in isolation.
+ * Returns the `items` of the single [SavedFeedsPrefV2] entry in a typed
+ * `getPreferences` [preferences] list (stored order), or `null` when the account
+ * has no such entry. Every other preference kind — including unmodeled future
+ * ones surfaced as the union's `Unknown` member — is ignored. Pure (no I/O), so
+ * the selection contract is unit-tested in isolation.
  */
 internal fun extractSavedFeedItems(
-    body: JsonObject,
-    json: Json,
-): List<SavedFeed>? {
-    val entries = body["preferences"] as? JsonArray ?: return null
-    val savedFeedsEntry =
-        entries.firstOrNull { element ->
-            (element as? JsonObject)
-                ?.get("\$type")
-                ?.jsonPrimitive
-                ?.content == SAVED_FEEDS_PREF_V2_TYPE
-        } ?: return null
-    val pref = json.decodeFromJsonElement(SavedFeedsPrefV2.serializer(), savedFeedsEntry.jsonObject)
-    return pref.items
-}
-
-private const val GET_PREFERENCES_NSID = "app.bsky.actor.getPreferences"
-private const val SAVED_FEEDS_PREF_V2_TYPE = "app.bsky.actor.defs#savedFeedsPrefV2"
+    preferences: List<GetPreferencesResponsePreferencesUnion>,
+): List<SavedFeed>? = preferences.filterIsInstance<SavedFeedsPrefV2>().firstOrNull()?.items

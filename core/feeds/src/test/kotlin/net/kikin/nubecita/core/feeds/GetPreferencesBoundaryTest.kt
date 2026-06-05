@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test
  * the typed `getPreferences()` — tracked as a follow-up.
  * [`DefaultFeedsDataSource decodes the real array body and extracts pinned items`]
  * still drives the production data source end-to-end (HTTP body →
- * `XrpcClient.handle` → raw `JsonObject` decode → `extractSavedFeedItems`) and
+ * `ActorService.getPreferences` typed decode → `extractSavedFeedItems`) and
  * asserts the pinned generator + Following are extracted while the unpinned feed
  * is dropped.
  */

@@ -1,22 +1,18 @@
 package net.kikin.nubecita.core.moderation
 
-import io.github.kikin81.atproto.runtime.NoXrpcParams
-import io.github.kikin81.atproto.runtime.UnitResponseSerializer
+import io.github.kikin81.atproto.app.bsky.actor.ActorService
+import io.github.kikin81.atproto.app.bsky.actor.AdultContentPref
+import io.github.kikin81.atproto.app.bsky.actor.ContentLabelPref
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesRequest
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequest
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,17 +56,13 @@ interface ModerationPreferencesRepository {
 }
 
 /**
- * Default implementation backed by the AT Protocol preferences array.
- *
- * Both `getPreferences` and `putPreferences` carry `preferences` as an ARRAY of
- * `$type`-tagged objects, but the generated SDK types mis-model the field as a
- * `JsonObject`, so neither typed path can round-trip a real account (see
- * `:core:feeds`'s identical workaround). We therefore decode the raw response
- * object, operate on the `preferences` array ourselves, and write back a
- * hand-built `{"preferences":[…]}` body. Mutations read-modify-write the WHOLE
- * array so foreign preference entries (saved feeds, labeler-scoped label prefs,
- * interests, …) are preserved untouched — only the global adult-gate and the
- * four global content-label prefs we own are replaced.
+ * Default implementation backed by the typed `app.bsky.actor.getPreferences` /
+ * `putPreferences` array (the `preferences` field became a proper typed
+ * `List<union>` in atproto-kotlin 9.2.0; see issue #132). Mutations
+ * read-modify-write the WHOLE array so foreign preference entries (saved feeds,
+ * labeler-scoped label prefs, interests, unmodeled future kinds carried as the
+ * union's `Unknown(type, raw)` member) are preserved untouched — only the global
+ * adult-gate and the four global content-label prefs we own are replaced.
  */
 @Singleton
 internal class DefaultModerationPreferencesRepository
@@ -78,8 +70,6 @@ internal class DefaultModerationPreferencesRepository
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
     ) : ModerationPreferencesRepository {
-        private val json = Json { ignoreUnknownKeys = true }
-
         // Serializes the read-modify-write in [update] (and [refresh]'s publish)
         // so concurrent setters can't clobber each other with a stale read.
         private val writeMutex = Mutex()
@@ -88,7 +78,7 @@ internal class DefaultModerationPreferencesRepository
         override val prefs: StateFlow<ModerationPrefs> = _prefs.asStateFlow()
 
         override suspend fun refresh() {
-            val parsed = parseModerationPrefs(fetchPreferencesArray())
+            val parsed = parseModerationPrefs(fetchPreferences())
             writeMutex.withLock { _prefs.value = parsed }
         }
 
@@ -131,9 +121,9 @@ internal class DefaultModerationPreferencesRepository
             _prefs.value = optimistic
             try {
                 writeMutex.withLock {
-                    val original = fetchPreferencesArray()
+                    val original = fetchPreferences()
                     val reconciled = transform(parseModerationPrefs(original))
-                    writePreferencesArray(mergeModerationPrefs(original, reconciled))
+                    writePreferences(mergeModerationPrefs(original, reconciled))
                     _prefs.value = reconciled
                 }
             } catch (cancellation: CancellationException) {
@@ -144,106 +134,68 @@ internal class DefaultModerationPreferencesRepository
             }
         }
 
-        private suspend fun fetchPreferencesArray(): JsonArray {
-            val response =
-                xrpcClientProvider.authenticated().query(
-                    GET_PREFERENCES_NSID,
-                    NoXrpcParams,
-                    NoXrpcParams.serializer(),
-                    JsonObject.serializer(),
-                )
-            return response["preferences"] as? JsonArray ?: JsonArray(emptyList())
-        }
+        private suspend fun fetchPreferences(): List<GetPreferencesResponsePreferencesUnion> = ActorService(xrpcClientProvider.authenticated()).getPreferences(GetPreferencesRequest()).preferences
 
-        private suspend fun writePreferencesArray(preferences: JsonArray) {
-            val body = buildJsonObject { put("preferences", preferences) }
-            xrpcClientProvider.authenticated().procedure(
-                PUT_PREFERENCES_NSID,
-                NoXrpcParams,
-                NoXrpcParams.serializer(),
-                body,
-                JsonObject.serializer(),
-                UnitResponseSerializer,
-            )
+        private suspend fun writePreferences(preferences: List<PutPreferencesRequestPreferencesUnion>) {
+            ActorService(xrpcClientProvider.authenticated()).putPreferences(PutPreferencesRequest(preferences))
         }
     }
 
 /**
- * Pure projection of the raw `preferences` array into [ModerationPrefs]. Reads
- * the global `adultContentPref.enabled` (default `false` when absent) and each
- * GLOBAL `contentLabelPref` (no `labelerDid`) whose label is one of our four
+ * Pure projection of the typed `preferences` list into [ModerationPrefs]. Reads
+ * the global [AdultContentPref] `enabled` (default `false` when absent) and each
+ * GLOBAL [ContentLabelPref] (no `labelerDid`) whose label is one of our four
  * managed categories. Labeler-scoped prefs and unknown categories are ignored;
  * categories with no entry fall back to [ModerationPrefs.DEFAULT] via
  * [ModerationPrefs.visibilityFor]. No I/O — unit-tested in isolation.
  */
-internal fun parseModerationPrefs(preferences: JsonArray): ModerationPrefs {
-    var adultEnabled = false
+internal fun parseModerationPrefs(preferences: List<GetPreferencesResponsePreferencesUnion>): ModerationPrefs {
+    // last-wins on the (server-singleton) adult gate — matches the prior loop.
+    val adultEnabled = preferences.filterIsInstance<AdultContentPref>().lastOrNull()?.enabled ?: false
+
     val visibilities = mutableMapOf<ContentLabel, LabelVisibility>()
-
-    for (element in preferences) {
-        val obj = element as? JsonObject ?: continue
-        when (obj["\$type"]?.jsonPrimitive?.content) {
-            ADULT_CONTENT_PREF_TYPE ->
-                adultEnabled = obj["enabled"]?.jsonPrimitive?.booleanOrNull ?: false
-
-            CONTENT_LABEL_PREF_TYPE -> {
-                // Only global prefs (no labelerDid) configure our gate.
-                if (obj["labelerDid"] != null && obj["labelerDid"] !is JsonNull) continue
-                val category = obj["label"]?.jsonPrimitive?.content?.let(ContentLabel::fromValue) ?: continue
-                val visibility = obj["visibility"]?.jsonPrimitive?.content?.let(LabelVisibility::fromWire) ?: continue
-                visibilities[category] = visibility
-            }
+    preferences
+        .filterIsInstance<ContentLabelPref>()
+        .filter { it.labelerDid == null } // only global prefs configure our gate
+        .forEach { pref ->
+            val category = ContentLabel.fromValue(pref.label) ?: return@forEach
+            val visibility = LabelVisibility.fromWire(pref.visibility) ?: return@forEach
+            visibilities[category] = visibility
         }
-    }
+
     return ModerationPrefs(adultContentEnabled = adultEnabled, visibilities = visibilities)
 }
 
 /**
- * Pure merge: produce a new `preferences` array that drops the entries we own
- * (the global `adultContentPref` and the global `contentLabelPref`s for our
- * four managed labels) from [original] while preserving every other entry in
- * place, then appends fresh entries reflecting [prefs]. All four content-label
- * prefs are written explicitly so the stored set is deterministic. No I/O.
+ * Pure merge: produce a new `preferences` list that drops the entries we own
+ * (the global [AdultContentPref] and the global [ContentLabelPref]s for our four
+ * managed labels) from [original] while preserving every other entry in place
+ * (known members pass through; `Unknown` members are remapped verbatim), then
+ * appends fresh entries reflecting [prefs]. All four content-label prefs are
+ * written explicitly so the stored set is deterministic. No I/O.
  */
 internal fun mergeModerationPrefs(
-    original: JsonArray,
+    original: List<GetPreferencesResponsePreferencesUnion>,
     prefs: ModerationPrefs,
-): JsonArray {
+): List<PutPreferencesRequestPreferencesUnion> {
     val managedLabels = ContentLabel.entries.map { it.value }.toSet()
     val preserved =
-        original.filterNot { element ->
-            val obj = element as? JsonObject ?: return@filterNot false
-            when (obj["\$type"]?.jsonPrimitive?.content) {
-                ADULT_CONTENT_PREF_TYPE -> true
-                CONTENT_LABEL_PREF_TYPE -> {
-                    val isGlobal = obj["labelerDid"] == null || obj["labelerDid"] is JsonNull
-                    isGlobal && obj["label"]?.jsonPrimitive?.content in managedLabels
+        original
+            .filterNot { member ->
+                when (member) {
+                    is AdultContentPref -> true
+                    is ContentLabelPref -> member.labelerDid == null && member.label in managedLabels
+                    else -> false
                 }
-                else -> false
+            }.map { it.asPutPreference() }
+
+    val owned =
+        buildList<PutPreferencesRequestPreferencesUnion> {
+            add(AdultContentPref(prefs.adultContentEnabled))
+            ContentLabel.entries.forEach { category ->
+                add(ContentLabelPref(label = category.value, visibility = prefs.visibilityFor(category).wireValue))
             }
         }
 
-    return buildJsonArray {
-        preserved.forEach(::add)
-        add(
-            buildJsonObject {
-                put("\$type", ADULT_CONTENT_PREF_TYPE)
-                put("enabled", prefs.adultContentEnabled)
-            },
-        )
-        ContentLabel.entries.forEach { category ->
-            add(
-                buildJsonObject {
-                    put("\$type", CONTENT_LABEL_PREF_TYPE)
-                    put("label", category.value)
-                    put("visibility", prefs.visibilityFor(category).wireValue)
-                },
-            )
-        }
-    }
+    return preserved + owned
 }
-
-private const val GET_PREFERENCES_NSID = "app.bsky.actor.getPreferences"
-private const val PUT_PREFERENCES_NSID = "app.bsky.actor.putPreferences"
-private const val ADULT_CONTENT_PREF_TYPE = "app.bsky.actor.defs#adultContentPref"
-private const val CONTENT_LABEL_PREF_TYPE = "app.bsky.actor.defs#contentLabelPref"

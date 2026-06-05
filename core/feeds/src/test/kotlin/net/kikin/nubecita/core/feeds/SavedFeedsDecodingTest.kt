@@ -1,24 +1,26 @@
 package net.kikin.nubecita.core.feeds
 
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponse
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeed
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Verifies the pure `preferences` [JsonObject] → ordered `List<SavedFeed>`
- * decoding step in isolation, before any network orchestration. The
+ * Verifies the pure typed `List<preferences union>` → ordered `List<SavedFeed>`
+ * selection step in isolation, before any network orchestration. The
  * `app.bsky.actor.getPreferences` response is an array of `$type`-tagged
- * preference objects; we locate the single `savedFeedsPrefV2` entry and
- * read its `items`, ignoring every other preference kind.
+ * preference objects (decoded here through the SDK serializer); we locate the
+ * single [SavedFeedsPrefV2] entry and read its `items`, ignoring every other
+ * preference kind.
  */
 internal class SavedFeedsDecodingTest {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun decode(raw: String): JsonObject = json.decodeFromString(JsonObject.serializer(), raw)
+    private fun decode(raw: String): List<GetPreferencesResponsePreferencesUnion> = json.decodeFromString(GetPreferencesResponse.serializer(), raw).preferences
 
     @Test
     fun `extracts savedFeedsPrefV2 items in stored order`() {
@@ -42,7 +44,7 @@ internal class SavedFeedsDecodingTest {
                 """.trimIndent(),
             )
 
-        val items = extractSavedFeedItems(prefs, json)!!
+        val items = extractSavedFeedItems(prefs)!!
 
         assertEquals(listOf("1", "2", "3", "4"), items.map(SavedFeed::id))
     }
@@ -60,7 +62,7 @@ internal class SavedFeedsDecodingTest {
                 """.trimIndent(),
             )
 
-        assertNull(extractSavedFeedItems(prefs, json))
+        assertNull(extractSavedFeedItems(prefs))
     }
 
     @Test
@@ -72,6 +74,6 @@ internal class SavedFeedsDecodingTest {
                 """.trimIndent(),
             )
 
-        assertTrue(extractSavedFeedItems(prefs, json)!!.isEmpty())
+        assertTrue(extractSavedFeedItems(prefs)!!.isEmpty())
     }
 }
