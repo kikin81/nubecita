@@ -157,9 +157,15 @@ class MarketingScreenshotJourney {
         }
 
     /**
-     * Like [capture], but launches [MainActivity] with a VIEW deep-link [uri]
-     * (MainActivity.handleIntent routes it through the registered matchers to a
-     * back-stack destination). Drives post-detail without needing a feed-row tap.
+     * Like [capture], but drives a screen via a VIEW deep-link [uri]. Launches
+     * [MainActivity] the normal (class-based) way — `ActivityScenario` can't
+     * monitor a `singleTask` activity launched straight from a VIEW intent (it
+     * hangs at PRE_ON_CREATE) — then, once MainShell has mounted, delivers the
+     * deep link to the running instance via `startActivity`. `singleTask` routes
+     * it to `onNewIntent` → `MainActivity.handleIntent` → the deep-link matchers,
+     * exactly as an external link / `adb am start` would. Waiting for the feed
+     * first ensures the `DeepLinkRouter` emission is collected, not dropped
+     * before MainShell subscribes.
      */
     private fun captureDeepLink(
         name: String,
@@ -167,13 +173,39 @@ class MarketingScreenshotJourney {
         navigate: () -> Unit,
     ) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).setPackage(context.packageName)
-        ActivityScenario.launch<MainActivity>(intent).use {
+        // ActivityScenario boots the app under the bench Hilt graph; once the
+        // feed is up, deliver the deep link as a NEW_TASK VIEW intent so
+        // singleTask routes it to onNewIntent -> MainActivity.handleIntent -> the
+        // matchers (exactly like an external link / adb am start). The NEW_TASK
+        // reuse detaches the instance from ActivityScenario, so its close() can't
+        // reach DESTROYED — swallow that benign teardown failure (the capture is
+        // already done) rather than fail the journey.
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        try {
+            awaitTag(FEED_LIST)
+            // Let MainShell's DeepLinkRouter collector subscribe before delivering
+            // — otherwise a fast emission can land before the collector is ready
+            // and the route is dropped (the post-detail then never appears).
+            device.waitForIdle()
+            Thread.sleep(SETTLE_MS)
+            val intent =
+                Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                    .setClass(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
             navigate()
             hideKeyboardIfShown()
             device.waitForIdle()
             Thread.sleep(SETTLE_MS)
             Screengrab.screenshot(name)
+        } finally {
+            try {
+                scenario.close()
+            } catch (teardownFailure: Throwable) {
+                // The NEW_TASK deep-link reuse detached the instance from
+                // ActivityScenario, so close() throws trying to reach DESTROYED.
+                // The capture already happened — swallow rather than fail the run.
+            }
         }
     }
 
