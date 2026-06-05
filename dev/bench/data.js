@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780562552887,
+  "lastUpdate": 1780648633651,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -415,6 +415,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1061.175,
             "range": "+/- 13.2%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "5dc76e2c6970f5bdaa7afe0616b0acff71efe329",
+          "message": "ci(release): 1.189.0\n\n## [1.189.0](https://github.com/kikin81/nubecita/compare/v1.188.0...v1.189.0) (2026-06-05)\n\n### Features\n\n* **posting:** write threadgate/postgate gates on createPost ([#452](https://github.com/kikin81/nubecita/issues/452)) ([e8ca395](https://github.com/kikin81/nubecita/commit/e8ca395b4c4fef33df30895b055f3ae5cd6da867))",
+          "timestamp": "2026-06-05T06:56:05Z",
+          "url": "https://github.com/kikin81/nubecita/commit/5dc76e2c6970f5bdaa7afe0616b0acff71efe329"
+        },
+        "date": 1780648631819,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 5.7%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1396.822,
+            "range": "+/- 3.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1391.046,
+            "range": "+/- 7.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1426.324,
+            "range": "+/- 12.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1278.124,
+            "range": "+/- 9.7%",
             "unit": "ms"
           }
         ]
