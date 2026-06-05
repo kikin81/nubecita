@@ -51,6 +51,15 @@ interface PostingRepository {
      *   invalid entries — produce a record with no `langs` field at all
      *   (`AtField.Missing`), letting custom feeds fall back to whatever
      *   server-side detection they prefer.
+     * @param audience Who may reply / quote the post — **top-level posts only**.
+     *   For [PostAudience.DEFAULT] (anyone replies, quotes allowed) nothing extra
+     *   is written. Otherwise the matching `app.bsky.feed.threadgate` /
+     *   `app.bsky.feed.postgate` records are created at the new post's rkey
+     *   **best-effort** — a gate-write failure is logged and does NOT fail the post
+     *   (the post is already live). **Ignored on replies** ([replyTo] non-null): a
+     *   threadgate's rkey must match the thread root's, not a reply's. Surfacing a
+     *   "couldn't apply audience" notice to the user is a composer-layer
+     *   (nubecita-33bw.5) concern.
      * @return `Result.success(uri)` on a successful submission carrying
      *   the new record's AT URI; `Result.failure(ComposerError)` on any
      *   typed failure mode.
@@ -60,5 +69,6 @@ interface PostingRepository {
         attachments: List<ComposerAttachment>,
         replyTo: ReplyRefs?,
         langs: List<String>? = null,
+        audience: PostAudience = PostAudience.DEFAULT,
     ): Result<AtUri>
 }
