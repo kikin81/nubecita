@@ -160,6 +160,35 @@ private fun PostDetailScreenSinglePostScreenshot() {
 }
 
 /**
+ * Reply-gated focus — the focus post's threadgate disallows this viewer
+ * (`viewer.canViewerReply == false`), so `showReplyFab` is false and the
+ * Scaffold's `floatingActionButton` slot renders nothing. This baseline
+ * locks the FAB-absent rendering (nubecita-d4zo): same standalone-focus
+ * shape as `single-post`, minus the bottom-anchored reply affordance.
+ */
+@PreviewTest
+@Preview(name = "reply-gated-no-fab-light", showBackground = true)
+@Composable
+private fun PostDetailScreenReplyGatedScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        PostDetailScreenScreenshotHost(
+            state =
+                PostDetailState(
+                    items =
+                        persistentListOf<ThreadItem>(
+                            ThreadItem.Focus(
+                                post =
+                                    fixturePost("gated", text = "Reply-gated post — only people the author follows can reply.")
+                                        .copy(viewer = ViewerStateUi(canViewerReply = false)),
+                            ),
+                        ),
+                    loadStatus = PostDetailLoadStatus.Idle,
+                ),
+        )
+    }
+}
+
+/**
  * Top-level `ThreadItem.Blocked` — the lexicon's `#blockedPost` at
  * focus position renders as an inline-row placeholder (NOT a top-level
  * `PostDetailLoadStatus.BlockedRoot` — that variant doesn't exist;

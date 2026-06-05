@@ -69,17 +69,20 @@ internal class PostDetailViewModel
                     sendEffect(PostDetailEffect.NavigateToPost(event.quotedPostUri))
                 is PostDetailEvent.OnAuthorTapped -> sendEffect(PostDetailEffect.NavigateToAuthor(event.authorDid))
                 PostDetailEvent.OnReplyClicked -> {
-                    // The composer's parent context is the focus post —
-                    // route.postUri is the canonical focus URI passed in
-                    // from the entry point, so we don't need to walk the
-                    // items list to discover it. Drop silently while the
-                    // initial load hasn't produced a Focus row (the FAB
-                    // is composed in the loaded state, but the user could
-                    // tap mid-refresh; emitting an effect with no Focus
-                    // resolved would feel arbitrary).
-                    val focusUri = uiState.value.items.firstOrNull { it is ThreadItem.Focus }
-                    if (focusUri != null) {
-                        sendEffect(PostDetailEffect.NavigateToComposer(parentPostUri = route.postUri))
+                    // The composer's parent context is the focus post. Gate on the
+                    // same `showReplyFab` predicate the FAB uses: drop silently
+                    // while no Focus is resolved (still loading) AND on reply-gated
+                    // threads (the FAB is hidden, but defend the path in case a
+                    // stale tap lands). Use the resolved focus post's *canonical*
+                    // (DID-based) URI rather than `route.postUri` — the latter can
+                    // be handle-based when post-detail was opened from a deep link
+                    // (`PostDeepLinkKey.toPostDetailRoute` builds
+                    // `at://<handle>/app.bsky.feed.post/<rkey>`), and a handle-based
+                    // parent URI would break reply-ref resolution in the composer.
+                    // `focusPost` is non-null whenever `showReplyFab` is true.
+                    val focus = uiState.value.focusPost
+                    if (uiState.value.showReplyFab && focus != null) {
+                        sendEffect(PostDetailEffect.NavigateToComposer(parentPostUri = focus.id))
                     }
                 }
                 is PostDetailEvent.OnFocusImageClicked ->

@@ -360,14 +360,15 @@ internal fun PostDetailScreenContent(
         },
         floatingActionButton = {
             // Design Decision 3 says "always visible, no hide-on-scroll",
-            // which refers to scroll behavior. Gating on `items.isNotEmpty()`
-            // (rather than just `loadStatus`) keeps the FAB hidden through
-            // the default-Idle pre-load frame too — a fresh `PostDetailState()`
-            // is `Idle` with empty items before the first Load resolves, and
-            // showing a "Reply to post" affordance against zero items is the
-            // unloaded-state issue the gate is trying to avoid. Once a Focus
-            // is in items, the FAB stays visible across Idle ↔ Refreshing
-            // (refresh in progress doesn't hide it).
+            // which refers to scroll behavior. `showReplyFab` keeps the FAB
+            // hidden through the default-Idle pre-load frame (a fresh
+            // `PostDetailState()` is `Idle` with empty items, no focus) AND on
+            // reply-gated threads where the focus post's threadgate disallows
+            // this viewer (`canViewerReply == false`) — showing a reply
+            // affordance the user can't act on would just dump them into a
+            // composer that rejects the reply. Once an allowed Focus is in
+            // items, the FAB stays visible across Idle ↔ Refreshing (refresh in
+            // progress doesn't hide it).
             //
             // Standard FloatingActionButton (M3 baseline elevation, circle
             // shape, primaryContainer tint); the catalog's material3
@@ -376,8 +377,7 @@ internal fun PostDetailScreenContent(
             // standard FAB nails the vocabulary without reaching for an
             // Expressive size we'd then have to tune for bottom-padding
             // clearance.
-            val showFab = state.items.isNotEmpty()
-            if (showFab) {
+            if (state.showReplyFab) {
                 FloatingActionButton(onClick = onReply) {
                     NubecitaIcon(
                         name = NubecitaIconName.Reply,

@@ -22,6 +22,7 @@ import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -353,11 +354,19 @@ internal class PostDetailViewModelTest {
         }
 
     @Test
-    fun `OnReplyClicked after a successful Load emits NavigateToComposer with the focus URI`() =
+    fun `OnReplyClicked emits NavigateToComposer with the focus post's canonical URI, not the route URI`() =
         runTest(mainDispatcher.dispatcher) {
-            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            // Deep links open post-detail with a handle-based route URI
+            // (PostDeepLinkKey.toPostDetailRoute), while the appview returns the
+            // canonical DID-based URI as the focus post's id. The reply target
+            // must be the canonical id so the composer's reply-ref resolution
+            // doesn't choke on a handle URI — assert the two differ and we emit
+            // the canonical one.
+            val canonicalUri = "at://did:plc:abcdefghijklmnopqrstuvwx/app.bsky.feed.post/3lkb"
+            val routeUri = "at://alice.bsky.social/app.bsky.feed.post/3lkb"
+            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost(canonicalUri)))
             val repo = FakeRepo(results = listOf(Result.success(items)))
-            val vm = newVm(repo, focusUri = "at://focus")
+            val vm = newVm(repo, focusUri = routeUri)
 
             vm.handleEvent(PostDetailEvent.Load)
             advanceUntilIdle()
@@ -366,7 +375,7 @@ internal class PostDetailViewModelTest {
                 vm.handleEvent(PostDetailEvent.OnReplyClicked)
                 val effect = awaitItem()
                 assertTrue(effect is PostDetailEffect.NavigateToComposer)
-                assertEquals("at://focus", (effect as PostDetailEffect.NavigateToComposer).parentPostUri)
+                assertEquals(canonicalUri, (effect as PostDetailEffect.NavigateToComposer).parentPostUri)
             }
         }
 
@@ -383,6 +392,53 @@ internal class PostDetailViewModelTest {
                 vm.handleEvent(PostDetailEvent.OnReplyClicked)
                 expectNoEvents()
             }
+        }
+
+    @Test
+    fun `OnReplyClicked on a reply-gated focus is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Focus post's threadgate disallows this viewer (canViewerReply
+            // = false). The FAB is hidden, but defend the handler too: a
+            // gated reply must never open the composer.
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(samplePost("at://focus", canViewerReply = false)),
+                )
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, focusUri = "at://focus")
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnReplyClicked)
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `showReplyFab tracks the focus post's canViewerReply`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Allowed focus → FAB shows.
+            val allowed =
+                persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val allowedVm = newVm(FakeRepo(results = listOf(Result.success(allowed))), focusUri = "at://focus")
+            allowedVm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            assertTrue(allowedVm.uiState.value.showReplyFab)
+
+            // Reply-gated focus → FAB hidden.
+            val gated =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(samplePost("at://focus", canViewerReply = false)),
+                )
+            val gatedVm = newVm(FakeRepo(results = listOf(Result.success(gated))), focusUri = "at://focus")
+            gatedVm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            assertFalse(gatedVm.uiState.value.showReplyFab)
+
+            // No focus resolved yet → FAB hidden.
+            assertFalse(newVm(FakeRepo()).uiState.value.showReplyFab)
         }
 
     @Test
@@ -629,6 +685,7 @@ internal class PostDetailViewModelTest {
         text: String = "sample text",
         cid: String = "bafyreifakefakefakefakefakefakefakefakefakefake",
         handle: String = "test.bsky.social",
+        canViewerReply: Boolean = true,
     ): PostUi =
         PostUi(
             id = id,
@@ -645,7 +702,7 @@ internal class PostDetailViewModelTest {
             facets = persistentListOf(),
             embed = EmbedUi.Empty,
             stats = PostStatsUi(),
-            viewer = ViewerStateUi(),
+            viewer = ViewerStateUi(canViewerReply = canViewerReply),
             repostedBy = null,
         )
 
