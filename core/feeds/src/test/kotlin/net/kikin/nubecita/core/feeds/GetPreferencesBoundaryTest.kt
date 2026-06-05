@@ -15,18 +15,20 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 /**
  * Exercises the REAL `app.bsky.actor.getPreferences` deserialization boundary.
  *
  * The canonical response body is `{"preferences":[ … ]}` — `preferences` is an
- * ARRAY of `$type`-tagged objects. The generated SDK `GetPreferencesResponse`
- * mis-models that field as a `JsonObject`, so decoding the real body through
- * the SDK type throws; [`sdk GetPreferencesResponse type cannot decode the real array body`]
- * pins that regression. [`DefaultFeedsDataSource decodes the real array body and extracts pinned items`]
- * then drives the production data source end-to-end (HTTP body →
+ * ARRAY of `$type`-tagged objects. As of atproto-kotlin 9.2.0 (issue #132) the
+ * generated `GetPreferencesResponse.preferences` is correctly typed as a
+ * `List<union>`, so the SDK can now decode the real body;
+ * [`sdk GetPreferencesResponse type decodes the real array body`] pins that.
+ * That means the production raw-`JsonObject` path is now removable in favour of
+ * the typed `getPreferences()` — tracked as a follow-up.
+ * [`DefaultFeedsDataSource decodes the real array body and extracts pinned items`]
+ * still drives the production data source end-to-end (HTTP body →
  * `XrpcClient.handle` → raw `JsonObject` decode → `extractSavedFeedItems`) and
  * asserts the pinned generator + Following are extracted while the unpinned feed
  * is dropped.
@@ -48,13 +50,13 @@ internal class GetPreferencesBoundaryTest {
         """.trimIndent()
 
     @Test
-    fun `sdk GetPreferencesResponse type cannot decode the real array body`() {
-        // The generated type's `preferences` field is `JsonObject`-typed; the
-        // real body is an array, so the SDK's typed decode path throws. This is
-        // exactly the failure the production code now bypasses.
-        assertThrows(Throwable::class.java) {
-            sdkJson.decodeFromString(GetPreferencesResponse.serializer(), realBody)
-        }
+    fun `sdk GetPreferencesResponse type decodes the real array body`() {
+        // atproto-kotlin#132 (fixed in 9.2.0): `preferences` is now a typed
+        // `List<union>`, so the SDK decodes the real array body. The single
+        // savedFeedsPrefV2 entry round-trips, confirming the workaround the
+        // production code still carries is now removable.
+        val decoded = sdkJson.decodeFromString(GetPreferencesResponse.serializer(), realBody)
+        assertEquals(1, decoded.preferences.size)
     }
 
     @Test
