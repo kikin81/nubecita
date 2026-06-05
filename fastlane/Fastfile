@@ -21,6 +21,15 @@ REQUIRED_KEYSTORE_ENV = %w[KEYSTORE_FILE KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWOR
 # the upload mid-request with a hard-to-debug "field too long" error.
 PLAY_CHANGELOG_MAX_CHARS = 500
 
+# Locale buckets that ship framed marketing screenshots. en-US is the source of
+# truth (the journey captures it); the others reuse those captures with a
+# localized title band (see the `localize_marketing_screenshots` lane). The app
+# UI in every bucket is English until the app itself ships localized strings —
+# only the baked-in headline differs per locale.
+MARKETING_SOURCE_LOCALE = "en-US"
+MARKETING_LOCALIZED = %w[es-419 pt-BR].freeze
+MARKETING_LOCALES = ([MARKETING_SOURCE_LOCALE] + MARKETING_LOCALIZED).freeze
+
 # Resolve fastlane/metadata/android robustly. Plain Ruby in a lane body runs
 # with CWD = the fastlane/ dir, while fastlane ACTIONS (gradle, frameit, …)
 # chdir to the project root — so a single relative path can't serve both.
@@ -43,6 +52,9 @@ end
 def nubecita_stage_marketing_screenshots(dest_metadata, locale: "en-US")
   base = File.join(nubecita_metadata_android_dir, locale, "images")
   titles = File.join(base, "phoneScreenshots", "title.strings")
+  # A locale listed in MARKETING_LOCALES but not yet set up (no title.strings)
+  # contributes nothing rather than crashing the upload with Errno::ENOENT.
+  return 0 unless File.exist?(titles)
   expected = File.readlines(titles).map { |line| line[/^\s*"([^"]+)"\s*=/, 1] }.compact
   staged = 0
   Dir.glob(File.join(base, "*Screenshots")).each do |bucket_dir|
@@ -130,7 +142,9 @@ platform :android do
   desc "Run from .github/workflows/screenshots-upload.yaml on image changes — NOT on every release."
   lane :upload_screenshots do
     Dir.mktmpdir("nubecita-fastlane-screenshots") do |metadata_path|
-      staged = nubecita_stage_marketing_screenshots(metadata_path)
+      # Stage every locale bucket (en-US + localized). A locale with no committed
+      # *_framed.jpg yet contributes nothing; only complete buckets are staged.
+      staged = MARKETING_LOCALES.sum { |loc| nubecita_stage_marketing_screenshots(metadata_path, locale: loc) }
       if staged.zero?
         UI.important("No committed *_framed.jpg screenshots found — nothing to upload.")
         next
@@ -249,6 +263,51 @@ platform :android do
     Dir.glob(File.join(nubecita_metadata_android_dir, "*", "images", "*Screenshots", "*_framed.png")).each do |png|
       sh("magick #{png.shellescape} -quality 90 #{png.sub(/\.png\z/, '.jpg').shellescape}")
       File.delete(png)
+    end
+  end
+
+  desc "Generate the LOCALIZED marketing screenshots (es-419, pt-BR …)."
+  desc "Reuses the en-US captures; only the framed title band is localized. Needs"
+  desc "the en-US raw *.png present (run `screenshots` + `screenshots_tablet` first)."
+  lane :localize_marketing_screenshots do
+    base = nubecita_metadata_android_dir
+    src_phone = File.join(base, MARKETING_SOURCE_LOCALE, "images", "phoneScreenshots")
+    src_ten = File.join(base, MARKETING_SOURCE_LOCALE, "images", "tenInchScreenshots")
+    raw = ->(dir) { Dir.glob(File.join(dir, "[0-9]*.png")).reject { |f| f.include?("_framed") } }
+    if raw.call(src_phone).empty? || raw.call(src_ten).empty?
+      UI.user_error!(
+        "No en-US raw captures in #{MARKETING_SOURCE_LOCALE}. Run `fastlane screenshots " \
+          "device:<phone>` and `fastlane screenshots_tablet device:<tablet>` first — the " \
+          "raw *.png are gitignored, so a fresh checkout has only the framed JPGs.",
+      )
+    end
+
+    MARKETING_LOCALIZED.each do |loc|
+      dst_phone = File.join(base, loc, "images", "phoneScreenshots")
+      dst_ten = File.join(base, loc, "images", "tenInchScreenshots")
+      titles = File.join(dst_phone, "title.strings")
+      UI.user_error!("Missing #{titles} — add the localized headlines first.") unless File.exist?(titles)
+      [dst_phone, dst_ten].each { |d| FileUtils.mkdir_p(d) }
+
+      # Reuse the en-US captures — the app UI is English until app i18n lands.
+      # Drop stale raw PNGs AND framed JPGs so a shot removed from the source
+      # doesn't linger as an orphaned _framed.jpg in the localized bucket.
+      Dir.glob(File.join(dst_phone, "*.{png,jpg}")).each { |f| File.delete(f) }
+      Dir.glob(File.join(dst_ten, "*.{png,jpg}")).each { |f| File.delete(f) }
+      raw.call(src_phone).each { |f| FileUtils.cp(f, dst_phone) }
+      raw.call(src_ten).each { |f| FileUtils.cp(f, dst_ten) }
+
+      # Phone: frameit, scoped to THIS locale's bucket so it doesn't scan the
+      # tablet bucket (whose resolution frameit can't frame). Then PNG → JPG.
+      frame_screenshots(path: dst_phone)
+      Dir.glob(File.join(dst_phone, "*_framed.png")).each do |png|
+        sh("magick #{png.shellescape} -quality 90 #{png.sub(/\.png\z/, '.jpg').shellescape}")
+        File.delete(png)
+      end
+
+      # Tablet: backdrop+title composite (reads this locale's title.strings).
+      sh("bash #{File.expand_path('../../frameit_assets/compose_tablet.sh', base).shellescape} #{loc.shellescape}")
+      UI.success("Localized marketing screenshots generated for #{loc}.")
     end
   end
 

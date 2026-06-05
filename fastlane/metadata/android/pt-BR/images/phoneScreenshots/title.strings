@@ -1,0 +1,18 @@
+/* Play Store marketing headlines (pt-BR, Brazilian Portuguese), keyed by
+   screenshot filename (sans .png). Shared by the phone (frameit) and tablet
+   (compose_tablet.sh) framing for this locale.
+
+   The captured app UI is English until the app ships pt-BR string resources —
+   only these title bands are localized (they're baked into the images, so the
+   Play Console can't translate them). Swap in your preferred copy and re-run
+   `fastlane localize_marketing_screenshots` to regenerate. Keep to 3–5 words so
+   the title font stays crisp on small store thumbnails. */
+"01_feed" = "Linhas do tempo lindamente expressivas.";
+"02_discover" = "Descubra um Bluesky mais leve.";
+"03_chat" = "Mantenha a conversa privada.";
+"04_video" = "Reprodução de mídia imersiva.";
+"05_notifications" = "Nunca perca uma reação.";
+"06_search_posts" = "Busca aprofundada.";
+"07_search_feeds" = "Encontre sua gente e suas paixões.";
+"08_profile" = "Deixe seu perfil brilhar.";
+"09_post_detail" = "Acompanhe a conversa inteira.";
