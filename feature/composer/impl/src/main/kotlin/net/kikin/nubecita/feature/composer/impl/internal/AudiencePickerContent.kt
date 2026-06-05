@@ -198,12 +198,17 @@ private fun SectionLabel(text: String) {
 /**
  * One grouped-list row: a [SegmentedListItem] on the `surfaceContainer` tone with
  * position-aware corners ([ListItemDefaults.segmentedShapes]), a leading [icon], a
- * [label], and a trailing [control] (radio / checkbox / switch). Both the row tap
- * and the control share [onToggle]; the control stays **interactive** (its own
- * callback, not `null`) so TalkBack announces the correct radio / checkbox / switch
- * role + checked state — the same a11y the previous `selectable`/`toggleable` rows
- * gave. [enabled]`= false` dims the icon + label and inerts the control for the
- * deferred "lists" row.
+ * [label], and a trailing [control] (radio / checkbox / switch).
+ *
+ * The row dispatches to the **selectable** ([RowControl.RADIO]) or **toggleable**
+ * ([RowControl.CHECKBOX] / [RowControl.SWITCH]) `SegmentedListItem` overload, which
+ * bakes `Role.RadioButton` / `Role.Checkbox` + the selected / toggle state onto the
+ * single merged row node. The trailing control is therefore purely visual
+ * (`onClick` / `onCheckedChange` = `null`, so it contributes no competing
+ * semantics): the whole row is one focusable target and TalkBack announces it once
+ * ("People you follow, checkbox, not checked") instead of focusing the row and the
+ * control separately. [onToggle] drives the row's selection. [enabled]` = false`
+ * dims the icon + label and disables the row for the deferred "lists" entry.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -223,47 +228,54 @@ private fun AudienceSegmentRow(
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
         }
-    SegmentedListItem(
-        onClick = onToggle,
-        enabled = enabled,
-        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
-        colors = ListItemDefaults.segmentedColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        leadingContent = {
-            NubecitaIcon(name = icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = iconTint)
-        },
-        trailingContent = {
-            when (control) {
-                RowControl.RADIO ->
-                    RadioButton(selected = selected, onClick = if (enabled) onToggle else null, enabled = enabled)
-                RowControl.CHECKBOX ->
-                    Checkbox(
-                        checked = selected,
-                        onCheckedChange =
-                            if (enabled) {
-                                { onToggle() }
-                            } else {
-                                null
-                            },
-                        enabled = enabled,
-                    )
-                RowControl.SWITCH ->
-                    Switch(
-                        checked = selected,
-                        onCheckedChange =
-                            if (enabled) {
-                                { onToggle() }
-                            } else {
-                                null
-                            },
-                        enabled = enabled,
-                    )
-            }
-        },
-    ) {
+    val shapes = ListItemDefaults.segmentedShapes(index = index, count = count)
+    val colors = ListItemDefaults.segmentedColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    val leadingContent: @Composable () -> Unit = {
+        NubecitaIcon(name = icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = iconTint)
+    }
+    val labelContent: @Composable () -> Unit = {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
             color = if (enabled) Color.Unspecified else LocalContentColor.current.copy(alpha = 0.38f),
         )
+    }
+    when (control) {
+        // Single-selection overload: applySemantics sets selected + Role.RadioButton.
+        RowControl.RADIO ->
+            SegmentedListItem(
+                selected = selected,
+                onClick = onToggle,
+                enabled = enabled,
+                shapes = shapes,
+                colors = colors,
+                leadingContent = leadingContent,
+                trailingContent = { RadioButton(selected = selected, onClick = null, enabled = enabled) },
+                content = labelContent,
+            )
+        // Multi-selection (toggleable) overload: applySemantics sets the toggle
+        // state + Role.Checkbox. M3 sanctions a Switch as trailing content here too.
+        RowControl.CHECKBOX ->
+            SegmentedListItem(
+                checked = selected,
+                onCheckedChange = { onToggle() },
+                enabled = enabled,
+                shapes = shapes,
+                colors = colors,
+                leadingContent = leadingContent,
+                trailingContent = { Checkbox(checked = selected, onCheckedChange = null, enabled = enabled) },
+                content = labelContent,
+            )
+        RowControl.SWITCH ->
+            SegmentedListItem(
+                checked = selected,
+                onCheckedChange = { onToggle() },
+                enabled = enabled,
+                shapes = shapes,
+                colors = colors,
+                leadingContent = leadingContent,
+                trailingContent = { Switch(checked = selected, onCheckedChange = null, enabled = enabled) },
+                content = labelContent,
+            )
     }
 }
