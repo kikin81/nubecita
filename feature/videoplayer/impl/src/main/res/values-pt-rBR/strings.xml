@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="video_player_play_content_description">Reproduzir</string>
+    <string name="video_player_pause_content_description">Pausar</string>
+    <string name="video_player_skip_back_content_description">Voltar 10 segundos</string>
+    <string name="video_player_skip_forward_content_description">Avançar 10 segundos</string>
+    <string name="video_player_mute_content_description">Silenciar</string>
+    <string name="video_player_unmute_content_description">Ativar som</string>
+    <string name="video_player_back_content_description">Fechar player</string>
+    <string name="video_player_seek_content_description">Ajustar posição do vídeo</string>
+    <string name="video_player_pip_content_description">Reproduzir em uma janela flutuante</string>
+    <string name="video_player_loading_content_description">Carregando vídeo</string>
+    <string name="video_player_error_network_title">Sem conexão</string>
+    <string name="video_player_error_network_body">Verifique sua conexão e tente de novo.</string>
+    <string name="video_player_error_decode_title">Não dá para reproduzir este vídeo</string>
+    <string name="video_player_error_decode_body">O formato do vídeo não é compatível com este dispositivo.</string>
+    <string name="video_player_error_unknown_title">Algo deu errado</string>
+    <string name="video_player_error_unknown_body">Não foi possível carregar este vídeo. Tente de novo.</string>
+    <string name="video_player_error_retry">Tentar de novo</string>
+</resources>

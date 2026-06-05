@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nubecita</string>
+    <string name="main_shell_tab_feed">Feed</string>
+    <string name="main_shell_tab_search">Buscar</string>
+    <string name="main_shell_tab_notifications">Notificaciones</string>
+    <string name="main_shell_tab_chats">Chats</string>
+    <string name="main_shell_tab_you">Tú</string>
+    <string name="pip_action_play">Reproducir</string>
+    <string name="pip_action_pause">Pausar</string>
+
+    <plurals name="notifications_unread">
+        <item quantity="one">%1$d notificación sin leer</item>
+        <item quantity="other">%1$d notificaciones sin leer</item>
+    </plurals>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mediaviewer_close_content_description">Fechar visualizador de imagens</string>
+    <string name="mediaviewer_alt_badge_label">ALT</string>
+    <string name="mediaviewer_alt_badge_content_description">Ver texto alternativo desta imagem</string>
+    <string name="mediaviewer_page_indicator">%1$d / %2$d</string>
+
+    <string name="mediaviewer_error_network">Erro de rede. Verifique sua conexão e tente de novo.</string>
+    <string name="mediaviewer_error_unauthenticated">É necessário entrar para ver esta imagem.</string>
+    <string name="mediaviewer_error_not_found">Este post não está mais disponível.</string>
+    <string name="mediaviewer_error_no_images">Este post não tem imagens.</string>
+    <string name="mediaviewer_error_unknown">Não foi possível carregar a imagem. Tente de novo.</string>
+    <string name="mediaviewer_retry">Tentar de novo</string>
+</resources>

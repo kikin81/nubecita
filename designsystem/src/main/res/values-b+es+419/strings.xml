@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logomark_content_description">Nubecita</string>
+    <string name="supporter_badge_label">Apoyador</string>
+    <string name="postcard_reposted_by">%1$s republicó</string>
+    <string name="postcard_handle">\@%1$s</string>
+    <string name="postcard_relative_time">%1$s</string>
+    <string name="postcard_unsupported_embed_format">Contenido incrustado no compatible: %1$s</string>
+    <string name="postcard_embed_label_external">tarjeta de enlace</string>
+    <string name="postcard_embed_label_record">publicación citada</string>
+    <string name="postcard_embed_label_video">video</string>
+    <string name="postcard_embed_label_record_with_media">publicación citada con contenido multimedia</string>
+    <string name="postcard_embed_label_unknown">contenido incrustado</string>
+    <string name="postcard_quoted_post_unavailable">Publicación citada no disponible</string>
+    <string name="postcard_quoted_post_view_thread">Ver hilo</string>
+    <string name="postcard_action_reply">Responder</string>
+    <string name="postcard_action_reply_disabled">Las respuestas están limitadas</string>
+    <string name="postcard_action_repost">Republicar</string>
+    <string name="postcard_action_like">Me gusta</string>
+    <string name="postcard_action_share">Compartir publicación</string>
+    <string name="postcard_action_copy_link">Copiar enlace a la publicación</string>
+    <string name="postcard_action_more">Más opciones</string>
+    <string name="moderation_action_report_post">Denunciar publicación</string>
+    <string name="moderation_action_mute_author">Silenciar a \@%1$s</string>
+    <string name="moderation_action_unmute_author">Dejar de silenciar a \@%1$s</string>
+    <string name="moderation_action_block_author">Bloquear a \@%1$s</string>
+    <string name="moderation_action_unblock_author">Desbloquear a \@%1$s</string>
+    <string name="moderation_action_mute_thread">Silenciar hilo</string>
+    <string name="moderation_action_unmute_thread">Dejar de silenciar hilo</string>
+    <string name="moderation_action_copy_post_text">Copiar texto de la publicación</string>
+    <string name="tombstone_blocked_post">Publicación de un usuario bloqueado</string>
+    <string name="tombstone_unblock">Desbloquear</string>
+    <string name="tombstone_not_found_post">Publicación no disponible</string>
+    <string name="thread_fold_view_full_thread">Ver hilo completo</string>
+    <plurals name="thread_fold_more_count">
+        <item quantity="one">· %1$d más</item>
+        <item quantity="other">· %1$d más</item>
+    </plurals>
+    <string name="video_poster_default_content_description">Reproducir video</string>
+    <string name="nubecita_detail_pane_select_post">Selecciona una publicación para leer</string>
+    <string name="nubecita_detail_pane_select_conversation">Selecciona una conversación</string>
+    <string name="media_warning_sensitive">Contenido sensible</string>
+    <string name="media_warning_show">Mostrar de todos modos</string>
+    <string name="media_warning_cat_adult">Contenido para adultos</string>
+    <string name="media_warning_cat_suggestive">Sexualmente sugerente</string>
+    <string name="media_warning_cat_graphic">Contenido gráfico</string>
+    <string name="media_warning_cat_nudity">Desnudez no sexual</string>
+</resources>

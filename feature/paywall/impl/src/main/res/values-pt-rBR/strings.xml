@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="paywall_title">Nubecita Pro</string>
+    <string name="paywall_close_content_description">Fechar</string>
+
+    <string name="paywall_headline">Apoie a Nubecita</string>
+    <string name="paywall_subhead">A Nubecita é um cliente de Bluesky nativo e independente, criado por uma única pessoa. Tornar-se Apoiador financia o trabalho contínuo — e libera alguns benefícios como agradecimento.</string>
+
+    <string name="paywall_perks_title">O que você ganha</string>
+    <string name="paywall_perk_pip_title">Vídeo em picture-in-picture</string>
+    <string name="paywall_perk_pip_body">Destaque um vídeo em uma janela flutuante e continue assistindo enquanto navega.</string>
+    <string name="paywall_perk_badge_title">Selo de Apoiador</string>
+    <string name="paywall_perk_badge_body">Um pequeno selo no seu próprio perfil — um agradecimento discreto, só para você.</string>
+
+    <string name="paywall_plan_monthly">Mensal</string>
+    <string name="paywall_plan_annual">Anual</string>
+    <string name="paywall_plan_per_month_caption">por mês</string>
+    <string name="paywall_plan_per_year_caption">por ano</string>
+    <string name="paywall_plan_savings_badge">Economize %1$d%%</string>
+    <string name="paywall_plan_annual_monthly_equivalent">≈ %1$s/mês</string>
+    <string name="paywall_plan_content_description">%1$s, %2$s</string>
+
+    <string name="paywall_cta">Torne-se Apoiador</string>
+
+    <string name="paywall_restore">Restaurar compras</string>
+    <string name="paywall_terms">Termos de Serviço</string>
+    <string name="paywall_privacy">Política de Privacidade</string>
+    <string name="paywall_disclosure">O pagamento é cobrado na sua conta do Google Play. Sua assinatura é renovada automaticamente pelo mesmo preço, a menos que você cancele pelo menos 24 horas antes do fim do período. Gerencie ou cancele quando quiser no Google Play.</string>
+
+    <string name="paywall_error_title">Não foi possível carregar os planos</string>
+    <string name="paywall_error_body">Verifique sua conexão e tente de novo.</string>
+    <string name="paywall_retry">Tentar de novo</string>
+    <string name="paywall_loading_content_description">Carregando planos</string>
+
+    <string name="paywall_purchase_error">A compra não foi concluída. Tente de novo.</string>
+    <string name="paywall_restore_error">Não foi possível restaurar as compras. Verifique sua conexão e tente de novo.</string>
+    <string name="paywall_nothing_to_restore">Nenhuma compra para restaurar nesta conta.</string>
+
+    <string name="paywall_success_headline">Você é um Apoiador</string>
+    <string name="paywall_success_subline">Obrigado por manter a Nubecita voando ☁️</string>
+    <string name="paywall_success_continue">Continuar</string>
+</resources>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="postdetail_title">Publicación</string>
+    <string name="postdetail_back_content_description">Atrás</string>
+
+    <string name="postdetail_error_network_title">Sin conexión</string>
+    <string name="postdetail_error_unauthenticated_title">Sesión expirada</string>
+    <string name="postdetail_error_notfound_title">Publicación no encontrada</string>
+    <string name="postdetail_error_unknown_title">Algo salió mal</string>
+    <string name="postdetail_error_action">Reintentar</string>
+
+    <string name="postdetail_snackbar_error_network">Error de red. Desliza para reintentar.</string>
+    <string name="postdetail_snackbar_error_unauthenticated">Tu sesión expiró. Inicia sesión de nuevo.</string>
+    <string name="postdetail_snackbar_error_notfound">Esta publicación ya no está disponible.</string>
+    <string name="postdetail_snackbar_error_unknown">No se pudo actualizar. Reintentar.</string>
+
+    <string name="postdetail_reply_fab_content_description">Responder a la publicación</string>
+
+    <string name="postdetail_clipboard_label_post_link">Enlace de la publicación</string>
+    <string name="postdetail_snackbar_link_copied">Enlace copiado</string>
+
+    <string name="postdetail_snackbar_overflow_report_coming_soon">Denunciar — próximamente</string>
+    <string name="postdetail_snackbar_overflow_mute_coming_soon">Silenciar — próximamente</string>
+    <string name="postdetail_snackbar_overflow_unmute_coming_soon">Dejar de silenciar — próximamente</string>
+    <string name="postdetail_snackbar_overflow_block_coming_soon">Bloquear — próximamente</string>
+    <string name="postdetail_snackbar_overflow_unblock_coming_soon">Desbloquear — próximamente</string>
+    <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Silenciar hilo — próximamente</string>
+    <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Dejar de silenciar hilo — próximamente</string>
+    <string name="postdetail_snackbar_overflow_copy_text_coming_soon">Copiar texto de la publicación — próximamente</string>
+</resources>

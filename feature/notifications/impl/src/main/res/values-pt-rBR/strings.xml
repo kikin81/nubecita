@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notifications_filter_all">Todas</string>
+    <string name="notifications_filter_mentions">Menções</string>
+    <string name="notifications_filter_reposts">Reposts</string>
+    <string name="notifications_filter_follows">Seguidores</string>
+    <string name="notifications_filter_likes">Curtidas</string>
+
+    <string name="notifications_empty_title">Ainda não há notificações</string>
+    <string name="notifications_empty_body">Quando alguém curtir, responder ou seguir você, aparecerá aqui.</string>
+    <string name="notifications_empty_icon_description">Sem notificações</string>
+
+    <string name="notifications_error_network_title">Sem conexão</string>
+    <string name="notifications_error_network_body">Verifique sua rede e tente de novo.</string>
+    <string name="notifications_error_network_icon_description">Sem conexão de rede</string>
+
+    <string name="notifications_error_unauthenticated_title">Sessão expirada</string>
+    <string name="notifications_error_unauthenticated_body">Entre novamente para continuar usando o nubecita.</string>
+    <string name="notifications_error_unauthenticated_icon_description">Autenticação necessária</string>
+
+    <string name="notifications_error_unknown_title">Algo deu errado</string>
+    <string name="notifications_error_unknown_body">Ocorreu um erro inesperado ao carregar suas notificações.</string>
+    <string name="notifications_error_unknown_icon_description">Erro desconhecido</string>
+
+    <string name="notifications_error_action">Tentar de novo</string>
+
+    <string name="notifications_snackbar_error_network">Erro de rede. Puxe para tentar de novo.</string>
+    <string name="notifications_snackbar_error_unauthenticated">Sessão expirada. Entre novamente.</string>
+    <string name="notifications_snackbar_error_unknown">Não foi possível atualizar. Tente de novo.</string>
+
+    <string name="notifications_row_expand_actors">Mostrar todos os participantes</string>
+
+    <plurals name="notifications_avatar_stack_description">
+        <item quantity="one">%1$d participante</item>
+        <item quantity="other">%1$d participantes</item>
+    </plurals>
+
+    <string name="notifications_avatar_overflow">+%1$d</string>
+
+    <plurals name="notifications_headline_like">
+        <item quantity="one">%1$s e mais %2$d pessoa curtiram seu post</item>
+        <item quantity="other">%1$s e mais %2$d pessoas curtiram seu post</item>
+    </plurals>
+    <string name="notifications_headline_like_single">%1$s curtiu seu post</string>
+
+    <plurals name="notifications_headline_repost">
+        <item quantity="one">%1$s e mais %2$d pessoa repostaram seu post</item>
+        <item quantity="other">%1$s e mais %2$d pessoas repostaram seu post</item>
+    </plurals>
+    <string name="notifications_headline_repost_single">%1$s repostou seu post</string>
+
+    <plurals name="notifications_headline_follow">
+        <item quantity="one">%1$s e mais %2$d pessoa seguiram você</item>
+        <item quantity="other">%1$s e mais %2$d pessoas seguiram você</item>
+    </plurals>
+    <string name="notifications_headline_follow_single">%1$s seguiu você</string>
+
+    <string name="notifications_headline_reply">%1$s respondeu ao seu post</string>
+    <string name="notifications_headline_quote">%1$s citou seu post</string>
+    <string name="notifications_headline_mention">%1$s mencionou você</string>
+    <string name="notifications_headline_starterpack_joined">%1$s entrou pelo seu pacote inicial</string>
+    <string name="notifications_headline_subscribed_post">%1$s postou</string>
+    <string name="notifications_headline_contact_match">%1$s está nos seus contatos</string>
+    <string name="notifications_headline_verified">Você está verificado</string>
+    <string name="notifications_headline_unverified">Você não está mais verificado</string>
+    <string name="notifications_headline_unknown">%1$s interagiu com você</string>
+
+    <string name="notifications_headline_with_time">%1$s · %2$s</string>
+
+    <string name="notifications_placeholder_title">Notificações</string>
+</resources>

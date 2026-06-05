@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_skip">Pular</string>
+    <string name="onboarding_back_content_description">Voltar</string>
+    <string name="onboarding_next_content_description">Avançar</string>
+    <string name="onboarding_get_started">Começar</string>
+
+    <string name="onboarding_page_welcome_eyebrow">Boas-vindas</string>
+    <string name="onboarding_page_welcome_title">Boas-vindas ao\nNubecita</string>
+    <string name="onboarding_page_welcome_body">Um jeito mais tranquilo de ler o seu céu.\nFeito para o Bluesky, criado para o Android.</string>
+
+    <string name="onboarding_page_android_eyebrow">Mais uma coisa</string>
+    <string name="onboarding_page_android_title">Feito para o\nAndroid.</string>
+    <string name="onboarding_page_android_body">Adaptável em celular, tablet e dobrável.\nMaterial 3 Expressive. Rápido e fluido.</string>
+</resources>

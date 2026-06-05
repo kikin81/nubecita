@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logomark_content_description">Nubecita</string>
+    <string name="supporter_badge_label">Apoiador</string>
+    <string name="postcard_reposted_by">%1$s repostou</string>
+    <string name="postcard_handle">\@%1$s</string>
+    <string name="postcard_relative_time">%1$s</string>
+    <string name="postcard_unsupported_embed_format">Conteúdo incorporado não suportado: %1$s</string>
+    <string name="postcard_embed_label_external">cartão de link</string>
+    <string name="postcard_embed_label_record">post citado</string>
+    <string name="postcard_embed_label_video">vídeo</string>
+    <string name="postcard_embed_label_record_with_media">post citado com mídia</string>
+    <string name="postcard_embed_label_unknown">conteúdo incorporado</string>
+    <string name="postcard_quoted_post_unavailable">Post citado indisponível</string>
+    <string name="postcard_quoted_post_view_thread">Ver thread</string>
+    <string name="postcard_action_reply">Responder</string>
+    <string name="postcard_action_reply_disabled">As respostas estão limitadas</string>
+    <string name="postcard_action_repost">Repostar</string>
+    <string name="postcard_action_like">Curtir</string>
+    <string name="postcard_action_share">Compartilhar post</string>
+    <string name="postcard_action_copy_link">Copiar link do post</string>
+    <string name="postcard_action_more">Mais opções</string>
+    <string name="moderation_action_report_post">Denunciar post</string>
+    <string name="moderation_action_mute_author">Silenciar \@%1$s</string>
+    <string name="moderation_action_unmute_author">Reativar som de \@%1$s</string>
+    <string name="moderation_action_block_author">Bloquear \@%1$s</string>
+    <string name="moderation_action_unblock_author">Desbloquear \@%1$s</string>
+    <string name="moderation_action_mute_thread">Silenciar thread</string>
+    <string name="moderation_action_unmute_thread">Reativar som do thread</string>
+    <string name="moderation_action_copy_post_text">Copiar texto do post</string>
+    <string name="tombstone_blocked_post">Post de um usuário bloqueado</string>
+    <string name="tombstone_unblock">Desbloquear</string>
+    <string name="tombstone_not_found_post">Post indisponível</string>
+    <string name="thread_fold_view_full_thread">Ver thread completo</string>
+    <plurals name="thread_fold_more_count">
+        <item quantity="one">· mais %1$d</item>
+        <item quantity="other">· mais %1$d</item>
+    </plurals>
+    <string name="video_poster_default_content_description">Reproduzir vídeo</string>
+    <string name="nubecita_detail_pane_select_post">Selecione um post para ler</string>
+    <string name="nubecita_detail_pane_select_conversation">Selecione uma conversa</string>
+    <string name="media_warning_sensitive">Conteúdo sensível</string>
+    <string name="media_warning_show">Mostrar mesmo assim</string>
+    <string name="media_warning_cat_adult">Conteúdo adulto</string>
+    <string name="media_warning_cat_suggestive">Sexualmente sugestivo</string>
+    <string name="media_warning_cat_graphic">Mídia gráfica</string>
+    <string name="media_warning_cat_nudity">Nudez não sexual</string>
+</resources>

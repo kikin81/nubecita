@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="push_channel_like_name">Curtidas</string>
+    <string name="push_channel_like_description">Quando alguém curte um dos seus posts.</string>
+    <string name="push_channel_like_via_repost_name">Curtidas via repost</string>
+    <string name="push_channel_like_via_repost_description">Quando alguém curte um post que você repostou.</string>
+    <string name="push_channel_repost_name">Reposts</string>
+    <string name="push_channel_repost_description">Quando alguém reposta um dos seus posts.</string>
+    <string name="push_channel_repost_via_repost_name">Reposts via repost</string>
+    <string name="push_channel_repost_via_repost_description">Quando alguém reposta um post que você repostou.</string>
+    <string name="push_channel_reply_name">Respostas</string>
+    <string name="push_channel_reply_description">Quando alguém responde a um dos seus posts.</string>
+    <string name="push_channel_mention_name">Menções</string>
+    <string name="push_channel_mention_description">Quando alguém menciona você com @ em um post.</string>
+    <string name="push_channel_quote_name">Posts citados</string>
+    <string name="push_channel_quote_description">Quando alguém cita um dos seus posts.</string>
+    <string name="push_channel_follow_name">Novos seguidores</string>
+    <string name="push_channel_follow_description">Quando alguém começa a seguir você.</string>
+    <string name="push_channel_verified_name">Verificações</string>
+    <string name="push_channel_verified_description">Quando um verificador confiável confirma sua conta.</string>
+    <string name="push_channel_unverified_name">Verificação removida</string>
+    <string name="push_channel_unverified_description">Quando um verificador confiável revoga sua verificação.</string>
+    <string name="push_reason_like">%1$s curtiu seu post</string>
+    <string name="push_reason_like_via_repost">%1$s curtiu um post que você repostou</string>
+    <string name="push_reason_repost">%1$s repostou seu post</string>
+    <string name="push_reason_repost_via_repost">%1$s repostou um post que você repostou</string>
+    <string name="push_reason_reply">%1$s respondeu ao seu post</string>
+    <string name="push_reason_mention">%1$s mencionou você</string>
+    <string name="push_reason_quote">%1$s citou seu post</string>
+    <string name="push_reason_follow">%1$s começou a seguir você</string>
+    <string name="push_reason_verified">%1$s verificou sua conta</string>
+    <string name="push_reason_unverified">%1$s removeu sua verificação</string>
+    <plurals name="push_summary_like">
+        <item quantity="one">%1$d nova curtida</item>
+        <item quantity="other">%1$d novas curtidas</item>
+    </plurals>
+    <plurals name="push_summary_like_via_repost">
+        <item quantity="one">%1$d nova curtida via repost</item>
+        <item quantity="other">%1$d novas curtidas via repost</item>
+    </plurals>
+    <plurals name="push_summary_repost">
+        <item quantity="one">%1$d novo repost</item>
+        <item quantity="other">%1$d novos reposts</item>
+    </plurals>
+    <plurals name="push_summary_repost_via_repost">
+        <item quantity="one">%1$d novo repost via repost</item>
+        <item quantity="other">%1$d novos reposts via repost</item>
+    </plurals>
+    <plurals name="push_summary_reply">
+        <item quantity="one">%1$d nova resposta</item>
+        <item quantity="other">%1$d novas respostas</item>
+    </plurals>
+    <plurals name="push_summary_mention">
+        <item quantity="one">%1$d nova menção</item>
+        <item quantity="other">%1$d novas menções</item>
+    </plurals>
+    <plurals name="push_summary_quote">
+        <item quantity="one">%1$d nova citação</item>
+        <item quantity="other">%1$d novas citações</item>
+    </plurals>
+    <plurals name="push_summary_follow">
+        <item quantity="one">%1$d novo seguidor</item>
+        <item quantity="other">%1$d novos seguidores</item>
+    </plurals>
+    <plurals name="push_summary_verified">
+        <item quantity="one">%1$d nova verificação</item>
+        <item quantity="other">%1$d novas verificações</item>
+    </plurals>
+    <plurals name="push_summary_unverified">
+        <item quantity="one">%1$d verificação removida</item>
+        <item quantity="other">%1$d verificações removidas</item>
+    </plurals>
+    <string name="push_title_default">Nova atividade no Nubecita</string>
+</resources>
