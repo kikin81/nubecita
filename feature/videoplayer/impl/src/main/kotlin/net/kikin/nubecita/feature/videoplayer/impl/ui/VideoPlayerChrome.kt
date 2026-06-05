@@ -212,6 +212,7 @@ internal fun VideoPlayerChrome(
             VideoPlayerSeekBar(
                 positionMs = state.positionMs,
                 durationMs = state.durationMs,
+                isPlaying = state.isPlaying,
                 onSeek = { onEvent(VideoPlayerEvent.SeekTo(it)) },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -277,6 +278,7 @@ private fun translucentSkipColors() =
 private fun VideoPlayerSeekBar(
     positionMs: Long,
     durationMs: Long,
+    isPlaying: Boolean,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -291,9 +293,9 @@ private fun VideoPlayerSeekBar(
         } else {
             0f
         }
-    // Flatten the wave (amplitude → 0) while the user scrubs, then ease it back.
+    // Flatten the wave (amplitude → 0) while the user scrubs or if the video is paused/ended, then ease it back.
     val waveAmplitude by animateFloatAsState(
-        targetValue = if (draggingFraction != null) 0f else 1f,
+        targetValue = if (draggingFraction != null || !isPlaying) 0f else 1f,
         label = "seekBarAmplitude",
     )
     Slider(
