@@ -22,6 +22,7 @@ import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -386,6 +387,53 @@ internal class PostDetailViewModelTest {
         }
 
     @Test
+    fun `OnReplyClicked on a reply-gated focus is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Focus post's threadgate disallows this viewer (canViewerReply
+            // = false). The FAB is hidden, but defend the handler too: a
+            // gated reply must never open the composer.
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(samplePost("at://focus", canViewerReply = false)),
+                )
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, focusUri = "at://focus")
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnReplyClicked)
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `showReplyFab tracks the focus post's canViewerReply`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Allowed focus → FAB shows.
+            val allowed =
+                persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val allowedVm = newVm(FakeRepo(results = listOf(Result.success(allowed))), focusUri = "at://focus")
+            allowedVm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            assertTrue(allowedVm.uiState.value.showReplyFab)
+
+            // Reply-gated focus → FAB hidden.
+            val gated =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(samplePost("at://focus", canViewerReply = false)),
+                )
+            val gatedVm = newVm(FakeRepo(results = listOf(Result.success(gated))), focusUri = "at://focus")
+            gatedVm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            assertFalse(gatedVm.uiState.value.showReplyFab)
+
+            // No focus resolved yet → FAB hidden.
+            assertFalse(newVm(FakeRepo()).uiState.value.showReplyFab)
+        }
+
+    @Test
     fun `OnFocusImageClicked emits NavigateToMediaViewer with the focus URI and image index`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = newVm(FakeRepo(), focusUri = "at://focus")
@@ -629,6 +677,7 @@ internal class PostDetailViewModelTest {
         text: String = "sample text",
         cid: String = "bafyreifakefakefakefakefakefakefakefakefakefake",
         handle: String = "test.bsky.social",
+        canViewerReply: Boolean = true,
     ): PostUi =
         PostUi(
             id = id,
@@ -645,7 +694,7 @@ internal class PostDetailViewModelTest {
             facets = persistentListOf(),
             embed = EmbedUi.Empty,
             stats = PostStatsUi(),
-            viewer = ViewerStateUi(),
+            viewer = ViewerStateUi(canViewerReply = canViewerReply),
             repostedBy = null,
         )
 

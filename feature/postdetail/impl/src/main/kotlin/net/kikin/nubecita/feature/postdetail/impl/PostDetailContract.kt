@@ -37,6 +37,26 @@ internal data class PostDetailState(
 ) : UiState
 
 /**
+ * The focused post once the thread has loaded, or `null` before a focus row
+ * resolves (the default `Idle` state, `InitialLoading`, or `InitialError`).
+ */
+internal val PostDetailState.focusPost: PostUi?
+    get() = (items.firstOrNull { it is ThreadItem.Focus } as? ThreadItem.Focus)?.post
+
+/**
+ * Whether the floating reply FAB should show. `true` only once a [focusPost] has
+ * resolved AND the appview permits this viewer to reply to it
+ * ([net.kikin.nubecita.data.models.ViewerStateUi.canViewerReply] — the inverse of
+ * the post's threadgate-derived `replyDisabled`). A reply-gated thread hides the
+ * FAB entirely rather than letting the user tap into a composer that would reject
+ * the reply. `false` while no focus is loaded — the same pre-load gate the FAB had
+ * before (it never showed against zero items), now also closed for reply-gated
+ * focuses.
+ */
+internal val PostDetailState.showReplyFab: Boolean
+    get() = focusPost?.viewer?.canViewerReply == true
+
+/**
  * Mutually-exclusive load lifecycle for the post-detail screen.
  * Mirrors `:feature:feed:impl`'s `FeedLoadStatus` shape but without
  * `Appending` — getPostThread returns the entire visible thread in

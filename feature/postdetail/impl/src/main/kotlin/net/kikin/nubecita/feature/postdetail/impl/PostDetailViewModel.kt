@@ -68,20 +68,17 @@ internal class PostDetailViewModel
                 is PostDetailEvent.OnQuotedPostTapped ->
                     sendEffect(PostDetailEffect.NavigateToPost(event.quotedPostUri))
                 is PostDetailEvent.OnAuthorTapped -> sendEffect(PostDetailEffect.NavigateToAuthor(event.authorDid))
-                PostDetailEvent.OnReplyClicked -> {
+                PostDetailEvent.OnReplyClicked ->
                     // The composer's parent context is the focus post —
-                    // route.postUri is the canonical focus URI passed in
-                    // from the entry point, so we don't need to walk the
-                    // items list to discover it. Drop silently while the
-                    // initial load hasn't produced a Focus row (the FAB
-                    // is composed in the loaded state, but the user could
-                    // tap mid-refresh; emitting an effect with no Focus
-                    // resolved would feel arbitrary).
-                    val focusUri = uiState.value.items.firstOrNull { it is ThreadItem.Focus }
-                    if (focusUri != null) {
+                    // route.postUri is the canonical focus URI passed in from
+                    // the entry point, so we don't need to walk the items list
+                    // to discover it. Gate on the same `showReplyFab` predicate
+                    // the FAB uses: drop silently while no Focus is resolved
+                    // (still loading) AND on reply-gated threads (the FAB is
+                    // hidden, but defend the path in case a stale tap lands).
+                    if (uiState.value.showReplyFab) {
                         sendEffect(PostDetailEffect.NavigateToComposer(parentPostUri = route.postUri))
                     }
-                }
                 is PostDetailEvent.OnFocusImageClicked ->
                     sendEffect(
                         PostDetailEffect.NavigateToMediaViewer(
