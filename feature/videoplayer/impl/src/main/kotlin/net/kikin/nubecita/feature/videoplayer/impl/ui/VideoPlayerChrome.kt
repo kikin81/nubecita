@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -241,6 +243,11 @@ internal fun VideoPlayerChrome(
 // Centered transport cluster sizing. The play/pause is intentionally larger
 // than the skip buttons so it reads as the primary control; the pressed corner
 // drives the round→squircle morph.
+// Matches SharedVideoPlayer.POSITION_POLLING_INTERVAL_MS (250ms). Kept as a
+// local literal rather than wiring a :core:video constant through the UI layer —
+// the seek-bar smoothing only needs to *match* the poll cadence, not depend on it.
+private const val POSITION_TICK_MS = 250
+
 private val SKIP_BUTTON_SIZE = 52.dp
 private val SKIP_ICON_SIZE = 28.dp
 private val PLAY_PAUSE_BUTTON_SIZE = 72.dp
@@ -298,8 +305,19 @@ private fun VideoPlayerSeekBar(
         targetValue = if (draggingFraction != null || !isPlaying) 0f else 1f,
         label = "seekBarAmplitude",
     )
+    // Smooth the playhead between the 250ms position-polling ticks
+    // (SharedVideoPlayer.POSITION_POLLING_INTERVAL_MS) — without this the handle
+    // steps a quarter-second at a time. A linear tween matched to the poll
+    // interval lands each interpolation exactly as the next tick arrives, so the
+    // motion reads as continuous with no lag or rubber-banding. Bypassed while
+    // scrubbing (draggingFraction wins) so a drag stays 1:1 with the finger.
+    val animatedPositionFraction by animateFloatAsState(
+        targetValue = positionFraction,
+        animationSpec = tween(durationMillis = POSITION_TICK_MS, easing = LinearEasing),
+        label = "seekBarPosition",
+    )
     Slider(
-        value = draggingFraction ?: positionFraction,
+        value = draggingFraction ?: animatedPositionFraction,
         onValueChange = { fraction ->
             if (durationMs > 0L) {
                 draggingFraction = fraction.coerceIn(0f, 1f)
@@ -315,6 +333,20 @@ private fun VideoPlayerSeekBar(
         valueRange = 0f..1f,
         colors = SliderDefaults.colors(thumbColor = Color.White),
         track = { sliderState ->
+            // Read the animated amplitude as a *value* here (subscribing this
+            // slot to the animation) and close over that Float — NOT the
+            // `by`-delegated State. The determinate LinearWavyProgressIndicator
+            // bakes amplitude into a cached wave Path and only rebuilds it when
+            // the amplitude *lambda identity* changes (its node.update does
+            // `node.amplitude !== amplitude`); it never re-polls a stable
+            // lambda. A lambda closing over the State delegate keeps one
+            // identity forever, so when the wave flattens on pause/end *while
+            // progress is also frozen* (no polling ticks), the cache is never
+            // invalidated and the wave keeps moving until an unrelated
+            // recomposition (chrome hide/show) builds a fresh node. Capturing
+            // the Float makes the lambda identity track the value, so the cache
+            // re-bakes as the amplitude animates. (nubecita-xr9z)
+            val amplitude = waveAmplitude
             LinearWavyProgressIndicator(
                 progress = { sliderState.value },
                 modifier = Modifier.fillMaxWidth(),
@@ -324,7 +356,7 @@ private fun VideoPlayerSeekBar(
                 // wave; the remaining track is a light line over the scrim.
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = Color.White.copy(alpha = 0.3f),
-                amplitude = { waveAmplitude },
+                amplitude = { amplitude },
             )
         },
         modifier = modifier.semantics { contentDescription = seekContentDescription },
