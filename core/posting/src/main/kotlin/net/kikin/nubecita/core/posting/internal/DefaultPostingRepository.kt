@@ -5,6 +5,14 @@ import io.github.kikin81.atproto.app.bsky.embed.ImagesImage
 import io.github.kikin81.atproto.app.bsky.feed.Post
 import io.github.kikin81.atproto.app.bsky.feed.PostEmbedUnion
 import io.github.kikin81.atproto.app.bsky.feed.PostReplyRef
+import io.github.kikin81.atproto.app.bsky.feed.Postgate
+import io.github.kikin81.atproto.app.bsky.feed.PostgateDisableRule
+import io.github.kikin81.atproto.app.bsky.feed.PostgateEmbeddingRulesUnion
+import io.github.kikin81.atproto.app.bsky.feed.Threadgate
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateAllowUnion
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateFollowerRule
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateFollowingRule
+import io.github.kikin81.atproto.app.bsky.feed.ThreadgateMentionRule
 import io.github.kikin81.atproto.com.atproto.repo.CreateRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.RepoService
 import io.github.kikin81.atproto.runtime.AtField
@@ -13,6 +21,7 @@ import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Language
 import io.github.kikin81.atproto.runtime.Nsid
+import io.github.kikin81.atproto.runtime.RecordKey
 import io.github.kikin81.atproto.runtime.encodeRecord
 import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
@@ -33,7 +42,9 @@ import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
+import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
+import net.kikin.nubecita.core.posting.ReplyAudience
 import net.kikin.nubecita.core.posting.ReplyRefs
 import timber.log.Timber
 import java.io.IOException
@@ -88,6 +99,7 @@ internal class DefaultPostingRepository
             attachments: List<ComposerAttachment>,
             replyTo: ReplyRefs?,
             langs: List<String>?,
+            audience: PostAudience,
         ): Result<AtUri> =
             withContext(dispatcher) {
                 // `replyTo` is a typed ReplyRefs(parent, root); both
@@ -223,6 +235,18 @@ internal class DefaultPostingRepository
                             isQuote = false,
                         ),
                     )
+
+                    // Best-effort audience gates — TOP-LEVEL posts only. A
+                    // threadgate's rkey must match the thread ROOT's rkey, so it's
+                    // meaningless to attach one to a reply (whose rkey is its own,
+                    // not the root's); we skip gates entirely on replies.
+                    // [applyAudienceGates] self-handles each gate's failure (the post
+                    // is already live; a write failure must never fail it); only
+                    // cancellation propagates, into the main catch below.
+                    if (replyTo == null) {
+                        applyAudienceGates(repo, did, response.uri, audience)
+                    }
+
                     Result.success(response.uri)
                 } catch (cancellation: CancellationException) {
                     Timber.tag(TAG).d("createPost() — cancelled, re-throwing")
@@ -231,6 +255,120 @@ internal class DefaultPostingRepository
                     Timber.tag(TAG).e(throwable, "createPost() — failed in submit pipeline")
                     Result.failure(mapToComposerError(throwable))
                 }
+            }
+
+        /**
+         * Write the [audience]'s `app.bsky.feed.threadgate` / `app.bsky.feed.postgate`
+         * records at the new post's rkey (both records must share the post's rkey,
+         * per the lexicon). [PostAudience.DEFAULT] writes neither. Following the
+         * lexicon: [ReplyAudience.Everyone] omits the threadgate entirely (anyone
+         * replies), [ReplyAudience.Nobody] writes an **empty** `allow` (no one), a
+         * combination writes the matching rules; quotes-off writes a postgate with
+         * the disable-embedding rule.
+         *
+         * The two writes run in PARALLEL and are **independently** best-effort: a
+         * failure of one is logged (error identity only) and swallowed so it neither
+         * skips the other nor fails the already-live post. Only cancellation escapes.
+         */
+        private suspend fun applyAudienceGates(
+            repo: RepoService,
+            did: String,
+            postUri: AtUri,
+            audience: PostAudience,
+        ) {
+            val needsThreadgate = audience.reply != ReplyAudience.Everyone
+            val needsPostgate = !audience.allowQuotes
+            if (!needsThreadgate && !needsPostgate) return
+
+            val repoId = AtIdentifier(did)
+            val rkey = AtField.Defined(RecordKey(postUri.raw.substringAfterLast('/')))
+            val createdAt = Datetime(Clock.System.now().toString())
+
+            coroutineScope {
+                val threadgate =
+                    if (needsThreadgate) {
+                        async {
+                            bestEffortGate("threadgate") {
+                                val record =
+                                    Threadgate(
+                                        allow = AtField.Defined(threadgateAllowRules(audience.reply)),
+                                        createdAt = createdAt,
+                                        post = postUri,
+                                    )
+                                repo.createRecord(
+                                    CreateRecordRequest(
+                                        repo = repoId,
+                                        collection = Nsid("app.bsky.feed.threadgate"),
+                                        rkey = rkey,
+                                        record = encodeRecord(Threadgate.serializer(), record, "app.bsky.feed.threadgate"),
+                                    ),
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    }
+                val postgate =
+                    if (needsPostgate) {
+                        async {
+                            bestEffortGate("postgate") {
+                                val record =
+                                    Postgate(
+                                        createdAt = createdAt,
+                                        embeddingRules =
+                                            AtField.Defined(listOf<PostgateEmbeddingRulesUnion>(PostgateDisableRule())),
+                                        post = postUri,
+                                    )
+                                repo.createRecord(
+                                    CreateRecordRequest(
+                                        repo = repoId,
+                                        collection = Nsid("app.bsky.feed.postgate"),
+                                        rkey = rkey,
+                                        record = encodeRecord(Postgate.serializer(), record, "app.bsky.feed.postgate"),
+                                    ),
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    }
+                threadgate?.await()
+                postgate?.await()
+            }
+        }
+
+        // Runs one gate write, swallowing a failure (logged by error identity only,
+        // per the repo's redaction policy) so it can't fail the live post or skip a
+        // sibling gate. Cancellation still propagates.
+        private suspend fun bestEffortGate(
+            name: String,
+            write: suspend () -> Unit,
+        ) {
+            try {
+                write()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                Timber.tag(TAG).e(
+                    "createPost() — %s write failed (post still created): %s",
+                    name,
+                    throwable.javaClass.name,
+                )
+            }
+        }
+
+        // Maps the reply audience to threadgate allow rules. Nobody → empty list
+        // (no one); a combination → exactly the checked groups' rules. Everyone is
+        // unreachable here (the caller omits the threadgate entirely).
+        private fun threadgateAllowRules(reply: ReplyAudience): List<ThreadgateAllowUnion> =
+            when (reply) {
+                ReplyAudience.Everyone, ReplyAudience.Nobody -> emptyList()
+                is ReplyAudience.Combination ->
+                    buildList {
+                        if (reply.followers) add(ThreadgateFollowerRule())
+                        if (reply.following) add(ThreadgateFollowingRule())
+                        if (reply.mentioned) add(ThreadgateMentionRule())
+                    }
             }
 
         private suspend fun uploadOne(

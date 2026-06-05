@@ -45,11 +45,14 @@ import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
+import net.kikin.nubecita.core.posting.PostAudience
+import net.kikin.nubecita.core.posting.ReplyAudience
 import net.kikin.nubecita.core.posting.ReplyRefs
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -412,6 +415,319 @@ class DefaultPostingRepositoryTest {
         }
 
     // ---------- harness ----------
+
+    // ---- Audience gates (nubecita-33bw.3) ----
+    //
+    // Threadgate/postgate writes go through the same `createRecord` endpoint as
+    // the post, so they're distinguished by the `collection` (and the record's
+    // `$type`) in the captured request body. The post response carries rkey "abc";
+    // the gate records must reuse it.
+
+    private val postOkUri = """{"uri":"at://$testDid/app.bsky.feed.post/abc","cid":"bafx"}"""
+
+    @Test
+    fun defaultAudience_writesNoGateRecords() =
+        runTest {
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        bodies.add(request.body.toBodyString())
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(text = "hi", attachments = emptyList(), replyTo = null, audience = PostAudience.DEFAULT)
+
+            assertTrue(result.isSuccess)
+            assertEquals(1, bodies.size, "only the post record should be written")
+            assertTrue(bodies.none { it.contains("threadgate") || it.contains("postgate") })
+        }
+
+    @Test
+    fun nobodyAudience_writesThreadgateWithEmptyAllowAtPostRkey() =
+        runTest {
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        bodies.add(request.body.toBodyString())
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "hi",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience = PostAudience(ReplyAudience.Nobody, allowQuotes = true),
+                )
+
+            assertTrue(result.isSuccess)
+            val threadgate = bodies.single { it.contains("app.bsky.feed.threadgate") }
+            assertTrue(threadgate.contains("\"rkey\":\"abc\""), "threadgate must reuse the post rkey: $threadgate")
+            assertTrue(threadgate.contains("\"allow\":[]"), "Nobody == empty allow: $threadgate")
+            assertTrue(bodies.none { it.contains("postgate") }, "quotes-on must not write a postgate")
+        }
+
+    @Test
+    fun combinationAudience_writesOnlyTheCheckedThreadgateRules() =
+        runTest {
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        bodies.add(request.body.toBodyString())
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "hi",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience =
+                        PostAudience(
+                            ReplyAudience.Combination(followers = true, following = false, mentioned = true),
+                            allowQuotes = true,
+                        ),
+                )
+
+            assertTrue(result.isSuccess)
+            val threadgate = bodies.single { it.contains("app.bsky.feed.threadgate") }
+            assertTrue(threadgate.contains("followerRule"), "followers checked: $threadgate")
+            assertTrue(threadgate.contains("mentionRule"), "mentioned checked: $threadgate")
+            assertTrue(!threadgate.contains("followingRule"), "following unchecked: $threadgate")
+        }
+
+    @Test
+    fun quotesDisabled_writesPostgateDisableRuleAndNoThreadgate() =
+        runTest {
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        bodies.add(request.body.toBodyString())
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "hi",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience = PostAudience(ReplyAudience.Everyone, allowQuotes = false),
+                )
+
+            assertTrue(result.isSuccess)
+            assertTrue(bodies.none { it.contains("threadgate") }, "Everyone must not write a threadgate")
+            val postgate = bodies.single { it.contains("app.bsky.feed.postgate") }
+            assertTrue(postgate.contains("\"rkey\":\"abc\""), "postgate must reuse the post rkey: $postgate")
+            assertTrue(postgate.contains("disableRule"), "quotes-off == postgate disable rule: $postgate")
+        }
+
+    @Test
+    fun gateWriteFailure_doesNotFailThePost() =
+        runTest {
+            // The threadgate write throws; the post is already live, so createPost
+            // must still report success with the post URI.
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        if (request.body.toBodyString().contains("app.bsky.feed.threadgate")) {
+                            throw java.io.IOException("simulated threadgate write failure")
+                        }
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "hi",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience = PostAudience(ReplyAudience.Nobody, allowQuotes = true),
+                )
+
+            assertTrue(result.isSuccess, "a gate-write failure must not fail the post")
+            assertEquals(AtUri("at://$testDid/app.bsky.feed.post/abc"), result.getOrNull())
+        }
+
+    @Test
+    fun replyWithNonDefaultAudience_writesNoGates() =
+        runTest {
+            // Gates are top-level only — a threadgate's rkey must match the thread
+            // ROOT, so a non-default audience on a reply must NOT write any gate.
+            val ref =
+                StrongRef(
+                    uri = AtUri("at://did:plc:alice/app.bsky.feed.post/root"),
+                    cid = Cid("bafroot"),
+                )
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        bodies.add(request.body.toBodyString())
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "a reply",
+                    attachments = emptyList(),
+                    replyTo = ReplyRefs(parent = ref, root = ref),
+                    audience = PostAudience(ReplyAudience.Nobody, allowQuotes = false),
+                )
+
+            assertTrue(result.isSuccess)
+            assertEquals(1, bodies.size, "a reply must write only the post record")
+            assertTrue(bodies.none { it.contains("threadgate") || it.contains("postgate") })
+        }
+
+    @Test
+    fun nobodyAndQuotesDisabled_writesBothGatesAtPostRkey() =
+        runTest {
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        bodies.add(request.body.toBodyString())
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "lock it down",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience = PostAudience(ReplyAudience.Nobody, allowQuotes = false),
+                )
+
+            assertTrue(result.isSuccess)
+            assertEquals(3, bodies.size, "post + threadgate + postgate")
+            val threadgate = bodies.single { it.contains("app.bsky.feed.threadgate") }
+            assertTrue(threadgate.contains("\"rkey\":\"abc\"") && threadgate.contains("\"allow\":[]"))
+            val postgate = bodies.single { it.contains("app.bsky.feed.postgate") }
+            assertTrue(postgate.contains("\"rkey\":\"abc\"") && postgate.contains("disableRule"))
+        }
+
+    @Test
+    fun postgateWriteFailure_doesNotFailThePost() =
+        runTest {
+            // Threadgate succeeds, postgate throws — the post (already live) must
+            // still succeed, even with a partially-applied gate set.
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        if (request.body.toBodyString().contains("app.bsky.feed.postgate")) {
+                            throw java.io.IOException("simulated postgate write failure")
+                        }
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "lock it down",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience = PostAudience(ReplyAudience.Nobody, allowQuotes = false),
+                )
+
+            assertTrue(result.isSuccess, "a postgate-write failure must not fail the post")
+            assertEquals(AtUri("at://$testDid/app.bsky.feed.post/abc"), result.getOrNull())
+        }
+
+    @Test
+    fun allFalseCombination_writesEmptyThreadgate() =
+        runTest {
+            // The picker prevents an all-false combination, but the repository is
+            // defensive: it degenerates to an empty allow (== Nobody).
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        bodies.add(request.body.toBodyString())
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "hi",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience =
+                        PostAudience(
+                            ReplyAudience.Combination(followers = false, following = false, mentioned = false),
+                            allowQuotes = true,
+                        ),
+                )
+
+            assertTrue(result.isSuccess)
+            val threadgate = bodies.single { it.contains("app.bsky.feed.threadgate") }
+            assertTrue(threadgate.contains("\"allow\":[]"), "all-false combination == empty allow: $threadgate")
+        }
+
+    @Test
+    fun threadgateFailure_stillAttemptsPostgate() =
+        runTest {
+            // Independent best-effort: a threadgate write failure must NOT prevent
+            // the postgate write (Nobody + quotes-off wants both gates).
+            val bodies = CopyOnWriteArrayList<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        val body = request.body.toBodyString()
+                        bodies.add(body)
+                        if (body.contains("app.bsky.feed.threadgate")) {
+                            throw java.io.IOException("simulated threadgate write failure")
+                        }
+                        okJson(postOkUri)
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "lock it down",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    audience = PostAudience(ReplyAudience.Nobody, allowQuotes = false),
+                )
+
+            assertTrue(result.isSuccess)
+            assertTrue(bodies.any { it.contains("app.bsky.feed.threadgate") }, "threadgate attempted")
+            assertTrue(
+                bodies.any { it.contains("app.bsky.feed.postgate") },
+                "postgate must still be attempted despite the threadgate failure",
+            )
+        }
 
     private fun MockRequestHandleScope.okJson(json: String): HttpResponseData =
         respond(
