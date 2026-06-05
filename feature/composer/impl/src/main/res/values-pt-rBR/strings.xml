@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="composer_close_action">Fechar editor</string>
+    <string name="composer_post_action">Postar</string>
+    <string name="composer_add_image_action">Adicionar imagem</string>
+    <string name="composer_remove_attachment_action">Remover anexo</string>
+    <string name="composer_text_field_placeholder">O que você está pensando?</string>
+    <string name="composer_text_field_label">Escrever post</string>
+    <plurals name="composer_chars_remaining">
+        <item quantity="one">%1$d caractere restante</item>
+        <item quantity="other">%1$d caracteres restantes</item>
+    </plurals>
+    <string name="composer_chars_over_limit">Você ultrapassou o limite de 300 caracteres em %1$d</string>
+    <string name="composer_submitting">Enviando seu post</string>
+    <string name="composer_error_generic">Não foi possível postar. Tente de novo.</string>
+    <string name="composer_error_network">Sem conexão. Verifique sua rede e tente de novo.</string>
+    <string name="composer_error_unauthorized">Sua sessão expirou. Entre de novo para postar.</string>
+    <string name="composer_error_upload_failed" tools:ignore="PluralsCandidate">Falha ao enviar a imagem %1$d.</string>
+    <string name="composer_error_parent_not_found">Este post não está mais disponível.</string>
+    <string name="composer_error_reply_not_allowed">Você não pode responder a este post.</string>
+    <string name="composer_typeahead_no_matches">Nenhuma correspondência para @%1$s</string>
+    <string name="composer_reply_header">Respondendo a %1$s</string>
+    <string name="composer_reply_parent_load_failed_retry">Não foi possível carregar o post de resposta. Toque para tentar de novo.</string>
+    <string name="composer_reply_parent_retry_action_label">Tentar de novo</string>
+    <string name="composer_discard_title">Descartar rascunho?</string>
+    <string name="composer_discard_cancel">Cancelar</string>
+    <string name="composer_discard_confirm">Descartar</string>
+    <string name="composer_language_search_label">Buscar</string>
+    <string name="composer_language_search_content_description">Buscar idiomas</string>
+    <string name="composer_language_picker_done">Concluído</string>
+    <string name="composer_language_picker_cancel">Cancelar</string>
+    <string name="composer_audience_title">Quem pode interagir?</string>
+    <string name="composer_audience_reply_section">Quem pode responder</string>
+    <string name="composer_audience_anyone">Qualquer pessoa</string>
+    <string name="composer_audience_nobody">Ninguém</string>
+    <string name="composer_audience_followers">Seus seguidores</string>
+    <string name="composer_audience_following">Pessoas que você segue</string>
+    <string name="composer_audience_mentioned">Pessoas que você mencionar</string>
+    <string name="composer_audience_lists">Escolher das suas listas</string>
+    <string name="composer_audience_allow_quotes">Permitir citar posts</string>
+    <string name="composer_audience_save_default">Salvar estas opções para a próxima vez</string>
+    <string name="composer_audience_reset">Redefinir</string>
+    <string name="composer_audience_picker_done">Concluído</string>
+    <string name="composer_audience_picker_cancel">Cancelar</string>
+    <string name="composer_audience_chip_default">Visível para todos</string>
+    <string name="composer_audience_chip_limited">Interação limitada</string>
+    <string name="composer_audience_save_error">Não foi possível salvar como padrão. Ainda se aplica a este post.</string>
+    <string name="composer_language_chip_none">Sem idioma</string>
+</resources>

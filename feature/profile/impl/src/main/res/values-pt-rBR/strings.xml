@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_tab_posts">Posts</string>
+    <string name="profile_tab_replies">Respostas</string>
+    <string name="profile_tab_media">Mídia</string>
+
+    <string name="profile_action_edit">Editar perfil</string>
+    <string name="profile_action_overflow">Mais opções</string>
+    <string name="profile_action_follow">Seguir</string>
+    <string name="profile_action_message">Mensagem</string>
+    <string name="profile_action_following">Seguindo</string>
+    <string name="profile_action_settings">Configurações</string>
+    <string name="profile_action_block">Bloquear</string>
+    <string name="profile_action_mute">Silenciar</string>
+    <string name="profile_action_report">Denunciar</string>
+
+    <string name="profile_snackbar_edit_coming_soon">Editar perfil — em breve</string>
+    <string name="profile_snackbar_block_coming_soon">Bloquear — em breve</string>
+    <string name="profile_snackbar_mute_coming_soon">Silenciar — em breve</string>
+
+    <string name="profile_snackbar_post_overflow_mute_coming_soon">Silenciar — em breve</string>
+    <string name="profile_snackbar_post_overflow_unmute_coming_soon">Reativar som — em breve</string>
+    <string name="profile_snackbar_post_overflow_block_coming_soon">Bloquear — em breve</string>
+    <string name="profile_snackbar_post_overflow_unblock_coming_soon">Desbloquear — em breve</string>
+    <string name="profile_snackbar_post_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
+    <string name="profile_snackbar_post_overflow_unmute_thread_coming_soon">Reativar som da thread — em breve</string>
+    <string name="profile_snackbar_post_overflow_copy_text_coming_soon">Copiar texto do post — em breve</string>
+
+    <string name="profile_snackbar_error_network">Erro de rede. Puxe para atualizar.</string>
+    <string name="profile_snackbar_error_unknown">Não foi possível carregar o perfil.</string>
+
+    <string name="profile_stats_posts_label">Posts</string>
+    <string name="profile_stats_followers_label">Seguidores</string>
+    <string name="profile_stats_follows_label">Seguindo</string>
+
+    <string name="profile_meta_link_content_description">Site</string>
+    <string name="profile_meta_location_content_description">Localização</string>
+    <string name="profile_meta_joined_content_description">Data de entrada</string>
+
+    <string name="profile_avatar_content_description">Foto de perfil de %1$s</string>
+
+    <string name="profile_topbar_back_content_description">Voltar</string>
+
+    <string name="profile_posts_empty_title">Ainda não há posts</string>
+    <string name="profile_posts_empty_body">Quando este usuário postar, você verá aqui.</string>
+    <string name="profile_replies_empty_title">Ainda não há respostas</string>
+    <string name="profile_replies_empty_body">Quando este usuário responder, você verá aqui.</string>
+    <string name="profile_media_empty_title">Ainda não há mídia</string>
+    <string name="profile_media_empty_body">Quando este usuário postar mídia, você verá aqui.</string>
+
+    <string name="profile_error_network_title">Não foi possível acessar o Bluesky</string>
+    <string name="profile_error_network_body">Verifique sua conexão e tente de novo.</string>
+    <string name="profile_error_unknown_title">Algo deu errado</string>
+    <string name="profile_error_unknown_body">Ocorreu um erro inesperado ao carregar.</string>
+    <string name="profile_error_retry">Tentar de novo</string>
+
+    <string name="profile_media_cell_click_label">Ver post</string>
+
+    <string name="profile_tab_placeholder_replies_title">A aba de respostas chega em breve</string>
+    <string name="profile_tab_placeholder_media_title">A aba de mídia chega em breve</string>
+    <string name="profile_tab_placeholder_body">Disponível na próxima versão.</string>
+
+    <string name="profile_header_error_title">Não foi possível carregar o perfil</string>
+    <string name="profile_header_error_retry">Tentar de novo</string>
+
+    <string name="edit_profile_title">Editar perfil</string>
+    <string name="edit_profile_back_content_description">Voltar</string>
+    <string name="edit_profile_save">Salvar</string>
+    <string name="edit_profile_photos_title">Fotos</string>
+    <string name="edit_profile_banner_content_description">Foto de capa</string>
+    <string name="edit_profile_avatar_content_description">Foto de perfil</string>
+    <string name="edit_profile_change_avatar_content_description">Alterar foto de perfil</string>
+    <string name="edit_profile_change_banner_content_description">Alterar foto de capa</string>
+    <string name="edit_profile_more_options_content_description">Mais opções</string>
+    <string name="edit_profile_remove_profile_photo">Remover foto de perfil</string>
+    <string name="edit_profile_remove_banner_photo">Remover foto de capa</string>
+    <string name="edit_profile_display_name_label">Nome de exibição</string>
+    <string name="edit_profile_bio_label">Bio</string>
+    <string name="edit_profile_grapheme_counter">%1$d/%2$d</string>
+    <string name="edit_profile_discard_title">Descartar alterações?</string>
+    <string name="edit_profile_discard_body">Você tem alterações não salvas. Descartá-las?</string>
+    <string name="edit_profile_discard_confirm">Descartar</string>
+    <string name="edit_profile_discard_cancel">Continuar editando</string>
+    <string name="edit_profile_error_swap_conflict">O perfil mudou em outro lugar. Recarregue e tente de novo.</string>
+    <string name="edit_profile_error_unauthorized">Você saiu da conta.</string>
+    <string name="edit_profile_error_network">Não foi possível salvar seu perfil. Tente de novo.</string>
+
+</resources>

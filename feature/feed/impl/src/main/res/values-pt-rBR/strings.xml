@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_empty_title">Sua linha do tempo está vazia</string>
+    <string name="feed_empty_body">Siga pessoas e os posts delas aparecerão aqui.</string>
+    <string name="feed_empty_action">Atualizar</string>
+    <string name="feed_empty_icon_description">Linha do tempo vazia</string>
+
+    <string name="feed_error_network_title">Sem conexão</string>
+    <string name="feed_error_network_body">Verifique sua rede e tente de novo.</string>
+    <string name="feed_error_network_icon_description">Sem conexão de rede</string>
+
+    <string name="feed_error_unauthenticated_title">Sessão expirada</string>
+    <string name="feed_error_unauthenticated_body">Entre novamente para continuar usando o nubecita.</string>
+    <string name="feed_error_unauthenticated_icon_description">Autenticação necessária</string>
+
+    <string name="feed_error_unknown_title">Algo deu errado</string>
+    <string name="feed_error_unknown_body">Ocorreu um erro inesperado ao carregar sua linha do tempo.</string>
+    <string name="feed_error_unknown_icon_description">Erro desconhecido</string>
+
+    <string name="feed_error_action">Tentar de novo</string>
+
+    <string name="feed_host_snackbar_feeds_fallback">Não foi possível carregar seus feeds — exibindo os padrões</string>
+
+    <string name="feed_snackbar_error_network">Erro de rede. Puxe para tentar de novo.</string>
+    <string name="feed_snackbar_error_unauthenticated">Sessão expirada. Entre novamente.</string>
+    <string name="feed_snackbar_error_unknown">Não foi possível atualizar. Tente de novo.</string>
+
+    <string name="feed_snackbar_link_copied">Link copiado para a área de transferência</string>
+    <string name="feed_clipboard_label_post_link">Link de post do Bluesky</string>
+
+    <string name="feed_snackbar_post_published">Post enviado</string>
+    <string name="feed_snackbar_reply_published">Resposta enviada</string>
+
+    <string name="postcard_video_mute">Silenciar vídeo</string>
+    <string name="postcard_video_unmute">Ativar som do vídeo</string>
+    <string name="postcard_video_resume">Toque para retomar</string>
+
+    <string name="feed_compose_new_post">Escrever novo post</string>
+
+    <string name="feed_compose_fab_label">Escrever</string>
+
+    <string name="feed_snackbar_overflow_report_coming_soon">Denunciar — em breve</string>
+    <string name="feed_snackbar_overflow_mute_coming_soon">Silenciar — em breve</string>
+    <string name="feed_snackbar_overflow_unmute_coming_soon">Dessilenciar — em breve</string>
+    <string name="feed_snackbar_overflow_block_coming_soon">Bloquear — em breve</string>
+    <string name="feed_snackbar_overflow_unblock_coming_soon">Desbloquear — em breve</string>
+    <string name="feed_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
+    <string name="feed_snackbar_overflow_unmute_thread_coming_soon">Dessilenciar thread — em breve</string>
+    <string name="feed_snackbar_overflow_copy_text_coming_soon">Copiar texto do post — em breve</string>
+
+    <string name="feed_lists_chip_collapsed">Listas</string>
+    <string name="feed_lists_chip_selected">Lista: %1$s</string>
+    <string name="feed_lists_sheet_title">Listas fixadas</string>
+    <string name="feed_add_feeds_button_content_description">Gerenciar feeds</string>
+</resources>

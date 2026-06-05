@@ -106,4 +106,9 @@
     <string name="content_filters_cat_nudity">Non-sexual Nudity</string>
     <string name="content_filters_cat_nudity_desc">Artistic or educational nudity.</string>
     <string name="content_filters_save_error">Couldn\'t save your change. Check your network and try again.</string>
+
+    <!-- Footer disclosure at the bottom of Settings. Surfaces that non-English
+         UI translations are machine/AI-generated (both the in-repo ones and any
+         Play Console Gemini translations), for transparency / legal cover. -->
+    <string name="settings_translation_disclosure">Translations into languages other than English are AI-generated and may contain inaccuracies.</string>
 </resources>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notifications_filter_all">Todas</string>
+    <string name="notifications_filter_mentions">Menciones</string>
+    <string name="notifications_filter_reposts">Republicaciones</string>
+    <string name="notifications_filter_follows">Seguidores</string>
+    <string name="notifications_filter_likes">Me gusta</string>
+
+    <string name="notifications_empty_title">Aún no hay notificaciones</string>
+    <string name="notifications_empty_body">Cuando alguien le dé Me gusta, responda o te siga, lo verás aquí.</string>
+    <string name="notifications_empty_icon_description">Sin notificaciones</string>
+
+    <string name="notifications_error_network_title">Sin conexión</string>
+    <string name="notifications_error_network_body">Revisa tu red y vuelve a intentarlo.</string>
+    <string name="notifications_error_network_icon_description">Sin conexión a la red</string>
+
+    <string name="notifications_error_unauthenticated_title">Sesión expirada</string>
+    <string name="notifications_error_unauthenticated_body">Inicia sesión de nuevo para seguir usando nubecita.</string>
+    <string name="notifications_error_unauthenticated_icon_description">Autenticación requerida</string>
+
+    <string name="notifications_error_unknown_title">Algo salió mal</string>
+    <string name="notifications_error_unknown_body">Ocurrió un error inesperado al cargar tus notificaciones.</string>
+    <string name="notifications_error_unknown_icon_description">Error desconocido</string>
+
+    <string name="notifications_error_action">Reintentar</string>
+
+    <string name="notifications_snackbar_error_network">Error de red. Desliza para reintentar.</string>
+    <string name="notifications_snackbar_error_unauthenticated">Sesión expirada. Inicia sesión de nuevo.</string>
+    <string name="notifications_snackbar_error_unknown">No se pudo actualizar. Reintenta.</string>
+
+    <string name="notifications_row_expand_actors">Mostrar todos los participantes</string>
+
+    <plurals name="notifications_avatar_stack_description">
+        <item quantity="one">%1$d participante</item>
+        <item quantity="other">%1$d participantes</item>
+    </plurals>
+
+    <string name="notifications_avatar_overflow">+%1$d</string>
+
+    <plurals name="notifications_headline_like">
+        <item quantity="one">A %1$s y %2$d persona más les gustó tu publicación</item>
+        <item quantity="other">A %1$s y %2$d personas más les gustó tu publicación</item>
+    </plurals>
+    <string name="notifications_headline_like_single">A %1$s le gustó tu publicación</string>
+
+    <plurals name="notifications_headline_repost">
+        <item quantity="one">%1$s y %2$d persona más republicaron tu publicación</item>
+        <item quantity="other">%1$s y %2$d personas más republicaron tu publicación</item>
+    </plurals>
+    <string name="notifications_headline_repost_single">%1$s republicó tu publicación</string>
+
+    <plurals name="notifications_headline_follow">
+        <item quantity="one">%1$s y %2$d persona más te siguieron</item>
+        <item quantity="other">%1$s y %2$d personas más te siguieron</item>
+    </plurals>
+    <string name="notifications_headline_follow_single">%1$s te siguió</string>
+
+    <string name="notifications_headline_reply">%1$s respondió a tu publicación</string>
+    <string name="notifications_headline_quote">%1$s citó tu publicación</string>
+    <string name="notifications_headline_mention">%1$s te mencionó</string>
+    <string name="notifications_headline_starterpack_joined">%1$s se unió mediante tu paquete de inicio</string>
+    <string name="notifications_headline_subscribed_post">%1$s publicó</string>
+    <string name="notifications_headline_contact_match">%1$s está en tus contactos</string>
+    <string name="notifications_headline_verified">Estás verificado</string>
+    <string name="notifications_headline_unverified">Ya no estás verificado</string>
+    <string name="notifications_headline_unknown">%1$s interactuó contigo</string>
+
+    <string name="notifications_headline_with_time">%1$s · %2$s</string>
+
+    <string name="notifications_placeholder_title">Notificaciones</string>
+</resources>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="postdetail_title">Post</string>
+    <string name="postdetail_back_content_description">Voltar</string>
+
+    <string name="postdetail_error_network_title">Sem conexão</string>
+    <string name="postdetail_error_unauthenticated_title">Sessão expirada</string>
+    <string name="postdetail_error_notfound_title">Post não encontrado</string>
+    <string name="postdetail_error_unknown_title">Algo deu errado</string>
+    <string name="postdetail_error_action">Tentar de novo</string>
+
+    <string name="postdetail_snackbar_error_network">Erro de rede. Puxe para tentar de novo.</string>
+    <string name="postdetail_snackbar_error_unauthenticated">Sessão expirada. Entre novamente.</string>
+    <string name="postdetail_snackbar_error_notfound">Este post não está mais disponível.</string>
+    <string name="postdetail_snackbar_error_unknown">Não foi possível atualizar. Tente de novo.</string>
+
+    <string name="postdetail_reply_fab_content_description">Responder ao post</string>
+
+    <string name="postdetail_clipboard_label_post_link">Link do post</string>
+    <string name="postdetail_snackbar_link_copied">Link copiado</string>
+
+    <string name="postdetail_snackbar_overflow_report_coming_soon">Denunciar — em breve</string>
+    <string name="postdetail_snackbar_overflow_mute_coming_soon">Silenciar — em breve</string>
+    <string name="postdetail_snackbar_overflow_unmute_coming_soon">Reativar som — em breve</string>
+    <string name="postdetail_snackbar_overflow_block_coming_soon">Bloquear — em breve</string>
+    <string name="postdetail_snackbar_overflow_unblock_coming_soon">Desbloquear — em breve</string>
+    <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
+    <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Reativar som da thread — em breve</string>
+    <string name="postdetail_snackbar_overflow_copy_text_coming_soon">Copiar texto do post — em breve</string>
+</resources>

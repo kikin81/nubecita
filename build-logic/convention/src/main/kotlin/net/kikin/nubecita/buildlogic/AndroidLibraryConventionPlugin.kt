@@ -57,6 +57,11 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                     // strings are caught by Slack's compose-lint-checks (added in
                     // nubecita.android.library.compose + nubecita.android.application).
                     error += "HardcodedText"
+                    // Once a module ships values-b+es+419 / values-pt-rBR, every default
+                    // string must be translated in each — fail the build on a gap so new
+                    // strings can't ship untranslated (the translations are repo-owned, not
+                    // Play-cloud). Modules with no locale folders are unaffected.
+                    error += "MissingTranslation"
                 }
             }
 

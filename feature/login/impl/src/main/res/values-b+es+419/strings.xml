@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="login_title">Inicia sesión en Bluesky</string>
+    <string name="login_subtitle">Ingresa tu handle para continuar.</string>
+    <string name="login_handle_label">Handle</string>
+    <string name="login_handle_placeholder">alice.bsky.social</string>
+    <string name="login_submit">Iniciar sesión con Bluesky</string>
+    <string name="login_error_blank_handle">Ingresa un handle para continuar.</string>
+    <string name="login_error_handle_not_found">No encontramos una cuenta para <xliff:g id="handle" example="alice.bsky.social">%1$s</xliff:g>. Revisa la ortografía o crea una cuenta nueva de Bluesky abajo.</string>
+    <string name="login_error_network">No se puede conectar con Bluesky ahora. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="login_error_generic_failure">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="login_signup_cta_supporting">¿No tienes una cuenta?</string>
+    <string name="login_signup_cta_label">Crea una en Bluesky</string>
+</resources>

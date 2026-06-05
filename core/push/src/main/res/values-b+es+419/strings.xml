@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="push_channel_like_name">Me gusta</string>
+    <string name="push_channel_like_description">Cuando alguien le da Me gusta a una de tus publicaciones.</string>
+    <string name="push_channel_like_via_repost_name">Me gusta vía republicación</string>
+    <string name="push_channel_like_via_repost_description">Cuando alguien le da Me gusta a una publicación que republicaste.</string>
+    <string name="push_channel_repost_name">Republicaciones</string>
+    <string name="push_channel_repost_description">Cuando alguien republica una de tus publicaciones.</string>
+    <string name="push_channel_repost_via_repost_name">Republicaciones vía republicación</string>
+    <string name="push_channel_repost_via_repost_description">Cuando alguien republica una publicación que republicaste.</string>
+    <string name="push_channel_reply_name">Respuestas</string>
+    <string name="push_channel_reply_description">Cuando alguien responde a una de tus publicaciones.</string>
+    <string name="push_channel_mention_name">Menciones</string>
+    <string name="push_channel_mention_description">Cuando alguien te @-menciona en una publicación.</string>
+    <string name="push_channel_quote_name">Publicaciones citadas</string>
+    <string name="push_channel_quote_description">Cuando alguien cita una de tus publicaciones.</string>
+    <string name="push_channel_follow_name">Nuevos seguidores</string>
+    <string name="push_channel_follow_description">Cuando alguien empieza a seguirte.</string>
+    <string name="push_channel_verified_name">Verificaciones</string>
+    <string name="push_channel_verified_description">Cuando un verificador de confianza confirma tu cuenta.</string>
+    <string name="push_channel_unverified_name">Verificación retirada</string>
+    <string name="push_channel_unverified_description">Cuando un verificador de confianza revoca tu verificación.</string>
+    <string name="push_reason_like">A %1$s le gustó tu publicación</string>
+    <string name="push_reason_like_via_repost">A %1$s le gustó una publicación que republicaste</string>
+    <string name="push_reason_repost">%1$s republicó tu publicación</string>
+    <string name="push_reason_repost_via_repost">%1$s republicó una publicación que republicaste</string>
+    <string name="push_reason_reply">%1$s respondió a tu publicación</string>
+    <string name="push_reason_mention">%1$s te mencionó</string>
+    <string name="push_reason_quote">%1$s citó tu publicación</string>
+    <string name="push_reason_follow">%1$s te siguió</string>
+    <string name="push_reason_verified">%1$s verificó tu cuenta</string>
+    <string name="push_reason_unverified">%1$s retiró tu verificación</string>
+    <plurals name="push_summary_like">
+        <item quantity="one">%1$d Me gusta nuevo</item>
+        <item quantity="other">%1$d Me gusta nuevos</item>
+    </plurals>
+    <plurals name="push_summary_like_via_repost">
+        <item quantity="one">%1$d Me gusta nuevo vía republicación</item>
+        <item quantity="other">%1$d Me gusta nuevos vía republicación</item>
+    </plurals>
+    <plurals name="push_summary_repost">
+        <item quantity="one">%1$d republicación nueva</item>
+        <item quantity="other">%1$d republicaciones nuevas</item>
+    </plurals>
+    <plurals name="push_summary_repost_via_repost">
+        <item quantity="one">%1$d republicación nueva vía republicación</item>
+        <item quantity="other">%1$d republicaciones nuevas vía republicación</item>
+    </plurals>
+    <plurals name="push_summary_reply">
+        <item quantity="one">%1$d respuesta nueva</item>
+        <item quantity="other">%1$d respuestas nuevas</item>
+    </plurals>
+    <plurals name="push_summary_mention">
+        <item quantity="one">%1$d mención nueva</item>
+        <item quantity="other">%1$d menciones nuevas</item>
+    </plurals>
+    <plurals name="push_summary_quote">
+        <item quantity="one">%1$d cita nueva</item>
+        <item quantity="other">%1$d citas nuevas</item>
+    </plurals>
+    <plurals name="push_summary_follow">
+        <item quantity="one">%1$d seguidor nuevo</item>
+        <item quantity="other">%1$d seguidores nuevos</item>
+    </plurals>
+    <plurals name="push_summary_verified">
+        <item quantity="one">%1$d verificación nueva</item>
+        <item quantity="other">%1$d verificaciones nuevas</item>
+    </plurals>
+    <plurals name="push_summary_unverified">
+        <item quantity="one">%1$d verificación retirada</item>
+        <item quantity="other">%1$d verificaciones retiradas</item>
+    </plurals>
+    <string name="push_title_default">Nueva actividad en Nubecita</string>
+</resources>

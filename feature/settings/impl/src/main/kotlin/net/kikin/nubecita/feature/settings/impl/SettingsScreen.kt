@@ -572,6 +572,17 @@ internal fun SettingsContent(
         SettingsSection(rows = contentModerationRows, label = contentModerationSectionLabel)
         SettingsSection(rows = accountRows)
         SettingsSection(rows = aboutRows)
+        // Transparency footer: non-English UI translations are AI/machine-
+        // generated (the in-repo ones and any Play Console Gemini translations).
+        Text(
+            text = stringResource(R.string.settings_translation_disclosure),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+        )
     }
 
     if (state.confirmDialogOpen) {
