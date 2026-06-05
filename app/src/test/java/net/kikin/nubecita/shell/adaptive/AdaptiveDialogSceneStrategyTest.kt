@@ -21,9 +21,13 @@ import org.junit.jupiter.api.Test
  *    [OverlayScene] only at Medium+ width; at Compact it declines (→ the entry
  *    renders full-screen via the fallback scene).
  *  - Coalescing: a *run* of consecutive tagged entries renders as ONE dialog
- *    that owns the whole run (so its content can swap via `AnimatedContent`),
- *    keyed on the bottom of the run so the key stays stable across pushes/pops
- *    within the dialog — the Play Store "modal with nested content" behaviour.
+ *    that owns the whole run (one scrim, no modal-on-modal) — the Play Store
+ *    "modal with nested content" behaviour.
+ *  - Scene identity (nubecita-6k7e regression): the scene is keyed on the run's
+ *    TOP entry so a pushed sub-route is a DISTINCT scene NavDisplay re-renders,
+ *    and value equality dedups same-run recompositions. Keying on the bottom
+ *    (the old bug) made `[B]` and `[B,C]` share a key, so the sub-route never
+ *    rendered on tablet.
  *
  * End-to-end rendering is covered by tablet/phone instrumented runs; this pins
  * the branches the whole pattern hinges on.
@@ -105,12 +109,32 @@ class AdaptiveDialogSceneStrategyTest {
     }
 
     @Test
-    fun `coalesced scene key is stable across pushes within the run`() {
+    fun `scene is keyed on the run top so a pushed sub-route is a distinct scene`() {
         val deep = sceneForStack(expanded, listOf(RouteA to false, RouteB to true, RouteC to true))!!
         val shallow = sceneForStack(expanded, listOf(RouteA to false, RouteB to true))!!
-        // Both keyed on the bottom of the run (B) → NavDisplay keeps the same
-        // dialog scene and swaps content instead of re-creating the dialog.
-        assertEquals(shallow.key, deep.key)
+        // nubecita-6k7e: NavDisplay identifies overlay scenes by (class, key). A
+        // push must change the key (top: B → C) or NavDisplay treats the grown
+        // run as the SAME scene and never renders the sub-route (the tablet bug).
+        assertEquals(entryOf(RouteC, true).contentKey, deep.key)
+        assertEquals(entryOf(RouteB, true).contentKey, shallow.key)
+        assertTrue(shallow.key != deep.key)
+    }
+
+    @Test
+    fun `scenes for the same run are equal so recompositions are deduped`() {
+        // The Scene contract requires value equality; without it NavDisplay's
+        // append-only overlay list churns a fresh instance every recomposition.
+        val a = sceneForStack(expanded, listOf(RouteA to false, RouteB to true))!!
+        val b = sceneForStack(expanded, listOf(RouteA to false, RouteB to true))!!
+        assertEquals(a, b)
+        assertEquals(a.hashCode(), b.hashCode())
+    }
+
+    @Test
+    fun `scenes for different runs are not equal so the swap is seen`() {
+        val shallow = sceneForStack(expanded, listOf(RouteA to false, RouteB to true))!!
+        val deep = sceneForStack(expanded, listOf(RouteA to false, RouteB to true, RouteC to true))!!
+        assertTrue(shallow != deep)
     }
 
     @Test

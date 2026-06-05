@@ -1,10 +1,5 @@
 package net.kikin.nubecita.shell.adaptive
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -42,22 +37,29 @@ private val MAX_CARD_WIDTH = 640.dp
 /**
  * An [OverlayScene] that renders a *run* of consecutive `adaptiveDialog`
  * entries as a single centered dialog: a scrim with tap-to-dismiss and a
- * width-capped [Surface] card. Only the top entry of [dialogRun] is shown; when
- * the run changes (a dialog sub-route is pushed or popped) the card's content
- * swaps in place via [AnimatedContent] instead of a new dialog being stacked —
- * the Play Store "modal with nested content" behaviour. The content beneath the
- * run stays composed underneath ([overlaidEntries]) — so e.g. the profile
- * screen behind the editor keeps observing its `ownProfileUpdates` refresh
- * signal while the dialog is open.
+ * width-capped [Surface] card showing only the run's TOP entry. The entries
+ * BELOW the run stay composed underneath ([overlaidEntries]) — so e.g. the
+ * profile screen behind the editor keeps observing its `ownProfileUpdates`
+ * refresh while the dialog is open.
  *
- * Coalescing + content-swap uses the same stable-scene-key technique as
- * navigation3's `ListDetailScene` (the strategy keys this scene on the *bottom*
- * of the run, so `NavDisplay` keeps the same scene and this `AnimatedContent`
- * does the transition). Cloned from navigation3's internal `DialogScene`,
- * adding the scrim + 640dp card chrome — an editor/composer wants a roomier
- * surface than the platform default dialog width, which is why we set
- * `usePlatformDefaultWidth = false` and size the card ourselves (640dp =
- * `BottomSheetDefaults.SheetMaxWidth`).
+ * **Coalescing.** The whole consecutive `adaptiveDialog` run is owned by ONE
+ * scene (`entries = dialogRun`), so pushing a sub-route does NOT stack a second
+ * dialog + scrim — there is always exactly one dialog. Only the top route is
+ * drawn; `NavDisplay` transitions between scenes when the top changes.
+ *
+ * **Scene identity (nubecita-6k7e).** `NavDisplay` identifies overlay scenes by
+ * `AnimatedSceneKey = (sceneClass, scene.key)` and tracks them in an
+ * `equals`-deduped list. So this scene MUST (a) key on the run's TOP entry — an
+ * earlier version keyed on the BOTTOM, so `[Settings]` and `[Settings,About]`
+ * shared one key and `NavDisplay` never re-rendered the pushed sub-route (it
+ * stayed invisible on tablet); and (b) implement value equality (the [Scene]
+ * contract requires it) so a same-run recomposition is deduped instead of
+ * churning the overlay list.
+ *
+ * Cloned from navigation3's internal `DialogScene`, adding the scrim + 640dp
+ * card chrome — an editor/composer wants a roomier surface than the platform
+ * default dialog width, which is why we set `usePlatformDefaultWidth = false`
+ * and size the card ourselves (640dp = `BottomSheetDefaults.SheetMaxWidth`).
  */
 internal class AdaptiveDialogScene<T : Any>(
     override val key: Any,
@@ -69,6 +71,33 @@ internal class AdaptiveDialogScene<T : Any>(
     // The scene owns the whole consecutive dialog run so it can swap the visible
     // entry via AnimatedContent; only the top entry is shown at any time.
     override val entries: List<NavEntry<T>> = dialogRun
+
+    // The Scene contract REQUIRES value equality (data class or equals/hashCode):
+    // NavDisplay tracks OverlayScenes in an append-only, equals-deduped list. With
+    // the default reference identity, pushing a sub-route (e.g. Settings → About)
+    // produced a NEW instance whose `key` (the run's BOTTOM contentKey) is
+    // unchanged, so it collided with the stale instance on the same AnimatedSceneKey
+    // and the frozen `dialogRun.last()` (== Settings) kept rendering — the sub-route
+    // never appeared on tablet (nubecita-6k7e). Comparing the run's contentKeys
+    // makes a grown/shrunk run a DIFFERENT scene, so NavDisplay swaps to the fresh
+    // instance (whose `dialogRun.last()` is the pushed route) while an unchanged run
+    // stays equal (no flicker). Keyed on contentKey, not NavEntry identity, since
+    // NavEntry instances are re-created each recomposition.
+    private val runKeys: List<Any> = dialogRun.map { it.contentKey }
+    private val overlaidKeys: List<Any> = overlaidEntries.map { it.contentKey }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AdaptiveDialogScene<*>) return false
+        return key == other.key && runKeys == other.runKeys && overlaidKeys == other.overlaidKeys
+    }
+
+    override fun hashCode(): Int {
+        var result = key.hashCode()
+        result = 31 * result + runKeys.hashCode()
+        result = 31 * result + overlaidKeys.hashCode()
+        return result
+    }
 
     override val content: @Composable () -> Unit = {
         val lifecycleOwner = rememberLifecycleOwner()
@@ -105,22 +134,11 @@ internal class AdaptiveDialogScene<T : Any>(
                                 // the scrim's dismiss handler.
                                 .pointerInput(Unit) { detectTapGestures { } },
                     ) {
-                        // Swap the card's content when the run's top entry
-                        // changes (push/pop within the dialog). A short cross-
-                        // fade reads cleanly in both directions and avoids the
-                        // wrong-way slide a directional transition would show on
-                        // back.
-                        AnimatedContent(
-                            targetState = dialogRun.last(),
-                            contentKey = { it.contentKey },
-                            transitionSpec = {
-                                fadeIn(tween(durationMillis = 150)) togetherWith
-                                    fadeOut(tween(durationMillis = 150))
-                            },
-                            label = "adaptiveDialogContent",
-                        ) { runEntry ->
-                            Box { runEntry.Content() }
-                        }
+                        // Draw only the run's TOP route. Each route is its own
+                        // scene (keyed on the top entry), so NavDisplay handles
+                        // the push/pop transition between scenes; this card just
+                        // renders the current top.
+                        Box { dialogRun.last().Content() }
                     }
                 }
             }
@@ -164,10 +182,14 @@ internal class AdaptiveDialogSceneStrategy<T : Any>(
         }
         val dialogRun = entries.subList(runStart, entries.size)
         return AdaptiveDialogScene(
-            // Key on the BOTTOM of the run so the scene stays stable across
-            // pushes/pops within the dialog (NavDisplay keeps the same scene and
-            // the AnimatedContent does the transition).
-            key = dialogRun.first().contentKey,
+            // Key on the TOP of the run. NavDisplay identifies overlay scenes by
+            // `AnimatedSceneKey = (sceneClass, scene.key)`; keying on the run's
+            // BOTTOM made [Settings] and [Settings,About] share one key, so
+            // pushing a sub-route produced a "same scene" that NavDisplay never
+            // re-rendered — the sub-route stayed invisible on tablet
+            // (nubecita-6k7e). Keying on the top makes each pushed/popped route a
+            // distinct scene that NavDisplay actually renders.
+            key = dialogRun.last().contentKey,
             dialogRun = dialogRun,
             previousEntries = entries.dropLast(1),
             overlaidEntries = entries.subList(0, runStart),
