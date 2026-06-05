@@ -82,13 +82,11 @@ class MarketingScreenshotJourney {
             awaitTag(FEED_LIST)
         }
 
-    /** 02 — Discover / custom feeds: switch feeds via the chip row. */
-    @Test
-    fun a02Discover() =
-        capture("02_discover") {
-            awaitTag(FEED_LIST)
-            tap(By.text("Discover")) { "Discover feed chip" }
-        }
+    // 02 (Discover) dropped: Play caps the listing at 8 screenshots/locale, and
+    // the Discover feed shot was a near-duplicate of 01 (both timeline lists).
+    // The feeds story is covered by 07 (search Feeds directory) + the Following
+    // hero. The numbering keeps its gap — Play orders by filename, so 01,03,04…
+    // sorts fine and renumbering would churn every locale/bucket needlessly.
 
     /** 03 — A direct-message thread: Chats tab → first conversation. */
     @Test

@@ -8,7 +8,6 @@
    `fastlane localize_marketing_screenshots` to regenerate. Keep to 3–5 words so
    the title font stays crisp on small store thumbnails. */
 "01_feed" = "Cronologías bellamente expresivas.";
-"02_discover" = "Vive un Bluesky más ligero.";
 "03_chat" = "Mantén la conversación privada.";
 "04_video" = "Reproducción multimedia inmersiva.";
 "05_notifications" = "No te pierdas ninguna reacción.";

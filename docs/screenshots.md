@@ -53,6 +53,13 @@ freshly-captured shots into `tenInchScreenshots`. Both end by framing.
 
 ## Add a new screenshot
 
+> **Google Play caps the listing at 8 screenshots per language.** The set is
+> currently full (8). Adding a 9th makes `fastlane upload_screenshots` fail with
+> *"This app has more than 8 screenshots for language en-US."* — drop an existing
+> shot (delete its journey method, its `title.strings` line, and its `*_framed.jpg`
+> in every locale/bucket) before adding a new one. Filename gaps are fine; Play
+> orders by name.
+
 1. Add a `@Test` to `MarketingScreenshotJourney` named `aNN<Screen>` (the `NN`
    prefix orders the listing). Navigate to the screen, then `awaitTag(<tag>)`
    on a stable Compose `testTag` (surfaced as a bare resource-id via

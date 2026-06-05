@@ -4,7 +4,6 @@
    ../../es-ES/images/phoneScreenshots/title.strings) and capture with that
    locale; only en-US ships today. */
 "01_feed" = "Beautifully expressive timelines.";
-"02_discover" = "Experience a lighter Bluesky.";
 "03_chat" = "Keep the conversation private.";
 "04_video" = "Immersive media playback.";
 "05_notifications" = "Never miss a reaction.";
