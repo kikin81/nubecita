@@ -33,7 +33,7 @@ The repo currently ships `es-419` (`values-b+es+419`) and `pt-BR` (`values-pt-rB
 find . -name "strings.xml" -path "*/src/main/res/values/strings.xml" | grep -v "/build/"
 
 # Backfill mode — keys missing in a locale, per module (QUAL = e.g. b+es+419):
-keys() { grep -oE 'name="[^"]+"' "$1" | sort -u; }
+keys() { grep -v 'translatable="false"' "$1" | grep -oE 'name="[^"]+"' | sort -u; }
 for src in $(find . -name strings.xml -path "*/src/main/res/values/strings.xml" | grep -v /build/); do
   dir=$(dirname "$(dirname "$src")"); loc="$dir/values-QUAL/strings.xml"
   [ -f "$loc" ] && comm -23 <(keys "$src") <(keys "$loc") | sed "s#^#$src  missing: #"
@@ -89,7 +89,7 @@ Per-agent prompt skeleton: the **Translation rules** + **Glossary** sections ver
 
 ```bash
 # 1. Every locale file exists, is well-formed, and key-matches its source.
-keys() { grep -oE 'name="[^"]+"' "$1" | sort -u; }
+keys() { grep -v 'translatable="false"' "$1" | grep -oE 'name="[^"]+"' | sort -u; }
 for src in $(find . -name strings.xml -path "*/src/main/res/values/strings.xml" | grep -v /build/); do
   dir=$(dirname "$(dirname "$src")")
   for q in values-b+es+419 values-pt-rBR; do            # ← edit to the locale(s) you touched
@@ -110,7 +110,7 @@ def coll(p):
     for e in r:
         n=e.get('name')
         if n is None: continue
-        o[n]=norm(TOK.findall(e.text or '')) if e.tag=='string' else norm([t for it in e for t in TOK.findall(it.text or '')])
+        o[n]=norm(TOK.findall("".join(e.itertext()))) if e.tag=='string' else norm([t for it in e for t in TOK.findall("".join(it.itertext()))])
     return o
 bad=0
 for src in glob.glob('**/src/main/res/values/strings.xml',recursive=True):
