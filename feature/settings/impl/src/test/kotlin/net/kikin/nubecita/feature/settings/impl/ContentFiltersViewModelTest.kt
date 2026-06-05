@@ -5,6 +5,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import kotlin.coroutines.cancellation.CancellationException
 
 class ContentFiltersViewModelTest {
     // RegisterExtension (not ExtendWith) so `runTest(mainDispatcher.dispatcher)`
@@ -114,6 +116,53 @@ class ContentFiltersViewModelTest {
             advanceUntilIdle()
 
             coVerify { repo.setVisibility(ContentLabel.PORN, LabelVisibility.WARN) }
+        }
+
+    @Test
+    fun `rapid same-field toggles cancel the in-flight write (per-field single-flight)`() =
+        runTest(mainDispatcher.dispatcher) {
+            val (repo, _) = fakeRepo(adultOn)
+            val firstGate = CompletableDeferred<Unit>()
+            var firstCancelled = false
+            coEvery { repo.setVisibility(ContentLabel.PORN, LabelVisibility.HIDE) } coAnswers {
+                try {
+                    firstGate.await()
+                } catch (e: CancellationException) {
+                    firstCancelled = true
+                    throw e
+                }
+            }
+            coEvery { repo.setVisibility(ContentLabel.PORN, LabelVisibility.SHOW) } returns Unit
+            val vm = ContentFiltersViewModel(repo)
+
+            vm.handleEvent(ContentFiltersEvent.VisibilitySelected(ContentLabel.PORN, LabelVisibility.HIDE))
+            advanceUntilIdle() // let the HIDE write start and park on firstGate
+            vm.handleEvent(ContentFiltersEvent.VisibilitySelected(ContentLabel.PORN, LabelVisibility.SHOW))
+            advanceUntilIdle()
+
+            assertTrue(firstCancelled, "a newer toggle for the SAME field must cancel the in-flight write")
+        }
+
+    @Test
+    fun `a toggle on a different field does not cancel an in-flight write`() =
+        runTest(mainDispatcher.dispatcher) {
+            val (repo, _) = fakeRepo(adultOn)
+            val pornGate = CompletableDeferred<Unit>()
+            var pornFinished = false
+            coEvery { repo.setVisibility(ContentLabel.PORN, LabelVisibility.HIDE) } coAnswers {
+                pornGate.await()
+                pornFinished = true
+            }
+            val vm = ContentFiltersViewModel(repo)
+
+            vm.handleEvent(ContentFiltersEvent.VisibilitySelected(ContentLabel.PORN, LabelVisibility.HIDE))
+            // A DIFFERENT field's toggle must not touch the porn write.
+            vm.handleEvent(ContentFiltersEvent.AdultContentToggled(enabled = false))
+            advanceUntilIdle()
+            pornGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertTrue(pornFinished, "a different field's toggle must not cancel the porn write")
         }
 
     @Test

@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.moderation
 
 import io.github.kikin81.atproto.runtime.NoXrpcParams
 import io.github.kikin81.atproto.runtime.UnitResponseSerializer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -107,19 +108,41 @@ internal class DefaultModerationPreferencesRepository
         ) = update { it.copy(visibilities = it.visibilities + (label to visibility)) }
 
         /**
-         * Read-modify-write under [writeMutex]: re-read the live array (so we
-         * never clobber a change made elsewhere since the last refresh), apply
-         * [transform], write the merged array back, then publish the new prefs.
-         * The mutex makes concurrent [setAdultContentEnabled] / [setVisibility]
-         * calls atomic — without it, two stale reads would race and lose an update.
+         * Optimistic read-modify-write.
+         *
+         * Publishes the transformed value to [prefs] IMMEDIATELY — before any
+         * network — so the Content filters screen (a pure projection of [prefs])
+         * reacts on the next frame instead of waiting ~seconds on the
+         * `putPreferences` round-trip (nubecita-twmt.6). Then, under [writeMutex],
+         * re-reads the live array (so a change made elsewhere since the last
+         * refresh isn't clobbered), applies [transform] to the authoritative
+         * server state, writes the merged array back, and republishes that
+         * reconciled value (usually identical to the optimistic one).
+         *
+         * On a real failure it rolls [prefs] back to the prior value — unless a
+         * later optimistic change already superseded ours — and rethrows so the
+         * caller (the VM) can surface a save-error snackbar over a UI that has
+         * already snapped back. Cancellation leaves the optimistic value; the
+         * next [refresh] reconciles.
          */
-        private suspend fun update(transform: (ModerationPrefs) -> ModerationPrefs) =
-            writeMutex.withLock {
-                val original = fetchPreferencesArray()
-                val updated = transform(parseModerationPrefs(original))
-                writePreferencesArray(mergeModerationPrefs(original, updated))
-                _prefs.value = updated
+        private suspend fun update(transform: (ModerationPrefs) -> ModerationPrefs) {
+            val previous = _prefs.value
+            val optimistic = transform(previous)
+            _prefs.value = optimistic
+            try {
+                writeMutex.withLock {
+                    val original = fetchPreferencesArray()
+                    val reconciled = transform(parseModerationPrefs(original))
+                    writePreferencesArray(mergeModerationPrefs(original, reconciled))
+                    _prefs.value = reconciled
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                if (_prefs.value == optimistic) _prefs.value = previous
+                throw throwable
             }
+        }
 
         private suspend fun fetchPreferencesArray(): JsonArray {
             val response =

@@ -11,6 +11,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.headersOf
 import io.mockk.coEvery
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -102,6 +104,50 @@ internal class ModerationPreferencesBoundaryTest {
             assertEquals(setOf("porn", "sexual", "graphic-media", "nudity"), labels)
         }
 
+    // --- optimistic update (twmt.6) ---
+
+    @Test
+    fun `setVisibility publishes optimistically before the network write resolves`() =
+        runTest {
+            // graphic-media defaults to WARN; we set HIDE. The PUT is gated so it
+            // can't complete — yet the cache must already reflect HIDE.
+            val putGate = CompletableDeferred<Unit>()
+            val repo =
+                DefaultModerationPreferencesRepository(
+                    gatedPutProvider(getBody = """{"preferences":[]}""", putGate = putGate),
+                )
+            val job = launch { repo.setVisibility(ContentLabel.GRAPHIC_MEDIA, LabelVisibility.HIDE) }
+            testScheduler.runCurrent()
+
+            assertEquals(
+                LabelVisibility.HIDE,
+                repo.prefs.value.visibilityFor(ContentLabel.GRAPHIC_MEDIA),
+                "the cache must update before the putPreferences round-trip completes",
+            )
+            putGate.complete(Unit)
+            job.join()
+        }
+
+    @Test
+    fun `a failed write reverts the optimistic cache update`() =
+        runTest {
+            val putGate = CompletableDeferred<Unit>()
+            val repo =
+                DefaultModerationPreferencesRepository(
+                    gatedPutProvider(getBody = """{"preferences":[]}""", putGate = putGate, failAfterGate = true),
+                )
+            val before = repo.prefs.value
+            val job = launch { runCatching { repo.setVisibility(ContentLabel.GRAPHIC_MEDIA, LabelVisibility.HIDE) } }
+            testScheduler.runCurrent()
+            // Optimistically applied while the write is in flight…
+            assertEquals(LabelVisibility.HIDE, repo.prefs.value.visibilityFor(ContentLabel.GRAPHIC_MEDIA))
+
+            putGate.complete(Unit) // …then the gated write fails →
+            job.join()
+
+            assertEquals(before, repo.prefs.value, "a failed write must roll the cache back to the prior value")
+        }
+
     /**
      * Builds a stub [XrpcClientProvider] over a Ktor [MockEngine]. GET requests
      * (getPreferences) return [getBody]; POST requests (putPreferences) return an
@@ -120,6 +166,38 @@ internal class ModerationPreferencesBoundaryTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json"),
                     )
                 } else {
+                    respond(content = "", headers = headersOf(HttpHeaders.ContentType, "application/json"))
+                }
+            }
+        val noAuth =
+            object : AuthProvider {
+                override suspend fun authHeaders(
+                    method: String,
+                    url: String,
+                ): Map<String, String> = emptyMap()
+            }
+        val client = XrpcClient("https://example.invalid", HttpClient(engine), sdkJson, noAuth)
+        return mockk<XrpcClientProvider>().also { coEvery { it.authenticated() } returns client }
+    }
+
+    /**
+     * Like [provider] but the PUT (putPreferences) suspends on [putGate] before
+     * responding — so a test can observe the optimistic cache update while the
+     * write is in flight. When [failAfterGate] is true the gated PUT throws once
+     * released, to exercise the revert path.
+     */
+    private fun gatedPutProvider(
+        getBody: String,
+        putGate: CompletableDeferred<Unit>,
+        failAfterGate: Boolean = false,
+    ): XrpcClientProvider {
+        val engine =
+            MockEngine { request ->
+                if (request.url.encodedPath.endsWith("getPreferences")) {
+                    respond(content = getBody, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+                } else {
+                    putGate.await()
+                    if (failAfterGate) error("putPreferences failed")
                     respond(content = "", headers = headersOf(HttpHeaders.ContentType, "application/json"))
                 }
             }

@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.settings.impl
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -51,27 +52,49 @@ internal class ContentFiltersViewModel
             }
         }
 
+        // Per-field in-flight write, keyed so a newer toggle for the SAME field
+        // supersedes its predecessor while OTHER fields write independently.
+        private val writeJobs = mutableMapOf<String, Job>()
+
         override fun handleEvent(event: ContentFiltersEvent) {
             when (event) {
                 is ContentFiltersEvent.AdultContentToggled ->
-                    persist { repository.setAdultContentEnabled(event.enabled) }
+                    persist(ADULT_GATE_KEY) { repository.setAdultContentEnabled(event.enabled) }
                 is ContentFiltersEvent.VisibilitySelected ->
-                    persist { repository.setVisibility(event.label, event.visibility) }
+                    persist(event.label.name) { repository.setVisibility(event.label, event.visibility) }
             }
         }
 
-        private fun persist(write: suspend () -> Unit) {
-            viewModelScope.launch {
-                // Only a real write failure surfaces a save error; cancellation
-                // (e.g. navigating away mid-write) must propagate, not snackbar.
-                try {
-                    write()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    sendEffect(ContentFiltersEffect.ShowSaveError)
+        /**
+         * Per-field single-flight write. A newer toggle for [key] cancels the
+         * in-flight write for that field, so rapid flips collapse to one network
+         * round-trip instead of queuing N; different fields write concurrently.
+         * The optimistic cache already updated, so cancelling mid-write hits the
+         * repository's `CancellationException` path (no revert — the newer
+         * optimistic value stands) and the next same-field write reconciles the
+         * server. Only a real failure surfaces the snackbar.
+         */
+        private fun persist(
+            key: String,
+            write: suspend () -> Unit,
+        ) {
+            writeJobs[key]?.cancel()
+            writeJobs[key] =
+                viewModelScope.launch {
+                    try {
+                        write()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        sendEffect(ContentFiltersEffect.ShowSaveError)
+                    }
                 }
-            }
+        }
+
+        private companion object {
+            // Distinct from every ContentLabel.name (PORN/SEXUAL/GRAPHIC_MEDIA/
+            // NUDITY) so the adult gate gets its own single-flight slot.
+            const val ADULT_GATE_KEY = "adult_content_gate"
         }
     }
 
