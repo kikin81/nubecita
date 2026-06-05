@@ -65,4 +65,5 @@
     <string name="content_filters_cat_nudity">Nudez não sexual</string>
     <string name="content_filters_cat_nudity_desc">Nudez artística ou educativa.</string>
     <string name="content_filters_save_error">Não foi possível salvar a alteração. Verifique sua conexão e tente de novo.</string>
+    <string name="settings_translation_disclosure">As traduções para idiomas além do inglês são geradas por IA e podem conter imprecisões.</string>
 </resources>

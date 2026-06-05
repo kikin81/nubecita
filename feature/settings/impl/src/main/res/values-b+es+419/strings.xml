@@ -65,4 +65,5 @@
     <string name="content_filters_cat_nudity">Desnudez no sexual</string>
     <string name="content_filters_cat_nudity_desc">Desnudez artística o educativa.</string>
     <string name="content_filters_save_error">No se pudo guardar el cambio. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="settings_translation_disclosure">Las traducciones a idiomas distintos del inglés se generan con IA y pueden contener imprecisiones.</string>
 </resources>
