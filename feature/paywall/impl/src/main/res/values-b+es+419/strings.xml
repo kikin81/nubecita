@@ -7,8 +7,8 @@
     <string name="paywall_subhead">Nubecita es un cliente de Bluesky nativo e independiente, creado por una sola persona. Hacerte Apoyador financia el trabajo continuo — y desbloquea un par de beneficios como agradecimiento.</string>
 
     <string name="paywall_perks_title">Lo que obtienes</string>
-    <string name="paywall_perk_pip_title">Video en imagen sobre imagen</string>
-    <string name="paywall_perk_pip_body">Saca un video a una ventana flotante y sigue viéndolo mientras navegas.</string>
+    <string name="paywall_perk_pip_title">Video en imagen en imagen</string>
+    <string name="paywall_perk_pip_body">Reproduce un video en una ventana flotante y sigue viéndolo mientras navegas.</string>
     <string name="paywall_perk_badge_title">Insignia de Apoyador</string>
     <string name="paywall_perk_badge_body">Una pequeña insignia en tu propio perfil — un agradecimiento discreto, solo para ti.</string>
 

@@ -50,7 +50,7 @@
     <string name="settings_content_filters_label">Filtros de contenido</string>
     <string name="content_filters_title">Filtros de contenido</string>
     <string name="content_filters_back_content_desc">Atrás</string>
-    <string name="content_filters_description">Elige qué sucede cuando una publicación lleva una de estas etiquetas de contenido. Las categorías para adultos solo aplican cuando el contenido para adultos está habilitado; de lo contrario, siempre se ocultan.</string>
+    <string name="content_filters_description">Elige qué sucede cuando una publicación lleva una de estas etiquetas de contenido. Las categorías para adultos solo se aplican cuando el contenido para adultos está habilitado; de lo contrario, siempre se ocultan.</string>
     <string name="content_filters_enable_adult">Habilitar contenido para adultos</string>
     <string name="content_filters_enable_adult_supporting">Debes tener 18 años o más para habilitarlo.</string>
     <string name="content_filters_show">Mostrar</string>
@@ -58,7 +58,7 @@
     <string name="content_filters_hide">Ocultar</string>
     <string name="content_filters_cat_porn">Contenido para adultos</string>
     <string name="content_filters_cat_porn_desc">Imágenes sexuales explícitas.</string>
-    <string name="content_filters_cat_sexual">Sugerente sexualmente</string>
+    <string name="content_filters_cat_sexual">Sexualmente sugerente</string>
     <string name="content_filters_cat_sexual_desc">No incluye desnudez.</string>
     <string name="content_filters_cat_graphic">Contenido gráfico</string>
     <string name="content_filters_cat_graphic_desc">Contenido explícito o potencialmente perturbador.</string>
