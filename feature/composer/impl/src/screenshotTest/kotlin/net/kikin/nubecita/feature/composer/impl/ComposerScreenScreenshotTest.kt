@@ -76,6 +76,7 @@ private fun ComposerScreenEmptyScreenshot() {
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
             onLanguageChipClick = {},
+            onAudienceChipClick = {},
         )
     }
 }
@@ -103,6 +104,7 @@ private fun ComposerScreenNearLimitScreenshot() {
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
             onLanguageChipClick = {},
+            onAudienceChipClick = {},
         )
     }
 }
@@ -130,6 +132,7 @@ private fun ComposerScreenSubmittingScreenshot() {
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
             onLanguageChipClick = {},
+            onAudienceChipClick = {},
         )
     }
 }
@@ -184,6 +187,7 @@ private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
             onLanguageChipClick = {},
+            onAudienceChipClick = {},
         )
     }
 }
@@ -225,6 +229,7 @@ private fun ComposerScreenReplyModeLoadedScreenshot() {
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
             onLanguageChipClick = {},
+            onAudienceChipClick = {},
         )
     }
 }
@@ -256,6 +261,7 @@ private fun ComposerScreenWithImagesScreenshot() {
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
             onLanguageChipClick = {},
+            onAudienceChipClick = {},
         )
     }
 }

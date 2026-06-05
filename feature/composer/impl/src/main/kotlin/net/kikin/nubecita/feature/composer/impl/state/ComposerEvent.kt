@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.composer.impl.state
 
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.posting.ComposerAttachment
+import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.data.models.ActorUi
 
 /**
@@ -81,5 +82,16 @@ internal sealed interface ComposerEvent : UiEvent {
      */
     data class LanguageSelectionConfirmed(
         val tags: List<String>,
+    ) : ComposerEvent
+
+    /**
+     * Dispatched by the audience picker when the user taps `Done`. The reducer
+     * assigns [audience] to `ComposerState.audience`; when [saveAsDefault] is
+     * true it also persists it as the synced account default (a failed save
+     * surfaces a non-blocking error effect — the local selection still stands).
+     */
+    data class AudienceSelectionConfirmed(
+        val audience: PostAudience,
+        val saveAsDefault: Boolean,
     ) : ComposerEvent
 }

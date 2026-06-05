@@ -9,6 +9,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
@@ -21,8 +22,10 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.common.text.GraphemeCounter
+import net.kikin.nubecita.core.moderation.PostAudienceDefaultRepository
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
+import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.data.models.ActorUi
@@ -114,8 +117,20 @@ internal class ComposerViewModel
         private val parentFetchSource: ParentFetchSource,
         private val actorRepository: ActorRepository,
         private val localeProvider: LocaleProvider,
+        private val postAudienceDefaultRepository: PostAudienceDefaultRepository,
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
-            initialState = ComposerState(replyToUri = route.replyToUri),
+            // Pre-fill the audience from the synced default — a point-in-time read
+            // of the repo's seeded/refreshed StateFlow at open, mirroring
+            // deviceLocaleTag. Deliberately NOT observed for the composer's
+            // lifetime: once open, `audience` is the user's to edit, so a later
+            // coordinator refresh must not clobber an in-progress selection. The
+            // coordinator refreshes on sign-in, well before a user-initiated
+            // compose, so the seed reflects the server default in practice.
+            initialState =
+                ComposerState(
+                    replyToUri = route.replyToUri,
+                    audience = postAudienceDefaultRepository.default.value,
+                ),
         ) {
         @AssistedFactory
         interface Factory {
@@ -264,6 +279,8 @@ internal class ComposerViewModel
                     if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
                 is ComposerEvent.LanguageSelectionConfirmed ->
                     if (!submitInFlight) handleLanguageSelectionConfirmed(event.tags)
+                is ComposerEvent.AudienceSelectionConfirmed ->
+                    if (!submitInFlight) handleAudienceSelectionConfirmed(event.audience, event.saveAsDefault)
             }
         }
 
@@ -348,6 +365,31 @@ internal class ComposerViewModel
             setState { copy(selectedLangs = tags.toImmutableList()) }
         }
 
+        /**
+         * Commit the picker's audience to state (so the chip + submit reflect it
+         * immediately), and — when the user checked "save as default" — persist it
+         * as the synced account default. The save is fire-and-forget against the
+         * optimistic repo; a real failure (not cancellation) surfaces a non-blocking
+         * [ComposerEffect.ShowAudienceSaveError] while the local selection stands.
+         */
+        private fun handleAudienceSelectionConfirmed(
+            audience: PostAudience,
+            saveAsDefault: Boolean,
+        ) {
+            setState { copy(audience = audience) }
+            if (!saveAsDefault) return
+            viewModelScope.launch {
+                try {
+                    postAudienceDefaultRepository.setDefault(audience)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (throwable: Throwable) {
+                    Timber.tag(TAG).e(throwable, "save audience default failed")
+                    sendEffect(ComposerEffect.ShowAudienceSaveError)
+                }
+            }
+        }
+
         private fun handleSubmit() {
             val current = uiState.value
             val text = textFieldState.text.toString()
@@ -388,6 +430,7 @@ internal class ComposerViewModel
                         attachments = current.attachments.toList(),
                         replyTo = replyTo,
                         langs = current.selectedLangs,
+                        audience = current.audience,
                     )
                 result.fold(
                     onSuccess = { uri ->

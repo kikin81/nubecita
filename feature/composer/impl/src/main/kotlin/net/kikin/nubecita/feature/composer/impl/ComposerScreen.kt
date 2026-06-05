@@ -53,7 +53,9 @@ import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.composer.impl.internal.AudiencePicker
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerAudienceChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounter
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCloseAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDialogAction
@@ -133,6 +135,7 @@ internal fun ComposerScreen(
     val replyNotAllowedErrorMessage = stringResource(R.string.composer_error_reply_not_allowed)
     val genericErrorMessage = stringResource(R.string.composer_error_generic)
     val uploadFailedTemplate = stringResource(R.string.composer_error_upload_failed)
+    val audienceSaveErrorMessage = stringResource(R.string.composer_audience_save_error)
 
     // Stabilize the unstable lambda params via rememberUpdatedState so
     // the LaunchedEffect's restart key (Unit) doesn't capture a stale
@@ -204,6 +207,9 @@ internal fun ComposerScreen(
     // showDiscardDialog above. The picker's *draft* selection lives
     // inside LanguagePicker via its own rememberSaveable.
     var showPicker by rememberSaveable { mutableStateOf(false) }
+    // Audience-picker visibility — same shape as showPicker; the draft lives
+    // inside AudiencePicker via its own rememberSaveable.
+    var showAudiencePicker by rememberSaveable { mutableStateOf(false) }
     val hasContent by remember(viewModel.textFieldState, state.attachments) {
         derivedStateOf {
             viewModel.textFieldState.text.isNotBlank() || state.attachments.isNotEmpty()
@@ -221,20 +227,20 @@ internal fun ComposerScreen(
     // are swallowed here rather than propagating to NavDisplay's pop
     // handler (which would close the Compact composer route mid-submit).
     //
-    // While the discard dialog is showing, the back-press dismisses
-    // the dialog instead of re-running `attemptClose()`. Without this
-    // guard the user gets trapped in the confirmation: re-running the
-    // gate sees `hasContent = true` and re-sets `showDiscardDialog =
-    // true`, a no-op that never gives the dialog's own back-press
-    // dismissal (the Popup's `dismissOnBackPress` at Medium/Expanded,
-    // BasicAlertDialog's `onDismissRequest` at Compact) a chance to
-    // run, since this BackHandler fires first. Treating in-dialog
-    // back-press as Cancel matches the M3 dismissal convention.
+    // While an overlay (a picker or the discard dialog) is showing, the
+    // back-press dismisses THAT overlay rather than running `attemptClose()`.
+    // This BackHandler fires before the overlays' own back handling (the
+    // ModalBottomSheet / Popup `dismissOnBackPress`), so without handling them
+    // explicitly here a back-press while the audience or language picker is open
+    // would fall through to `attemptClose()` and could close the whole composer
+    // mid-selection. Treating in-overlay back-press as Cancel matches the M3
+    // dismissal convention.
     BackHandler(enabled = true) {
-        if (showDiscardDialog) {
-            showDiscardDialog = false
-        } else {
-            attemptClose()
+        when {
+            showAudiencePicker -> showAudiencePicker = false
+            showPicker -> showPicker = false
+            showDiscardDialog -> showDiscardDialog = false
+            else -> attemptClose()
         }
     }
 
@@ -275,6 +281,10 @@ internal fun ComposerScreen(
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)
                 }
+                ComposerEffect.ShowAudienceSaveError -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = audienceSaveErrorMessage)
+                }
             }
         }
     }
@@ -291,6 +301,7 @@ internal fun ComposerScreen(
         onSuggestionClick = onSuggestionClick,
         onRetryParentLoad = onRetryParentLoad,
         onLanguageChipClick = { showPicker = true },
+        onAudienceChipClick = { showAudiencePicker = true },
         modifier = modifier,
     )
 
@@ -325,6 +336,17 @@ internal fun ComposerScreen(
                 showPicker = false
             },
             onDismiss = { showPicker = false },
+        )
+    }
+
+    if (showAudiencePicker) {
+        AudiencePicker(
+            initialAudience = state.audience,
+            onConfirm = { audience, saveAsDefault ->
+                viewModel.handleEvent(ComposerEvent.AudienceSelectionConfirmed(audience, saveAsDefault))
+                showAudiencePicker = false
+            },
+            onDismiss = { showAudiencePicker = false },
         )
     }
 
@@ -369,6 +391,7 @@ internal fun ComposerScreenContent(
     onSuggestionClick: (ActorUi) -> Unit,
     onRetryParentLoad: () -> Unit,
     onLanguageChipClick: () -> Unit,
+    onAudienceChipClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -500,6 +523,14 @@ internal fun ComposerScreenContent(
                     deviceLocaleTag = deviceLocaleTag,
                     onClick = onLanguageChipClick,
                 )
+                // Audience chip — top-level posts only. threadgate/postgate
+                // belong to the thread root, so it's hidden in reply mode.
+                if (state.replyToUri == null) {
+                    ComposerAudienceChip(
+                        audience = state.audience,
+                        onClick = onAudienceChipClick,
+                    )
+                }
             }
             // Composer attachment action row. Hosts the leading
             // "Add image" affordance and a horizontally-scrolling

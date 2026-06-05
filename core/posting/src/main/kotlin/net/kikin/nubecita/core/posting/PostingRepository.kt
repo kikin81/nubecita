@@ -57,9 +57,10 @@ interface PostingRepository {
      *   `app.bsky.feed.postgate` records are created at the new post's rkey
      *   **best-effort** — a gate-write failure is logged and does NOT fail the post
      *   (the post is already live). **Ignored on replies** ([replyTo] non-null): a
-     *   threadgate's rkey must match the thread root's, not a reply's. Surfacing a
-     *   "couldn't apply audience" notice to the user is a composer-layer
-     *   (nubecita-33bw.5) concern.
+     *   threadgate's rkey must match the thread root's, not a reply's. A gate-write
+     *   failure is currently swallowed (not surfaced to the user); routing it to a
+     *   "couldn't apply audience" snackbar needs this return type to carry the gate
+     *   outcome and is tracked as nubecita-33bw.8.
      * @return `Result.success(uri)` on a successful submission carrying
      *   the new record's AT URI; `Result.failure(ComposerError)` on any
      *   typed failure mode.

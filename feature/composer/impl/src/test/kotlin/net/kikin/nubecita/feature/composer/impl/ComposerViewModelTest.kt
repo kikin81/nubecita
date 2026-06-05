@@ -8,10 +8,12 @@ import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -19,10 +21,13 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.actors.ActorSearchPage
+import net.kikin.nubecita.core.moderation.PostAudienceDefaultRepository
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.LocaleProvider
+import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
+import net.kikin.nubecita.core.posting.ReplyAudience
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
@@ -66,6 +71,13 @@ class ComposerViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val postingRepository = mockk<PostingRepository>()
     private val parentFetchSource = mockk<ParentFetchSource>()
+
+    // Seeds the composer's audience from PostAudience.DEFAULT; setDefault is a
+    // relaxed no-op (the save-as-default path is exercised separately).
+    private val postAudienceDefaultRepository =
+        mockk<PostAudienceDefaultRepository>(relaxed = true) {
+            every { default } returns MutableStateFlow(PostAudience.DEFAULT)
+        }
 
     // The typeahead repo is exercised by ComposerViewModelTypeaheadTest;
     // here we install a fake that returns empty so the snapshot
@@ -572,6 +584,73 @@ class ComposerViewModelTest {
             }
         }
 
+    // ---------- audience (nubecita-33bw.5) ----------
+
+    @Test
+    fun audienceSelectionConfirmed_updatesState() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+            val audience = PostAudience(ReplyAudience.Nobody, allowQuotes = false)
+
+            vm.handleEvent(ComposerEvent.AudienceSelectionConfirmed(audience, saveAsDefault = false))
+
+            assertEquals(audience, vm.uiState.value.audience)
+        }
+
+    @Test
+    fun initialAudience_isSeededFromTheSyncedDefault() =
+        runTest {
+            val saved =
+                PostAudience(ReplyAudience.Combination(followers = true, following = false, mentioned = false), allowQuotes = false)
+            every { postAudienceDefaultRepository.default } returns MutableStateFlow(saved)
+
+            val vm = newVm(replyToUri = null)
+
+            assertEquals(saved, vm.uiState.value.audience)
+        }
+
+    @Test
+    fun submit_passesSelectedAudienceToCreatePost() =
+        runTest {
+            val audience = PostAudience(ReplyAudience.Nobody, allowQuotes = true)
+            coEvery {
+                postingRepository.createPost(text = "hi", attachments = emptyList(), replyTo = null, langs = null, audience = audience)
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/x"))
+
+            val vm = newVm(replyToUri = null)
+            vm.handleEvent(ComposerEvent.AudienceSelectionConfirmed(audience, saveAsDefault = false))
+            setComposerText(vm, "hi")
+            vm.handleEvent(ComposerEvent.Submit)
+
+            coVerify {
+                postingRepository.createPost(text = "hi", attachments = emptyList(), replyTo = null, langs = null, audience = audience)
+            }
+        }
+
+    @Test
+    fun audienceSelectionConfirmed_withSaveAsDefault_persistsTheDefault() =
+        runTest {
+            val audience = PostAudience(ReplyAudience.Nobody, allowQuotes = false)
+            val vm = newVm(replyToUri = null)
+
+            vm.handleEvent(ComposerEvent.AudienceSelectionConfirmed(audience, saveAsDefault = true))
+
+            coVerify { postAudienceDefaultRepository.setDefault(audience) }
+        }
+
+    @Test
+    fun saveAsDefaultFailure_emitsShowAudienceSaveError() =
+        runTest {
+            val audience = PostAudience(ReplyAudience.Nobody, allowQuotes = false)
+            coEvery { postAudienceDefaultRepository.setDefault(audience) } throws RuntimeException("offline")
+            val vm = newVm(replyToUri = null)
+
+            vm.effects.test {
+                vm.handleEvent(ComposerEvent.AudienceSelectionConfirmed(audience, saveAsDefault = true))
+                assertEquals(ComposerEffect.ShowAudienceSaveError, awaitItem())
+            }
+        }
+
     // ---------- harness ----------
 
     private fun newVm(
@@ -584,6 +663,7 @@ class ComposerViewModelTest {
             parentFetchSource = parentFetchSource,
             actorRepository = actorRepository,
             localeProvider = fixedLocaleProvider(deviceLocaleTag),
+            postAudienceDefaultRepository = postAudienceDefaultRepository,
         )
 
     private fun fixedLocaleProvider(tag: String): LocaleProvider =
