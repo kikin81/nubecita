@@ -199,7 +199,13 @@ class MarketingScreenshotJourney {
             Thread.sleep(SETTLE_MS)
             Screengrab.screenshot(name)
         } finally {
-            runCatching { scenario.close() }
+            try {
+                scenario.close()
+            } catch (teardownFailure: Throwable) {
+                // The NEW_TASK deep-link reuse detached the instance from
+                // ActivityScenario, so close() throws trying to reach DESTROYED.
+                // The capture already happened — swallow rather than fail the run.
+            }
         }
     }
 
