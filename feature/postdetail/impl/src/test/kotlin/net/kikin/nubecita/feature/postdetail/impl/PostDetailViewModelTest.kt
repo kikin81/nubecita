@@ -354,11 +354,19 @@ internal class PostDetailViewModelTest {
         }
 
     @Test
-    fun `OnReplyClicked after a successful Load emits NavigateToComposer with the focus URI`() =
+    fun `OnReplyClicked emits NavigateToComposer with the focus post's canonical URI, not the route URI`() =
         runTest(mainDispatcher.dispatcher) {
-            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            // Deep links open post-detail with a handle-based route URI
+            // (PostDeepLinkKey.toPostDetailRoute), while the appview returns the
+            // canonical DID-based URI as the focus post's id. The reply target
+            // must be the canonical id so the composer's reply-ref resolution
+            // doesn't choke on a handle URI — assert the two differ and we emit
+            // the canonical one.
+            val canonicalUri = "at://did:plc:abcdefghijklmnopqrstuvwx/app.bsky.feed.post/3lkb"
+            val routeUri = "at://alice.bsky.social/app.bsky.feed.post/3lkb"
+            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost(canonicalUri)))
             val repo = FakeRepo(results = listOf(Result.success(items)))
-            val vm = newVm(repo, focusUri = "at://focus")
+            val vm = newVm(repo, focusUri = routeUri)
 
             vm.handleEvent(PostDetailEvent.Load)
             advanceUntilIdle()
@@ -367,7 +375,7 @@ internal class PostDetailViewModelTest {
                 vm.handleEvent(PostDetailEvent.OnReplyClicked)
                 val effect = awaitItem()
                 assertTrue(effect is PostDetailEffect.NavigateToComposer)
-                assertEquals("at://focus", (effect as PostDetailEffect.NavigateToComposer).parentPostUri)
+                assertEquals(canonicalUri, (effect as PostDetailEffect.NavigateToComposer).parentPostUri)
             }
         }
 

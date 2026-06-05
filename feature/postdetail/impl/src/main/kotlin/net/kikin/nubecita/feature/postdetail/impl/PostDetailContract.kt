@@ -41,7 +41,7 @@ internal data class PostDetailState(
  * resolves (the default `Idle` state, `InitialLoading`, or `InitialError`).
  */
 internal val PostDetailState.focusPost: PostUi?
-    get() = (items.firstOrNull { it is ThreadItem.Focus } as? ThreadItem.Focus)?.post
+    get() = items.firstNotNullOfOrNull { it as? ThreadItem.Focus }?.post
 
 /**
  * Whether the floating reply FAB should show. `true` only once a [focusPost] has
