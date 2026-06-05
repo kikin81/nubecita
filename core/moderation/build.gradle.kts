@@ -18,6 +18,11 @@ android {
 dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    // PostAudienceDefaultRepository owns the `postInteractionSettingsPref` entry
+    // in the shared `app.bsky.actor.getPreferences` array (same place as the
+    // content-filter prefs), so `:core:posting`'s PostAudience is a domain model
+    // here — not a consumer relationship. See design decision D5.
+    implementation(project(":core:posting"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.coroutines.core)
