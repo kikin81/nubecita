@@ -38,10 +38,21 @@ for f in "$TEN"/[0-9]*.png; do
   magick /tmp/_tabrounded.png -resize 2200x /tmp/_tabscaled.png
   # Backdrop gradient (matches the phone Framefile background), screenshot
   # centered below a top title band. 2560x2080 keeps the ratio under Play's 2:1.
+  # Render to a lossless composite first, then JPG-encode below.
   magick -size 2560x2080 gradient:'#4A7DFF'-'#1B2A6B' \
     /tmp/_tabscaled.png -gravity north -geometry +0+560 -composite \
     -gravity north -font "$FONT" -pointsize 104 -fill white -annotate +0+180 "$title" \
-    -quality 90 "$TEN/${name}_framed.jpg"
-  echo "framed: ${name}_framed.jpg  <-  \"$title\""
+    /tmp/_tabcomposite.png
+  # Encode under the repo's 500 KB asset cap — the busier shots (feed list +
+  # thread) exceed it at q90. Step quality down from the lossless composite (no
+  # compounding re-encode loss) until it fits.
+  out="$TEN/${name}_framed.jpg"
+  q=90
+  magick /tmp/_tabcomposite.png -quality "$q" "$out"
+  while [ "$(wc -c < "$out")" -gt 500000 ] && [ "$q" -gt 70 ]; do
+    q=$((q - 4))
+    magick /tmp/_tabcomposite.png -quality "$q" "$out"
+  done
+  echo "framed: ${name}_framed.jpg  <-  \"$title\"  (q$q)"
 done
-rm -f /tmp/_tabmask.png /tmp/_tabrounded.png /tmp/_tabscaled.png
+rm -f /tmp/_tabmask.png /tmp/_tabrounded.png /tmp/_tabscaled.png /tmp/_tabcomposite.png

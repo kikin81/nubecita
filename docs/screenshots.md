@@ -6,8 +6,8 @@ flavor** (signed-in, deterministic fake data, zero network) by the
 brand backdrop + localized headline) by fastlane.
 
 - Journey: `app/src/androidTest/.../screenshots/MarketingScreenshotJourney.kt`
-- Lanes: `fastlane/Fastfile` — `screenshots` (phone), `screenshots_tablet` (tablet), `frame_marketing_screenshots`, `upload_screenshots`
-- Headlines: `fastlane/metadata/android/en-US/images/phoneScreenshots/title.strings` (shared by phone **and** tablet framing)
+- Lanes: `fastlane/Fastfile` — `screenshots` (phone), `screenshots_tablet` (tablet), `frame_marketing_screenshots`, `localize_marketing_screenshots` (es-419 / pt-BR title bands), `upload_screenshots`
+- Headlines: `fastlane/metadata/android/<locale>/images/phoneScreenshots/title.strings` (per locale; shared by phone **and** tablet framing). Locales listed in `MARKETING_LOCALES` — see [Localization](#localization).
 - Committed assets: `…/images/phoneScreenshots/NN_name_framed.jpg` and `…/images/tenInchScreenshots/NN_name_framed.jpg`
   (the raw `*.png` captures and intermediate `*_framed.png` are gitignored)
 - Upload: the `upload_screenshots` lane, run by `.github/workflows/screenshots-upload.yaml` only when committed images change on `main` (never on every release).
@@ -101,6 +101,43 @@ bundle exec fastlane frame_marketing_screenshots
 (frameit frames every `*.png` it finds under `fastlane/metadata/android`, and
 aborts on the tablet bucket's non-Pixel-5 resolution — hence moving the tenInch
 PNGs aside when framing a single phone shot.)
+
+## Localization
+
+The listing ships localized screenshot buckets — currently `en-US`, `es-419`
+(Spanish, Latin America), `pt-BR` (Brazilian Portuguese) — listed in the
+Fastfile's `MARKETING_LOCALES`.
+
+**Today the localization is title-only.** The app UI has no localized string
+resources yet, so the captured app screenshots are English in every bucket; only
+the **framed title band** is translated (it's baked into the JPG, so the Play
+Console can't translate it post-hoc). So the localized buckets *reuse the en-US
+captures* — no need to re-run the journey per locale:
+
+```bash
+# 1. Make sure the en-US raw captures exist (regenerate if a fresh checkout —
+#    the *.png are gitignored, only the framed JPGs are committed):
+bundle exec fastlane screenshots device:<phone-serial>
+bundle exec fastlane screenshots_tablet device:<tablet-serial>
+
+# 2. Generate every localized bucket (copies en-US captures, re-frames with each
+#    locale's title.strings):
+bundle exec fastlane localize_marketing_screenshots
+```
+
+Each locale needs a headline file at
+`fastlane/metadata/android/<locale>/images/phoneScreenshots/title.strings`
+(same keys as en-US; read by both phone and tablet framing). To change the copy,
+edit that file and re-run `localize_marketing_screenshots`.
+
+**Add a locale:** add its code to `MARKETING_LOCALIZED` in the Fastfile, create
+its `title.strings`, and run the lane. Use the Play Store locale codes (`es-419`,
+`pt-BR`, `es-ES`, `pt-PT`, …).
+
+**When the app itself is localized** (ships `values-es`, `values-pt-BR`, …),
+switch from reuse to per-locale capture: run the journey with
+`locales: [...]` (or once per locale) so each bucket holds its own translated app
+UI, then frame as usual. The bucket layout and `title.strings` don't change.
 
 ## Upload
 
