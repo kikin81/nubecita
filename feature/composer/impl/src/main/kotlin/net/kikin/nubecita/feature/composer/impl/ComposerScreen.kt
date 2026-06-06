@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -483,7 +484,11 @@ internal fun ComposerScreenContent(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester),
+                        .focusRequester(focusRequester)
+                        // Stable tag (surfaced as a bare resource-id via
+                        // testTagsAsResourceId) so the baseline-profile journey
+                        // can focus + type into the composer (nubecita-ioe5).
+                        .testTag("composer_text_field"),
                 placeholder = { Text(text = stringResource(R.string.composer_text_field_placeholder)) },
                 label = { Text(text = stringResource(R.string.composer_text_field_label)) },
                 isError = state.isOverLimit,
