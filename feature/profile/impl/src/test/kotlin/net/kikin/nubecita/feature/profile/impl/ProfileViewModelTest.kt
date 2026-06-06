@@ -15,12 +15,14 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
@@ -1149,6 +1151,78 @@ internal class ProfileViewModelTest {
                 vm.handleEvent(ProfileEvent.OnLikeClicked(samplePostUi(id = "at://x", cid = "bafyX")))
                 advanceUntilIdle()
                 assertTrue(awaitItem() is ProfileEffect.ShowError)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `OnShareClicked emits SharePost with the post's share intent`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnShareClicked(post))
+                assertEquals(ProfileEffect.SharePost(post.toShareIntent()), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `OnShareLongPressed emits CopyPermalink with the post permalink`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnShareLongPressed(post))
+                assertEquals(
+                    ProfileEffect.CopyPermalink(post.toShareIntent().permalink),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `OnReplyClicked navigates to the composer in reply mode`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnReplyClicked(post))
+                assertEquals(
+                    ProfileEffect.NavigateTo(ComposerRoute(replyToUri = post.id)),
+                    awaitItem(),
+                )
                 cancelAndIgnoreRemainingEvents()
             }
         }

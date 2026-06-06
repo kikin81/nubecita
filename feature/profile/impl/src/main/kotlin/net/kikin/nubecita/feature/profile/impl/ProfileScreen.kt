@@ -1,5 +1,9 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -9,14 +13,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
+import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import android.net.Uri as AndroidUri
 
 /**
  * Stateful Profile screen.
@@ -78,9 +85,10 @@ internal fun ProfileScreen(
         tabReTapSignal.collect { listState.animateScrollToItem(0) }
     }
 
+    val context = LocalContext.current
     val haptics = rememberPostHaptics()
     val callbacks =
-        remember(viewModel, haptics) {
+        remember(viewModel, context, haptics) {
             PostCallbacks(
                 onTap = { post -> viewModel.handleEvent(ProfileEvent.PostTapped(post.id)) },
                 onAuthorTap = { author ->
@@ -94,10 +102,33 @@ internal fun ProfileScreen(
                     if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
                     viewModel.handleEvent(ProfileEvent.OnRepostClicked(post))
                 },
-                onReply = {},
-                onShare = {},
-                onShareLongPress = {},
-                onExternalEmbedTap = {},
+                onReply = { post ->
+                    haptics.lightTap()
+                    viewModel.handleEvent(ProfileEvent.OnReplyClicked(post))
+                },
+                onShare = { post ->
+                    haptics.lightTap()
+                    viewModel.handleEvent(ProfileEvent.OnShareClicked(post))
+                },
+                // Long-press fires the system long-press haptic via
+                // combinedClickable — don't double-tap the motor.
+                onShareLongPress = { post ->
+                    viewModel.handleEvent(ProfileEvent.OnShareLongPressed(post))
+                },
+                onExternalEmbedTap = { uri ->
+                    // Narrowed catch: silent no-op only for the "no CCT-capable
+                    // browser installed" case. Other launch failures propagate
+                    // so genuine bugs surface in logcat. Mirrors FeedScreen.
+                    try {
+                        CustomTabsIntent
+                            .Builder()
+                            .setShowTitle(true)
+                            .build()
+                            .launchUrl(context, AndroidUri.parse(uri))
+                    } catch (_: ActivityNotFoundException) {
+                        // No browser available — silent no-op.
+                    }
+                },
                 onQuotedPostTap = { quoted ->
                     viewModel.handleEvent(ProfileEvent.OnQuotedPostTapped(quoted.uri))
                 },
@@ -112,6 +143,12 @@ internal fun ProfileScreen(
     // would bypass Compose's resource tracking (LocalContextGetResourceValueCall).
     val errorNetworkMsg = stringResource(R.string.profile_snackbar_error_network)
     val errorUnknownMsg = stringResource(R.string.profile_snackbar_error_unknown)
+    val linkCopiedMsg = stringResource(R.string.profile_snackbar_link_copied)
+    val clipLabel = stringResource(R.string.profile_clipboard_label_post_link)
+    val clipboardManager =
+        remember(context) {
+            context.getSystemService(ClipboardManager::class.java)
+        }
     val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
     val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
     val comingSoonMute = stringResource(R.string.profile_snackbar_mute_coming_soon)
@@ -207,6 +244,20 @@ internal fun ProfileScreen(
                 is ProfileEffect.NavigateToVideoPlayer ->
                     currentOnNavigateToVideoPlayer(effect.postUri)
                 is ProfileEffect.NavigateTo -> currentOnNavigateTo(effect.key)
+                is ProfileEffect.SharePost -> context.launchPostShare(effect.intent)
+                is ProfileEffect.CopyPermalink -> {
+                    clipboardManager?.setPrimaryClip(
+                        ClipData.newPlainText(clipLabel, effect.permalink),
+                    )
+                    // Always confirm in-app. Android 13+ also shows a system
+                    // clipboard *preview chip* (a privacy-transparency feature,
+                    // not a confirmation snackbar) — it's subtle and easy to miss,
+                    // so gating our snackbar off on API 33+ would leave the copy
+                    // feeling like it did nothing. The two serve different
+                    // purposes and coexisting is fine (matches FeedScreen).
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = linkCopiedMsg)
+                }
             }
         }
     }
