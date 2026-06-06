@@ -194,6 +194,50 @@ class MainShellNavStateTest {
     }
 
     @Test
+    fun `activeSegmentStartIndex is 0 when the active tab is the start route`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        // Start tab, home: whole backStack is Feed's segment.
+        assertEquals(0, state.activeSegmentStartIndex)
+        // Start tab with sub-routes: still 0 — the segment is the whole stack.
+        state.add(SubProfile) // [Feed, Profile]
+        state.add(SubSettings) // [Feed, Profile, Settings]
+        assertEquals(0, state.activeSegmentStartIndex)
+        assertEquals(
+            listOf<NavKey>(TabFeed, SubProfile, SubSettings),
+            state.backStack.drop(state.activeSegmentStartIndex),
+        )
+    }
+
+    @Test
+    fun `activeSegmentStartIndex skips the start tab stack when a non-start tab is active`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch, TabChats))
+        state.add(SubProfile) // Feed: [Feed, Profile] (the start segment, size 2)
+        state.addTopLevel(TabChats) // backStack = [Feed, Profile, Chats]
+        // The active segment begins after the start tab's full stack.
+        assertEquals(2, state.activeSegmentStartIndex)
+        assertEquals(
+            listOf<NavKey>(TabChats),
+            state.backStack.drop(state.activeSegmentStartIndex),
+        )
+
+        state.add(SubSettings) // Chats: [Chats, Settings]; backStack = [Feed, Profile, Chats, Settings]
+        assertEquals(2, state.activeSegmentStartIndex)
+        assertEquals(
+            listOf<NavKey>(TabChats, SubSettings),
+            state.backStack.drop(state.activeSegmentStartIndex),
+        )
+    }
+
+    @Test
+    fun `activeSegmentStartIndex returns to 0 after switching back to the start tab`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        state.addTopLevel(TabSearch)
+        assertEquals(1, state.activeSegmentStartIndex) // [Feed, Search]
+        state.addTopLevel(TabFeed)
+        assertEquals(0, state.activeSegmentStartIndex)
+    }
+
+    @Test
     fun `persistence round-trip via saved primitives restores topLevelKey and per-tab stacks`() {
         val before = newState(start = TabFeed, top = setOf(TabFeed, TabSearch, TabChats))
         before.add(SubProfile) // Feed: [Feed, Profile]

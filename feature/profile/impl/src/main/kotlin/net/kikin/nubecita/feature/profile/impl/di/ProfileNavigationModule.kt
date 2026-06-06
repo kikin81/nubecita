@@ -27,53 +27,54 @@ import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 
 /**
+ * Pane role for a [Profile] entry in the list-detail scene — instance-dependent
+ * (nubecita-xqp7):
+ *  - `Profile(handle = null)` is the own-profile **tab root** — the list-pane
+ *    anchor on Medium/Expanded, so its post-taps land in the detail pane.
+ *  - `Profile(handle = "...")` is a **sub-route** opened from elsewhere (e.g.
+ *    tapping a post author). It must stack in the **detail** pane over the
+ *    current detail, NOT re-anchor the list pane — so it is tagged
+ *    `detailPane()`. Without this, a `listPane`-tagged Profile pushed onto
+ *    `[Feed, PostDetail]` evicted Feed from the left pane.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+internal fun profilePaneMetadata(route: Profile): Map<String, Any> =
+    if (route.handle == null) {
+        ListDetailSceneStrategy.listPane(
+            detailPlaceholder = {
+                DetailPaneEmptyState(
+                    icon = NubecitaIconName.Article,
+                    message = stringResource(R.string.nubecita_detail_pane_select_post),
+                )
+            },
+        )
+    } else {
+        ListDetailSceneStrategy.detailPane()
+    }
+
+/**
  * Real Profile entry. Bead D wires the screen for `Profile(handle = null)`
  * (own profile) and `Profile(handle = "...")` (other-user navigation
  * reaches the same screen; the actions-row branch for the latter is
  * Bead F territory).
  *
- * `ListDetailSceneStrategy.listPane{}` metadata is applied here so that
- * Medium-width post-taps land in the right pane. The Settings sub-route
- * graduated to `:feature:settings:impl` in nubecita-77l — Profile still
- * imports the [Settings] NavKey from `:feature:settings:api` to push it
- * onto the inner stack, but the screen itself is provided by
- * `SettingsNavigationModule` over there.
+ * Pane-role metadata is supplied per route instance via [profilePaneMetadata]
+ * so that Medium-width post-taps land in the right pane and author sub-routes
+ * stack in the detail pane (nubecita-xqp7). The Settings sub-route graduated to
+ * `:feature:settings:impl` in nubecita-77l — Profile still imports the
+ * [Settings] NavKey from `:feature:settings:api` to push it onto the inner
+ * stack, but the screen itself is provided by `SettingsNavigationModule` over
+ * there.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 internal object ProfileNavigationModule {
-    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
     @Provides
     @IntoSet
     @MainShell
     fun provideProfileEntries(): EntryProviderInstaller =
         {
-            entry<Profile>(
-                // Pane role depends on the route instance (nubecita-xqp7):
-                //  - `Profile(handle = null)` is the own-profile TAB ROOT — the
-                //    list-pane anchor on Medium/Expanded (its post-taps land in
-                //    the detail pane).
-                //  - `Profile(handle = "...")` is a SUB-ROUTE opened from
-                //    elsewhere (e.g. tapping a post author). It must stack in the
-                //    DETAIL pane over the current detail, NOT re-anchor the list
-                //    pane — so it is tagged `detailPane()`. Without this, a
-                //    listPane-tagged Profile pushed onto `[Feed, PostDetail]`
-                //    evicted Feed from the left pane.
-                metadata = { route ->
-                    if (route.handle == null) {
-                        ListDetailSceneStrategy.listPane(
-                            detailPlaceholder = {
-                                DetailPaneEmptyState(
-                                    icon = NubecitaIconName.Article,
-                                    message = stringResource(R.string.nubecita_detail_pane_select_post),
-                                )
-                            },
-                        )
-                    } else {
-                        ListDetailSceneStrategy.detailPane()
-                    }
-                },
-            ) { route ->
+            entry<Profile>(metadata = ::profilePaneMetadata) { route ->
                 val navState = LocalMainShellNavState.current
                 // MediaViewer is registered on the OUTER NavDisplay
                 // (@OuterShell), so push it via LocalAppNavigator — pushing

@@ -90,6 +90,47 @@ Compact width gate, with the scrim/card chrome the built-in lacks.
 | `MainShell` `sceneStrategies` wiring (registers the strategy on the inner `NavDisplay`) | `:app` | `app/src/main/java/net/kikin/nubecita/shell/MainShell.kt` |
 | Reference opt-in (one metadata tag) | `:feature:profile:impl` | `.../feature/profile/impl/di/EditProfileNavigationModule.kt` |
 
+## List-detail pane scoping (`ListDetailSceneStrategy`)
+
+The same inner `NavDisplay` also hosts the tablet/foldable **list-detail** panes
+(Feed/Search/Chats lists with a detail pane). Two rules keep panes spatially
+sane on Medium/Expanded; both are mechanical and need no per-feature code beyond
+the metadata tag:
+
+1. **Panes are scoped to the active tab's segment.** `MainShellNavState.backStack`
+   concatenates the start tab's full stack with the active tab's stack (so
+   system/predictive back can "exit through home"). Handing that whole
+   concatenation to Material3's `ListDetailSceneStrategy` made a tab switch render
+   the *previous* tab's detail next to the *new* tab's list (e.g. `Chats list |
+   Feed's PostDetail`), because the strategy picks the last detail entry across
+   **all** tabs. `ActiveTabScopedSceneStrategy` wraps the list-detail strategy and
+   slices the entries to the active tab's segment
+   (`MainShellNavState.activeSegmentStartIndex`) before delegating, so panes
+   reflect the active tab only. The sliced-off entries stay in the back stack and
+   keep serving back. (nubecita-xqp7 / nubecita-s1f3.)
+
+2. **A sub-route opened from a detail pane stacks in the detail pane** — it must
+   not re-anchor the list. The trap: a route that is *also* a top-level tab (e.g.
+   `Profile`) carries `listPane()` metadata, so pushing it from a detail pane
+   re-anchored the list to it, evicting the list you were browsing. Fix: give such
+   a route **instance-dependent** metadata via the `entry(metadata = { key -> … })`
+   DSL form — `Profile(handle = null)` (the tab root) is `listPane()`, while
+   `Profile(handle = "…")` (an author sub-route) is `detailPane()` so it stacks in
+   the detail pane and the list stays put. See `profilePaneMetadata`.
+
+> **North star (not yet built):** the Nav3 three-pane "push" — the list pane
+> slides out and detail + the new pane slide in side-by-side — is the eventual
+> ideal for "open a profile from a post". v1 keeps the list in place and swaps the
+> detail-pane content (the MVP above). Tracked with the list-detail epic.
+
+Where the list-detail pieces live:
+
+| Piece | Module | File |
+|---|---|---|
+| `ActiveTabScopedSceneStrategy` (active-tab slice wrapper) | `:app` | `app/src/main/java/net/kikin/nubecita/shell/adaptive/ActiveTabScopedSceneStrategy.kt` |
+| `activeSegmentStartIndex` (the active-tab boundary) | `:core:common` | `core/common/.../navigation/MainShellNavState.kt` |
+| `profilePaneMetadata` (instance-dependent list/detail role) | `:feature:profile:impl` | `.../feature/profile/impl/di/ProfileNavigationModule.kt` |
+
 ## Versioning note
 
 Built against **`androidx.navigation3` `1.2.0-alpha03`** — `OverlayScene`,
