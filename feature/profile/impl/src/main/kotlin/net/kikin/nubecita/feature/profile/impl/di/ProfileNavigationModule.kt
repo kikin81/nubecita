@@ -36,6 +36,14 @@ import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
  *    current detail, NOT re-anchor the list pane — so it is tagged
  *    `detailPane()`. Without this, a `listPane`-tagged Profile pushed onto
  *    `[Feed, PostDetail]` evicted Feed from the left pane.
+ *
+ * The role is keyed on `handle == null` (own profile is *only ever* the You-tab
+ * root today). If own-profile ever becomes reachable as a non-root sub-route,
+ * this would wrongly re-anchor the list and the discriminator must change to a
+ * real "is this the tab root?" test. Cross-tab pane isolation is handled
+ * separately by `ActiveTabScopedSceneStrategy` (`:app`) — these two pieces are
+ * coupled: this assigns list-vs-detail *within* a tab segment, that scopes the
+ * segment *to* the active tab.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 internal fun profilePaneMetadata(route: Profile): Map<String, Any> =
