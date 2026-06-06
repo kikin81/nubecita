@@ -3,7 +3,7 @@ package net.kikin.nubecita.feature.profile.impl
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Context
+import android.os.Build
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.SnackbarHostState
@@ -148,7 +148,7 @@ internal fun ProfileScreen(
     val clipLabel = stringResource(R.string.profile_clipboard_label_post_link)
     val clipboardManager =
         remember(context) {
-            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            context.getSystemService(ClipboardManager::class.java)
         }
     val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
     val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
@@ -247,11 +247,15 @@ internal fun ProfileScreen(
                 is ProfileEffect.NavigateTo -> currentOnNavigateTo(effect.key)
                 is ProfileEffect.SharePost -> context.launchPostShare(effect.intent)
                 is ProfileEffect.CopyPermalink -> {
-                    clipboardManager.setPrimaryClip(
+                    clipboardManager?.setPrimaryClip(
                         ClipData.newPlainText(clipLabel, effect.permalink),
                     )
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = linkCopiedMsg)
+                    // API 33+ shows a system clipboard-confirmation overlay, so a
+                    // custom snackbar would duplicate it — only confirm on ≤ API 32.
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(message = linkCopiedMsg)
+                    }
                 }
             }
         }
