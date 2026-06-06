@@ -158,8 +158,14 @@ class BaselineProfileGenerator {
                     field.click()
                     field.text = "gm"
                     device.waitForIdle()
-                    device.pressBack() // dismiss IME
-                    device.pressBack() // close the composer
+                    device.pressBack() // dismiss IME (or close composer if no IME shown)
+                    // On devices without a soft IME (headless CI / hardware
+                    // keyboard) the first back already closed the composer, so
+                    // only back out again if the field is still up — otherwise
+                    // we'd navigate out of Feed and exit the app.
+                    if (device.hasObject(By.res(COMPOSER_TEXT_FIELD_RES_ID))) {
+                        device.pressBack() // close the composer
+                    }
                 }
 
             Log.i(
@@ -240,7 +246,12 @@ private fun UiDevice.flingList(resId: String) {
         fling(Direction.DOWN)
     }
     waitForIdle()
-    awaitRes(resId)?.fling(Direction.UP)
+    awaitRes(resId)?.apply {
+        // Freshly-resolved node — the DOWN fling's gesture inset doesn't carry
+        // over, so re-apply it or the UP fling gets eaten by system gesture-nav.
+        setGestureMargin(displayWidth / 5)
+        fling(Direction.UP)
+    }
     waitForIdle()
 }
 
