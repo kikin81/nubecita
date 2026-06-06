@@ -104,10 +104,12 @@ the metadata tag:
    the *previous* tab's detail next to the *new* tab's list (e.g. `Chats list |
    Feed's PostDetail`), because the strategy picks the last detail entry across
    **all** tabs. `ActiveTabScopedSceneStrategy` wraps the list-detail strategy and
-   slices the entries to the active tab's segment
-   (`MainShellNavState.activeSegmentStartIndex`) before delegating, so panes
-   reflect the active tab only. The sliced-off entries stay in the back stack and
-   keep serving back. (nubecita-xqp7 / nubecita-s1f3.)
+   slices the entries to the active tab's segment — found by **key-matching** the
+   active tab's root (`MainShellNavState.topLevelKey`) inside the entries actually
+   passed, not an absolute index, so it's immune to the size skew between
+   `backStack` and the synthetic `previousEntries` NavDisplay hands the strategy
+   during predictive back — before delegating. The sliced-off entries stay in the
+   back stack and keep serving back. (nubecita-xqp7 / nubecita-s1f3.)
 
 2. **A sub-route opened from a detail pane stacks in the detail pane** — it must
    not re-anchor the list. The trap: a route that is *also* a top-level tab (e.g.
@@ -128,7 +130,7 @@ Where the list-detail pieces live:
 | Piece | Module | File |
 |---|---|---|
 | `ActiveTabScopedSceneStrategy` (active-tab slice wrapper) | `:app` | `app/src/main/java/net/kikin/nubecita/shell/adaptive/ActiveTabScopedSceneStrategy.kt` |
-| `activeSegmentStartIndex` (the active-tab boundary) | `:core:common` | `core/common/.../navigation/MainShellNavState.kt` |
+| `topLevelKey` (the active tab the wrapper key-matches on) | `:core:common` | `core/common/.../navigation/MainShellNavState.kt` |
 | `profilePaneMetadata` (instance-dependent list/detail role) | `:feature:profile:impl` | `.../feature/profile/impl/di/ProfileNavigationModule.kt` |
 
 ## Versioning note

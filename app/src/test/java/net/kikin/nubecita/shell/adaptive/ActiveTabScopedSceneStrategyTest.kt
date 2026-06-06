@@ -56,32 +56,32 @@ class ActiveTabScopedSceneStrategyTest {
 
     private fun calculate(
         delegate: SceneStrategy<NavKey>,
-        segmentStart: Int,
+        activeTabKey: NavKey,
         entries: List<NavEntry<NavKey>>,
     ): Scene<NavKey>? =
         with(SceneStrategyScope<NavKey>()) {
-            ActiveTabScopedSceneStrategy(delegate) { segmentStart }.run {
+            ActiveTabScopedSceneStrategy(delegate) { activeTabKey }.run {
                 calculateScene(entries)
             }
         }
 
     @Test
-    fun `start-tab active (index 0) delegates the whole stack`() {
+    fun `start-tab active delegates the whole stack`() {
         val entries = listOf(Feed, PostDetail, Profile).map(::entry)
         val delegate = RecordingStrategy(result = null)
 
-        calculate(delegate, segmentStart = 0, entries = entries)
+        calculate(delegate, activeTabKey = Feed, entries = entries)
 
         assertEquals(entries, delegate.received)
     }
 
     @Test
     fun `non-start tab active drops the start-tab segment before delegating`() {
-        // Flattened: [Feed, PostDetail] (start segment, size 2) + [Chats] (active).
+        // Flattened: [Feed, PostDetail] (start segment) + [Chats] (active tab).
         val entries = listOf(Feed, PostDetail, Chats).map(::entry)
         val delegate = RecordingStrategy(result = null)
 
-        calculate(delegate, segmentStart = 2, entries = entries)
+        calculate(delegate, activeTabKey = Chats, entries = entries)
 
         // Only the active (Chats) segment reaches the list-detail strategy —
         // the previous tab's PostDetail can no longer leak into the detail pane.
@@ -94,20 +94,22 @@ class ActiveTabScopedSceneStrategyTest {
         val expected = FakeScene(entries.drop(2))
         val delegate = RecordingStrategy(result = expected)
 
-        val scene = calculate(delegate, segmentStart = 2, entries = entries)
+        val scene = calculate(delegate, activeTabKey = Chats, entries = entries)
 
         assertSame(expected, scene)
     }
 
     @Test
-    fun `an out-of-range segment start is clamped to keep the top entry`() {
-        // Defensive: a stale index past the end must never produce an empty
-        // segment — the real top entry is always kept so the scene can resolve.
-        val entries = listOf(Feed, PostDetail, Chats).map(::entry)
+    fun `falls back to the whole list when the active tab root is absent`() {
+        // Predictive-back hypothetical: NavDisplay re-runs the strategy over a
+        // smaller previousEntries that has already popped past the active tab's
+        // root. Key-matching can't find it, so the wrapper passes the whole list
+        // through rather than mis-slicing into a list-less segment.
+        val entries = listOf(Feed, PostDetail).map(::entry)
         val delegate = RecordingStrategy(result = null)
 
-        calculate(delegate, segmentStart = 99, entries = entries)
+        calculate(delegate, activeTabKey = Chats, entries = entries)
 
-        assertEquals(listOf(entries.last()), delegate.received)
+        assertEquals(entries, delegate.received)
     }
 }

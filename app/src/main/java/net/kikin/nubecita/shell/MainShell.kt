@@ -327,7 +327,7 @@ fun MainShell(modifier: Modifier = Modifier) {
                     listOf(
                         dialogStrategy,
                         ActiveTabScopedSceneStrategy(sceneStrategy) {
-                            mainShellNavState.activeSegmentStartIndex
+                            mainShellNavState.topLevelKey
                         },
                     ),
                 // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies

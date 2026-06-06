@@ -18,23 +18,34 @@ import androidx.navigation3.scene.SceneStrategyScope
  * strategy picks the last detail entry across ALL tabs in the flattened stack
  * (nubecita-xqp7 / nubecita-s1f3).
  *
- * This wrapper slices the entries to the active tab's segment — everything from
- * [activeSegmentStart] to the end, which always includes the real top entry —
- * before delegating. The list-detail panes therefore reflect the active tab
- * only. The entries beneath the segment are left untouched in the `NavDisplay`
- * back stack and keep serving predictive / system back.
+ * This wrapper slices the entries to the active tab's segment — from the active
+ * tab's root entry to the end — before delegating. The list-detail panes
+ * therefore reflect the active tab only. The entries beneath the segment are
+ * left untouched in the `NavDisplay` back stack and keep serving predictive /
+ * system back.
  *
- * [activeSegmentStart] is read on every `calculateScene` call (it reads
- * `MainShellNavState` snapshot state), so the scene recomputes on tab switch.
+ * The segment is found by **key-matching**, not an absolute index: the entries
+ * handed to `calculateScene` are not always 1:1 with `MainShellNavState.backStack`
+ * — during predictive back `NavDisplay` re-runs the strategy over a scene's
+ * (smaller) `previousEntries`. Locating the active tab's root *within the entries
+ * actually passed* is immune to that size skew; if the root isn't present (a
+ * predictive-back hypothetical that has already popped past it), the wrapper
+ * falls back to the whole list so the preview still resolves to a valid scene.
+ *
+ * [activeTabKey] is read on every `calculateScene` call (it reads
+ * `MainShellNavState.topLevelKey` snapshot state), so the scene recomputes on
+ * tab switch. Matching is by [NavEntry.contentKey], which is `key.toString()`
+ * for the default-keyed top-level tab roots.
  */
 internal class ActiveTabScopedSceneStrategy<T : Any>(
     private val delegate: SceneStrategy<T>,
-    private val activeSegmentStart: () -> Int,
+    private val activeTabKey: () -> T,
 ) : SceneStrategy<T> {
     override fun SceneStrategyScope<T>.calculateScene(entries: List<NavEntry<T>>): Scene<T>? {
         val scope = this
-        val start = activeSegmentStart().coerceIn(0, entries.lastIndex.coerceAtLeast(0))
-        val segment = if (start == 0) entries else entries.drop(start)
+        val targetContentKey = activeTabKey().toString()
+        val start = entries.indexOfLast { it.contentKey == targetContentKey }
+        val segment = if (start >= 0) entries.drop(start) else entries
         if (segment.isEmpty()) return null
         return with(delegate) { scope.calculateScene(segment) }
     }
