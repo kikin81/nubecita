@@ -56,6 +56,7 @@ import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
 import net.kikin.nubecita.navigation.NavigationEntryPoint
+import net.kikin.nubecita.shell.adaptive.ActiveTabScopedSceneStrategy
 import net.kikin.nubecita.shell.adaptive.rememberAdaptiveDialogSceneStrategy
 
 /**
@@ -318,7 +319,17 @@ fun MainShell(modifier: Modifier = Modifier) {
             NavDisplay(
                 backStack = mainShellNavState.backStack,
                 onBack = { mainShellNavState.removeLast() },
-                sceneStrategies = listOf(dialogStrategy, sceneStrategy),
+                // The list-detail strategy is scoped to the active tab's segment
+                // so a tab switch doesn't render the previous tab's detail entry
+                // next to the new tab's list (nubecita-xqp7 / nubecita-s1f3).
+                // Overlay (dialog) strategy stays first.
+                sceneStrategies =
+                    listOf(
+                        dialogStrategy,
+                        ActiveTabScopedSceneStrategy(sceneStrategy) {
+                            mainShellNavState.activeSegmentStartIndex
+                        },
+                    ),
                 // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
                 // it itself. Supply only the public decorators required for hiltViewModel()
                 // and saved state to work inside NavEntries.

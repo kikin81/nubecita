@@ -49,15 +49,30 @@ internal object ProfileNavigationModule {
     fun provideProfileEntries(): EntryProviderInstaller =
         {
             entry<Profile>(
-                metadata =
-                    ListDetailSceneStrategy.listPane(
-                        detailPlaceholder = {
-                            DetailPaneEmptyState(
-                                icon = NubecitaIconName.Article,
-                                message = stringResource(R.string.nubecita_detail_pane_select_post),
-                            )
-                        },
-                    ),
+                // Pane role depends on the route instance (nubecita-xqp7):
+                //  - `Profile(handle = null)` is the own-profile TAB ROOT — the
+                //    list-pane anchor on Medium/Expanded (its post-taps land in
+                //    the detail pane).
+                //  - `Profile(handle = "...")` is a SUB-ROUTE opened from
+                //    elsewhere (e.g. tapping a post author). It must stack in the
+                //    DETAIL pane over the current detail, NOT re-anchor the list
+                //    pane — so it is tagged `detailPane()`. Without this, a
+                //    listPane-tagged Profile pushed onto `[Feed, PostDetail]`
+                //    evicted Feed from the left pane.
+                metadata = { route ->
+                    if (route.handle == null) {
+                        ListDetailSceneStrategy.listPane(
+                            detailPlaceholder = {
+                                DetailPaneEmptyState(
+                                    icon = NubecitaIconName.Article,
+                                    message = stringResource(R.string.nubecita_detail_pane_select_post),
+                                )
+                            },
+                        )
+                    } else {
+                        ListDetailSceneStrategy.detailPane()
+                    }
+                },
             ) { route ->
                 val navState = LocalMainShellNavState.current
                 // MediaViewer is registered on the OUTER NavDisplay

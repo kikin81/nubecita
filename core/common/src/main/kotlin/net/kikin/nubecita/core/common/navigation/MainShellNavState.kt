@@ -104,6 +104,26 @@ class MainShellNavState(
         get() = _backStack
 
     /**
+     * Index into [backStack] where the **active tab's segment** begins.
+     *
+     * [backStack] is `startRoute`'s full stack followed by the active tab's
+     * full stack (when the active tab isn't the start route). The active
+     * segment is therefore the suffix beginning at this index:
+     * - `0` when the active tab **is** the start route (the whole [backStack]
+     *   is that tab's stack);
+     * - the start tab's stack size otherwise (the active tab's stack is
+     *   appended after it).
+     *
+     * Used by the inner `NavDisplay`'s list-detail scene strategy to scope
+     * pane assignment to the active tab only, so a tab switch doesn't leave
+     * the previous tab's detail entry rendered alongside the new tab's list
+     * (nubecita-xqp7 / nubecita-s1f3). Reads snapshot state ([topLevelKey]
+     * and the start tab's `NavBackStack`), so it recomposes correctly.
+     */
+    val activeSegmentStartIndex: Int
+        get() = if (topLevelKey == startRoute) 0 else backStacks.getValue(startRoute).size
+
+    /**
      * Switch the active tab to [key]. The outgoing tab's stack is
      * preserved — re-selecting it later restores its prior depth.
      *
