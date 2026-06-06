@@ -3,7 +3,6 @@ package net.kikin.nubecita.feature.profile.impl
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.os.Build
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.SnackbarHostState
@@ -250,12 +249,14 @@ internal fun ProfileScreen(
                     clipboardManager?.setPrimaryClip(
                         ClipData.newPlainText(clipLabel, effect.permalink),
                     )
-                    // API 33+ shows a system clipboard-confirmation overlay, so a
-                    // custom snackbar would duplicate it — only confirm on ≤ API 32.
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(message = linkCopiedMsg)
-                    }
+                    // Always confirm in-app. Android 13+ also shows a system
+                    // clipboard *preview chip* (a privacy-transparency feature,
+                    // not a confirmation snackbar) — it's subtle and easy to miss,
+                    // so gating our snackbar off on API 33+ would leave the copy
+                    // feeling like it did nothing. The two serve different
+                    // purposes and coexisting is fine (matches FeedScreen).
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = linkCopiedMsg)
                 }
             }
         }
