@@ -49,7 +49,8 @@ supports that.
    mutually-exclusive sealed mode. Matches the protocol (`reply` ⟂ `embed`).
 3. **In-composer add-quote = paste-a-link detection.** Detect a `bsky.app/...` or
    `at://...` post URL → resolve via `getPost` → attach as a quote card → **strip
-   the raw URL from the text** (cleaner than the official client, which leaves it).
+   the raw URL from the text only on successful resolution** (cleaner than the
+   official client, which leaves it; on failure the URL is kept so nothing is lost).
 4. **Read-side postgate = honor the gate only.** Hide "Quote post" and reject
    paste-quoting a gated post. No placeholder, no detach action.
 5. **Repost UX.** Single tap → dropdown menu (Repost/Quote, or Undo repost/Quote
@@ -104,8 +105,12 @@ an embed) — they are not collapsed into one "context" abstraction.
    (route currently carries `replyToUri`; add `quotePostUri: String? = null`).
 2. **Paste-a-link**: a `snapshotFlow` collector on the text field watches for a
    `bsky.app/profile/{handle-or-did}/post/{rkey}` or
-   `at://…/app.bsky.feed.post/…` URL. On match: resolve (handle→did if needed,
-   then `getPost`) → attach the quote → **strip the URL from the text**.
+   `at://…/app.bsky.feed.post/…` URL. On match: set `quotePostUri` and enter
+   `Loading` (the URL stays in the text), resolve (handle→did if needed, then
+   `getPost`), and **only on transition to `Loaded` strip the URL from the text**.
+   If resolution fails (network, deleted post, or a postgate block → `Failed`),
+   the URL is **left intact** so the user can retry or edit — no data loss from a
+   pre-emptive strip.
 
 **Quote fetch.** A lightweight `QuotePostFetcher` (uses `getPost`, not
 `getPostThread`) mirrors the existing `ParentFetchSource`. Kept separate from the
@@ -115,7 +120,15 @@ reply fetcher to keep concerns clean.
 
 - One quote max (lexicon): paste-detection ignores a second URL when a quote is
   already attached.
-- `canSubmit()` gains: if `quotePostUri != null`, quote must be `Loaded`.
+- `canSubmit()` changes two ways:
+  - A loaded quote **counts as content**. An empty-text quote post (quoting with
+    no added text or images) is valid on AT Protocol because the `record` embed
+    *is* the content, so the existing
+    `hasContent = text.isNotBlank() || attachments.isNotEmpty()`
+    (`ComposerViewModel.kt:516`) must also accept
+    `quotePostLoad is QuoteLoadStatus.Loaded`.
+  - Readiness gate: if `quotePostUri != null`, the quote must be `Loaded` before
+    submit (mirrors the reply parent-loaded gate).
 - Postgate (§3) rejects attaching a gated post.
 
 **Audience picker.** Threadgate (reply-gate) only applies to root posts, so it stays
@@ -214,9 +227,11 @@ plugin with committed baselines):
 - **`:core:feed-mapping`**: `embeddingDisabled → canViewerQuote` mapping test
   (absent / true / false), alongside the existing reply-gate test.
 - **`:feature:composer`**: VM tests for quote load lifecycle (Loading → Loaded →
-  submit; Failed → retry; dismiss), paste-detection reducer (detect/resolve/strip,
-  ignore second URL, reject gated post), `canSubmit` gate; screenshot tests for the
-  composer with reply + quote + image stacked.
+  submit; Failed → retry; dismiss), paste-detection reducer (detect/resolve,
+  **strip URL only on `Loaded`**, **keep URL on `Failed`**, ignore second URL,
+  reject gated post), `canSubmit` gate (incl. **empty-text quote-only post is
+  submittable**); screenshot tests for the composer with reply + quote + image
+  stacked.
 - **`:designsystem`**: screenshot tests for the repost menu (reposted vs not,
   with/without Quote item) and the active icon state.
 - **feature VMs (feed/profile/postdetail)**: `onQuote` emits the composer route;
