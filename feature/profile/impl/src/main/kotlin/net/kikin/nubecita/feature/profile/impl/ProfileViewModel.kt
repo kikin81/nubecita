@@ -23,7 +23,9 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -182,6 +184,12 @@ internal class ProfileViewModel
                             .onFailure { sendEffect(ProfileEffect.ShowError(it.toProfileError())) }
                     }
                 }
+                is ProfileEvent.OnReplyClicked ->
+                    sendEffect(ProfileEffect.NavigateTo(ComposerRoute(replyToUri = event.post.id)))
+                is ProfileEvent.OnShareClicked ->
+                    sendEffect(ProfileEffect.SharePost(event.post.toShareIntent()))
+                is ProfileEvent.OnShareLongPressed ->
+                    sendEffect(ProfileEffect.CopyPermalink(event.post.toShareIntent().permalink))
                 is ProfileEvent.OnPostOverflowAction ->
                     when (event.action) {
                         PostOverflowAction.ReportPost ->

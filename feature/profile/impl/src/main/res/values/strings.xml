@@ -42,6 +42,11 @@
     <string name="profile_snackbar_error_network">Network error. Pull to refresh.</string>
     <string name="profile_snackbar_error_unknown">Unable to load profile.</string>
 
+    <!-- Post share: snackbar after a share long-press copies the post permalink
+         to the clipboard, and the (mostly-invisible) ClipData label. -->
+    <string name="profile_snackbar_link_copied">Link copied to clipboard</string>
+    <string name="profile_clipboard_label_post_link">Bluesky post link</string>
+
     <!-- Stats row labels -->
     <string name="profile_stats_posts_label">Posts</string>
     <string name="profile_stats_followers_label">Followers</string>

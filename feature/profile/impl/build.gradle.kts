@@ -42,6 +42,9 @@ dependencies {
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     implementation(project(":feature:chats:api"))
+    // ComposerRoute NavKey — reply taps on a PostCard push the composer in
+    // reply mode (ComposerRoute(replyToUri = post.id)).
+    implementation(project(":feature:composer:api"))
     // MediaViewerRoute NavKey — pushed onto the back stack when an
     // image (on a timeline PostCard) or a media-tab grid cell is tapped.
     implementation(project(":feature:mediaviewer:api"))

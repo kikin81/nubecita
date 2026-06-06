@@ -29,6 +29,9 @@
     <string name="profile_snackbar_error_network">Error de red. Desliza para actualizar.</string>
     <string name="profile_snackbar_error_unknown">No se pudo cargar el perfil.</string>
 
+    <string name="profile_snackbar_link_copied">Enlace copiado al portapapeles</string>
+    <string name="profile_clipboard_label_post_link">Enlace de la publicación de Bluesky</string>
+
     <string name="profile_stats_posts_label">Publicaciones</string>
     <string name="profile_stats_followers_label">Seguidores</string>
     <string name="profile_stats_follows_label">Siguiendo</string>
