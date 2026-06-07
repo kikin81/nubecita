@@ -47,7 +47,10 @@ internal fun ComposerContextPostBody(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = displayName,
                     style = MaterialTheme.typography.labelLarge,
@@ -65,13 +68,17 @@ internal fun ComposerContextPostBody(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // Image-only posts have empty text — skip the Text so it doesn't add a
+            // blank line of vertical space.
+            if (text.isNotBlank()) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         if (thumbnailUrl != null) {
             NubecitaAsyncImage(

@@ -21,6 +21,8 @@
     <string name="composer_typeahead_no_matches">Sin coincidencias para @%1$s</string>
     <string name="composer_reply_parent_load_failed_retry">No se pudo cargar la publicación de respuesta. Toca para reintentar.</string>
     <string name="composer_reply_parent_retry_action_label">Reintentar</string>
+    <string name="composer_reply_header">Respondiendo a %1</string>
+    <string name="composer_quote_header">Citando a %1</string>
     <string name="composer_error_quote_not_allowed">No puedes citar esta publicación.</string>
     <string name="composer_quote_load_failed_retry">No se pudo cargar la publicación citada. Toca para reintentar.</string>
     <string name="composer_quote_remove_action_label">Quitar publicación citada</string>

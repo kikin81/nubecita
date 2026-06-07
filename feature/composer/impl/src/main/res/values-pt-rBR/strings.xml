@@ -21,6 +21,8 @@
     <string name="composer_typeahead_no_matches">Nenhuma correspondência para @%1$s</string>
     <string name="composer_reply_parent_load_failed_retry">Não foi possível carregar o post de resposta. Toque para tentar de novo.</string>
     <string name="composer_reply_parent_retry_action_label">Tentar de novo</string>
+    <string name="composer_reply_header">Respondendo a %1</string>
+    <string name="composer_quote_header">Citando %1</string>
     <string name="composer_error_quote_not_allowed">Você não pode citar este post.</string>
     <string name="composer_quote_load_failed_retry">Não foi possível carregar o post citado. Toque para tentar de novo.</string>
     <string name="composer_quote_remove_action_label">Remover post citado</string>

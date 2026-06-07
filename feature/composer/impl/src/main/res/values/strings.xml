@@ -62,6 +62,16 @@
          is focused. -->
     <string name="composer_reply_parent_retry_action_label">Retry</string>
 
+    <!-- a11y contentDescription for the reply-parent context card. The visual
+         card shows the post like a full post (no caption); this gives screen
+         readers the "what is this card" context. `%1$s` is the author display
+         name (or handle). -->
+    <string name="composer_reply_header">Replying to %1$s</string>
+
+    <!-- a11y contentDescription for the quoted-post context card (visual card has
+         no caption). `%1$s` is the author display name (or handle). -->
+    <string name="composer_quote_header">Quoting %1$s</string>
+
     <!-- Quote-mode quote-fetch failure tile. Tap-to-retry text shown
          when getPosts for the quote target failed. -->
     <string name="composer_quote_load_failed_retry">Couldn\'t load quoted post. Tap to retry.</string>

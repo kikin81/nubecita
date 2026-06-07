@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -88,15 +90,23 @@ private fun ComposerReplyParentSkeleton() {
 @Composable
 private fun ComposerReplyParentCard(post: ParentPostUi) {
     // Full-post presentation: avatar + displayName @handle + body + optional
-    // media thumbnail (nubecita-8g28.7). Reply mode is conveyed by position
-    // (above the field) + the toolbar, so no "Replying to" caption is needed.
+    // media thumbnail (nubecita-8g28.7). The "Replying to" caption is dropped
+    // visually (context is clear from position + toolbar) but preserved for
+    // screen readers via a merged contentDescription so TalkBack still announces
+    // what the card represents.
+    val displayName = post.authorDisplayName ?: post.authorHandle
+    val label = stringResource(R.string.composer_reply_header, displayName)
+    val description = if (post.text.isNotBlank()) "$label: ${post.text}" else label
     ComposerContextPostBody(
         avatarUrl = post.avatarUrl,
-        displayName = post.authorDisplayName ?: post.authorHandle,
+        displayName = displayName,
         handle = post.authorHandle,
         text = post.text,
         thumbnailUrl = post.thumbnailUrl,
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        modifier =
+            Modifier
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .semantics(mergeDescendants = true) { contentDescription = description },
     )
 }
 

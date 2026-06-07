@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -91,15 +93,22 @@ private fun ComposerQuoteCard(
         verticalAlignment = Alignment.Top,
     ) {
         // Full-post presentation (nubecita-8g28.7): avatar + displayName @handle
-        // + body + optional media thumbnail. Quote context is conveyed by position
-        // (below the field) so no "Quoting" caption is needed.
+        // + body + optional media thumbnail. The "Quoting" caption is dropped
+        // visually but preserved for screen readers via a merged
+        // contentDescription; the dismiss button stays a separate focusable node.
+        val displayName = post.authorDisplayName ?: post.authorHandle
+        val label = stringResource(R.string.composer_quote_header, displayName)
+        val description = if (post.text.isNotBlank()) "$label: ${post.text}" else label
         ComposerContextPostBody(
             avatarUrl = post.avatarUrl,
-            displayName = post.authorDisplayName ?: post.authorHandle,
+            displayName = displayName,
             handle = post.authorHandle,
             text = post.text,
             thumbnailUrl = post.thumbnailUrl,
-            modifier = Modifier.weight(1f),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .semantics(mergeDescendants = true) { contentDescription = description },
         )
         QuoteDismissButton(onRemoveClick = onRemoveClick)
     }
