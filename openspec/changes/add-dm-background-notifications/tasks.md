@@ -9,7 +9,7 @@
 - [ ] 2.2 Persist the per-account cursor in `:core:preferences` (DataStore); read/write through a single accessor.
 
 ## 3. Pure detection + mapping logic (unit-testable)
-- [ ] 3.1 Pure function: getLog events + viewerDid + last cursor → list of new inbound message-creates to notify (sender ≠ viewer, after cursor) + the advanced cursor.
+- [ ] 3.1 Pure function: getLog events + viewerDid + last cursor + set of still-unread convoIds → list of new inbound message-creates to notify (sender ≠ viewer, after cursor, **convo still unread** per the read-state filter, **capped to a max per run** to handle large backlogs) + the advanced cursor.
 - [ ] 3.2 Pure function: message → notification content (sender name, snippet, deleted/attachment handling mirroring v1's ConvoMapper).
 
 ## 4. Worker
@@ -21,7 +21,7 @@
 - [ ] 5.2 Tap PendingIntent → deep-link to the convo (new `uriDeepLinkMatcher` → `Chat(otherUserDid)` via `DeepLinkRouter` + `MainActivity`).
 
 ## 6. Foreground suppression
-- [ ] 6.1 At run time, read `ProcessLifecycleOwner` state; when foregrounded, skip posting but still advance the cursor.
+- [ ] 6.1 At run time, read `ProcessLifecycleOwner` state; when foregrounded, skip posting **and do not advance the cursor** (hold it so the next background run re-evaluates the events through the read-state filter — design D5).
 
 ## 7. Scheduling + lifecycle
 - [ ] 7.1 Scheduler: `enqueueUniquePeriodicWork(KEEP)` (15-min floor, `NetworkType.CONNECTED`) on (opt-in ∧ signed-in); `cancelUniqueWork` on opt-out / logout.
@@ -32,9 +32,10 @@
 - [ ] 8.2 Add an in-app `Switch` row in `:feature:settings` (distinct from the existing OS-notification-settings deep-link row). Honest copy: off ⇒ no DM notifications AND no unread badge ("Nubecita stops checking for new messages").
 - [ ] 8.3 Gate v2 worker registration (§7) on (toggle ON ∧ signed-in); cancel on opt-out.
 - [ ] 8.4 **Modify shipped v1**: gate `ChatsUnreadPollingObserver` (nubecita-1fy.14) on the same toggle — skip the foreground poll when off (badge stops updating). Update its tests for the new gate.
+- [ ] 8.5 Read-state filter (replaces a manual getLog-cursor bump, which a single global cursor can't express): the worker fetches still-unread convoIds (e.g. from `listConvos`/cache) and notifies only inbound events whose convo is still unread. Foreground reads already clear server unread via `chat.bsky.convo.updateRead` (`nubecita-1fy.18`), so a thread the user opened is filtered out on the next poll — no re-notification.
 
 ## 9. Tests
-- [ ] 9.1 JVM unit tests for §3.1 (cursor advance, sender≠viewer filter, dedup, empty) and §3.2 (content mapping incl. deleted/attachment), via `MainDispatcherExtension`.
+- [ ] 9.1 JVM unit tests for §3.1 (cursor advance, sender≠viewer filter, read-state filter excludes already-read convos, per-run cap, dedup, empty) and §3.2 (content mapping incl. deleted/attachment), via `MainDispatcherExtension`. Add a §6 test: a foreground-suppressed run posts nothing and leaves the cursor unchanged.
 - [ ] 9.2 Instrumentation tests with `androidx.work:work-testing`: `WorkManagerTestInitHelper` + `SynchronousExecutor` to assert the periodic work is enqueued with `NetworkType.CONNECTED`; `TestDriver.setPeriodDelayMet`/`setAllConstraintsMet` to drive a run; `TestListenableWorkerBuilder<DmPollWorker>(context).build().doWork()` against a fake `ChatRepository` asserting result + notification posted, and suppressed when foregrounded. Add the `run-instrumented` PR label.
 - [ ] 9.3 Settings toggle unit test (enables/cancels scheduling); deep-link matcher unit test (DM notification URI → `Chat`).
 

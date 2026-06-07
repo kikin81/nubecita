@@ -42,15 +42,19 @@ A single user setting SHALL control all message-checking, default on. When off, 
 - **THEN** the background periodic work is registered and the foreground unread poll runs while foregrounded
 
 ### Requirement: No double-notification with the foreground surface
-While the app is foregrounded, the background worker SHALL NOT post DM notifications, because the in-app unread surface already reflects new messages. The worker SHALL still advance its cursor so that messages seen in the foreground are not re-notified later.
+While the app is foregrounded, the background worker SHALL NOT post DM notifications, because the in-app unread surface already reflects new messages. To avoid permanently dropping messages the user never actually saw, the worker SHALL NOT advance its cursor on a foreground-suppressed run; instead, a message that was read in the foreground SHALL be excluded from later notification by the read-state filter (its conversation is no longer unread server-side).
 
 #### Scenario: Poll coincides with the app foregrounded
 - **WHEN** the worker runs while the app is in the foreground
-- **THEN** it does not post a notification but still advances the cursor
+- **THEN** it does not post a notification and does not advance the cursor
 
 #### Scenario: Message already seen in the foreground
-- **WHEN** the user read a conversation in the foreground and the worker later runs
-- **THEN** no notification is posted for messages already covered by the advanced cursor
+- **WHEN** the user read a conversation in the foreground (clearing its server-side unread state) and a later background poll re-reads those events
+- **THEN** no notification is posted for that conversation, because the read-state filter excludes it
+
+#### Scenario: Foregrounded but conversation not read
+- **WHEN** the worker runs while the app is foregrounded on a non-Chats screen, so the user never reads the conversation, and the app is later backgrounded
+- **THEN** the held cursor lets the next background poll still notify the unread conversation
 
 ### Requirement: Per-conversation notification and dedup
 The system SHALL post at most one notification per conversation at a time, keyed by a stable per-conversation identity, so a later message updates the existing notification rather than stacking, and a re-delivered poll does not duplicate a notification.
