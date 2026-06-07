@@ -42,12 +42,18 @@ dependencies {
     // the Profile / Feed pattern.
     implementation(project(":feature:postdetail:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
+    // WorkManager + Hilt-work for the background DM-poll worker (v2,
+    // nubecita-1fy.15). Periodic, Doze-cooperative; no worker class yet — this
+    // group only lands the DI/runtime bootstrap. androidx.hilt.compiler (KSP)
+    // generates the @HiltWorker factory binding.
+    implementation(libs.androidx.hilt.work)
     // ProcessLifecycleOwner + repeatOnLifecycle — the chats unread-count
     // polling observer registers against the process lifecycle so polling
     // pauses on backgrounding (foreground-only, battery-safe). Mirrors
     // :feature:notifications:impl.
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
@@ -58,6 +64,10 @@ dependencies {
     // createAndroidComposeRule<HiltTestActivity>() can drive the screen
     // composition path under instrumentation. Mirrors :feature:composer:impl.
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // @HiltWorker factory binding generator (androidx.hilt), in addition to the
+    // dagger hilt-android-compiler the convention plugin already wires.
+    ksp(libs.androidx.hilt.compiler)
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
@@ -78,6 +88,9 @@ dependencies {
     // during ComposeRule activity launch.
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    // WorkManagerTestInitHelper + TestDriver + TestListenableWorkerBuilder for
+    // the DmPollWorker instrumentation tests (added by a later task group).
+    androidTestImplementation(libs.androidx.work.testing)
     androidTestImplementation(libs.kotlinx.collections.immutable)
 
     kspAndroidTest(libs.hilt.android.compiler)

@@ -46,6 +46,24 @@
             android:name="firebase_messaging_auto_init_enabled"
             android:value="false" />
         <!--
+            Disable WorkManager's default androidx.startup initializer so the
+            Hilt-aware Configuration.Provider on NubecitaApplication is used
+            instead (on-demand init via Configuration.Provider). Required for
+            @HiltWorker dependency injection on the background DM-poll worker
+            (nubecita-1fy.15). The provider node is merged-into (not replaced);
+            only the WorkManagerInitializer meta-data is removed.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+        <!--
             Disable Firebase's automatic Activity-based screen_view reporting.
             It is Activity/Fragment-based and cannot see our single-Activity
             Jetpack Navigation 3 / Compose destinations, so it would only ever
