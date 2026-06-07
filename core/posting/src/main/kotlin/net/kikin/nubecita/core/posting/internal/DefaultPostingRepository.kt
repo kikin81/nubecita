@@ -439,11 +439,13 @@ internal class DefaultPostingRepository
                     Images(images = intent.blobs.map { ImagesImage(alt = "", image = it) })
                 }
             val quote = intent.quote
+            // Positive `!= null` ordering so each branch smart-casts — no `!!`.
             return when {
-                quote == null && images == null -> AtField.Missing
-                quote == null -> AtField.Defined(images!!)
-                images == null -> AtField.Defined(Record(record = quote))
-                else -> AtField.Defined(RecordWithMedia(record = Record(record = quote), media = images))
+                quote != null && images != null ->
+                    AtField.Defined(RecordWithMedia(record = Record(record = quote), media = images))
+                quote != null -> AtField.Defined(Record(record = quote))
+                images != null -> AtField.Defined(images)
+                else -> AtField.Missing
             }
         }
 
