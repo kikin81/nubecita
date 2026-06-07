@@ -42,7 +42,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -103,6 +102,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.BlockedPostCard
 import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.NotFoundPostCard
+import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
@@ -777,10 +777,14 @@ private fun LoadedFeedContent(
     var revealedMedia by rememberSaveable(
         stateSaver = listSaver(save = { it.toList() }, restore = { it.toPersistentSet() }),
     ) { mutableStateOf(persistentSetOf<String>()) }
-    PullToRefreshBox(
+    NubecitaPullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         modifier = modifier.fillMaxSize(),
+        // Offset the refresh indicator below the chip-row topBar (it would
+        // otherwise anchor top-center behind it). Same inset the LazyColumn
+        // applies as contentPadding for its items. (nubecita-tfbc)
+        indicatorPadding = contentPadding,
     ) {
         LazyColumn(
             state = listState,

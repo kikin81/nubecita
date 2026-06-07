@@ -14,9 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,12 +24,12 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
+import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
@@ -100,24 +97,14 @@ internal fun ProfileScreenContent(
             )
         },
     ) { padding ->
-        val pullState = rememberPullToRefreshState()
         val topBarPadding = padding.calculateTopPadding()
 
-        PullToRefreshBox(
+        NubecitaPullToRefreshBox(
             isRefreshing = activeTabIsRefreshing,
             onRefresh = { onEvent(ProfileEvent.Refresh) },
-            state = pullState,
             modifier = Modifier.fillMaxSize(),
-            indicator = {
-                PullToRefreshDefaults.Indicator(
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = topBarPadding),
-                    isRefreshing = activeTabIsRefreshing,
-                    state = pullState,
-                )
-            },
+            // Offset the indicator below the profile top bar. (nubecita-tfbc)
+            indicatorPadding = PaddingValues(top = topBarPadding),
         ) {
             LazyColumn(
                 state = listState,
