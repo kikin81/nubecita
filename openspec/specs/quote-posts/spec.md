@@ -48,7 +48,7 @@ While composing, when the user enters a Bluesky post URL (`bsky.app/profile/{han
 - **AND** the pasted URL is removed from the text field
 
 #### Scenario: Failed paste resolution keeps the URL
-- **WHEN** the user pastes a post URL and resolution fails (network error, deleted post, or quoting disabled)
+- **WHEN** the user pastes a post URL and resolution fails (network error or deleted post)
 - **THEN** the quote enters a failed state and the pasted URL remains in the text field unchanged
 
 #### Scenario: One quote maximum
