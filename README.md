@@ -113,6 +113,31 @@ For Compose Compiler stability + recomposition reports (used during perf audits 
 # reports land at <module>/build/compose_compiler/
 ```
 
+## Versioning & releases
+
+Releases are fully automated by [semantic-release](https://semantic-release.gitbook.io/) (via [`@open-turo/semantic-release-config`](https://github.com/open-turo/semantic-release-config), `lib/gradle`). On every push to `main`, the commit history since the last release determines the next version, then a GitHub release is cut and the app is uploaded to Google Play. **The PR title becomes the squash-merge commit, so it is what drives the release** — keep it Conventional.
+
+Version bumps follow commit-analyzer's default (angular) rules:
+
+| Commit | Version bump |
+|---|---|
+| `BREAKING CHANGE:` footer or `!` (e.g. `feat!:`) | **major** (`X.0.0`) |
+| `feat` | **minor** (`x.Y.0`) |
+| `fix` | **patch** (`x.y.Z`) |
+| `perf` | **patch** |
+| `revert` | **patch** |
+| `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `build` | **no release** |
+
+A change that doesn't bump by type (e.g. a `refactor`) ships no build; relabel the squash subject to `feat`/`fix` at merge time if you need a deploy.
+
+Play's integer `versionCode` is derived from the semantic `versionName` in `app/build.gradle.kts`:
+
+```
+versionCode = MAJOR * 1_000_000 + MINOR * 1_000 + PATCH
+```
+
+so **minor and patch are each capped at `0..999`** (major `0..2146`); the build fails fast if a component exceeds its band.
+
 <details>
 <summary><b>Project baseline & tooling</b></summary>
 
