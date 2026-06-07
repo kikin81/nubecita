@@ -31,12 +31,14 @@ import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
+import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
 import net.kikin.nubecita.feature.composer.impl.internal.findActiveMentionStart
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
@@ -115,6 +117,7 @@ internal class ComposerViewModel
         @Assisted private val route: ComposerRoute,
         private val postingRepository: PostingRepository,
         private val parentFetchSource: ParentFetchSource,
+        private val quotePostFetcher: QuotePostFetcher,
         private val actorRepository: ActorRepository,
         private val localeProvider: LocaleProvider,
         private val postAudienceDefaultRepository: PostAudienceDefaultRepository,
@@ -129,6 +132,7 @@ internal class ComposerViewModel
             initialState =
                 ComposerState(
                     replyToUri = route.replyToUri,
+                    quotePostUri = route.quotePostUri,
                     audience = postAudienceDefaultRepository.default.value,
                 ),
         ) {
@@ -184,6 +188,9 @@ internal class ComposerViewModel
         init {
             uiState.value.replyToUri?.let { uri ->
                 launchParentFetch(uri)
+            }
+            uiState.value.quotePostUri?.let { uri ->
+                launchQuoteFetch(uri)
             }
 
             // Snapshot collector — drives the grapheme counter and
@@ -275,6 +282,8 @@ internal class ComposerViewModel
                 is ComposerEvent.RemoveAttachment -> if (!submitInFlight) handleRemoveAttachment(event.index)
                 ComposerEvent.Submit -> handleSubmit()
                 ComposerEvent.RetryParentLoad -> if (!submitInFlight) handleRetryParentLoad()
+                ComposerEvent.RetryQuoteLoad -> if (!submitInFlight) handleRetryQuoteLoad()
+                ComposerEvent.RemoveQuote -> if (!submitInFlight) handleRemoveQuote()
                 is ComposerEvent.TypeaheadResultClicked ->
                     if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
                 is ComposerEvent.LanguageSelectionConfirmed ->
@@ -421,6 +430,13 @@ internal class ComposerViewModel
                     ReplyRefs(parent = loaded.post.parentRef, root = loaded.post.rootRef)
                 }
 
+            // Resolve the quote ref upfront — `Loaded` is required by canSubmit
+            // when quotePostUri is set, so the cast is safe.
+            val quote =
+                current.quotePostLoad?.let { status ->
+                    (status as QuoteLoadStatus.Loaded).post.ref
+                }
+
             setState { copy(submitStatus = ComposerSubmitStatus.Submitting) }
 
             viewModelScope.launch {
@@ -431,6 +447,7 @@ internal class ComposerViewModel
                         replyTo = replyTo,
                         langs = current.selectedLangs,
                         audience = current.audience,
+                        quote = quote,
                     )
                 result.fold(
                     onSuccess = { uri ->
@@ -501,19 +518,58 @@ internal class ComposerViewModel
             }
         }
 
+        private fun handleRetryQuoteLoad() {
+            val uri = uiState.value.quotePostUri ?: return
+            // Ignore retry if already loading.
+            if (uiState.value.quotePostLoad is QuoteLoadStatus.Loading) return
+            launchQuoteFetch(uri)
+        }
+
+        private fun handleRemoveQuote() {
+            // Detach the quote without touching the reply context or text.
+            setState { copy(quotePostUri = null, quotePostLoad = null) }
+        }
+
+        private fun launchQuoteFetch(rawUri: String) {
+            setState { copy(quotePostLoad = QuoteLoadStatus.Loading) }
+            viewModelScope.launch {
+                val result = quotePostFetcher.fetchQuote(AtUri(rawUri))
+                result.fold(
+                    onSuccess = { post ->
+                        setState { copy(quotePostLoad = QuoteLoadStatus.Loaded(post)) }
+                        // Postgate defence: if the gate changed since the user chose
+                        // to quote, tell them once. canSubmit also blocks the send so
+                        // a queued submit can't slip through.
+                        if (!post.canViewerQuote) {
+                            sendEffect(ComposerEffect.ShowError(ComposerError.QuoteNotAllowed))
+                        }
+                    },
+                    onFailure = { throwable ->
+                        val cause = (throwable as? ComposerError) ?: ComposerError.RecordCreationFailed(throwable)
+                        setState { copy(quotePostLoad = QuoteLoadStatus.Failed(cause)) }
+                    },
+                )
+            }
+        }
+
         /**
          * Submit is allowed iff:
-         * - There's content (text or attachments).
+         * - There's content (text, attachments, or a loaded quote — an empty-text
+         *   quote post is valid because the embed itself is the content).
          * - We're not over the grapheme limit.
          * - Submission is currently `Idle` or `Error` (not in flight,
          *   not already succeeded).
-         * - In reply mode, the parent has fully loaded.
+         * - In reply mode, the parent has fully loaded and is replyable.
+         * - In quote mode, the quote has fully loaded and is quotable.
          */
         private fun canSubmit(
             state: ComposerState,
             text: String,
         ): Boolean {
-            val hasContent = text.isNotBlank() || state.attachments.isNotEmpty()
+            val hasContent =
+                text.isNotBlank() ||
+                    state.attachments.isNotEmpty() ||
+                    state.quotePostLoad is QuoteLoadStatus.Loaded
             if (!hasContent) return false
             if (state.isOverLimit) return false
             val submitInFlight =
@@ -527,6 +583,11 @@ internal class ComposerViewModel
             // would reject the submit anyway; blocking here avoids the confusing
             // round-trip failure the launch gate exists to prevent.
             if (parentLoad is ParentLoadStatus.Loaded && !parentLoad.post.canViewerReply) return false
+            // Quote mode requires the quote to be Loaded (the embed ref needs the
+            // CID) and the postgate to permit this viewer to quote.
+            val quoteLoad = state.quotePostLoad
+            if (state.quotePostUri != null && quoteLoad !is QuoteLoadStatus.Loaded) return false
+            if (quoteLoad is QuoteLoadStatus.Loaded && !quoteLoad.post.canViewerQuote) return false
             return true
         }
 

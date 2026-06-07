@@ -52,6 +52,19 @@ internal sealed interface ComposerEvent : UiEvent {
     data object RetryParentLoad : ComposerEvent
 
     /**
+     * In quote mode after a `QuoteLoadStatus.Failed`, the user tapped the inline
+     * retry tile. Re-launches the quote fetch.
+     */
+    data object RetryQuoteLoad : ComposerEvent
+
+    /**
+     * The user tapped the dismiss (✕) on the quote card. Reducer clears
+     * `quotePostUri` + `quotePostLoad`, detaching the quote without touching the
+     * reply context or the entered text.
+     */
+    data object RemoveQuote : ComposerEvent
+
+    /**
      * The user tapped a row in the `@`-mention typeahead dropdown.
      * Reducer atomically replaces the active `@`-token substring in
      * the field's text with `@<actor.handle> ` (trailing space) and

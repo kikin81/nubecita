@@ -19,6 +19,8 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentPostUi
+import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.QuotePostUi
 import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 
 /**
@@ -75,6 +77,8 @@ private fun ComposerScreenEmptyScreenshot() {
             onSuggestionClick = {},
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
             onLanguageChipClick = {},
             onAudienceChipClick = {},
         )
@@ -103,6 +107,8 @@ private fun ComposerScreenNearLimitScreenshot() {
             onSuggestionClick = {},
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
             onLanguageChipClick = {},
             onAudienceChipClick = {},
         )
@@ -131,6 +137,8 @@ private fun ComposerScreenSubmittingScreenshot() {
             onSuggestionClick = {},
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
             onLanguageChipClick = {},
             onAudienceChipClick = {},
         )
@@ -186,6 +194,8 @@ private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
             onSuggestionClick = {},
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
             onLanguageChipClick = {},
             onAudienceChipClick = {},
         )
@@ -228,6 +238,8 @@ private fun ComposerScreenReplyModeLoadedScreenshot() {
             onSuggestionClick = {},
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
             onLanguageChipClick = {},
             onAudienceChipClick = {},
         )
@@ -260,6 +272,49 @@ private fun ComposerScreenWithImagesScreenshot() {
             onSuggestionClick = {},
             deviceLocaleTag = "en-US",
             onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
+            onLanguageChipClick = {},
+            onAudienceChipClick = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "quote-mode-loaded-light", showBackground = true)
+@Preview(name = "quote-mode-loaded-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ComposerScreenQuoteModeLoadedScreenshot() {
+    // Quote-mode: the quoted post fetched + Loaded, the dismissible quote card
+    // renders BELOW the text field (the reader's stacked layout). nubecita-8g28.7
+    // upgrades this minimal card to a fuller post presentation.
+    val quoteRef = StrongRef(uri = AtUri("at://did:plc:bob/app.bsky.feed.post/xyz"), cid = Cid("bafxyz"))
+    NubecitaCanvasPreviewTheme {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    quotePostUri = quoteRef.uri.raw,
+                    quotePostLoad =
+                        QuoteLoadStatus.Loaded(
+                            QuotePostUi(
+                                ref = quoteRef,
+                                authorHandle = "bob.bsky.social",
+                                authorDisplayName = "Bob",
+                                text = "The original take everyone is dunking on — adding my own commentary above.",
+                            ),
+                        ),
+                ),
+            textFieldState = remember { TextFieldState(initialText = "Wild that this is still up.") },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
+            onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
             onLanguageChipClick = {},
             onAudienceChipClick = {},
         )

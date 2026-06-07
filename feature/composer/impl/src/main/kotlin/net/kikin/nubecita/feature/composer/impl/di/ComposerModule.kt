@@ -5,7 +5,9 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.feature.composer.impl.data.DefaultParentFetchSource
+import net.kikin.nubecita.feature.composer.impl.data.DefaultQuotePostFetcher
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
+import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
 
 /**
  * Hilt bindings for `:feature:composer:impl`.
@@ -19,4 +21,7 @@ import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 abstract class ComposerModule {
     @Binds
     internal abstract fun bindParentFetchSource(impl: DefaultParentFetchSource): ParentFetchSource
+
+    @Binds
+    internal abstract fun bindQuotePostFetcher(impl: DefaultQuotePostFetcher): QuotePostFetcher
 }

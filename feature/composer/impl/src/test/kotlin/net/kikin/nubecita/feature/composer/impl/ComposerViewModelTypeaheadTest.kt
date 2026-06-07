@@ -319,6 +319,7 @@ class ComposerViewModelTypeaheadTest {
             route = ComposerRoute(replyToUri = null),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
+            quotePostFetcher = mockk(),
             actorRepository = typeaheadRepo,
             localeProvider =
                 object : LocaleProvider {
