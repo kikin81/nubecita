@@ -129,6 +129,35 @@ class ChatsUnreadPollingObserverTest {
             assertEquals(0, f.store.unreadCount.value)
         }
 
+    @Test
+    fun `does not poll while signed out`() =
+        runPollingTest(sessionFlow = MutableStateFlow(SessionState.SignedOut)) { f ->
+            f.observer.start()
+            runCurrent()
+            f.lifecycleRegistry.currentState = Lifecycle.State.STARTED
+            runCurrent()
+            advanceTimeBy(180_000L)
+            runCurrent()
+            assertEquals(0, f.repository.refreshCalls, "signed out: no refresh attempts")
+        }
+
+    @Test
+    fun `starts polling once the session becomes SignedIn`() =
+        runPollingTest(sessionFlow = MutableStateFlow(SessionState.Loading)) { f ->
+            f.observer.start()
+            runCurrent()
+            f.lifecycleRegistry.currentState = Lifecycle.State.STARTED
+            runCurrent()
+            assertEquals(0, f.repository.refreshCalls, "Loading: no poll yet")
+
+            (f.sessionStateProvider.state as MutableStateFlow).value =
+                SessionState.SignedIn(handle = "alice.bsky.social", did = "did:plc:alice")
+            // The loop re-checks the session value on its next tick.
+            advanceTimeBy(60_000L)
+            runCurrent()
+            assertEquals(1, f.repository.refreshCalls, "polls after sign-in")
+        }
+
     // ---- harness ----
 
     private fun runPollingTest(

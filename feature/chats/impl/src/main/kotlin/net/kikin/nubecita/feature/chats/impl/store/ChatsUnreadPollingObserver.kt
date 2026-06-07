@@ -49,17 +49,27 @@ class ChatsUnreadPollingObserver(
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 var delayMs = INITIAL_DELAY_MS
                 while (isActive) {
-                    val result = store.refresh()
+                    // Gate on an active session: the observer is process-scoped,
+                    // so it's also foregrounded on the Login screen, at cold-start
+                    // `Loading`, and after logout — where `refresh()` would hit
+                    // `authenticated()` (no session), fail, and log every cycle.
+                    // When signed out we skip the network call and just idle at the
+                    // base cadence.
                     delayMs =
-                        if (result.isSuccess) {
-                            INITIAL_DELAY_MS
+                        if (sessionStateProvider.state.value is SessionState.SignedIn) {
+                            val result = store.refresh()
+                            if (result.isSuccess) {
+                                INITIAL_DELAY_MS
+                            } else {
+                                Timber.tag(TAG).w(
+                                    result.exceptionOrNull(),
+                                    "chat unread refresh failed; backing off to %dms",
+                                    (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS),
+                                )
+                                (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS)
+                            }
                         } else {
-                            Timber.tag(TAG).w(
-                                result.exceptionOrNull(),
-                                "chat unread refresh failed; backing off to %dms",
-                                (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS),
-                            )
-                            (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS)
+                            INITIAL_DELAY_MS
                         }
                     delay(delayMs)
                 }
