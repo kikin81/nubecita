@@ -6,7 +6,7 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -21,14 +21,13 @@ import javax.inject.Inject
  *
  * It ignores [attachments] (no blob upload) and the [audience] / [quote] gates
  * (no threadgate/postgate/embed records) — the composer's success path only
- * needs a non-null URI to fire `OnSubmitSuccess` and close. Each call returns a
- * distinct rkey so successive posts don't collide in any optimistic UI.
+ * needs a non-null URI to fire `OnSubmitSuccess` and close. Each call mints a
+ * random rkey so URIs stay unique within and across app launches (stateless —
+ * no collisions even if a future surface persists created posts by URI).
  */
 internal class BenchFakePostingRepository
     @Inject
     constructor() : PostingRepository {
-        private val counter = AtomicInteger(0)
-
         override suspend fun createPost(
             text: String,
             attachments: List<ComposerAttachment>,
@@ -36,5 +35,5 @@ internal class BenchFakePostingRepository
             langs: List<String>?,
             audience: PostAudience,
             quote: StrongRef?,
-        ): Result<AtUri> = Result.success(AtUri("at://did:plc:bench/app.bsky.feed.post/${counter.incrementAndGet()}"))
+        ): Result<AtUri> = Result.success(AtUri("at://did:plc:bench/app.bsky.feed.post/${UUID.randomUUID()}"))
     }
