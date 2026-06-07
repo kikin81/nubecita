@@ -32,6 +32,7 @@ import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
+import net.kikin.nubecita.feature.composer.impl.internal.QuoteLinkDetector
 import net.kikin.nubecita.feature.composer.impl.internal.findActiveMentionStart
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
@@ -185,6 +186,12 @@ internal class ComposerViewModel
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
 
+        // Paste-a-link: post links already attempted (resolved, rejected, or
+        // failed) so a link whose text remains in the field isn't re-attached on
+        // every subsequent snapshot. Not persisted — paste detection is a
+        // session-local editor concern.
+        private val attemptedQuoteLinks = mutableSetOf<String>()
+
         init {
             uiState.value.replyToUri?.let { uri ->
                 launchParentFetch(uri)
@@ -216,6 +223,9 @@ internal class ComposerViewModel
                         val token = text.substring(tokenStart + 1, cursor)
                         queryFlow.tryEmit(token)
                     }
+
+                    // Paste-a-link: attach a pasted Bluesky post link as a quote.
+                    maybeDetectQuoteLink(text)
                 }.launchIn(viewModelScope)
 
             // Typeahead lookup pipeline — dedupe + mapLatest with
@@ -526,26 +536,73 @@ internal class ComposerViewModel
             setState { copy(quotePostUri = null, quotePostLoad = null) }
         }
 
-        private fun launchQuoteFetch(rawUri: String) {
+        /**
+         * Resolve [rawUri] and attach it as the quote. [pasteLinkText] is non-null
+         * only for the paste-a-link path — it carries the exact URL substring so it
+         * can be stripped from the field on success, and it changes the gated-post
+         * behavior: a paste of a quote-disabled post is **rejected** (the attach is
+         * dropped and the URL left as plain text), whereas a route-launched quote of
+         * a gated post stays attached but is blocked at submit (the repost menu
+         * already hides Quote, so that path is only a defensive in-flight guard).
+         */
+        private fun launchQuoteFetch(
+            rawUri: String,
+            pasteLinkText: String? = null,
+        ) {
             setState { copy(quotePostLoad = QuoteLoadStatus.Loading) }
             viewModelScope.launch {
                 val result = quotePostFetcher.fetchQuote(AtUri(rawUri))
                 result.fold(
                     onSuccess = { post ->
-                        setState { copy(quotePostLoad = QuoteLoadStatus.Loaded(post)) }
-                        // Postgate defence: if the gate changed since the user chose
-                        // to quote, tell them once. canSubmit also blocks the send so
-                        // a queued submit can't slip through.
-                        if (!post.canViewerQuote) {
+                        if (pasteLinkText != null && !post.canViewerQuote) {
+                            // Paste of a quote-gated post: reject the attach, keep the
+                            // pasted URL as plain text, and tell the user once.
+                            setState { copy(quotePostUri = null, quotePostLoad = null) }
                             sendEffect(ComposerEffect.ShowError(ComposerError.QuoteNotAllowed))
+                        } else {
+                            setState { copy(quotePostLoad = QuoteLoadStatus.Loaded(post)) }
+                            // Strip the pasted link only on success — a failed or
+                            // rejected resolve leaves the user's URL intact.
+                            if (pasteLinkText != null) stripQuoteLinkFromText(pasteLinkText)
+                            // Route-launch postgate defence (menu already hides Quote
+                            // when disabled; this guards a gate change in flight).
+                            if (!post.canViewerQuote) {
+                                sendEffect(ComposerEffect.ShowError(ComposerError.QuoteNotAllowed))
+                            }
                         }
                     },
                     onFailure = { throwable ->
                         val cause = (throwable as? ComposerError) ?: ComposerError.RecordCreationFailed(throwable)
                         setState { copy(quotePostLoad = QuoteLoadStatus.Failed(cause)) }
+                        // On a paste failure the URL is intentionally left in the text
+                        // (the Failed tile offers retry); nothing to strip.
                     },
                 )
             }
+        }
+
+        /**
+         * Detect a pasted Bluesky post link in [text] and attach it as a quote.
+         * No-op while a quote is already attached (one quote max). Each link is
+         * attempted at most once so a rejected/failed link — whose text stays in
+         * the field — isn't re-attached on the next snapshot.
+         */
+        private fun maybeDetectQuoteLink(text: String) {
+            if (uiState.value.quotePostUri != null) return
+            val match = QuoteLinkDetector.detect(text, exclude = attemptedQuoteLinks) ?: return
+            attemptedQuoteLinks.add(match.matchedText)
+            setState { copy(quotePostUri = match.atUri) }
+            launchQuoteFetch(match.atUri, pasteLinkText = match.matchedText)
+        }
+
+        /** Remove the first occurrence of [linkText] (and a single trailing space) from the field. */
+        private fun stripQuoteLinkFromText(linkText: String) {
+            val current = textFieldState.text.toString()
+            val idx = current.indexOf(linkText)
+            if (idx < 0) return
+            var end = idx + linkText.length
+            if (end < current.length && current[end] == ' ') end += 1
+            textFieldState.edit { replace(idx, end, "") }
         }
 
         /**
