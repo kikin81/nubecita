@@ -176,6 +176,7 @@ internal fun FeedScreen(
     onNavigateTo: (NavKey) -> Unit = {},
     onComposeClick: () -> Unit = {},
     onReplyClick: (String) -> Unit = {},
+    onQuoteClick: (String) -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: FeedViewModel = hiltViewModel(),
 ) {
@@ -192,6 +193,7 @@ internal fun FeedScreen(
     // before `callbacks` because the lambda inside `PostCallbacks.onReply`
     // closes over it.
     val currentOnReplyClick by rememberUpdatedState(onReplyClick)
+    val currentOnQuoteClick by rememberUpdatedState(onQuoteClick)
     val haptics = rememberPostHaptics()
     val callbacks =
         remember(viewModel, context, haptics) {
@@ -209,6 +211,10 @@ internal fun FeedScreen(
                 onReply = { post ->
                     haptics.lightTap()
                     currentOnReplyClick(post.id)
+                },
+                onQuote = { post ->
+                    haptics.lightTap()
+                    currentOnQuoteClick(post.id)
                 },
                 onShare = { post ->
                     haptics.lightTap()

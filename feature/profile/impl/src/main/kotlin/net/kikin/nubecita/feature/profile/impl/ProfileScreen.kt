@@ -106,6 +106,10 @@ internal fun ProfileScreen(
                     haptics.lightTap()
                     viewModel.handleEvent(ProfileEvent.OnReplyClicked(post))
                 },
+                onQuote = { post ->
+                    haptics.lightTap()
+                    viewModel.handleEvent(ProfileEvent.OnQuoteClicked(post))
+                },
                 onShare = { post ->
                     haptics.lightTap()
                     viewModel.handleEvent(ProfileEvent.OnShareClicked(post))

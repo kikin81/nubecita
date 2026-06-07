@@ -459,6 +459,11 @@ sealed interface ProfileEvent : UiEvent {
         val post: PostUi,
     ) : ProfileEvent
 
+    /** User chose "Quote post" from a PostCard's repost menu inside a tab body. */
+    data class OnQuoteClicked(
+        val post: PostUi,
+    ) : ProfileEvent
+
     /** User tapped the share icon on a PostCard inside one of the tab bodies. */
     data class OnShareClicked(
         val post: PostUi,
