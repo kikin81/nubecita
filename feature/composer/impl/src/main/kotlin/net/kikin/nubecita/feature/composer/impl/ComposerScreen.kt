@@ -64,6 +64,7 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerDiscardDialog
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerLanguageChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerOptionsChipRow
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerQuoteSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
 import net.kikin.nubecita.feature.composer.impl.internal.LanguagePicker
@@ -73,6 +74,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import java.util.Locale
 import kotlin.math.max
 
@@ -134,6 +136,7 @@ internal fun ComposerScreen(
     val unauthorizedErrorMessage = stringResource(R.string.composer_error_unauthorized)
     val parentNotFoundErrorMessage = stringResource(R.string.composer_error_parent_not_found)
     val replyNotAllowedErrorMessage = stringResource(R.string.composer_error_reply_not_allowed)
+    val quoteNotAllowedErrorMessage = stringResource(R.string.composer_error_quote_not_allowed)
     val genericErrorMessage = stringResource(R.string.composer_error_generic)
     val uploadFailedTemplate = stringResource(R.string.composer_error_upload_failed)
     val audienceSaveErrorMessage = stringResource(R.string.composer_audience_save_error)
@@ -181,6 +184,14 @@ internal fun ComposerScreen(
     val onRetryParentLoad =
         remember(viewModel) {
             { viewModel.handleEvent(ComposerEvent.RetryParentLoad) }
+        }
+    val onRetryQuoteLoad =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.RetryQuoteLoad) }
+        }
+    val onRemoveQuote =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.RemoveQuote) }
         }
 
     // Discard-confirmation gate. The composer is a transient, in-progress
@@ -269,6 +280,7 @@ internal fun ComposerScreen(
                             ComposerError.Unauthorized -> unauthorizedErrorMessage
                             ComposerError.ParentNotFound -> parentNotFoundErrorMessage
                             ComposerError.ReplyNotAllowed -> replyNotAllowedErrorMessage
+                            ComposerError.QuoteNotAllowed -> quoteNotAllowedErrorMessage
                             is ComposerError.RecordCreationFailed -> genericErrorMessage
                             // attachmentIndex is 0-based internally; users
                             // expect 1-based ordinals ("Image 1 failed",
@@ -301,6 +313,8 @@ internal fun ComposerScreen(
         onRemoveAttachment = onRemoveAttachment,
         onSuggestionClick = onSuggestionClick,
         onRetryParentLoad = onRetryParentLoad,
+        onRetryQuoteLoad = onRetryQuoteLoad,
+        onRemoveQuote = onRemoveQuote,
         onLanguageChipClick = { showPicker = true },
         onAudienceChipClick = { showAudiencePicker = true },
         modifier = modifier,
@@ -391,6 +405,8 @@ internal fun ComposerScreenContent(
     onRemoveAttachment: (Int) -> Unit,
     onSuggestionClick: (ActorUi) -> Unit,
     onRetryParentLoad: () -> Unit,
+    onRetryQuoteLoad: () -> Unit,
+    onRemoveQuote: () -> Unit,
     onLanguageChipClick: () -> Unit,
     onAudienceChipClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -549,6 +565,15 @@ internal fun ComposerScreenContent(
                 onAddImageClick = onAddImageClick,
                 onRemoveAttachment = onRemoveAttachment,
             )
+            // Quote-mode section — renders nothing when not quoting
+            // (quotePostLoad == null). Sits at the bottom (below text +
+            // attachments), matching the reader's stacked layout: reply
+            // context on top, your text, then the quoted post.
+            ComposerQuoteSection(
+                status = state.quotePostLoad,
+                onRetryClick = onRetryQuoteLoad,
+                onRemoveClick = onRemoveQuote,
+            )
         }
     }
 }
@@ -643,7 +668,10 @@ private fun canPost(
     state: ComposerState,
     textFieldState: TextFieldState,
 ): Boolean {
-    if (textFieldState.text.isBlank() && state.attachments.isEmpty()) return false
+    // A loaded quote counts as content — an empty-text quote post is valid
+    // (the embed is the content), mirroring the VM's canSubmit.
+    val hasQuote = state.quotePostLoad is QuoteLoadStatus.Loaded
+    if (textFieldState.text.isBlank() && state.attachments.isEmpty() && !hasQuote) return false
     if (state.isOverLimit) return false
     // Reply-mode requires the parent to be Loaded — without the
     // parent's CID we can't construct the reply ref. The VM's
@@ -651,6 +679,10 @@ private fun canPost(
     // the button disabled instead of just silently rejecting the
     // tap.
     if (state.replyToUri != null && state.replyParentLoad !is ParentLoadStatus.Loaded) return false
+    // Quote-mode requires the quote Loaded and quotable — same gate as the VM.
+    if (state.quotePostUri != null && state.quotePostLoad !is QuoteLoadStatus.Loaded) return false
+    val quoteLoad = state.quotePostLoad
+    if (quoteLoad is QuoteLoadStatus.Loaded && !quoteLoad.post.canViewerQuote) return false
     return when (state.submitStatus) {
         ComposerSubmitStatus.Idle -> true
         is ComposerSubmitStatus.Error -> true

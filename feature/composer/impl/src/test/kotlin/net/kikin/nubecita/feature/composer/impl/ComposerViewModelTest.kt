@@ -31,11 +31,14 @@ import net.kikin.nubecita.core.posting.ReplyAudience
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
+import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentPostUi
+import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.QuotePostUi
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -71,6 +74,7 @@ class ComposerViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val postingRepository = mockk<PostingRepository>()
     private val parentFetchSource = mockk<ParentFetchSource>()
+    private val quotePostFetcher = mockk<QuotePostFetcher>()
 
     // Seeds the composer's audience from PostAudience.DEFAULT; setDefault is a
     // relaxed no-op (the save-as-default path is exercised separately).
@@ -653,14 +657,195 @@ class ComposerViewModelTest {
 
     // ---------- harness ----------
 
+    @Test
+    fun quoteMode_loadingPath_transitionsToLoaded() =
+        runTest {
+            val quote = aQuotePostUi()
+            val gate = CompletableDeferred<Result<QuotePostUi>>()
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } coAnswers { gate.await() }
+
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+
+            assertEquals(QUOTE_URI, vm.uiState.value.quotePostUri)
+            assertEquals(QuoteLoadStatus.Loading, vm.uiState.value.quotePostLoad)
+
+            gate.complete(Result.success(quote))
+
+            assertEquals(QuoteLoadStatus.Loaded(quote), vm.uiState.value.quotePostLoad)
+        }
+
+    @Test
+    fun quoteMode_failedPath_transitionsToFailed() =
+        runTest {
+            val cause = ComposerError.Network(RuntimeException("dns"))
+            val gate = CompletableDeferred<Result<QuotePostUi>>()
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } coAnswers { gate.await() }
+
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+
+            assertEquals(QuoteLoadStatus.Loading, vm.uiState.value.quotePostLoad)
+
+            gate.complete(Result.failure(cause))
+
+            assertEquals(QuoteLoadStatus.Failed(cause), vm.uiState.value.quotePostLoad)
+        }
+
+    @Test
+    fun quoteMode_retry_afterFailure_reloads() =
+        runTest {
+            val quote = aQuotePostUi()
+            var calls = 0
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } coAnswers {
+                if (calls++ == 0) {
+                    Result.failure(ComposerError.Network(RuntimeException("dns")))
+                } else {
+                    Result.success(quote)
+                }
+            }
+
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+            assertTrue(vm.uiState.value.quotePostLoad is QuoteLoadStatus.Failed)
+
+            vm.handleEvent(ComposerEvent.RetryQuoteLoad)
+
+            assertEquals(QuoteLoadStatus.Loaded(quote), vm.uiState.value.quotePostLoad)
+        }
+
+    @Test
+    fun quoteMode_dismiss_clearsQuote() =
+        runTest {
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } returns Result.success(aQuotePostUi())
+
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+            assertTrue(vm.uiState.value.quotePostLoad is QuoteLoadStatus.Loaded)
+
+            vm.handleEvent(ComposerEvent.RemoveQuote)
+
+            assertNull(vm.uiState.value.quotePostUri)
+            assertNull(vm.uiState.value.quotePostLoad)
+        }
+
+    @Test
+    fun quoteMode_emptyTextQuote_submits_passingQuoteRef() =
+        runTest {
+            val quote = aQuotePostUi()
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } returns Result.success(quote)
+            coEvery {
+                postingRepository.createPost(
+                    text = any(),
+                    attachments = any(),
+                    replyTo = any(),
+                    langs = any(),
+                    audience = any(),
+                    quote = any(),
+                )
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/new"))
+
+            // No text, no attachments — the loaded quote is the only content.
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+            vm.handleEvent(ComposerEvent.Submit)
+
+            coVerify(exactly = 1) {
+                postingRepository.createPost(
+                    text = "",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    langs = any(),
+                    audience = any(),
+                    quote = quote.ref,
+                )
+            }
+        }
+
+    @Test
+    fun quoteMode_blocksSubmit_whileQuoteStillLoading() =
+        runTest {
+            val gate = CompletableDeferred<Result<QuotePostUi>>()
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } coAnswers { gate.await() }
+
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+            setComposerText(vm, "some text")
+
+            // Quote still Loading — submit must be blocked even with text present.
+            vm.handleEvent(ComposerEvent.Submit)
+
+            coVerify(exactly = 0) { postingRepository.createPost(any(), any(), any()) }
+        }
+
+    @Test
+    fun quoteMode_notQuotable_emitsShowError() =
+        runTest {
+            val gate = CompletableDeferred<Result<QuotePostUi>>()
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } coAnswers { gate.await() }
+
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+
+            vm.effects.test {
+                gate.complete(Result.success(aQuotePostUi(canViewerQuote = false)))
+                assertEquals(ComposerEffect.ShowError(ComposerError.QuoteNotAllowed), awaitItem())
+                cancelAndConsumeRemainingEvents()
+            }
+        }
+
+    @Test
+    fun quoteMode_notQuotable_blocksSubmit() =
+        runTest {
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } returns
+                Result.success(aQuotePostUi(canViewerQuote = false))
+
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+            setComposerText(vm, "trying to quote a gated post")
+
+            vm.handleEvent(ComposerEvent.Submit)
+
+            coVerify(exactly = 0) { postingRepository.createPost(any(), any(), any()) }
+        }
+
+    @Test
+    fun replyAndQuote_bothPassedToCreatePost() =
+        runTest {
+            val parent = aParentPostUi()
+            val quote = aQuotePostUi()
+            coEvery { parentFetchSource.fetchParent(AtUri(PARENT_URI)) } returns Result.success(parent)
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } returns Result.success(quote)
+            coEvery {
+                postingRepository.createPost(
+                    text = any(),
+                    attachments = any(),
+                    replyTo = any(),
+                    langs = any(),
+                    audience = any(),
+                    quote = any(),
+                )
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/new"))
+
+            val vm = newVm(replyToUri = PARENT_URI, quotePostUri = QUOTE_URI)
+            setComposerText(vm, "reply and quote at once")
+            vm.handleEvent(ComposerEvent.Submit)
+
+            // reply (threading) and embed (quote) are independent — both reach createPost.
+            coVerify(exactly = 1) {
+                postingRepository.createPost(
+                    text = "reply and quote at once",
+                    attachments = emptyList(),
+                    replyTo = ReplyRefs(parent = parent.parentRef, root = parent.rootRef),
+                    langs = any(),
+                    audience = any(),
+                    quote = quote.ref,
+                )
+            }
+        }
+
     private fun newVm(
         replyToUri: String?,
+        quotePostUri: String? = null,
         deviceLocaleTag: String = "en-US",
     ): ComposerViewModel =
         ComposerViewModel(
-            route = ComposerRoute(replyToUri = replyToUri),
+            route = ComposerRoute(replyToUri = replyToUri, quotePostUri = quotePostUri),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
+            quotePostFetcher = quotePostFetcher,
             actorRepository = actorRepository,
             localeProvider = fixedLocaleProvider(deviceLocaleTag),
             postAudienceDefaultRepository = postAudienceDefaultRepository,
@@ -703,8 +888,18 @@ class ComposerViewModelTest {
             canViewerReply = canViewerReply,
         )
 
+    private fun aQuotePostUi(canViewerQuote: Boolean = true): QuotePostUi =
+        QuotePostUi(
+            ref = StrongRef(uri = AtUri(QUOTE_URI), cid = Cid("bafquote")),
+            authorHandle = "bob.test",
+            authorDisplayName = "Bob",
+            text = "quoted post body",
+            canViewerQuote = canViewerQuote,
+        )
+
     private companion object {
         const val PARENT_URI = "at://did:plc:alice/app.bsky.feed.post/parent"
         const val ROOT_URI = "at://did:plc:alice/app.bsky.feed.post/root"
+        const val QUOTE_URI = "at://did:plc:bob/app.bsky.feed.post/quoted"
     }
 }

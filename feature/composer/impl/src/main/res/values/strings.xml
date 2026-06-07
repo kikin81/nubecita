@@ -43,6 +43,9 @@
     <!-- Shown when the reply target's author has limited who can reply and this
          viewer isn't allowed (threadgate changed after they tapped reply). -->
     <string name="composer_error_reply_not_allowed">You can\'t reply to this post.</string>
+    <!-- Shown when the quote target's author has limited who can quote it and this
+         viewer isn't allowed (postgate changed after they chose to quote). -->
+    <string name="composer_error_quote_not_allowed">You can\'t quote this post.</string>
 
     <!-- Typeahead empty-state row (shown inside the @-mention suggestion
          card when the lookup ran but matched zero actors). `%1$s` is the
@@ -63,6 +66,19 @@
          TalkBack announces this verb as the action when the tile
          is focused. -->
     <string name="composer_reply_parent_retry_action_label">Retry</string>
+
+    <!-- Quote-mode quoted-post card header. `%1$s` is the quoted
+         post's author display name (or handle when no display name
+         is set). -->
+    <string name="composer_quote_header">Quoting %1$s</string>
+
+    <!-- Quote-mode quote-fetch failure tile. Tap-to-retry text shown
+         when getPosts for the quote target failed. -->
+    <string name="composer_quote_load_failed_retry">Couldn\'t load quoted post. Tap to retry.</string>
+
+    <!-- a11y contentDescription for the dismiss (X) button on the
+         quote card; tapping it detaches the quoted post. -->
+    <string name="composer_quote_remove_action_label">Remove quoted post</string>
 
     <!-- Discard-confirmation dialog. Shown when the user attempts to
          leave the composer (back-press or toolbar X) while the draft

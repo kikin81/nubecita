@@ -62,6 +62,15 @@ sealed class ComposerError(
     data object ReplyNotAllowed : ComposerError("You can't reply to this post")
 
     /**
+     * The quote target's author restricted who can quote it (an
+     * `app.bsky.feed.postgate`) and this viewer isn't allowed. Surfaced
+     * defensively at composer launch in case the gate changed after the user
+     * chose to quote — the appview's `viewer.embeddingDisabled` is the source of
+     * truth.
+     */
+    data object QuoteNotAllowed : ComposerError("You can't quote this post")
+
+    /**
      * No active session, or the session's tokens couldn't be refreshed.
      * The UI routes this to the sign-in flow; retrying without re-auth
      * is futile.

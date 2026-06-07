@@ -35,4 +35,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ComposerRoute(
     val replyToUri: String? = null,
+    /**
+     * AT URI of a post to **quote** (embed as `app.bsky.embed.record`), or `null`
+     * when not quoting. Orthogonal to [replyToUri] — both may be non-null at once
+     * (the protocol's `reply` and `embed` fields are independent), so a single
+     * composer session can reply to one post while quoting another. Stored as a
+     * `String?` for the same reason as [replyToUri]: keep `:feature:composer:api`
+     * atproto-runtime-free. The repost menu's "Quote post" item pushes
+     * `ComposerRoute(quotePostUri = …)`; the in-composer paste-a-link path sets it
+     * on the VM directly.
+     */
+    val quotePostUri: String? = null,
 ) : NavKey

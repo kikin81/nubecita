@@ -70,6 +70,19 @@ internal data class ComposerState(
     val replyToUri: String? = null,
     val replyParentLoad: ParentLoadStatus? = null,
     /**
+     * Copied from `ComposerRoute.quotePostUri` at VM init, or set when the user
+     * pastes a post link. `null` when not quoting; non-null while a quote is
+     * attached. Orthogonal to [replyToUri] — both may be non-null (reply + quote).
+     * Cleared by `RemoveQuote` (the dismiss affordance).
+     */
+    val quotePostUri: String? = null,
+    /**
+     * Quote-mode quoted-post-fetch lifecycle. `null` when not quoting; non-null
+     * and starts in `QuoteLoadStatus.Loading`, transitioning to `Loaded` or
+     * `Failed`. Submit is gated on `Loaded` (the embed ref needs the CID).
+     */
+    val quotePostLoad: QuoteLoadStatus? = null,
+    /**
      * Per-post BCP-47 language tags chosen by the user via the
      * language chip + picker. `null` means "user has not touched the
      * picker; let `PostingRepository.createPost` derive the device-
