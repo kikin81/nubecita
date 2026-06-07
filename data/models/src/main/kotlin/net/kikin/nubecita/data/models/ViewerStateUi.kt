@@ -66,4 +66,16 @@ public data class ViewerStateUi(
      * threadgate, so `replyDisabled` is absent and replies are allowed.
      */
     val canViewerReply: Boolean = true,
+    /**
+     * Whether the viewer is allowed to quote this post. Sourced from the INVERSE
+     * of the post viewer's `embeddingDisabled` (AT Protocol
+     * `app.bsky.feed.defs#viewerState`), which the appview computes server-side
+     * from the post's `app.bsky.feed.postgate` embedding rules. We trust the
+     * server flag rather than reimplementing the rules client-side. Defaults to
+     * `true` (fail open) — most posts carry no postgate, so `embeddingDisabled`
+     * is absent and quoting is allowed. Consumed by the repost menu (the "Quote
+     * post" item is hidden when false) and the composer's paste-a-link quote
+     * detection (a gated post is rejected).
+     */
+    val canViewerQuote: Boolean = true,
 )
