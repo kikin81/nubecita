@@ -393,16 +393,10 @@ private fun ActionRow(
             enabled = post.viewer.canViewerReply,
             onClick = { callbacks.onReply(post) },
         )
-        PostStat(
-            name = NubecitaIconName.Repeat,
-            count = post.stats.repostCount.toLong(),
-            accessibilityLabel = stringResource(R.string.postcard_action_repost),
-            active = post.viewer.isRepostedByViewer,
-            toggleable = true,
-            activeColor = MaterialTheme.colorScheme.tertiary,
-            onClick = { callbacks.onRepost(post) },
-            iconAnimation = PostStatIconAnimation.Spin,
-            animateUserDelta = animateRepostTap,
+        RepostAction(
+            post = post,
+            callbacks = callbacks,
+            animateRepostTap = animateRepostTap,
         )
         PostStat(
             name = NubecitaIconName.Favorite,
@@ -435,6 +429,88 @@ private fun ActionRow(
         // handler.
         callbacks.onOverflowAction?.let { handler ->
             PostOverflowAffordance(post = post, onAction = { handler(post, it) })
+        }
+    }
+}
+
+/**
+ * The repost action-row cell. Two interaction modes:
+ *
+ * - **Plain toggle** (default) — when [PostCallbacks.onQuote] is unwired, or the
+ *   post has quoting disabled (`viewer.canViewerQuote == false`). A single tap
+ *   toggles repost via [PostCallbacks.onRepost]. Identical to the pre-quote
+ *   behavior, including the `Role.Switch` on/off a11y semantics.
+ * - **Menu** — when quoting is wired AND permitted. A single tap opens a
+ *   [DropdownMenu] offering "Repost"/"Undo repost" + "Quote post"; a long-press
+ *   performs the repost toggle directly (the power-user shortcut). Every action
+ *   stays reachable via the menu, so long-press is purely additive.
+ *
+ * The icon tints to `tertiary` while [PostUi.viewer]`.isRepostedByViewer` in both
+ * modes, and spins on activate.
+ */
+@Composable
+private fun RepostAction(
+    post: PostUi,
+    callbacks: PostCallbacks,
+    animateRepostTap: Boolean,
+) {
+    val isReposted = post.viewer.isRepostedByViewer
+    val repostLabel =
+        stringResource(
+            if (isReposted) R.string.postcard_action_undo_repost else R.string.postcard_action_repost,
+        )
+    val onQuote = callbacks.onQuote
+    // Menu only when there's actually a Quote option to offer — wired AND the
+    // post permits quoting (read-side postgate). Otherwise a single-item menu
+    // would be pointless, so fall back to the direct toggle.
+    val showMenu = onQuote != null && post.viewer.canViewerQuote
+    if (!showMenu) {
+        PostStat(
+            name = NubecitaIconName.Repeat,
+            count = post.stats.repostCount.toLong(),
+            accessibilityLabel = stringResource(R.string.postcard_action_repost),
+            active = isReposted,
+            toggleable = true,
+            activeColor = MaterialTheme.colorScheme.tertiary,
+            onClick = { callbacks.onRepost(post) },
+            iconAnimation = PostStatIconAnimation.Spin,
+            animateUserDelta = animateRepostTap,
+        )
+        return
+    }
+    // Keyed by post.id so a recycled cell rebound to a different post resets the
+    // menu to closed rather than leaking the prior post's open state.
+    var expanded by remember(post.id) { mutableStateOf(false) }
+    Box {
+        PostStat(
+            name = NubecitaIconName.Repeat,
+            count = post.stats.repostCount.toLong(),
+            // Tap opens the menu (an "options" button); long-press is the
+            // instant toggle. Not toggleable — the primary tap action is "open".
+            accessibilityLabel = stringResource(R.string.postcard_action_repost_options),
+            active = isReposted,
+            activeColor = MaterialTheme.colorScheme.tertiary,
+            onClick = { expanded = true },
+            onLongClick = { callbacks.onRepost(post) },
+            onLongClickLabel = repostLabel,
+            iconAnimation = PostStatIconAnimation.Spin,
+            animateUserDelta = animateRepostTap,
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(repostLabel) },
+                onClick = {
+                    expanded = false
+                    callbacks.onRepost(post)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.postcard_action_quote)) },
+                onClick = {
+                    expanded = false
+                    onQuote(post)
+                },
+            )
         }
     }
 }

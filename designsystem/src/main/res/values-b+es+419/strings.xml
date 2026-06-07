@@ -16,6 +16,9 @@
     <string name="postcard_action_reply">Responder</string>
     <string name="postcard_action_reply_disabled">Las respuestas están limitadas</string>
     <string name="postcard_action_repost">Republicar</string>
+    <string name="postcard_action_repost_options">Opciones de republicación</string>
+    <string name="postcard_action_undo_repost">Deshacer republicación</string>
+    <string name="postcard_action_quote">Citar publicación</string>
     <string name="postcard_action_like">Me gusta</string>
     <string name="postcard_action_share">Compartir publicación</string>
     <string name="postcard_action_copy_link">Copiar enlace a la publicación</string>
