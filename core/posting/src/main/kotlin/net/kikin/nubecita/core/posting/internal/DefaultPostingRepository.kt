@@ -2,6 +2,8 @@ package net.kikin.nubecita.core.posting.internal
 
 import io.github.kikin81.atproto.app.bsky.embed.Images
 import io.github.kikin81.atproto.app.bsky.embed.ImagesImage
+import io.github.kikin81.atproto.app.bsky.embed.Record
+import io.github.kikin81.atproto.app.bsky.embed.RecordWithMedia
 import io.github.kikin81.atproto.app.bsky.feed.Post
 import io.github.kikin81.atproto.app.bsky.feed.PostEmbedUnion
 import io.github.kikin81.atproto.app.bsky.feed.PostReplyRef
@@ -100,6 +102,7 @@ internal class DefaultPostingRepository
             replyTo: ReplyRefs?,
             langs: List<String>?,
             audience: PostAudience,
+            quote: io.github.kikin81.atproto.com.atproto.repo.StrongRef?,
         ): Result<AtUri> =
             withContext(dispatcher) {
                 // `replyTo` is a typed ReplyRefs(parent, root); both
@@ -169,7 +172,7 @@ internal class DefaultPostingRepository
 
                     // Phase 3 — record creation. Only runs after every
                     // blob upload completed successfully.
-                    val embed = embedFor(blobs)
+                    val embed = resolveEmbed(ComposerEmbedIntent(blobs = blobs, quote = quote))
                     Timber.tag(TAG).d(
                         "createPost() — building record with embed=%s (blobs.size=%d)",
                         embed::class.simpleName,
@@ -225,14 +228,12 @@ internal class DefaultPostingRepository
                     )
                     // Fire-and-forget create_post on a confirmed write. Only
                     // structural booleans — never the body, language, or
-                    // attachment URIs. `isQuote` is false until the composer
-                    // grows a record-embed path (V1 createPost has no quote
-                    // surface; the embed is images-only).
+                    // attachment URIs.
                     analytics.log(
                         CreatePost(
                             hasMedia = attachments.isNotEmpty(),
                             isReply = replyTo != null,
-                            isQuote = false,
+                            isQuote = quote != null,
                         ),
                     )
 
@@ -415,16 +416,38 @@ internal class DefaultPostingRepository
             throw ComposerError.UploadFailed(attachmentIndex = index, cause = t)
         }
 
-        private fun embedFor(blobs: List<io.github.kikin81.atproto.runtime.Blob>): AtField<PostEmbedUnion> =
-            if (blobs.isEmpty()) {
-                AtField.Missing
-            } else {
-                AtField.Defined(
-                    Images(
-                        images = blobs.map { ImagesImage(alt = "", image = it) },
-                    ),
-                )
+        /**
+         * The single embed-construction seam. Maps an [embed intent][ComposerEmbedIntent]
+         * — the uploaded image blobs and/or a quoted-post [StrongRef] — to exactly one
+         * `app.bsky.feed.post` embed variant. This is the ONLY place a [PostEmbedUnion]
+         * is built, so a future embed type (e.g. GIF / external link) is added here and
+         * in [ComposerEmbedIntent], never by introducing a second composer or a parallel
+         * write path.
+         *
+         * | images | quote | embed |
+         * |--------|-------|-------|
+         * | ∅ | ∅ | none (`AtField.Missing`) |
+         * | yes | ∅ | `app.bsky.embed.images` |
+         * | ∅ | yes | `app.bsky.embed.record` |
+         * | yes | yes | `app.bsky.embed.recordWithMedia` |
+         */
+        private fun resolveEmbed(intent: ComposerEmbedIntent): AtField<PostEmbedUnion> {
+            val images =
+                if (intent.blobs.isEmpty()) {
+                    null
+                } else {
+                    Images(images = intent.blobs.map { ImagesImage(alt = "", image = it) })
+                }
+            val quote = intent.quote
+            // Positive `!= null` ordering so each branch smart-casts — no `!!`.
+            return when {
+                quote != null && images != null ->
+                    AtField.Defined(RecordWithMedia(record = Record(record = quote), media = images))
+                quote != null -> AtField.Defined(Record(record = quote))
+                images != null -> AtField.Defined(images)
+                else -> AtField.Missing
             }
+        }
 
         /**
          * Maps a raw throwable from the SDK or coroutine machinery to
