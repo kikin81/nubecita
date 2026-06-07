@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780733407523,
+  "lastUpdate": 1780820544651,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -519,6 +519,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 973.335,
             "range": "+/- 24.2%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "e680c6815f384db26f8ae33fbccb7ba3272df6a8",
+          "message": "ci(release): 1.195.2\n\n## [1.195.2](https://github.com/kikin81/nubecita/compare/v1.195.1...v1.195.2) (2026-06-07)\n\n### Bug Fixes\n\n* **feed:** scroll the selected chip to the start instead of resetting ([#479](https://github.com/kikin81/nubecita/issues/479)) ([493a2ea](https://github.com/kikin81/nubecita/commit/493a2ea90eb928fc91979e1815ae4eaad6d3f523))",
+          "timestamp": "2026-06-07T06:23:47Z",
+          "url": "https://github.com/kikin81/nubecita/commit/e680c6815f384db26f8ae33fbccb7ba3272df6a8"
+        },
+        "date": 1780820541992,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 39,
+            "range": "+/- 67.6%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 884.068,
+            "range": "+/- 4.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 808.125,
+            "range": "+/- 8.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 719.772,
+            "range": "+/- 30.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 773.503,
+            "range": "+/- 34.6%",
             "unit": "ms"
           }
         ]
