@@ -86,7 +86,11 @@ internal class DefaultQuotePostFetcher
             val authority = uri.raw.removePrefix("at://").substringBefore('/')
             if (authority.isEmpty() || authority.startsWith("did:")) return uri
             val did = IdentityService(client).resolveHandle(ResolveHandleRequest(handle = Handle(authority))).did
-            return AtUri(uri.raw.replaceFirst("at://$authority/", "at://${did.raw}/"))
+            // Literal prefix swap — NOT String.replaceFirst, which resolves to the
+            // JDK regex overload (handle dots would be wildcards; DID `$`/`\` would
+            // be replacement metachars).
+            val path = uri.raw.removePrefix("at://$authority")
+            return AtUri("at://${did.raw}$path")
         }
 
         private fun PostView.toQuotePostUi(): QuotePostUi {
