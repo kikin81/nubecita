@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
@@ -52,6 +53,9 @@ internal class FakeChatRepository(
     var lastSendText: String? = null
     var lastMarkReadConvoId: String? = null
     var nextMarkReadResult: Result<Unit> = Result.success(Unit)
+    val getLogCalls = AtomicInteger(0)
+    var lastGetLogCursor: String? = null
+    var nextGetLogResult: Result<ChatLogPage> = Result.success(ChatLogPage())
 
     private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
 
@@ -102,6 +106,12 @@ internal class FakeChatRepository(
         return nextMarkReadResult.onSuccess {
             convos.value = patchConvosOnRead(convos.value, convoId)
         }
+    }
+
+    override suspend fun getLog(cursor: String?): Result<ChatLogPage> {
+        getLogCalls.incrementAndGet()
+        lastGetLogCursor = cursor
+        return nextGetLogResult
     }
 
     private companion object {

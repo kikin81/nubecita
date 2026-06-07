@@ -82,6 +82,16 @@ interface ChatRepository {
      * already-read convo is harmless (idempotent server-side).
      */
     suspend fun markConvoRead(convoId: String): Result<Unit>
+
+    /**
+     * Fetches a page of the account's `chat.bsky.convo.getLog` event stream
+     * from [cursor] (`null` = from the server's current head), keeping only
+     * create-message events as [ChatLogEvent]s plus the advanced cursor. Used
+     * by the background DM-poll worker (v2, nubecita-1fy.15) to detect new
+     * inbound messages while the app is backgrounded; unrelated to the
+     * foreground convo cache (this does not touch [observeConvos]).
+     */
+    suspend fun getLog(cursor: String? = null): Result<ChatLogPage>
 }
 
 data class ConvoResolution(
@@ -94,6 +104,11 @@ data class ConvoResolution(
 
 data class MessagePage(
     val messages: ImmutableList<MessageUi> = persistentListOf(),
+    val nextCursor: String? = null,
+)
+
+data class ChatLogPage(
+    val events: ImmutableList<ChatLogEvent> = persistentListOf(),
     val nextCursor: String? = null,
 )
 

@@ -21,6 +21,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
@@ -258,6 +259,8 @@ class ChatsUnreadPollingObserverTest {
         ): Result<MessageUi> = error("not used")
 
         override suspend fun markConvoRead(convoId: String): Result<Unit> = error("not used")
+
+        override suspend fun getLog(cursor: String?): Result<ChatLogPage> = error("not used")
     }
 
     private companion object {

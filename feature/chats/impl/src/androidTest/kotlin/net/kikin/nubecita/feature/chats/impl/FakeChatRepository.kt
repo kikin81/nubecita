@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
@@ -97,6 +98,8 @@ internal class FakeChatRepository(
         lastMarkReadConvoId = convoId
         return Result.success(Unit)
     }
+
+    override suspend fun getLog(cursor: String?): Result<ChatLogPage> = Result.success(ChatLogPage())
 
     private companion object {
         val DEFAULT_SENT_MESSAGE =
