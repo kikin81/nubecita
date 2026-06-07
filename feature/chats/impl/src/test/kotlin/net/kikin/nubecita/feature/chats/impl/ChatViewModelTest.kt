@@ -75,6 +75,37 @@ internal class ChatViewModelTest {
         }
 
     @Test
+    fun `opening a thread marks the convo read with the resolved convoId`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextResolveResult =
+                        Result.success(
+                            ConvoResolution(
+                                convoId = "c1",
+                                otherUserHandle = "alice.bsky.social",
+                                otherUserDisplayName = "Alice",
+                                otherUserAvatarUrl = null,
+                                otherUserAvatarHue = 217,
+                            ),
+                        ),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            assertEquals(1, repo.markReadCalls.get())
+            assertEquals("c1", repo.lastMarkReadConvoId)
+        }
+
+    @Test
+    fun `does not mark read when resolveConvo fails`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextResolveResult = Result.failure(IOException("net down")))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            assertEquals(0, repo.markReadCalls.get())
+        }
+
+    @Test
     fun `IOException on resolveConvo maps to InitialError Network`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository(nextResolveResult = Result.failure(java.io.IOException("net down")))

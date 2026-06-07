@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
+import net.kikin.nubecita.feature.chats.impl.data.patchConvosOnRead
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Instant
 
@@ -36,11 +37,14 @@ internal class FakeChatRepository(
     val resolveCalls = AtomicInteger(0)
     val messagesCalls = AtomicInteger(0)
     val sendCalls = AtomicInteger(0)
+    val markReadCalls = AtomicInteger(0)
     var lastResolvedDid: String? = null
     var lastMessagesConvoId: String? = null
     var lastMessagesCursor: String? = null
     var lastSendConvoId: String? = null
     var lastSendText: String? = null
+    var lastMarkReadConvoId: String? = null
+    var nextMarkReadResult: Result<Unit> = Result.success(Unit)
 
     private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
 
@@ -82,6 +86,14 @@ internal class FakeChatRepository(
         lastSendText = text
         sendGate?.await()
         return nextSendResult
+    }
+
+    override suspend fun markConvoRead(convoId: String): Result<Unit> {
+        markReadCalls.incrementAndGet()
+        lastMarkReadConvoId = convoId
+        return nextMarkReadResult.onSuccess {
+            convos.value = patchConvosOnRead(convos.value, convoId)
+        }
     }
 
     private companion object {

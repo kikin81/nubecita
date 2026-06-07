@@ -14,6 +14,7 @@ internal class ConvoCachePatchTest {
         id: String,
         snippet: String? = "old",
         sentAt: Instant? = Instant.parse("2026-05-01T10:00:00Z"),
+        unreadCount: Int = 0,
     ): ConvoListItemUi =
         ConvoListItemUi(
             convoId = id,
@@ -26,6 +27,7 @@ internal class ConvoCachePatchTest {
             lastMessageFromViewer = false,
             lastMessageIsAttachment = false,
             sentAt = sentAt,
+            unreadCount = unreadCount,
         )
 
     private fun sent(
@@ -78,5 +80,47 @@ internal class ConvoCachePatchTest {
         assertEquals(listOf("alice", "bob"), after.map { it.convoId })
         assertEquals("first", after.first().lastMessageSnippet)
         assertTrue(after.first().lastMessageFromViewer)
+    }
+
+    @Test
+    fun `patchConvosOnRead zeros the matching convo's unreadCount without reordering`() {
+        val before =
+            persistentListOf(
+                convo("alice", unreadCount = 2),
+                convo("bob", unreadCount = 5),
+                convo("carol", unreadCount = 1),
+            )
+
+        val after = patchConvosOnRead(before, convoId = "bob")!!
+
+        // Reading a convo must NOT hoist it — order is preserved.
+        assertEquals(listOf("alice", "bob", "carol"), after.map { it.convoId })
+        assertEquals(0, after[1].unreadCount)
+        // Other rows untouched.
+        assertEquals(2, after[0].unreadCount)
+        assertEquals(1, after[2].unreadCount)
+        // Last-message preview fields are left intact.
+        assertEquals("old", after[1].lastMessageSnippet)
+    }
+
+    @Test
+    fun `patchConvosOnRead returns null when the cache is null`() {
+        assertNull(patchConvosOnRead(null, convoId = "anything"))
+    }
+
+    @Test
+    fun `patchConvosOnRead is a no-op when the convo is not in the list`() {
+        val before = persistentListOf(convo("alice", unreadCount = 3), convo("bob", unreadCount = 4))
+        val after = patchConvosOnRead(before, convoId = "zzz")
+        assertEquals(before, after)
+    }
+
+    @Test
+    fun `patchConvosOnRead is idempotent on an already-read convo`() {
+        val before = persistentListOf(convo("alice", unreadCount = 0), convo("bob", unreadCount = 2))
+        val after = patchConvosOnRead(before, convoId = "alice")!!
+        assertEquals(listOf("alice", "bob"), after.map { it.convoId })
+        assertEquals(0, after[0].unreadCount)
+        assertEquals(2, after[1].unreadCount)
     }
 }

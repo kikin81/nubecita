@@ -256,6 +256,8 @@ class ChatsUnreadPollingObserverTest {
             convoId: String,
             text: String,
         ): Result<MessageUi> = error("not used")
+
+        override suspend fun markConvoRead(convoId: String): Result<Unit> = error("not used")
     }
 
     private companion object {

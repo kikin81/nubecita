@@ -6,6 +6,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ListConvosRequest
 import io.github.kikin81.atproto.chat.bsky.convo.MessageInput
 import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
+import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
 import io.github.kikin81.atproto.runtime.Did
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -128,6 +129,22 @@ internal class DefaultChatRepository
                     response.toMessageUi(viewerDid = viewerDid).also { patchConvoOnSend(convoId, it) }
                 }.onFailure { throwable ->
                     Timber.tag(TAG).e(throwable, "sendMessage failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun markConvoRead(convoId: String): Result<Unit> =
+            withContext(dispatcher) {
+                runCatching {
+                    val client = xrpcClientProvider.authenticated()
+                    ConvoService(client).updateRead(UpdateReadRequest(convoId = convoId))
+                    // Optimistically zero the cached convo so the in-row + bottom-nav
+                    // badges flip to read without waiting for the next refreshConvos.
+                    convosCache.update { current -> patchConvosOnRead(current, convoId) }
+                    Unit
+                }.onFailure { throwable ->
+                    // Best-effort: leave the cache untouched; the badge corrects on
+                    // the next refresh. Not surfaced to the user.
+                    Timber.tag(TAG).e(throwable, "markConvoRead failed: %s", throwable.javaClass.name)
                 }
             }
 
