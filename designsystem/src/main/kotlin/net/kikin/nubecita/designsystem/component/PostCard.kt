@@ -478,7 +478,9 @@ private fun RepostAction(
         )
         return
     }
-    var expanded by remember { mutableStateOf(false) }
+    // Keyed by post.id so a recycled cell rebound to a different post resets the
+    // menu to closed rather than leaking the prior post's open state.
+    var expanded by remember(post.id) { mutableStateOf(false) }
     Box {
         PostStat(
             name = NubecitaIconName.Repeat,
