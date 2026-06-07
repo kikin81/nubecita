@@ -47,4 +47,8 @@
     <string name="chat_settings_save_error">Não foi possível salvar. Verifique sua rede e tente de novo.</string>
     <string name="chat_settings_load_error">Não foi possível carregar as configurações do chat.</string>
     <string name="chat_settings_retry">Tentar de novo</string>
+    <plurals name="chats_unread_messages">
+        <item quantity="one">%1$d mensagem não lida</item>
+        <item quantity="other">%1$d mensagens não lidas</item>
+    </plurals>
 </resources>

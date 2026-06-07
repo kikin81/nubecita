@@ -85,6 +85,20 @@ data class ConvoListItemUi(
     val lastMessageFromViewer: Boolean,
     val lastMessageIsAttachment: Boolean,
     val sentAt: Instant?,
+    /**
+     * Server-reported unread message count for the viewer in this convo
+     * (`chat.bsky.convo.ConvoView.unreadCount`). `0` means fully read.
+     * Drives the per-row unread indicator and feeds the Chats-tab badge
+     * aggregate. Defaulted so fixture/preview/cache-patch construction
+     * sites don't need updating — only the mapper sets a real value.
+     */
+    val unreadCount: Int = 0,
+    /**
+     * Whether the viewer has muted this convo. Muted convos still show
+     * their unread count in-row but are EXCLUDED from the Chats-tab badge
+     * aggregate (a muted thread shouldn't light up the bottom nav).
+     */
+    val muted: Boolean = false,
 )
 
 sealed interface ChatsEvent : UiEvent {

@@ -148,6 +148,25 @@ private fun MainShellChromeCompactBarBadgeOne() {
 }
 
 @PreviewTest
+@Preview(name = "compact-bar-chats-badge", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
+@Composable
+private fun MainShellChromeCompactBarChatsBadge() {
+    // Unread-DM badge over the Chats tab (user on Feed). Proves the chats
+    // badge slot renders independently of the notifications badge.
+    NubecitaCanvasPreviewTheme {
+        MainShellChrome(
+            activeKey = Feed,
+            notificationsUnreadCount = 0,
+            chatsUnreadCount = 4,
+            onTabClick = {},
+            layoutType = NavigationSuiteType.ShortNavigationBarCompact,
+        ) {
+            ChromeContentPlaceholder(label = "Feed (4 unread DMs)")
+        }
+    }
+}
+
+@PreviewTest
 @Preview(name = "compact-bar-badge-9", widthDp = COMPACT_WIDTH_DP, heightDp = 640)
 @Composable
 private fun MainShellChromeCompactBarBadgeNine() {

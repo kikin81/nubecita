@@ -55,6 +55,10 @@ fun ConvoView.toConvoListItemUi(viewerDid: String): ConvoListItemUi {
         lastMessageFromViewer = lastMessage?.senderDid() == viewerDid,
         lastMessageIsAttachment = lastMessage.isAttachmentOnly(),
         sentAt = lastMessage?.sentAt(),
+        // Wire `unreadCount` is a Long; UI counts are small (badge caps at
+        // 99+), so narrow to Int, clamped non-negative defensively.
+        unreadCount = unreadCount.toInt().coerceAtLeast(0),
+        muted = muted,
     )
 }
 

@@ -42,6 +42,12 @@ dependencies {
     // the Profile / Feed pattern.
     implementation(project(":feature:postdetail:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
+    // ProcessLifecycleOwner + repeatOnLifecycle — the chats unread-count
+    // polling observer registers against the process lifecycle so polling
+    // pauses on backgrounding (foreground-only, battery-safe). Mirrors
+    // :feature:notifications:impl.
+    implementation(libs.androidx.lifecycle.process)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)

@@ -1,10 +1,14 @@
 package net.kikin.nubecita.feature.chats.impl.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -18,7 +22,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,7 +104,7 @@ internal fun ConvoListItem(
             ),
         leadingContent = { Avatar(item = item, modifier = Modifier.size(48.dp)) },
         supportingContent = { SubtitleText(item = item) },
-        trailingContent = { TrailingTimestamp(item = item) },
+        trailingContent = { TrailingMeta(item = item) },
         // Stable tag for the screengrab marketing journey to tap into a DM
         // thread; every row shares it, the journey taps the first match.
         modifier = modifier.testTag("chat_convo_item"),
@@ -152,9 +159,14 @@ private fun HeadlineText(item: ConvoListItemUi) {
     // standard SegmentedListItem headline default (bodyLarge, 16sp Regular) so the
     // contact name reads as the dominant element, matching the GChat / Google Messages
     // visual rhythm without overshooting into titleLarge territory.
+    //
+    // Unread rows bump to Bold (700) — the standard chat-inbox "unread = bold"
+    // affordance. Muted convos are NOT excluded here: the in-row treatment still
+    // reflects unread; only the bottom-nav badge aggregate excludes muted.
     Text(
         text = item.displayName ?: item.otherUserHandle,
         style = MaterialTheme.typography.titleMedium,
+        fontWeight = if (item.unreadCount > 0) FontWeight.Bold else null,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
@@ -178,6 +190,37 @@ private fun SubtitleText(item: ConvoListItemUi) {
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+@Composable
+private fun TrailingMeta(item: ConvoListItemUi) {
+    // Relative timestamp on top, unread-count badge beneath. End-aligned so
+    // both hug the row's trailing edge. The badge appears only when unread; a
+    // muted convo still shows it (only the bottom-nav aggregate drops muted).
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        TrailingTimestamp(item = item)
+        if (item.unreadCount > 0) {
+            UnreadBadge(count = item.unreadCount)
+        }
+    }
+}
+
+@Composable
+private fun UnreadBadge(count: Int) {
+    // Visual caps at 99+ (badge real estate); the a11y string uses the true
+    // count via the plurals resource so TalkBack reads "5 unread messages".
+    val description = pluralStringResource(R.plurals.chats_unread_messages, count, count)
+    Badge(
+        modifier =
+            Modifier
+                .padding(top = 2.dp)
+                .clearAndSetSemantics { contentDescription = description },
+    ) {
+        Text(text = if (count > 99) "99+" else count.toString())
+    }
 }
 
 @Composable

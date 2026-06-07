@@ -115,6 +115,25 @@ internal class ConvoMapperTest {
         assertNull(ui.sentAt)
     }
 
+    @Test
+    fun `unreadCount maps through (Long narrowed to Int)`() {
+        val view = sampleConvoView(unreadCount = 7L)
+        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        assertEquals(7, ui.unreadCount)
+    }
+
+    @Test
+    fun `zero unreadCount maps to 0`() {
+        val ui = sampleConvoView(unreadCount = 0L).toConvoListItemUi(viewerDid = VIEWER_DID)
+        assertEquals(0, ui.unreadCount)
+    }
+
+    @Test
+    fun `muted flag maps through`() {
+        assertTrue(sampleConvoView(muted = true).toConvoListItemUi(VIEWER_DID).muted)
+        assertFalse(sampleConvoView(muted = false).toConvoListItemUi(VIEWER_DID).muted)
+    }
+
     private companion object {
         const val VIEWER_DID = "did:plc:viewer123"
     }
@@ -130,6 +149,8 @@ internal class ConvoMapperTest {
         otherHandle: String? = null,
         otherDisplayName: String? = "Alice",
         lastMessage: io.github.kikin81.atproto.chat.bsky.convo.ConvoViewLastMessageUnion? = sampleMessage(),
+        unreadCount: Long = 0L,
+        muted: Boolean = false,
     ): ConvoView {
         val adjustedMembers =
             if (otherDid != null || otherHandle != null) {
@@ -154,9 +175,9 @@ internal class ConvoMapperTest {
         return ConvoView(
             id = id,
             members = adjustedMembers,
-            muted = false,
+            muted = muted,
             rev = "0",
-            unreadCount = 0L,
+            unreadCount = unreadCount,
             lastMessage = lastMessage,
         )
     }

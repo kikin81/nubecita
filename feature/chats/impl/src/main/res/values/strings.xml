@@ -64,4 +64,9 @@
     <string name="chat_settings_save_error">Couldn\'t save. Check your network and try again.</string>
     <string name="chat_settings_load_error">Couldn\'t load your chat settings.</string>
     <string name="chat_settings_retry">Retry</string>
+    <!-- Per-convo unread badge a11y (visual shows the capped count) -->
+    <plurals name="chats_unread_messages">
+        <item quantity="one">%1$d unread message</item>
+        <item quantity="other">%1$d unread messages</item>
+    </plurals>
 </resources>

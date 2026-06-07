@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.moderation.ModerationPreferencesCoordinator
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
+import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadPollingObserver
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
 
 /**
@@ -45,6 +46,14 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun provideNotificationsPollingInitializer(
         observer: NotificationsPollingObserver,
+    ): AppInitializer = AppInitializer { observer.start() }
+
+    // Foreground-only unread-DM polling for the Chats tab badge. Mirrors the
+    // notifications poller; bench's empty set keeps it idle during Macrobench.
+    @Provides
+    @IntoSet
+    fun provideChatsUnreadPollingInitializer(
+        observer: ChatsUnreadPollingObserver,
     ): AppInitializer = AppInitializer { observer.start() }
 
     // Refresh the viewer's content-filter preferences once the session is
