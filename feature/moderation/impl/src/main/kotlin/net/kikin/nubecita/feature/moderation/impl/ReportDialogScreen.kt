@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.moderation.api.ReportSubject
@@ -493,10 +493,9 @@ private fun DetailsStep(
                     .testTag(ReportDialogTestTags.SUBMIT_CTA),
         ) {
             if (state.submission is SubmissionStatus.Submitting) {
-                CircularProgressIndicator(
+                NubecitaWavyProgressIndicator(
                     modifier = Modifier.size(20.dp),
                     color = LocalContentColor.current,
-                    strokeWidth = 2.dp,
                 )
             } else {
                 Text(stringResource(R.string.report_dialog_submit_cta))

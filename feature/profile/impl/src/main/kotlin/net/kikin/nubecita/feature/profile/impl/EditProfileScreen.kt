@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.image.CropImage
 import net.kikin.nubecita.core.image.CropShape
 import net.kikin.nubecita.core.image.rememberImagePicker
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
@@ -171,9 +171,8 @@ internal fun EditProfileScreenContent(
                 },
                 actions = {
                     if (state.isSaving) {
-                        CircularProgressIndicator(
+                        NubecitaWavyProgressIndicator(
                             modifier = Modifier.size(24.dp).padding(end = 4.dp),
-                            strokeWidth = 2.dp,
                         )
                     } else {
                         TextButton(
