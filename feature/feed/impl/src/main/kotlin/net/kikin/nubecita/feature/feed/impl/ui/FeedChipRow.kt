@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -72,6 +73,11 @@ internal fun FeedChipRow(
     onManageFeedsClick: () -> Unit,
     onOpenListsSheet: () -> Unit,
     modifier: Modifier = Modifier,
+    // Hoisted by FeedHost (above its per-feed SaveableStateProvider) so the row's
+    // scroll is a single global position, not saved/restored per feed — otherwise
+    // a switch would jump to the new feed's saved offset before animating. Default
+    // is a local state for previews/tests.
+    chipListState: LazyListState = rememberLazyListState(),
 ) {
     if (status == FeedHostStatus.Loading) {
         LazyRow(
@@ -110,12 +116,10 @@ internal fun FeedChipRow(
                 stringResource(R.string.feed_lists_chip_collapsed)
             }
 
-        // The chip row is global chrome, but it's rendered inside FeedHost's
-        // per-feed SaveableStateProvider, so a default (saveable) list state would
-        // reset to index 0 on every feed switch. Animate the selected chip to the
-        // start on selection instead: it both avoids that reset and keeps the
-        // active chip prominent near the beginning of the row.
-        val chipListState = rememberLazyListState()
+        // Animate the selected chip to the start on selection so the active chip
+        // stays prominent near the beginning. [chipListState] is hoisted to
+        // FeedHost so this scrolls from the row's persisted position (no per-feed
+        // reset/flicker).
         val selectedChipIndex = selectedFeedChipIndex(feedChips, pinnedLists, selectedFeedUri)
         LaunchedEffect(selectedChipIndex) {
             if (selectedChipIndex >= 0) chipListState.animateScrollToItem(selectedChipIndex)
