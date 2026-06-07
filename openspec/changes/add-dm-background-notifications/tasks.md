@@ -1,8 +1,8 @@
 # Tasks — add-dm-background-notifications (bead nubecita-1fy.15)
 
 ## 1. Dependencies + WorkManager/Hilt bootstrap
-- [ ] 1.1 Add `androidx.work:work-runtime-ktx`, `androidx.hilt:hilt-work` (+ KSP `androidx.hilt:hilt-compiler`) to the version catalog and `:feature:chats:impl`; add `androidx.work:work-testing` as `androidTestImplementation`.
-- [ ] 1.2 Disable the default `androidx.startup` `WorkManagerInitializer` in the merged manifest; make `NubecitaApplication` implement `Configuration.Provider` returning a `HiltWorkerFactory`. Verify bench flavor still builds.
+- [x] 1.1 Add `androidx.work:work-runtime-ktx`, `androidx.hilt:hilt-work` (+ KSP `androidx.hilt:hilt-compiler`) to the version catalog and `:feature:chats:impl`; add `androidx.work:work-testing` as `androidTestImplementation`.
+- [x] 1.2 Disable the default `androidx.startup` `WorkManagerInitializer` in the merged manifest; make `NubecitaApplication` implement `Configuration.Provider` returning a `HiltWorkerFactory`. Verify bench flavor still builds.
 
 ## 2. Repository: getLog cursor + persistence
 - [ ] 2.1 Add `ChatRepository.getLog(cursor: String?)` wrapping `chat.bsky.convo.getLog`; return events + next cursor.

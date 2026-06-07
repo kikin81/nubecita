@@ -1,6 +1,8 @@
 package net.kikin.nubecita
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -15,10 +17,29 @@ import javax.inject.Inject
 @HiltAndroidApp
 class NubecitaApplication :
     Application(),
-    SingletonImageLoader.Factory {
+    SingletonImageLoader.Factory,
+    Configuration.Provider {
     @Inject lateinit var imageLoader: ImageLoader
 
     @Inject lateinit var notificationChannelInstaller: NotificationChannelInstaller
+
+    /**
+     * Hilt-aware factory for `@HiltWorker` workers (the background DM-poll
+     * worker, nubecita-1fy.15). Supplied to WorkManager via
+     * [workManagerConfiguration]; the default `androidx.startup`
+     * `WorkManagerInitializer` is removed in the manifest so this Hilt
+     * configuration is the one WorkManager uses (on-demand init on first
+     * `WorkManager.getInstance(context)`). Inert until a worker is enqueued —
+     * an empty factory map is valid, including in the bench flavor.
+     */
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() =
+            Configuration
+                .Builder()
+                .setWorkerFactory(workerFactory)
+                .build()
 
     /**
      * Per-flavor startup hooks. Under `production`, contains lambdas wrapping
