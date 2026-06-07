@@ -74,6 +74,25 @@ private val SAMPLE_LONG_SNIPPET =
         sentAt = Instant.parse("2026-04-25T12:00:00Z"), // > 7 days back, same year → "Apr 25"
     )
 
+private val SAMPLE_UNREAD =
+    SAMPLE_WITH_AVATAR.copy(
+        lastMessageSnippet = "did you see this?",
+        sentAt = FIXTURE_NOW - 5.minutes, // renders "5m"
+        unreadCount = 3, // → bold name + "3" badge
+    )
+
+@PreviewTest
+@Preview(name = "convo-unread-light", showBackground = true)
+@Preview(name = "convo-unread-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ConvoListItemUnreadScreenshot() {
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaTheme(dynamicColor = false) {
+            Surface { ConvoListItem(item = SAMPLE_UNREAD, index = 0, count = 1, onTap = {}) }
+        }
+    }
+}
+
 @PreviewTest
 @Preview(name = "convo-with-avatar-light", showBackground = true)
 @Preview(name = "convo-with-avatar-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)

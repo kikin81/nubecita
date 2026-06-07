@@ -13,4 +13,8 @@
         <item quantity="one">%1$d notificação não lida</item>
         <item quantity="other">%1$d notificações não lidas</item>
     </plurals>
+    <plurals name="chats_unread">
+        <item quantity="one">%1$d mensagem não lida</item>
+        <item quantity="other">%1$d mensagens não lidas</item>
+    </plurals>
 </resources>

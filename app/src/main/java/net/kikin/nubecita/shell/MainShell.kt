@@ -125,6 +125,13 @@ fun MainShell(modifier: Modifier = Modifier) {
     val notificationsUnreadCount by
         notificationsUnreadCountStore.unreadCount.collectAsStateWithLifecycle()
 
+    // Chats unread-DM badge source — same pattern as the notifications store,
+    // populated by `ChatsUnreadPollingObserver` (foreground-only).
+    val chatsUnreadCountStore =
+        remember(entryPoint) { entryPoint.chatsUnreadCountStore() }
+    val chatsUnreadCount by
+        chatsUnreadCountStore.unreadCount.collectAsStateWithLifecycle()
+
     val mainShellNavState =
         rememberMainShellNavState(
             startRoute = Feed,
@@ -296,6 +303,7 @@ fun MainShell(modifier: Modifier = Modifier) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
             notificationsUnreadCount = notificationsUnreadCount,
+            chatsUnreadCount = chatsUnreadCount,
             onTabClick = { tapped ->
                 // Re-tap on the active tab fires the generic tab-re-tap
                 // signal. Each tab's screen interprets it: Feed/Profile
@@ -363,6 +371,10 @@ fun MainShell(modifier: Modifier = Modifier) {
  *   [formatUnreadCount] helper beyond that. Passed as a plain `Int` so
  *   previews can sweep each rendering threshold without touching Hilt
  *   or the store.
+ * @param chatsUnreadCount The aggregate unread-DM count from
+ *   `ChatsUnreadCountStore`. Drives the Chats tab's `Badge` slot with the
+ *   same 0 / 1–99 / 99+ rules as [notificationsUnreadCount]; plain `Int`
+ *   for preview sweeps.
  * @param onTabClick Invoked when the user taps a navigation item.
  * @param layoutType Forces a specific [NavigationSuiteType]. Production
  *   callers compute this from `currentWindowAdaptiveInfoV2()`; previews and
@@ -377,6 +389,11 @@ internal fun MainShellChrome(
     onTabClick: (NavKey) -> Unit,
     layoutType: NavigationSuiteType,
     modifier: Modifier = Modifier,
+    // Defaulted (ktlint param-order puts defaults after the modifier) so the
+    // existing chrome/list-detail screenshot fixtures — which only exercise the
+    // Notifications badge + layouts — don't all need updating; the dedicated
+    // chats-badge screenshot passes a non-zero value explicitly.
+    chatsUnreadCount: Int = 0,
     content: @Composable () -> Unit,
 ) {
     // Use the `navigationItems` / `navigationSuiteType` overload (not the
@@ -404,33 +421,51 @@ internal fun MainShellChrome(
                 // correctly for each NavigationSuiteType (compact bar vs
                 // medium rail vs expanded rail), which a hand-rolled
                 // BadgedBox doesn't track.
+                // `clearAndSetSemantics` replaces the bare count Text ("99+")
+                // with the full plurals string so TalkBack reads e.g. "5 unread
+                // notifications" — merged into the item it becomes
+                // "Notifications, 5 unread notifications, selected". The visual
+                // still shows the capped count via `formatUnreadCount`; the a11y
+                // string uses the true count.
                 val badge: @Composable (() -> Unit)? =
-                    if (destination.key == NotificationsTab && notificationsUnreadCount > 0) {
-                        {
-                            // `clearAndSetSemantics` replaces the bare count Text
-                            // ("99+") with the full plurals string so TalkBack
-                            // reads "5 unread notifications" — merged into the
-                            // item it becomes "Notifications, 5 unread
-                            // notifications, selected". The visual still shows the
-                            // capped count via `formatUnreadCount`; the a11y string
-                            // uses the true count.
-                            val unreadDescription =
-                                pluralStringResource(
-                                    R.plurals.notifications_unread,
-                                    notificationsUnreadCount,
-                                    notificationsUnreadCount,
-                                )
-                            Badge(
-                                modifier =
-                                    Modifier.clearAndSetSemantics {
-                                        contentDescription = unreadDescription
-                                    },
-                            ) {
-                                Text(text = formatUnreadCount(notificationsUnreadCount))
+                    when {
+                        destination.key == NotificationsTab && notificationsUnreadCount > 0 -> {
+                            {
+                                val unreadDescription =
+                                    pluralStringResource(
+                                        R.plurals.notifications_unread,
+                                        notificationsUnreadCount,
+                                        notificationsUnreadCount,
+                                    )
+                                Badge(
+                                    modifier =
+                                        Modifier.clearAndSetSemantics {
+                                            contentDescription = unreadDescription
+                                        },
+                                ) {
+                                    Text(text = formatUnreadCount(notificationsUnreadCount))
+                                }
                             }
                         }
-                    } else {
-                        null
+                        destination.key == Chats && chatsUnreadCount > 0 -> {
+                            {
+                                val unreadDescription =
+                                    pluralStringResource(
+                                        R.plurals.chats_unread,
+                                        chatsUnreadCount,
+                                        chatsUnreadCount,
+                                    )
+                                Badge(
+                                    modifier =
+                                        Modifier.clearAndSetSemantics {
+                                            contentDescription = unreadDescription
+                                        },
+                                ) {
+                                    Text(text = formatUnreadCount(chatsUnreadCount))
+                                }
+                            }
+                        }
+                        else -> null
                     }
                 NavigationSuiteItem(
                     navigationSuiteType = layoutType,

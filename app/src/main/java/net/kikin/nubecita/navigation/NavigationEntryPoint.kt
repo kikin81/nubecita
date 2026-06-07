@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
+import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadCountStore
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsUnreadCountStore
 
 /**
@@ -66,6 +67,15 @@ interface NavigationEntryPoint {
      * the qualifier-tagged `EntryProviderInstaller` set.
      */
     fun notificationsUnreadCountStore(): NotificationsUnreadCountStore
+
+    /**
+     * The process-singleton chats unread-DM store, populated by
+     * `:feature:chats:impl`'s `ChatsUnreadPollingObserver` while the app is
+     * foregrounded. `MainShell` collects the `StateFlow<Int>` and threads it
+     * into the Chats tab's `badge` slot — mirrors
+     * [notificationsUnreadCountStore].
+     */
+    fun chatsUnreadCountStore(): ChatsUnreadCountStore
 
     /**
      * The process-singleton analytics sink (`@Singleton`, bound to
