@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +28,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.feature.search.impl.SearchPostsEvent
@@ -172,7 +172,7 @@ private fun LoadedBody(
                             .padding(vertical = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(strokeWidth = 2.dp)
+                    NubecitaWavyProgressIndicator()
                 }
             }
         }

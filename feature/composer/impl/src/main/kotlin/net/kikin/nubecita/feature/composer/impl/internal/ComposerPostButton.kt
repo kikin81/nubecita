@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,13 +14,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.feature.composer.impl.R
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 
 /**
  * Post button. Shows the "Post" label by default; while
  * [submitStatus] is `Submitting` the content morphs to a small
- * inline [CircularProgressIndicator] and the tap is disabled.
+ * inline [NubecitaWavyProgressIndicator] and the tap is disabled.
  *
  * The morph is implemented via [AnimatedContent] keyed on the
  * status — fade-in / fade-out, no extra layout-shift animation
@@ -67,14 +67,13 @@ internal fun ComposerPostButton(
             label = "composer-post-button-content",
         ) { submitting ->
             if (submitting) {
-                CircularProgressIndicator(
+                NubecitaWavyProgressIndicator(
                     modifier =
                         Modifier
                             .size(18.dp)
                             .semantics {
                                 contentDescription = submittingDescription
                             },
-                    strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
             } else {

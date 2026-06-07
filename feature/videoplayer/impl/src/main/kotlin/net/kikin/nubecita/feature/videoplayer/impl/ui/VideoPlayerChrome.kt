@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
@@ -43,6 +42,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.videoplayer.impl.R
@@ -415,7 +415,7 @@ internal fun VideoPlayerLoadingBody(modifier: Modifier = Modifier) {
                 .semantics { contentDescription = loadingContentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator(color = Color.White)
+        NubecitaWavyProgressIndicator(color = Color.White)
     }
 }
 

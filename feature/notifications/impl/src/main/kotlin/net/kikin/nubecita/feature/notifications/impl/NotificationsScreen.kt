@@ -41,6 +41,7 @@ import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.NotificationFilter
 import net.kikin.nubecita.data.models.NotificationItemUi
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.notifications.impl.ui.ActorListSheet
 import net.kikin.nubecita.feature.notifications.impl.ui.FilterChipRow
@@ -413,6 +414,6 @@ private fun NotificationsAppendingIndicator() {
         modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CircularProgressIndicator()
+        NubecitaWavyProgressIndicator()
     }
 }

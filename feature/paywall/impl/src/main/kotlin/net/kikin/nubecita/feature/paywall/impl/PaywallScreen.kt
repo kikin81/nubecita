@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.SubscriptionPlanId
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.spacing
@@ -213,7 +213,7 @@ private fun PaywallLoadingBody(padding: PaddingValues) {
                 .padding(padding),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator(
+        NubecitaWavyProgressIndicator(
             modifier = Modifier.semantics { contentDescription = loadingLabel },
         )
     }
@@ -362,9 +362,8 @@ private fun PaywallReadyBody(
                 DotSeparator()
                 TextButton(onClick = onRestore, enabled = !isRestoring) {
                     if (isRestoring) {
-                        CircularProgressIndicator(
+                        NubecitaWavyProgressIndicator(
                             modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
                         )
                     } else {
                         Text(stringResource(R.string.paywall_restore))
