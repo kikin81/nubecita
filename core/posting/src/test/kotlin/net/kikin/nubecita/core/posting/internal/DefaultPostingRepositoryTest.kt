@@ -265,6 +265,202 @@ class DefaultPostingRepositoryTest {
         }
 
     @Test
+    fun quoteOnly_writesRecordEmbed() =
+        runTest {
+            val quoteRef =
+                StrongRef(
+                    uri = AtUri("at://did:plc:bob/app.bsky.feed.post/quoted"),
+                    cid = Cid("bafquoted"),
+                )
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/q","cid":"bafq"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "quoting bob",
+                    attachments = emptyList(),
+                    replyTo = null,
+                    quote = quoteRef,
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(body.contains("app.bsky.embed.record"), "record embed missing: $body")
+            assertTrue(!body.contains("recordWithMedia"), "plain record, not recordWithMedia: $body")
+            assertTrue(body.contains("at://did:plc:bob/app.bsky.feed.post/quoted"), "quoted uri missing: $body")
+            assertTrue(body.contains("bafquoted"), "quoted cid missing: $body")
+        }
+
+    @Test
+    fun quotePlusImages_writesRecordWithMediaEmbed() =
+        runTest {
+            val quoteRef =
+                StrongRef(
+                    uri = AtUri("at://did:plc:bob/app.bsky.feed.post/quoted"),
+                    cid = Cid("bafquoted"),
+                )
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    when {
+                        request.url.encodedPath.endsWith("uploadBlob") ->
+                            okJson(
+                                """{"blob":{"ref":{"${'$'}link":"bafblobq"},"mimeType":"image/jpeg","size":3,"${'$'}type":"blob"}}""",
+                            )
+                        request.url.encodedPath.endsWith("createRecord") -> {
+                            capturedBody.complete(request.body.toBodyString())
+                            okJson("""{"uri":"at://$testDid/app.bsky.feed.post/qm","cid":"bafqm"}""")
+                        }
+                        else -> error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "quote with a picture",
+                    attachments = listOf(attachment("image/jpeg")),
+                    replyTo = null,
+                    quote = quoteRef,
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(body.contains("app.bsky.embed.recordWithMedia"), "recordWithMedia embed missing: $body")
+            assertTrue(body.contains("at://did:plc:bob/app.bsky.feed.post/quoted"), "quoted uri missing: $body")
+            assertTrue(body.contains("bafblobq"), "image blob missing from media: $body")
+        }
+
+    @Test
+    fun imagesOnly_writesImagesEmbedNotRecord() =
+        runTest {
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    when {
+                        request.url.encodedPath.endsWith("uploadBlob") ->
+                            okJson(
+                                """{"blob":{"ref":{"${'$'}link":"bafblob1"},"mimeType":"image/jpeg","size":3,"${'$'}type":"blob"}}""",
+                            )
+                        request.url.encodedPath.endsWith("createRecord") -> {
+                            capturedBody.complete(request.body.toBodyString())
+                            okJson("""{"uri":"at://$testDid/app.bsky.feed.post/img","cid":"bafimg"}""")
+                        }
+                        else -> error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "just a photo",
+                    attachments = listOf(attachment("image/jpeg")),
+                    replyTo = null,
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(body.contains("app.bsky.embed.images"), "images embed missing: $body")
+            assertTrue(!body.contains("app.bsky.embed.record"), "images-only must not write a record embed: $body")
+        }
+
+    @Test
+    fun textOnly_writesNoEmbedField() =
+        runTest {
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/t","cid":"baft"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result = repo.createPost(text = "no embed here", attachments = emptyList(), replyTo = null)
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            assertTrue(!body.contains("\"embed\""), "text-only post must omit the embed field: $body")
+        }
+
+    @Test
+    fun replyWithQuote_writesBothReplyRefAndRecordEmbed() =
+        runTest {
+            val parentRef =
+                StrongRef(
+                    uri = AtUri("at://did:plc:alice/app.bsky.feed.post/parent"),
+                    cid = Cid("bafparent"),
+                )
+            val quoteRef =
+                StrongRef(
+                    uri = AtUri("at://did:plc:bob/app.bsky.feed.post/quoted"),
+                    cid = Cid("bafquoted"),
+                )
+            val capturedBody = CompletableDeferred<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/rq","cid":"bafrq"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val result =
+                repo.createPost(
+                    text = "replying and quoting",
+                    attachments = emptyList(),
+                    replyTo = ReplyRefs(parent = parentRef, root = parentRef),
+                    quote = quoteRef,
+                )
+
+            assertTrue(result.isSuccess)
+            val body = capturedBody.await()
+            // reply (threading) and embed (content) are orthogonal — both present.
+            assertTrue(body.contains("at://did:plc:alice/app.bsky.feed.post/parent"), "reply parent ref missing: $body")
+            assertTrue(body.contains("app.bsky.embed.record"), "quote record embed missing: $body")
+            assertTrue(body.contains("at://did:plc:bob/app.bsky.feed.post/quoted"), "quoted uri missing: $body")
+        }
+
+    @Test
+    fun quotePost_emitsCreatePost_withIsQuoteTrue() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.url.encodedPath.endsWith("createRecord")) {
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/q","cid":"bafq"}""")
+                    } else {
+                        error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            repo.createPost(
+                text = "quoting bob",
+                attachments = emptyList(),
+                replyTo = null,
+                quote =
+                    StrongRef(
+                        uri = AtUri("at://did:plc:bob/app.bsky.feed.post/quoted"),
+                        cid = Cid("bafquoted"),
+                    ),
+            )
+
+            assertEquals(
+                listOf(CreatePost(hasMedia = false, isReply = false, isQuote = true)),
+                analytics.events,
+            )
+        }
+
+    @Test
     fun facetExtractor_nonEmptyResult_reachesCreateRecordBody() =
         runTest {
             // Wire-through assertion: a non-empty FacetExtractor output

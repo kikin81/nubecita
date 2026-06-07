@@ -61,6 +61,13 @@ interface PostingRepository {
      *   failure is currently swallowed (not surfaced to the user); routing it to a
      *   "couldn't apply audience" snackbar needs this return type to carry the gate
      *   outcome and is tracked as nubecita-33bw.8.
+     * @param quote The quoted post's
+     *   [io.github.kikin81.atproto.com.atproto.repo.StrongRef] (`uri` + `cid`), or
+     *   `null` for a non-quote post. When non-null the record carries an
+     *   `app.bsky.embed.record` embed, or `app.bsky.embed.recordWithMedia` when
+     *   [attachments] are also present. Orthogonal to [replyTo] — a post may both
+     *   reply and quote (`reply` and `embed` are independent fields). An empty-text
+     *   quote is valid: the embed itself is the content.
      * @return `Result.success(uri)` on a successful submission carrying
      *   the new record's AT URI; `Result.failure(ComposerError)` on any
      *   typed failure mode.
@@ -71,5 +78,6 @@ interface PostingRepository {
         replyTo: ReplyRefs?,
         langs: List<String>? = null,
         audience: PostAudience = PostAudience.DEFAULT,
+        quote: io.github.kikin81.atproto.com.atproto.repo.StrongRef? = null,
     ): Result<AtUri>
 }
