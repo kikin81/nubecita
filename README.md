@@ -130,9 +130,9 @@ Version bumps follow commit-analyzer's default (angular) rules:
 
 A change that doesn't bump by type (e.g. a `refactor`) ships no build; relabel the squash subject to `feat`/`fix` at merge time if you need a deploy.
 
-Play's integer `versionCode` is derived from the semantic `versionName` in `app/build.gradle.kts`:
+Play's integer `versionCode` is derived from the semantic `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts):
 
-```
+```kotlin
 versionCode = MAJOR * 1_000_000 + MINOR * 1_000 + PATCH
 ```
 
