@@ -123,6 +123,7 @@ internal fun PostDetailScreen(
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onNavigateToVideoPlayer: (postUri: String) -> Unit = {},
     onReplyClick: (String) -> Unit = {},
+    onQuoteClick: (String) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -134,6 +135,7 @@ internal fun PostDetailScreen(
     // rememberUpdatedState so the remembered PostCallbacks below
     // captures the live reference instead of a stale snapshot.
     val currentOnReplyClick by rememberUpdatedState(onReplyClick)
+    val currentOnQuoteClick by rememberUpdatedState(onQuoteClick)
 
     val haptics = rememberPostHaptics()
     val callbacks =
@@ -152,6 +154,10 @@ internal fun PostDetailScreen(
                 onReply = { post ->
                     haptics.lightTap()
                     currentOnReplyClick(post.id)
+                },
+                onQuote = { post ->
+                    haptics.lightTap()
+                    currentOnQuoteClick(post.id)
                 },
                 onShare = { post ->
                     haptics.lightTap()

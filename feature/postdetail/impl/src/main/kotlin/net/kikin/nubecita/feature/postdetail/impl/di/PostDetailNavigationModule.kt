@@ -82,6 +82,9 @@ internal object PostDetailNavigationModule {
                     // Medium/Expanded (same as Feed). The reply tap skips the VM
                     // and pushes directly.
                     onReplyClick = { uri -> navState.add(ComposerRoute(replyToUri = uri)) },
+                    // "Quote post" from a PostCard's repost menu — push the
+                    // composer in quote mode (same adaptive-dialog presentation).
+                    onQuoteClick = { uri -> navState.add(ComposerRoute(quotePostUri = uri)) },
                     // Generic tab-internal sub-route push — pushed onto
                     // MainShell's inner back stack so the @MainShell
                     // entry provider for the key resolves it (e.g. the

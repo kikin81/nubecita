@@ -41,6 +41,7 @@ internal fun FeedHost(
     onNavigateTo: (NavKey) -> Unit = {},
     onComposeClick: () -> Unit = {},
     onReplyClick: (String) -> Unit = {},
+    onQuoteClick: (String) -> Unit = {},
     hostViewModel: FeedHostViewModel = hiltViewModel(),
 ) {
     val state by hostViewModel.uiState.collectAsStateWithLifecycle()
@@ -89,6 +90,7 @@ internal fun FeedHost(
                     onNavigateTo = onNavigateTo,
                     onComposeClick = onComposeClick,
                     onReplyClick = onReplyClick,
+                    onQuoteClick = onQuoteClick,
                     snackbarHostState = snackbarHostState,
                 )
             }
@@ -127,6 +129,7 @@ private fun FeedPane(
     onNavigateTo: (NavKey) -> Unit,
     onComposeClick: () -> Unit,
     onReplyClick: (String) -> Unit,
+    onQuoteClick: (String) -> Unit,
     snackbarHostState: SnackbarHostState,
     // hiltViewModel acquisition lives in the default param value (keyed on
     // the preceding `feedUri`) per the compose-lints ComposeViewModelInjection
@@ -151,6 +154,7 @@ private fun FeedPane(
         onNavigateTo = onNavigateTo,
         onComposeClick = onComposeClick,
         onReplyClick = onReplyClick,
+        onQuoteClick = onQuoteClick,
         snackbarHostState = snackbarHostState,
         viewModel = feedViewModel,
     )

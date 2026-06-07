@@ -1228,6 +1228,31 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `OnQuoteClicked navigates to the composer in quote mode`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnQuoteClicked(post))
+                assertEquals(
+                    ProfileEffect.NavigateTo(ComposerRoute(quotePostUri = post.id)),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `cache emission projects onto the active tab's items`() =
         runTest(mainDispatcher.dispatcher) {
             val postsPage =

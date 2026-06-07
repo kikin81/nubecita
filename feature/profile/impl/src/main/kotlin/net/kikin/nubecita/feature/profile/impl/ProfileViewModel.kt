@@ -186,6 +186,8 @@ internal class ProfileViewModel
                 }
                 is ProfileEvent.OnReplyClicked ->
                     sendEffect(ProfileEffect.NavigateTo(ComposerRoute(replyToUri = event.post.id)))
+                is ProfileEvent.OnQuoteClicked ->
+                    sendEffect(ProfileEffect.NavigateTo(ComposerRoute(quotePostUri = event.post.id)))
                 is ProfileEvent.OnShareClicked ->
                     sendEffect(ProfileEffect.SharePost(event.post.toShareIntent()))
                 is ProfileEvent.OnShareLongPressed ->

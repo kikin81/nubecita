@@ -96,6 +96,9 @@ internal object FeedNavigationModule {
                     // ComposerRoute(replyToUri) directly; same adaptive dialog
                     // presentation as onComposeClick.
                     onReplyClick = { uri -> navState.add(ComposerRoute(replyToUri = uri)) },
+                    // "Quote post" from a PostCard's repost menu — pushes the
+                    // composer with the quoted post attached (quote mode).
+                    onQuoteClick = { uri -> navState.add(ComposerRoute(quotePostUri = uri)) },
                 )
             }
         }
