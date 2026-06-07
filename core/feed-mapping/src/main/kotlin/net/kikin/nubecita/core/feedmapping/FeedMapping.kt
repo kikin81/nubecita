@@ -185,6 +185,8 @@ fun ViewerState?.toViewerStateUi(authorViewer: ActorViewerState? = null): Viewer
         isAuthorBlockingViewer = authorViewer?.blockedBy == true,
         // Server-computed threadgate result; fail open when absent (no gate).
         canViewerReply = this?.replyDisabled != true,
+        // Server-computed postgate result; fail open when absent (no gate).
+        canViewerQuote = this?.embeddingDisabled != true,
     )
 
 /**
