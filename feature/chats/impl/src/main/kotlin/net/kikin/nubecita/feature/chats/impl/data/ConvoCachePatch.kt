@@ -45,7 +45,7 @@ internal fun patchConvosOnSend(
  * - `null` cache (inbox never loaded) → `null` (no-op).
  * - convo not in the list → returned unchanged.
  * - convo present → copy with `unreadCount = 0`, all other rows untouched.
- *   Idempotent on an already-read convo.
+ * - already-read convo → same instance returned (no copy, no emission).
  */
 internal fun patchConvosOnRead(
     current: ImmutableList<ConvoListItemUi>?,
@@ -53,7 +53,9 @@ internal fun patchConvosOnRead(
 ): ImmutableList<ConvoListItemUi>? {
     if (current == null) return null
     val index = current.indexOfFirst { it.convoId == convoId }
-    if (index < 0) return current
+    // Already-read (or absent) → return the same instance: no list copy and no
+    // downstream StateFlow emission / recomposition for a no-op open.
+    if (index < 0 || current[index].unreadCount == 0) return current
     return current
         .mapIndexed { i, convo -> if (i == index) convo.copy(unreadCount = 0) else convo }
         .toImmutableList()

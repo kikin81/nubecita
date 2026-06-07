@@ -106,6 +106,23 @@ internal class ChatViewModelTest {
         }
 
     @Test
+    fun `a manual refresh is not blocked while mark-read is in flight`() =
+        runTest(mainDispatcher.dispatcher) {
+            // mark-read suspends on an un-completed gate, simulating a slow/hung
+            // updateRead network call. The load job must still release its
+            // single-flight guard so a refresh can proceed.
+            val repo = FakeChatRepository().apply { markReadGate = CompletableDeferred() }
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            assertEquals(1, repo.resolveCalls.get())
+            assertEquals(1, repo.markReadCalls.get(), "mark-read started")
+
+            vm.handleEvent(ChatEvent.Refresh)
+            advanceUntilIdle()
+            assertEquals(2, repo.resolveCalls.get(), "refresh proceeded despite mark-read in flight")
+        }
+
+    @Test
     fun `IOException on resolveConvo maps to InitialError Network`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository(nextResolveResult = Result.failure(java.io.IOException("net down")))

@@ -33,6 +33,13 @@ internal class FakeChatRepository(
      * so a test can observe the optimistic `Sending` row before reconcile.
      */
     var sendGate: CompletableDeferred<Unit>? = null
+
+    /**
+     * Optional gate: when set, `markConvoRead` suspends on it, so a test can
+     * verify the load job releases its single-flight guard (and a manual
+     * refresh proceeds) while mark-read is still in flight.
+     */
+    var markReadGate: CompletableDeferred<Unit>? = null
     val refreshCalls = AtomicInteger(0)
     val resolveCalls = AtomicInteger(0)
     val messagesCalls = AtomicInteger(0)
@@ -91,6 +98,7 @@ internal class FakeChatRepository(
     override suspend fun markConvoRead(convoId: String): Result<Unit> {
         markReadCalls.incrementAndGet()
         lastMarkReadConvoId = convoId
+        markReadGate?.await()
         return nextMarkReadResult.onSuccess {
             convos.value = patchConvosOnRead(convos.value, convoId)
         }
