@@ -5,8 +5,12 @@ import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetPostsRequest
 import io.github.kikin81.atproto.app.bsky.feed.Post
 import io.github.kikin81.atproto.app.bsky.feed.PostView
+import io.github.kikin81.atproto.com.atproto.identity.IdentityService
+import io.github.kikin81.atproto.com.atproto.identity.ResolveHandleRequest
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
+import io.github.kikin81.atproto.runtime.Handle
+import io.github.kikin81.atproto.runtime.XrpcClient
 import io.github.kikin81.atproto.runtime.decodeRecord
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -48,7 +52,10 @@ internal class DefaultQuotePostFetcher
                 Timber.tag(TAG).d("fetchQuote() — rkey=%s", uri.raw.substringAfterLast('/'))
                 try {
                     val client = xrpcClientProvider.authenticated()
-                    val response = FeedService(client).getPosts(GetPostsRequest(uris = listOf(uri)))
+                    // A pasted bsky.app link yields a HANDLE authority; getPosts looks
+                    // records up by DID, so resolve the handle first or it returns empty.
+                    val resolvedUri = resolveDidAuthority(client, uri)
+                    val response = FeedService(client).getPosts(GetPostsRequest(uris = listOf(resolvedUri)))
                     val post = response.posts.firstOrNull()
                     if (post == null) {
                         Timber.tag(TAG).d("fetchQuote() — post unavailable (empty getPosts result)")
@@ -63,6 +70,24 @@ internal class DefaultQuotePostFetcher
                     Result.failure(mapToComposerError(throwable))
                 }
             }
+
+        /**
+         * `app.bsky.feed.getPosts` resolves records by DID, so a handle-authority
+         * at-uri (from a pasted `bsky.app/profile/<handle>/post/…` link) finds
+         * nothing. If [uri]'s authority is a handle, resolve it to a DID via
+         * `com.atproto.identity.resolveHandle` and rebuild the at-uri; a DID
+         * authority is already canonical and returned unchanged. A resolution
+         * failure propagates to the caller's catch and surfaces as a load error.
+         */
+        private suspend fun resolveDidAuthority(
+            client: XrpcClient,
+            uri: AtUri,
+        ): AtUri {
+            val authority = uri.raw.removePrefix("at://").substringBefore('/')
+            if (authority.isEmpty() || authority.startsWith("did:")) return uri
+            val did = IdentityService(client).resolveHandle(ResolveHandleRequest(handle = Handle(authority))).did
+            return AtUri(uri.raw.replaceFirst("at://$authority/", "at://${did.raw}/"))
+        }
 
         private fun PostView.toQuotePostUi(): QuotePostUi {
             // Decode the record for the text preview; fall back to empty on a
