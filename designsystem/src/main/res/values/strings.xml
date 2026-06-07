@@ -51,6 +51,14 @@
          restricted who can reply (threadgate) and this viewer is not allowed. -->
     <string name="postcard_action_reply_disabled">Replies are limited</string>
     <string name="postcard_action_repost">Repost</string>
+    <!-- Accessibility label for the repost cell when a tap opens the
+         Repost/Quote menu (it's an "options" button, not a direct toggle). -->
+    <string name="postcard_action_repost_options">Repost options</string>
+    <!-- Repost menu item / long-press label shown when the viewer has already
+         reposted: tapping undoes the repost. -->
+    <string name="postcard_action_undo_repost">Undo repost</string>
+    <!-- Repost menu item: open the composer to quote this post. -->
+    <string name="postcard_action_quote">Quote post</string>
     <string name="postcard_action_like">Like</string>
     <string name="postcard_action_share">Share post</string>
     <!-- Long-press on the share button copies the post permalink. Surfaced

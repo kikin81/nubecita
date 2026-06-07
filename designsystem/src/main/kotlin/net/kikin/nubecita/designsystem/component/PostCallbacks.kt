@@ -29,6 +29,16 @@ data class PostCallbacks(
     val onAuthorTap: (AuthorUi) -> Unit = {},
     val onLike: (PostUi) -> Unit = {},
     val onRepost: (PostUi) -> Unit = {},
+    /**
+     * "Quote post" was selected from the repost cell's menu. `null` (the default)
+     * means the host has NOT wired quote-compose — the repost cell then keeps its
+     * plain tap-to-toggle behavior and shows no menu (same suppression pattern as
+     * [onShareLongPress] / [onQuotedPostTap] / [onOverflowAction], so previews and
+     * non-feed call sites don't advertise a no-op action). When wired AND the post
+     * permits quoting (`viewer.canViewerQuote`), a single tap on the repost cell
+     * opens a Repost/Quote menu and a long-press performs the repost toggle.
+     */
+    val onQuote: ((PostUi) -> Unit)? = null,
     val onReply: (PostUi) -> Unit = {},
     val onShare: (PostUi) -> Unit = {},
     /**
