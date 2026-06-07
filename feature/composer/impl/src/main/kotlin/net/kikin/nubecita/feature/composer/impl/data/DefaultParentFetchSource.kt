@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.composer.impl.data
 
+import io.github.kikin81.atproto.app.bsky.embed.ImagesView
 import io.github.kikin81.atproto.app.bsky.feed.BlockedPost
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetPostThreadRequest
@@ -144,6 +145,13 @@ internal class DefaultParentFetchSource
                 authorHandle = author.handle.raw,
                 authorDisplayName = author.displayName?.takeIf { it.isNotBlank() },
                 text = record.text,
+                avatarUrl = author.avatar?.raw,
+                thumbnailUrl =
+                    (embed as? ImagesView)
+                        ?.images
+                        ?.firstOrNull()
+                        ?.thumb
+                        ?.raw,
                 // Server-computed threadgate result; fail open when absent.
                 canViewerReply = viewer?.replyDisabled != true,
             )

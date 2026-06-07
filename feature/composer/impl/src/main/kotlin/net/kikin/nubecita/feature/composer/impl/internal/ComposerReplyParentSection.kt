@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.composer.impl.internal
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -31,9 +32,9 @@ import net.kikin.nubecita.feature.composer.impl.state.ParentPostUi
  * - [ParentLoadStatus.Loading] → a flat skeleton block (placeholder
  *   color, ~64dp tall) so the layout doesn't reflow when the fetch
  *   resolves.
- * - [ParentLoadStatus.Loaded] → a small read-only parent-post card:
- *   author display name + `@handle` header + 2-line truncated text
- *   preview. No interaction affordances (like / reply / repost) —
+ * - [ParentLoadStatus.Loaded] → a read-only parent-post card rendered as a
+ *   full-post preview (avatar + `displayName @handle` + body + optional media
+ *   thumbnail) via [ComposerContextPostBody]. No interaction affordances —
  *   this is a context preview, not an interactive post tile.
  * - [ParentLoadStatus.Failed] → an inline retry tile: error icon +
  *   localized message; the whole tile is tap-to-retry, dispatching
@@ -88,34 +89,25 @@ private fun ComposerReplyParentSkeleton() {
 
 @Composable
 private fun ComposerReplyParentCard(post: ParentPostUi) {
-    Column(
+    // Full-post presentation: avatar + displayName @handle + body + optional
+    // media thumbnail (nubecita-8g28.7). The "Replying to" caption is dropped
+    // visually (context is clear from position + toolbar) but preserved for
+    // screen readers via a merged contentDescription so TalkBack still announces
+    // what the card represents.
+    val displayName = post.authorDisplayName ?: post.authorHandle
+    val label = stringResource(R.string.composer_reply_header, displayName)
+    val description = if (post.text.isNotBlank()) "$label: ${post.text}" else label
+    ComposerContextPostBody(
+        avatarUrl = post.avatarUrl,
+        displayName = displayName,
+        handle = post.authorHandle,
+        text = post.text,
+        thumbnailUrl = post.thumbnailUrl,
         modifier =
             Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        // "Replying to <displayName> @handle" header line. Two
-        // styles: title for the prefix (display name preferred),
-        // muted handle following.
-        val displayName = post.authorDisplayName ?: post.authorHandle
-        Text(
-            text = stringResource(R.string.composer_reply_header, displayName),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        // 2-line preview of the parent body. Uses bodySmall to stay
-        // visually subordinate to the active composer text field.
-        Text(
-            text = post.text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .semantics(mergeDescendants = true) { contentDescription = description },
+    )
 }
 
 @Composable

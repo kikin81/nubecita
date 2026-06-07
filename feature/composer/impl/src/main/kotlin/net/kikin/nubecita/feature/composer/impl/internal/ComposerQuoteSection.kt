@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.composer.impl.internal
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -32,9 +33,10 @@ import net.kikin.nubecita.feature.composer.impl.state.QuotePostUi
  *
  * - [QuoteLoadStatus.Loading] → a flat skeleton block so the layout doesn't
  *   reflow when the fetch resolves.
- * - [QuoteLoadStatus.Loaded] → a small read-only quoted-post card (author header
- *   + 2-line truncated text preview) with a dismiss (✕) affordance that detaches
- *   the quote. nubecita-8g28.7 upgrades this to a fuller post presentation.
+ * - [QuoteLoadStatus.Loaded] → a read-only quoted-post card rendered as a
+ *   full-post preview (avatar + `displayName @handle` + body + optional media
+ *   thumbnail) via [ComposerContextPostBody], with a dismiss (✕) affordance that
+ *   detaches the quote.
  * - [QuoteLoadStatus.Failed] → an inline retry tile (tap-to-retry) plus a dismiss
  *   affordance so the user can give up on a quote that won't load.
  *
@@ -89,28 +91,25 @@ private fun ComposerQuoteCard(
                 .fillMaxWidth()
                 .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            val displayName = post.authorDisplayName ?: post.authorHandle
-            Text(
-                text = stringResource(R.string.composer_quote_header, displayName),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = post.text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        // Full-post presentation (nubecita-8g28.7): avatar + displayName @handle
+        // + body + optional media thumbnail. The "Quoting" caption is dropped
+        // visually but preserved for screen readers via a merged
+        // contentDescription; the dismiss button stays a separate focusable node.
+        val displayName = post.authorDisplayName ?: post.authorHandle
+        val label = stringResource(R.string.composer_quote_header, displayName)
+        val description = if (post.text.isNotBlank()) "$label: ${post.text}" else label
+        ComposerContextPostBody(
+            avatarUrl = post.avatarUrl,
+            displayName = displayName,
+            handle = post.authorHandle,
+            text = post.text,
+            thumbnailUrl = post.thumbnailUrl,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .semantics(mergeDescendants = true) { contentDescription = description },
+        )
         QuoteDismissButton(onRemoveClick = onRemoveClick)
     }
 }
