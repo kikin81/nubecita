@@ -36,13 +36,16 @@ import androidx.compose.ui.Modifier
  * `contentPadding` convention (a semantic [PaddingValues], not a second
  * `Modifier`): the same `innerPadding` is applied to the scrollable's own
  * `contentPadding` inside [content], keeping the list edge-to-edge behind the
- * system bars while the indicator sits below the bar. Only the top inset
- * affects a top-center indicator; passing full [PaddingValues] is harmless.
+ * system bars while the indicator sits below the bar. Only the **top** inset is
+ * applied to the top-center indicator — the horizontal insets in a landscape
+ * `innerPadding` (asymmetric display cutout) would otherwise shift it
+ * off-center.
  *
  * @param isRefreshing whether a refresh is in progress (drives the indicator's
  *   determinate-pull → indeterminate-spin transition).
  * @param onRefresh invoked when the user pulls past the threshold.
- * @param modifier applied to the root [PullToRefreshBox].
+ * @param modifier applied to the root [PullToRefreshBox]; defaults to
+ *   `fillMaxSize()` so callers can override sizing (e.g. tests/previews).
  * @param state hoist when the call site needs the pull fraction; defaults to a
  *   remembered state.
  * @param indicatorPadding inset for the indicator only — pass the `Scaffold`
@@ -55,7 +58,7 @@ import androidx.compose.ui.Modifier
 fun NubecitaPullToRefreshBox(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.fillMaxSize(),
     state: PullToRefreshState = rememberPullToRefreshState(),
     indicatorPadding: PaddingValues = PaddingValues(),
     content: @Composable (BoxScope.() -> Unit),
@@ -63,16 +66,17 @@ fun NubecitaPullToRefreshBox(
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier,
         state = state,
         indicator = {
             // M3 Expressive contained LoadingIndicator (the morphing polygon),
             // pinned top-center per Material guidance and offset below the
-            // caller's topBar via indicatorPadding.
+            // caller's topBar by the TOP inset only (horizontal insets would
+            // shift a top-center indicator off-center on landscape cutouts).
             PullToRefreshDefaults.LoadingIndicator(
                 state = state,
                 isRefreshing = isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter).padding(indicatorPadding),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = indicatorPadding.calculateTopPadding()),
             )
         },
         content = content,
