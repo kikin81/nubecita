@@ -41,6 +41,7 @@ import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuotePostUi
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -836,6 +837,111 @@ class ComposerViewModelTest {
             }
         }
 
+    @Test
+    fun pasteLink_resolves_attachesQuote_andStripsUrl() =
+        runTest {
+            val quote = aQuotePostUi()
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } returns Result.success(quote)
+
+            val vm = newVm(replyToUri = null)
+            setComposerText(vm, "look $QUOTE_WEB_URL nice")
+
+            assertEquals(QUOTE_URI, vm.uiState.value.quotePostUri)
+            assertEquals(QuoteLoadStatus.Loaded(quote), vm.uiState.value.quotePostLoad)
+            // URL stripped from the field on successful resolution.
+            assertFalse(
+                vm.textFieldState.text
+                    .toString()
+                    .contains("bsky.app"),
+                "pasted URL should be stripped once the quote loads",
+            )
+        }
+
+    @Test
+    fun pasteLink_failedResolve_keepsUrl_andShowsFailedState() =
+        runTest {
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } returns
+                Result.failure(ComposerError.Network(RuntimeException("dns")))
+
+            val vm = newVm(replyToUri = null)
+            setComposerText(vm, "look $QUOTE_WEB_URL nice")
+
+            assertTrue(vm.uiState.value.quotePostLoad is QuoteLoadStatus.Failed)
+            // URL left intact so the user doesn't lose it on a failed resolve.
+            assertTrue(
+                vm.textFieldState.text
+                    .toString()
+                    .contains(QUOTE_WEB_URL),
+            )
+        }
+
+    @Test
+    fun pasteLink_gatedPost_rejectsAttach_keepsUrl_andEmitsError() =
+        runTest {
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } returns
+                Result.success(aQuotePostUi(canViewerQuote = false))
+
+            val vm = newVm(replyToUri = null)
+
+            vm.effects.test {
+                setComposerText(vm, "look $QUOTE_WEB_URL nice")
+                assertEquals(ComposerEffect.ShowError(ComposerError.QuoteNotAllowed), awaitItem())
+                cancelAndConsumeRemainingEvents()
+            }
+            // Reject: no quote attached, URL left as plain text.
+            assertNull(vm.uiState.value.quotePostUri)
+            assertNull(vm.uiState.value.quotePostLoad)
+            assertTrue(
+                vm.textFieldState.text
+                    .toString()
+                    .contains(QUOTE_WEB_URL),
+            )
+        }
+
+    @Test
+    fun pasteLink_ignoredWhileQuoteAlreadyAttached() =
+        runTest {
+            // A quote is already attached via the route; a pasted second link is
+            // ignored (one quote max).
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } returns Result.success(aQuotePostUi())
+            val vm = newVm(replyToUri = null, quotePostUri = QUOTE_URI)
+            assertTrue(vm.uiState.value.quotePostLoad is QuoteLoadStatus.Loaded)
+
+            setComposerText(vm, "another at://did:plc:carol/app.bsky.feed.post/other here")
+
+            // Still the original quote — the second link was not attached.
+            assertEquals(QUOTE_URI, vm.uiState.value.quotePostUri)
+        }
+
+    @Test
+    fun pasteLink_afterRejectThenManualDelete_canBeReattached() =
+        runTest {
+            // First resolve is gated → rejected (URL kept, link remembered).
+            // After the user deletes the URL and pastes it again, it must be
+            // re-detected (attemptedQuoteLinks forgets links absent from the text).
+            var calls = 0
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } coAnswers {
+                if (calls++ == 0) {
+                    Result.success(aQuotePostUi(canViewerQuote = false))
+                } else {
+                    Result.success(aQuotePostUi())
+                }
+            }
+
+            val vm = newVm(replyToUri = null)
+            setComposerText(vm, "look $QUOTE_WEB_URL nice")
+            // Rejected: no quote, URL still in text, link remembered.
+            assertNull(vm.uiState.value.quotePostUri)
+
+            // User clears the field (deletes the URL) → set is pruned.
+            setComposerText(vm, "")
+            // Pastes it again → re-detected and now resolves.
+            setComposerText(vm, "$QUOTE_WEB_URL again")
+
+            assertEquals(QUOTE_URI, vm.uiState.value.quotePostUri)
+            assertTrue(vm.uiState.value.quotePostLoad is QuoteLoadStatus.Loaded)
+        }
+
     private fun newVm(
         replyToUri: String?,
         quotePostUri: String? = null,
@@ -901,5 +1007,8 @@ class ComposerViewModelTest {
         const val PARENT_URI = "at://did:plc:alice/app.bsky.feed.post/parent"
         const val ROOT_URI = "at://did:plc:alice/app.bsky.feed.post/root"
         const val QUOTE_URI = "at://did:plc:bob/app.bsky.feed.post/quoted"
+
+        // Web link whose authority+rkey resolve to QUOTE_URI via QuoteLinkDetector.
+        const val QUOTE_WEB_URL = "https://bsky.app/profile/did:plc:bob/post/quoted"
     }
 }
