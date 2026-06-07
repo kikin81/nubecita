@@ -172,7 +172,7 @@ internal fun EditProfileScreenContent(
                 actions = {
                     if (state.isSaving) {
                         NubecitaWavyProgressIndicator(
-                            modifier = Modifier.size(24.dp).padding(end = 4.dp),
+                            modifier = Modifier.padding(end = 4.dp).size(20.dp),
                         )
                     } else {
                         TextButton(
