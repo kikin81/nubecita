@@ -33,7 +33,11 @@ internal object QuoteLinkDetector {
     private const val AUTHORITY = "[A-Za-z0-9._:%~-]+"
     private const val RKEY = "[A-Za-z0-9._~-]+"
 
-    private val WEB = Regex("""https?://bsky\.app/profile/($AUTHORITY)/post/($RKEY)""")
+    // Tolerate an optional `www.`, a trailing slash, and a query string so they're
+    // included in the match (and thus stripped cleanly); the authority + rkey
+    // capture groups still drive the at-uri, so the query never leaks into it.
+    private val WEB =
+        Regex("""https?://(?:www\.)?bsky\.app/profile/($AUTHORITY)/post/($RKEY)/?(?:\?[A-Za-z0-9._~%&=+-]*)?""")
     private val AT = Regex("""at://$AUTHORITY/app\.bsky\.feed\.post/$RKEY""")
 
     fun detect(

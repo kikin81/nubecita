@@ -43,6 +43,18 @@ class QuoteLinkDetectorTest {
     }
 
     @Test
+    fun `trailing slash and query params are matched and stripped, at-uri stays clean`() {
+        val match =
+            QuoteLinkDetector.detect("https://www.bsky.app/profile/alice.test/post/3kp9/?ref_src=share")
+
+        // The whole URL (incl. www, trailing slash, query) is the matched text so
+        // it strips cleanly…
+        assertEquals("https://www.bsky.app/profile/alice.test/post/3kp9/?ref_src=share", match?.matchedText)
+        // …while the at-uri is built from just authority + rkey.
+        assertEquals("at://alice.test/app.bsky.feed.post/3kp9", match?.atUri)
+    }
+
+    @Test
     fun `no link returns null`() {
         assertNull(QuoteLinkDetector.detect("just some text, no links here"))
         // A profile link (not a post link) must not match.

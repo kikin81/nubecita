@@ -588,6 +588,10 @@ internal class ComposerViewModel
          * the field — isn't re-attached on the next snapshot.
          */
         private fun maybeDetectQuoteLink(text: String) {
+            // Forget links no longer present in the text so a removed/edited link
+            // can be pasted again later (and the set stays bounded). A link still
+            // in the text stays remembered, preserving no-re-attach-on-reject.
+            attemptedQuoteLinks.retainAll { text.contains(it) }
             if (uiState.value.quotePostUri != null) return
             val match = QuoteLinkDetector.detect(text, exclude = attemptedQuoteLinks) ?: return
             attemptedQuoteLinks.add(match.matchedText)

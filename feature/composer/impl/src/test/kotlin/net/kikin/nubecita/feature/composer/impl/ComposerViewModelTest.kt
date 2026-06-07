@@ -913,6 +913,35 @@ class ComposerViewModelTest {
             assertEquals(QUOTE_URI, vm.uiState.value.quotePostUri)
         }
 
+    @Test
+    fun pasteLink_afterRejectThenManualDelete_canBeReattached() =
+        runTest {
+            // First resolve is gated → rejected (URL kept, link remembered).
+            // After the user deletes the URL and pastes it again, it must be
+            // re-detected (attemptedQuoteLinks forgets links absent from the text).
+            var calls = 0
+            coEvery { quotePostFetcher.fetchQuote(AtUri(QUOTE_URI)) } coAnswers {
+                if (calls++ == 0) {
+                    Result.success(aQuotePostUi(canViewerQuote = false))
+                } else {
+                    Result.success(aQuotePostUi())
+                }
+            }
+
+            val vm = newVm(replyToUri = null)
+            setComposerText(vm, "look $QUOTE_WEB_URL nice")
+            // Rejected: no quote, URL still in text, link remembered.
+            assertNull(vm.uiState.value.quotePostUri)
+
+            // User clears the field (deletes the URL) → set is pruned.
+            setComposerText(vm, "")
+            // Pastes it again → re-detected and now resolves.
+            setComposerText(vm, "$QUOTE_WEB_URL again")
+
+            assertEquals(QUOTE_URI, vm.uiState.value.quotePostUri)
+            assertTrue(vm.uiState.value.quotePostLoad is QuoteLoadStatus.Loaded)
+        }
+
     private fun newVm(
         replyToUri: String?,
         quotePostUri: String? = null,
