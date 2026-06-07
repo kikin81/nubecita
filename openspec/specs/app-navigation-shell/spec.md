@@ -113,7 +113,7 @@ ViewModels rendered inside `MainShell`'s inner `NavDisplay` SHALL NOT inject or 
 
 ### Requirement: Cross-tab navigation links push onto the active tab's stack
 
-Tapping an interactive element inside one tab whose target is a `NavKey` registered as a different tab's content (e.g. tapping an author handle inside a Feed post when the target screen is `Profile`) SHALL push that target onto the **currently active** tab's back stack. The active tab SHALL NOT change as a side effect of the link. On Medium/Expanded widths, when the push occurs while a detail-region entry is present, the pushed target SHALL stack within the detail region per **Sub-routes opened from a detail pane stack within the detail region** — it SHALL NOT re-anchor or replace the list pane, regardless of the target's own pane metadata.
+Tapping an interactive element inside one tab whose target is a `NavKey` registered as a different tab's content (e.g. tapping an author handle inside a Feed post when the target screen is `Profile`) SHALL push that target onto the **currently active** tab's back stack. The active tab SHALL NOT change as a side effect of the link. On Medium/Expanded widths, when the push occurs while a detail-region entry is present, a pane-tagged pushed target SHALL stack within the detail region per **Sub-routes opened from a detail pane stack within the detail region** — it SHALL NOT re-anchor or replace the list pane, even if the target carries `listPane()` metadata.
 
 #### Scenario: Profile link in Feed pushes onto Feed stack
 
