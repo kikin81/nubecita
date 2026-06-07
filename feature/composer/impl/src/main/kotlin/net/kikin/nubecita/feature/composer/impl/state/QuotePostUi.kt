@@ -28,5 +28,12 @@ data class QuotePostUi(
     val authorHandle: String,
     val authorDisplayName: String?,
     val text: String,
+    /** Author avatar URL for the quote card, or `null` when the author has none. */
+    val avatarUrl: String? = null,
+    /**
+     * Thumbnail URL of the quoted post's first image embed, or `null` when it has
+     * no image media. Rendered as a small trailing thumbnail on the quote card.
+     */
+    val thumbnailUrl: String? = null,
     val canViewerQuote: Boolean = true,
 )

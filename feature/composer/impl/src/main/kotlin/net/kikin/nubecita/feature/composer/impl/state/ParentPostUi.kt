@@ -26,6 +26,13 @@ data class ParentPostUi(
     val authorHandle: String,
     val authorDisplayName: String?,
     val text: String,
+    /** Author avatar URL for the context card, or `null` when the author has none. */
+    val avatarUrl: String? = null,
+    /**
+     * Thumbnail URL of the parent's first image embed, or `null` when it has no
+     * image media. Rendered as a small trailing thumbnail on the context card.
+     */
+    val thumbnailUrl: String? = null,
     /**
      * Whether the viewer is allowed to reply to this parent — the inverse of the
      * post viewer's `replyDisabled` (the appview's server-computed threadgate

@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.composer.impl.data
 
+import io.github.kikin81.atproto.app.bsky.embed.ImagesView
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetPostsRequest
 import io.github.kikin81.atproto.app.bsky.feed.Post
@@ -74,6 +75,13 @@ internal class DefaultQuotePostFetcher
                 authorHandle = author.handle.raw,
                 authorDisplayName = author.displayName?.takeIf { it.isNotBlank() },
                 text = text,
+                avatarUrl = author.avatar?.raw,
+                thumbnailUrl =
+                    (embed as? ImagesView)
+                        ?.images
+                        ?.firstOrNull()
+                        ?.thumb
+                        ?.raw,
                 // Server-computed postgate result; fail open when absent.
                 canViewerQuote = viewer?.embeddingDisabled != true,
             )
