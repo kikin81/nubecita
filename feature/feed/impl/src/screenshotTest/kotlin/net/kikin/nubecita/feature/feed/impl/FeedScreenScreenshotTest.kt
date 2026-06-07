@@ -256,6 +256,7 @@ private fun FeedScreenScreenshotHost(
             feedChips = persistentListOf(),
             pinnedLists = persistentListOf(),
             selectedFeedUri = null,
+            chipListState = rememberLazyListState(),
             status = FeedHostStatus.Ready,
             onSelectFeed = {},
             onSelectList = {},

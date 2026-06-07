@@ -2,6 +2,8 @@ package net.kikin.nubecita.feature.feed.impl
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +18,7 @@ import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PinnedFeedUi
+import net.kikin.nubecita.feature.feed.impl.ui.selectedFeedChipIndex
 
 /**
  * Host for the main Feed's per-feed switcher. Renders the active feed as a
@@ -70,6 +73,16 @@ internal fun FeedHost(
 
     val stateHolder = rememberSaveableStateHolder()
 
+    // Chip-row scroll lives ABOVE the per-feed SaveableStateProvider so it is a
+    // single global position rather than saved/restored per feed (which causes a
+    // jump-then-animate flicker on every switch). Seed the initial offset to the
+    // active chip; later selections animate via FeedChipRow's LaunchedEffect.
+    val initialChipIndex =
+        remember {
+            maxOf(0, selectedFeedChipIndex(state.feedChips, state.pinnedLists, state.selectedFeedUri))
+        }
+    val chipListState = rememberLazyListState(initialFirstVisibleItemIndex = initialChipIndex)
+
     Box(modifier = modifier.fillMaxSize()) {
         if (activeFeed != null) {
             stateHolder.SaveableStateProvider(activeFeed.uri) {
@@ -79,6 +92,7 @@ internal fun FeedHost(
                     feedChips = state.feedChips,
                     pinnedLists = state.pinnedLists,
                     selectedFeedUri = state.selectedFeedUri,
+                    chipListState = chipListState,
                     status = state.status,
                     onSelectFeed = { hostViewModel.handleEvent(FeedHostEvent.SelectFeed(it)) },
                     onSelectList = { hostViewModel.handleEvent(FeedHostEvent.SelectList(it)) },
@@ -118,6 +132,7 @@ private fun FeedPane(
     feedChips: ImmutableList<PinnedFeedUi>,
     pinnedLists: ImmutableList<PinnedFeedUi>,
     selectedFeedUri: String?,
+    chipListState: LazyListState,
     status: FeedHostStatus,
     onSelectFeed: (String) -> Unit,
     onSelectList: (String) -> Unit,
@@ -143,6 +158,7 @@ private fun FeedPane(
         feedChips = feedChips,
         pinnedLists = pinnedLists,
         selectedFeedUri = selectedFeedUri,
+        chipListState = chipListState,
         status = status,
         onSelectFeed = onSelectFeed,
         onSelectList = onSelectList,

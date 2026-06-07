@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
@@ -28,6 +30,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -70,6 +73,11 @@ internal fun FeedChipRow(
     onManageFeedsClick: () -> Unit,
     onOpenListsSheet: () -> Unit,
     modifier: Modifier = Modifier,
+    // Hoisted by FeedHost (above its per-feed SaveableStateProvider) so the row's
+    // scroll is a single global position, not saved/restored per feed — otherwise
+    // a switch would jump to the new feed's saved offset before animating. Default
+    // is a local state for previews/tests.
+    chipListState: LazyListState = rememberLazyListState(),
 ) {
     if (status == FeedHostStatus.Loading) {
         LazyRow(
@@ -108,7 +116,17 @@ internal fun FeedChipRow(
                 stringResource(R.string.feed_lists_chip_collapsed)
             }
 
+        // Animate the selected chip to the start on selection so the active chip
+        // stays prominent near the beginning. [chipListState] is hoisted to
+        // FeedHost so this scrolls from the row's persisted position (no per-feed
+        // reset/flicker).
+        val selectedChipIndex = selectedFeedChipIndex(feedChips, pinnedLists, selectedFeedUri)
+        LaunchedEffect(selectedChipIndex) {
+            if (selectedChipIndex >= 0) chipListState.animateScrollToItem(selectedChipIndex)
+        }
+
         LazyRow(
+            state = chipListState,
             modifier = modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -216,6 +234,29 @@ internal fun FeedChipRow(
             }
         }
     }
+}
+
+/**
+ * The [FeedChipRow] item index to scroll the selected feed/list to the start.
+ *
+ * - A selected feed chip maps to its position in [feedChips].
+ * - A selected pinned **list** is represented by the single "lists" disclosure
+ *   chip, which renders right after the feed chips → index [feedChips]`.size`.
+ * - `-1` when nothing matches (no selection, or a uri not present) → no scroll.
+ *
+ * Extracted (and `internal`) so the index logic is unit-tested without a Compose
+ * harness; the row's `LaunchedEffect` just consumes the result.
+ */
+internal fun selectedFeedChipIndex(
+    feedChips: List<PinnedFeedUi>,
+    pinnedLists: List<PinnedFeedUi>,
+    selectedFeedUri: String?,
+): Int {
+    if (selectedFeedUri == null) return -1
+    val feedIdx = feedChips.indexOfFirst { it.uri == selectedFeedUri }
+    if (feedIdx >= 0) return feedIdx
+    if (pinnedLists.any { it.uri == selectedFeedUri }) return feedChips.size
+    return -1
 }
 
 /**
