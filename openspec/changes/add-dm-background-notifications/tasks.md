@@ -1,0 +1,43 @@
+# Tasks — add-dm-background-notifications (bead nubecita-1fy.15)
+
+## 1. Dependencies + WorkManager/Hilt bootstrap
+- [ ] 1.1 Add `androidx.work:work-runtime-ktx`, `androidx.hilt:hilt-work` (+ KSP `androidx.hilt:hilt-compiler`) to the version catalog and `:feature:chats:impl`; add `androidx.work:work-testing` as `androidTestImplementation`.
+- [ ] 1.2 Disable the default `androidx.startup` `WorkManagerInitializer` in the merged manifest; make `NubecitaApplication` implement `Configuration.Provider` returning a `HiltWorkerFactory`. Verify bench flavor still builds.
+
+## 2. Repository: getLog cursor + persistence
+- [ ] 2.1 Add `ChatRepository.getLog(cursor: String?)` wrapping `chat.bsky.convo.getLog`; return events + next cursor.
+- [ ] 2.2 Persist the per-account cursor in `:core:preferences` (DataStore); read/write through a single accessor.
+
+## 3. Pure detection + mapping logic (unit-testable)
+- [ ] 3.1 Pure function: getLog events + viewerDid + last cursor → list of new inbound message-creates to notify (sender ≠ viewer, after cursor) + the advanced cursor.
+- [ ] 3.2 Pure function: message → notification content (sender name, snippet, deleted/attachment handling mirroring v1's ConvoMapper).
+
+## 4. Worker
+- [ ] 4.1 `@HiltWorker class DmPollWorker @AssistedInject` over a thin `doWork()` that: checks signed-in + opt-in, runs §3 logic via the repo, posts notifications (§5) unless foregrounded (§6), advances the cursor, returns success/retry.
+- [ ] 4.2 Auth/refresh through `:core:auth`'s session store with the existing refresh mutex (no rotation race).
+
+## 5. Notification + deep-link
+- [ ] 5.1 "Messages" notification channel (reuse the channel-installer pattern); per-convo stable notification id; group + summary.
+- [ ] 5.2 Tap PendingIntent → deep-link to the convo (new `uriDeepLinkMatcher` → `Chat(otherUserDid)` via `DeepLinkRouter` + `MainActivity`).
+
+## 6. Foreground suppression
+- [ ] 6.1 At run time, read `ProcessLifecycleOwner` state; when foregrounded, skip posting but still advance the cursor.
+
+## 7. Scheduling + lifecycle
+- [ ] 7.1 Scheduler: `enqueueUniquePeriodicWork(KEEP)` (15-min floor, `NetworkType.CONNECTED`) on (opt-in ∧ signed-in); `cancelUniqueWork` on opt-out / logout.
+- [ ] 7.2 Wire registration via a production-flavor `AppInitializer` + reactions to `SessionStateProvider` and the preference flow (bench inert).
+
+## 8. Settings toggle (gates BOTH pollers — design D6)
+- [ ] 8.1 Add a `messageCheckingEnabled` (default true) preference to `:core:preferences` (DataStore) with a reactive flow.
+- [ ] 8.2 Add an in-app `Switch` row in `:feature:settings` (distinct from the existing OS-notification-settings deep-link row). Honest copy: off ⇒ no DM notifications AND no unread badge ("Nubecita stops checking for new messages").
+- [ ] 8.3 Gate v2 worker registration (§7) on (toggle ON ∧ signed-in); cancel on opt-out.
+- [ ] 8.4 **Modify shipped v1**: gate `ChatsUnreadPollingObserver` (nubecita-1fy.14) on the same toggle — skip the foreground poll when off (badge stops updating). Update its tests for the new gate.
+
+## 9. Tests
+- [ ] 9.1 JVM unit tests for §3.1 (cursor advance, sender≠viewer filter, dedup, empty) and §3.2 (content mapping incl. deleted/attachment), via `MainDispatcherExtension`.
+- [ ] 9.2 Instrumentation tests with `androidx.work:work-testing`: `WorkManagerTestInitHelper` + `SynchronousExecutor` to assert the periodic work is enqueued with `NetworkType.CONNECTED`; `TestDriver.setPeriodDelayMet`/`setAllConstraintsMet` to drive a run; `TestListenableWorkerBuilder<DmPollWorker>(context).build().doWork()` against a fake `ChatRepository` asserting result + notification posted, and suppressed when foregrounded. Add the `run-instrumented` PR label.
+- [ ] 9.3 Settings toggle unit test (enables/cancels scheduling); deep-link matcher unit test (DM notification URI → `Chat`).
+
+## 10. Verification
+- [ ] 10.1 `:app:assembleDebug`, `:feature:chats:impl` + `:feature:settings:impl` + `:app` lint, unit tests; manual on-device check via `adb shell cmd jobscheduler run -f <pkg> <jobId>` + `dumpsys deviceidle force-idle` to confirm Doze cooperation and no battery-policy violations.
+- [ ] 10.2 Update README "Versioning"-style docs if a new notification channel is user-visible; confirm no banned battery techniques crept in.
