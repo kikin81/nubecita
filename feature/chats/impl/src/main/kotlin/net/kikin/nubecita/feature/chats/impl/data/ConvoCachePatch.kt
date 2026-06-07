@@ -33,3 +33,30 @@ internal fun patchConvosOnSend(
         )
     return (listOf(patched) + current.filterIndexed { i, _ -> i != index }).toImmutableList()
 }
+
+/**
+ * Reflect "the viewer opened this convo" in the cached list: zero the matching
+ * convo's [ConvoListItemUi.unreadCount] in place so the in-row badge and the
+ * aggregate bottom-nav badge flip to read immediately, without waiting for the
+ * next `listConvos` refresh.
+ *
+ * Pure counterpart to [patchConvosOnSend], unit-tested directly. Unlike a send,
+ * reading does **not** reorder — the convo keeps its position:
+ * - `null` cache (inbox never loaded) → `null` (no-op).
+ * - convo not in the list → returned unchanged.
+ * - convo present → copy with `unreadCount = 0`, all other rows untouched.
+ * - already-read convo → same instance returned (no copy, no emission).
+ */
+internal fun patchConvosOnRead(
+    current: ImmutableList<ConvoListItemUi>?,
+    convoId: String,
+): ImmutableList<ConvoListItemUi>? {
+    if (current == null) return null
+    val index = current.indexOfFirst { it.convoId == convoId }
+    // Already-read (or absent) → return the same instance: no list copy and no
+    // downstream StateFlow emission / recomposition for a no-op open.
+    if (index < 0 || current[index].unreadCount == 0) return current
+    return current
+        .mapIndexed { i, convo -> if (i == index) convo.copy(unreadCount = 0) else convo }
+        .toImmutableList()
+}

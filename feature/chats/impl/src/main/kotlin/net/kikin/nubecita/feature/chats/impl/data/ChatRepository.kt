@@ -68,6 +68,20 @@ interface ChatRepository {
         convoId: String,
         text: String,
     ): Result<MessageUi>
+
+    /**
+     * Marks [convoId] read via `chat.bsky.convo.updateRead` (omitting the
+     * messageId so the server marks read up to the latest message) and
+     * optimistically zeros the matching cached convo's `unreadCount` in
+     * [observeConvos] — so the in-row badge and the aggregate bottom-nav badge
+     * flip to read immediately, without waiting for the next [refreshConvos].
+     *
+     * Best-effort: a no-op cache patch when the convo isn't in the loaded cache
+     * (the server call still runs), and on network failure the cache is left
+     * untouched and the failure is returned for the caller to ignore. Marking an
+     * already-read convo is harmless (idempotent server-side).
+     */
+    suspend fun markConvoRead(convoId: String): Result<Unit>
 }
 
 data class ConvoResolution(

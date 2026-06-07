@@ -49,6 +49,7 @@ internal class FakeChatRepository(
     var lastMessagesCursor: String? = null
     var lastSendConvoId: String? = null
     var lastSendText: String? = null
+    var lastMarkReadConvoId: String? = null
 
     private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
 
@@ -90,6 +91,11 @@ internal class FakeChatRepository(
         lastSendText = text
         sendGate?.await()
         return nextSendResult
+    }
+
+    override suspend fun markConvoRead(convoId: String): Result<Unit> {
+        lastMarkReadConvoId = convoId
+        return Result.success(Unit)
     }
 
     private companion object {

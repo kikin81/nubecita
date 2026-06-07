@@ -229,6 +229,14 @@ class ChatViewModel
                                 .onSuccess { page ->
                                     messages = page.messages
                                     commitMessages(isRefreshing = false)
+                                    // Opening the thread marks it read: clears the
+                                    // server-side unreadCount and optimistically zeros
+                                    // the cached convo so the in-row + bottom-nav badges
+                                    // flip immediately. Best-effort; failure is ignored.
+                                    // Fire-and-forget so a slow/hung mark-read network
+                                    // call doesn't keep inFlightLoad active and block a
+                                    // manual refresh/retry (launchLoad's isActive guard).
+                                    viewModelScope.launch { repository.markConvoRead(resolution.convoId) }
                                 }.onFailure { throwable ->
                                     handleFailure(throwable)
                                 }

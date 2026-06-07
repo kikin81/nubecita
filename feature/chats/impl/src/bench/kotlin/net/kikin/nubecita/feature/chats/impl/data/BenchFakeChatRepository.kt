@@ -200,6 +200,16 @@ internal class BenchFakeChatRepository
             return Result.success(newMsg)
         }
 
+        override suspend fun markConvoRead(convoId: String): Result<Unit> {
+            ensureLoaded()
+            val convo = convosCache[convoId]
+            if (convo != null && convo.unreadCount != 0) {
+                convosCache[convoId] = convo.copy(unreadCount = 0)
+                if (convosFlow.value != null) publishConvos()
+            }
+            return Result.success(Unit)
+        }
+
         private fun currentViewerDid(): String {
             val signedIn =
                 sessionStateProvider.state.value as? SessionState.SignedIn
