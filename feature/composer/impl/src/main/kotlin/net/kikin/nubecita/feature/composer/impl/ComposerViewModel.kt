@@ -424,18 +424,14 @@ internal class ComposerViewModel
 
             // Resolve reply refs upfront — `Loaded` is required by canSubmit
             // when replyToUri is set, so the cast is safe.
+            // canSubmit guarantees Loaded when replyToUri/quotePostUri is set; the
+            // `as?` keeps these safe (and concise) against any future state-ordering
+            // change — a non-Loaded status resolves to null rather than throwing.
             val replyTo: ReplyRefs? =
-                current.replyParentLoad?.let { status ->
-                    val loaded = status as ParentLoadStatus.Loaded
-                    ReplyRefs(parent = loaded.post.parentRef, root = loaded.post.rootRef)
+                (current.replyParentLoad as? ParentLoadStatus.Loaded)?.post?.let {
+                    ReplyRefs(parent = it.parentRef, root = it.rootRef)
                 }
-
-            // Resolve the quote ref upfront — `Loaded` is required by canSubmit
-            // when quotePostUri is set, so the cast is safe.
-            val quote =
-                current.quotePostLoad?.let { status ->
-                    (status as QuoteLoadStatus.Loaded).post.ref
-                }
+            val quote = (current.quotePostLoad as? QuoteLoadStatus.Loaded)?.post?.ref
 
             setState { copy(submitStatus = ComposerSubmitStatus.Submitting) }
 
