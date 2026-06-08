@@ -72,6 +72,9 @@ internal class MessagingStyleDmNotifier
                 .setStyle(style)
                 .setAutoCancel(true)
                 .setGroup(ChatNotificationIds.GROUP_KEY)
+                // Children alert, summary stays silent — avoids a double
+                // sound/vibration on the high-importance channel.
+                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
                 .setContentIntent(tapIntent(first.otherUserDid, ChatNotificationIds.notifyId(first.convoId)))
                 .build()
         }
@@ -82,6 +85,7 @@ internal class MessagingStyleDmNotifier
                 .setSmallIcon(smallIconRes)
                 .setGroup(ChatNotificationIds.GROUP_KEY)
                 .setGroupSummary(true)
+                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
                 .build()
 
         private fun tapIntent(
