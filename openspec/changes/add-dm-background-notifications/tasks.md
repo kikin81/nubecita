@@ -40,5 +40,5 @@
 - [x] 9.3 Settings toggle unit test (mirror + persist — `SettingsViewModelTest`); deep-link matcher test (DM notification URI → `Chat` — `ChatDeepLinkMatcherTest`); scheduler schedule/cancel unit test (`DmPollSchedulerTest`).
 
 ## 10. Verification
-- [ ] 10.1 `:app:assembleDebug`, `:feature:chats:impl` + `:feature:settings:impl` + `:app` lint, unit tests; manual on-device check via `adb shell cmd jobscheduler run -f <pkg> <jobId>` + `dumpsys deviceidle force-idle` to confirm Doze cooperation and no battery-policy violations.
-- [ ] 10.2 Update README "Versioning"-style docs if a new notification channel is user-visible; confirm no banned battery techniques crept in.
+- [x] 10.1 `:app:assembleDebug`, `:feature:chats:impl` + `:feature:settings:impl` + `:app` lint, unit tests (full `testDebugUnitTest` + `work-testing` instrumentation on CI emulator). **Manual on-device Doze check** (`adb shell cmd jobscheduler run` / `dumpsys deviceidle force-idle`) is a device-only QA step — deferred to manual QA; the automated side (enqueue + constraints + DI) is covered by `DmPollWorkInstrumentationTest`.
+- [x] 10.2 README "Direct messages" feature bullet updated for the user-visible background notifications + Messages channel + the message-checking toggle. Battery audit clean — grep confirms NO `setExpedited` / foreground service / wakelock / exact alarm / battery-optimization-exemption anywhere in the worker path.

@@ -16,7 +16,7 @@ A fast, lightweight, native Android client for [Bluesky](https://bsky.app) and t
 - **Profile** with paginated posts / replies / media tabs and compact-format counts via ICU.
 - **Post detail / thread view** with ancestors, focused post, and nested replies.
 - **Media viewer** — zoomable images via telephoto and Media3 HLS playback.
-- **Direct messages** — conversation list + thread view with day separators and message bubbles, scoped to `chat.bsky.*` via the OAuth `transition:chat.bsky` scope.
+- **Direct messages** — conversation list + thread view with day separators and message bubbles, scoped to `chat.bsky.*` via the OAuth `transition:chat.bsky` scope. A foreground unread badge plus best-effort **background notifications**: an on-device `WorkManager` poll (no server, no stored credentials) posts local per-conversation `MessagingStyle` notifications, cooperating with Doze/App Standby rather than fighting them. A single "Check for new messages" Settings toggle (default on) gates all message-checking — off means no notifications and no unread badge.
 - **OAuth login** with system Custom Tabs handoff and session persistence — no embedded WebView.
 - **Edge-to-edge rendering** with system-bar inset propagation through every screen state.
 - **Material 3 Expressive theming** with Material You dynamic color on Android 12+ and a brand fallback palette below.
