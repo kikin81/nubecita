@@ -9,8 +9,8 @@
 - [x] 2.2 Persist the per-account cursor in `:core:preferences` (DataStore); read/write through a single accessor.
 
 ## 3. Pure detection + mapping logic (unit-testable)
-- [ ] 3.1 Pure function: getLog events + viewerDid + last cursor + set of still-unread convoIds → list of new inbound message-creates to notify (sender ≠ viewer, after cursor, **convo still unread** per the read-state filter, **capped to a max per run** to handle large backlogs) + the advanced cursor.
-- [ ] 3.2 Pure function: message → notification content (sender name, snippet, deleted/attachment handling mirroring v1's ConvoMapper).
+- [x] 3.1 Pure function: getLog events + viewerDid + last cursor + set of still-unread convoIds → list of new inbound message-creates to notify (sender ≠ viewer, after cursor, **convo still unread** per the read-state filter, **capped to a max per run** to handle large backlogs) + the advanced cursor.
+- [x] 3.2 Pure function: message → notification content (sender name, snippet, deleted/attachment handling mirroring v1's ConvoMapper).
 
 ## 4. Worker
 - [ ] 4.1 `@HiltWorker class DmPollWorker @AssistedInject` over a thin `doWork()` that: checks signed-in + opt-in, runs §3 logic via the repo, posts notifications (§5) unless foregrounded (§6), advances the cursor, returns success/retry.
