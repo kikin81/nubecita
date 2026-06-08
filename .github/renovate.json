@@ -42,6 +42,11 @@
             "matchUpdateTypes": ["minor", "patch"],
             "automerge": true,
             "platformAutomerge": true
+        },
+        {
+            "description": "Pin aboutlibraries. 15.0.0-rc01+ is built with Kotlin 2.4, whose class metadata (2.4.0) Hilt/Dagger's bundled kotlin-metadata-jvm can't parse while we're on Kotlin 2.3 — it breaks :app:hiltJavaCompile (see PR #467). Re-enable when the project moves to Kotlin 2.4 + a metadata-2.4-capable Dagger.",
+            "matchPackagePatterns": ["aboutlibraries"],
+            "enabled": false
         }
     ]
 }
