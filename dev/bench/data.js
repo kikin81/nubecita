@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780820544651,
+  "lastUpdate": 1780908557356,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -571,6 +571,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 773.503,
             "range": "+/- 34.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "229b7fc391c2c89509cbfa72d033adf27fbd7881",
+          "message": "ci(release): 1.203.0\n\n## [1.203.0](https://github.com/kikin81/nubecita/compare/v1.202.0...v1.203.0) (2026-06-08)\n\n### Features\n\n* **chats,settings:** add message-checking toggle + gate v1 foreground poller ([#493](https://github.com/kikin81/nubecita/issues/493)) ([50f5568](https://github.com/kikin81/nubecita/commit/50f55689d272c543cc72e016661ee2b454565f7b))",
+          "timestamp": "2026-06-08T04:47:22Z",
+          "url": "https://github.com/kikin81/nubecita/commit/229b7fc391c2c89509cbfa72d033adf27fbd7881"
+        },
+        "date": 1780908555813,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 35,
+            "range": "+/- 5.5%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1364.7,
+            "range": "+/- 5.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1360.724,
+            "range": "+/- 1.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1088.324,
+            "range": "+/- 8.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 576.201,
+            "range": "+/- 37%",
             "unit": "ms"
           }
         ]
