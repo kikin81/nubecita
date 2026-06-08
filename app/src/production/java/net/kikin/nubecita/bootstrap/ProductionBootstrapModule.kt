@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadPollingObserver
+import net.kikin.nubecita.feature.chats.impl.worker.DmPollScheduler
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
 
 /**
@@ -55,6 +56,15 @@ internal object ProductionBootstrapModule {
     fun provideChatsUnreadPollingInitializer(
         observer: ChatsUnreadPollingObserver,
     ): AppInitializer = AppInitializer { observer.start() }
+
+    // Reactively schedule/cancel the background DM-poll worker on
+    // (signed-in ∧ message-checking enabled) — nubecita-1fy.15 §7. Production-
+    // only: bench's empty set means no periodic work is ever enqueued there.
+    @Provides
+    @IntoSet
+    fun provideDmPollSchedulerInitializer(
+        scheduler: DmPollScheduler,
+    ): AppInitializer = AppInitializer { scheduler.start() }
 
     // Refresh the viewer's content-filter preferences once the session is
     // signed in (cold start + re-login). Until this runs, ModerationPrefs sits
