@@ -5,8 +5,8 @@
 - [x] 1.2 Disable the default `androidx.startup` `WorkManagerInitializer` in the merged manifest; make `NubecitaApplication` implement `Configuration.Provider` returning a `HiltWorkerFactory`. Verify bench flavor still builds.
 
 ## 2. Repository: getLog cursor + persistence
-- [ ] 2.1 Add `ChatRepository.getLog(cursor: String?)` wrapping `chat.bsky.convo.getLog`; return events + next cursor.
-- [ ] 2.2 Persist the per-account cursor in `:core:preferences` (DataStore); read/write through a single accessor.
+- [x] 2.1 Add `ChatRepository.getLog(cursor: String?)` wrapping `chat.bsky.convo.getLog`; return events + next cursor.
+- [x] 2.2 Persist the per-account cursor in `:core:preferences` (DataStore); read/write through a single accessor.
 
 ## 3. Pure detection + mapping logic (unit-testable)
 - [ ] 3.1 Pure function: getLog events + viewerDid + last cursor + set of still-unread convoIds → list of new inbound message-creates to notify (sender ≠ viewer, after cursor, **convo still unread** per the read-state filter, **capped to a max per run** to handle large backlogs) + the advanced cursor.

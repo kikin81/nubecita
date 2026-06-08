@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.chats.impl.data
 
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoService
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoForMembersRequest
+import io.github.kikin81.atproto.chat.bsky.convo.GetLogRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ListConvosRequest
 import io.github.kikin81.atproto.chat.bsky.convo.MessageInput
@@ -129,6 +130,18 @@ internal class DefaultChatRepository
                     response.toMessageUi(viewerDid = viewerDid).also { patchConvoOnSend(convoId, it) }
                 }.onFailure { throwable ->
                     Timber.tag(TAG).e(throwable, "sendMessage failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun getLog(cursor: String?): Result<ChatLogPage> =
+            withContext(dispatcher) {
+                runCatching {
+                    val client = xrpcClientProvider.authenticated()
+                    ConvoService(client)
+                        .getLog(GetLogRequest(cursor = cursor))
+                        .toChatLogPage()
+                }.onFailure { throwable ->
+                    Timber.tag(TAG).e(throwable, "getLog failed: %s", throwable.javaClass.name)
                 }
             }
 

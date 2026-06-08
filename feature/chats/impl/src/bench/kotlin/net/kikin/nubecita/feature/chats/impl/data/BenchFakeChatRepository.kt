@@ -210,6 +210,10 @@ internal class BenchFakeChatRepository
             return Result.success(Unit)
         }
 
+        // Bench has no firehose/log fixture and never registers the poll worker;
+        // the inbox is fully served by the chats.json convo cache. Empty page.
+        override suspend fun getLog(cursor: String?): Result<ChatLogPage> = Result.success(ChatLogPage())
+
         private fun currentViewerDid(): String {
             val signedIn =
                 sessionStateProvider.state.value as? SessionState.SignedIn
