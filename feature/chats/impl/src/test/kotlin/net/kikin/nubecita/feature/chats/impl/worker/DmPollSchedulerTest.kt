@@ -120,11 +120,11 @@ internal class DmPollSchedulerTest {
         var scheduled = 0
         var cancelled = 0
 
-        override fun ensureScheduled() {
+        override suspend fun ensureScheduled() {
             scheduled++
         }
 
-        override fun cancel() {
+        override suspend fun cancel() {
             cancelled++
         }
     }
