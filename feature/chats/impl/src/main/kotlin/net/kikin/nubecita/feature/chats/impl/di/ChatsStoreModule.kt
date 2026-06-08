@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadCountStore
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadPollingObserver
 import javax.inject.Singleton
@@ -30,11 +31,13 @@ internal object ChatsStoreModule {
     internal fun provideChatsUnreadPollingObserver(
         store: ChatsUnreadCountStore,
         sessionStateProvider: SessionStateProvider,
+        messageChecking: MessageCheckingPreference,
         @ApplicationScope scope: CoroutineScope,
     ): ChatsUnreadPollingObserver =
         ChatsUnreadPollingObserver(
             store = store,
             sessionStateProvider = sessionStateProvider,
+            messageChecking = messageChecking,
             scope = scope,
         )
 }

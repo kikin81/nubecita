@@ -5,10 +5,12 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -33,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ChatsUnreadPollingObserver(
     private val store: ChatsUnreadCountStore,
     private val sessionStateProvider: SessionStateProvider,
+    private val messageChecking: MessageCheckingPreference,
     private val scope: CoroutineScope,
     private val lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
 ) {
@@ -56,7 +59,11 @@ class ChatsUnreadPollingObserver(
                     // When signed out we skip the network call and just idle at the
                     // base cadence.
                     delayMs =
-                        if (sessionStateProvider.state.value is SessionState.SignedIn) {
+                        // Gate on (signed-in ∧ message-checking enabled) — design
+                        // D6. When the user turns message checking off, the
+                        // foreground poll stops too (badge stops updating; the
+                        // enabled collector below also clears it once).
+                        if (sessionStateProvider.state.value is SessionState.SignedIn && messageChecking.enabled.first()) {
                             val result = store.refresh()
                             if (result.isSuccess) {
                                 INITIAL_DELAY_MS
@@ -81,6 +88,15 @@ class ChatsUnreadPollingObserver(
                 if (state is SessionState.SignedOut) {
                     store.clear()
                 }
+            }
+        }
+
+        // Clear the badge immediately when message checking is turned off, so
+        // "off ⇒ no unread badge" (design D6) takes effect without waiting for
+        // the next poll (which is also gated off above).
+        scope.launch {
+            messageChecking.enabled.collect { enabled ->
+                if (!enabled) store.clear()
             }
         }
     }

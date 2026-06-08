@@ -69,6 +69,13 @@ data class SettingsViewState(
     val manageSku: String? = null,
     /** True while a Restore-purchases request is in flight (single-flight guard + row spinner). */
     val isRestoring: Boolean = false,
+    /**
+     * The single "check for new messages" toggle (design D6), mirrored from
+     * `MessageCheckingPreference`. Default true. When off, BOTH the foreground
+     * unread poller AND the background DM-notification worker stop — drives the
+     * Notifications-section Switch row.
+     */
+    val messageCheckingEnabled: Boolean = true,
 ) : UiState
 
 /**
@@ -119,6 +126,15 @@ sealed interface SettingsEvent : UiEvent {
      * [SettingsEffect.OpenSystemNotificationSettings].
      */
     data object NotificationsTapped : SettingsEvent
+
+    /**
+     * User toggled the "Check for new messages" switch (design D6). VM persists
+     * it to `MessageCheckingPreference`; the change reactively starts/stops both
+     * the foreground unread poller and the background DM-notification worker.
+     */
+    data class MessageCheckingToggled(
+        val enabled: Boolean,
+    ) : SettingsEvent
 
     /**
      * User tapped the "Nubecita Pro" upsell row (non-Pro). VM responds with

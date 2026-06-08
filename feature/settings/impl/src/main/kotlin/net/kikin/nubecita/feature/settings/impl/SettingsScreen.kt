@@ -390,12 +390,14 @@ internal fun SettingsContent(
     val currentOnEvent by rememberUpdatedState(onEvent)
     val signOutLabel = stringResource(R.string.settings_signout)
     val notificationsRowLabel = stringResource(R.string.settings_notifications_row_label)
+    val messageCheckingLabel = stringResource(R.string.settings_message_checking_label)
+    val messageCheckingSupporting = stringResource(R.string.settings_message_checking_supporting)
     val versionRowLabel = stringResource(R.string.settings_version_row_label)
     val followDeveloperLabel = stringResource(R.string.settings_follow_developer_row_label)
     val aboutLabel = stringResource(R.string.settings_about_label)
 
     val notificationsRows =
-        remember(notificationsRowLabel) {
+        remember(notificationsRowLabel, messageCheckingLabel, messageCheckingSupporting, state.messageCheckingEnabled) {
             persistentListOf(
                 // SettingsRow.Link semantically signals "opens an external
                 // destination" — here, the OS app-notification-settings
@@ -406,6 +408,17 @@ internal fun SettingsContent(
                     icon = null,
                     label = notificationsRowLabel,
                     onClick = { currentOnEvent(SettingsEvent.NotificationsTapped) },
+                ),
+                // The single "check for new messages" toggle (design D6) —
+                // gates BOTH the foreground unread poller and the background
+                // DM-notification worker. Honest supporting copy spells out
+                // that off means no notifications AND no unread badge.
+                SettingsRow.Toggle(
+                    icon = null,
+                    label = messageCheckingLabel,
+                    supportingText = messageCheckingSupporting,
+                    checked = state.messageCheckingEnabled,
+                    onCheckedChange = { currentOnEvent(SettingsEvent.MessageCheckingToggled(it)) },
                 ),
             )
         }
