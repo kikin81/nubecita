@@ -24,8 +24,8 @@
 - [x] 6.1 At run time, read `ProcessLifecycleOwner` state; when foregrounded, skip posting **and do not advance the cursor** (hold it so the next background run re-evaluates the events through the read-state filter — design D5). (Via the `AppForegroundSignal` seam, checked before any network in `DmPollRunner`.)
 
 ## 7. Scheduling + lifecycle
-- [ ] 7.1 Scheduler: `enqueueUniquePeriodicWork(KEEP)` (15-min floor, `NetworkType.CONNECTED`) on (opt-in ∧ signed-in); `cancelUniqueWork` on opt-out / logout.
-- [ ] 7.2 Wire registration via a production-flavor `AppInitializer` + reactions to `SessionStateProvider` and the preference flow (bench inert).
+- [x] 7.1 Scheduler: `enqueueUniquePeriodicWork(KEEP)` (15-min floor, `NetworkType.CONNECTED`) on (opt-in ∧ signed-in); `cancelUniqueWork` on opt-out / logout. (`WorkManagerDmWorkScheduler` behind the `DmWorkScheduler` seam.)
+- [x] 7.2 Wire registration via a production-flavor `AppInitializer` + reactions to `SessionStateProvider` and the preference flow (bench inert). (`DmPollScheduler.start()` via `@IntoSet` in `ProductionBootstrapModule`; reactive decision JVM-unit-tested.)
 
 ## 8. Settings toggle (gates BOTH pollers — design D6)
 - [x] 8.1 Add a `messageCheckingEnabled` (default true) preference to `:core:preferences` (DataStore) with a reactive flow. (`MessageCheckingPreference`, dedicated accessor; gates `DmPollRunner` already.)

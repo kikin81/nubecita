@@ -17,4 +17,7 @@ internal abstract class DmWorkerBindingsModule {
 
     @Binds
     abstract fun bindDmNotifier(impl: MessagingStyleDmNotifier): DmNotifier
+
+    @Binds
+    abstract fun bindDmWorkScheduler(impl: WorkManagerDmWorkScheduler): DmWorkScheduler
 }
