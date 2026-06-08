@@ -15,6 +15,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.billing.RestoreResult
+import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import net.kikin.nubecita.core.profile.ActorProfile
 import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.core.profile.avatarHueFor
@@ -62,13 +63,43 @@ internal class SettingsViewModelTest {
                 every { this@mockk.isPro } returns MutableStateFlow(isPro)
                 every { activeSubscription } returns MutableStateFlow(activeSub)
             },
+        messageChecking: MessageCheckingPreference =
+            mockk(relaxed = true) {
+                every { enabled } returns MutableStateFlow(true)
+            },
     ) = SettingsViewModel(
         authRepository = auth,
         sessionStateProvider = session,
         actorProfileRepository = actorProfile,
         entitlementRepository = entitlement,
         billingRepository = billing,
+        messageCheckingPreference = messageChecking,
     )
+
+    @Test
+    fun `message-checking enabled is mirrored from the preference`() =
+        runTest(mainDispatcher.dispatcher) {
+            val pref =
+                mockk<MessageCheckingPreference>(relaxed = true) {
+                    every { enabled } returns MutableStateFlow(false)
+                }
+            val vm = createVm(auth = mockk(relaxed = true), messageChecking = pref)
+            advanceUntilIdle()
+
+            assertEquals(false, vm.uiState.value.messageCheckingEnabled)
+        }
+
+    @Test
+    fun `MessageCheckingToggled persists to the preference`() =
+        runTest(mainDispatcher.dispatcher) {
+            val pref = mockk<MessageCheckingPreference>(relaxed = true) { every { enabled } returns MutableStateFlow(true) }
+            val vm = createVm(auth = mockk(relaxed = true), messageChecking = pref)
+
+            vm.handleEvent(SettingsEvent.MessageCheckingToggled(enabled = false))
+            advanceUntilIdle()
+
+            coVerify { pref.setEnabled(false) }
+        }
 
     @Test
     fun `SignOutTapped opens the confirmation dialog`() =

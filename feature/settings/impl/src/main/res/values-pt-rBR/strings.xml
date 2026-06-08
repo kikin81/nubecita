@@ -20,6 +20,8 @@
     <string name="settings_switch_account_coming_soon">Múltiplas contas: em breve</string>
     <string name="settings_switch_account_avatar_content_description">Conta atual</string>
     <string name="settings_notifications_row_label">Notificações</string>
+    <string name="settings_message_checking_label">Verificar novas mensagens</string>
+    <string name="settings_message_checking_supporting">Quando desativado, o Nubecita para de verificar mensagens — sem notificações de mensagens e sem selo de não lidas.</string>
     <string name="settings_pro_section_label">Nubecita Pro</string>
     <string name="settings_pro_upsell_label">Nubecita Pro</string>
     <string name="settings_pro_upsell_supporting">Apoie o desenvolvedor e desbloqueie as vantagens Pro</string>

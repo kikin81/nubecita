@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":core:common"))
     // ModerationPreferencesRepository — backs the Content filters screen.
     implementation(project(":core:moderation"))
+    implementation(project(":core:preferences"))
     implementation(project(":core:profile"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))

@@ -131,6 +131,32 @@ class ChatsUnreadPollingObserverTest {
         }
 
     @Test
+    fun `does not poll while message checking is disabled`() =
+        runPollingTest(unread = 5, messageCheckingFlow = MutableStateFlow(false)) { f ->
+            f.observer.start()
+            runCurrent()
+            f.lifecycleRegistry.currentState = Lifecycle.State.STARTED
+            runCurrent()
+            advanceTimeBy(180_000L)
+            runCurrent()
+            assertEquals(0, f.repository.refreshCalls, "message checking off: no refresh attempts")
+        }
+
+    @Test
+    fun `turning message checking off clears the badge`() =
+        runPollingTest(unread = 9) { f ->
+            f.observer.start()
+            runCurrent()
+            f.lifecycleRegistry.currentState = Lifecycle.State.STARTED
+            runCurrent()
+            assertEquals(9, f.store.unreadCount.value)
+
+            f.messageCheckingFlow.value = false
+            runCurrent()
+            assertEquals(0, f.store.unreadCount.value, "disabling clears the badge")
+        }
+
+    @Test
     fun `does not poll while signed out`() =
         runPollingTest(sessionFlow = MutableStateFlow(SessionState.SignedOut)) { f ->
             f.observer.start()
@@ -165,9 +191,10 @@ class ChatsUnreadPollingObserverTest {
         unread: Int = 0,
         sessionFlow: MutableStateFlow<SessionState> =
             MutableStateFlow(SessionState.SignedIn(handle = "alice.bsky.social", did = "did:plc:alice")),
+        messageCheckingFlow: MutableStateFlow<Boolean> = MutableStateFlow(true),
         block: suspend TestScope.(Fixture) -> Unit,
     ) = runTest(mainDispatcherExtension.dispatcher) {
-        val f = newFixture(unread, sessionFlow)
+        val f = newFixture(unread, sessionFlow, messageCheckingFlow)
         try {
             block(f)
         } finally {
@@ -183,11 +210,13 @@ class ChatsUnreadPollingObserverTest {
         val lifecycleRegistry: LifecycleRegistry,
         val owner: LifecycleOwner,
         val scope: CoroutineScope,
+        val messageCheckingFlow: MutableStateFlow<Boolean>,
     )
 
     private fun newFixture(
         unread: Int,
         sessionFlow: MutableStateFlow<SessionState>,
+        messageCheckingFlow: MutableStateFlow<Boolean> = MutableStateFlow(true),
     ): Fixture {
         val dispatcher = mainDispatcherExtension.dispatcher
         val repository = FakeChatRepository(unread = unread)
@@ -200,10 +229,19 @@ class ChatsUnreadPollingObserverTest {
             ChatsUnreadPollingObserver(
                 store = store,
                 sessionStateProvider = sessionStateProvider,
+                messageChecking = FakeMessageChecking(messageCheckingFlow),
                 scope = scope,
                 lifecycle = registry,
             )
-        return Fixture(observer, store, repository, sessionStateProvider, registry, owner, scope)
+        return Fixture(observer, store, repository, sessionStateProvider, registry, owner, scope, messageCheckingFlow)
+    }
+
+    private class FakeMessageChecking(
+        override val enabled: MutableStateFlow<Boolean>,
+    ) : net.kikin.nubecita.core.preferences.MessageCheckingPreference {
+        override suspend fun setEnabled(enabled: Boolean) {
+            this.enabled.value = enabled
+        }
     }
 
     private class FakeLifecycleOwner : LifecycleOwner {

@@ -5,10 +5,12 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -33,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ChatsUnreadPollingObserver(
     private val store: ChatsUnreadCountStore,
     private val sessionStateProvider: SessionStateProvider,
+    private val messageChecking: MessageCheckingPreference,
     private val scope: CoroutineScope,
     private val lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
 ) {
@@ -47,31 +50,38 @@ class ChatsUnreadPollingObserver(
         if (!started.compareAndSet(false, true)) return
         scope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                var delayMs = INITIAL_DELAY_MS
-                while (isActive) {
-                    // Gate on an active session: the observer is process-scoped,
-                    // so it's also foregrounded on the Login screen, at cold-start
-                    // `Loading`, and after logout — where `refresh()` would hit
-                    // `authenticated()` (no session), fail, and log every cycle.
-                    // When signed out we skip the network call and just idle at the
-                    // base cadence.
-                    delayMs =
-                        if (sessionStateProvider.state.value is SessionState.SignedIn) {
-                            val result = store.refresh()
-                            if (result.isSuccess) {
-                                INITIAL_DELAY_MS
+                // Drive the poll loop off the toggle (design D6): collectLatest
+                // cancels the running loop the moment message checking is turned
+                // off, so a disabled non-chatter has zero polling — not even an
+                // idle 60s tick. Re-enabling restarts the loop at the base cadence.
+                messageChecking.enabled.collectLatest { enabled ->
+                    if (!enabled) return@collectLatest
+                    var delayMs = INITIAL_DELAY_MS
+                    while (isActive) {
+                        // Gate on an active session: the observer is process-scoped,
+                        // so it's also foregrounded on the Login screen, at cold-start
+                        // `Loading`, and after logout — where `refresh()` would hit
+                        // `authenticated()` (no session), fail, and log every cycle.
+                        // When signed out we skip the network call and just idle at the
+                        // base cadence.
+                        delayMs =
+                            if (sessionStateProvider.state.value is SessionState.SignedIn) {
+                                val result = store.refresh()
+                                if (result.isSuccess) {
+                                    INITIAL_DELAY_MS
+                                } else {
+                                    Timber.tag(TAG).w(
+                                        result.exceptionOrNull(),
+                                        "chat unread refresh failed; backing off to %dms",
+                                        (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS),
+                                    )
+                                    (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS)
+                                }
                             } else {
-                                Timber.tag(TAG).w(
-                                    result.exceptionOrNull(),
-                                    "chat unread refresh failed; backing off to %dms",
-                                    (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS),
-                                )
-                                (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS)
+                                INITIAL_DELAY_MS
                             }
-                        } else {
-                            INITIAL_DELAY_MS
-                        }
-                    delay(delayMs)
+                        delay(delayMs)
+                    }
                 }
             }
         }
@@ -81,6 +91,15 @@ class ChatsUnreadPollingObserver(
                 if (state is SessionState.SignedOut) {
                     store.clear()
                 }
+            }
+        }
+
+        // Clear the badge immediately when message checking is turned off, so
+        // "off ⇒ no unread badge" (design D6) takes effect without waiting for
+        // the next poll (which is also gated off above).
+        scope.launch {
+            messageChecking.enabled.collect { enabled ->
+                if (!enabled) store.clear()
             }
         }
     }

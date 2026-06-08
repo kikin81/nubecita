@@ -15,6 +15,7 @@ import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.data.models.ActiveSubscription
@@ -51,6 +52,7 @@ internal class SettingsViewModel
         private val actorProfileRepository: ActorProfileRepository,
         private val entitlementRepository: EntitlementRepository,
         private val billingRepository: BillingRepository,
+        private val messageCheckingPreference: MessageCheckingPreference,
     ) : MviViewModel<SettingsViewState, SettingsEvent, SettingsEffect>(
             SettingsViewState(),
         ) {
@@ -92,6 +94,12 @@ internal class SettingsViewModel
                 .onEach { isPro -> setState { copy(isPro = isPro) } }
                 .launchIn(viewModelScope)
 
+            // Mirror the message-checking toggle into flat state for the
+            // Notifications-section Switch. Default-on Flow; never throws.
+            messageCheckingPreference.enabled
+                .onEach { enabled -> setState { copy(messageCheckingEnabled = enabled) } }
+                .launchIn(viewModelScope)
+
             // The active subscription drives the manage-subscription sku and the
             // current-plan label. collectLatest cancels an in-flight price
             // resolution if a newer subscription arrives, so a slower older
@@ -118,6 +126,18 @@ internal class SettingsViewModel
                     sendEffect(SettingsEffect.ShowSwitchAccountComingSoon)
                 SettingsEvent.NotificationsTapped ->
                     sendEffect(SettingsEffect.OpenSystemNotificationSettings)
+                is SettingsEvent.MessageCheckingToggled ->
+                    viewModelScope.launch {
+                        try {
+                            messageCheckingPreference.setEnabled(event.enabled)
+                        } catch (error: Exception) {
+                            // DataStore write can throw IOException (disk full,
+                            // etc). Don't crash the screen — the state mirror
+                            // reverts on the next emission; a failed toggle is
+                            // a no-op the user can retry.
+                            Timber.tag(TAG).e(error, "Failed to persist message-checking toggle")
+                        }
+                    }
                 SettingsEvent.ProUpsellTapped ->
                     sendEffect(SettingsEffect.OpenPaywall)
                 SettingsEvent.ManageSubscriptionTapped ->

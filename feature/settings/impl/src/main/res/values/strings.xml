@@ -47,6 +47,8 @@
          controls, importance overrides). In-app per-reason toggles
          live in the same section and arrive in a later epic. -->
     <string name="settings_notifications_row_label">Notifications</string>
+    <string name="settings_message_checking_label">Check for new messages</string>
+    <string name="settings_message_checking_supporting">When off, Nubecita stops checking for messages — no message notifications and no unread badge.</string>
 
     <!-- Nubecita Pro section (nubecita-q5ge.10). Two faces:
          - Non-Pro: an upsell row opening the paywall. "Support the

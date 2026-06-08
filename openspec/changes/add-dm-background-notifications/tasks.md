@@ -29,9 +29,9 @@
 
 ## 8. Settings toggle (gates BOTH pollers — design D6)
 - [x] 8.1 Add a `messageCheckingEnabled` (default true) preference to `:core:preferences` (DataStore) with a reactive flow. (`MessageCheckingPreference`, dedicated accessor; gates `DmPollRunner` already.)
-- [ ] 8.2 Add an in-app `Switch` row in `:feature:settings` (distinct from the existing OS-notification-settings deep-link row). Honest copy: off ⇒ no DM notifications AND no unread badge ("Nubecita stops checking for new messages").
-- [ ] 8.3 Gate v2 worker registration (§7) on (toggle ON ∧ signed-in); cancel on opt-out.
-- [ ] 8.4 **Modify shipped v1**: gate `ChatsUnreadPollingObserver` (nubecita-1fy.14) on the same toggle — skip the foreground poll when off (badge stops updating). Update its tests for the new gate.
+- [x] 8.2 Add an in-app `Switch` row in `:feature:settings` (distinct from the existing OS-notification-settings deep-link row). Honest copy: off ⇒ no DM notifications AND no unread badge ("Nubecita stops checking for new messages"). (`SettingsRow.Toggle` in the Notifications section, bound to `MessageCheckingPreference`.)
+- [x] 8.3 Gate v2 worker registration (§7) on (toggle ON ∧ signed-in); cancel on opt-out. (Done in §7's `DmPollScheduler`.)
+- [x] 8.4 **Modify shipped v1**: gate `ChatsUnreadPollingObserver` (nubecita-1fy.14) on the same toggle — skip the foreground poll when off (badge stops updating). Update its tests for the new gate. (Poll gated on `enabled`; a collector clears the badge on disable.)
 - [x] 8.5 Read-state filter (replaces a manual getLog-cursor bump, which a single global cursor can't express): the worker fetches still-unread convoIds (e.g. from `listConvos`/cache) and notifies only inbound events whose convo is still unread. Foreground reads already clear server unread via `chat.bsky.convo.updateRead` (`nubecita-1fy.18`), so a thread the user opened is filtered out on the next poll — no re-notification. (`DmPollRunner` derives the unread set from `refreshConvos`/`observeConvos` and passes it to `toDmNotifyPlan`.)
 
 ## 9. Tests
