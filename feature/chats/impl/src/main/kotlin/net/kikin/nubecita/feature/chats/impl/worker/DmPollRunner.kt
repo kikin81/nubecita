@@ -99,6 +99,7 @@ internal class DmPollRunner
                             otherUserDid = convo?.otherUserDid?.takeIf { it.isNotEmpty() } ?: event.senderDid,
                             title = content.title,
                             body = content.body,
+                            timestampMillis = event.sentAt.toEpochMilliseconds(),
                         )
                     },
                 )

@@ -8,6 +8,10 @@
     <string name="chats_row_attachment_placeholder">Sent an attachment</string>
     <string name="chats_row_deleted_placeholder">Message deleted</string>
 
+    <!-- Background DM notifications -->
+    <string name="chats_messages_channel_name">Messages</string>
+    <string name="chats_messages_channel_description">New direct messages</string>
+
     <!-- Empty + error states -->
     <string name="chats_empty_title">No conversations yet</string>
     <string name="chats_empty_body">Direct messages with other Bluesky users will appear here.</string>
