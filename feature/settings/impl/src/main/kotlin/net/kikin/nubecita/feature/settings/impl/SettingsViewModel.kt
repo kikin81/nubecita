@@ -127,7 +127,17 @@ internal class SettingsViewModel
                 SettingsEvent.NotificationsTapped ->
                     sendEffect(SettingsEffect.OpenSystemNotificationSettings)
                 is SettingsEvent.MessageCheckingToggled ->
-                    viewModelScope.launch { messageCheckingPreference.setEnabled(event.enabled) }
+                    viewModelScope.launch {
+                        try {
+                            messageCheckingPreference.setEnabled(event.enabled)
+                        } catch (error: Exception) {
+                            // DataStore write can throw IOException (disk full,
+                            // etc). Don't crash the screen — the state mirror
+                            // reverts on the next emission; a failed toggle is
+                            // a no-op the user can retry.
+                            Timber.tag(TAG).e(error, "Failed to persist message-checking toggle")
+                        }
+                    }
                 SettingsEvent.ProUpsellTapped ->
                     sendEffect(SettingsEffect.OpenPaywall)
                 SettingsEvent.ManageSubscriptionTapped ->

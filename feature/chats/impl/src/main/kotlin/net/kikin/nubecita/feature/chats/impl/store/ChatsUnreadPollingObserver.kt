@@ -5,7 +5,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.SessionState
@@ -50,35 +50,38 @@ class ChatsUnreadPollingObserver(
         if (!started.compareAndSet(false, true)) return
         scope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                var delayMs = INITIAL_DELAY_MS
-                while (isActive) {
-                    // Gate on an active session: the observer is process-scoped,
-                    // so it's also foregrounded on the Login screen, at cold-start
-                    // `Loading`, and after logout — where `refresh()` would hit
-                    // `authenticated()` (no session), fail, and log every cycle.
-                    // When signed out we skip the network call and just idle at the
-                    // base cadence.
-                    delayMs =
-                        // Gate on (signed-in ∧ message-checking enabled) — design
-                        // D6. When the user turns message checking off, the
-                        // foreground poll stops too (badge stops updating; the
-                        // enabled collector below also clears it once).
-                        if (sessionStateProvider.state.value is SessionState.SignedIn && messageChecking.enabled.first()) {
-                            val result = store.refresh()
-                            if (result.isSuccess) {
-                                INITIAL_DELAY_MS
+                // Drive the poll loop off the toggle (design D6): collectLatest
+                // cancels the running loop the moment message checking is turned
+                // off, so a disabled non-chatter has zero polling — not even an
+                // idle 60s tick. Re-enabling restarts the loop at the base cadence.
+                messageChecking.enabled.collectLatest { enabled ->
+                    if (!enabled) return@collectLatest
+                    var delayMs = INITIAL_DELAY_MS
+                    while (isActive) {
+                        // Gate on an active session: the observer is process-scoped,
+                        // so it's also foregrounded on the Login screen, at cold-start
+                        // `Loading`, and after logout — where `refresh()` would hit
+                        // `authenticated()` (no session), fail, and log every cycle.
+                        // When signed out we skip the network call and just idle at the
+                        // base cadence.
+                        delayMs =
+                            if (sessionStateProvider.state.value is SessionState.SignedIn) {
+                                val result = store.refresh()
+                                if (result.isSuccess) {
+                                    INITIAL_DELAY_MS
+                                } else {
+                                    Timber.tag(TAG).w(
+                                        result.exceptionOrNull(),
+                                        "chat unread refresh failed; backing off to %dms",
+                                        (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS),
+                                    )
+                                    (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS)
+                                }
                             } else {
-                                Timber.tag(TAG).w(
-                                    result.exceptionOrNull(),
-                                    "chat unread refresh failed; backing off to %dms",
-                                    (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS),
-                                )
-                                (delayMs * BACKOFF_MULTIPLIER).coerceAtMost(MAX_DELAY_MS)
+                                INITIAL_DELAY_MS
                             }
-                        } else {
-                            INITIAL_DELAY_MS
-                        }
-                    delay(delayMs)
+                        delay(delayMs)
+                    }
                 }
             }
         }
