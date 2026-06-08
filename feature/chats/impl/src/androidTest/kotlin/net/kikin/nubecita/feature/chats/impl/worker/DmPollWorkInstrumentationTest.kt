@@ -81,6 +81,7 @@ class DmPollWorkInstrumentationTest {
         }
 
         val infos = WorkManager.getInstance(context).getWorkInfosForUniqueWork(UNIQUE_WORK_NAME).get()
+        assertEquals(1, infos.size)
         // Cancel leaves a CANCELLED tombstone (not an empty list).
         assertEquals(WorkInfo.State.CANCELLED, infos.first().state)
     }
