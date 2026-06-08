@@ -17,8 +17,8 @@
 - [x] 4.2 Auth/refresh through `:core:auth`'s session store with the existing refresh mutex (no rotation race). (All worker network goes through `ChatRepository`'s `XrpcClientProvider.authenticated()`.)
 
 ## 5. Notification + deep-link
-- [ ] 5.1 "Messages" notification channel (reuse the channel-installer pattern); per-convo stable notification id; group + summary.
-- [ ] 5.2 Tap PendingIntent → deep-link to the convo (new `uriDeepLinkMatcher` → `Chat(otherUserDid)` via `DeepLinkRouter` + `MainActivity`).
+- [x] 5.1 "Messages" notification channel (lazy idempotent install); per-convo stable notification id; group + summary. (`MessagingStyleDmNotifier` replaces the seam binding; small icon via `@DmNotificationSmallIcon` from `:app`.)
+- [x] 5.2 Tap PendingIntent → deep-link to the convo (`nubecita://chat/{otherUserDid}` → `Chat` via `ChatDeepLinkModule`'s `uriDeepLinkMatcher` + `:app` manifest filter; `MainActivity.handleIntent` routes to `DeepLinkRouter`).
 
 ## 6. Foreground suppression
 - [x] 6.1 At run time, read `ProcessLifecycleOwner` state; when foregrounded, skip posting **and do not advance the cursor** (hold it so the next background run re-evaluates the events through the read-state filter — design D5). (Via the `AppForegroundSignal` seam, checked before any network in `DmPollRunner`.)

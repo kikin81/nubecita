@@ -45,6 +45,9 @@ dependencies {
     // the Profile / Feed pattern.
     implementation(project(":feature:postdetail:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
+    // NotificationCompat / MessagingStyle / NotificationManagerCompat for the
+    // background DM notifier (nubecita-1fy.15).
+    implementation(libs.androidx.core.ktx)
     // WorkManager + Hilt-work for the background DM-poll worker (v2,
     // nubecita-1fy.15). Periodic, Doze-cooperative. androidx.hilt.compiler (KSP)
     // generates the @HiltWorker factory binding.

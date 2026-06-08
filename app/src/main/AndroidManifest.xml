@@ -253,6 +253,23 @@
                     android:scheme="nubecita"
                     android:host="profile" />
             </intent-filter>
+            <!--
+                Background DM-notification tap target (nubecita-1fy.15). The
+                local notification's PendingIntent fires a package-constrained
+                VIEW intent at nubecita://chat/{otherUserDid}; this filter routes
+                it to MainActivity, where ChatDeepLinkModule's matcher resolves
+                it to the Chat NavKey. host="chat" is constrained so only chat
+                URIs route here. Custom-scheme only — no autoVerify (we never
+                receive these from the web).
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="nubecita"
+                    android:host="chat" />
+            </intent-filter>
         </activity>
         <!--
             FCM messaging service is registered from `:core:push`'s own
