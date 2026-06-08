@@ -43,7 +43,13 @@ internal class DefaultDmPollCursorStore
             dataStore.edit { prefs -> prefs[keyFor(did)] = cursor }
         }
 
-        private fun keyFor(did: String) = stringPreferencesKey("$KEY_PREFIX$did")
+        private fun keyFor(did: String): Preferences.Key<String> {
+            // A blank DID would collapse every account onto the shared
+            // "dm_poll_cursor_" key — fail fast on the upstream bug rather than
+            // silently cross-contaminate cursors.
+            require(did.isNotBlank()) { "did must not be blank" }
+            return stringPreferencesKey("$KEY_PREFIX$did")
+        }
 
         private companion object {
             const val KEY_PREFIX = "dm_poll_cursor_"

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -57,6 +58,15 @@ internal class DefaultDmPollCursorStoreTest {
             store.setCursor(DID_A, "new")
 
             assertEquals("new", store.cursor(DID_A).first())
+        }
+
+    @Test
+    fun `setCursor rejects a blank DID`() =
+        runTest {
+            val store = DefaultDmPollCursorStore(newDataStore(this))
+
+            val error = runCatching { store.setCursor("  ", "cursor") }.exceptionOrNull()
+            assertInstanceOf(IllegalArgumentException::class.java, error)
         }
 
     private companion object {

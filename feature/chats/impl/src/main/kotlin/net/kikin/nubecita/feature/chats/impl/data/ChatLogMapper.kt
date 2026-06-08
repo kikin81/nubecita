@@ -6,6 +6,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.GetLogResponseLogsUnion
 import io.github.kikin81.atproto.chat.bsky.convo.LogCreateMessage
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
 import kotlinx.collections.immutable.toImmutableList
+import timber.log.Timber
 import kotlin.time.Instant
 
 /**
@@ -43,26 +44,42 @@ internal fun GetLogResponse.toChatLogPage(): ChatLogPage =
 private fun GetLogResponseLogsUnion.toChatLogEvent(): ChatLogEvent? {
     if (this !is LogCreateMessage) return null
     return when (val m = message) {
-        is MessageView ->
+        is MessageView -> {
+            // Drop (not throw) on a malformed timestamp: this runs in an
+            // unattended cursor-advancing background loop, so a single poison
+            // message must not fail the whole page — that would stall the cursor
+            // and re-process the bad page forever.
+            val sentAt = m.sentAt.raw.toInstantOrNull() ?: return null
             ChatLogEvent(
                 convoId = convoId,
                 messageId = m.id,
                 senderDid = m.sender.did.raw,
                 text = m.text,
                 isDeleted = false,
-                sentAt = Instant.parse(m.sentAt.raw),
+                sentAt = sentAt,
             )
+        }
 
-        is DeletedMessageView ->
+        is DeletedMessageView -> {
+            val sentAt = m.sentAt.raw.toInstantOrNull() ?: return null
             ChatLogEvent(
                 convoId = convoId,
                 messageId = m.id,
                 senderDid = m.sender.did.raw,
                 text = "",
                 isDeleted = true,
-                sentAt = Instant.parse(m.sentAt.raw),
+                sentAt = sentAt,
             )
+        }
 
         else -> null // forward-compat Unknown message variant
     }
 }
+
+private fun String.toInstantOrNull(): Instant? =
+    try {
+        Instant.parse(this)
+    } catch (e: IllegalArgumentException) {
+        Timber.tag("ChatLogMapper").w(e, "Dropping getLog event with malformed sentAt: %s", this)
+        null
+    }

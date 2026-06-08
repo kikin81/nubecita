@@ -68,6 +68,24 @@ internal class ChatLogMapperTest {
     }
 
     @Test
+    fun `drops an event with a malformed timestamp but keeps the rest and the cursor`() {
+        val page =
+            GetLogResponse(
+                cursor = "next-3",
+                logs =
+                    listOf(
+                        createMessage("c1", messageView("bad", "did:plc:alice", "oops", sentAt = "not-a-date")),
+                        createMessage("c1", messageView("ok", "did:plc:alice", "fine")),
+                    ),
+            ).toChatLogPage()
+
+        // A single poison message must not fail the whole page (which would stall
+        // the cursor and re-notify forever in the background loop).
+        assertEquals("next-3", page.nextCursor)
+        assertEquals(listOf("ok"), page.events.map { it.messageId })
+    }
+
+    @Test
     fun `empty logs yield no events`() {
         val page = GetLogResponse(cursor = null, logs = emptyList()).toChatLogPage()
         assertTrue(page.events.isEmpty())
