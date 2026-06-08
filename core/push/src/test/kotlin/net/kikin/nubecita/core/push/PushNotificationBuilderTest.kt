@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.push
 
 import android.content.Intent
 import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.TAP_INTENT_FLAGS
+import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.bigTextFor
 import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.deepLinkFor
 import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.groupKeyFor
 import net.kikin.nubecita.core.push.PushNotificationBuilder.Companion.notifyIdFor
@@ -154,6 +155,27 @@ class PushNotificationBuilderTest {
         assertNull(tapIntentSpecFor(payload, packageName = "net.kikin.nubecita"))
     }
 
+    @Test
+    fun `bigTextFor returns the gateway post text so reply-mention-quote render as expandable big-text`() {
+        val payload = quotePayload(bodyText = "the actual quoting post's words")
+
+        assertEquals("the actual quoting post's words", bigTextFor(payload))
+    }
+
+    @Test
+    fun `bigTextFor returns null when bodyText is absent so engagement notifications render title-only`() {
+        val payload = likePayload(uri = "at://did:plc:alice/app.bsky.feed.like/3kabc")
+
+        assertNull(bigTextFor(payload))
+    }
+
+    @Test
+    fun `bigTextFor returns null when bodyText is blank so a whitespace-only body falls back to title-only`() {
+        val payload = quotePayload(bodyText = "   \n  ")
+
+        assertNull(bigTextFor(payload))
+    }
+
     private fun likePayload(
         uri: String,
         subject: String? = null,
@@ -166,5 +188,17 @@ class PushNotificationBuilderTest {
             actorHandle = "alice.bsky.social",
             actorDisplayName = "Alice",
             recipientDid = "did:plc:bob",
+        )
+
+    private fun quotePayload(bodyText: String?): PushPayload =
+        PushPayload(
+            reason = PushPayload.Reason.Quote,
+            uri = "at://did:plc:alice/app.bsky.feed.post/3kabc",
+            subject = "at://did:plc:bob/app.bsky.feed.post/3kxyz",
+            actorDid = "did:plc:alice",
+            actorHandle = "alice.bsky.social",
+            actorDisplayName = "Alice",
+            recipientDid = "did:plc:bob",
+            bodyText = bodyText,
         )
 }

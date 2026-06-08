@@ -104,6 +104,27 @@ class PushPayloadParseTest {
         assertNull(PushPayload.parse(data))
     }
 
+    @Test
+    fun `parses bodyText (the notifying post text) when the gateway includes it`() {
+        val data =
+            baseRequiredFields() +
+                mapOf(
+                    "reason" to "quote",
+                    "bodyText" to "this is the quoting post's text",
+                )
+
+        assertEquals("this is the quoting post's text", PushPayload.parse(data)?.bodyText)
+    }
+
+    @Test
+    fun `bodyText is null when absent (pre-deploy gateways and engagement payloads omit it)`() {
+        val data =
+            baseRequiredFields() +
+                mapOf("reason" to "like")
+
+        assertNull(PushPayload.parse(data)?.bodyText)
+    }
+
     companion object {
         @JvmStatic
         fun reasonWireStrings(): List<Arguments> =
