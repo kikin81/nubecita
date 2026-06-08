@@ -24,6 +24,11 @@ For `reply`, `mention`, and `quote` push notifications, the gateway SHALL set th
 - **WHEN** a notifying post's text exceeds the bounded length
 - **THEN** the body and `bodyText` are truncated (with an ellipsis) on a rune boundary and stay well within the push payload size limit
 
+#### Scenario: Empty or whitespace-only post text falls back to the templated line
+
+- **WHEN** a `reply`, `mention`, or `quote` notifying post has empty or whitespace-only text
+- **THEN** the body falls back to the existing templated actor + reason line (e.g. "Alice replied to your post"), `bodyText` is absent, and the client renders it title-only (no big-text)
+
 #### Scenario: Client renders the post text as expandable big-text
 
 - **WHEN** the app receives a payload whose `data.bodyText` is present
