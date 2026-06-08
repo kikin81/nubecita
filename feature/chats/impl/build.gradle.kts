@@ -34,6 +34,9 @@ dependencies {
     // `app.bsky.embed.record#view`; we reuse the existing helpers rather
     // than duplicate the JsonObject decode + recursion-bound logic.
     implementation(project(":core:feed-mapping"))
+    // DM-poll cursor + the message-checking opt-in toggle (the background
+    // worker's gate). nubecita-1fy.15.
+    implementation(project(":core:preferences"))
     implementation(project(":core:profile"))
     implementation(project(":data:models"))
     // Tap-to-open the quoted-post embed inside a message bubble pushes a
@@ -43,8 +46,7 @@ dependencies {
     implementation(project(":feature:postdetail:api"))
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     // WorkManager + Hilt-work for the background DM-poll worker (v2,
-    // nubecita-1fy.15). Periodic, Doze-cooperative; no worker class yet — this
-    // group only lands the DI/runtime bootstrap. androidx.hilt.compiler (KSP)
+    // nubecita-1fy.15). Periodic, Doze-cooperative. androidx.hilt.compiler (KSP)
     // generates the @HiltWorker factory binding.
     implementation(libs.androidx.hilt.work)
     // ProcessLifecycleOwner + repeatOnLifecycle — the chats unread-count

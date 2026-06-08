@@ -13,26 +13,26 @@
 - [x] 3.2 Pure function: message → notification content (sender name, snippet, deleted/attachment handling mirroring v1's ConvoMapper).
 
 ## 4. Worker
-- [ ] 4.1 `@HiltWorker class DmPollWorker @AssistedInject` over a thin `doWork()` that: checks signed-in + opt-in, runs §3 logic via the repo, posts notifications (§5) unless foregrounded (§6), advances the cursor, returns success/retry.
-- [ ] 4.2 Auth/refresh through `:core:auth`'s session store with the existing refresh mutex (no rotation race).
+- [x] 4.1 `@HiltWorker class DmPollWorker @AssistedInject` over a thin `doWork()` that: checks signed-in + opt-in, runs §3 logic via the repo, posts notifications (§5) unless foregrounded (§6), advances the cursor, returns success/retry. (Orchestration extracted to a JVM-unit-tested `DmPollRunner`; `DmNotifier` is a seam — real `MessagingStyle` impl in §5.)
+- [x] 4.2 Auth/refresh through `:core:auth`'s session store with the existing refresh mutex (no rotation race). (All worker network goes through `ChatRepository`'s `XrpcClientProvider.authenticated()`.)
 
 ## 5. Notification + deep-link
 - [ ] 5.1 "Messages" notification channel (reuse the channel-installer pattern); per-convo stable notification id; group + summary.
 - [ ] 5.2 Tap PendingIntent → deep-link to the convo (new `uriDeepLinkMatcher` → `Chat(otherUserDid)` via `DeepLinkRouter` + `MainActivity`).
 
 ## 6. Foreground suppression
-- [ ] 6.1 At run time, read `ProcessLifecycleOwner` state; when foregrounded, skip posting **and do not advance the cursor** (hold it so the next background run re-evaluates the events through the read-state filter — design D5).
+- [x] 6.1 At run time, read `ProcessLifecycleOwner` state; when foregrounded, skip posting **and do not advance the cursor** (hold it so the next background run re-evaluates the events through the read-state filter — design D5). (Via the `AppForegroundSignal` seam, checked before any network in `DmPollRunner`.)
 
 ## 7. Scheduling + lifecycle
 - [ ] 7.1 Scheduler: `enqueueUniquePeriodicWork(KEEP)` (15-min floor, `NetworkType.CONNECTED`) on (opt-in ∧ signed-in); `cancelUniqueWork` on opt-out / logout.
 - [ ] 7.2 Wire registration via a production-flavor `AppInitializer` + reactions to `SessionStateProvider` and the preference flow (bench inert).
 
 ## 8. Settings toggle (gates BOTH pollers — design D6)
-- [ ] 8.1 Add a `messageCheckingEnabled` (default true) preference to `:core:preferences` (DataStore) with a reactive flow.
+- [x] 8.1 Add a `messageCheckingEnabled` (default true) preference to `:core:preferences` (DataStore) with a reactive flow. (`MessageCheckingPreference`, dedicated accessor; gates `DmPollRunner` already.)
 - [ ] 8.2 Add an in-app `Switch` row in `:feature:settings` (distinct from the existing OS-notification-settings deep-link row). Honest copy: off ⇒ no DM notifications AND no unread badge ("Nubecita stops checking for new messages").
 - [ ] 8.3 Gate v2 worker registration (§7) on (toggle ON ∧ signed-in); cancel on opt-out.
 - [ ] 8.4 **Modify shipped v1**: gate `ChatsUnreadPollingObserver` (nubecita-1fy.14) on the same toggle — skip the foreground poll when off (badge stops updating). Update its tests for the new gate.
-- [ ] 8.5 Read-state filter (replaces a manual getLog-cursor bump, which a single global cursor can't express): the worker fetches still-unread convoIds (e.g. from `listConvos`/cache) and notifies only inbound events whose convo is still unread. Foreground reads already clear server unread via `chat.bsky.convo.updateRead` (`nubecita-1fy.18`), so a thread the user opened is filtered out on the next poll — no re-notification.
+- [x] 8.5 Read-state filter (replaces a manual getLog-cursor bump, which a single global cursor can't express): the worker fetches still-unread convoIds (e.g. from `listConvos`/cache) and notifies only inbound events whose convo is still unread. Foreground reads already clear server unread via `chat.bsky.convo.updateRead` (`nubecita-1fy.18`), so a thread the user opened is filtered out on the next poll — no re-notification. (`DmPollRunner` derives the unread set from `refreshConvos`/`observeConvos` and passes it to `toDmNotifyPlan`.)
 
 ## 9. Tests
 - [ ] 9.1 JVM unit tests for §3.1 (cursor advance, sender≠viewer filter, read-state filter excludes already-read convos, per-run cap, dedup, empty) and §3.2 (content mapping incl. deleted/attachment), via `MainDispatcherExtension`. Add a §6 test: a foreground-suppressed run posts nothing and leaves the cursor unchanged.
