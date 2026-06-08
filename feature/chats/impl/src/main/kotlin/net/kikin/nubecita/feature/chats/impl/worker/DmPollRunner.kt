@@ -57,7 +57,10 @@ internal class DmPollRunner
             if (foreground.isForegrounded()) return Outcome.SUCCESS
 
             repository.refreshConvos().getOrElse { return Outcome.RETRY }
-            val convos = repository.observeConvos().value.orEmpty()
+            // A successful refresh always populates the cache (possibly empty),
+            // so null here would mean an unexpected invariant break — retry
+            // rather than silently advance the cursor past un-notified events.
+            val convos = repository.observeConvos().value ?: return Outcome.RETRY
             val unreadConvoIds =
                 convos
                     .asSequence()
@@ -89,7 +92,11 @@ internal class DmPollRunner
                             )
                         DmNotification(
                             convoId = event.convoId,
-                            otherUserDid = convo?.otherUserDid.orEmpty(),
+                            // The convo is always present (its id came from the same
+                            // cache the unread set is derived from); fall back to the
+                            // sender DID — for an inbound 1:1 DM that IS the other
+                            // user — so the tap deep-link target is never empty.
+                            otherUserDid = convo?.otherUserDid?.takeIf { it.isNotEmpty() } ?: event.senderDid,
                             title = content.title,
                             body = content.body,
                         )
