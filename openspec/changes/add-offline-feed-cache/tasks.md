@@ -1,26 +1,26 @@
 # Tasks — add-offline-feed-cache (bead nubecita-lgoo.1)
 
-> Sub-project A of the Glance feed widgets epic (`nubecita-lgoo`). Foundation, no UI. Build `:core:feed` additively — no existing consumer is rewired here (feature/feed migration is sub-project E). Follow TDD: write the failing test first for each unit. Tests use JUnit Jupiter + Turbine + MockK; Room/migration tests per `:core:database` conventions.
+> Sub-project A of the Glance feed widgets epic (`nubecita-lgoo`). Foundation, no UI. Build `:core:feed-cache` additively — no existing consumer is rewired here (feature/feed migration is sub-project E). Follow TDD: write the failing test first for each unit. Tests use JUnit Jupiter + Turbine + MockK; Room/migration tests per `:core:database` conventions.
 
 ## 1. Module scaffold + dependencies
 
-- [ ] 1.1 Create `:core:feed` (`nubecita.android.library` + `nubecita.android.hilt`); register in `settings.gradle.kts`; namespace `net.kikin.nubecita.core.feed`.
-- [ ] 1.2 Declare deps: `:core:database`, `:core:auth`, `:core:feed-mapping`, `:data:models`, `atproto`, `kotlinx-collections-immutable`, `:core:common`; add `androidx.paging:paging-runtime` (+ version catalog entry). Defer `paging-compose` to sub-project E.
-- [ ] 1.3 `./gradlew :core:feed:assembleDebug :app:checkSortDependencies` green (empty module links into the graph).
+- [x] 1.1 Create `:core:feed-cache` (`nubecita.android.library` + `nubecita.android.hilt`); register in `settings.gradle.kts`; namespace `net.kikin.nubecita.core.feedcache` (hyphen dropped, mirroring `:core:feed-mapping` → `feedmapping`).
+- [x] 1.2 Declare deps: `:core:database`, `:core:auth`, `:core:feed-mapping`, `:data:models`, `kotlinx-collections-immutable`, `kotlinx-coroutines-core`, `timber`. (Pager/RemoteMediator + `paging-runtime` deps land in a later PR; the module has no Kotlin sources in PR1 — it just builds.)
+- [x] 1.3 `./gradlew :core:feed-cache:assembleDebug :app:checkSortDependencies` green (empty module links into the graph).
 
 ## 2. Room cache (schema v4 → v5)
 
-- [ ] 2.1 Add `FeedPostEntity` to `:core:database` — PK `(accountDid, feedType, feedUri, position)`; columns `uri`, `cid`, `authorDid`, `indexedAt`, `position`, `text`, `embedBlob`; `@Index` on `uri` and `authorDid` (D-A3/D11).
-- [ ] 2.2 Add `FeedRemoteKeyEntity` — PK `(accountDid, feedType, feedUri)`, column `nextCursor: String?`.
-- [ ] 2.3 Add a `TypeConverter` for the serialized embed/extras blob (kotlinx-serialization); unit-test round-trip.
-- [ ] 2.4 Add `FeedPostDao` + `FeedRemoteKeyDao`: paging query (`PagingSource<Int, FeedPostEntity>` ordered by `position`), head query (`Flow<List<FeedPostEntity>>` `ORDER BY position LIMIT :n`), `@Transaction` clear+insert, count-cap delete, partition delete, cursor upsert/read. Reads `Flow`, writes `suspend`.
-- [ ] 2.5 Bump `NubecitaDatabase` to v5, register the new entities + DAOs, add `@AutoMigration(from = 4, to = 5)` (additive); commit exported `core/database/schemas/.../5.json`.
-- [ ] 2.6 Migration test (v4 → v5): tables created, existing v4 rows (recent searches, actors) preserved (`:core:database` androidTest or Room `MigrationTestHelper`).
+- [x] 2.1 Add `FeedPostEntity` to `:core:database` — PK `(accountDid, feedType, feedUri, position)`; columns `uri`, `cid`, `authorDid`, `indexedAt`, `position`, `text`, `embedBlob`; `@Index` on `uri` and `authorDid` (D-A3/D11).
+- [x] 2.2 Add `FeedRemoteKeyEntity` — PK `(accountDid, feedType, feedUri)`, column `nextCursor: String?`.
+- [x] 2.3 ~~Add a `TypeConverter` for the serialized embed/extras blob~~ — `embed_blob` is a plain nullable `TEXT` column; the repository mapper serializes the embed/extras to a JSON `String` (a later PR), so **no new `TypeConverter` is needed** in `:core:database`.
+- [x] 2.4 Add `FeedPostDao` + `FeedRemoteKeyDao`: paging query (`PagingSource<Int, FeedPostEntity>` ordered by `position`), head query (`Flow<List<FeedPostEntity>>` `ORDER BY position LIMIT :n`), `maxPosition`, count-cap delete (`trimToCap`, keeps newest `cap`), partition delete, `clearAccount`, cursor upsert/read. Reads `Flow`, writes `suspend`. (The `@Transaction` clear+insert lives in the `:core:feed-cache` RemoteMediator in a later PR.)
+- [x] 2.5 Bump `NubecitaDatabase` to v5, register the new entities + DAOs, add `@AutoMigration(from = 4, to = 5)` (additive); commit exported `core/database/schemas/.../5.json`.
+- [x] 2.6 Migration test (v4 → v5): tables created, existing v4 rows (recent searches, actors) preserved (`:core:database` androidTest via Room `MigrationTestHelper`).
 
-## 3. Fetch + mapping in `:core:feed`
+## 3. Fetch + mapping in `:core:feed-cache`
 
 - [ ] 3.1 Define `FeedType` (`FOLLOWING`, `DISCOVER`, `CUSTOM`, `LIST`) and a `FeedKey(accountDid, feedType, feedUri)`. `LIST` is modeled now (zero-cost, avoids a later migration; `getListFeed` already exists).
-- [ ] 3.2 Port the cursor-based fetch (`getTimeline`/`getFeed`) from `feature/feed/impl/DefaultFeedRepository` into a `:core:feed` network source returning `(posts, nextCursor)`; reuse `:core:feed-mapping` for wire→`PostUi`. Auth via `:core:auth` `XrpcClientProvider` (refresh-mutex path).
+- [ ] 3.2 Port the cursor-based fetch (`getTimeline`/`getFeed`) from `feature/feed/impl/DefaultFeedRepository` into a `:core:feed-cache` network source returning `(posts, nextCursor)`; reuse `:core:feed-mapping` for wire→`PostUi`. Auth via `:core:auth` `XrpcClientProvider` (refresh-mutex path).
 - [ ] 3.3 `fun FeedPostEntity.asExternalModel(): PostUi` (same-file extension); write-through mapper `PostUi`→`FeedPostEntity` with `position`/`embedBlob`. Unit-test both directions.
 
 ## 4. RemoteMediator + Pager
@@ -42,19 +42,18 @@
 - [ ] 6.1 `fun FeedRepository.head(feedKey, n): Flow<List<PostUi>>` — newest `n` by `position`, mapped to `PostUi`, no Paging.
 - [ ] 6.2 Test: head returns ≤ n ordered posts from the cache; emits on cache change.
 
-## 7. Saved feeds (for the Pro picker, later)
+## 7. Saved feeds (for the Pro picker, later) — DROPPED
 
-- [ ] 7.1 `SavedFeedsRepository.savedFeeds(): Result<ImmutableList<SavedFeed>>` — `app.bsky.actor.getPreferences` (pinned/saved) + feed-generator display metadata; map to a `:data:models` type. One-shot (no cache in A).
-- [ ] 7.2 Test with a mocked atproto client: returns saved feeds + metadata; error path returns `Result.failure`.
+> **Dropped from sub-project A.** Saved-feeds fetch already exists as `:core:feeds:PinnedFeedsRepository`. The Pro picker (sub-projects C/D) reuses the existing `:core:feeds` module; do not implement a new saved-feeds accessor here. (D-A7's "may reuse existing custom-feeds work" resolved in favor of reuse.)
 
 ## 8. DI wiring
 
-- [ ] 8.1 Hilt module(s) in `:core:feed` binding `FeedRepository` / `SavedFeedsRepository` (+ DAOs from `:core:database`). No consumer rewired (feature/feed migration is E).
-- [ ] 8.2 `./gradlew :app:assembleDebug` — Hilt graph still links with `:core:feed` present.
+- [ ] 8.1 Hilt module(s) in `:core:feed-cache` binding `FeedRepository` / `SavedFeedsRepository` (+ DAOs from `:core:database`). No consumer rewired (feature/feed migration is E).
+- [ ] 8.2 `./gradlew :app:assembleDebug` — Hilt graph still links with `:core:feed-cache` present.
 
 ## 9. Verification
 
-- [ ] 9.1 `:core:feed` + `:core:database` unit tests green; root `testDebugUnitTest` green (no fakes/implementors broken elsewhere).
-- [ ] 9.2 `./gradlew :core:feed:lintDebug :core:database:lintDebug spotlessCheck :app:checkSortDependencies` green; committed `5.json` present.
-- [ ] 9.3 Confirm entities never leak past `:core:feed` (only `:data:models` types in the public API); battery rule unaffected (no new always-on work — refresh scheduling is sub-project B).
+- [ ] 9.1 `:core:feed-cache` + `:core:database` unit tests green; root `testDebugUnitTest` green (no fakes/implementors broken elsewhere).
+- [ ] 9.2 `./gradlew :core:feed-cache:lintDebug :core:database:lintDebug spotlessCheck :app:checkSortDependencies` green; committed `5.json` present.
+- [ ] 9.3 Confirm entities never leak past `:core:feed-cache` (only `:data:models` types in the public API); battery rule unaffected (no new always-on work — refresh scheduling is sub-project B).
 - [ ] 9.4 **Scale stress test (D-A2):** populate a power-user-scale cache (e.g. ≥10 feed partitions × `cap` posts, with cross-feed overlap and representative embed blobs) and validate the design's assumptions: head/page queries stay flat (index prefix-scan, no full scan — verify via `EXPLAIN QUERY PLAN`), per-partition `REFRESH` clear+insert and `trimToCap` write times are low, and the DB file stays in the expected MB range. Record the numbers so we know the real threshold where the denormalized→hybrid migration (D-A2 reversibility) would be worth it.

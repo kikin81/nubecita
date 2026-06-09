@@ -151,6 +151,7 @@ hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", vers
 revenuecat-purchases = { module = "com.revenuecat.purchases:purchases", version.ref = "revenueCat" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-paging = { module = "androidx.room:room-paging", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 room-gradlePlugin = { group = "androidx.room", name = "room-gradle-plugin", version.ref = "room" }
