@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780908557356,
+  "lastUpdate": 1780993735613,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -623,6 +623,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 576.201,
             "range": "+/- 37%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "4405bc98b89836d44c8ed7d9ad9a29256530687b",
+          "message": "chore(openspec): archive enrich-push-notification-bodies + sync spec (#500)\n\nMove the completed change to changes/archive/ and fold its single ADDED\nrequirement (reply/mention/quote notifications carry the notifying post's\ntext as the body, + 7 scenarios) into the canonical push-notifications\ncapability spec. Shipped via atproto-push-gateway #3/#4 (deployed) and\nnubecita #499.\n\nRefs: nubecita-1fy.19",
+          "timestamp": "2026-06-09T02:24:45Z",
+          "url": "https://github.com/kikin81/nubecita/commit/4405bc98b89836d44c8ed7d9ad9a29256530687b"
+        },
+        "date": 1780993734464,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 31,
+            "range": "+/- 5.5%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1613.96,
+            "range": "+/- 14.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1408.693,
+            "range": "+/- 5.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1568.4,
+            "range": "+/- 8.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1349.387,
+            "range": "+/- 11.5%",
             "unit": "ms"
           }
         ]
