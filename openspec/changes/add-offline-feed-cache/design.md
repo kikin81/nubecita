@@ -23,6 +23,16 @@ A widget cannot depend on a feature `:impl`, and `:core:posts` is single-post/th
 ### D-A2. Denormalized snapshot rows (epic D4)
 `feed_post` stores a per-position snapshot: queryable columns `uri`, `cid`, `authorDid`, `indexedAt`, `position`, `text`, plus the rest of the rendered post (`embed`, counts, viewer state) as a **serialized blob via a `TypeConverter`**. No joins on the read path, trivial eviction. *Alternative — normalized post/author/membership:* hot-path joins + GC-based eviction; rejected for a snapshot feed (see epic D4 trade-off analysis).
 
+#### Scale & reversibility (stress-test target)
+Reads are not the scaling axis. Every query is an index prefix-scan: the head/page query (`WHERE accountDid=? AND feedType=? AND feedUri=? ORDER BY position LIMIT n`) matches the composite PK exactly with `position` supplying the order — no table scan, no sort step, cost `O(log N + page)` regardless of total rows. By-`uri`/by-`authorDid` lookups hit their `@Index`es. A power-user table (e.g. **10 feeds × ~100 = ~1k rows**, even 10× that) is trivial for SQLite; read latency is flat into 5–6 figures of rows.
+
+The axes that *do* scale with cost are, in order:
+1. **Blob deserialization on the scroll hot path** (CPU, not SQL) — deserialize off the main thread, keep `asExternalModel` cheap, select narrow columns when the full post isn't needed. Normalization would *not* fix this (the body still deserializes).
+2. **Storage / write-amplification from duplication** — a post in N feeds is stored N× and re-inserted on each partition's refresh. The `cap` (per-feed post count) is the direct lever; this is the *only* axis where normalization genuinely wins (dedup to distinct posts + thin membership rows).
+3. **Refresh write cost** — a per-partition clear+insert of `cap` rows in one transaction is sub-/low-ms; partitions don't all refresh at once.
+
+**Reversibility:** because entities never leave `:core:feed` (D-A6 — the repository returns `PostUi`/`PagingData`/head `Flow`), the row layout is a pure internal detail. If a real power-user storage/write-amplification problem appears, migrate the internal schema **denormalized → hybrid** (extract the heavy post+author into a shared table, keep a thin `feed_membership(feedKey, postUri, position)` for ordering) via a Room migration with **zero consumer changes**. The spec commits to behavior, not to a table layout — so starting denormalized is not a lock-in. Validate the read-flatness + write/storage-at-cap assumptions with the §9 stress test before relying on them.
+
 ### D-A3. DID-keyed, partitioned schema (epic D5)
 `feed_post` PK `(accountDid, feedType, feedUri, position)`. `feedType` is an enum-ish discriminator (`FOLLOWING`, `DISCOVER`, `CUSTOM`, `LIST`); `feedUri` holds the generator AT-URI for `DISCOVER`/`CUSTOM`, the list AT-URI for `LIST`, and a sentinel/empty for `FOLLOWING`. **`LIST` is included now** (per #502 review): `getListFeed` is already a `DefaultFeedRepository` capability, so defining `LIST` in v5 is zero-cost and avoids a later v5→v6 migration + a split interim where list feeds can't use the cache. `@Index` on `uri` and `authorDid` (epic D11) for by-uri (deep-link / `:core:post-interactions` overlay) and by-author lookups that the composite PK doesn't serve.
 
