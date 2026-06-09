@@ -66,7 +66,7 @@ internal class MigrationTest {
         // New v5 tables exist and are usable.
         db.execSQL(
             "INSERT INTO feed_post " +
-                "(account_did, feed_type, feed_uri, position, uri, cid, author_did, indexed_at, text, embed_blob) " +
+                "(account_did, feed_type, feed_uri, position, uri, cid, author_did, indexed_at, text, post_blob) " +
                 "VALUES ('did:a', 'FOLLOWING', '', 0, 'at://post/1', 'cid1', 'did:b', 3000, 'hello', NULL)",
         )
         db.execSQL(

@@ -19,9 +19,9 @@
 
 ## 3. Fetch + mapping in `:core:feed-cache`
 
-- [ ] 3.1 Define `FeedType` (`FOLLOWING`, `DISCOVER`, `CUSTOM`, `LIST`) and a `FeedKey(accountDid, feedType, feedUri)`. `LIST` is modeled now (zero-cost, avoids a later migration; `getListFeed` already exists).
-- [ ] 3.2 Port the cursor-based fetch (`getTimeline`/`getFeed`) from `feature/feed/impl/DefaultFeedRepository` into a `:core:feed-cache` network source returning `(posts, nextCursor)`; reuse `:core:feed-mapping` for wire→`PostUi`. Auth via `:core:auth` `XrpcClientProvider` (refresh-mutex path).
-- [ ] 3.3 `fun FeedPostEntity.asExternalModel(): PostUi` (same-file extension); write-through mapper `PostUi`→`FeedPostEntity` with `position`/`embedBlob`. Unit-test both directions.
+- [x] 3.1 Define `FeedType` (`FOLLOWING`, `DISCOVER`, `CUSTOM`, `LIST`) and a `FeedKey(accountDid, feedType, feedUri)`. `LIST` is modeled now (zero-cost, avoids a later migration; `getListFeed` already exists).
+- [x] 3.2 Port the cursor-based fetch (`getTimeline`/`getFeed`) from `feature/feed/impl/DefaultFeedRepository` into a `:core:feed-cache` network source returning `(posts, nextCursor)`; reuse `:core:feed-mapping` for wire→`PostUi`. Auth via `:core:auth` `XrpcClientProvider` (refresh-mutex path).
+- [x] 3.3 Read mapper `fun FeedPostEntity.toPostUi(viewerDid, prefs): PostUi?` (deserialize `post_blob` wire `PostView` → `toPostUiCore()` → `applyModeration(dropFiltered = true)`); write-through mapper `fun FeedViewPost.toFeedPostEntity(feedKey, position): FeedPostEntity` serializing the wire `PostView` to `post_blob`. Unit-tested both directions. (Locked design Option 1: store the wire post, re-map on read — the column was renamed `embed_blob` → `post_blob`.)
 
 ## 4. RemoteMediator + Pager
 
