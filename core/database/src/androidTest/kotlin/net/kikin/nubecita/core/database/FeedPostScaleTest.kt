@@ -58,7 +58,11 @@ internal class FeedPostScaleTest {
 
     @After
     fun teardownFileDatabase() {
-        db.close()
+        // Guard against a setup failure leaving `db` uninitialized — closing an
+        // uninitialized lateinit would throw and mask the real setup exception.
+        if (::db.isInitialized) {
+            db.close()
+        }
         InstrumentationRegistry.getInstrumentation().targetContext.deleteDatabase(DB_NAME)
     }
 

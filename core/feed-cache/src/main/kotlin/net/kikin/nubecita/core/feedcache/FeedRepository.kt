@@ -6,6 +6,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.RemoteMediator
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -125,16 +126,19 @@ internal open class DefaultFeedRepository
             feedKey: FeedKey,
             n: Int,
         ): Flow<List<PostUi>> =
-            feedPostDao
-                .head(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, n)
-                .map { entities ->
-                    // Read current viewer + prefs INSIDE the .map (per emission),
-                    // so a prefs/account change reflects on the next cache
-                    // emission — consistent with how pagedFeed reads them per item.
-                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
-                    val prefs = moderationPreferences.prefs.value
-                    entities.mapNotNull { it.toPostUi(viewerDid, prefs) }
-                }
+            combine(
+                feedPostDao.head(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, n),
+                sessionStateProvider.state,
+                moderationPreferences.prefs,
+            ) { entities, session, prefs ->
+                // combine re-emits on ANY source change — the DB head, the
+                // session, OR moderation prefs — so a mute/adult-pref toggle or
+                // account change refreshes the widget list immediately, not only
+                // on a DB write. (pagedFeed uses the per-item read instead because
+                // PagingData can't be combined the same way.)
+                val viewerDid = (session as? SessionState.SignedIn)?.did
+                entities.mapNotNull { it.toPostUi(viewerDid, prefs) }
+            }
 
         override suspend fun trimToCap(
             feedKey: FeedKey,
