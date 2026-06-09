@@ -129,9 +129,12 @@ jobs:
         run: ./gradlew lint :app:lintProductionDebug
 
   # Aggregator: preserves the "Lint" status-check name and fails if either
-  # parallel lint job failed. The explicit result check (with `if: always()`)
-  # prevents a skipped/failed dependency from slipping through as a passing
-  # required check.
+  # parallel lint job genuinely FAILED. `if: always()` runs it even when a dep
+  # failed (so a real failure can't slip through as a passing required check),
+  # but it must fail ONLY on `failure` — NOT on `cancelled`/`skipped`. A
+  # superseded run (concurrency `cancel-in-progress` on a label-add or rapid
+  # push) cancels the lint sub-jobs; treating that as a failure would post a
+  # spurious "Lint" failure on every superseded run (nubecita-3ion).
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -140,11 +143,11 @@ jobs:
     steps:
       - name: Verify lint jobs succeeded
         run: |
-          if [ "${{ needs.lint-checks.result }}" != "success" ] || [ "${{ needs.lint-android.result }}" != "success" ]; then
+          if [ "${{ needs.lint-checks.result }}" == "failure" ] || [ "${{ needs.lint-android.result }}" == "failure" ]; then
             echo "Lint failed — checks=${{ needs.lint-checks.result }} android=${{ needs.lint-android.result }}"
             exit 1
           fi
-          echo "All lint checks passed."
+          echo "Lint OK — checks=${{ needs.lint-checks.result }} android=${{ needs.lint-android.result }}"
 
   test:
     name: Test
