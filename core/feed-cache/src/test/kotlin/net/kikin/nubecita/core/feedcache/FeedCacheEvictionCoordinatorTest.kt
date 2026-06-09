@@ -100,6 +100,11 @@ internal class FeedCacheEvictionCoordinatorTest {
 
         override fun pagedFeed(feedKey: FeedKey): Flow<PagingData<PostUi>> = emptyFlow()
 
+        override fun head(
+            feedKey: FeedKey,
+            n: Int,
+        ): Flow<List<PostUi>> = emptyFlow()
+
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,

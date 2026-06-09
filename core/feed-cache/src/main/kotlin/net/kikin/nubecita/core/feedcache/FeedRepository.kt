@@ -35,6 +35,19 @@ interface FeedRepository {
     fun pagedFeed(feedKey: FeedKey): Flow<PagingData<PostUi>>
 
     /**
+     * Stream of the newest (≤) [n] cached [PostUi] for [feedKey], ordered by
+     * `position` (newest-first), re-mapped from the cached wire posts with the
+     * *current* viewer DID and moderation prefs on each emission. This is the
+     * **widget read path** — no Paging: Glance reads a small flat list.
+     * Moderation-filtered posts (a resolved HIDE) are dropped, so the emitted
+     * list may hold fewer than [n] items.
+     */
+    fun head(
+        feedKey: FeedKey,
+        n: Int,
+    ): Flow<List<PostUi>>
+
+    /**
      * Evict everything beyond the newest [cap] posts in [feedKey]'s partition.
      * NOT called from the mediator's `load()` (D-A5) — invoked off the scroll
      * path by the refresh worker. Leaves the partition's cursor row intact.
@@ -106,6 +119,21 @@ internal open class DefaultFeedRepository
                             PostUiOrNull(entity.toPostUi(viewerDid, prefs))
                         }.pagingFilter { it.value != null }
                         .pagingMap { requireNotNull(it.value) }
+                }
+
+        override fun head(
+            feedKey: FeedKey,
+            n: Int,
+        ): Flow<List<PostUi>> =
+            feedPostDao
+                .head(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, n)
+                .map { entities ->
+                    // Read current viewer + prefs INSIDE the .map (per emission),
+                    // so a prefs/account change reflects on the next cache
+                    // emission — consistent with how pagedFeed reads them per item.
+                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+                    val prefs = moderationPreferences.prefs.value
+                    entities.mapNotNull { it.toPostUi(viewerDid, prefs) }
                 }
 
         override suspend fun trimToCap(

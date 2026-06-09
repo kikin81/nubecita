@@ -6,6 +6,7 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import androidx.paging.testing.asSnapshot
+import app.cash.turbine.test
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.mockk.coEvery
@@ -108,6 +109,60 @@ internal class FeedRepositoryTest {
             val items = repo.pagedFeed(key).asSnapshot()
 
             assertEquals(listOf("kept"), items.map { it.text })
+        }
+
+    @Test
+    fun `head returns at most n posts mapped to PostUi in position order`() =
+        runTest {
+            val rows =
+                MutableStateFlow(
+                    listOf(
+                        entity("a", text = "first", position = 0),
+                        entity("b", text = "second", position = 1),
+                    ),
+                )
+            every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 5) } returns rows
+            val repo = repository(emptyList())
+
+            repo.head(key, n = 5).test {
+                assertEquals(listOf("first", "second"), awaitItem().map { it.text })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `head drops a moderation-filtered entity`() =
+        runTest {
+            // adult content disabled (DEFAULT) -> a porn-labeled post is dropped.
+            val rows =
+                MutableStateFlow(
+                    listOf(
+                        entity("ok", text = "kept", position = 0),
+                        entity("nsfw", text = "dropped", position = 1, labels = listOf("did:plc:labeler" to "porn")),
+                    ),
+                )
+            every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 10) } returns rows
+            val repo = repository(emptyList())
+
+            repo.head(key, n = 10).test {
+                assertEquals(listOf("kept"), awaitItem().map { it.text })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `head emits again on a cache change`() =
+        runTest {
+            val rows = MutableStateFlow(listOf(entity("a", text = "first", position = 0)))
+            every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 5) } returns rows
+            val repo = repository(emptyList())
+
+            repo.head(key, n = 5).test {
+                assertEquals(listOf("first"), awaitItem().map { it.text })
+                rows.value = listOf(entity("a", text = "first", position = 0), entity("b", text = "second", position = 1))
+                assertEquals(listOf("first", "second"), awaitItem().map { it.text })
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     @Test
