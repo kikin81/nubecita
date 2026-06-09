@@ -99,6 +99,42 @@ internal class WidgetRefreshRunnerTest {
             assertEquals(1, updater.calls)
         }
 
+    @Test
+    fun `a feed that throws is isolated and does not abort the other feed`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            // Following throws an UNEXPECTED exception (not a Result.failure);
+            // Discover still succeeds.
+            coEvery { repo.refresh(FeedKey.following(VIEWER)) } throws IllegalStateException("db constraint")
+            coEvery { repo.refresh(match { it.feedType == FeedType.DISCOVER }) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any()) } just Runs
+            val updater = RecordingUpdater()
+            val runner = runner(repo, updater = updater)
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            // The throw didn't abort the loop — Discover was still refreshed + trimmed.
+            coVerify(exactly = 1) { repo.trimToCap(match { it.feedType == FeedType.DISCOVER }, any()) }
+            coVerify(exactly = 0) { repo.trimToCap(FeedKey.following(VIEWER), any()) }
+            assertEquals(1, updater.calls)
+        }
+
+    @Test
+    fun `a widget-updater failure still returns SUCCESS (no network retry)`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.refresh(any()) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any()) } just Runs
+            val updater =
+                object : WidgetUpdater {
+                    override suspend fun updateFeedWidgets() = throw IllegalStateException("glance IPC")
+                }
+            val runner = runner(repo, updater = updater)
+
+            // Cache already refreshed — a widget-render failure must not trigger a
+            // network-heavy WorkManager retry.
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+        }
+
     private companion object {
         const val VIEWER = "did:plc:viewer"
     }

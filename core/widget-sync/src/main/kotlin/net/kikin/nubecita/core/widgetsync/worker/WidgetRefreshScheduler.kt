@@ -1,11 +1,13 @@
 package net.kikin.nubecita.core.widgetsync.worker
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -33,8 +35,23 @@ class WidgetRefreshScheduler internal constructor(
                 .map { it is SessionState.SignedIn }
                 .distinctUntilChanged()
                 .collect { signedIn ->
-                    if (signedIn) scheduler.ensureScheduled() else scheduler.cancel()
+                    // Guard each transition: an ensureScheduled/cancel throw (a
+                    // WorkManager DB/init blip) must NOT terminate the collect, or
+                    // the scheduler would stop reacting to all future sign-in/out
+                    // events. Rethrow CancellationException to keep cooperative
+                    // cancellation intact.
+                    try {
+                        if (signedIn) scheduler.ensureScheduled() else scheduler.cancel()
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (throwable: Throwable) {
+                        Timber.tag(TAG).e(throwable, "widget refresh (re)scheduling failed (signedIn=%s)", signedIn)
+                    }
                 }
         }
+    }
+
+    private companion object {
+        const val TAG = "WidgetRefreshScheduler"
     }
 }

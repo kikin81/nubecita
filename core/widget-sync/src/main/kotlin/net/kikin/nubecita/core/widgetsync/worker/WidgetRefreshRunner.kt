@@ -1,11 +1,13 @@
 package net.kikin.nubecita.core.widgetsync.worker
 
+import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -65,13 +67,23 @@ internal class WidgetRefreshRunner
             var anySucceeded = false
             var allFailed = true
             for (feedKey in feedKeys) {
-                val refreshed = repository.refresh(feedKey).isSuccess
-                if (refreshed) {
-                    anySucceeded = true
-                    allFailed = false
-                    // Off-scroll eviction (D-B6): only after a feed's own refresh
-                    // succeeds, so we never trim a partition we couldn't refresh.
-                    repository.trimToCap(feedKey)
+                // Each feed is independent: an unexpected throw (a DB constraint,
+                // a serialization error in trimToCap, etc. — `refresh` itself
+                // returns a Result for network failures) must fail only THIS feed,
+                // not abort the others. Rethrow CancellationException.
+                try {
+                    val refreshed = repository.refresh(feedKey).isSuccess
+                    if (refreshed) {
+                        anySucceeded = true
+                        allFailed = false
+                        // Off-scroll eviction (D-B6): only after a feed's own refresh
+                        // succeeds, so we never trim a partition we couldn't refresh.
+                        repository.trimToCap(feedKey)
+                    }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (throwable: Throwable) {
+                    Timber.tag(TAG).e(throwable, "widget feed refresh failed: %s", feedKey)
                 }
             }
 
@@ -79,11 +91,24 @@ internal class WidgetRefreshRunner
             // (a succeeded feed must not be re-fetched by a retry).
             if (allFailed) return Outcome.RETRY
 
-            if (anySucceeded) widgetUpdater.updateFeedWidgets()
+            if (anySucceeded) {
+                // A widget-render failure (Glance / AppWidgetManager IPC) must NOT
+                // trigger a WorkManager retry — the cache is already refreshed, so
+                // a retry would waste network/battery re-fetching. Log and succeed.
+                try {
+                    widgetUpdater.updateFeedWidgets()
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (throwable: Throwable) {
+                    Timber.tag(TAG).e(throwable, "widget update failed")
+                }
+            }
             return Outcome.SUCCESS
         }
 
         private companion object {
+            const val TAG = "WidgetRefreshRunner"
+
             /**
              * The Bluesky Discover / "what's-hot" generator AT-URI (the fixed MVP
              * Discover partition, D-B6). C confirms the canonical value; the runner
