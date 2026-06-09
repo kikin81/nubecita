@@ -53,6 +53,14 @@ class PushNotificationBuilder(
             .setAutoCancel(true)
             .setGroup(groupKeyFor(payload.reason))
             .apply {
+                // For reply/mention/quote the gateway ships the post text; show
+                // it under the title and make long posts expandable. Engagement
+                // reasons (and pre-enrichment payloads) have no bodyText and
+                // render title-only, exactly as before.
+                bigTextFor(payload)?.let { body ->
+                    setContentText(body)
+                    setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                }
                 tapPendingIntentFor(payload, context)?.let { setContentIntent(it) }
             }.build()
     }
@@ -124,6 +132,16 @@ class PushNotificationBuilder(
 
         /** Group key shared by an individual notification and its per-reason summary. */
         fun groupKeyFor(reason: PushPayload.Reason): String = "nubecita:" + wireFor(reason)
+
+        /**
+         * Body text to render under the title as expandable big-text: the
+         * gateway's notifying-post text ([PushPayload.bodyText]) when present
+         * and non-blank, else `null` (title-only, the pre-enrichment render).
+         * Truncation already happened server-side, so this is a pure presence /
+         * blank gate. Extracted from [build] so unit tests can assert the
+         * big-text decision without a [Context], mirroring [tapIntentSpecFor].
+         */
+        internal fun bigTextFor(payload: PushPayload): String? = payload.bodyText?.takeIf { it.isNotBlank() }
 
         /**
          * Resolves the tap-intent destination URI for [payload]:

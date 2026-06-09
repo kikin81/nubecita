@@ -10,6 +10,13 @@ package net.kikin.nubecita.core.push
  * fields are reason-conditional and held as nullable strings to keep the
  * dispatcher's parse path defensive without a per-reason variant.
  *
+ * [bodyText] is the notifying post's text, pre-truncated server-side and sent
+ * only for `reply` / `mention` / `quote` by the
+ * [gateway](https://github.com/kikin81/atproto-push-gateway). It is nullable
+ * because engagement reasons (`like` / `repost` / `follow` / verification)
+ * carry no post text, and because pre-enrichment gateway deployments omit the
+ * field entirely — a missing `bodyText` renders the title-only notification.
+ *
  * Parsing is via [parse]; the constructor is intentionally direct so tests can
  * build fixtures without touching the wire-string mapping.
  */
@@ -21,6 +28,7 @@ data class PushPayload(
     val actorHandle: String?,
     val actorDisplayName: String?,
     val recipientDid: String,
+    val bodyText: String? = null,
 ) {
     sealed interface Reason {
         object Like : Reason
@@ -68,6 +76,7 @@ data class PushPayload(
                 actorHandle = data["actorHandle"],
                 actorDisplayName = data["actorDisplayName"],
                 recipientDid = data["recipientDid"] ?: return null,
+                bodyText = data["bodyText"],
             )
         }
     }
