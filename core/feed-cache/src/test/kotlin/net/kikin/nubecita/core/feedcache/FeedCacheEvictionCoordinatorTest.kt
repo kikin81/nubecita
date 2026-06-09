@@ -105,6 +105,8 @@ internal class FeedCacheEvictionCoordinatorTest {
             n: Int,
         ): Flow<List<PostUi>> = emptyFlow()
 
+        override suspend fun refresh(feedKey: FeedKey): Result<Boolean> = Result.success(true)
+
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,

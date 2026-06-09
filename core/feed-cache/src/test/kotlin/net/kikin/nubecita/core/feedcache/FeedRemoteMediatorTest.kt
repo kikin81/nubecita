@@ -50,6 +50,16 @@ internal class FeedRemoteMediatorTest {
             feedPostDao = feedPostDao,
             remoteKeyDao = remoteKeyDao,
             transactionRunner = transactionRunner,
+            // REFRESH now delegates to the shared FeedRefresher; wire a real one
+            // over the same mocks so the existing REFRESH assertions still hold
+            // (delegation = no behavior change).
+            feedRefresher =
+                FeedRefresher(
+                    networkSource = networkSource,
+                    feedPostDao = feedPostDao,
+                    remoteKeyDao = remoteKeyDao,
+                    transactionRunner = transactionRunner,
+                ),
         )
 
     private fun emptyState(): PagingState<Int, FeedPostEntity> =

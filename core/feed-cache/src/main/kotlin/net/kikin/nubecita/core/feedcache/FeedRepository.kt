@@ -49,6 +49,17 @@ interface FeedRepository {
     ): Flow<List<PostUi>>
 
     /**
+     * Refresh [feedKey]'s partition from the top WITHOUT a `Pager`: fetch page 1
+     * and transactionally replace the partition (clear + insert + next cursor).
+     * This is the **background widget refresh path** (sub-project B) — the worker
+     * drives a partition refresh off the active-scroll path. Returns
+     * `Result.success(endOfPaginationReached)` (a null next cursor or empty page;
+     * the worker ignores the boolean and cares only about success/failure), or
+     * `Result.failure` on a network error, leaving the cache untouched.
+     */
+    suspend fun refresh(feedKey: FeedKey): Result<Boolean>
+
+    /**
      * Evict everything beyond the newest [cap] posts in [feedKey]'s partition.
      * NOT called from the mediator's `load()` (D-A5) — invoked off the scroll
      * path by the refresh worker. Leaves the partition's cursor row intact.
@@ -89,6 +100,7 @@ internal open class DefaultFeedRepository
         private val sessionStateProvider: SessionStateProvider,
         private val moderationPreferences: ModerationPreferencesRepository,
         private val transactionRunner: FeedCacheTransactionRunner,
+        private val feedRefresher: FeedRefresher,
     ) : FeedRepository {
         /**
          * The [RemoteMediator] for [feedKey]. Extracted as an `open` seam so a
@@ -139,6 +151,8 @@ internal open class DefaultFeedRepository
                 val viewerDid = (session as? SessionState.SignedIn)?.did
                 entities.mapNotNull { it.toPostUi(viewerDid, prefs) }
             }
+
+        override suspend fun refresh(feedKey: FeedKey): Result<Boolean> = feedRefresher.refresh(feedKey)
 
         override suspend fun trimToCap(
             feedKey: FeedKey,
