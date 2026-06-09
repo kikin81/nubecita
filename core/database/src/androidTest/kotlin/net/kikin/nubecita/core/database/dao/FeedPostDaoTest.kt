@@ -40,7 +40,7 @@ internal class FeedPostDaoTest : DatabaseTest() {
         authorDid = author,
         indexedAt = Instant.fromEpochMilliseconds(position.toLong()),
         text = "post $position",
-        embedBlob = null,
+        postBlob = null,
     )
 
     @Test

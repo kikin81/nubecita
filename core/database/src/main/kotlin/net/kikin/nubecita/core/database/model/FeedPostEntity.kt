@@ -18,9 +18,11 @@ import kotlinx.datetime.Instant
  * [feedUri] holds the generator/list AT-URI for DISCOVER/CUSTOM/LIST and an
  * **empty-string sentinel** for FOLLOWING.
  *
- * [embedBlob] is the rendered post's embed/extras serialized to a JSON
- * `String` by the `:core:feed-cache` write-through mapper (a later PR); it is
- * a plain nullable text column here — no `TypeConverter` is needed.
+ * [postBlob] holds the entire wire `app.bsky.feed.defs#postView` serialized to
+ * a JSON `String` by the `:core:feed-cache` write-through mapper; the cache
+ * re-maps it back to `PostUi` on read (the queryable columns above are
+ * denormalized projections of this blob for indexed lookups). It is a plain
+ * nullable text column here — no `TypeConverter` is needed.
  *
  * `@Index` on [uri] and [authorDid] serve by-uri (deep-link /
  * `:core:post-interactions` overlay) and by-author lookups that the composite
@@ -43,5 +45,5 @@ data class FeedPostEntity(
     @ColumnInfo(name = "author_did") val authorDid: String,
     @ColumnInfo(name = "indexed_at") val indexedAt: Instant,
     val text: String,
-    @ColumnInfo(name = "embed_blob") val embedBlob: String?,
+    @ColumnInfo(name = "post_blob") val postBlob: String?,
 )

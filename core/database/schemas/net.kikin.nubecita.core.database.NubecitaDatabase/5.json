@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "04c0bb5232e058cfbc310cbbf533882d",
+    "identityHash": "0fc796254a404761b72256377f515501",
     "entities": [
       {
         "tableName": "recent_search",
@@ -77,7 +77,7 @@
       },
       {
         "tableName": "feed_post",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, `position` INTEGER NOT NULL, `uri` TEXT NOT NULL, `cid` TEXT NOT NULL, `author_did` TEXT NOT NULL, `indexed_at` INTEGER NOT NULL, `text` TEXT NOT NULL, `embed_blob` TEXT, PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, `position` INTEGER NOT NULL, `uri` TEXT NOT NULL, `cid` TEXT NOT NULL, `author_did` TEXT NOT NULL, `indexed_at` INTEGER NOT NULL, `text` TEXT NOT NULL, `post_blob` TEXT, PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
         "fields": [
           {
             "fieldPath": "accountDid",
@@ -134,8 +134,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "embedBlob",
-            "columnName": "embed_blob",
+            "fieldPath": "postBlob",
+            "columnName": "post_blob",
             "affinity": "TEXT"
           }
         ],
@@ -209,7 +209,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '04c0bb5232e058cfbc310cbbf533882d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0fc796254a404761b72256377f515501')"
     ]
   }
 }
