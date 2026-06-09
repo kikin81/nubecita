@@ -38,6 +38,7 @@ internal class FeedRepositoryTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
+    private val networkSource = mockk<FeedNetworkSource>(relaxed = true)
 
     private val session = MutableStateFlow<SessionState>(SessionState.SignedIn("me.bsky.social", "did:plc:me"))
     private val prefs = MutableStateFlow(ModerationPrefs.DEFAULT)
@@ -79,6 +80,13 @@ internal class FeedRepositoryTest {
             sessionStateProvider = sessionProvider,
             moderationPreferences = moderationPrefs,
             transactionRunner = passthroughRunner,
+            feedRefresher =
+                FeedRefresher(
+                    networkSource = networkSource,
+                    feedPostDao = feedPostDao,
+                    remoteKeyDao = remoteKeyDao,
+                    transactionRunner = passthroughRunner,
+                ),
             testMediator = noopMediator,
         )
     }
@@ -180,6 +188,20 @@ internal class FeedRepositoryTest {
             coVerify { remoteKeyDao.clearAccount("did:plc:me") }
         }
 
+    @Test
+    fun `refresh delegates to FeedRefresher`() =
+        runTest {
+            // Empty page + null cursor -> endOfPaginationReached == true; the
+            // delegated FeedRefresher fetches page 1 and writes through.
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(emptyList<FeedViewPost>() to null)
+
+            val result = repository(emptyList()).refresh(key)
+
+            assertEquals(Result.success(true), result)
+            coVerify { networkSource.fetchPage(key, cursor = null) }
+            coVerify { feedPostDao.clearPartition("did:plc:me", "FOLLOWING", "") }
+        }
+
     private val passthroughRunner =
         object : FeedCacheTransactionRunner {
             override suspend fun <T> run(block: suspend () -> T): T = block()
@@ -205,6 +227,7 @@ private class TestFeedRepository(
     sessionStateProvider: SessionStateProvider,
     moderationPreferences: ModerationPreferencesRepository,
     transactionRunner: FeedCacheTransactionRunner,
+    feedRefresher: FeedRefresher,
     private val testMediator: RemoteMediator<Int, FeedPostEntity>,
 ) : DefaultFeedRepository(
         feedPostDao,
@@ -213,6 +236,7 @@ private class TestFeedRepository(
         sessionStateProvider,
         moderationPreferences,
         transactionRunner,
+        feedRefresher,
     ) {
     override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedPostEntity> = testMediator
 }

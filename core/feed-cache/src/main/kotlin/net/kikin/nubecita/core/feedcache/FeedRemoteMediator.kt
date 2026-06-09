@@ -34,6 +34,7 @@ internal class FeedRemoteMediator
         private val feedPostDao: FeedPostDao,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val transactionRunner: FeedCacheTransactionRunner,
+        private val feedRefresher: FeedRefresher,
     ) : RemoteMediator<Int, FeedPostEntity>() {
         @AssistedFactory
         interface Factory {
@@ -64,32 +65,18 @@ internal class FeedRemoteMediator
                 // Reverse-chron: there is no "load newer" — a REFRESH replaces
                 // the partition from the top instead.
                 LoadType.PREPEND -> MediatorResult.Success(endOfPaginationReached = true)
-                LoadType.REFRESH -> refresh()
+                // REFRESH delegates to the shared FeedRefresher (the same
+                // write-through the background widget worker uses). fetchPage
+                // rethrows CancellationException unwrapped, so a cancelled load
+                // propagates out of load() rather than being miscollapsed into
+                // an Error — FeedRefresher preserves that shape.
+                LoadType.REFRESH ->
+                    feedRefresher.refresh(feedKey).fold(
+                        onSuccess = { MediatorResult.Success(endOfPaginationReached = it) },
+                        onFailure = { MediatorResult.Error(it) },
+                    )
                 LoadType.APPEND -> append()
             }
-
-        private suspend fun refresh(): MediatorResult {
-            // fetchPage rethrows CancellationException unwrapped, so a cancelled
-            // load propagates out of load() rather than being miscollapsed into
-            // an Error — do NOT catch Throwable broadly here.
-            val result = networkSource.fetchPage(feedKey, cursor = null)
-            val (page, nextCursor) = result.getOrElse { return MediatorResult.Error(it) }
-
-            val entities = page.mapIndexed { index, post -> post.toFeedPostEntity(feedKey, position = index) }
-            transactionRunner.run {
-                feedPostDao.clearPartition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
-                feedPostDao.upsert(entities)
-                remoteKeyDao.upsert(
-                    FeedRemoteKeyEntity(
-                        accountDid = feedKey.accountDid,
-                        feedType = feedKey.feedType.name,
-                        feedUri = feedKey.feedUri,
-                        nextCursor = nextCursor,
-                    ),
-                )
-            }
-            return MediatorResult.Success(endOfPaginationReached = nextCursor == null || page.isEmpty())
-        }
 
         private suspend fun append(): MediatorResult {
             val storedCursor =
