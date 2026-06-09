@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.moderation.ModerationPreferencesCoordinator
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
+import net.kikin.nubecita.core.widgetsync.worker.WidgetRefreshScheduler
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadPollingObserver
 import net.kikin.nubecita.feature.chats.impl.worker.DmPollScheduler
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
@@ -64,6 +65,16 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun provideDmPollSchedulerInitializer(
         scheduler: DmPollScheduler,
+    ): AppInitializer = AppInitializer { scheduler.start() }
+
+    // Reactively schedule/cancel the background widget-feed-refresh worker on
+    // sign-in / sign-out (sub-project B, nubecita-lgoo.2 §7). Production-only:
+    // bench's empty set means no periodic widget-refresh work is ever enqueued
+    // there (keeps Macrobench windows free of background work).
+    @Provides
+    @IntoSet
+    fun provideWidgetRefreshSchedulerInitializer(
+        scheduler: WidgetRefreshScheduler,
     ): AppInitializer = AppInitializer { scheduler.start() }
 
     // Refresh the viewer's content-filter preferences once the session is
