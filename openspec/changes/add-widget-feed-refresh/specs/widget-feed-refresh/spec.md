@@ -56,10 +56,14 @@ The worker SHALL trigger the widget re-render through a `WidgetUpdater` seam (no
 - **WHEN** no Glance-backed updater is bound (this module alone)
 - **THEN** the worker still runs to completion using the no-op updater, and the module declares no Glance dependency
 
-### Requirement: Retry on transient failure
+### Requirement: Per-feed refresh with retry only on total failure
 
-The worker SHALL request a WorkManager retry when a feed refresh fails for a transient reason (network/server error), and SHALL NOT advance any state that would skip the un-refreshed feed.
+The worker SHALL refresh each feed independently and request a WorkManager retry **only when every feed failed**. A partial success (at least one feed refreshed) SHALL return success, so a retry never re-fetches an already-refreshed feed; the failed feed is picked up by the next periodic run.
 
-#### Scenario: Fetch failure retries
-- **WHEN** a feed refresh fetch fails transiently
+#### Scenario: All feeds fail → retry
+- **WHEN** every feed refresh fails transiently
 - **THEN** the worker returns a retry result so WorkManager re-runs it later
+
+#### Scenario: Partial failure → success without redundant re-fetch
+- **WHEN** at least one feed refreshes successfully and another fails
+- **THEN** the worker returns success (the succeeded feed is not re-fetched) and the failed feed is refreshed on the next periodic run

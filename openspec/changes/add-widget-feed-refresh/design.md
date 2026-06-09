@@ -30,6 +30,8 @@ The worker is non-UI infra (depends on `:core:feed-cache` + `:core:auth` + WorkM
 ### D-B4. Foreground guard (epic cross-writer note)
 Room's `InvalidationTracker` is table-level, so a cache write invalidates any active app `PagingSource`. The runner checks `AppForegroundSignal` first: **if foregrounded, return success WITHOUT writing** (the app's own `RemoteMediator` is the writer). It refreshes only when backgrounded, when no `PagingSource` is being collected.
 
+*Coarseness (per #509 review):* `AppForegroundSignal` (`ProcessLifecycleOwner`) is process-wide, so the refresh is also skipped while the app is foregrounded on a **non-feed** screen (Chats / Settings), where no feed `PagingSource` is active and a write would be harmless. We accept this deliberately — it only delays a widget refresh to the next periodic run / app-background (minor staleness, never a correctness issue), whereas a "is a feed `PagingSource` currently being collected" signal observable from a background worker is fragile and complex. A finer per-feed-active signal is a possible future refinement if widget staleness while the app is open proves noticeable.
+
 ### D-B5. `WidgetUpdater` seam — Glance-free
 `interface WidgetUpdater { suspend fun updateFeedWidgets() }`. The runner calls it after a successful refresh. B binds a **no-op** default (`@Provides` unless C overrides), so B has no Glance dependency and is fully testable. Sub-project C provides the real implementation (calls `FeedWidget().updateAll(context)` / `GlanceAppWidget.update()`).
 
@@ -37,7 +39,7 @@ Room's `InvalidationTracker` is table-level, so a cache write invalidates any ac
 MVP refreshes the **Following** (`FeedKey.following(did)`) and fixed **Discover** (`FeedType.DISCOVER`, the known generator URI) partitions for the signed-in account — matching the free widgets. After each successful per-feed REFRESH the runner calls `trimToCap(feedKey)` (off-scroll eviction A deferred to B). The Pro configurable feed's key is added in C/D.
 
 ### D-B7. Runner outcome → WorkManager Result
-The runner returns `SUCCESS` / `RETRY` (mirrors `DmPollRunner.Outcome`); the worker maps to `Result.success()` / `Result.retry()`. Gates first (signed-out → success no-op; foregrounded → success no-op), then per-feed refresh (a failed fetch → `RETRY`), then `trimToCap`, then `WidgetUpdater`.
+The runner returns `SUCCESS` / `RETRY` (mirrors `DmPollRunner.Outcome`); the worker maps to `Result.success()` / `Result.retry()`. Gates first (signed-out → success no-op; foregrounded → success no-op). Then refresh each MVP feed **independently** and `trimToCap` each one that succeeds. **`RETRY` only when *every* feed failed**; a **partial success → `SUCCESS`** (per #509 review): a feed that already refreshed must not be re-fetched by a WorkManager retry, so on a retry — which only happens when all failed — there are no succeeded feeds to redo. The failed feed in a partial-success run is picked up by the next periodic run. Call `WidgetUpdater` if at least one feed succeeded. (This avoids redundant network/battery as more feeds are added.)
 
 ## Risks / Trade-offs
 
