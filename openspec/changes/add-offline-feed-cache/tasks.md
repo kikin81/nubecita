@@ -19,22 +19,22 @@
 
 ## 3. Fetch + mapping in `:core:feed`
 
-- [ ] 3.1 Define `FeedType` (`FOLLOWING`, `DISCOVER`, `CUSTOM`) and a `FeedKey(accountDid, feedType, feedUri)`.
+- [ ] 3.1 Define `FeedType` (`FOLLOWING`, `DISCOVER`, `CUSTOM`, `LIST`) and a `FeedKey(accountDid, feedType, feedUri)`. `LIST` is modeled now (zero-cost, avoids a later migration; `getListFeed` already exists).
 - [ ] 3.2 Port the cursor-based fetch (`getTimeline`/`getFeed`) from `feature/feed/impl/DefaultFeedRepository` into a `:core:feed` network source returning `(posts, nextCursor)`; reuse `:core:feed-mapping` for wire→`PostUi`. Auth via `:core:auth` `XrpcClientProvider` (refresh-mutex path).
 - [ ] 3.3 `fun FeedPostEntity.asExternalModel(): PostUi` (same-file extension); write-through mapper `PostUi`→`FeedPostEntity` with `position`/`embedBlob`. Unit-test both directions.
 
 ## 4. RemoteMediator + Pager
 
 - [ ] 4.1 Implement `FeedRemoteMediator(feedKey)`: `REFRESH` → null cursor; `APPEND` → stored cursor; `PREPEND` → `Success(endOfPaginationReached = true)`; empty/last page → `endOfPaginationReached = true`; errors → `MediatorResult.Error`.
-- [ ] 4.2 `REFRESH` writes in one `withTransaction`: clear the partition + remote key, then insert page 1 and the new cursor (D-A5). `APPEND` inserts the page + updates the cursor (no eviction).
+- [ ] 4.2 `REFRESH` writes in one `withTransaction`: clear the partition + remote key, then insert page 1 and the new cursor (D-A5). `APPEND` **also runs in one `withTransaction`**: query the partition's current `maxPosition` (default to `-1`/start at `0` if empty), assign sequential `position = maxPosition + 1…` to the new page, insert, and update the cursor — atomic so positions can't race a concurrent write. No eviction in either path.
 - [ ] 4.3 Expose `FeedRepository.pagedFeed(feedKey): Flow<PagingData<PostUi>>` (`@OptIn(ExperimentalPagingApi)` `Pager` with the mediator + DAO `PagingSource`, mapped to `PostUi`).
 - [ ] 4.4 Mediator unit tests (Turbine + fake network + in-memory Room): REFRESH clears+loads, APPEND uses stored cursor, end-of-pagination, PREPEND short-circuits, error path.
 
 ## 5. Eviction (off the active-scroll path)
 
-- [ ] 5.1 `suspend fun trimToCap(feedKey, cap = ~500)` on the repository — deletes `feed_post` beyond the newest `cap` per partition + orphaned remote keys; NOT called from `APPEND` (D-A5).
+- [ ] 5.1 `suspend fun trimToCap(feedKey, cap = ~500)` on the repository — deletes `feed_post` beyond the newest `cap` per partition; NOT called from `APPEND` (D-A5). Does **not** touch `feed_remote_keys` — the cap retains posts, so the partition (and its single cursor row) stays live; the cursor is only removed when the whole partition is cleared (`clearAccount` / `REFRESH`).
 - [ ] 5.2 `suspend fun clearAccount(accountDid)` — partition delete; wire to a `:core:auth` session-state observer (logout/account removal).
-- [ ] 5.3 Tests: `trimToCap` keeps newest N and prunes keys; `clearAccount` removes only that DID's rows; assert no eviction occurs on an APPEND insert path.
+- [ ] 5.3 Tests: `trimToCap` keeps newest N posts and leaves the partition's cursor intact; `clearAccount` removes only that DID's `feed_post` + `feed_remote_keys` rows; assert no eviction occurs on an APPEND insert path.
 
 ## 6. Widget head query
 

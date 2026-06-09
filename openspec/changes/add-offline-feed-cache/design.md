@@ -24,7 +24,7 @@ A widget cannot depend on a feature `:impl`, and `:core:posts` is single-post/th
 `feed_post` stores a per-position snapshot: queryable columns `uri`, `cid`, `authorDid`, `indexedAt`, `position`, `text`, plus the rest of the rendered post (`embed`, counts, viewer state) as a **serialized blob via a `TypeConverter`**. No joins on the read path, trivial eviction. *Alternative — normalized post/author/membership:* hot-path joins + GC-based eviction; rejected for a snapshot feed (see epic D4 trade-off analysis).
 
 ### D-A3. DID-keyed, partitioned schema (epic D5)
-`feed_post` PK `(accountDid, feedType, feedUri, position)`. `feedType` is an enum-ish discriminator (`FOLLOWING`, `DISCOVER`, `CUSTOM`); `feedUri` holds the generator AT-URI for `DISCOVER`/`CUSTOM` (sentinel/empty for `FOLLOWING`). `@Index` on `uri` and `authorDid` (epic D11) for by-uri (deep-link / `:core:post-interactions` overlay) and by-author lookups that the composite PK doesn't serve.
+`feed_post` PK `(accountDid, feedType, feedUri, position)`. `feedType` is an enum-ish discriminator (`FOLLOWING`, `DISCOVER`, `CUSTOM`, `LIST`); `feedUri` holds the generator AT-URI for `DISCOVER`/`CUSTOM`, the list AT-URI for `LIST`, and a sentinel/empty for `FOLLOWING`. **`LIST` is included now** (per #502 review): `getListFeed` is already a `DefaultFeedRepository` capability, so defining `LIST` in v5 is zero-cost and avoids a later v5→v6 migration + a split interim where list feeds can't use the cache. `@Index` on `uri` and `authorDid` (epic D11) for by-uri (deep-link / `:core:post-interactions` overlay) and by-author lookups that the composite PK doesn't serve.
 
 ### D-A4. Paging 3 + `RemoteMediator`; one writer per active feed
 Introduce `androidx.paging` (paging-runtime; paging-compose deferred to E). `FeedRemoteMediator<Int, FeedPostEntity>` is the **only** writer of an app-active feed partition, driven by `load(LoadType, PagingState)`: `REFRESH` → null cursor, `APPEND` → stored cursor from `feed_remote_keys`, `PREPEND` → `Success(endOfPaginationReached = true)` (reverse-chron). `:core:feed` exposes a `Pager`/`Flow<PagingData<PostUi>>` (for E) and a separate **head query** `Flow<List<PostUi>>` (`ORDER BY position LIMIT n`) for the widget (C) — the widget never touches Paging.
@@ -45,7 +45,7 @@ A `SavedFeedsRepository`-style accessor in `:core:feed` (`app.bsky.actor.getPref
 ## Risks / Trade-offs
 
 - **Cross-feed state drift** (D-A2) → in-app interactions overlay live state via `:core:post-interactions`; `REFRESH` re-syncs. Acceptable for snapshot feeds.
-- **Cross-writer invalidation** (widget worker in B writes the same table the app `PagingSource` observes) → B confines its writes to top-of-feed `REFRESH` semantics and never mutates mid-list rows; documented now so B inherits the constraint.
+- **Room invalidation is table-level, not partition-level** *(per #502 review — HIGH)* → *any* write to `feed_post` (any partition) invalidates *every* active `PagingSource` observing the table, and a `REFRESH`-clear deletes rows the user had scrolled past. Mitigations: (1) while the feed is foregrounded the app's `RemoteMediator` is the **sole writer**; (2) the widget refresh worker (B) is **foreground-guarded** — it writes the cache **only when the app is backgrounded** (reusing `AppForegroundSignal` from the DM worker), so no `PagingSource` is being collected at write time and there is nothing to disrupt; (3) user-initiated in-app pull-to-refresh invalidation is expected (Paging's `getRefreshKey` anchors). A separate widget-only head table was considered and **rejected** to preserve the single source of truth (epic D3); B inherits the foreground-guard constraint, recorded here so A's cache contract is explicit.
 - **Schema migration** v4 → v5 → additive (two new tables, no column changes), so `@AutoMigration` should suffice; commit `5.json`. Rollback: the cache is rebuildable from the network, so a bad migration can be handled by `fallbackToDestructiveMigration` *only* on the feed tables if ever needed (decide in tasks).
 - **Authenticated background fetch** (Following) → reuse the `:core:auth` refresh-mutex `XrpcClientProvider` path (same as the DM worker) so a refresh can't race the app into logout.
 - **120hz** → A only *provides* the `Pager`; the perf-sensitive screen migration is E, tested there.
@@ -62,5 +62,6 @@ Rollback: revert the module; the v5 tables are additive and unused by existing s
 
 - Head query `LIMIT n` value (widget post count) — finalize in C; A exposes it parameterized.
 - Count-cap exact value (~500 starting point) and where the off-scroll trim is invoked from in A vs B.
-- Whether `feedType`/`feedUri` should also model list-feeds (`getListFeed`) now or defer until a list-feed widget is requested.
 - Saved-feeds: reuse vs new accessor relative to `nubecita-lq9t.3.2`.
+
+*(Resolved: list feeds are modeled now via the `LIST` `feedType` — see D-A3.)*
