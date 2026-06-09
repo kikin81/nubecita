@@ -35,7 +35,7 @@ The system SHALL register a unique **periodic** refresh at the platform-minimum 
 
 #### Scenario: On-demand refresh
 - **WHEN** a widget is added or a manual refresh is requested
-- **THEN** a unique one-time work request is enqueued (network-constrained) without disturbing the periodic schedule, and a duplicate in-flight refresh is suppressed
+- **THEN** a unique one-time work request is enqueued (network-constrained) without disturbing the periodic schedule, and a duplicate in-flight refresh is suppressed (WorkManager `ExistingWorkPolicy.KEEP`)
 
 #### Scenario: Cancelled on sign-out
 - **WHEN** the user signs out
@@ -55,7 +55,7 @@ The worker SHALL refresh each feed independently and request a WorkManager retry
 
 #### Scenario: Partial failure → success without redundant re-fetch
 - **WHEN** at least one feed refreshes successfully and another fails
-- **THEN** the worker returns success (the succeeded feed is not re-fetched) and the failed feed is refreshed on the next periodic run
+- **THEN** the worker returns success (preventing a WorkManager retry from re-fetching the succeeded feed) and the failed feed is refreshed on the next periodic run
 
 #### Scenario: An unexpected error in one feed does not abort the others
 - **WHEN** refreshing one feed throws an unexpected error
@@ -67,7 +67,7 @@ After refreshing a feed partition, the worker SHALL run the count-cap trim (`:co
 
 #### Scenario: Trim after refresh
 - **WHEN** the worker successfully refreshes a feed partition
-- **THEN** it trims that partition to the retention cap (off-scroll), leaving the partition's cursor intact
+- **THEN** it trims that partition to the retention cap (default 500 posts, off-scroll), leaving the partition's cursor intact
 
 ### Requirement: Widget update is triggered through a Glance-free seam
 
