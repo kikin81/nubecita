@@ -50,7 +50,11 @@ The app's 1/2/3/4 image layouts and Material carousel are **not** reproduced in 
 **Conservative fallback:** if a widget-scale bitmap test (a C analogue of A's §9.4) shows even one-thumb-per-row strains the budget, drop to **text-only with a small "🖼 4" media indicator** and no thumbnails. Start with single-thumb + count badge; keep text-only as the escape hatch.
 
 ### Image-prefetch pipeline (new scope for C / extends B's worker)
-B's worker refreshes the *post* cache but does **not** decode images (B is Glance-free, no image work). C adds an **image-prefetch step**: in the worker (or a C-owned step it triggers), for each of the `head(n)` posts shown, decode **only the first image's `thumb`** (reuse the app's Coil `ImageLoader.execute` → `Bitmap`), downscale to the responsive cell size, persist the path/URI in `PreferencesGlanceStateDefinition` keyed by `(postUri, size)`, then `updateAll()`. Bounded: one decode per shown post, not whole galleries.
+B's worker refreshes the *post* cache but does **not** decode images (B is Glance-free, no image work). C adds an **image-prefetch step**: in the worker (or a C-owned step it triggers), for each of the `head(n)` posts shown, decode **only the first image's `thumb`** (reuse the app's Coil `ImageLoader.execute` → `Bitmap`), then `updateAll()`. Bounded: one decode per shown post, not whole galleries.
+
+**Sizing (per #510 review):** the background worker runs independently of the active widget composition and **cannot know the active responsive cell size**. So decode/downscale to a **single fixed max bounding box** — the largest thumbnail any responsive layout needs (≈150–200dp) — and let Glance scale it down at render. Key the cache by **`postUri`** alone (not `(postUri, size)`).
+
+**Eviction (per #510 review — required):** the on-disk thumbnails and their Glance-state keys must be **pruned**, or they grow unboundedly as posts cycle out of the feed. Strategy: store thumbnails in a **dedicated cache dir** (not inline in DataStore prefs — prefs hold only the small path/URI), and on each prefetch run **delete the thumbnail file + its key for any post no longer in the current `head(n)` set** (and clear all of an account's thumbnails on logout, mirroring `clearAccount`). This bounds the image cache to ~`n` thumbnails per widget feed — the image analogue of A's `trimToCap`.
 
 ## 4. What C must carry in (summary)
 
