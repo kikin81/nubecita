@@ -61,7 +61,6 @@ class PushNotificationBuilder(
                     setContentText(body)
                     setStyle(NotificationCompat.BigTextStyle().bigText(body))
                 }
-            }.apply {
                 tapPendingIntentFor(payload, context)?.let { setContentIntent(it) }
             }.build()
     }
