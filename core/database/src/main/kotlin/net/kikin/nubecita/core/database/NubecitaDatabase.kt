@@ -5,15 +5,21 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import net.kikin.nubecita.core.database.dao.ActorDao
+import net.kikin.nubecita.core.database.dao.FeedPostDao
+import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 import net.kikin.nubecita.core.database.model.ActorEntity
+import net.kikin.nubecita.core.database.model.FeedPostEntity
+import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import net.kikin.nubecita.core.database.model.RecentSearchEntity
 import net.kikin.nubecita.core.database.util.InstantConverter
 
 /**
  * The single Room database for Nubecita. v2 introduces the first real
  * entity ([RecentSearchEntity]) and drops the v1 `BootstrapEntity`
- * placeholder via the [BootstrapEntityDrop] `AutoMigrationSpec`.
+ * placeholder via the [BootstrapEntityDrop] `AutoMigrationSpec`. v5 adds the
+ * offline feed cache ([FeedPostEntity] + [FeedRemoteKeyEntity]) — two new
+ * tables, additive, via `@AutoMigration(4 → 5)`.
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
@@ -22,13 +28,19 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * [MANUAL_MIGRATIONS] when AutoMigration cannot express the diff.
  */
 @Database(
-    entities = [RecentSearchEntity::class, ActorEntity::class],
-    version = 4,
+    entities = [
+        RecentSearchEntity::class,
+        ActorEntity::class,
+        FeedPostEntity::class,
+        FeedRemoteKeyEntity::class,
+    ],
+    version = 5,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
+        AutoMigration(from = 4, to = 5),
     ],
 )
 @TypeConverters(InstantConverter::class)
@@ -36,4 +48,8 @@ abstract class NubecitaDatabase : RoomDatabase() {
     abstract fun recentSearchDao(): RecentSearchDao
 
     abstract fun actorDao(): ActorDao
+
+    abstract fun feedPostDao(): FeedPostDao
+
+    abstract fun feedRemoteKeyDao(): FeedRemoteKeyDao
 }

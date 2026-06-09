@@ -1,16 +1,16 @@
 ## ADDED Requirements
 
-### Requirement: `:core:feed` is the single offline-first feed data source
+### Requirement: `:core:feed-cache` is the single offline-first feed data source
 
-The system SHALL provide a `:core:feed` module that owns feed fetching, wire→`PostUi` mapping, and the offline cache, exposed through a repository interface. Room entities SHALL NOT cross the module boundary — feed data SHALL be returned as `:data:models` `PostUi` (via an `asExternalModel()` mapping). Reads SHALL return `Flow`/`PagingData`; writes SHALL be `suspend`.
+The system SHALL provide a `:core:feed-cache` module that owns feed fetching, wire→`PostUi` mapping, and the offline cache, exposed through a repository interface. Room entities SHALL NOT cross the module boundary — feed data SHALL be returned as `:data:models` `PostUi` (via an `asExternalModel()` mapping). Reads SHALL return `Flow`/`PagingData`; writes SHALL be `suspend`.
 
 #### Scenario: Feed data crosses the boundary as a UI model
-- **WHEN** a caller obtains feed data from `:core:feed`
+- **WHEN** a caller obtains feed data from `:core:feed-cache`
 - **THEN** it receives `:data:models` `PostUi` values, never `FeedPostEntity`/`FeedRemoteKeyEntity`
 
 #### Scenario: Both app and widget can depend on the source
 - **WHEN** the app feed and a home-screen widget need feed data
-- **THEN** both depend on `:core:feed` (a non-UI `:core` module), not on `feature/feed/impl`
+- **THEN** both depend on `:core:feed-cache` (a non-UI `:core` module), not on `feature/feed/impl`
 
 ### Requirement: Feed posts are cached in a DID-keyed offline store
 
