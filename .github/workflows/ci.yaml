@@ -19,37 +19,27 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint
+  # The lint work is split into two PARALLEL jobs (nubecita-yz7o) so the long
+  # Android Lint analysis no longer serializes behind pre-commit + the
+  # release-notes dry-run + spotless. A final `lint` aggregator preserves the
+  # "Lint" status-check name (so required-check config keeps resolving) and
+  # fails if either parallel job fails.
+  lint-checks:
+    name: Lint / checks
     runs-on: ubuntu-latest
-    # The Release-notes-preview step (open-turo/actions-release/
-    # lint-release-notes@v5) runs a semantic-release dry-run and posts
-    # the projected release notes as a PR comment. That's why both
-    # write scopes are required:
-    #   - `pull-requests: write` — for the dry-run comment.
-    #   - `contents: write` — semantic-release's analyze/notes plugins
-    #     stage tag/changelog updates against the working tree as part
-    #     of the dry-run, which the action treats as a write-class
-    #     operation.
-    # SHA-pinning the actions (tracked as the medium-priority follow-up
-    # in `docs/superpowers/specs/2026-05-17-main-branch-hardening.md`)
-    # is the real mitigation here — narrowing the scopes any further
-    # breaks the dry-run comment that reviewers rely on.
+    # Release-notes preview (open-turo/actions-release/lint-release-notes@v5)
+    # runs a semantic-release dry-run and posts a PR comment, so this job needs
+    # write scopes:
+    #   - `pull-requests: write` — the dry-run comment.
+    #   - `contents: write` — semantic-release stages tag/changelog updates
+    #     against the working tree during the dry-run (a write-class op).
+    # SHA-pinning the actions (medium-priority follow-up in
+    # `docs/superpowers/specs/2026-05-17-main-branch-hardening.md`) is the real
+    # mitigation; narrowing further breaks the dry-run comment reviewers rely on.
     permissions:
       contents: write
       pull-requests: write
     steps:
-      # The open-turo `actions-jvm/lint@v2` composite bundles
-      # checkout + setup-tools + setup-gradle + pre-commit +
-      # release-notes-preview. Only the last step needs the App
-      # token (to post a PR comment as the bot). Fork PRs can't see
-      # the `BOT_APP_ID` / `BOT_PRIVATE_KEY` secrets, so we inline
-      # the composite's steps here and gate just the App-token +
-      # release-notes-preview on same-repo PRs. Pre-commit (which
-      # enforces commitlint / gitleaks / actionlint / EOF-fixer)
-      # runs on every PR including forks — otherwise a fork PR with
-      # a non-Conventional commit would slip through CI and fail
-      # the post-merge semantic-release.
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -57,6 +47,60 @@ jobs:
 
       - name: Setup tools
         uses: open-turo/action-setup-tools@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+
+      # Needed because the pre-commit `spotless` + `openspec-validate` hooks
+      # shell out to `./gradlew`, which requires the Android SDK + Gradle to
+      # configure the build.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      # Runs on every PR (incl. forks): commitlint, gitleaks, actionlint,
+      # end-of-file-fixer, spotless (`./gradlew spotlessApply` — the SINGLE
+      # spotless enforcement; the `lint-android` job no longer re-runs
+      # `spotlessCheck`), and openspec-validate. No `github-token` (only used
+      # to clone private hook repos, which we don't have).
+      - name: Pre-commit
+        uses: open-turo/action-pre-commit@v3
+
+      # App token + release-notes preview run only on same-repo PRs (fork PRs
+      # can't see the bot secrets). Token generation is gated on the same
+      # condition so the secrets aren't exercised on push / workflow_dispatch.
+      - name: Generate bot App token
+        id: app-token
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+      - name: Release notes preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: open-turo/actions-release/lint-release-notes@v5
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          checkout-repo: false
+
+      - name: Sort dependencies
+        run: ./gradlew :app:checkSortDependencies
+
+  lint-android:
+    name: Lint / android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -73,41 +117,34 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
 
-      - name: Pre-commit
-        uses: open-turo/action-pre-commit@v3
-        # No `github-token` — the input is only used to clone
-        # private repos referenced by hooks, which we don't have.
-        # Runs on every PR (incl. forks): commitlint, gitleaks,
-        # actionlint, end-of-file-fixer, spotless, openspec-validate.
+      # The long pole — its own job so it runs in parallel with `lint-checks`.
+      # spotless is NOT re-run here (the pre-commit spotless hook in
+      # `lint-checks` is the single enforcement — dedup, nubecita-yz7o).
+      # `:app:lintProductionDebug` is explicit because :app's `environment`
+      # flavor dimension makes the unflavored `:app:lint` alias to
+      # `:app:lintBenchDebug` (AGP picks the alphabetically-first flavor), which
+      # would lint only the ~5-file bench shim and miss app/src/production/. The
+      # top-level `lint` aggregator task still covers every non-flavored module.
+      - name: Android Lint
+        run: ./gradlew lint :app:lintProductionDebug
 
-      # The App token is only consumed by `Release notes preview` below,
-      # which itself only runs on same-repo PRs. Gate the token-generation
-      # step on the same condition so we don't exercise the bot secrets on
-      # `push` / `workflow_dispatch` events that have no consumer.
-      - name: Generate bot App token
-        id: app-token
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.BOT_APP_ID }}
-          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
-
-      - name: Release notes preview
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: open-turo/actions-release/lint-release-notes@v5
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          checkout-repo: false
-
-      - name: Spotless + Android Lint + Sort Dependencies
-        # `:app:lintProductionDebug` is explicit because :app's `environment`
-        # flavor dimension makes the unflavored `:app:lint` task alias to
-        # `:app:lintBenchDebug` (AGP picks the alphabetically-first flavor),
-        # so without this we'd lint the bench source set — which has only the
-        # ~5-file fake-network shim — and miss every lint finding in the
-        # production-flavor source under `app/src/production/`. The
-        # top-level `lint` aggregator still covers every non-flavored module.
-        run: ./gradlew spotlessCheck lint :app:lintProductionDebug :app:checkSortDependencies
+  # Aggregator: preserves the "Lint" status-check name and fails if either
+  # parallel lint job failed. The explicit result check (with `if: always()`)
+  # prevents a skipped/failed dependency from slipping through as a passing
+  # required check.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: [lint-checks, lint-android]
+    if: always()
+    steps:
+      - name: Verify lint jobs succeeded
+        run: |
+          if [ "${{ needs.lint-checks.result }}" != "success" ] || [ "${{ needs.lint-android.result }}" != "success" ]; then
+            echo "Lint failed — checks=${{ needs.lint-checks.result }} android=${{ needs.lint-android.result }}"
+            exit 1
+          fi
+          echo "All lint checks passed."
 
   test:
     name: Test
