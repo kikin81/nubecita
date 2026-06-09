@@ -92,15 +92,19 @@ internal open class DefaultFeedRepository
                 },
             ).flow
                 .map { pagingData ->
-                    // Read current viewer + prefs per item so a logout / prefs
-                    // toggle reflects on the next Paging load without rebuilding
-                    // the Pager. PagingData requires non-null T, so map each
-                    // entity to a nullable holder, drop the nulls, then unwrap.
-                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
-                    val prefs = moderationPreferences.prefs.value
+                    // Read current viewer + prefs INSIDE the per-item map (not
+                    // once per PagingData emission): pagingMap is applied lazily
+                    // as pages load, so reading .value here means a later APPEND
+                    // page — or a prefs/account change between loads — reflects
+                    // the current state without rebuilding the Pager. PagingData
+                    // requires non-null T, so map each entity to a nullable
+                    // holder, drop the nulls, then unwrap.
                     pagingData
-                        .pagingMap { entity -> PostUiOrNull(entity.toPostUi(viewerDid, prefs)) }
-                        .pagingFilter { it.value != null }
+                        .pagingMap { entity ->
+                            val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+                            val prefs = moderationPreferences.prefs.value
+                            PostUiOrNull(entity.toPostUi(viewerDid, prefs))
+                        }.pagingFilter { it.value != null }
                         .pagingMap { requireNotNull(it.value) }
                 }
 
