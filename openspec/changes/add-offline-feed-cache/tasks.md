@@ -28,7 +28,8 @@
 - [ ] 4.1 Implement `FeedRemoteMediator(feedKey)`: `REFRESH` → null cursor; `APPEND` → stored cursor; `PREPEND` → `Success(endOfPaginationReached = true)`; empty/last page → `endOfPaginationReached = true`; errors → `MediatorResult.Error`.
 - [ ] 4.2 `REFRESH` writes in one `withTransaction`: clear the partition + remote key, then insert page 1 and the new cursor (D-A5). `APPEND` **also runs in one `withTransaction`**: query the partition's current `maxPosition` (default to `-1`/start at `0` if empty), assign sequential `position = maxPosition + 1…` to the new page, insert, and update the cursor — atomic so positions can't race a concurrent write. No eviction in either path.
 - [ ] 4.3 Expose `FeedRepository.pagedFeed(feedKey): Flow<PagingData<PostUi>>` (`@OptIn(ExperimentalPagingApi)` `Pager` with the mediator + DAO `PagingSource`, mapped to `PostUi`).
-- [ ] 4.4 Mediator unit tests (Turbine + fake network + in-memory Room): REFRESH clears+loads, APPEND uses stored cursor, end-of-pagination, PREPEND short-circuits, error path.
+- [ ] 4.4 `initialize()` returns `SKIP_INITIAL_REFRESH` when the partition has fresh-enough cached data (per-partition staleness/TTL check), else `LAUNCH_INITIAL_REFRESH` (D-A8) — so opening/switching to a feed renders its cached partition immediately and refreshes only when stale or on pull-to-refresh.
+- [ ] 4.5 Mediator unit tests (Turbine + fake network + in-memory Room): REFRESH clears+loads only its own partition (leaves other partitions intact), APPEND uses stored cursor, end-of-pagination, PREPEND short-circuits, error path, and `initialize()` skips refresh when the partition is fresh.
 
 ## 5. Eviction (off the active-scroll path)
 

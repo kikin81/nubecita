@@ -42,6 +42,9 @@ Any Room write to the queried table invalidates the live `PagingSource` (verifie
 ### D-A7. Saved-feeds fetch
 A `SavedFeedsRepository`-style accessor in `:core:feed` (`app.bsky.actor.getPreferences` for the saved/pinned list + feed-generator display metadata) to back the Pro picker in C/D. No cache in A (one-shot fetch); revisit if C needs offline. May reuse existing custom-feeds work (`nubecita-lq9t.3.2`) / feed-switching (`nubecita-a580`).
 
+### D-A8. Per-partition cache; `SKIP_INITIAL_REFRESH` so feed-switching is instant from cache
+All feeds share the **one** `feed_post` table, partitioned by `(accountDid, feedType, feedUri)`; `REFRESH`-clear is scoped to a single partition (`… WHERE accountDid=? AND feedType=? AND feedUri=?`), never table-wide — so switching feeds in the app does **not** clear other feeds' rows. To keep switching offline-first, `FeedRemoteMediator.initialize()` returns **`SKIP_INITIAL_REFRESH`** guarded by a per-partition staleness/TTL check: opening (or switching to) a feed renders its cached partition immediately and refreshes only when stale or on explicit pull-to-refresh. *Alternative — the default `LAUNCH_INITIAL_REFRESH`:* clears + refetches the partition on every open, losing cached depth and forcing a network round-trip per switch; rejected. **Caveat:** Room invalidation is table-level, so if the app ever keeps *two* feed `Pager`s collected at once (live feed tabs — possibly `nubecita-a580`), a write to one partition makes the other's `PagingSource` re-read its partition from the DB (cheap, position-anchored, but a possible flicker). Single-feed-at-a-time (today) is unaffected.
+
 ## Risks / Trade-offs
 
 - **Cross-feed state drift** (D-A2) → in-app interactions overlay live state via `:core:post-interactions`; `REFRESH` re-syncs. Acceptable for snapshot feeds.

@@ -56,6 +56,14 @@ The system SHALL serve a previously-cached feed from the local store when the ne
 - **WHEN** an append network fetch fails
 - **THEN** the previously cached pages remain readable and the error is surfaced without clearing the cache
 
+#### Scenario: Switching feeds does not clear other partitions
+- **WHEN** the user switches from one feed to another and back
+- **THEN** each feed's `(accountDid, feedType, feedUri)` partition is read from cache and no other feed's rows are cleared — a `REFRESH`-clear only ever scopes to a single partition
+
+#### Scenario: Opening a fresh-cached feed renders from cache without auto-refresh
+- **WHEN** a feed with fresh-enough cached data is opened or switched to
+- **THEN** its cached partition renders immediately (`initialize()` returns `SKIP_INITIAL_REFRESH`) and no network refresh runs until the cache is stale or the user pulls to refresh
+
 ### Requirement: Widget head query
 
 The system SHALL expose a non-Paging query returning the newest `n` cached posts for a `(accountDid, feedType, feedUri)` as a `Flow<List<PostUi>>` ordered by `position`.
