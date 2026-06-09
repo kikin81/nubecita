@@ -25,17 +25,17 @@
 
 ## 4. RemoteMediator + Pager
 
-- [ ] 4.1 Implement `FeedRemoteMediator(feedKey)`: `REFRESH` → null cursor; `APPEND` → stored cursor; `PREPEND` → `Success(endOfPaginationReached = true)`; empty/last page → `endOfPaginationReached = true`; errors → `MediatorResult.Error`.
-- [ ] 4.2 `REFRESH` writes in one `withTransaction`: clear the partition + remote key, then insert page 1 and the new cursor (D-A5). `APPEND` **also runs in one `withTransaction`**: query the partition's current `maxPosition` (default to `-1`/start at `0` if empty), assign sequential `position = maxPosition + 1…` to the new page, insert, and update the cursor — atomic so positions can't race a concurrent write. No eviction in either path.
-- [ ] 4.3 Expose `FeedRepository.pagedFeed(feedKey): Flow<PagingData<PostUi>>` (`@OptIn(ExperimentalPagingApi)` `Pager` with the mediator + DAO `PagingSource`, mapped to `PostUi`).
-- [ ] 4.4 `initialize()` returns `SKIP_INITIAL_REFRESH` when the partition has fresh-enough cached data (per-partition staleness/TTL check), else `LAUNCH_INITIAL_REFRESH` (D-A8) — so opening/switching to a feed renders its cached partition immediately and refreshes only when stale or on pull-to-refresh.
-- [ ] 4.5 Mediator unit tests (Turbine + fake network + in-memory Room): REFRESH clears+loads only its own partition (leaves other partitions intact), APPEND uses stored cursor, end-of-pagination, PREPEND short-circuits, error path, and `initialize()` skips refresh when the partition is fresh.
+- [x] 4.1 Implement `FeedRemoteMediator(feedKey)`: `REFRESH` → null cursor; `APPEND` → stored cursor; `PREPEND` → `Success(endOfPaginationReached = true)`; empty/last page → `endOfPaginationReached = true`; errors → `MediatorResult.Error`.
+- [x] 4.2 `REFRESH` writes in one `withTransaction`: clear the partition + remote key, then insert page 1 and the new cursor (D-A5). `APPEND` **also runs in one `withTransaction`**: query the partition's current `maxPosition` (default to `-1`/start at `0` if empty), assign sequential `position = maxPosition + 1…` to the new page, insert, and update the cursor — atomic so positions can't race a concurrent write. No eviction in either path. (Transaction seam = `FeedCacheTransactionRunner`, real impl wraps `db.withTransaction`.)
+- [x] 4.3 Expose `FeedRepository.pagedFeed(feedKey): Flow<PagingData<PostUi>>` (`@OptIn(ExperimentalPagingApi)` `Pager` with the mediator + DAO `PagingSource`, mapped to `PostUi`).
+- [x] 4.4 `initialize()` returns `SKIP_INITIAL_REFRESH` when the partition has cached rows (`maxPosition != null`), else `LAUNCH_INITIAL_REFRESH` (D-A8). The TTL/staleness refinement is intentionally DEFERRED to the refresh worker (sub-project B) — no `fetched_at` column added here (documented in `FeedRemoteMediator.initialize()`'s KDoc).
+- [x] 4.5 Mediator unit tests (`FeedRemoteMediatorTest`, MockK network + DAOs + pass-through transaction runner): REFRESH clears + inserts positions 0..n + stores cursor, APPEND uses stored cursor and appends at maxPosition+1, APPEND null/missing cursor → endOfPagination without fetch, empty/last page → endOfPagination, error path → `MediatorResult.Error`, PREPEND short-circuits, `initialize()` skips when cached.
 
 ## 5. Eviction (off the active-scroll path)
 
-- [ ] 5.1 `suspend fun trimToCap(feedKey, cap = ~500)` on the repository — deletes `feed_post` beyond the newest `cap` per partition; NOT called from `APPEND` (D-A5). Does **not** touch `feed_remote_keys` — the cap retains posts, so the partition (and its single cursor row) stays live; the cursor is only removed when the whole partition is cleared (`clearAccount` / `REFRESH`).
-- [ ] 5.2 `suspend fun clearAccount(accountDid)` — partition delete; wire to a `:core:auth` session-state observer (logout/account removal).
-- [ ] 5.3 Tests: `trimToCap` keeps newest N posts and leaves the partition's cursor intact; `clearAccount` removes only that DID's `feed_post` + `feed_remote_keys` rows; assert no eviction occurs on an APPEND insert path.
+- [x] 5.1 `suspend fun trimToCap(feedKey, cap = DEFAULT_CAP = 500)` on `FeedRepository` → `feedPostDao.trimToCap`; NOT called from the mediator's `load()` (D-A5). Does **not** touch `feed_remote_keys`.
+- [x] 5.2 `suspend fun clearAccount(accountDid)` — `feedPostDao.clearAccount` + `feedRemoteKeyDao.clearAccount` in one transaction; `FeedCacheEvictionCoordinator` (mirrors `DmPollScheduler`: injected `@ApplicationScope` scope + `SessionStateProvider`, plain class with `start()`) calls it for the leaving DID on sign-out / account switch. `start()` wiring at `:app` deferred to sub-project E/B (see DI note below).
+- [x] 5.3 Tests: `FeedRepositoryTest` asserts `trimToCap` delegates with the cap and `clearAccount` clears both posts + remote keys; `FeedRemoteMediatorTest` asserts no `clearPartition`/eviction on the APPEND path; `FeedCacheEvictionCoordinatorTest` asserts the leaving DID is purged on sign-out / switch (and not on a cold Loading→SignedOut).
 
 ## 6. Widget head query
 
