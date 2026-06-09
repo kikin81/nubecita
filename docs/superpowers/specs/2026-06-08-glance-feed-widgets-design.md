@@ -104,13 +104,18 @@ on demand. The refresh is a single idempotent clear+insert transaction, so
 concurrent runs can't corrupt the cache; `KEEP` suppresses duplicate in-flight
 refreshes. Battery-cooperative (D9): no expedited work, Doze deferral accepted.
 
-**Cross-writer note:** the widget refresh worker and the app's `RemoteMediator`
-both write the shared feed table, so a background refresh while the user scrolls
-the app feed would invalidate the app's `PagingSource`. Confine worker writes to
-**top-of-feed REFRESH semantics** (treated like a pull-to-refresh — acceptable
-invalidation at the top) and never mutate mid-list rows from the worker, so an
-active feed isn't jumped mid-scroll. This is the same invalidation principle as
-D6, applied across writers.
+**Cross-writer note (Room invalidation is table-level):** Room's
+`InvalidationTracker` invalidates at the **table** level, not the row/partition
+level — so *any* write to `feed_post` (even a different feed's partition, or the
+widget worker) invalidates *every* active `PagingSource` observing the table, and
+a `REFRESH`-clear deletes rows the user had scrolled past. The mitigation is a
+**foreground guard**: the widget refresh worker writes the cache **only when the
+app is backgrounded** (reusing `AppForegroundSignal`), so there is no live
+`PagingSource` to disrupt at write time; while foregrounded the app's
+`RemoteMediator` is the sole writer, and a user-initiated pull-to-refresh
+invalidation is expected (`getRefreshKey` anchors). A separate widget-only head
+table was considered and rejected to keep one source of truth (D3). Sub-project B
+inherits the foreground-guard constraint.
 
 ### Widgets (C) + Pro gating (D)
 
