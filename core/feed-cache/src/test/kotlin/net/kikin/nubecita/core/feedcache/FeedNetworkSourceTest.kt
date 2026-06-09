@@ -8,6 +8,7 @@ import io.ktor.client.engine.mock.respondError
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -111,6 +112,24 @@ internal class FeedNetworkSourceTest {
 
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull() is NoSessionException)
+        }
+
+    @Test
+    fun `CancellationException propagates rather than collapsing into a failure`() =
+        runTest {
+            val provider = FakeXrpcClientProvider { throw CancellationException("cancelled") }
+            val source = FeedNetworkSource(provider, UnconfinedTestDispatcher(testScheduler))
+
+            // Cooperative cancellation must propagate, not become Result.failure
+            // (which would log a false error and swallow the cancel).
+            val propagated =
+                try {
+                    source.fetchPage(following, cursor = null)
+                    false
+                } catch (_: CancellationException) {
+                    true
+                }
+            assertTrue(propagated, "CancellationException must propagate for cooperative cancellation")
         }
 
     private fun kotlinx.coroutines.test.TestScope.sourceFor(fixture: String): FeedNetworkSource {

@@ -7,6 +7,7 @@ import io.github.kikin81.atproto.app.bsky.feed.GetListFeedRequest
 import io.github.kikin81.atproto.app.bsky.feed.GetTimelineRequest
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.XrpcClient
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
@@ -88,9 +89,15 @@ class FeedNetworkSource
             block: suspend (client: XrpcClient) -> FeedNetworkPage,
         ): Result<FeedNetworkPage> =
             withContext(dispatcher) {
-                runCatching {
-                    block(xrpcClientProvider.authenticated())
-                }.onFailure { throwable ->
+                try {
+                    Result.success(block(xrpcClientProvider.authenticated()))
+                } catch (cancellation: CancellationException) {
+                    // Cooperative cancellation (feed refresh / navigating away
+                    // cancels the in-flight load) must propagate — not be logged
+                    // as an error or collapsed into Result.failure. runCatching
+                    // would swallow it, so catch + rethrow explicitly.
+                    throw cancellation
+                } catch (throwable: Throwable) {
                     // Same diagnostic shape as DefaultFeedRepository: log the
                     // throwable's concrete class so cold-start failures are
                     // attributable. javaClass.name (not qualifiedName) so
@@ -102,6 +109,7 @@ class FeedNetworkSource
                         cursor,
                         throwable.javaClass.name,
                     )
+                    Result.failure(throwable)
                 }
             }
 
