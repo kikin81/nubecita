@@ -18,7 +18,6 @@ import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlinx.serialization.json.add as jsonAdd
@@ -92,9 +91,17 @@ internal class FeedRefresherTest {
         runTest {
             coEvery { networkSource.fetchPage(key, cursor = null) } throws CancellationException("cancelled")
 
-            assertThrows(CancellationException::class.java) {
-                kotlinx.coroutines.runBlocking { refresher.refresh(key) }
+            // Assert propagation directly in the runTest scope — no runBlocking
+            // (it would block the test thread and interfere with virtual time).
+            // The CancellationException here is thrown by the fake, not a cancel
+            // of the test's job, so catching it leaves the scope intact.
+            var propagated = false
+            try {
+                refresher.refresh(key)
+            } catch (_: CancellationException) {
+                propagated = true
             }
+            assertTrue(propagated, "CancellationException must propagate, not become a Result.failure")
             coVerify(exactly = 0) { feedPostDao.upsert(any()) }
         }
 
