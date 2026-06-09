@@ -39,10 +39,12 @@ thread offline caching are sibling capabilities for later epics (see
 | D3 | **Full offline-first** via **Paging 3 + `RemoteMediator` + Room**; the app feed and the widgets share one cache (one source of truth). | The "proper" offline-first end-state the team chose over a widget-only cache. |
 | D4 | **Denormalized snapshot rows** for the cache (not normalized post/author/membership tables). | Feeds are point-in-time snapshots; no joins on the 120hz read path; trivial eviction; storage cost is negligible (a few MB). `authorDid` stays a first-class column so a shared actor table can be layered later. |
 | D5 | **DID-keyed schema** even in the single-account MVP. | Cheap future-proofing for multi-account; "delete account" becomes `DELETE WHERE accountDid = ?`. |
-| D6 | **Eviction = A + B + C**: (A) `REFRESH` clears the `(accountDid, feedType, feedUri)` partition and reinserts page 1; (B) count-cap trim on `APPEND` (~500/feed); (C) logout/account-removal partition delete. Optional TTL later. | Bounded storage, fresh data, clean multi-account teardown — all in Room transactions, no extra worker. `PagingConfig.maxSize` is unusable with `RemoteMediator`, so eviction must be DB-level deletes. |
+| D6 | **Eviction, off the active-scroll path** *(revised per #501 review)*: (A) `REFRESH` clears the `(accountDid, feedType, feedUri)` partition and reinserts page 1 — the canonical Paging pattern, where `PagingSource` invalidation is expected; (B) the **count-cap trim (~500/feed) runs off-scroll, NOT during `APPEND`** — a Room write to the queried table invalidates the live `PagingSource` and jumps the scroll (confirmed by the official RemoteMediator guide), so the trim runs as a maintenance pass when the feed's `PagingSource` isn't being collected (app backgrounded / feed not active, or piggy-backed on the periodic worker); (C) logout/account-removal partition delete (off-scroll). Optional TTL later. | Bounded storage **without mid-scroll invalidation**. `PagingConfig.maxSize` is unusable with `RemoteMediator`, so eviction is DB-level deletes — which is exactly why their *timing* matters. |
 | D7 | **Foundation-first sequencing**: build `:core:feed` + cache + widget before migrating the app feed screen. | De-risks the 120hz-critical feed-screen migration; the widget ships without waiting on it. |
 | D8 | **Widget reads the Room head directly** (`ORDER BY position LIMIT n`), not via Paging. | A widget shows only a handful of posts; tail eviction never affects it. |
-| D9 | **Battery-cooperative refresh** — periodic WorkManager + on-add/manual, network constraint, Doze-tolerant; reuses the DM-notification worker scaffolding. | Project battery rule. |
+| D9 | **Battery-cooperative refresh** — WorkManager, network constraint, Doze-tolerant; reuses the DM-notification worker scaffolding. | Project battery rule. |
+| D10 | **Refresh worker = periodic + on-demand, coordinated** *(revised per #501 review)*: periodic via `enqueueUniquePeriodicWork`; widget-add / manual refresh via a `OneTimeWorkRequest` + `enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, …)` — periodic work **cannot** be forced to run on demand. The REFRESH op is a single transactional clear+insert (idempotent), so a redundant concurrent run can't corrupt the cache; `KEEP` suppresses duplicate in-flight refreshes. | Correct WorkManager semantics (verified via `android docs`); avoids redundant network + Room races. |
+| D11 | **Indices on `feed_post`** *(per #501 review)*: explicit `@Index` on `uri` and on `authorDid` (the PK is the composite `(accountDid, feedType, feedUri, position)`). | Deep-link and `:core:post-interactions` overlay lookups query by `uri`; author / future shared-actor-join lookups query by `authorDid` — both full-scan without an index. |
 
 ## Architecture
 
@@ -77,6 +79,9 @@ This adds version 5 with:
   - `authorDid` is first-class so a future shared `actor`/`profile` table (likely
     extending `ActorEntity`, driven by profile-offline) can be layered in without
     reworking feed rows.
+  - **Indices (D11):** `@Index` on `uri` (deep-link + `:core:post-interactions`
+    overlay lookups) and on `authorDid` (author lookups / future shared-actor
+    join). The composite PK serves the ordered head/page reads.
 - **`feed_remote_keys`** — RemoteMediator paging cursors per `(accountDid, feedType, feedUri)`:
   stores the atproto `cursor` for the next `APPEND`. `REFRESH` starts from a null
   cursor; `PREPEND` returns `endOfPaginationReached = true` (reverse-chron feed —
@@ -90,10 +95,22 @@ is registered per `:core:database` convention.
 ### Background refresh — widget worker (B)
 
 A WorkManager worker (reusing the DM-notification scaffolding: `@HiltWorker`,
-`HiltWorkerFactory`, periodic request, scheduler seam, network constraint)
-refreshes the cached feed(s) and calls `GlanceAppWidget.update()`. Triggered
-periodically, on widget add, and on a manual refresh tap. Battery-cooperative
-(D9): no expedited work, Doze deferral accepted.
+`HiltWorkerFactory`, scheduler seam, network constraint) refreshes the cached
+feed(s) and calls `GlanceAppWidget.update()`. **Two enqueue paths (D10):** a
+**periodic** refresh via `enqueueUniquePeriodicWork`, and an **on-demand** refresh
+for widget-add / manual tap via a `OneTimeWorkRequest` +
+`enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, …)` — periodic work cannot fire
+on demand. The refresh is a single idempotent clear+insert transaction, so
+concurrent runs can't corrupt the cache; `KEEP` suppresses duplicate in-flight
+refreshes. Battery-cooperative (D9): no expedited work, Doze deferral accepted.
+
+**Cross-writer note:** the widget refresh worker and the app's `RemoteMediator`
+both write the shared feed table, so a background refresh while the user scrolls
+the app feed would invalidate the app's `PagingSource`. Confine worker writes to
+**top-of-feed REFRESH semantics** (treated like a pull-to-refresh — acceptable
+invalidation at the top) and never mutate mid-list rows from the worker, so an
+active feed isn't jumped mid-scroll. This is the same invalidation principle as
+D6, applied across writers.
 
 ### Widgets (C) + Pro gating (D)
 
