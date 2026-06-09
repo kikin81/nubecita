@@ -88,8 +88,9 @@ internal class FeedPostDaoTest : DatabaseTest() {
         runTest {
             dao.upsert((0 until 10).map { post(position = it) })
             dao.trimToCap(ACCOUNT, TYPE, FEED_URI, cap = 3)
-            // Newest = highest position. cap = 3 keeps positions 7, 8, 9.
-            assertEquals(listOf(7, 8, 9), dao.head(ACCOUNT, TYPE, FEED_URI, 100).first().map { it.position })
+            // Newest = lowest position (position 0 = top of the newest page).
+            // cap = 3 keeps the newest three: positions 0, 1, 2.
+            assertEquals(listOf(0, 1, 2), dao.head(ACCOUNT, TYPE, FEED_URI, 100).first().map { it.position })
         }
 
     @Test

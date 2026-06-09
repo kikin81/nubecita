@@ -8,8 +8,10 @@ import kotlinx.datetime.Instant
 /**
  * A per-position denormalized snapshot of a single post inside one cached
  * feed partition. Rows are partitioned by `(account_did, feed_type,
- * feed_uri)` and ordered within a partition by [position] (reverse-chron,
- * ascending position = newest-first as written by the RemoteMediator).
+ * feed_uri)` and ordered within a partition by [position], where **ascending
+ * position is newest-first**: the RemoteMediator writes position 0 at the top
+ * of the newest (REFRESH) page and assigns *higher* positions to *older* posts
+ * loaded on later APPEND pages, so `ORDER BY position` yields newest→oldest.
  *
  * [feedType] stores the `FeedType` enum NAME as a `String`; the enum itself
  * lives in `:core:feed-cache` (the entity must not depend on that module).
