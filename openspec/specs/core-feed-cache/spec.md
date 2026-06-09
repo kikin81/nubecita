@@ -70,14 +70,14 @@ The system SHALL serve a previously-cached feed from the local store when the ne
 
 ### Requirement: Read mapping reflects current viewer and moderation prefs
 
-The system SHALL re-map cached posts to `PostUi` using the current signed-in viewer DID and moderation preferences at read time, and SHALL drop moderation-filtered (resolved HIDE) posts. A change to moderation preferences or the active account SHALL be reflected on the next load without rebuilding the pager.
+The system SHALL re-map cached posts to `PostUi` using the current signed-in viewer DID and moderation preferences at read time, and SHALL drop moderation-filtered (resolved HIDE) posts. A change to moderation preferences SHALL be reflected on the next load without rebuilding the pager. (The active account is part of the `FeedKey`/partition, so an account change is handled by a new pager against the new partition — not by dynamic re-mapping.)
 
 #### Scenario: Moderation-filtered post is dropped
 - **WHEN** a cached post resolves to HIDE under the current moderation preferences
 - **THEN** it is omitted from both the paged stream and the head query
 
 #### Scenario: Preference change reflects on the next load
-- **WHEN** moderation preferences (or the active account) change
+- **WHEN** moderation preferences change
 - **THEN** subsequently loaded items reflect the new state without recreating the pager
 
 ### Requirement: Widget head query
