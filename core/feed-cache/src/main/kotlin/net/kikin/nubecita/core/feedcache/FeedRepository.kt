@@ -6,6 +6,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.RemoteMediator
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -33,6 +34,19 @@ interface FeedRepository {
      * Moderation-filtered posts (a resolved HIDE) are dropped from the stream.
      */
     fun pagedFeed(feedKey: FeedKey): Flow<PagingData<PostUi>>
+
+    /**
+     * Stream of the newest (≤) [n] cached [PostUi] for [feedKey], ordered by
+     * `position` (newest-first), re-mapped from the cached wire posts with the
+     * *current* viewer DID and moderation prefs on each emission. This is the
+     * **widget read path** — no Paging: Glance reads a small flat list.
+     * Moderation-filtered posts (a resolved HIDE) are dropped, so the emitted
+     * list may hold fewer than [n] items.
+     */
+    fun head(
+        feedKey: FeedKey,
+        n: Int,
+    ): Flow<List<PostUi>>
 
     /**
      * Evict everything beyond the newest [cap] posts in [feedKey]'s partition.
@@ -107,6 +121,24 @@ internal open class DefaultFeedRepository
                         }.pagingFilter { it.value != null }
                         .pagingMap { requireNotNull(it.value) }
                 }
+
+        override fun head(
+            feedKey: FeedKey,
+            n: Int,
+        ): Flow<List<PostUi>> =
+            combine(
+                feedPostDao.head(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, n),
+                sessionStateProvider.state,
+                moderationPreferences.prefs,
+            ) { entities, session, prefs ->
+                // combine re-emits on ANY source change — the DB head, the
+                // session, OR moderation prefs — so a mute/adult-pref toggle or
+                // account change refreshes the widget list immediately, not only
+                // on a DB write. (pagedFeed uses the per-item read instead because
+                // PagingData can't be combined the same way.)
+                val viewerDid = (session as? SessionState.SignedIn)?.did
+                entities.mapNotNull { it.toPostUi(viewerDid, prefs) }
+            }
 
         override suspend fun trimToCap(
             feedKey: FeedKey,

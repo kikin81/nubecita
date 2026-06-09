@@ -39,8 +39,8 @@
 
 ## 6. Widget head query
 
-- [ ] 6.1 `fun FeedRepository.head(feedKey, n): Flow<List<PostUi>>` — newest `n` by `position`, mapped to `PostUi`, no Paging.
-- [ ] 6.2 Test: head returns ≤ n ordered posts from the cache; emits on cache change.
+- [x] 6.1 `fun FeedRepository.head(feedKey, n): Flow<List<PostUi>>` — newest `n` by `position`, mapped to `PostUi`, no Paging.
+- [x] 6.2 Test: head returns ≤ n ordered posts from the cache; emits on cache change.
 
 ## 7. Saved feeds (for the Pro picker, later) — DROPPED
 
@@ -48,12 +48,12 @@
 
 ## 8. DI wiring
 
-- [ ] 8.1 Hilt module(s) in `:core:feed-cache` binding `FeedRepository` / `SavedFeedsRepository` (+ DAOs from `:core:database`). No consumer rewired (feature/feed migration is E).
-- [ ] 8.2 `./gradlew :app:assembleDebug` — Hilt graph still links with `:core:feed-cache` present.
+- [x] 8.1 Hilt module(s) in `:core:feed-cache` binding `FeedRepository` (+ DAOs from `:core:database`). `SavedFeedsRepository` is **DROPPED** (§7 dropped — the Pro picker reuses the existing `:core:feeds:PinnedFeedsRepository`; no new saved-feeds binding here). The `FeedRepository` binding already exists (PR3's `FeedCacheModule`); `head` needs **no new binding** (it's a method on the already-bound interface). No consumer rewired (feature/feed migration is E).
+- [x] 8.2 `./gradlew :app:assembleDebug` — Hilt graph still links with `:core:feed-cache` present.
 
 ## 9. Verification
 
-- [ ] 9.1 `:core:feed-cache` + `:core:database` unit tests green; root `testDebugUnitTest` green (no fakes/implementors broken elsewhere).
-- [ ] 9.2 `./gradlew :core:feed-cache:lintDebug :core:database:lintDebug spotlessCheck :app:checkSortDependencies` green; committed `5.json` present.
-- [ ] 9.3 Confirm entities never leak past `:core:feed-cache` (only `:data:models` types in the public API); battery rule unaffected (no new always-on work — refresh scheduling is sub-project B).
-- [ ] 9.4 **Scale stress test (D-A2):** populate a power-user-scale cache (e.g. ≥10 feed partitions × `cap` posts, with cross-feed overlap and representative embed blobs) and validate the design's assumptions: head/page queries stay flat (index prefix-scan, no full scan — verify via `EXPLAIN QUERY PLAN`), per-partition `REFRESH` clear+insert and `trimToCap` write times are low, and the DB file stays in the expected MB range. Record the numbers so we know the real threshold where the denormalized→hybrid migration (D-A2 reversibility) would be worth it.
+- [x] 9.1 `:core:feed-cache` + `:core:database` unit tests green; root `testDebugUnitTest` green (no fakes/implementors broken elsewhere).
+- [x] 9.2 `./gradlew :core:feed-cache:lintDebug :core:database:lintDebug spotlessCheck :app:checkSortDependencies` green; committed `5.json` present.
+- [x] 9.3 Confirm entities never leak past `:core:feed-cache` (only `:data:models` types in the public API); battery rule unaffected (no new always-on work — refresh scheduling is sub-project B).
+- [x] 9.4 **Scale stress test (D-A2):** populate a power-user-scale cache (e.g. ≥10 feed partitions × `cap` posts, with cross-feed overlap and representative embed blobs) and validate the design's assumptions: head/page queries stay flat (index prefix-scan, no full scan — verify via `EXPLAIN QUERY PLAN`), per-partition `REFRESH` clear+insert and `trimToCap` write times are low, and the DB file stays in the expected MB range. Record the numbers so we know the real threshold where the denormalized→hybrid migration (D-A2 reversibility) would be worth it. Impl: `core/database/src/androidTest/.../FeedPostScaleTest.kt` (file-based Room DB, 11 partitions × 500). Recorded (emulator): head/page `SEARCH … USING INDEX sqlite_autoindex_feed_post_1`, by-uri `SEARCH … USING INDEX index_feed_post_uri` (no `SCAN`); REFRESH (clear+upsert 500) ≈20 ms, trimToCap ≈0–1 ms; 5250 rows, DB ≈20.4 MB.
