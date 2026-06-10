@@ -22,6 +22,7 @@ coroutines = "1.11.0"
 datastore = "1.3.0-alpha09"
 firebaseBom = "34.14.1"
 firebaseCrashlytics = "3.0.7"
+glance = "1.1.1"
 googleServices = "4.4.4"
 junit = "4.13.2"
 junitJupiter = "5.14.4"
@@ -116,6 +117,9 @@ firebase-appcheck-playintegrity = { module = "com.google.firebase:firebase-appch
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
+glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
+glance-material3 = { module = "androidx.glance:glance-material3", version.ref = "glance" }
+glance-appwidget-testing = { module = "androidx.glance:glance-appwidget-testing", version.ref = "glance" }
 junit = { module = "junit:junit", version.ref = "junit" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
