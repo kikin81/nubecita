@@ -43,6 +43,12 @@ internal class WidgetPostItemTest {
         assertEquals("a b c", item.text)
         assertTrue(capped.text.length <= 200)
         assertTrue(capped.text.endsWith("…"))
+
+        // The cap must not slice a surrogate pair (🌟 spans indices 198-199): drop
+        // the whole emoji rather than leave a dangling high surrogate.
+        val withEmoji = "a".repeat(198) + "🌟" + "b"
+        val truncated = post(text = withEmoji).toWidgetItem(NOW, timeZone = TimeZone.UTC)
+        assertEquals("a".repeat(198) + "…", truncated.text)
     }
 
     @Test

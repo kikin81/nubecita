@@ -112,6 +112,16 @@ internal class EmbedThumbnailsTest {
             ),
         )
         assertEquals(0, widgetImageCount(video(poster = "p")))
+        // Content-warned media renders no thumbnail → count 0 (no inconsistent "+N").
+        assertEquals(
+            0,
+            widgetImageCount(
+                EmbedUi.Images(
+                    items = persistentListOf(ImageUi(fullsizeUrl = "f", thumbUrl = "t", altText = null, aspectRatio = null)),
+                    contentWarning = MediaContentWarning(category = ContentWarningCategory.ADULT_CONTENT, overridable = false),
+                ),
+            ),
+        )
     }
 
     @Test

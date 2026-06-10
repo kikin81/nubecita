@@ -64,7 +64,11 @@ private fun snippet(text: String): String {
     return if (oneLine.length <= MAX_SNIPPET_CHARS) {
         oneLine
     } else {
-        oneLine.take(MAX_SNIPPET_CHARS - 1).trimEnd() + "…"
+        val limit = MAX_SNIPPET_CHARS - 1
+        // Don't slice a surrogate pair (e.g. an emoji) at the boundary, which
+        // would leave a dangling high surrogate.
+        val end = if (limit > 0 && oneLine[limit - 1].isHighSurrogate()) limit - 1 else limit
+        oneLine.take(end).trimEnd() + "…"
     }
 }
 
