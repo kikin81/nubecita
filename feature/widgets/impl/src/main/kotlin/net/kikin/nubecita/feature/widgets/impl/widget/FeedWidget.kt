@@ -97,13 +97,22 @@ internal abstract class FeedWidget : GlanceAppWidget() {
             FeedWidgetUiState.Loaded(rows)
         }
 
-    /** ACTION_VIEW intent into this post's thread, scoped to our package (D-C7). */
+    /**
+     * ACTION_VIEW intent into this post's thread, scoped to our package (D-C7),
+     * or null when the post URI can't be translated (row stays non-clickable).
+     * NEW_TASK | CLEAR_TASK so the deep-link data reliably reaches the
+     * `singleTask` MainActivity even when a task already exists — same flags the
+     * notification tap-intent uses (PushNotificationBuilder).
+     */
     private fun deepLinkIntent(
         context: Context,
         postId: String,
-    ): Intent =
-        Intent(Intent.ACTION_VIEW, Uri.parse(widgetPostDeepLink(postId)))
+    ): Intent? {
+        val deepLink = widgetPostDeepLink(postId) ?: return null
+        return Intent(Intent.ACTION_VIEW, Uri.parse(deepLink))
             .setPackage(context.packageName)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+    }
 
     private fun loadThumbnail(
         store: WidgetThumbnailStore,
