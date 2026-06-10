@@ -38,8 +38,9 @@ import net.kikin.nubecita.feature.widgets.impl.action.RefreshWidgetAction
  * with intentional loading / empty / signed-out states. Glance is
  * Compose-runtime → `RemoteViews`, so this can't reuse `PostCard`. Theming via
  * [GlanceTheme] (dynamic color on API 31+, Material baseline below); the root
- * uses `.appWidgetBackground()` + the system widget radius (D-C8). Tap and
- * refresh actions arrive in a later task — this renders only.
+ * uses `.appWidgetBackground()` + the system widget radius (D-C8). Tapping a
+ * post row deep-links into its thread; the header refresh icon enqueues a
+ * background refresh.
  */
 @Composable
 internal fun FeedWidgetContent(
