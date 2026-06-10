@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.widgets.impl.image
 
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import net.kikin.nubecita.data.models.ContentWarningCategory
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
@@ -95,5 +96,39 @@ internal class EmbedThumbnailsTest {
         assertNull(widgetThumbnailUrl(EmbedUi.Gif(gifUrl = "g", thumbUrl = "gifThumb", aspectRatio = null, alt = null)))
         assertNull(widgetThumbnailUrl(EmbedUi.Unsupported(typeUri = "app.bsky.embed.future")))
         assertNull(widgetThumbnailUrl(EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.Blocked)))
+    }
+
+    @Test
+    fun `image count is the gallery size and zero for non-image media`() {
+        assertEquals(3, widgetImageCount(images("a", "b", "c")))
+        assertEquals(0, widgetImageCount(EmbedUi.Empty))
+        assertEquals(
+            2,
+            widgetImageCount(
+                EmbedUi.RecordWithMedia(
+                    record = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
+                    media = images("a", "b") as EmbedUi.Images,
+                ),
+            ),
+        )
+        assertEquals(0, widgetImageCount(video(poster = "p")))
+    }
+
+    @Test
+    fun `media description names the medium and total`() {
+        assertEquals("Image, 4 total", widgetMediaDescription(images("a", "b", "c", "d")))
+        assertEquals("Image", widgetMediaDescription(images("a")))
+        assertEquals("Video", widgetMediaDescription(video(poster = "p")))
+        assertNull(widgetMediaDescription(video(poster = null)))
+        assertNull(widgetMediaDescription(EmbedUi.Empty))
+    }
+
+    private companion object {
+        fun images(vararg thumbs: String): EmbedUi =
+            EmbedUi.Images(
+                items = thumbs.map { ImageUi(fullsizeUrl = "full", thumbUrl = it, altText = null, aspectRatio = null) }.toPersistentList(),
+            )
+
+        fun video(poster: String?): EmbedUi = EmbedUi.Video(posterUrl = poster, playlistUrl = "https://x/p.m3u8", aspectRatio = 1.77f, durationSeconds = null, altText = null)
     }
 }

@@ -43,3 +43,53 @@ internal fun widgetThumbnailUrl(embed: EmbedUi): String? =
         EmbedUi.Empty,
         -> null
     }
+
+/**
+ * Number of images the post carries — drives the "+N" overflow badge (the badge
+ * shows `count - 1`). Counts images only; a video is a single poster (no badge),
+ * everything else is `0`. Mirrors [widgetThumbnailUrl]'s reach into
+ * `RecordWithMedia`.
+ */
+internal fun widgetImageCount(embed: EmbedUi): Int =
+    when (embed) {
+        is EmbedUi.Images -> embed.items.size
+        is EmbedUi.RecordWithMedia -> widgetImageCount(embed.media)
+        is EmbedUi.Video,
+        is EmbedUi.External,
+        is EmbedUi.Gif,
+        is EmbedUi.Record,
+        is EmbedUi.RecordUnavailable,
+        is EmbedUi.Unsupported,
+        EmbedUi.Empty,
+        -> 0
+    }
+
+/**
+ * Accessibility description for the post's media thumbnail, or `null` when the
+ * post renders text-only in the widget. English-only for the MVP (the widget
+ * surface isn't yet localized). Skips content-warned media, matching
+ * [widgetThumbnailUrl].
+ */
+internal fun widgetMediaDescription(embed: EmbedUi): String? =
+    when (embed) {
+        is EmbedUi.Images ->
+            when {
+                embed.contentWarning != null -> null
+                embed.items.size > 1 -> "Image, ${embed.items.size} total"
+                embed.items.isNotEmpty() -> "Image"
+                else -> null
+            }
+
+        is EmbedUi.Video ->
+            if (embed.contentWarning == null && embed.posterUrl != null) "Video" else null
+
+        is EmbedUi.RecordWithMedia -> widgetMediaDescription(embed.media)
+
+        is EmbedUi.External,
+        is EmbedUi.Gif,
+        is EmbedUi.Record,
+        is EmbedUi.RecordUnavailable,
+        is EmbedUi.Unsupported,
+        EmbedUi.Empty,
+        -> null
+    }
