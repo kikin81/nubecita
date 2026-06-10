@@ -13,6 +13,7 @@ internal class FeedWidgetContentTest {
             provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loading, STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.LOADING)).assertExists()
+            onNode(hasTestTag(WidgetTestTags.REFRESH)).assertExists()
         }
 
     @Test
@@ -21,6 +22,7 @@ internal class FeedWidgetContentTest {
             provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.SignedOut, STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.SIGNED_OUT)).assertExists()
+            onNode(hasTestTag(WidgetTestTags.REFRESH)).assertExists()
         }
 
     @Test
@@ -30,22 +32,24 @@ internal class FeedWidgetContentTest {
 
             onNode(hasTestTag(WidgetTestTags.EMPTY)).assertExists()
             onNode(hasTestTag(WidgetTestTags.POST_ROW)).assertDoesNotExist()
+            onNode(hasTestTag(WidgetTestTags.REFRESH)).assertExists()
         }
 
     @Test
-    fun populatedStateComposesARowPerPostAndShowsTheTitle() =
+    fun populatedStateComposesARowPerPostShowsTitleAndRefresh() =
         runGlanceAppWidgetUnitTest {
             provideComposable {
                 FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = listOf(row("at://1", "Alice"), row("at://2", "Bob"), row("at://3", "Cara"))), STRINGS)
             }
 
             onNode(hasText(TITLE)).assertExists()
+            onNode(hasTestTag(WidgetTestTags.REFRESH)).assertExists()
             onAllNodes(hasTestTag(WidgetTestTags.POST_ROW)).assertCountEquals(3)
         }
 
     private companion object {
         const val TITLE = "Following"
-        val STRINGS = WidgetStrings(loading = "Loading…", signedOut = "Sign in to see your feed", empty = "No posts yet")
+        val STRINGS = WidgetStrings(loading = "Loading…", signedOut = "Sign in to see your feed", empty = "No posts yet", refresh = "Refresh")
 
         fun row(
             uri: String,

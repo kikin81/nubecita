@@ -51,4 +51,6 @@ internal data class WidgetStrings(
     val loading: String,
     val signedOut: String,
     val empty: String,
+    /** Content description for the header refresh affordance. */
+    val refresh: String,
 )

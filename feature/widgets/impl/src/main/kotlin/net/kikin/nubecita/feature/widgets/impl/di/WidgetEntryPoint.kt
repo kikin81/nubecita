@@ -8,6 +8,7 @@ import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.widgetsync.WidgetRefreshLauncher
 import net.kikin.nubecita.feature.widgets.impl.image.WidgetThumbnailStore
 
 /**
@@ -38,6 +39,9 @@ internal interface WidgetEntryPoint {
 
     /** Pre-decoded thumbnails for the head posts (loaded off composition). */
     fun widgetThumbnailStore(): WidgetThumbnailStore
+
+    /** On-demand refresh trigger (widget add / manual refresh). */
+    fun widgetRefreshLauncher(): WidgetRefreshLauncher
 }
 
 /**

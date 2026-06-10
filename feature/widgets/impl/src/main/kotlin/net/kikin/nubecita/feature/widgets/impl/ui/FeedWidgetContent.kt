@@ -3,11 +3,13 @@ package net.kikin.nubecita.feature.widgets.impl.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
@@ -29,14 +31,16 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import net.kikin.nubecita.feature.widgets.impl.R
+import net.kikin.nubecita.feature.widgets.impl.action.RefreshWidgetAction
 
 /**
  * The shared feed-widget UI (D-C8): a titled card over the offline cache head,
  * with intentional loading / empty / signed-out states. Glance is
  * Compose-runtime → `RemoteViews`, so this can't reuse `PostCard`. Theming via
  * [GlanceTheme] (dynamic color on API 31+, Material baseline below); the root
- * uses `.appWidgetBackground()` + the system widget radius (D-C8). Tap and
- * refresh actions arrive in a later task — this renders only.
+ * uses `.appWidgetBackground()` + the system widget radius (D-C8). Tapping a
+ * post row deep-links into its thread; the header refresh icon enqueues a
+ * background refresh.
  */
 @Composable
 internal fun FeedWidgetContent(
@@ -54,7 +58,7 @@ internal fun FeedWidgetContent(
                     .cornerRadius(R.dimen.widget_background_radius)
                     .padding(WIDGET_PADDING),
         ) {
-            WidgetHeader(title)
+            WidgetHeader(title, strings.refresh)
             when (state) {
                 FeedWidgetUiState.Loading ->
                     CenteredState(WidgetTestTags.LOADING) { CenteredMessage(strings.loading) }
@@ -72,14 +76,17 @@ internal fun FeedWidgetContent(
 }
 
 @Composable
-private fun WidgetHeader(title: String) {
+private fun WidgetHeader(
+    title: String,
+    refreshDescription: String,
+) {
     Row(
         modifier = GlanceModifier.fillMaxWidth().padding(bottom = SPACING),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = title,
-            modifier = GlanceModifier.semantics { testTag = WidgetTestTags.TITLE },
+            modifier = GlanceModifier.defaultWeight().semantics { testTag = WidgetTestTags.TITLE },
             style =
                 TextStyle(
                     color = GlanceTheme.colors.onSurface,
@@ -87,6 +94,16 @@ private fun WidgetHeader(title: String) {
                     fontWeight = FontWeight.Medium,
                 ),
             maxLines = 1,
+        )
+        Image(
+            provider = ImageProvider(R.drawable.ic_widget_refresh),
+            contentDescription = refreshDescription,
+            modifier =
+                GlanceModifier
+                    .size(REFRESH_ICON_SIZE)
+                    .semantics { testTag = WidgetTestTags.REFRESH }
+                    .clickable(actionRunCallback<RefreshWidgetAction>()),
+            colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
         )
     }
 }
@@ -205,10 +222,12 @@ private val WIDGET_PADDING = 12.dp
 private val ROW_VERTICAL_PADDING = 10.dp
 private val SPACING = 8.dp
 private val THUMB_SIZE = 56.dp
+private val REFRESH_ICON_SIZE = 24.dp
 
 /** Stable semantics tags so `runGlanceAppWidgetUnitTest` can address nodes. */
 internal object WidgetTestTags {
     const val TITLE = "widget_title"
+    const val REFRESH = "widget_refresh"
     const val LOADING = "widget_state_loading"
     const val SIGNED_OUT = "widget_state_signed_out"
     const val EMPTY = "widget_state_empty"

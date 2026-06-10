@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.SystemClock
 import androidx.annotation.StringRes
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -16,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.feature.widgets.impl.MAX_WIDGET_POSTS
 import net.kikin.nubecita.feature.widgets.impl.R
 import net.kikin.nubecita.feature.widgets.impl.di.WidgetEntryPoint
@@ -48,7 +50,7 @@ internal abstract class FeedWidget : GlanceAppWidget() {
     @get:StringRes
     protected abstract val titleRes: Int
 
-    protected abstract fun feedKey(accountDid: String): net.kikin.nubecita.core.feedcache.FeedKey
+    protected abstract fun feedKey(accountDid: String): FeedKey
 
     final override suspend fun provideGlance(
         context: Context,
@@ -62,6 +64,7 @@ internal abstract class FeedWidget : GlanceAppWidget() {
                 loading = context.getString(R.string.widget_state_loading),
                 signedOut = context.getString(R.string.widget_state_signed_out),
                 empty = context.getString(R.string.widget_state_empty),
+                refresh = context.getString(R.string.widget_refresh),
             )
         provideContent { FeedWidgetContent(title, state, strings) }
     }
@@ -84,6 +87,18 @@ internal abstract class FeedWidget : GlanceAppWidget() {
                     .head(feedKey(did), MAX_WIDGET_POSTS)
                     .firstOrNull()
                     .orEmpty()
+            // Widget-add / not-yet-populated cache: kick an on-demand refresh so
+            // the partition fills (the worker writes the cache while backgrounded).
+            // THROTTLED per partition — a legitimately empty feed (new account,
+            // empty custom feed) would otherwise re-enqueue on every render
+            // (resize / theme / unlock / updater re-render), and KEEP only dedupes
+            // *in-flight* work, so a completed-then-empty cycle would loop and
+            // drain battery. First render per process enqueues; thereafter at most
+            // once per refresh interval.
+            if (posts.isEmpty()) {
+                maybeEnqueueEmptyFeedRefresh(feedKey(did), entryPoint)
+            }
+
             val now = Clock.System.now()
 
             val rows =
@@ -122,4 +137,27 @@ internal abstract class FeedWidget : GlanceAppWidget() {
         val file = store.thumbnailFile(accountDid, postId)
         return if (file.exists()) BitmapFactory.decodeFile(file.path) else null
     }
+
+    private suspend fun maybeEnqueueEmptyFeedRefresh(
+        feedKey: FeedKey,
+        entryPoint: WidgetEntryPoint,
+    ) {
+        val nowMs = SystemClock.elapsedRealtime()
+        val last = emptyFeedRefreshAt[feedKey]
+        if (last == null || nowMs - last >= EMPTY_FEED_REFRESH_THROTTLE_MS) {
+            emptyFeedRefreshAt[feedKey] = nowMs
+            entryPoint.widgetRefreshLauncher().refreshNow()
+        }
+    }
 }
+
+/**
+ * Process-static throttle for the empty-feed on-demand refresh (see
+ * [FeedWidget.maybeEnqueueEmptyFeedRefresh]). Widget instances are recreated per
+ * broadcast, so this can't live on the instance. `elapsedRealtime` is monotonic
+ * (immune to wall-clock changes). Bounds an empty feed to one enqueue per
+ * process, then at most one per interval.
+ */
+private val emptyFeedRefreshAt = java.util.concurrent.ConcurrentHashMap<FeedKey, Long>()
+
+private const val EMPTY_FEED_REFRESH_THROTTLE_MS = 15 * 60 * 1000L
