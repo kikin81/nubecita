@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.widgets.impl.image
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.security.MessageDigest
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -88,6 +89,6 @@ class WidgetThumbnailStore(
             MessageDigest
                 .getInstance("SHA-256")
                 .digest(value.toByteArray(Charsets.UTF_8))
-                .joinToString(separator = "") { "%02x".format(it) }
+                .joinToString(separator = "") { "%02x".format(Locale.US, it) }
     }
 }

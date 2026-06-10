@@ -65,15 +65,28 @@ internal class CoilThumbnailDecoder
                 (imageLoader.execute(request) as? SuccessResult)?.image?.toBitmap()
                     ?: return false
 
+            val parent = dest.parentFile ?: return false
+            parent.mkdirs()
+            // Write to a temp file then rename: an interrupted write (crash, process
+            // death, low battery) must never leave a half-JPEG at `dest` — hasThumbnail
+            // only checks existence, so a partial file would be treated as valid and
+            // permanently skipped, and the Glance render thread would read garbage.
+            // rename(2) publishes the fully-written file atomically.
+            val tmp = File(parent, "${dest.name}.tmp")
             return try {
-                dest.parentFile?.mkdirs()
-                dest.outputStream().use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                val compressed =
+                    tmp.outputStream().use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                    }
+                if (compressed && tmp.renameTo(dest)) {
+                    true
+                } else {
+                    tmp.delete()
+                    false
                 }
-                true
             } catch (io: IOException) {
                 Timber.tag(TAG).w(io, "failed writing widget thumbnail: %s", dest.name)
-                dest.delete()
+                tmp.delete()
                 false
             }
         }
