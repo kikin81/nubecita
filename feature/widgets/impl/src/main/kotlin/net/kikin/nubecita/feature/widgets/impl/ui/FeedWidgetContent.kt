@@ -26,6 +26,7 @@ import androidx.glance.semantics.testTag
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import net.kikin.nubecita.feature.widgets.impl.R
 
 /**
  * The shared feed-widget UI (D-C8): a titled card over the offline cache head,
@@ -39,6 +40,7 @@ import androidx.glance.text.TextStyle
 internal fun FeedWidgetContent(
     title: String,
     state: FeedWidgetUiState,
+    strings: WidgetStrings,
 ) {
     GlanceTheme {
         Column(
@@ -47,16 +49,18 @@ internal fun FeedWidgetContent(
                     .fillMaxSize()
                     .appWidgetBackground()
                     .background(GlanceTheme.colors.widgetBackground)
-                    .cornerRadius(android.R.dimen.system_app_widget_background_radius)
+                    .cornerRadius(R.dimen.widget_background_radius)
                     .padding(WIDGET_PADDING),
         ) {
             WidgetHeader(title)
             when (state) {
-                FeedWidgetUiState.Loading -> CenteredState(WidgetTestTags.LOADING) { CenteredMessage("Loading…") }
-                FeedWidgetUiState.SignedOut -> CenteredState(WidgetTestTags.SIGNED_OUT) { CenteredMessage("Sign in to see your feed") }
+                FeedWidgetUiState.Loading ->
+                    CenteredState(WidgetTestTags.LOADING) { CenteredMessage(strings.loading) }
+                FeedWidgetUiState.SignedOut ->
+                    CenteredState(WidgetTestTags.SIGNED_OUT) { CenteredMessage(strings.signedOut) }
                 is FeedWidgetUiState.Loaded ->
                     if (state.rows.isEmpty()) {
-                        CenteredState(WidgetTestTags.EMPTY) { CenteredMessage("No posts yet") }
+                        CenteredState(WidgetTestTags.EMPTY) { CenteredMessage(strings.empty) }
                     } else {
                         PostList(state.rows)
                     }
@@ -139,7 +143,7 @@ private fun Thumbnail(row: WidgetRow) {
         modifier =
             GlanceModifier
                 .size(THUMB_SIZE)
-                .cornerRadius(android.R.dimen.system_app_widget_inner_radius)
+                .cornerRadius(R.dimen.widget_inner_radius)
                 .background(GlanceTheme.colors.surfaceVariant),
         contentAlignment = Alignment.BottomEnd,
     ) {
@@ -148,7 +152,7 @@ private fun Thumbnail(row: WidgetRow) {
             Image(
                 provider = ImageProvider(bitmap),
                 contentDescription = item.mediaContentDescription,
-                modifier = GlanceModifier.fillMaxSize().cornerRadius(android.R.dimen.system_app_widget_inner_radius),
+                modifier = GlanceModifier.fillMaxSize().cornerRadius(R.dimen.widget_inner_radius),
                 contentScale = ContentScale.Crop,
             )
         }

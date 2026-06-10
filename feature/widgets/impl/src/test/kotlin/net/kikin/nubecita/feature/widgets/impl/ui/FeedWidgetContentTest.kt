@@ -10,7 +10,7 @@ internal class FeedWidgetContentTest {
     @Test
     fun loadingStateComposes() =
         runGlanceAppWidgetUnitTest {
-            provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loading) }
+            provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loading, STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.LOADING)).assertExists()
         }
@@ -18,7 +18,7 @@ internal class FeedWidgetContentTest {
     @Test
     fun signedOutStateComposes() =
         runGlanceAppWidgetUnitTest {
-            provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.SignedOut) }
+            provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.SignedOut, STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.SIGNED_OUT)).assertExists()
         }
@@ -26,7 +26,7 @@ internal class FeedWidgetContentTest {
     @Test
     fun emptyLoadedStateShowsTheEmptyState() =
         runGlanceAppWidgetUnitTest {
-            provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = emptyList())) }
+            provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = emptyList()), STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.EMPTY)).assertExists()
             onNode(hasTestTag(WidgetTestTags.POST_ROW)).assertDoesNotExist()
@@ -36,7 +36,7 @@ internal class FeedWidgetContentTest {
     fun populatedStateComposesARowPerPostAndShowsTheTitle() =
         runGlanceAppWidgetUnitTest {
             provideComposable {
-                FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = listOf(row("at://1", "Alice"), row("at://2", "Bob"), row("at://3", "Cara"))))
+                FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = listOf(row("at://1", "Alice"), row("at://2", "Bob"), row("at://3", "Cara"))), STRINGS)
             }
 
             onNode(hasText(TITLE)).assertExists()
@@ -45,6 +45,7 @@ internal class FeedWidgetContentTest {
 
     private companion object {
         const val TITLE = "Following"
+        val STRINGS = WidgetStrings(loading = "Loading…", signedOut = "Sign in to see your feed", empty = "No posts yet")
 
         fun row(
             uri: String,

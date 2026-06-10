@@ -32,3 +32,15 @@ internal data class WidgetRow(
     val item: WidgetPostItem,
     val thumbnail: Bitmap?,
 )
+
+/**
+ * Display strings for the widget's non-content states, resolved from resources
+ * by the widget's `provideGlance` (which has a real `Context`) and passed in —
+ * the composable stays free of `LocalContext`, which keeps it pure and
+ * unit-testable (the Glance test env provides no default context).
+ */
+internal data class WidgetStrings(
+    val loading: String,
+    val signedOut: String,
+    val empty: String,
+)
