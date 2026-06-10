@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.widgetsync.WidgetRefreshLauncher
+import net.kikin.nubecita.feature.widgets.impl.entitlement.WidgetEntitlementGate
 import net.kikin.nubecita.feature.widgets.impl.image.WidgetThumbnailStore
 
 /**
@@ -42,6 +43,9 @@ internal interface WidgetEntryPoint {
 
     /** On-demand refresh trigger (widget add / manual refresh). */
     fun widgetRefreshLauncher(): WidgetRefreshLauncher
+
+    /** Gate for the configurable (Pro) widget — always-allowed in C, isPro in D. */
+    fun widgetEntitlementGate(): WidgetEntitlementGate
 }
 
 /**
