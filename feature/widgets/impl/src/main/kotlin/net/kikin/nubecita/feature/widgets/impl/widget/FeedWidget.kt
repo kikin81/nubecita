@@ -62,6 +62,7 @@ internal abstract class FeedWidget : GlanceAppWidget() {
                 loading = context.getString(R.string.widget_state_loading),
                 signedOut = context.getString(R.string.widget_state_signed_out),
                 empty = context.getString(R.string.widget_state_empty),
+                refresh = context.getString(R.string.widget_refresh),
             )
         provideContent { FeedWidgetContent(title, state, strings) }
     }
@@ -84,6 +85,15 @@ internal abstract class FeedWidget : GlanceAppWidget() {
                     .head(feedKey(did), MAX_WIDGET_POSTS)
                     .firstOrNull()
                     .orEmpty()
+            // Widget-add / not-yet-populated cache: kick an on-demand refresh so
+            // the partition fills (the worker writes the cache while backgrounded;
+            // KEEP dedupes against an in-flight one). Self-healing — once the head
+            // has posts this stops firing. The render still shows the empty state
+            // this pass; C's updater re-renders once the refresh lands.
+            if (posts.isEmpty()) {
+                entryPoint.widgetRefreshLauncher().refreshNow()
+            }
+
             val now = Clock.System.now()
 
             val rows =

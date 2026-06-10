@@ -4,6 +4,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.widgetsync.WidgetRefreshLauncher
 
 /**
  * Binds the [WidgetRefreshRunner] / scheduler collaborators. Single-component,
@@ -19,4 +20,7 @@ internal abstract class WidgetWorkerBindingsModule {
 
     @Binds
     abstract fun bindWidgetWorkScheduler(impl: WorkManagerWidgetWorkScheduler): WidgetWorkScheduler
+
+    @Binds
+    abstract fun bindWidgetRefreshLauncher(impl: DefaultWidgetRefreshLauncher): WidgetRefreshLauncher
 }

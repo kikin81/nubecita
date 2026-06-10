@@ -33,6 +33,14 @@ internal class FeedWidgetContentTest {
         }
 
     @Test
+    fun headerExposesARefreshAffordanceInEveryState() =
+        runGlanceAppWidgetUnitTest {
+            provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loading, STRINGS) }
+
+            onNode(hasTestTag(WidgetTestTags.REFRESH)).assertExists()
+        }
+
+    @Test
     fun populatedStateComposesARowPerPostAndShowsTheTitle() =
         runGlanceAppWidgetUnitTest {
             provideComposable {
@@ -45,7 +53,7 @@ internal class FeedWidgetContentTest {
 
     private companion object {
         const val TITLE = "Following"
-        val STRINGS = WidgetStrings(loading = "Loading…", signedOut = "Sign in to see your feed", empty = "No posts yet")
+        val STRINGS = WidgetStrings(loading = "Loading…", signedOut = "Sign in to see your feed", empty = "No posts yet", refresh = "Refresh")
 
         fun row(
             uri: String,
