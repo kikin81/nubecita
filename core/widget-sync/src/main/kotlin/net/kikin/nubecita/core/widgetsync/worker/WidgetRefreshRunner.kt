@@ -6,6 +6,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
+import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
 import timber.log.Timber
 import javax.inject.Inject
@@ -27,11 +28,13 @@ import javax.inject.Inject
  *    a non-feed screen — accepted in D-B4.)
  * 3. **Per-feed refresh (D-B6/D-B7)** — refresh the MVP feeds (Following +
  *    Discover) for the signed-in DID **independently**, and `trimToCap` each one
- *    that succeeds. Return [Outcome.RETRY] **only when *every* feed failed**; a
- *    partial or full success → [Outcome.SUCCESS], so a feed that already
- *    refreshed is never re-fetched by a WorkManager retry (which only fires when
- *    all failed). The failed feed in a partial-success run is picked up by the
- *    next periodic run.
+ *    that succeeds, then prefetch that feed's head thumbnails via
+ *    [WidgetImagePrefetcher] (D-C4) off the scroll path — a prefetch failure is
+ *    isolated to that feed's images and never changes the feed's outcome. Return
+ *    [Outcome.RETRY] **only when *every* feed failed**; a partial or full success
+ *    → [Outcome.SUCCESS], so a feed that already refreshed is never re-fetched by
+ *    a WorkManager retry (which only fires when all failed). The failed feed in a
+ *    partial-success run is picked up by the next periodic run.
  * 4. **Widget re-render** — call [WidgetUpdater.updateFeedWidgets] if at least
  *    one feed succeeded (no-op until sub-project C swaps in the Glance impl).
  *
@@ -46,6 +49,7 @@ internal class WidgetRefreshRunner
         private val sessionStateProvider: SessionStateProvider,
         private val foreground: AppForegroundSignal,
         private val widgetUpdater: WidgetUpdater,
+        private val imagePrefetcher: WidgetImagePrefetcher,
     ) {
         enum class Outcome { SUCCESS, RETRY }
 
@@ -79,6 +83,19 @@ internal class WidgetRefreshRunner
                         // Off-scroll eviction (D-B6): only after a feed's own refresh
                         // succeeds, so we never trim a partition we couldn't refresh.
                         repository.trimToCap(feedKey)
+                        // Off-scroll image prefetch (D-C4): decode this feed's head
+                        // thumbnails for the widget. A prefetch failure must fail ONLY
+                        // this feed's images — the refresh already succeeded, so it must
+                        // not flip the outcome, skip the updater, or abort other feeds.
+                        // Its own try/catch keeps that isolation precise (and the log
+                        // accurate). Rethrow CancellationException.
+                        try {
+                            imagePrefetcher.prefetch(feedKey)
+                        } catch (cancellation: CancellationException) {
+                            throw cancellation
+                        } catch (throwable: Throwable) {
+                            Timber.tag(TAG).e(throwable, "widget image prefetch failed: %s", feedKey)
+                        }
                     }
                 } catch (cancellation: CancellationException) {
                     throw cancellation
