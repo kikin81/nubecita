@@ -19,6 +19,14 @@ dependencies {
     // (nothing depends on this :impl except :app for graph assembly).
     implementation(project(":core:widget-sync"))
 
+    // Coil 3 — used OFF the widget render path (in the background prefetcher) to
+    // decode the first thumbnail / video poster per head post to a bounded
+    // bitmap. The configured ImageLoader is injected from :app's CoilModule
+    // (SingletonComponent); coil-core supplies the ImageRequest / execute API.
+    // The version comes from the Coil BOM (coil-core declares none).
+    implementation(platform(libs.coil.bom))
+    implementation(libs.coil.core)
+
     // Jetpack Glance — the ONLY Glance surface in the app. Compose-runtime,
     // not Compose-UI: these widget composables compile to RemoteViews and
     // cannot reuse PostCard / Coil composables / Material3.
@@ -30,5 +38,6 @@ dependencies {
     testImplementation(project(":core:testing"))
     testImplementation(libs.glance.appwidget.testing)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
     testImplementation(libs.turbine)
 }
