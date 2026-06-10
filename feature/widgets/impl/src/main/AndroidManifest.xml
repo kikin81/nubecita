@@ -1,1 +1,38 @@
-<manifest />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!--
+          Glance feed-widget providers. exported="false" is correct: the
+          AppWidget framework delivers APPWIDGET_UPDATE explicitly to the
+          registered provider component, so no other app needs to reach it.
+          These merge into the production :app manifest (bench doesn't depend
+          on :feature:widgets:impl, so it ships no widgets).
+        -->
+        <receiver
+            android:name="net.kikin.nubecita.feature.widgets.impl.widget.FollowingFeedWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_following_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_following_info" />
+        </receiver>
+
+        <receiver
+            android:name="net.kikin.nubecita.feature.widgets.impl.widget.DiscoverFeedWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_discover_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_discover_info" />
+        </receiver>
+
+    </application>
+
+</manifest>

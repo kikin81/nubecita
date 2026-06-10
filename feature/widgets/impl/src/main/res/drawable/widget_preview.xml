@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Placeholder preview shown in the widget picker (Tier-1 quality requires a
+  preview). A simple rounded brand-tinted tile; a richer real-content preview
+  can replace this later without touching the providers.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="72dp"
+    android:viewportWidth="96"
+    android:viewportHeight="72">
+    <path
+        android:fillColor="#1D9BF0"
+        android:pathData="M8,4 H88 A8,8 0 0 1 96,12 V60 A8,8 0 0 1 88,68 H8 A8,8 0 0 1 0,60 V12 A8,8 0 0 1 8,4 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,20 H64 V26 H12 Z M12,34 H72 V40 H12 Z M12,48 H56 V54 H12 Z" />
+</vector>

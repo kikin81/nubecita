@@ -3,4 +3,10 @@
     <string name="widget_state_loading">Loading…</string>
     <string name="widget_state_signed_out">Sign in to see your feed</string>
     <string name="widget_state_empty">No posts yet</string>
+
+    <string name="widget_following_title">Following</string>
+    <string name="widget_discover_title">Discover</string>
+
+    <string name="widget_following_description">Your Following timeline, updated in the background.</string>
+    <string name="widget_discover_description">Discover popular posts, updated in the background.</string>
 </resources>
