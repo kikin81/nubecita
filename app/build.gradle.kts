@@ -368,6 +368,11 @@ dependencies {
     "baselineProfile"(project(":benchmark"))
 
     kspAndroidTest(libs.hilt.android.compiler)
+
+    // Glance widgets ship in the production flavor only — the bench flavor stays
+    // Glance-free (no widget receivers in its manifest, no widget work). The real
+    // WidgetUpdater / WidgetImagePrefetcher seam bindings follow in group 8.
+    "productionImplementation"(project(":feature:widgets:impl"))
 }
 
 tasks.register("publish") {

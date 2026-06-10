@@ -8,6 +8,7 @@ import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.feature.widgets.impl.image.WidgetThumbnailStore
 
 /**
  * Hilt access seam for Jetpack Glance (D-C2).
@@ -34,6 +35,9 @@ internal interface WidgetEntryPoint {
 
     /** Saved/pinned feeds backing the configurable widget's configuration picker. */
     fun pinnedFeedsRepository(): PinnedFeedsRepository
+
+    /** Pre-decoded thumbnails for the head posts (loaded off composition). */
+    fun widgetThumbnailStore(): WidgetThumbnailStore
 }
 
 /**

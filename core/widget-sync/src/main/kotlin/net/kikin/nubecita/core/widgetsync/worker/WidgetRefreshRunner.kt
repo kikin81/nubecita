@@ -6,6 +6,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
+import net.kikin.nubecita.core.widgetsync.WidgetFeeds
 import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
 import timber.log.Timber
@@ -65,7 +66,7 @@ internal class WidgetRefreshRunner
             val feedKeys =
                 listOf(
                     FeedKey.following(viewerDid),
-                    FeedKey(viewerDid, FeedType.DISCOVER, DISCOVER_FEED_URI),
+                    FeedKey(viewerDid, FeedType.DISCOVER, WidgetFeeds.DISCOVER_FEED_URI),
                 )
 
             var anySucceeded = false
@@ -125,13 +126,5 @@ internal class WidgetRefreshRunner
 
         private companion object {
             const val TAG = "WidgetRefreshRunner"
-
-            /**
-             * The Bluesky Discover / "what's-hot" generator AT-URI (the fixed MVP
-             * Discover partition, D-B6). C confirms the canonical value; the runner
-             * logic and its tests don't depend on the exact string.
-             */
-            const val DISCOVER_FEED_URI =
-                "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot"
         }
     }

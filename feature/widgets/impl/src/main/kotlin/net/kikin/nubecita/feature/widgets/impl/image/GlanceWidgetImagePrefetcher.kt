@@ -7,6 +7,7 @@ import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
+import net.kikin.nubecita.feature.widgets.impl.MAX_WIDGET_POSTS
 import javax.inject.Inject
 
 /**
@@ -50,14 +51,4 @@ internal class GlanceWidgetImagePrefetcher
                 // Eviction (D-C5): drop thumbnails for posts no longer in the head.
                 thumbnailStore.evict(feedKey.accountDid, posts.mapTo(HashSet(posts.size)) { it.id })
             }
-
-        private companion object {
-            /**
-             * Head depth to prefetch — a little beyond the ~4–6 posts the largest
-             * responsive widget shows, so a resize finds thumbnails ready. Bounds
-             * the per-feed decode count + the image cache. Tunable with the render
-             * head count (group 5).
-             */
-            const val MAX_WIDGET_POSTS = 8
-        }
     }
