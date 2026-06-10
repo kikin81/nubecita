@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780993735613,
+  "lastUpdate": 1781080664624,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -675,6 +675,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1349.387,
             "range": "+/- 11.5%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "00ec33a54f21a2c48a2babc84af9dc3965b796d8",
+          "message": "ci(release): 1.211.0\n\n## [1.211.0](https://github.com/kikin81/nubecita/compare/v1.210.0...v1.211.0) (2026-06-10)\n\n### Miscellaneous\n\n* **openspec:** archive add-widget-feed-refresh + sync widget-feed-refresh spec ([#515](https://github.com/kikin81/nubecita/issues/515)) ([a5febee](https://github.com/kikin81/nubecita/commit/a5febee3c5e07c58b03966dba22229b4a0ee0f4a)), closes [512/#513](https://github.com/512/nubecita/issues/513)\n\n### Features\n\n* **widgets:** scaffold :feature:widgets:impl with Glance + Hilt EntryPoint ([#516](https://github.com/kikin81/nubecita/issues/516)) ([650bf54](https://github.com/kikin81/nubecita/commit/650bf5423f61e9968f29c8780d1ba4bdcf4eeb78))",
+          "timestamp": "2026-06-10T06:58:52Z",
+          "url": "https://github.com/kikin81/nubecita/commit/00ec33a54f21a2c48a2babc84af9dc3965b796d8"
+        },
+        "date": 1781080663181,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 7.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1474.119,
+            "range": "+/- 7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1414.014,
+            "range": "+/- 4.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1421.268,
+            "range": "+/- 23.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1168.066,
+            "range": "+/- 21.9%",
             "unit": "ms"
           }
         ]
