@@ -74,8 +74,14 @@ internal abstract class FeedWidget : GlanceAppWidget() {
         entryPoint: WidgetEntryPoint,
     ): FeedWidgetUiState =
         withContext(Dispatchers.IO) {
+            val sessionStateProvider = entryPoint.sessionStateProvider()
+            // The widget can render in a cold process where nothing has hydrated
+            // the session StateFlow yet (its initial value is Loading, and only
+            // MainActivity refreshes it on app cold start). Without this refresh,
+            // state.value is Loading → the widget wrongly shows "signed out".
+            sessionStateProvider.refresh()
             val did =
-                (entryPoint.sessionStateProvider().state.value as? SessionState.SignedIn)?.did
+                (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
                     ?: return@withContext FeedWidgetUiState.SignedOut
 
             val store = entryPoint.widgetThumbnailStore()
