@@ -11,7 +11,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.feature.widgets.impl.MAX_WIDGET_POSTS
@@ -71,13 +71,22 @@ internal abstract class FeedWidget : GlanceAppWidget() {
                     ?: return@withContext FeedWidgetUiState.SignedOut
 
             val store = entryPoint.widgetThumbnailStore()
-            val posts = entryPoint.feedRepository().head(feedKey(did), MAX_WIDGET_POSTS).first()
+            // firstOrNull guards the edge case of a flow that completes without
+            // emitting; a Room-backed head normally emits a (possibly empty) list.
+            val posts =
+                entryPoint
+                    .feedRepository()
+                    .head(feedKey(did), MAX_WIDGET_POSTS)
+                    .firstOrNull()
+                    .orEmpty()
             val now = Clock.System.now()
 
             val rows =
                 posts.map { post ->
                     val item = post.toWidgetItem(now)
-                    val thumbnail = if (item.hasMedia) loadThumbnail(store, did, item.postUri) else null
+                    // Thumbnails are keyed by post.id (== item.postUri) — the same key
+                    // the prefetcher writes under; use post.id to make that explicit.
+                    val thumbnail = if (item.hasMedia) loadThumbnail(store, did, post.id) else null
                     WidgetRow(item, thumbnail)
                 }
             FeedWidgetUiState.Loaded(rows)
@@ -86,9 +95,9 @@ internal abstract class FeedWidget : GlanceAppWidget() {
     private fun loadThumbnail(
         store: WidgetThumbnailStore,
         accountDid: String,
-        postUri: String,
+        postId: String,
     ): Bitmap? {
-        val file = store.thumbnailFile(accountDid, postUri)
+        val file = store.thumbnailFile(accountDid, postId)
         return if (file.exists()) BitmapFactory.decodeFile(file.path) else null
     }
 }
