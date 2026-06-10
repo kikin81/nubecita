@@ -7,6 +7,8 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
@@ -105,12 +107,16 @@ private fun PostList(rows: List<WidgetRow>) {
 @Composable
 private fun PostRow(row: WidgetRow) {
     val item = row.item
+    val rowModifier =
+        GlanceModifier
+            .fillMaxWidth()
+            .padding(vertical = ROW_VERTICAL_PADDING)
+            .semantics { testTag = WidgetTestTags.POST_ROW }
+            // D-C7: tapping the row opens the thread via the existing deep-link
+            // routing, launched through actionStartActivity (Android-12 trampoline-safe).
+            .let { base -> row.deepLinkIntent?.let { base.clickable(actionStartActivity(it)) } ?: base }
     Row(
-        modifier =
-            GlanceModifier
-                .fillMaxWidth()
-                .padding(vertical = ROW_VERTICAL_PADDING)
-                .semantics { testTag = WidgetTestTags.POST_ROW },
+        modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = GlanceModifier.defaultWeight()) {

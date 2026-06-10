@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.widgets.impl.ui
 
+import android.content.Intent
 import android.graphics.Bitmap
 import net.kikin.nubecita.feature.widgets.impl.model.WidgetPostItem
 
@@ -31,6 +32,13 @@ internal sealed interface FeedWidgetUiState {
 internal data class WidgetRow(
     val item: WidgetPostItem,
     val thumbnail: Bitmap?,
+    /**
+     * The `ACTION_VIEW` deep-link intent that opens this post's thread, built in
+     * `provideGlance` (it needs a `Context`) and wrapped in `actionStartActivity`
+     * by the row. Null = not clickable (e.g. in unit tests, which can't build a
+     * real `Intent` on the JVM).
+     */
+    val deepLinkIntent: Intent? = null,
 )
 
 /**

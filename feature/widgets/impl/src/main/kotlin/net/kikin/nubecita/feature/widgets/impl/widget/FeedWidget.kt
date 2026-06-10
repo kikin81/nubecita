@@ -1,8 +1,10 @@
 package net.kikin.nubecita.feature.widgets.impl.widget
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -53,7 +55,7 @@ internal abstract class FeedWidget : GlanceAppWidget() {
         id: GlanceId,
     ) {
         val entryPoint = context.widgetEntryPoint()
-        val state = loadState(entryPoint)
+        val state = loadState(context, entryPoint)
         val title = context.getString(titleRes)
         val strings =
             WidgetStrings(
@@ -64,7 +66,10 @@ internal abstract class FeedWidget : GlanceAppWidget() {
         provideContent { FeedWidgetContent(title, state, strings) }
     }
 
-    private suspend fun loadState(entryPoint: WidgetEntryPoint): FeedWidgetUiState =
+    private suspend fun loadState(
+        context: Context,
+        entryPoint: WidgetEntryPoint,
+    ): FeedWidgetUiState =
         withContext(Dispatchers.IO) {
             val did =
                 (entryPoint.sessionStateProvider().state.value as? SessionState.SignedIn)?.did
@@ -87,10 +92,18 @@ internal abstract class FeedWidget : GlanceAppWidget() {
                     // Thumbnails are keyed by post.id (== item.postUri) — the same key
                     // the prefetcher writes under; use post.id to make that explicit.
                     val thumbnail = if (item.hasMedia) loadThumbnail(store, did, post.id) else null
-                    WidgetRow(item, thumbnail)
+                    WidgetRow(item, thumbnail, deepLinkIntent = deepLinkIntent(context, post.id))
                 }
             FeedWidgetUiState.Loaded(rows)
         }
+
+    /** ACTION_VIEW intent into this post's thread, scoped to our package (D-C7). */
+    private fun deepLinkIntent(
+        context: Context,
+        postId: String,
+    ): Intent =
+        Intent(Intent.ACTION_VIEW, Uri.parse(widgetPostDeepLink(postId)))
+            .setPackage(context.packageName)
 
     private fun loadThumbnail(
         store: WidgetThumbnailStore,
