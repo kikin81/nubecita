@@ -4,6 +4,12 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.feature.widgets.impl"
+
+    // Glance's runGlanceAppWidgetUnitTest builds a RemoteViews tree on the JVM,
+    // touching real android.os.Bundle (putInt etc.). Without this the unit-test
+    // stub jar throws "Method putInt ... not mocked". The Glance test env only
+    // uses the Bundle internally; our composition assertions don't depend on it.
+    testOptions.unitTests.isReturnDefaultValues = true
 }
 
 dependencies {

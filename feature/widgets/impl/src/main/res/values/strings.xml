@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_state_loading">Loading…</string>
+    <string name="widget_state_signed_out">Sign in to see your feed</string>
+    <string name="widget_state_empty">No posts yet</string>
+</resources>

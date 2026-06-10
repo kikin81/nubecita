@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget corner radii. Pre-API-31 fallback values; the values-v31 variant
+  overrides these to reference the framework's @android:dimen/system_app_widget_*
+  resources (which only exist on API 31+). Defining our own dimen avoids
+  referencing a framework resource id that can't resolve on older OS versions.
+-->
+<resources>
+    <dimen name="widget_background_radius">16dp</dimen>
+    <dimen name="widget_inner_radius">8dp</dimen>
+</resources>
