@@ -14,6 +14,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
+import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -54,7 +55,8 @@ internal class WidgetRefreshRunnerTest {
             coEvery { repo.refresh(any()) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any()) } just Runs
             val updater = RecordingUpdater()
-            val runner = runner(repo, updater = updater)
+            val prefetcher = RecordingPrefetcher()
+            val runner = runner(repo, updater = updater, prefetcher = prefetcher)
 
             assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
 
@@ -64,6 +66,8 @@ internal class WidgetRefreshRunnerTest {
             coVerify(exactly = 1) { repo.trimToCap(FeedKey.following(VIEWER), any()) }
             coVerify(exactly = 1) { repo.trimToCap(match { it.feedType == FeedType.DISCOVER }, any()) }
             assertEquals(1, updater.calls)
+            // D-C4: each succeeded feed is prefetched once (off-scroll).
+            assertEquals(listOf(FeedType.FOLLOWING, FeedType.DISCOVER), prefetcher.prefetched.map { it.feedType })
         }
 
     @Test
@@ -72,11 +76,14 @@ internal class WidgetRefreshRunnerTest {
             val repo = mockk<FeedRepository>()
             coEvery { repo.refresh(any()) } returns Result.failure(IOException("down"))
             val updater = RecordingUpdater()
-            val runner = runner(repo, updater = updater)
+            val prefetcher = RecordingPrefetcher()
+            val runner = runner(repo, updater = updater, prefetcher = prefetcher)
 
             assertEquals(WidgetRefreshRunner.Outcome.RETRY, runner.run())
             coVerify(exactly = 0) { repo.trimToCap(any(), any()) }
             assertEquals(0, updater.calls)
+            // No feed succeeded → nothing prefetched.
+            assertEquals(emptyList<FeedKey>(), prefetcher.prefetched)
         }
 
     @Test
@@ -88,7 +95,8 @@ internal class WidgetRefreshRunnerTest {
             coEvery { repo.refresh(match { it.feedType == FeedType.DISCOVER }) } returns Result.failure(IOException("down"))
             coEvery { repo.trimToCap(any(), any()) } just Runs
             val updater = RecordingUpdater()
-            val runner = runner(repo, updater = updater)
+            val prefetcher = RecordingPrefetcher()
+            val runner = runner(repo, updater = updater, prefetcher = prefetcher)
 
             assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
 
@@ -97,6 +105,8 @@ internal class WidgetRefreshRunnerTest {
             coVerify(exactly = 1) { repo.trimToCap(FeedKey.following(VIEWER), any()) }
             coVerify(exactly = 0) { repo.trimToCap(match { it.feedType == FeedType.DISCOVER }, any()) }
             assertEquals(1, updater.calls)
+            // Only the succeeded feed is prefetched (D-C4): prefetch is gated on refresh.
+            assertEquals(listOf(FeedType.FOLLOWING), prefetcher.prefetched.map { it.feedType })
         }
 
     @Test
@@ -135,6 +145,35 @@ internal class WidgetRefreshRunnerTest {
             assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
         }
 
+    @Test
+    fun `a prefetch failure is isolated and does not fail the refresh (D-C4)`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.refresh(any()) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any()) } just Runs
+            val updater = RecordingUpdater()
+            // Following's image prefetch throws; Discover's succeeds.
+            val prefetcher =
+                object : WidgetImagePrefetcher {
+                    val prefetched = mutableListOf<FeedKey>()
+
+                    override suspend fun prefetch(feedKey: FeedKey) {
+                        if (feedKey.feedType == FeedType.FOLLOWING) throw IllegalStateException("decode oom")
+                        prefetched += feedKey
+                    }
+                }
+            val runner = runner(repo, updater = updater, prefetcher = prefetcher)
+
+            // The prefetch throw fails only Following's images: the refresh already
+            // succeeded, so the worker still returns SUCCESS, both feeds are still
+            // refreshed + trimmed, Discover is still prefetched, and the updater runs.
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 1) { repo.trimToCap(FeedKey.following(VIEWER), any()) }
+            coVerify(exactly = 1) { repo.trimToCap(match { it.feedType == FeedType.DISCOVER }, any()) }
+            assertEquals(listOf(FeedType.DISCOVER), prefetcher.prefetched.map { it.feedType })
+            assertEquals(1, updater.calls)
+        }
+
     private companion object {
         const val VIEWER = "did:plc:viewer"
     }
@@ -144,12 +183,14 @@ internal class WidgetRefreshRunnerTest {
         session: SessionState = SessionState.SignedIn(handle = "me.bsky.social", did = VIEWER),
         foregrounded: Boolean = false,
         updater: WidgetUpdater = RecordingUpdater(),
+        prefetcher: WidgetImagePrefetcher = RecordingPrefetcher(),
     ): WidgetRefreshRunner =
         WidgetRefreshRunner(
             repository = repo,
             sessionStateProvider = FakeSessionStateProvider(session),
             foreground = FakeForeground(foregrounded),
             widgetUpdater = updater,
+            imagePrefetcher = prefetcher,
         )
 
     private class RecordingUpdater : WidgetUpdater {
@@ -157,6 +198,14 @@ internal class WidgetRefreshRunnerTest {
 
         override suspend fun updateFeedWidgets() {
             calls++
+        }
+    }
+
+    private class RecordingPrefetcher : WidgetImagePrefetcher {
+        val prefetched = mutableListOf<FeedKey>()
+
+        override suspend fun prefetch(feedKey: FeedKey) {
+            prefetched += feedKey
         }
     }
 
