@@ -156,7 +156,7 @@ private fun PostRow(row: WidgetRow) {
                 )
                 Text(
                     text = item.text,
-                    style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp),
+                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 14.sp),
                     maxLines = 2,
                 )
                 Text(
@@ -179,10 +179,11 @@ private fun Thumbnail(row: WidgetRow) {
         modifier =
             GlanceModifier
                 .size(THUMB_SIZE)
-                .cornerRadius(R.dimen.widget_inner_radius)
                 // Distinct from the surfaceVariant card so an undecoded thumbnail
-                // reads as an empty slot rather than blending in.
-                .background(GlanceTheme.colors.surface),
+                // reads as an empty slot rather than blending in. Modifier order
+                // (background before cornerRadius) matches the root + card.
+                .background(GlanceTheme.colors.surface)
+                .cornerRadius(R.dimen.widget_inner_radius),
         contentAlignment = Alignment.BottomEnd,
     ) {
         val bitmap = row.thumbnail
