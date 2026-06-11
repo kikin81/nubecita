@@ -10,11 +10,17 @@ import javax.inject.Singleton
 /**
  * On-disk store for the widgets' pre-decoded post thumbnails (D-C5).
  *
- * Layout: `<cacheDir>/widget_thumbs/<account>/<postKey>.jpg`, where `<account>`
+ * Layout: `<filesDir>/widget_thumbs/<account>/<postKey>.jpg`, where `<account>`
  * is the (sanitized) account DID and `<postKey>` is a hash of the post AT-URI
  * (`PostUi.id`) — AT-URIs contain `/` and `:` so they can't be file names
  * directly. The widget's Glance state holds only the small file path; the
  * bitmap bytes live here, off the prefs.
+ *
+ * **Lives under `filesDir`, not `cacheDir`:** the OS can evict `cacheDir` under
+ * storage pressure, which would silently drop already-decoded thumbnails and
+ * leave the widget showing empty placeholders until the next refresh re-decodes
+ * them. We bound growth ourselves via [evict] / [clearAccount], so the
+ * OS-managed cache buys us nothing and only risks that data loss.
  *
  * The image analogue of `:core:feed-cache`'s `trimToCap`: [evict] bounds this
  * directory to the posts currently in a feed's head, and [clearAccount] drops
@@ -23,7 +29,7 @@ import javax.inject.Singleton
  * lives in [ThumbnailDecoder].
  *
  * Constructed with the widget-thumbnails root; the Hilt graph supplies
- * `<cacheDir>/widget_thumbs` via the secondary `@Inject` constructor.
+ * `<filesDir>/widget_thumbs` via the secondary `@Inject` constructor.
  */
 @Singleton
 class WidgetThumbnailStore(
@@ -32,7 +38,7 @@ class WidgetThumbnailStore(
     @Inject
     constructor(
         @ApplicationContext context: android.content.Context,
-    ) : this(File(context.cacheDir, ROOT_DIR_NAME))
+    ) : this(File(context.filesDir, ROOT_DIR_NAME))
 
     /**
      * The thumbnail [File] for ([accountDid], [postId]), creating the account
