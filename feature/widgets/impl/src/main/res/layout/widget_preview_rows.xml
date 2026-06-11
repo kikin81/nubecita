@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared fake post rows for the picker previews; <include>d by the per-feed
+     preview layouts so only the title differs. Static sample content. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="@string/widget_preview_author_1"
+        android:textColor="#ECEBED"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:text="@string/widget_preview_text_1"
+        android:textColor="#C5C0CA"
+        android:textSize="13sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="@string/widget_preview_author_2"
+        android:textColor="#ECEBED"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:text="@string/widget_preview_text_2"
+        android:textColor="#C5C0CA"
+        android:textSize="13sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="@string/widget_preview_author_3"
+        android:textColor="#ECEBED"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:text="@string/widget_preview_text_3"
+        android:textColor="#C5C0CA"
+        android:textSize="13sp" />
+</merge>
