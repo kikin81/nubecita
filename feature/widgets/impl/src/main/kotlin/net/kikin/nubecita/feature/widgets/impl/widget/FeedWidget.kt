@@ -13,6 +13,7 @@ import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
@@ -28,6 +29,7 @@ import net.kikin.nubecita.feature.widgets.impl.ui.FeedWidgetContent
 import net.kikin.nubecita.feature.widgets.impl.ui.FeedWidgetUiState
 import net.kikin.nubecita.feature.widgets.impl.ui.WidgetRow
 import net.kikin.nubecita.feature.widgets.impl.ui.WidgetStrings
+import timber.log.Timber
 import kotlin.time.Clock
 
 /**
@@ -79,10 +81,24 @@ internal abstract class FeedWidget : GlanceAppWidget() {
             // the session StateFlow yet (its initial value is Loading, and only
             // MainActivity refreshes it on app cold start). Without this refresh,
             // state.value is Loading → the widget wrongly shows "signed out".
-            sessionStateProvider.refresh()
+            // refresh() does disk I/O (Tink-decrypt + DataStore); guard it so a
+            // storage error renders signed-out instead of crashing the widget.
+            try {
+                sessionStateProvider.refresh()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                Timber.tag(TAG).e(throwable, "widget session refresh failed")
+                return@withContext FeedWidgetUiState.SignedOut
+            }
             val did =
-                (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
-                    ?: return@withContext FeedWidgetUiState.SignedOut
+                when (val session = sessionStateProvider.state.value) {
+                    is SessionState.SignedIn -> session.did
+                    // Session exists but identity not hydrated yet (signup window):
+                    // show loading, not "signed out".
+                    SessionState.Loading -> return@withContext FeedWidgetUiState.Loading
+                    SessionState.SignedOut -> return@withContext FeedWidgetUiState.SignedOut
+                }
 
             val store = entryPoint.widgetThumbnailStore()
             // firstOrNull guards the edge case of a flow that completes without
@@ -142,6 +158,10 @@ internal abstract class FeedWidget : GlanceAppWidget() {
     ): Bitmap? {
         val file = store.thumbnailFile(accountDid, postId)
         return if (file.exists()) BitmapFactory.decodeFile(file.path) else null
+    }
+
+    private companion object {
+        const val TAG = "FeedWidget"
     }
 
     private suspend fun maybeEnqueueEmptyFeedRefresh(
