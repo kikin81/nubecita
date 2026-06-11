@@ -64,9 +64,11 @@ internal class CoilThumbnailDecoder
 
             val result = imageLoader.execute(request)
             if (result !is SuccessResult) {
-                // ErrorResult (network / decode failure) — surface why; this path
-                // was previously silent, hiding intermittent thumbnail misses.
-                Timber.tag(TAG).w((result as? ErrorResult)?.throwable, "widget thumbnail decode failed: %s", url)
+                // Surface why; this path was previously silent, hiding intermittent
+                // misses. Log the URL without query params (avoid leaking any
+                // signed-URL tokens). (ImageResult doesn't smart-cast to ErrorResult
+                // here, so the explicit cast stays.)
+                Timber.tag(TAG).w((result as? ErrorResult)?.throwable, "widget thumbnail decode failed: %s", url.substringBefore('?'))
                 return false
             }
             val bitmap = result.image.toBitmap()
