@@ -1,18 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Placeholder preview shown in the widget picker (Tier-1 quality requires a
-  preview). A simple rounded brand-tinted tile; a richer real-content preview
-  can replace this later without touching the providers.
+  Static picker preview for pre-Android-15 (API < 35), where the system can't
+  render the Glance `providePreview` composable. A representative dark feed
+  card: a title bar over three author + text rows. On API 35+ the live
+  `providePreview` (real sample posts) supersedes this.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="96dp"
-    android:height="72dp"
-    android:viewportWidth="96"
-    android:viewportHeight="72">
+    android:width="120dp"
+    android:height="60dp"
+    android:viewportWidth="240"
+    android:viewportHeight="120">
+
+    <!-- Card -->
     <path
-        android:fillColor="#1D9BF0"
-        android:pathData="M8,4 H88 A8,8 0 0 1 96,12 V60 A8,8 0 0 1 88,68 H8 A8,8 0 0 1 0,60 V12 A8,8 0 0 1 8,4 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M12,20 H64 V26 H12 Z M12,34 H72 V40 H12 Z M12,48 H56 V54 H12 Z" />
+        android:fillColor="#1B1C20"
+        android:pathData="M14,0 H226 A14,14 0 0 1 240,14 V106 A14,14 0 0 1 226,120 H14 A14,14 0 0 1 0,106 V14 A14,14 0 0 1 14,0 Z" />
+
+    <!-- Title -->
+    <path android:fillColor="#C7C7CC" android:pathData="M16,14 H88 V25 H16 Z" />
+
+    <!-- Row 1: author + text -->
+    <path android:fillColor="#9A9AA0" android:pathData="M16,40 H74 V47 H16 Z" />
+    <path android:fillColor="#67676D" android:pathData="M16,51 H204 V58 H16 Z" />
+
+    <!-- Row 2 -->
+    <path android:fillColor="#9A9AA0" android:pathData="M16,70 H66 V77 H16 Z" />
+    <path android:fillColor="#67676D" android:pathData="M16,81 H188 V88 H16 Z" />
+
+    <!-- Row 3 -->
+    <path android:fillColor="#9A9AA0" android:pathData="M16,100 H80 V107 H16 Z" />
+    <path android:fillColor="#67676D" android:pathData="M16,111 H160 V118 H16 Z" />
 </vector>
