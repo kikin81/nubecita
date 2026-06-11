@@ -5,6 +5,14 @@
     <string name="widget_state_empty">No posts yet</string>
     <string name="widget_refresh">Refresh</string>
 
+    <!-- Static picker-preview (previewLayout) sample content; never shown in the live widget. -->
+    <string name="widget_preview_author_1">Alice Rivera</string>
+    <string name="widget_preview_text_1">Pinned the new feed widget — it refreshes in the background ☁️</string>
+    <string name="widget_preview_author_2">Bluesky</string>
+    <string name="widget_preview_text_2">What\'s everyone building this weekend?</string>
+    <string name="widget_preview_author_3">Dev Diaries</string>
+    <string name="widget_preview_text_3">TIL Jetpack Glance composables render to RemoteViews.</string>
+
     <string name="widget_following_title">Following</string>
     <string name="widget_discover_title">Discover</string>
 

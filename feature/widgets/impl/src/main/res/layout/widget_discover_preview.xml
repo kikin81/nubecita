@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static picker preview (API 31+) for the Discover widget: real title +
+     sample posts as actual text. The live widget renders via Glance. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_preview_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_discover_title"
+        android:textColor="#ECEBED"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <include layout="@layout/widget_preview_rows" />
+</LinearLayout>
