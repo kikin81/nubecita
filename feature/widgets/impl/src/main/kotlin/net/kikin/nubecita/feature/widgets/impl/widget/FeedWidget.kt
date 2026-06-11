@@ -27,6 +27,7 @@ import net.kikin.nubecita.feature.widgets.impl.image.WidgetThumbnailStore
 import net.kikin.nubecita.feature.widgets.impl.model.toWidgetItem
 import net.kikin.nubecita.feature.widgets.impl.ui.FeedWidgetContent
 import net.kikin.nubecita.feature.widgets.impl.ui.FeedWidgetUiState
+import net.kikin.nubecita.feature.widgets.impl.ui.WidgetPreviewSamples
 import net.kikin.nubecita.feature.widgets.impl.ui.WidgetRow
 import net.kikin.nubecita.feature.widgets.impl.ui.WidgetStrings
 import timber.log.Timber
@@ -60,16 +61,31 @@ internal abstract class FeedWidget : GlanceAppWidget() {
     ) {
         val entryPoint = context.widgetEntryPoint()
         val state = loadState(context, entryPoint)
-        val title = context.getString(titleRes)
-        val strings =
-            WidgetStrings(
-                loading = context.getString(R.string.widget_state_loading),
-                signedOut = context.getString(R.string.widget_state_signed_out),
-                empty = context.getString(R.string.widget_state_empty),
-                refresh = context.getString(R.string.widget_refresh),
-            )
-        provideContent { FeedWidgetContent(title, state, strings) }
+        provideContent { FeedWidgetContent(context.getString(titleRes), state, widgetStrings(context)) }
     }
+
+    /**
+     * Picker preview (D-C8 quality): render the real widget UI with hardcoded
+     * sample posts. `providePreview` must NOT fetch (the system calls it in the
+     * widget picker, possibly signed-out / off the main flow), so it uses
+     * [WidgetPreviewSamples] — never the cache or network. On Android 15+ this
+     * feeds the system-generated preview; older versions fall back to the
+     * `<appwidget-provider>` `previewImage`.
+     */
+    final override suspend fun providePreview(
+        context: Context,
+        widgetCategory: Int,
+    ) {
+        provideContent { FeedWidgetContent(context.getString(titleRes), WidgetPreviewSamples.loaded(), widgetStrings(context)) }
+    }
+
+    private fun widgetStrings(context: Context): WidgetStrings =
+        WidgetStrings(
+            loading = context.getString(R.string.widget_state_loading),
+            signedOut = context.getString(R.string.widget_state_signed_out),
+            empty = context.getString(R.string.widget_state_empty),
+            refresh = context.getString(R.string.widget_refresh),
+        )
 
     private suspend fun loadState(
         context: Context,
