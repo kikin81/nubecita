@@ -103,11 +103,12 @@ internal class CoilThumbnailDecoder
             const val TAG = "WidgetThumbDecoder"
 
             /**
-             * Fixed decode bounding box (px). ~600px covers the largest thumbnail a
-             * responsive widget layout needs (≈180–200dp at xxhdpi); Glance scales
-             * it down per cell. Tunable against the instrumented budget test.
+             * Fixed decode bounding box (px), right-sized for the 68dp thumbnail
+             * slot (≈272px at xxxhdpi) with headroom. Far smaller than the original
+             * 600 → ~3× smaller stored JPEGs and RemoteViews IPC payload, no visible
+             * loss. Tunable against the instrumented budget test.
              */
-            const val MAX_THUMB_PX = 600
+            const val MAX_THUMB_PX = 320
 
             const val JPEG_QUALITY = 85
         }

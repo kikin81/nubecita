@@ -84,6 +84,12 @@ private fun WidgetHeader(
         modifier = GlanceModifier.fillMaxWidth().padding(bottom = SPACING),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Image(
+            provider = ImageProvider(R.drawable.ic_nubecita_logo),
+            contentDescription = null,
+            modifier = GlanceModifier.size(LOGO_SIZE).padding(end = LOGO_GAP),
+            colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
+        )
         Text(
             text = title,
             modifier = GlanceModifier.defaultWeight().semantics { testTag = WidgetTestTags.TITLE },
@@ -124,37 +130,44 @@ private fun PostList(rows: List<WidgetRow>) {
 @Composable
 private fun PostRow(row: WidgetRow) {
     val item = row.item
-    val rowModifier =
+    // Each post sits on its own surfaceVariant card (Glance's palette has no
+    // surfaceContainer); the outer Box's bottom padding is the gap *between*
+    // cards (outside the card background).
+    val cardModifier =
         GlanceModifier
             .fillMaxWidth()
-            .padding(vertical = ROW_VERTICAL_PADDING)
+            .background(GlanceTheme.colors.surfaceVariant)
+            .cornerRadius(CARD_RADIUS)
+            .padding(CARD_PADDING)
             .semantics { testTag = WidgetTestTags.POST_ROW }
-            // D-C7: tapping the row opens the thread via the existing deep-link
+            // D-C7: tapping the card opens the thread via the existing deep-link
             // routing, launched through actionStartActivity (Android-12 trampoline-safe).
             .let { base -> row.deepLinkIntent?.let { base.clickable(actionStartActivity(it)) } ?: base }
-    Row(
-        modifier = rowModifier,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = GlanceModifier.defaultWeight()) {
-            Text(
-                text = item.authorDisplay,
-                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium),
-                maxLines = 1,
-            )
-            Text(
-                text = item.text,
-                style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
-                maxLines = 2,
-            )
-            Text(
-                text = item.relativeTime,
-                style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp),
-                maxLines = 1,
-            )
-        }
-        if (item.hasMedia) {
-            Box(modifier = GlanceModifier.padding(start = SPACING)) { Thumbnail(row) }
+    Box(modifier = GlanceModifier.fillMaxWidth().padding(bottom = CARD_GAP)) {
+        Row(
+            modifier = cardModifier,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                Text(
+                    text = item.authorDisplay,
+                    style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                    maxLines = 1,
+                )
+                Text(
+                    text = item.text,
+                    style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp),
+                    maxLines = 2,
+                )
+                Text(
+                    text = item.relativeTime,
+                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+                    maxLines = 1,
+                )
+            }
+            if (item.hasMedia) {
+                Box(modifier = GlanceModifier.padding(start = SPACING)) { Thumbnail(row) }
+            }
         }
     }
 }
@@ -167,7 +180,9 @@ private fun Thumbnail(row: WidgetRow) {
             GlanceModifier
                 .size(THUMB_SIZE)
                 .cornerRadius(R.dimen.widget_inner_radius)
-                .background(GlanceTheme.colors.surfaceVariant),
+                // Distinct from the surfaceVariant card so an undecoded thumbnail
+                // reads as an empty slot rather than blending in.
+                .background(GlanceTheme.colors.surface),
         contentAlignment = Alignment.BottomEnd,
     ) {
         val bitmap = row.thumbnail
@@ -219,10 +234,14 @@ private fun CenteredMessage(message: String) {
 }
 
 private val WIDGET_PADDING = 12.dp
-private val ROW_VERTICAL_PADDING = 10.dp
 private val SPACING = 8.dp
-private val THUMB_SIZE = 56.dp
+private val THUMB_SIZE = 68.dp
 private val REFRESH_ICON_SIZE = 24.dp
+private val CARD_RADIUS = 12.dp
+private val CARD_PADDING = 10.dp
+private val CARD_GAP = 8.dp
+private val LOGO_SIZE = 20.dp
+private val LOGO_GAP = 6.dp
 
 /** Stable semantics tags so `runGlanceAppWidgetUnitTest` can address nodes. */
 internal object WidgetTestTags {

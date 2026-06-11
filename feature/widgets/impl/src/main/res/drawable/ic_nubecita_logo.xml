@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Nubecita logomark (from design-system logomark-mono.svg: 3 circles + a pill
+  base forming the cloud). Single fill so it can be tinted at render. Circles /
+  rect converted to path data (vector drawables have no circle/rect elements),
+  with the source g transform(4,16) baked in.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="72"
+    android:viewportHeight="72">
+    <path android:fillColor="#FFFFFF" android:pathData="M8,42 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M20,36 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M42,42 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M21,46 H55 A7,7 0 0 1 55,60 H21 A7,7 0 0 1 21,46 Z" />
+</vector>
