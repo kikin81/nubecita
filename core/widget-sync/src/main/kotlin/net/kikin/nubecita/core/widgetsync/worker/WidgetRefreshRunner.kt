@@ -55,6 +55,22 @@ internal class WidgetRefreshRunner
         enum class Outcome { SUCCESS, RETRY }
 
         suspend fun run(): Outcome {
+            // The worker can run in a cold process where the session StateFlow is
+            // still at its initial Loading value (only MainActivity refreshes it on
+            // app cold start). Without this, a backgrounded refresh would read
+            // Loading, treat it as signed-out, and never populate the cache.
+            // refresh() does disk I/O; on a storage error return SUCCESS (don't
+            // retry-loop on corruption). Rethrow CancellationException.
+            try {
+                sessionStateProvider.refresh()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                Timber.tag(TAG).e(throwable, "session refresh failed")
+                return Outcome.SUCCESS
+            }
+            // SignedOut or Loading (identity not hydrated yet) → nothing to refresh
+            // this run; the next periodic run retries.
             val viewerDid =
                 (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
                     ?: return Outcome.SUCCESS

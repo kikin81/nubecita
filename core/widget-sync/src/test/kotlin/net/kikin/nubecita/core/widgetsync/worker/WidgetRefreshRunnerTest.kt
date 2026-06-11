@@ -146,6 +146,33 @@ internal class WidgetRefreshRunnerTest {
         }
 
     @Test
+    fun `a session refresh failure returns SUCCESS without refreshing`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            val updater = RecordingUpdater()
+            val throwingProvider =
+                object : SessionStateProvider {
+                    override val state: StateFlow<SessionState> = MutableStateFlow(SessionState.Loading)
+
+                    override suspend fun refresh(): Unit = throw IllegalStateException("session store corrupt")
+                }
+            val runner =
+                WidgetRefreshRunner(
+                    repository = repo,
+                    sessionStateProvider = throwingProvider,
+                    foreground = FakeForeground(foregrounded = false),
+                    widgetUpdater = updater,
+                    imagePrefetcher = RecordingPrefetcher(),
+                )
+
+            // A storage error during session hydration must not crash the worker
+            // or trigger a retry loop — return SUCCESS and do no work.
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 0) { repo.refresh(any()) }
+            assertEquals(0, updater.calls)
+        }
+
+    @Test
     fun `a prefetch failure is isolated and does not fail the refresh (D-C4)`() =
         runTest {
             val repo = mockk<FeedRepository>()
