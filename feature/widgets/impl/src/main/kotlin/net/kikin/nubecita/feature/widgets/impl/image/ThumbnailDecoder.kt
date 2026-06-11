@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.widgets.impl.image
 import android.content.Context
 import android.graphics.Bitmap
 import coil3.ImageLoader
+import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
@@ -61,9 +62,16 @@ internal class CoilThumbnailDecoder
                     .allowHardware(false)
                     .build()
 
-            val bitmap =
-                (imageLoader.execute(request) as? SuccessResult)?.image?.toBitmap()
-                    ?: return false
+            val result = imageLoader.execute(request)
+            if (result !is SuccessResult) {
+                // Surface why; this path was previously silent, hiding intermittent
+                // misses. Log the URL without query params (avoid leaking any
+                // signed-URL tokens). (ImageResult doesn't smart-cast to ErrorResult
+                // here, so the explicit cast stays.)
+                Timber.tag(TAG).w((result as? ErrorResult)?.throwable, "widget thumbnail decode failed: %s", url.substringBefore('?'))
+                return false
+            }
+            val bitmap = result.image.toBitmap()
 
             val parent = dest.parentFile ?: return false
             parent.mkdirs()
