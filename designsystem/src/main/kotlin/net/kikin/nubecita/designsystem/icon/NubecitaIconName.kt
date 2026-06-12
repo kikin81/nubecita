@@ -37,6 +37,7 @@ enum class NubecitaIconName(
     ArrowBack("\uE5C4"),
     ArrowForward("\uE5C8"),
     Article("\uEF42"),
+    Block("\uE14B"),
     Bookmark("\uE8E7"),
     ChatBubble("\uE0CB"),
     Check("\uE5CA"),
@@ -46,6 +47,7 @@ enum class NubecitaIconName(
     Error("\uF8B6"),
     ExpandMore("\uE5CF"),
     Favorite("\uE87E"),
+    Flag("\uE153"),
     FormatQuote("\uE244"),
     Forward10("\uE056"),
     Globe("\uE64C"),
@@ -55,6 +57,7 @@ enum class NubecitaIconName(
     Language("\uE894"),
     LocalFireDepartment("\uEF55"),
     LockPerson("\uF8F3"),
+    Logout("\uE9BA"),
     Menu("\uE5D2"),
     MoreHoriz("\uE5D3"),
     MoreVert("\uE5D4"),
@@ -66,6 +69,7 @@ enum class NubecitaIconName(
     // `e7f7` so the FILL axis flips to bell-with-activity-dot when
     // `filled = true`, matching the notifications-surface design intent.
     Notifications("\uE7F7"),
+    NotificationsOff("\uE7F6"),
     Pause("\uE034"),
     Person("\uF0D3"),
     PersonAdd("\uEA4D"),
