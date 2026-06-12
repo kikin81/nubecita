@@ -1,5 +1,3 @@
-# feature-chats — Chat list management (delta)
-
 ## ADDED Requirements
 
 ### Requirement: Chats and Requests are segmented
@@ -74,7 +72,7 @@ The available actions SHALL be derived from the number of selected conversations
 
 ### Requirement: Leaving a conversation is recoverable via deferred undo
 
-Leaving one or more conversations SHALL remove the rows from the list immediately and present a Snackbar with an Undo affordance. The `chat.bsky.convo.leaveConvo` network call SHALL NOT be issued until the Snackbar dismisses. Undo SHALL restore the removed rows without issuing any network call. Only one pending-leave batch SHALL exist at a time; starting a new leave while a batch is pending SHALL commit the pending batch first. A leave that is still pending (uncommitted) when the hosting process is destroyed SHALL be dropped rather than executed.
+Leaving one or more conversations SHALL remove the rows from the list immediately and present a Snackbar with an Undo affordance. The `chat.bsky.convo.leaveConvo` network call SHALL NOT be issued until the leave is **committed** — when the Snackbar dismisses, when a new leave supersedes it, or when the hosting screen is destroyed normally (navigated away). Undo SHALL restore the removed rows without issuing any network call. Only one pending-leave batch SHALL exist at a time; starting a new leave while a batch is pending SHALL commit the pending batch first. A committed leave SHALL complete even if the screen's lifecycle scope is torn down during the call. A leave that is still pending (uncommitted) when the hosting process is destroyed — where normal teardown callbacks do not run — SHALL be dropped rather than executed.
 
 #### Scenario: Leave shows undo and defers the call
 - **WHEN** the user leaves a conversation
@@ -94,8 +92,13 @@ Leaving one or more conversations SHALL remove the rows from the list immediatel
 - **WHEN** a leave is pending and the user initiates another leave
 - **THEN** the pending batch is committed immediately before the new batch begins
 
+#### Scenario: Leaving the screen commits a pending leave
+- **WHEN** the Chats screen is destroyed normally (e.g. the user navigates away) while a leave is pending and uncommitted
+- **THEN** the pending leave is committed (its `leaveConvo` calls are issued), not dropped
+- **AND** the commit completes even though the screen's lifecycle scope is torn down
+
 #### Scenario: Pending leave dropped on process death
-- **WHEN** the process is destroyed while a leave is pending and uncommitted
+- **WHEN** the hosting process is destroyed (so normal teardown callbacks do not run) while a leave is pending and uncommitted
 - **THEN** the leave is not executed
 
 #### Scenario: Bulk leave
@@ -104,12 +107,14 @@ Leaving one or more conversations SHALL remove the rows from the list immediatel
 
 ### Requirement: Conversation action failures are non-destructive
 
-Mute, accept, and a committed leave that fail at the network SHALL surface a transient error message and SHALL revert any optimistic change, so the conversation list reflects the true server state.
+Mute, accept, and a committed leave that fail at the network SHALL surface a transient error message and SHALL revert any optimistic change, so the conversation list reflects the true server state. For a multi-conversation operation, each conversation's outcome SHALL be handled independently — a partial failure reverts only the conversations whose call failed.
 
 #### Scenario: Mute failure reverts
 - **WHEN** a mute or unmute action fails
 - **THEN** a transient error is shown and the conversation's muted state is reverted
 
-#### Scenario: Committed leave failure restores the row
-- **WHEN** a committed `leaveConvo` call fails
-- **THEN** a transient error is shown and the conversation is restored to the list
+#### Scenario: Committed bulk-leave partial failure restores only the failed conversations
+- **WHEN** a committed leave batch is flushed and some (but not all) of its `leaveConvo` calls fail
+- **THEN** a transient error is shown
+- **AND** only the conversations whose call failed are restored to the list
+- **AND** the conversations that were successfully left stay removed

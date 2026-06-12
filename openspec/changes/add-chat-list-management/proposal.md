@@ -14,10 +14,10 @@ Non-goals (deferred): in-thread per-message delete (`deleteMessageForSelf`), any
 ## Capabilities
 
 ### New Capabilities
-- `feature-chats`: the Chats tab home — conversation list, Chats/Requests segmentation, multi-select conversation actions (leave / mute / accept / report / block / open-profile), and the leave-with-undo deferred-deletion behavior.
+<!-- None. feature-chats already exists (introduced by the add-chats-composing change); this change extends it. -->
 
 ### Modified Capabilities
-<!-- No spec-level requirement changes to existing capabilities. feature-moderation's Report NavKey and design-system's icon set are reused as-is (the new glyphs are additive vendoring, not a requirement change). -->
+- `feature-chats`: extend the existing capability (introduced by `add-chats-composing`) with additive requirements for Chats/Requests segmentation, multi-select conversation actions (leave / mute / accept / report / block / open-profile), and the leave-with-undo deferred-deletion behavior. These are new requirements layered on top of the composing/sending requirements; none of the existing requirements change.
 
 ## Impact
 

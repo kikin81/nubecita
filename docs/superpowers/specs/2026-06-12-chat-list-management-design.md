@@ -53,7 +53,7 @@ Add four `NubecitaIconName` entries: `Logout` (leave), `NotificationsOff` (mute)
 
 A pill-tab toggle above the list (reusing the `ProfilePillTabs` pattern already used by Search), two segments: **Chats** (accepted) and **Requests** (pending), with a count badge on Requests.
 
-- `ChatRepository` fetches both lists. `refreshConvos()` issues two `listConvos` calls (`accepted`, `request`); each is a single user-initiated XRPC, so this is battery-neutral (no new background work).
+- `ChatRepository` fetches both lists. `refreshConvos()` issues the two `listConvos` calls (`accepted`, `request`) **concurrently** (`async` within a `coroutineScope`) since they're independent — one round-trip of latency, not two. Each is a single user-initiated XRPC, so this is battery-neutral (no new background work).
 - A Requests-fetch failure **degrades gracefully**: Chats still loads; the Requests segment renders its own inline error/empty body. The whole screen never fails just because requests couldn't load.
 - Tapping a request opens the thread normally — replying auto-accepts server-side. Explicit accept/decline arrives in G2, which keeps G1 small and independently shippable.
 
@@ -77,13 +77,14 @@ Single-target actions (profile / report / block) are hidden when more than one c
 
 ### G3 — Leave-with-undo (`nubecita-kc17.4`, depends on G2)
 
-Leaving (single or bulk) removes the row(s) immediately and shows a Snackbar `Conversation left · Undo`. The `leaveConvo` network call is **deferred until the snackbar dismisses**:
+Leaving (single or bulk) removes the row(s) immediately and shows a Snackbar `Conversation left · Undo`. The `leaveConvo` network call is **deferred until the leave commits** (snackbar dismiss, supersede, or normal screen-leave):
 
 - **Undo** restores the rows with **zero network** — nothing was ever sent, so nothing is lost. This is a "we never deleted in the first place" window, not a server-side reversal (there is none).
 - **Dismiss** (timeout or superseded by a new action) fires `leaveConvo` once per held convo; then it is final.
 - **One pending batch at a time.** Starting a new leave while a batch is pending commits the prior batch immediately (Gmail-style).
-- **Process death while pending-but-unfired → drop the leave** (treat as cancelled). An un-acknowledged destructive action must not execute after the UI is gone.
-- The deferral lives in the **ViewModel**, not the repository. The repo stays a thin XRPC+cache layer exposing a plain `leaveConvo`; the VM owns the pending-set, optimistic projection, timer, and undo.
+- **Normal screen clearance commits, it does not drop.** When the Chats VM is cleared normally (navigated away), `onCleared()` flushes any pending leave — leaving a chat then navigating away must *leave* it, not silently restore it. Only **process death** (where `onCleared()` does not run) drops a still-pending leave; we do not persist pending leaves across death to fire them later. The split falls out naturally: `onCleared` flushes on normal teardown; process death skips `onCleared`, so nothing fires and the leave drops — honoring the "process death drops" intent while fixing the silent-drop-on-navigation bug.
+- **Partial failure is per-conversation.** When a committed bulk-leave's calls partly fail, only the failed conversations are restored; the successfully-left ones stay gone.
+- The deferral **orchestration** lives in the **ViewModel**, not the repository (the repo stays a thin XRPC+cache layer exposing a plain `leaveConvo`; the VM owns the pending-set, optimistic projection, timer, and undo). But the **terminal commit call runs on an injected application-scoped `CoroutineScope`**, not `viewModelScope`, so a commit completes even as the VM scope tears down (this is what makes the `onCleared` flush actually finish).
 
 ## Data layer
 
