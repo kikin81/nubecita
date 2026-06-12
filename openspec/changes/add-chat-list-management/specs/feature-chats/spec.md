@@ -42,16 +42,22 @@ Long-pressing a conversation row SHALL enter a selection mode in which the top a
 
 ### Requirement: Selection actions adapt to count and segment
 
-The available actions SHALL be derived from the number of selected conversations and the active segment, so that invalid combinations cannot be represented. In the Chats segment with exactly one conversation selected, the actions SHALL be Leave, Mute or Unmute, Go to profile, Report, and Block. With two or more selected, only the bulk actions Leave and Mute/Unmute SHALL be offered (single-target actions hidden). In the Requests segment with one selected, the actions SHALL be Accept, Leave (decline), and Go to profile; with two or more, only bulk Accept and Leave.
+The available actions SHALL be derived from the number of selected conversations and the active segment, so that invalid combinations cannot be represented. The bulk-capable actions (Leave, Mute/Unmute) SHALL be presented as inline icons in the contextual bar; the single-only actions (Go to profile, Report, Block) SHALL be grouped under an overflow (⋮) menu that is shown only when exactly one conversation is selected. In the Chats segment with exactly one conversation selected, the actions SHALL be Leave, Mute or Unmute (inline) plus Go to profile, Report, and Block (overflow). With two or more selected, only the inline bulk actions Leave and Mute/Unmute SHALL be offered and the overflow SHALL be hidden. In the Requests segment with one selected, the actions SHALL be Accept and Leave (decline) inline plus Go to profile in the overflow; with two or more, only bulk Accept and Leave.
 
 #### Scenario: Single selection in Chats
 - **WHEN** exactly one accepted conversation is selected
-- **THEN** Leave, Mute/Unmute, Go to profile, Report, and Block are available
+- **THEN** Leave and Mute/Unmute are available as inline icons
+- **AND** Go to profile, Report, and Block are available under the overflow menu
 
 #### Scenario: Multi selection hides single-target actions
 - **WHEN** two or more accepted conversations are selected
-- **THEN** only Leave and Mute/Unmute (bulk) are available
-- **AND** Go to profile, Report, and Block are not shown
+- **THEN** only Leave and Mute/Unmute (bulk) are available as inline icons
+- **AND** the overflow menu (Go to profile, Report, Block) is not shown
+
+#### Scenario: Contextual action icons are labeled
+- **WHEN** the contextual app bar shows icon-only actions
+- **THEN** each action exposes a text label via content description
+- **AND** a tooltip with that label appears on long-press or pointer hover
 
 #### Scenario: Mixed mute state in a multi-selection
 - **WHEN** a multi-selection contains at least one unmuted conversation
@@ -104,6 +110,11 @@ Leaving one or more conversations SHALL remove the rows from the list immediatel
 #### Scenario: Bulk leave
 - **WHEN** the user leaves multiple selected conversations at once
 - **THEN** all selected rows are removed and a single Undo Snackbar governs the whole batch
+
+#### Scenario: Leaving the open conversation clears the detail pane
+- **WHEN** a leave (single or bulk) includes the conversation currently open in the tablet detail pane
+- **THEN** the detail pane clears to its empty placeholder
+- **AND** undoing the leave restores the row to the list but does not automatically reopen the thread in the detail pane
 
 ### Requirement: Conversation action failures are non-destructive
 

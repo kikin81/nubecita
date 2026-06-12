@@ -65,15 +65,15 @@ The action set is **derived** from `selection.size` and the active segment, so i
 
 | Segment | 1 selected | 2+ selected |
 |---|---|---|
-| Chats | Leave · Mute/Unmute · Go to profile · Report · Block | Leave · Mute/Unmute (bulk) |
-| Requests | Accept · Leave (decline) · Go to profile | Accept · Leave (bulk) |
+| Chats | **inline:** Leave · Mute/Unmute — **overflow ⋮:** Go to profile · Report · Block | Leave · Mute/Unmute (bulk) |
+| Requests | **inline:** Accept · Leave (decline) — **overflow ⋮:** Go to profile | Accept · Leave (bulk) |
 
-Single-target actions (profile / report / block) are hidden when more than one convo is selected (the Google Messages model the user asked for). For a mixed mute/unmute multi-selection, show **Mute** if any selected convo is unmuted, else **Unmute**.
+The bar keeps the **bulk-capable** actions inline as icons and tucks the **single-only** actions (profile / report / block) under an overflow (⋮) that appears only at exactly one selection — so the ⋮ vanishes (along with those actions) when 2+ are selected. The clean rule "inline = works for 1 and N, overflow = single-only" keeps a phone bar from crowding and makes the multi-select transition obvious. Each icon-only action carries a `contentDescription` + an M3 `PlainTooltip` (long-press / hover) so the unlabeled destructive bar stays legible. For a mixed mute/unmute multi-selection, show **Mute** if any selected convo is unmuted, else **Unmute**. (AT Proto chat has one removal op — `leaveConvo` — so there is a single Leave action; no separate Archive/Delete exists despite the Google-Messages reference showing both.)
 
 - New thin repo ops: `leaveConvo`, `acceptConvo` (moves a convo from the request cache to the accepted cache), `setMuted(id, Boolean)`. Each optimistically patches the in-memory cache and reverts on failure.
 - Reuse, don't rebuild: Report → push `Report.forAccount(otherUserDid)` (`:feature:moderation:api`); Go to profile → existing Profile route via `LocalMainShellNavState`; Block → existing block path.
 - Action failures surface a transient snackbar (generalize the existing `ChatsEffect.ShowRefreshError` to an action-error effect); the optimistic patch reverts.
-- Tablet split: the contextual bar replaces the **list pane's** top app bar only; the detail pane is untouched.
+- Tablet split: the contextual bar replaces the **list pane's** top app bar only; the detail pane is untouched. Edge case: if a leave (single or bulk) includes the conversation open in the detail pane, that pane clears to its empty placeholder; undoing restores the list row but does not auto-reopen the thread.
 
 ### G3 — Leave-with-undo (`nubecita-kc17.4`, depends on G2)
 

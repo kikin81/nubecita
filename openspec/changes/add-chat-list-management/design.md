@@ -16,7 +16,7 @@ Full narrative design: `docs/superpowers/specs/2026-06-12-chat-list-management-d
 
 - **D-4 — Segment + selection are flat MVI fields; the load lifecycle stays a sealed sum.** `ChatsScreenViewState` gains `activeSegment`, `requestCount`, and a nullable `selection` (set of convoIds). `selection != null` drives the contextual app bar; available actions are **derived** from `selection.size` × `activeSegment` so invalid combinations are unrepresentable (no per-action boolean flags). Per `CLAUDE.md`: no `Async<T>` at the VM→UI boundary; the existing `ChatsLoadStatus` sealed sum is unchanged.
 
-- **D-5 — Multi-select, Google-Messages style.** Single selection exposes single-target actions (profile / report / block); ≥2 hides them and offers only bulk Leave / Mute. Mixed mute state → present "Mute" if any selected convo is unmuted, else "Unmute". Requests segment substitutes Accept / Leave(decline) for the action set.
+- **D-5 — Multi-select, Google-Messages style, with an overflow split.** The contextual bar shows the **bulk-capable** actions inline as icons (Leave, Mute/Unmute) and tucks the **single-only** actions (Go to profile, Report, Block) under an overflow (⋮) that appears only at exactly one selection. So ≥2 selected → just the inline bulk icons, no overflow. Mixed mute state → present "Mute" if any selected convo is unmuted, else "Unmute". Requests segment substitutes Accept / Leave(decline) inline + Go-to-profile in the overflow. Rationale: five inline icons crowd a phone bar; the clean rule "inline = works for 1 and N, overflow = single-only" makes the bar self-explanatory and the multi-select transition obvious. Every icon-only action carries a `contentDescription` plus an M3 `PlainTooltip` (long-press / hover) so an unlabeled destructive bar stays legible and accessible. (Note: AT Proto chat has a single removal op — `leaveConvo` — so there is exactly one Leave action; there is no separate Archive/Delete, despite the Google-Messages reference having both.)
 
 - **D-6 — Reuse cross-feature surfaces.** Report → push `Report.forAccount(otherUserDid)` from `:feature:moderation:api` (a NavKey, no impl dependency). Go-to-profile → existing Profile route via `LocalMainShellNavState`. Block → existing block path. The pill-tab toggle reuses the `ProfilePillTabs` component (as Search does). No new moderation/profile code.
 
@@ -29,7 +29,7 @@ Full narrative design: `docs/superpowers/specs/2026-06-12-chat-list-management-d
 ## Risks
 
 - **Screenshot baselines (G0 + UI groups).** G0's font regen must show zero shared-glyph drift; the feature groups add new screenshot fixtures (Requests+badge, selection 1 vs 2+) — regenerate via the `update-baselines` CI label, not local Mac runs, and make all visual changes before applying the label.
-- **Selection vs tablet list-detail.** The contextual app bar replaces the list-pane top bar only; verify the detail pane and `selectedOtherUserDid` highlight are unaffected.
+- **Selection vs tablet list-detail.** The contextual app bar replaces the list-pane top bar only; verify the detail pane and `selectedOtherUserDid` highlight are unaffected. **Edge case:** if a leave (single or bulk) includes the conversation currently open in the detail pane, that pane clears to its empty placeholder; undoing the leave restores the list row but does not auto-reopen the thread.
 - **Undo + refresh interplay.** A background/pull refresh while a leave is pending must not resurrect a row that is mid-undo; the VM's optimistic projection is applied over the freshest cache.
 
 ## Out of scope
