@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781167691858,
+  "lastUpdate": 1781253958319,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -779,6 +779,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1088.085,
             "range": "+/- 10.5%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "bb2cd11ad44200990eb558bf0f18bf44f8bf3b7c",
+          "message": "ci(release): 1.220.0\n\n## [1.220.0](https://github.com/kikin81/nubecita/compare/v1.219.1...v1.220.0) (2026-06-11)\n\n### Features\n\n* **widgets:** real picker preview via previewLayout (title + sample posts) ([#530](https://github.com/kikin81/nubecita/issues/530)) ([6e60385](https://github.com/kikin81/nubecita/commit/6e60385c82090d04d538691bf73fc18074958565))",
+          "timestamp": "2026-06-11T10:27:45Z",
+          "url": "https://github.com/kikin81/nubecita/commit/bb2cd11ad44200990eb558bf0f18bf44f8bf3b7c"
+        },
+        "date": 1781253956951,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 31,
+            "range": "+/- 9.8%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1361.03,
+            "range": "+/- 6.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1276.279,
+            "range": "+/- 3.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1096.889,
+            "range": "+/- 27.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1113.898,
+            "range": "+/- 54.4%",
             "unit": "ms"
           }
         ]
