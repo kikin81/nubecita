@@ -129,5 +129,5 @@ public fun <T> ProfilePillTabs(
     }
 }
 
-/** Caps a badge count at "99+" so the bubble stays a fixed width. */
+/** Renders the badge count, capped at "99+" so it never exceeds three glyphs. */
 private fun badgeLabel(count: Int): String = if (count > 99) "99+" else count.toString()

@@ -11,6 +11,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
 import io.github.kikin81.atproto.runtime.Did
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,6 +70,9 @@ internal class DefaultChatRepository
                             .map { it.toConvoListItemUi(viewerDid = viewerDid) }
                             .toImmutableList()
                 }.onFailure { throwable ->
+                    // Never swallow cancellation — let it propagate so the coroutine
+                    // tears down cleanly and we don't log a cancel as a network failure.
+                    if (throwable is CancellationException) throw throwable
                     // Leave the cache untouched so a failed refresh keeps the prior list.
                     Timber.tag(TAG).e(throwable, "refreshConvos(%s) failed: %s", status, throwable.javaClass.name)
                 }

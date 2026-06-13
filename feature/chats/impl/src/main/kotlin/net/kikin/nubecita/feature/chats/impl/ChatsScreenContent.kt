@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -141,20 +142,26 @@ private fun ChatsSegmentTabs(
     onSelect: (ChatsSegment) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Resolve labels outside remember (stringResource is a composable read), then
+    // remember the list keyed on the inputs so it isn't reallocated every recomposition.
+    val chatsLabel = stringResource(R.string.chats_segment_chats)
+    val requestsLabel = stringResource(R.string.chats_segment_requests)
     val tabs =
-        persistentListOf(
-            PillTab(
-                value = ChatsSegment.Chats,
-                label = stringResource(R.string.chats_segment_chats),
-                iconName = NubecitaIconName.ChatBubble,
-            ),
-            PillTab(
-                value = ChatsSegment.Requests,
-                label = stringResource(R.string.chats_segment_requests),
-                iconName = NubecitaIconName.Inbox,
-                badgeCount = requestCount.takeIf { it > 0 },
-            ),
-        )
+        remember(chatsLabel, requestsLabel, requestCount) {
+            persistentListOf(
+                PillTab(
+                    value = ChatsSegment.Chats,
+                    label = chatsLabel,
+                    iconName = NubecitaIconName.ChatBubble,
+                ),
+                PillTab(
+                    value = ChatsSegment.Requests,
+                    label = requestsLabel,
+                    iconName = NubecitaIconName.Inbox,
+                    badgeCount = requestCount.takeIf { it > 0 },
+                ),
+            )
+        }
     ProfilePillTabs(
         tabs = tabs,
         selectedValue = activeSegment,

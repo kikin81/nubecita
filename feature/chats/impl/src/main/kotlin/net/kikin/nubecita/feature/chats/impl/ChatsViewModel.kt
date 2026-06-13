@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
@@ -99,13 +98,18 @@ class ChatsViewModel
             requestPhase.value = phaseForRefreshStart(requestConvos.value != null)
             refreshJob =
                 viewModelScope.launch {
-                    // Independent lists → fetch concurrently; one round-trip of latency.
-                    val accepted = async { repository.refreshConvos() }
-                    val requests = async { repository.refreshRequestConvos() }
+                    // Two independent children so each segment's phase updates the moment
+                    // ITS fetch returns — a slow accepted refresh must not hold the
+                    // requests segment in Loading (and vice-versa). The parent job stays
+                    // active until both finish, preserving single-flight.
                     // Accepted failure surfaces a transient snackbar (the primary list);
                     // a request failure stays inline in the Requests segment (no snackbar).
-                    applyRefresh(accepted.await(), acceptedPhase, acceptedConvos.value != null, surfaceSnackbar = true)
-                    applyRefresh(requests.await(), requestPhase, requestConvos.value != null, surfaceSnackbar = false)
+                    launch {
+                        applyRefresh(repository.refreshConvos(), acceptedPhase, acceptedConvos.value != null, surfaceSnackbar = true)
+                    }
+                    launch {
+                        applyRefresh(repository.refreshRequestConvos(), requestPhase, requestConvos.value != null, surfaceSnackbar = false)
+                    }
                 }
         }
 
