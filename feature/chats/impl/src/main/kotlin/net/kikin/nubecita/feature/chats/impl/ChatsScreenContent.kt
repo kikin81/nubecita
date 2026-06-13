@@ -123,7 +123,8 @@ internal fun ChatsScreenContent(
                                 )
                             }
                         }
-                    is ChatsLoadStatus.InitialError -> ErrorBody(error = status.error, onRetry = { onEvent(ChatsEvent.RetryClicked) })
+                    is ChatsLoadStatus.InitialError ->
+                        ErrorBody(error = status.error, segment = state.activeSegment, onRetry = { onEvent(ChatsEvent.RetryClicked) })
                 }
             }
         }
@@ -253,13 +254,29 @@ private fun LoadedBody(
 @Composable
 private fun ErrorBody(
     error: ChatsError,
+    segment: ChatsSegment,
     onRetry: () -> Unit,
 ) {
+    // On the Requests segment, retryable failures (Network/Unknown) get
+    // requests-specific body copy so it doesn't read like the accepted-chats
+    // error next to the requests-specific empty state. NotEnrolled is
+    // account-level and keeps its shared copy.
+    val requestsBody = segment == ChatsSegment.Requests
     val (titleRes, bodyRes, showRetry) =
         when (error) {
-            ChatsError.Network -> Triple(R.string.chats_error_network_title, R.string.chats_error_network_body, true)
+            ChatsError.Network ->
+                Triple(
+                    R.string.chats_error_network_title,
+                    if (requestsBody) R.string.chats_requests_error_body else R.string.chats_error_network_body,
+                    true,
+                )
             ChatsError.NotEnrolled -> Triple(R.string.chats_error_not_enrolled_title, R.string.chats_error_not_enrolled_body, false)
-            is ChatsError.Unknown -> Triple(R.string.chats_error_unknown_title, R.string.chats_error_unknown_body, true)
+            is ChatsError.Unknown ->
+                Triple(
+                    R.string.chats_error_unknown_title,
+                    if (requestsBody) R.string.chats_requests_error_body else R.string.chats_error_unknown_body,
+                    true,
+                )
         }
     Column(
         modifier =

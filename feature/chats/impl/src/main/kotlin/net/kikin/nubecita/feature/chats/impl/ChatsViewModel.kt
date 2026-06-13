@@ -17,16 +17,20 @@ import javax.inject.Inject
 /**
  * Presenter for the Chats tab home.
  *
- * Items come from the repository's reactive convo cache ([ChatRepository.observeConvos]) —
- * the single source of truth shared with the thread screen. The screen's
- * [ChatsLoadStatus] is `combine`d from that cache and a local [refreshPhase]
- * lifecycle: the cache supplies the list, the phase supplies loading /
- * refreshing / initial-error. Because the cache is shared and hot, sending a
- * message from a thread (which patches the cache) updates this list live without
- * a refetch.
+ * The inbox has two segments — accepted Chats ([ChatRepository.observeConvos]) and
+ * pending Requests ([ChatRepository.observeRequestConvos]) — each a reactive cache
+ * with its own refresh lifecycle. The screen's [ChatsLoadStatus] is `combine`d from
+ * both caches, both per-segment phases, and the active segment: the ACTIVE segment's
+ * (items × phase) drives `status`, while the request list's size feeds the Requests
+ * pill badge. The accepted cache is shared with the thread screen, so sending a
+ * message from a thread (which patches it) updates the Chats list live without a
+ * refetch.
  *
- * [Refresh] / [RetryClicked] trigger [ChatRepository.refreshConvos], single-flighted so
- * rapid pull-to-refresh can't fan out into concurrent requests.
+ * [Refresh] / [RetryClicked] refresh both segments concurrently (each in its own child
+ * coroutine so a slow segment can't stall the other), single-flighted via the parent
+ * job so rapid pull-to-refresh can't fan out into concurrent requests. An accepted
+ * failure surfaces a transient snackbar; a requests-only failure stays inline in the
+ * Requests segment.
  */
 @HiltViewModel
 class ChatsViewModel

@@ -264,12 +264,17 @@ class ChatsUnreadPollingObserverTest {
         var refreshCalls: Int = 0
         var failures: Int = 0
         private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+        private val requestConvos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
 
         override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos
 
-        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = MutableStateFlow(persistentListOf())
+        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvos
 
-        override suspend fun refreshRequestConvos(): Result<Unit> = Result.success(Unit)
+        override suspend fun refreshRequestConvos(): Result<Unit> {
+            // Honor the contract: refresh publishes into the observed cache.
+            requestConvos.value = persistentListOf()
+            return Result.success(Unit)
+        }
 
         override suspend fun refreshConvos(): Result<Unit> {
             refreshCalls++
