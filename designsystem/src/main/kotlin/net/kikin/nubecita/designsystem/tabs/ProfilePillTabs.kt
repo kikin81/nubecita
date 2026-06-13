@@ -1,8 +1,11 @@
 package net.kikin.nubecita.designsystem.tabs
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
@@ -30,6 +33,13 @@ public data class PillTab<T>(
     val value: T,
     val label: String,
     val iconName: NubecitaIconName,
+    /**
+     * Optional count rendered as an M3 [Badge] over the pill's icon. `null`
+     * (the default) or a non-positive value renders no badge — so existing
+     * call sites that omit it are visually unchanged. Counts above 99 render
+     * as "99+".
+     */
+    val badgeCount: Int? = null,
 )
 
 /**
@@ -96,14 +106,28 @@ public fun <T> ProfilePillTabs(
                     if (newChecked) onSelect(tab.value)
                 },
                 icon = {
-                    NubecitaIcon(
-                        name = tab.iconName,
-                        contentDescription = null,
-                        filled = isSelected,
-                    )
+                    val badge = tab.badgeCount
+                    if (badge != null && badge > 0) {
+                        BadgedBox(badge = { Badge { Text(badgeLabel(badge)) } }) {
+                            NubecitaIcon(
+                                name = tab.iconName,
+                                contentDescription = null,
+                                filled = isSelected,
+                            )
+                        }
+                    } else {
+                        NubecitaIcon(
+                            name = tab.iconName,
+                            contentDescription = null,
+                            filled = isSelected,
+                        )
+                    }
                 },
                 weight = 1f,
             )
         }
     }
 }
+
+/** Renders the badge count, capped at "99+" so it never exceeds three glyphs. */
+private fun badgeLabel(count: Int): String = if (count > 99) "99+" else count.toString()

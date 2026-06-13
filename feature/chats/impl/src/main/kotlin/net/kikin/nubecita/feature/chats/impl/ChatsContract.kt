@@ -20,8 +20,31 @@ import kotlin.time.Instant
  * variant because it's only meaningful in that branch.
  */
 data class ChatsScreenViewState(
+    /**
+     * Load status of the ACTIVE segment. The Chats and Requests segments each
+     * have their own list + refresh lifecycle in the VM; [status] always
+     * reflects whichever [activeSegment] is showing, so a requests-only failure
+     * surfaces as this status only while Requests is active.
+     */
     val status: ChatsLoadStatus = ChatsLoadStatus.Loading,
+    /** Which segment the user is viewing. */
+    val activeSegment: ChatsSegment = ChatsSegment.Chats,
+    /**
+     * Pending message-request count, used for the badge on the Requests pill.
+     * Independent of [activeSegment] so the badge shows while on Chats. `0` = no
+     * badge.
+     */
+    val requestCount: Int = 0,
 ) : UiState
+
+/** The two top-level segments of the Chats tab home. */
+enum class ChatsSegment {
+    /** Accepted conversations (`listConvos(status=accepted)`). */
+    Chats,
+
+    /** Pending message requests (`listConvos(status=request)`). */
+    Requests,
+}
 
 sealed interface ChatsLoadStatus {
     /** First load in flight; the body renders a loading composable. */
@@ -112,6 +135,11 @@ sealed interface ChatsEvent : UiEvent {
 
     /** User tapped the inbox toolbar's settings gear. */
     data object SettingsTapped : ChatsEvent
+
+    /** User selected a segment in the Chats/Requests toggle. */
+    data class SegmentSelected(
+        val segment: ChatsSegment,
+    ) : ChatsEvent
 }
 
 sealed interface ChatsEffect : UiEffect {

@@ -28,6 +28,7 @@ internal class FakeChatRepository(
         ),
     var nextMessagesResult: Result<MessagePage> = Result.success(MessagePage(messages = persistentListOf())),
     var nextSendResult: Result<MessageUi> = Result.success(DEFAULT_SENT_MESSAGE),
+    var nextRequestRefreshResult: Result<ImmutableList<ConvoListItemUi>> = Result.success(persistentListOf()),
 ) : ChatRepository {
     /**
      * Optional gate: when set, `sendMessage` suspends on it before returning,
@@ -56,19 +57,33 @@ internal class FakeChatRepository(
     val getLogCalls = AtomicInteger(0)
     var lastGetLogCursor: String? = null
     var nextGetLogResult: Result<ChatLogPage> = Result.success(ChatLogPage())
+    val refreshRequestCalls = AtomicInteger(0)
 
     private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+    private val requestConvos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
 
     override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos.asStateFlow()
+
+    override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvos.asStateFlow()
 
     override suspend fun refreshConvos(): Result<Unit> {
         refreshCalls.incrementAndGet()
         return nextRefreshResult.map { items -> convos.value = items }
     }
 
+    override suspend fun refreshRequestConvos(): Result<Unit> {
+        refreshRequestCalls.incrementAndGet()
+        return nextRequestRefreshResult.map { items -> requestConvos.value = items }
+    }
+
     /** Drive the cache directly (simulating a [sendMessage] patch or an external update). */
     fun emitConvos(items: ImmutableList<ConvoListItemUi>?) {
         convos.value = items
+    }
+
+    /** Drive the request cache directly (simulating an external update). */
+    fun emitRequestConvos(items: ImmutableList<ConvoListItemUi>?) {
+        requestConvos.value = items
     }
 
     override suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution> {
