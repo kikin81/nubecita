@@ -54,6 +54,36 @@ private val LOADED_STATE =
                         sampleItem("carol", null, "see you soon", FIXTURE_NOW - 2.days),
                     ),
             ),
+        // Exercises the badge on the Requests pill while the Chats segment is active.
+        requestCount = 3,
+    )
+
+private val REQUESTS_LOADED_STATE =
+    ChatsScreenViewState(
+        status =
+            ChatsLoadStatus.Loaded(
+                items =
+                    persistentListOf(
+                        sampleItem("dave", "Dave", "hey, mind if I message you?", FIXTURE_NOW - 5.minutes),
+                        sampleItem("erin", "Erin", "saw your post about feeds", FIXTURE_NOW - 3.hours),
+                    ),
+            ),
+        activeSegment = ChatsSegment.Requests,
+        requestCount = 2,
+    )
+
+private val REQUESTS_EMPTY_STATE =
+    ChatsScreenViewState(
+        status = ChatsLoadStatus.Loaded(items = persistentListOf()),
+        activeSegment = ChatsSegment.Requests,
+        requestCount = 0,
+    )
+
+private val REQUESTS_ERROR_STATE =
+    ChatsScreenViewState(
+        status = ChatsLoadStatus.InitialError(ChatsError.Network),
+        activeSegment = ChatsSegment.Requests,
+        requestCount = 0,
     )
 
 private val LOADED_REFRESHING_STATE =
@@ -126,6 +156,38 @@ private fun ChatsScreenLoadedRefreshingScreenshot() {
 private fun ChatsScreenEmptyScreenshot() {
     NubecitaCanvasPreviewTheme {
         ChatsScreenContent(state = EMPTY_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
+    }
+}
+
+@PreviewTest
+@Preview(name = "chats-requests-loaded-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-requests-loaded-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsScreenRequestsLoadedScreenshot() {
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaCanvasPreviewTheme {
+            ChatsScreenContent(state = REQUESTS_LOADED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "chats-requests-empty-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-requests-empty-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsScreenRequestsEmptyScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatsScreenContent(state = REQUESTS_EMPTY_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
+    }
+}
+
+@PreviewTest
+@Preview(name = "chats-requests-error-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-requests-error-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsScreenRequestsErrorScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatsScreenContent(state = REQUESTS_ERROR_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
     }
 }
 

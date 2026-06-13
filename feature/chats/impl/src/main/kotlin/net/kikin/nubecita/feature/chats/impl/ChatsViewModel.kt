@@ -2,7 +2,9 @@ package net.kikin.nubecita.feature.chats.impl
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
@@ -33,28 +35,36 @@ class ChatsViewModel
     constructor(
         private val repository: ChatRepository,
     ) : MviViewModel<ChatsScreenViewState, ChatsEvent, ChatsEffect>(ChatsScreenViewState()) {
-        // Capture the cache stream once: a single StateFlow instance reused for
-        // both the combine below and the .value reads in refresh(), so the VM
-        // never depends on observeConvos() returning the same instance per call.
-        private val convos = repository.observeConvos()
-        private val refreshPhase = MutableStateFlow<RefreshPhase>(RefreshPhase.InitialLoading)
+        // Accepted convos + pending requests are separate caches/lifecycles. The
+        // ACTIVE segment decides which (items × phase) drives [status]; the request
+        // count always feeds the Requests pill badge. Captured once so the VM never
+        // depends on observe*() returning the same instance per call.
+        private val acceptedConvos = repository.observeConvos()
+        private val requestConvos = repository.observeRequestConvos()
+        private val acceptedPhase = MutableStateFlow<RefreshPhase>(RefreshPhase.InitialLoading)
+        private val requestPhase = MutableStateFlow<RefreshPhase>(RefreshPhase.InitialLoading)
+        private val activeSegment = MutableStateFlow(ChatsSegment.Chats)
         private var refreshJob: Job? = null
 
         init {
-            // Derive the screen status from (cached items × refresh phase). The
-            // cache is the source of truth for items; the phase drives the
-            // loading / refreshing / error lifecycle around them.
-            combine(convos, refreshPhase) { items, phase ->
-                when {
-                    items != null ->
-                        ChatsLoadStatus.Loaded(
-                            items = items,
-                            isRefreshing = phase == RefreshPhase.Refreshing,
-                        )
-                    phase is RefreshPhase.InitialError -> ChatsLoadStatus.InitialError(phase.error)
-                    else -> ChatsLoadStatus.Loading
-                }
-            }.onEach { status -> setState { copy(status = status) } }
+            // Project (active segment's items × phase) into status, and the request
+            // count into the badge. Both caches are the source of truth for items;
+            // the per-segment phase drives loading / refreshing / error.
+            combine(
+                acceptedConvos,
+                requestConvos,
+                acceptedPhase,
+                requestPhase,
+                activeSegment,
+            ) { accepted, requests, aPhase, rPhase, segment ->
+                val items = if (segment == ChatsSegment.Chats) accepted else requests
+                val phase = if (segment == ChatsSegment.Chats) aPhase else rPhase
+                ChatsScreenViewState(
+                    status = statusFor(items, phase),
+                    activeSegment = segment,
+                    requestCount = requests?.size ?: 0,
+                )
+            }.onEach { next -> setState { next } }
                 .launchIn(viewModelScope)
 
             refresh()
@@ -66,35 +76,58 @@ class ChatsViewModel
                 ChatsEvent.RetryClicked -> refresh()
                 is ChatsEvent.ConvoTapped -> sendEffect(ChatsEffect.NavigateToChat(event.otherUserDid))
                 ChatsEvent.SettingsTapped -> sendEffect(ChatsEffect.NavigateToChatSettings)
+                is ChatsEvent.SegmentSelected -> activeSegment.value = event.segment
             }
         }
+
+        private fun statusFor(
+            items: ImmutableList<ConvoListItemUi>?,
+            phase: RefreshPhase,
+        ): ChatsLoadStatus =
+            when {
+                items != null ->
+                    ChatsLoadStatus.Loaded(items = items, isRefreshing = phase == RefreshPhase.Refreshing)
+                phase is RefreshPhase.InitialError -> ChatsLoadStatus.InitialError(phase.error)
+                else -> ChatsLoadStatus.Loading
+            }
 
         private fun refresh() {
             if (refreshJob?.isActive == true) return // single-flight on rapid Refresh.
             // Refreshing over an existing list shows the spinner atop it; a refresh
-            // with no items yet is the initial load.
-            refreshPhase.value =
-                if (convos.value != null) {
-                    RefreshPhase.Refreshing
-                } else {
-                    RefreshPhase.InitialLoading
-                }
+            // with no items yet is the initial load. Tracked per segment.
+            acceptedPhase.value = phaseForRefreshStart(acceptedConvos.value != null)
+            requestPhase.value = phaseForRefreshStart(requestConvos.value != null)
             refreshJob =
                 viewModelScope.launch {
-                    repository
-                        .refreshConvos()
-                        .onSuccess { refreshPhase.value = RefreshPhase.Idle }
-                        .onFailure { throwable ->
-                            val error = throwable.toChatsError()
-                            if (convos.value != null) {
-                                // Refresh-time failure with items present: keep them,
-                                // drop the indicator, surface a transient snackbar.
-                                refreshPhase.value = RefreshPhase.Idle
-                                sendEffect(ChatsEffect.ShowRefreshError(error))
-                            } else {
-                                refreshPhase.value = RefreshPhase.InitialError(error)
-                            }
-                        }
+                    // Independent lists → fetch concurrently; one round-trip of latency.
+                    val accepted = async { repository.refreshConvos() }
+                    val requests = async { repository.refreshRequestConvos() }
+                    // Accepted failure surfaces a transient snackbar (the primary list);
+                    // a request failure stays inline in the Requests segment (no snackbar).
+                    applyRefresh(accepted.await(), acceptedPhase, acceptedConvos.value != null, surfaceSnackbar = true)
+                    applyRefresh(requests.await(), requestPhase, requestConvos.value != null, surfaceSnackbar = false)
+                }
+        }
+
+        private fun phaseForRefreshStart(hasItems: Boolean): RefreshPhase = if (hasItems) RefreshPhase.Refreshing else RefreshPhase.InitialLoading
+
+        private fun applyRefresh(
+            result: Result<Unit>,
+            phase: MutableStateFlow<RefreshPhase>,
+            hadItems: Boolean,
+            surfaceSnackbar: Boolean,
+        ) {
+            result
+                .onSuccess { phase.value = RefreshPhase.Idle }
+                .onFailure { throwable ->
+                    val error = throwable.toChatsError()
+                    if (hadItems) {
+                        // Failure with items present: keep them, drop the indicator.
+                        phase.value = RefreshPhase.Idle
+                        if (surfaceSnackbar) sendEffect(ChatsEffect.ShowRefreshError(error))
+                    } else {
+                        phase.value = RefreshPhase.InitialError(error)
+                    }
                 }
         }
 

@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl.data
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +48,11 @@ internal class BenchFakeChatRepository
         // live on send just like production. null = not yet refreshed.
         private val convosFlow = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
 
+        // Bench has no message-request fixtures; the Requests segment renders its
+        // empty state. Published as an empty (not null) list so it reads as loaded.
+        private val requestConvosFlow =
+            MutableStateFlow<ImmutableList<ConvoListItemUi>?>(persistentListOf())
+
         private fun publishConvos() {
             convosFlow.value =
                 convosCache.values
@@ -89,6 +95,10 @@ internal class BenchFakeChatRepository
             }
 
         override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convosFlow.asStateFlow()
+
+        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvosFlow.asStateFlow()
+
+        override suspend fun refreshRequestConvos(): Result<Unit> = Result.success(Unit)
 
         override suspend fun refreshConvos(): Result<Unit> {
             ensureLoaded()

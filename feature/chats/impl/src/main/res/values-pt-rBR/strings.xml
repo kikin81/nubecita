@@ -6,8 +6,12 @@
     <string name="chats_row_deleted_placeholder">Mensagem excluída</string>
     <string name="chats_messages_channel_name">Mensagens</string>
     <string name="chats_messages_channel_description">Novas mensagens diretas</string>
+    <string name="chats_segment_chats">Chats</string>
+    <string name="chats_segment_requests">Solicitações</string>
     <string name="chats_empty_title">Nenhuma conversa ainda</string>
     <string name="chats_empty_body">Mensagens diretas com outros usuários do Bluesky aparecerão aqui.</string>
+    <string name="chats_requests_empty_title">Nenhuma solicitação de mensagem</string>
+    <string name="chats_requests_empty_body">Mensagens de pessoas que você não segue aparecerão aqui para você aceitar ou ignorar.</string>
     <string name="chats_error_network_title">Erro de rede</string>
     <string name="chats_error_network_body">Não foi possível carregar suas conversas. Verifique sua conexão e tente de novo.</string>
     <string name="chats_error_not_enrolled_title">Ativar mensagens diretas</string>

@@ -53,12 +53,22 @@ internal class FakeChatRepository(
     var lastMarkReadConvoId: String? = null
 
     private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+    private val requestConvos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(persistentListOf())
 
     override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos.asStateFlow()
+
+    override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvos.asStateFlow()
 
     override suspend fun refreshConvos(): Result<Unit> {
         refreshCalls.incrementAndGet()
         return nextRefreshResult.map { items -> convos.value = items }
+    }
+
+    override suspend fun refreshRequestConvos(): Result<Unit> = Result.success(Unit)
+
+    /** Drive the request cache directly (simulating an external update). */
+    fun emitRequestConvos(items: ImmutableList<ConvoListItemUi>?) {
+        requestConvos.value = items
     }
 
     /** Drive the cache directly (simulating a [sendMessage] patch or an external update). */

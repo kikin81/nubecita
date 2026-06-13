@@ -267,6 +267,10 @@ class ChatsUnreadPollingObserverTest {
 
         override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos
 
+        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = MutableStateFlow(persistentListOf())
+
+        override suspend fun refreshRequestConvos(): Result<Unit> = Result.success(Unit)
+
         override suspend fun refreshConvos(): Result<Unit> {
             refreshCalls++
             return if (failures > 0) {
