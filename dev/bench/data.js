@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781515063836,
+  "lastUpdate": 1781600892455,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -987,6 +987,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1238.469,
             "range": "+/- 31.7%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "02c96b38bd6fb5348df181438ff07aafbdbf5634",
+          "message": "chore(designsystem): add Leave/Mute/Report/Block glyphs (#534)\n\n* chore(designsystem): add Leave/Mute/Report/Block glyphs\n\nAdd four Material Symbols Rounded entries to NubecitaIconName for the\nchat list-management contextual actions: Logout (leave conversation),\nNotificationsOff (mute conversation notifications — bell-slash, the\ncorrect semantic vs the existing speaker VolumeOff), Flag (report), and\nBlock. Codepoints verified against the cached upstream cmap; the subset\nfont was regenerated from the same cached upstream, so all 45 existing\nglyphs are byte-identical (drifted outlines: 0) and only the 4 new\nglyphs are added — the NubecitaIconShowcase baseline is the only one\nthat moves (regenerated on CI via the update-baselines label).\n\nRefs: nubecita-kc17.1\n\n* chore: regenerate screenshot baselines\n\n---------\n\nCo-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-13T05:55:44Z",
+          "url": "https://github.com/kikin81/nubecita/commit/02c96b38bd6fb5348df181438ff07aafbdbf5634"
+        },
+        "date": 1781600890914,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 15.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1534.191,
+            "range": "+/- 6.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1522.487,
+            "range": "+/- 7.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1331.486,
+            "range": "+/- 18.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1379.41,
+            "range": "+/- 10.5%",
             "unit": "ms"
           }
         ]
