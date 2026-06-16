@@ -30,6 +30,9 @@ dependencies {
     implementation(project(":core:profile"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
+    // BlockedAccounts NavKey — pushed from the Moderation hub. :api only
+    // (never :feature:moderation:impl).
+    implementation(project(":feature:moderation:api"))
     // PaywallRoute NavKey — pushed onto MainShell's inner back stack when a
     // non-Pro user taps the "Nubecita Pro" upsell row. :api only.
     implementation(project(":feature:paywall:api"))

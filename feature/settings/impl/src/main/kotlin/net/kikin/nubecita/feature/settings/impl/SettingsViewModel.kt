@@ -148,8 +148,8 @@ internal class SettingsViewModel
                     sendEffect(SettingsEffect.NavigateToDeveloperProfile)
                 SettingsEvent.AboutTapped ->
                     sendEffect(SettingsEffect.OpenAbout)
-                SettingsEvent.ContentFiltersTapped ->
-                    sendEffect(SettingsEffect.OpenContentFilters)
+                SettingsEvent.ModerationTapped ->
+                    sendEffect(SettingsEffect.OpenModeration)
             }
         }
 

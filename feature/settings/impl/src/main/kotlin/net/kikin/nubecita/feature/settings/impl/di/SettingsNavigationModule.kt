@@ -12,10 +12,12 @@ import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.settings.api.About
 import net.kikin.nubecita.feature.settings.api.AboutLicenses
 import net.kikin.nubecita.feature.settings.api.ContentFilters
+import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.settings.impl.AboutLicensesScreen
 import net.kikin.nubecita.feature.settings.impl.AboutScreen
 import net.kikin.nubecita.feature.settings.impl.ContentFiltersScreen
+import net.kikin.nubecita.feature.settings.impl.ModerationScreen
 import net.kikin.nubecita.feature.settings.impl.SettingsScreen
 
 /**
@@ -71,6 +73,15 @@ internal object SettingsNavigationModule {
             entry<ContentFilters>(metadata = adaptiveDialog()) {
                 val navState = LocalMainShellNavState.current
                 ContentFiltersScreen(
+                    onBack = { navState.removeLast() },
+                    onNavigateTo = { navState.add(it) },
+                )
+            }
+            // Moderation hub — Content filters + Blocked accounts. adaptiveDialog()
+            // so it coalesces into the Settings dialog on tablet, like the others.
+            entry<Moderation>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                ModerationScreen(
                     onBack = { navState.removeLast() },
                     onNavigateTo = { navState.add(it) },
                 )

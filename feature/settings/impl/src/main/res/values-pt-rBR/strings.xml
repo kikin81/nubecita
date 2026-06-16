@@ -50,6 +50,9 @@
     <string name="about_thanks_cameronbanga">Amigo e engenheiro de iOS por trás do Skyscraper.</string>
     <string name="settings_content_moderation_section">Conteúdo e moderação</string>
     <string name="settings_content_filters_label">Filtros de conteúdo</string>
+    <string name="settings_moderation_label">Moderação</string>
+    <string name="settings_moderation_back">Voltar</string>
+    <string name="settings_blocked_accounts_label">Contas bloqueadas</string>
     <string name="content_filters_title">Filtros de conteúdo</string>
     <string name="content_filters_back_content_desc">Voltar</string>
     <string name="content_filters_description">Escolha o que acontece quando um post carrega um destes rótulos de conteúdo. As categorias adultas só se aplicam quando o conteúdo adulto está ativado; caso contrário, ficam sempre ocultas.</string>

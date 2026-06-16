@@ -50,6 +50,9 @@
     <string name="about_thanks_cameronbanga">Amigo e ingeniero de iOS detrás de Skyscraper.</string>
     <string name="settings_content_moderation_section">Contenido y moderación</string>
     <string name="settings_content_filters_label">Filtros de contenido</string>
+    <string name="settings_moderation_label">Moderación</string>
+    <string name="settings_moderation_back">Atrás</string>
+    <string name="settings_blocked_accounts_label">Cuentas bloqueadas</string>
     <string name="content_filters_title">Filtros de contenido</string>
     <string name="content_filters_back_content_desc">Atrás</string>
     <string name="content_filters_description">Elige qué sucede cuando una publicación lleva una de estas etiquetas de contenido. Las categorías para adultos solo se aplican cuando el contenido para adultos está habilitado; de lo contrario, siempre se ocultan.</string>

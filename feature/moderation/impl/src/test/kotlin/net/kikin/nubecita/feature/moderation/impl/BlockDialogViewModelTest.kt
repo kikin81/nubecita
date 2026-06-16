@@ -83,5 +83,9 @@ internal class BlockDialogViewModelTest {
             blockedDids += did
             return result
         }
+
+        override suspend fun blockedAccounts(): Result<List<net.kikin.nubecita.data.models.BlockedAccount>> = Result.success(emptyList())
+
+        override suspend fun unblockActor(blockUri: String): Result<Unit> = Result.success(Unit)
     }
 }

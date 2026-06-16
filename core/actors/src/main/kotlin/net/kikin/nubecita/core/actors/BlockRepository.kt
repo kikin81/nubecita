@@ -1,19 +1,18 @@
 package net.kikin.nubecita.core.actors
 
+import net.kikin.nubecita.data.models.BlockedAccount
+
 /**
- * Creates moderation block relationships against an actor.
+ * Moderation block relationships against actors: create a block, list blocked
+ * accounts, and remove a block.
  *
  * A deliberately small, reusable seam (separate from [ActorRepository] so adding
  * it doesn't churn that interface's implementors): blocking is a graph mutation
  * — an `app.bsky.graph.block` record keyed by the target's DID — shared by any
- * surface that needs it (the chat list's contextual "Block account", and the
- * profile / moderation surfaces when they wire block management).
+ * surface that needs it (the chat list's contextual "Block account", the feed
+ * overflow, and the blocked-accounts management screen).
  *
- * `blockActor` is one-way by design: it creates the block record. Removing a
- * block needs the block record's AT URI, which surfaces (e.g. on a profile view
- * as `viewer.blocking`) are better positioned to supply; unblock lands with the
- * moderation epic that owns block management. Network methods return [Result];
- * `CancellationException` always propagates.
+ * Network methods return [Result]; `CancellationException` always propagates.
  */
 interface BlockRepository {
     /**
@@ -24,4 +23,19 @@ interface BlockRepository {
      * can.
      */
     suspend fun blockActor(did: String): Result<Unit>
+
+    /**
+     * Lists the viewer's blocked accounts (`app.bsky.graph.getBlocks`), newest
+     * first. Each [BlockedAccount] carries its block-record AT URI (for
+     * [unblockActor]); profiles missing one are omitted since they can't be
+     * unblocked from here.
+     */
+    suspend fun blockedAccounts(): Result<List<BlockedAccount>>
+
+    /**
+     * Removes a block by deleting its `app.bsky.graph.block` record, identified
+     * by the block record's AT URI ([BlockedAccount.blockUri] / a profile's
+     * `viewer.blocking`).
+     */
+    suspend fun unblockActor(blockUri: String): Result<Unit>
 }
