@@ -34,6 +34,7 @@ import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import net.kikin.nubecita.feature.feed.impl.data.linksToWire
+import net.kikin.nubecita.feature.moderation.api.Block
 import net.kikin.nubecita.feature.moderation.api.Report
 import java.io.IOException
 import javax.inject.Inject
@@ -139,10 +140,17 @@ class FeedViewModel
                     when (event.action) {
                         PostOverflowAction.ReportPost ->
                             sendEffect(FeedEffect.NavigateTo(Report.forPost(event.post)))
+                        PostOverflowAction.BlockAuthor ->
+                            sendEffect(
+                                FeedEffect.NavigateTo(
+                                    Block.forAccount(did = event.post.author.did, handle = event.post.author.handle),
+                                ),
+                            )
+                        // Unblock has no primitive yet (block is one-way for now); keep it
+                        // "coming soon" until the moderation epic adds unblock.
+                        PostOverflowAction.UnblockAuthor,
                         PostOverflowAction.MuteAuthor,
                         PostOverflowAction.UnmuteAuthor,
-                        PostOverflowAction.BlockAuthor,
-                        PostOverflowAction.UnblockAuthor,
                         PostOverflowAction.MuteThread,
                         PostOverflowAction.UnmuteThread,
                         PostOverflowAction.CopyPostText,

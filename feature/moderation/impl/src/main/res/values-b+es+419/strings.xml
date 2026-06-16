@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="block_dialog_title">¿Bloquear a @%1$s?</string>
+    <string name="block_dialog_body">No podrá enviarte mensajes ni ver tus publicaciones, y tú no verás las suyas. Puedes desbloquearlo más tarde desde su perfil.</string>
+    <string name="block_dialog_confirm">Bloquear</string>
+    <string name="block_dialog_cancel">Cancelar</string>
+    <string name="block_dialog_error">No se pudo bloquear esta cuenta. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="report_dialog_title_subject">Denunciar este contenido</string>
     <string name="report_dialog_title_category">¿Cuál es el problema?</string>
     <string name="report_dialog_title_subreason">Elige un submotivo</string>

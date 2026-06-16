@@ -1371,14 +1371,13 @@ internal class FeedViewModelTest {
             val post = samplePost("at://did:plc:fake/app.bsky.feed.post/over1")
 
             // The remaining stubbed overflow variants still pass through
-            // as ShowComingSoon. ReportPost graduated in oftc.3 (covered
-            // by the next test); MuteAuthor / BlockAuthor / etc. follow
-            // in oftc.4 / .5 / .6.
+            // as ShowComingSoon. ReportPost (oftc.3) and BlockAuthor
+            // (oftc.16) have graduated to NavigateTo (covered by the next
+            // tests); MuteAuthor / UnblockAuthor / etc. follow in oftc.4 / .5.
             val variants =
                 listOf(
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
@@ -1450,6 +1449,40 @@ internal class FeedViewModelTest {
             }
             // Sticky state must not have moved — no spurious feedItems /
             // cursor / loadStatus mutation as a side effect.
+            assertSame(stateBefore, vm.uiState.value)
+        }
+
+    @Test
+    fun `OnOverflowAction(BlockAuthor) emits NavigateTo with a Block NavKey for the author`() =
+        // Pin: oftc.16 graduates the Block overflow row to NavigateTo —
+        // the VM emits FeedEffect.NavigateTo(Block.forAccount(did, handle))
+        // for the tapped post's author; the screen collector pushes it onto
+        // the nav stack where ModerationNavigationModule resolves the dialog.
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics)
+            advanceUntilIdle()
+            val post = samplePost("at://did:plc:fake/app.bsky.feed.post/blk1")
+
+            val stateBefore = vm.uiState.value
+            vm.effects.test {
+                vm.handleEvent(
+                    FeedEvent.OnOverflowAction(
+                        post = post,
+                        action = net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                    ),
+                )
+                val effect = awaitItem()
+                assertTrue(effect is FeedEffect.NavigateTo, "expected NavigateTo, got $effect")
+                val key = (effect as FeedEffect.NavigateTo).key
+                assertTrue(
+                    key is net.kikin.nubecita.feature.moderation.api.Block,
+                    "expected Block NavKey, got $key",
+                )
+                key as net.kikin.nubecita.feature.moderation.api.Block
+                assertEquals(post.author.did, key.did)
+                assertEquals(post.author.handle, key.handle)
+            }
             assertSame(stateBefore, vm.uiState.value)
         }
 

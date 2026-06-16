@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.actors.BlockRepository
 import javax.inject.Singleton
 
 /**
@@ -33,4 +34,8 @@ abstract class ActorsModule {
     @Binds
     @Singleton
     internal abstract fun bindActorRepository(impl: BenchFakeActorRepository): ActorRepository
+
+    @Binds
+    @Singleton
+    internal abstract fun bindBlockRepository(impl: BenchFakeBlockRepository): BlockRepository
 }
