@@ -71,11 +71,20 @@ internal class DefaultBlockRepository
         override suspend fun blockedAccounts(): Result<List<BlockedAccount>> =
             withContext(dispatcher) {
                 runCatching {
-                    val client = xrpcClientProvider.authenticated()
-                    GraphService(client)
-                        .getBlocks(GetBlocksRequest(cursor = null, limit = GET_BLOCKS_LIMIT))
-                        .blocks
-                        .mapNotNull { it.toBlockedAccount() }
+                    val service = GraphService(xrpcClientProvider.authenticated())
+                    // getBlocks caps each page at 100; page through so a user with
+                    // >100 blocks can see/manage all of them. Bounded by MAX_BLOCK_PAGES
+                    // as a safety net against a pathological cursor loop.
+                    val accounts = mutableListOf<BlockedAccount>()
+                    var cursor: String? = null
+                    var pages = 0
+                    do {
+                        val response = service.getBlocks(GetBlocksRequest(cursor = cursor, limit = GET_BLOCKS_LIMIT))
+                        response.blocks.mapNotNullTo(accounts) { it.toBlockedAccount() }
+                        cursor = response.cursor
+                        pages++
+                    } while (cursor != null && pages < MAX_BLOCK_PAGES)
+                    accounts.toList()
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).e(throwable, "blockedAccounts failed: %s", throwable.javaClass.name)
@@ -120,5 +129,10 @@ internal class DefaultBlockRepository
             const val TAG = "BlockRepository"
             const val BLOCK_NSID = "app.bsky.graph.block"
             const val GET_BLOCKS_LIMIT = 100L
+
+            // Safety cap on pagination (100 × 20 = 2000 blocks); far beyond any
+            // realistic block list, so it bounds a pathological cursor loop
+            // without truncating real usage.
+            const val MAX_BLOCK_PAGES = 20
         }
     }

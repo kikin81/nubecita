@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.moderation.impl
 
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -56,7 +57,7 @@ internal class BlockedAccountsViewModelTest {
             val repo =
                 FakeBlockRepository(
                     accounts = Result.success(listOf(account("a"), account("b"))),
-                    unblock = Result.failure(RuntimeException("net")),
+                    unblock = { Result.failure(RuntimeException("net")) },
                 )
             val vm = BlockedAccountsViewModel(repo)
             advanceUntilIdle()
@@ -68,6 +69,34 @@ internal class BlockedAccountsViewModelTest {
             }
             val status = vm.uiState.value.status as BlockedAccountsStatus.Loaded
             assertEquals(listOf("did:a", "did:b"), status.accounts.map { it.did })
+        }
+
+    @Test
+    fun `a late unblock failure does not resurrect a concurrently-unblocked account`() =
+        runTest(mainDispatcher.dispatcher) {
+            val a = account("a")
+            val b = account("b")
+            val gateA = CompletableDeferred<Unit>()
+            val repo =
+                FakeBlockRepository(
+                    accounts = Result.success(listOf(a, b)),
+                    unblock = { uri -> if (uri == a.blockUri) Result.failure(RuntimeException("net")) else Result.success(Unit) },
+                    gates = mapOf(a.blockUri to gateA),
+                )
+            val vm = BlockedAccountsViewModel(repo)
+            advanceUntilIdle()
+
+            // Unblock A (its call is gated → stays in flight) then B (succeeds now).
+            vm.handleEvent(BlockedAccountsEvent.UnblockClicked(a))
+            vm.handleEvent(BlockedAccountsEvent.UnblockClicked(b))
+            advanceUntilIdle()
+            // Both optimistically removed; A's unblock is still gated.
+            assertTrue((vm.uiState.value.status as BlockedAccountsStatus.Loaded).accounts.isEmpty())
+
+            // Let A's gated unblock complete → it fails → A is restored, B stays gone.
+            gateA.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(listOf("did:a"), (vm.uiState.value.status as BlockedAccountsStatus.Loaded).accounts.map { it.did })
         }
 
     private fun account(id: String): BlockedAccount =
@@ -82,7 +111,12 @@ internal class BlockedAccountsViewModelTest {
 
     private class FakeBlockRepository(
         private val accounts: Result<List<BlockedAccount>>,
-        private val unblock: Result<Unit> = Result.success(Unit),
+        // Per-block-URI result; defaults to success. A function so a test can fail
+        // a specific account's unblock.
+        private val unblock: (String) -> Result<Unit> = { Result.success(Unit) },
+        // Per-block-URI gate: when present, unblockActor awaits it before returning,
+        // letting a test control completion ordering across concurrent unblocks.
+        private val gates: Map<String, CompletableDeferred<Unit>> = emptyMap(),
     ) : BlockRepository {
         val unblockedUris = mutableListOf<String>()
 
@@ -91,8 +125,9 @@ internal class BlockedAccountsViewModelTest {
         override suspend fun blockedAccounts(): Result<List<BlockedAccount>> = accounts
 
         override suspend fun unblockActor(blockUri: String): Result<Unit> {
+            gates[blockUri]?.await()
             unblockedUris += blockUri
-            return unblock
+            return unblock(blockUri)
         }
     }
 }

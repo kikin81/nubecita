@@ -48,15 +48,26 @@ internal class BlockedAccountsViewModel
 
         private fun unblock(account: BlockedAccount) {
             val loaded = uiState.value.status as? BlockedAccountsStatus.Loaded ?: return
-            val previous = loaded.accounts
+            val originalIndex = loaded.accounts.indexOfFirst { it.did == account.did }
+            if (originalIndex < 0) return // already gone — ignore a double-tap.
             // Optimistically drop the row.
-            setState { copy(status = BlockedAccountsStatus.Loaded(previous.filterNot { it.did == account.did }.toImmutableList())) }
+            setState { copy(status = BlockedAccountsStatus.Loaded(loaded.accounts.filterNot { it.did == account.did }.toImmutableList())) }
             viewModelScope.launch {
                 blockRepository
                     .unblockActor(account.blockUri)
                     .onFailure {
-                        // Restore the pre-unblock list and surface the error.
-                        setState { copy(status = BlockedAccountsStatus.Loaded(previous)) }
+                        // Re-insert ONLY this account into the CURRENT list (at its
+                        // original position, clamped), so a concurrent unblock that
+                        // succeeded isn't resurrected by restoring a stale snapshot.
+                        setState {
+                            val current = status as? BlockedAccountsStatus.Loaded ?: return@setState this
+                            if (current.accounts.any { it.did == account.did }) return@setState this
+                            val restored =
+                                current.accounts.toMutableList().apply {
+                                    add(originalIndex.coerceIn(0, size), account)
+                                }
+                            copy(status = BlockedAccountsStatus.Loaded(restored.toImmutableList()))
+                        }
                         sendEffect(BlockedAccountsEffect.ShowUnblockError)
                     }
             }
