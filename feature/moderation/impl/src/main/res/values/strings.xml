@@ -8,6 +8,17 @@
     <string name="block_dialog_cancel">Cancel</string>
     <string name="block_dialog_error">Couldn\'t block this account. Check your connection and try again.</string>
 
+    <!-- Blocked-accounts list -->
+    <string name="blocked_accounts_title">Blocked accounts</string>
+    <string name="blocked_accounts_back">Back</string>
+    <string name="blocked_accounts_unblock">Unblock</string>
+    <string name="blocked_accounts_unblock_error">Couldn\'t unblock this account. Check your connection and try again.</string>
+    <string name="blocked_accounts_empty_title">No blocked accounts</string>
+    <string name="blocked_accounts_empty_body">Accounts you block can\'t message you or see your posts. They\'ll show up here.</string>
+    <string name="blocked_accounts_error_title">Couldn\'t load</string>
+    <string name="blocked_accounts_error_body">Something went wrong loading your blocked accounts.</string>
+    <string name="blocked_accounts_retry">Try again</string>
+
     <!-- Step titles -->
     <string name="report_dialog_title_subject">Report this content</string>
     <string name="report_dialog_title_category">What\'s the issue?</string>

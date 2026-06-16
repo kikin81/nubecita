@@ -16,10 +16,14 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.moderation.api.Block
+import net.kikin.nubecita.feature.moderation.api.BlockedAccounts
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.moderation.impl.BlockDialogScreen
 import net.kikin.nubecita.feature.moderation.impl.BlockDialogViewModel
+import net.kikin.nubecita.feature.moderation.impl.BlockedAccountsScreen
+import net.kikin.nubecita.feature.moderation.impl.BlockedAccountsViewModel
 import net.kikin.nubecita.feature.moderation.impl.ReportDialogScreen
 import net.kikin.nubecita.feature.moderation.impl.ReportDialogViewModel
 
@@ -139,6 +143,17 @@ internal object ModerationNavigationModule {
                         onDismiss = dismiss,
                     )
                 }
+            }
+            // Blocked-accounts list (Settings → Moderation → Blocked accounts).
+            // adaptiveDialog() so it coalesces into the Settings dialog on
+            // tablet and pushes full-screen on phone, matching the other
+            // settings sub-routes.
+            entry<BlockedAccounts>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                BlockedAccountsScreen(
+                    viewModel = hiltViewModel<BlockedAccountsViewModel>(),
+                    onBack = { navState.removeLast() },
+                )
             }
         }
 }

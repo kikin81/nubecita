@@ -62,7 +62,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.settings.api.About
-import net.kikin.nubecita.feature.settings.api.ContentFilters
+import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsSection
@@ -181,9 +181,9 @@ internal fun SettingsScreen(
                     // Push the About sub-route (screen owns the NavKey, like
                     // PaywallRoute above).
                     currentOnNavigateTo(About)
-                SettingsEffect.OpenContentFilters ->
-                    // Push the Content filters sub-route (screen owns the NavKey).
-                    currentOnNavigateTo(ContentFilters)
+                SettingsEffect.OpenModeration ->
+                    // Push the Moderation hub sub-route (screen owns the NavKey).
+                    currentOnNavigateTo(Moderation)
                 is SettingsEffect.OpenManageSubscription -> {
                     // Deep-link to the Play manage-subscription page. The screen
                     // owns the package name; the VM supplied the sku (if known).
@@ -526,17 +526,18 @@ internal fun SettingsContent(
             }
         }
 
-    // Content & moderation section (canonical slot 4). Opens the in-app
-    // Content filters sub-route (adult gate + per-category Show/Warn/Hide).
-    val contentFiltersLabel = stringResource(R.string.settings_content_filters_label)
+    // Content & moderation section (canonical slot 4). A single "Moderation"
+    // row → the Moderation hub (content filters + blocked accounts), keeping
+    // the Settings page lean as more moderation tools land.
+    val moderationLabel = stringResource(R.string.settings_moderation_label)
     val contentModerationSectionLabel = stringResource(R.string.settings_content_moderation_section)
     val contentModerationRows =
-        remember(contentFiltersLabel) {
+        remember(moderationLabel) {
             persistentListOf(
                 SettingsRow.Action(
                     icon = null,
-                    label = contentFiltersLabel,
-                    onClick = { currentOnEvent(SettingsEvent.ContentFiltersTapped) },
+                    label = moderationLabel,
+                    onClick = { currentOnEvent(SettingsEvent.ModerationTapped) },
                 ),
             )
         }

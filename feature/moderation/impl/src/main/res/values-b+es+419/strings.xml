@@ -5,6 +5,15 @@
     <string name="block_dialog_confirm">Bloquear</string>
     <string name="block_dialog_cancel">Cancelar</string>
     <string name="block_dialog_error">No se pudo bloquear esta cuenta. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="blocked_accounts_title">Cuentas bloqueadas</string>
+    <string name="blocked_accounts_back">Atrás</string>
+    <string name="blocked_accounts_unblock">Desbloquear</string>
+    <string name="blocked_accounts_unblock_error">No se pudo desbloquear esta cuenta. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="blocked_accounts_empty_title">No hay cuentas bloqueadas</string>
+    <string name="blocked_accounts_empty_body">Las cuentas que bloquees no podrán enviarte mensajes ni ver tus publicaciones. Aparecerán aquí.</string>
+    <string name="blocked_accounts_error_title">No se pudo cargar</string>
+    <string name="blocked_accounts_error_body">Algo salió mal al cargar tus cuentas bloqueadas.</string>
+    <string name="blocked_accounts_retry">Reintentar</string>
     <string name="report_dialog_title_subject">Denunciar este contenido</string>
     <string name="report_dialog_title_category">¿Cuál es el problema?</string>
     <string name="report_dialog_title_subreason">Elige un submotivo</string>

@@ -91,6 +91,10 @@
     <!-- Content filters -->
     <string name="settings_content_moderation_section">Content &amp; moderation</string>
     <string name="settings_content_filters_label">Content filters</string>
+    <!-- Moderation hub -->
+    <string name="settings_moderation_label">Moderation</string>
+    <string name="settings_moderation_back">Back</string>
+    <string name="settings_blocked_accounts_label">Blocked accounts</string>
     <string name="content_filters_title">Content filters</string>
     <string name="content_filters_back_content_desc">Back</string>
     <string name="content_filters_description">Choose what happens when a post carries one of these content labels. Adult categories apply only while adult content is enabled — otherwise they\'re always hidden.</string>
