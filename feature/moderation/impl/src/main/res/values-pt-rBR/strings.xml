@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="block_dialog_title">Bloquear @%1$s?</string>
+    <string name="block_dialog_body">Ela não poderá te enviar mensagens nem ver suas publicações, e você não verá as dela. Você pode desbloquear mais tarde no perfil dela.</string>
+    <string name="block_dialog_confirm">Bloquear</string>
+    <string name="block_dialog_cancel">Cancelar</string>
+    <string name="block_dialog_error">Não foi possível bloquear esta conta. Verifique sua conexão e tente novamente.</string>
     <string name="report_dialog_title_subject">Denunciar este conteúdo</string>
     <string name="report_dialog_title_category">Qual é o problema?</string>
     <string name="report_dialog_title_subreason">Escolha um submotivo</string>

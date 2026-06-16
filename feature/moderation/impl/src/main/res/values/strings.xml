@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- Block-account confirmation dialog -->
+    <string name="block_dialog_title">Block @%1$s?</string>
+    <string name="block_dialog_body">They won\'t be able to message you or see your posts, and you won\'t see theirs. You can unblock them later from their profile.</string>
+    <string name="block_dialog_confirm">Block</string>
+    <string name="block_dialog_cancel">Cancel</string>
+    <string name="block_dialog_error">Couldn\'t block this account. Check your connection and try again.</string>
+
     <!-- Step titles -->
     <string name="report_dialog_title_subject">Report this content</string>
     <string name="report_dialog_title_category">What\'s the issue?</string>

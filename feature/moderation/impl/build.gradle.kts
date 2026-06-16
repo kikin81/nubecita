@@ -9,6 +9,7 @@ android {
 dependencies {
     api(project(":feature:moderation:api"))
 
+    implementation(project(":core:actors"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(libs.atproto.models)

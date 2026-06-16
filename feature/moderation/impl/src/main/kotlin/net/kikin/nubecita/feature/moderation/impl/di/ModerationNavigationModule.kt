@@ -16,7 +16,10 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.feature.moderation.api.Block
 import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.moderation.impl.BlockDialogScreen
+import net.kikin.nubecita.feature.moderation.impl.BlockDialogViewModel
 import net.kikin.nubecita.feature.moderation.impl.ReportDialogScreen
 import net.kikin.nubecita.feature.moderation.impl.ReportDialogViewModel
 
@@ -97,6 +100,41 @@ internal object ModerationNavigationModule {
                     sheetState = sheetState,
                 ) {
                     ReportDialogScreen(
+                        viewModel = viewModel,
+                        onDismiss = dismiss,
+                    )
+                }
+            }
+            // Block-account confirmation — same ModalBottomSheet + dismiss-latch
+            // shape as Report (two dismiss triggers — swipe-down vs the VM's
+            // RequestDismiss after a successful block — must not double-pop).
+            entry<Block> { route ->
+                val navState = LocalMainShellNavState.current
+                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                val scope = rememberCoroutineScope()
+                val viewModel =
+                    hiltViewModel<BlockDialogViewModel, BlockDialogViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                val dismissed = remember { mutableStateOf(false) }
+                val dismiss =
+                    remember(scope, sheetState, navState, dismissed) {
+                        {
+                            if (!dismissed.value) {
+                                dismissed.value = true
+                                scope.launch {
+                                    sheetState.hide()
+                                    navState.removeLast()
+                                }
+                            }
+                            Unit
+                        }
+                    }
+                ModalBottomSheet(
+                    onDismissRequest = dismiss,
+                    sheetState = sheetState,
+                ) {
+                    BlockDialogScreen(
                         viewModel = viewModel,
                         onDismiss = dismiss,
                     )
