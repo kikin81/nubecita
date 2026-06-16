@@ -12,9 +12,16 @@
     <string name="chats_messages_channel_name">Messages</string>
     <string name="chats_messages_channel_description">New direct messages</string>
 
+    <!-- Chats / Requests segmented toggle -->
+    <string name="chats_segment_chats">Chats</string>
+    <string name="chats_segment_requests">Requests</string>
+
     <!-- Empty + error states -->
     <string name="chats_empty_title">No conversations yet</string>
     <string name="chats_empty_body">Direct messages with other Bluesky users will appear here.</string>
+    <string name="chats_requests_empty_title">No message requests</string>
+    <string name="chats_requests_empty_body">Messages from people you don\'t follow will appear here for you to accept or ignore.</string>
+    <string name="chats_requests_error_body">Couldn\'t load your message requests. Check your connection and try again.</string>
     <string name="chats_error_network_title">Network error</string>
     <string name="chats_error_network_body">Couldn\'t load your conversations. Check your connection and try again.</string>
     <string name="chats_error_not_enrolled_title">Enable direct messages</string>

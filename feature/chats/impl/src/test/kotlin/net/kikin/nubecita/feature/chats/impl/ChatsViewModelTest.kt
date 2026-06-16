@@ -186,6 +186,102 @@ internal class ChatsViewModelTest {
             assertEquals(false, loaded.isRefreshing)
         }
 
+    @Test
+    fun `init refreshes both accepted and request convos`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            assertEquals(1, repo.refreshCalls.get())
+            assertEquals(1, repo.refreshRequestCalls.get())
+        }
+
+    @Test
+    fun `default segment is Chats and shows accepted items`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))),
+                    nextRequestRefreshResult = Result.success(persistentListOf(sampleItem("r1"))),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            assertEquals(ChatsSegment.Chats, vm.uiState.value.activeSegment)
+            val status = vm.uiState.value.status
+            assertTrue(status is ChatsLoadStatus.Loaded)
+            assertEquals(listOf("c1"), (status as ChatsLoadStatus.Loaded).items.map { it.convoId })
+        }
+
+    @Test
+    fun `requestCount reflects pending requests for the badge`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))),
+                    nextRequestRefreshResult = Result.success(persistentListOf(sampleItem("r1"), sampleItem("r2"))),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            // Count is exposed while on the Chats segment (drives the Requests pill badge).
+            assertEquals(2, vm.uiState.value.requestCount)
+        }
+
+    @Test
+    fun `SegmentSelected Requests projects the request list`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))),
+                    nextRequestRefreshResult = Result.success(persistentListOf(sampleItem("r1"))),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+            assertEquals(ChatsSegment.Requests, vm.uiState.value.activeSegment)
+            val status = vm.uiState.value.status
+            assertTrue(status is ChatsLoadStatus.Loaded)
+            assertEquals(listOf("r1"), (status as ChatsLoadStatus.Loaded).items.map { it.convoId })
+        }
+
+    @Test
+    fun `requests failure degrades to Requests-only error while Chats stays Loaded`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))),
+                    nextRequestRefreshResult = Result.failure(IOException("requests down")),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            // Chats segment is unaffected.
+            assertTrue(vm.uiState.value.status is ChatsLoadStatus.Loaded)
+
+            // Switching to Requests surfaces the requests-only error inline.
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+            val status = vm.uiState.value.status
+            assertTrue(status is ChatsLoadStatus.InitialError)
+            assertEquals(ChatsError.Network, (status as ChatsLoadStatus.InitialError).error)
+        }
+
+    @Test
+    fun `requests failure does not emit a snackbar effect`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))),
+                    nextRequestRefreshResult = Result.failure(IOException("requests down")),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            vm.effects.test {
+                advanceUntilIdle()
+                // Accepted succeeded and requests fail inline — no transient snackbar.
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     private fun sampleItem(convoId: String): ConvoListItemUi =
         ConvoListItemUi(
             convoId = convoId,

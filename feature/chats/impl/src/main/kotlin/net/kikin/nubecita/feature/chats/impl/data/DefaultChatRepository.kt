@@ -11,6 +11,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
 import io.github.kikin81.atproto.runtime.Did
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,28 +36,45 @@ internal class DefaultChatRepository
         private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ChatRepository {
-        // Single source of truth for the convo list, shared across both screens
-        // (this repository is @Singleton-bound). null = not loaded yet.
+        // Single source of truth for the ACCEPTED convo list, shared across both
+        // screens (this repository is @Singleton-bound). null = not loaded yet.
         private val convosCache = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+
+        // Pending message REQUESTS (status=request). Separate cache so requests
+        // never inflate the unread badge and a request-fetch failure can't poison
+        // the accepted list. null = not loaded yet.
+        private val requestConvosCache = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
 
         override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convosCache.asStateFlow()
 
-        override suspend fun refreshConvos(): Result<Unit> =
+        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvosCache.asStateFlow()
+
+        override suspend fun refreshConvos(): Result<Unit> = refreshConvosWithStatus(STATUS_ACCEPTED, convosCache)
+
+        override suspend fun refreshRequestConvos(): Result<Unit> = refreshConvosWithStatus(STATUS_REQUEST, requestConvosCache)
+
+        private suspend fun refreshConvosWithStatus(
+            status: String,
+            cache: MutableStateFlow<ImmutableList<ConvoListItemUi>?>,
+        ): Result<Unit> =
             withContext(dispatcher) {
                 runCatching {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         ConvoService(client).listConvos(
-                            ListConvosRequest(cursor = null, limit = LIST_CONVOS_PAGE_LIMIT.toLong()),
+                            ListConvosRequest(cursor = null, limit = LIST_CONVOS_PAGE_LIMIT.toLong(), status = status),
                         )
-                    convosCache.value =
+                    cache.value =
                         response.convos
                             .map { it.toConvoListItemUi(viewerDid = viewerDid) }
                             .toImmutableList()
                 }.onFailure { throwable ->
+                    // Never swallow cancellation — let it propagate so the coroutine
+                    // tears down cleanly and we don't log a cancel as a network failure.
+                    if (throwable is CancellationException) throw throwable
                     // Leave the cache untouched so a failed refresh keeps the prior list.
-                    Timber.tag(TAG).e(throwable, "refreshConvos failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).e(throwable, "refreshConvos(%s) failed: %s", status, throwable.javaClass.name)
                 }
             }
 
@@ -177,5 +195,9 @@ internal class DefaultChatRepository
 
         private companion object {
             const val TAG = "ChatRepository"
+
+            // chat.bsky.convo.listConvos `status` filter values.
+            const val STATUS_ACCEPTED = "accepted"
+            const val STATUS_REQUEST = "request"
         }
     }

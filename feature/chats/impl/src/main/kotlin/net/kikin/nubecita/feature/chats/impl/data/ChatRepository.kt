@@ -29,12 +29,28 @@ interface ChatRepository {
     fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?>
 
     /**
-     * Fetches the convo list from the network and publishes it into
+     * Fetches the ACCEPTED convo list from the network and publishes it into
      * [observeConvos]. Returns success/failure for the caller's load-status
      * lifecycle; the items themselves flow through [observeConvos]. On failure
      * the cache is left untouched, so a failed refresh keeps the prior list.
      */
     suspend fun refreshConvos(): Result<Unit>
+
+    /**
+     * The in-memory cache of pending message REQUESTS (`listConvos(status=request)`)
+     * as a hot stream. `null` = not loaded yet. Kept separate from [observeConvos]
+     * so requests never count toward the unread badge and a request-fetch failure
+     * can't disturb the accepted list. Populated by [refreshRequestConvos].
+     */
+    fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?>
+
+    /**
+     * Fetches the pending message-request list (`status=request`) and publishes it
+     * into [observeRequestConvos]. Independent of [refreshConvos] so the Chats tab
+     * can refresh both concurrently and surface a requests-only failure without
+     * failing the accepted list. On failure the request cache is left untouched.
+     */
+    suspend fun refreshRequestConvos(): Result<Unit>
 
     /**
      * Resolves a peer DID into the appview-side convoId plus the other user's profile
