@@ -22,6 +22,9 @@
     <string name="chats_action_profile">Ir para o perfil</string>
     <string name="chats_action_report">Denunciar</string>
     <string name="chats_action_block">Bloquear</string>
+    <string name="chats_leave_undo_one">Você saiu da conversa</string>
+    <string name="chats_leave_undo_many">Você saiu das conversas</string>
+    <string name="chats_leave_undo_action">Desfazer</string>
     <string name="chats_empty_title">Nenhuma conversa ainda</string>
     <string name="chats_empty_body">Mensagens diretas com outros usuários do Bluesky aparecerão aqui.</string>
     <string name="chats_requests_empty_title">Nenhuma solicitação de mensagem</string>

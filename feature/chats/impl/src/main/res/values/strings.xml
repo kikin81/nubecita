@@ -32,6 +32,11 @@
     <string name="chats_action_report">Report</string>
     <string name="chats_action_block">Block</string>
 
+    <!-- Leave-with-undo snackbar (kc17.4) -->
+    <string name="chats_leave_undo_one">Conversation left</string>
+    <string name="chats_leave_undo_many">Conversations left</string>
+    <string name="chats_leave_undo_action">Undo</string>
+
     <!-- Empty + error states -->
     <string name="chats_empty_title">No conversations yet</string>
     <string name="chats_empty_body">Direct messages with other Bluesky users will appear here.</string>
