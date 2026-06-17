@@ -88,7 +88,7 @@ private val SAMPLE_UNREAD =
 private fun ConvoListItemUnreadScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaTheme(dynamicColor = false) {
-            Surface { ConvoListItem(item = SAMPLE_UNREAD, index = 0, count = 1, onTap = {}) }
+            Surface { ConvoListItem(item = SAMPLE_UNREAD, index = 0, count = 1, onClick = {}, onLongClick = {}) }
         }
     }
 }
@@ -100,7 +100,7 @@ private fun ConvoListItemUnreadScreenshot() {
 private fun ConvoListItemWithAvatarScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaTheme(dynamicColor = false) {
-            Surface { ConvoListItem(item = SAMPLE_WITH_AVATAR, index = 0, count = 1, onTap = {}) }
+            Surface { ConvoListItem(item = SAMPLE_WITH_AVATAR, index = 0, count = 1, onClick = {}, onLongClick = {}) }
         }
     }
 }
@@ -112,7 +112,7 @@ private fun ConvoListItemWithAvatarScreenshot() {
 private fun ConvoListItemFallbackLetterScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaTheme(dynamicColor = false) {
-            Surface { ConvoListItem(item = SAMPLE_FALLBACK_LETTER, index = 0, count = 1, onTap = {}) }
+            Surface { ConvoListItem(item = SAMPLE_FALLBACK_LETTER, index = 0, count = 1, onClick = {}, onLongClick = {}) }
         }
     }
 }
@@ -124,7 +124,7 @@ private fun ConvoListItemFallbackLetterScreenshot() {
 private fun ConvoListItemYouPrefixScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaTheme(dynamicColor = false) {
-            Surface { ConvoListItem(item = SAMPLE_YOU_PREFIX, index = 0, count = 1, onTap = {}) }
+            Surface { ConvoListItem(item = SAMPLE_YOU_PREFIX, index = 0, count = 1, onClick = {}, onLongClick = {}) }
         }
     }
 }
@@ -136,7 +136,7 @@ private fun ConvoListItemYouPrefixScreenshot() {
 private fun ConvoListItemDeletedScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaTheme(dynamicColor = false) {
-            Surface { ConvoListItem(item = SAMPLE_DELETED, index = 0, count = 1, onTap = {}) }
+            Surface { ConvoListItem(item = SAMPLE_DELETED, index = 0, count = 1, onClick = {}, onLongClick = {}) }
         }
     }
 }
@@ -148,7 +148,7 @@ private fun ConvoListItemDeletedScreenshot() {
 private fun ConvoListItemLongSnippetScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaTheme(dynamicColor = false) {
-            Surface { ConvoListItem(item = SAMPLE_LONG_SNIPPET, index = 0, count = 1, onTap = {}) }
+            Surface { ConvoListItem(item = SAMPLE_LONG_SNIPPET, index = 0, count = 1, onClick = {}, onLongClick = {}) }
         }
     }
 }

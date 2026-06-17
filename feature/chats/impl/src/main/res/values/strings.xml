@@ -16,6 +16,19 @@
     <string name="chats_segment_chats">Chats</string>
     <string name="chats_segment_requests">Requests</string>
 
+    <!-- Multi-select contextual action bar (kc17.3) -->
+    <string name="chats_action_select">Select</string>
+    <string name="chats_selection_close">Exit selection</string>
+    <string name="chats_selection_count">%1$d selected</string>
+    <string name="chats_action_more">More options</string>
+    <string name="chats_action_leave">Leave</string>
+    <string name="chats_action_mute">Mute</string>
+    <string name="chats_action_unmute">Unmute</string>
+    <string name="chats_action_accept">Accept</string>
+    <string name="chats_action_profile">Go to profile</string>
+    <string name="chats_action_report">Report</string>
+    <string name="chats_action_block">Block</string>
+
     <!-- Empty + error states -->
     <string name="chats_empty_title">No conversations yet</string>
     <string name="chats_empty_body">Direct messages with other Bluesky users will appear here.</string>

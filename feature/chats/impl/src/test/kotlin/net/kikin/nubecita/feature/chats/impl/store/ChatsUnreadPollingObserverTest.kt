@@ -292,6 +292,15 @@ class ChatsUnreadPollingObserverTest {
             }
         }
 
+        override suspend fun leaveConvo(convoId: String): Result<Unit> = error("not used")
+
+        override suspend fun acceptConvo(convoId: String): Result<Unit> = error("not used")
+
+        override suspend fun setMuted(
+            convoId: String,
+            muted: Boolean,
+        ): Result<Unit> = error("not used")
+
         override suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution> = error("not used")
 
         override suspend fun getMessages(

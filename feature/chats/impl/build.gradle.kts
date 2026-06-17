@@ -39,11 +39,19 @@ dependencies {
     implementation(project(":core:preferences"))
     implementation(project(":core:profile"))
     implementation(project(":data:models"))
+    // Report / Block NavKeys for the contextual-action menu — :api only
+    // (the dialogs live in :feature:moderation:impl).
+    implementation(project(":feature:moderation:api"))
     // Tap-to-open the quoted-post embed inside a message bubble pushes a
     // PostDetailRoute onto the MainShell back stack. The api module ships
     // just the NavKey — :feature:chats:impl never depends on :impl, matching
     // the Profile / Feed pattern.
     implementation(project(":feature:postdetail:api"))
+    // Profile NavKey for the "Go to profile" contextual action — :api only.
+    implementation(project(":feature:profile:api"))
+    // BackHandler — exits multi-select mode on a back press before the press
+    // falls through to inner-NavDisplay back navigation.
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     // NotificationCompat / MessagingStyle / NotificationManagerCompat for the
     // background DM notifier (nubecita-1fy.15).
@@ -70,10 +78,6 @@ dependencies {
     // composition path under instrumentation. Mirrors :feature:composer:impl.
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    // @HiltWorker factory binding generator (androidx.hilt), in addition to the
-    // dagger hilt-android-compiler the convention plugin already wires.
-    ksp(libs.androidx.hilt.compiler)
-
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     // Ktor MockEngine for the ChatSettingsRepository getRecord/putRecord
@@ -97,6 +101,10 @@ dependencies {
     // the DmPollWorker instrumentation tests (added by a later task group).
     androidTestImplementation(libs.androidx.work.testing)
     androidTestImplementation(libs.kotlinx.collections.immutable)
+
+    // @HiltWorker factory binding generator (androidx.hilt), in addition to the
+    // dagger hilt-android-compiler the convention plugin already wires.
+    ksp(libs.androidx.hilt.compiler)
 
     kspAndroidTest(libs.hilt.android.compiler)
 }

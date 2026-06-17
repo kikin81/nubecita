@@ -1,8 +1,11 @@
 package net.kikin.nubecita.feature.chats.impl
 
 import androidx.lifecycle.viewModelScope
+import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.PersistentSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -12,6 +15,9 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toChatsError
+import net.kikin.nubecita.feature.moderation.api.Block
+import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.profile.api.Profile
 import javax.inject.Inject
 
 /**
@@ -47,27 +53,35 @@ class ChatsViewModel
         private val acceptedPhase = MutableStateFlow<RefreshPhase>(RefreshPhase.InitialLoading)
         private val requestPhase = MutableStateFlow<RefreshPhase>(RefreshPhase.InitialLoading)
         private val activeSegment = MutableStateFlow(ChatsSegment.Chats)
+
+        // Selection mode: set of selected convoIds, or null when not selecting.
+        private val selection = MutableStateFlow<PersistentSet<String>?>(null)
         private var refreshJob: Job? = null
 
         init {
             // Project (active segment's items × phase) into status, and the request
             // count into the badge. Both caches are the source of truth for items;
             // the per-segment phase drives loading / refreshing / error.
-            combine(
-                acceptedConvos,
-                requestConvos,
-                acceptedPhase,
-                requestPhase,
-                activeSegment,
-            ) { accepted, requests, aPhase, rPhase, segment ->
-                val items = if (segment == ChatsSegment.Chats) accepted else requests
-                val phase = if (segment == ChatsSegment.Chats) aPhase else rPhase
-                ChatsScreenViewState(
-                    status = statusFor(items, phase),
-                    activeSegment = segment,
-                    requestCount = requests?.size ?: 0,
-                )
-            }.onEach { next -> setState { next } }
+            val projected =
+                combine(
+                    acceptedConvos,
+                    requestConvos,
+                    acceptedPhase,
+                    requestPhase,
+                    activeSegment,
+                ) { accepted, requests, aPhase, rPhase, segment ->
+                    val items = if (segment == ChatsSegment.Chats) accepted else requests
+                    val phase = if (segment == ChatsSegment.Chats) aPhase else rPhase
+                    ChatsScreenViewState(
+                        status = statusFor(items, phase),
+                        activeSegment = segment,
+                        requestCount = requests?.size ?: 0,
+                    )
+                }
+            // Fold the selection in as a 6th input (combine tops out at 5 typed flows).
+            projected
+                .combine(selection) { state, sel -> state.copy(selection = sel) }
+                .onEach { next -> setState { next } }
                 .launchIn(viewModelScope)
 
             refresh()
@@ -79,8 +93,68 @@ class ChatsViewModel
                 ChatsEvent.RetryClicked -> refresh()
                 is ChatsEvent.ConvoTapped -> sendEffect(ChatsEffect.NavigateToChat(event.otherUserDid))
                 ChatsEvent.SettingsTapped -> sendEffect(ChatsEffect.NavigateToChatSettings)
-                is ChatsEvent.SegmentSelected -> activeSegment.value = event.segment
+                is ChatsEvent.SegmentSelected -> {
+                    // Switching segments exits any in-progress selection (the action
+                    // set + the underlying list both change).
+                    selection.value = null
+                    activeSegment.value = event.segment
+                }
+                is ChatsEvent.ConvoLongPressed -> selection.value = persistentSetOf(event.convoId)
+                is ChatsEvent.SelectionToggled -> toggleSelection(event.convoId)
+                ChatsEvent.ClearSelection -> selection.value = null
+                ChatsEvent.LeaveSelected -> runBulkAction { repository.leaveConvo(it) }
+                ChatsEvent.AcceptSelected -> runBulkAction { repository.acceptConvo(it) }
+                ChatsEvent.ToggleMuteSelected -> toggleMuteSelected()
+                ChatsEvent.ProfileSelected -> navigateSingle { Profile(handle = it.otherUserHandle) }
+                ChatsEvent.ReportSelected -> navigateSingle { Report.forAccount(it.otherUserDid) }
+                ChatsEvent.BlockSelected -> navigateSingle { Block.forAccount(did = it.otherUserDid, handle = it.otherUserHandle) }
             }
+        }
+
+        private fun toggleSelection(convoId: String) {
+            val current = selection.value ?: persistentSetOf()
+            val next = if (convoId in current) current.remove(convoId) else current.add(convoId)
+            // Toggling the last selected convo off exits selection mode.
+            selection.value = if (next.isEmpty()) null else next
+        }
+
+        /** The currently-displayed list for the active segment. */
+        private fun activeList(): List<ConvoListItemUi> = (if (activeSegment.value == ChatsSegment.Chats) acceptedConvos.value else requestConvos.value).orEmpty()
+
+        private fun selectedConvos(): List<ConvoListItemUi> {
+            val ids = selection.value ?: return emptyList()
+            return activeList().filter { it.convoId in ids }
+        }
+
+        /**
+         * Run [action] over each selected convo, then exit selection mode. The repo
+         * patches its cache on each success; the first failure surfaces a transient
+         * error (the un-actioned convo stays in the list). G2 leaves immediately;
+         * the deferred leave-with-undo window lands in nubecita-kc17.4.
+         */
+        private fun runBulkAction(action: suspend (convoId: String) -> Result<Unit>) {
+            val ids = selection.value?.toList() ?: return
+            selection.value = null
+            viewModelScope.launch {
+                var error: ChatsError? = null
+                ids.forEach { id -> action(id).onFailure { error = error ?: it.toChatsError() } }
+                error?.let { sendEffect(ChatsEffect.ShowActionError(it)) }
+            }
+        }
+
+        private fun toggleMuteSelected() {
+            val selected = selectedConvos()
+            if (selected.isEmpty()) return
+            // Mute if ANY selected convo is currently unmuted; otherwise unmute all.
+            val targetMuted = selected.any { !it.muted }
+            runBulkAction { repository.setMuted(it, targetMuted) }
+        }
+
+        private fun navigateSingle(toKey: (ConvoListItemUi) -> NavKey) {
+            // Single-target actions are only offered at exactly one selection.
+            val convo = selectedConvos().singleOrNull() ?: return
+            selection.value = null
+            sendEffect(ChatsEffect.NavigateTo(toKey(convo)))
         }
 
         private fun statusFor(

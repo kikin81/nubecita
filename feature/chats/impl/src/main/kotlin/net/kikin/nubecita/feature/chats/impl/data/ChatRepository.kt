@@ -53,6 +53,30 @@ interface ChatRepository {
     suspend fun refreshRequestConvos(): Result<Unit>
 
     /**
+     * Leaves [convoId] via `chat.bsky.convo.leaveConvo`; on success removes it from
+     * both the accepted and request caches (it could be in either). The conversation
+     * drops out of the viewer's inbox — there is no server-side undo. The optional
+     * leave-with-undo window is a ViewModel concern (nubecita-kc17.4), not here.
+     */
+    suspend fun leaveConvo(convoId: String): Result<Unit>
+
+    /**
+     * Accepts a pending message request via `chat.bsky.convo.acceptConvo`; on success
+     * moves [convoId] from the request cache to the front of the accepted cache.
+     */
+    suspend fun acceptConvo(convoId: String): Result<Unit>
+
+    /**
+     * Mutes ([muted] = true) or unmutes [convoId] via `chat.bsky.convo.muteConvo` /
+     * `unmuteConvo`; on success patches the matching cached convo's `muted` flag in
+     * whichever cache holds it.
+     */
+    suspend fun setMuted(
+        convoId: String,
+        muted: Boolean,
+    ): Result<Unit>
+
+    /**
      * Resolves a peer DID into the appview-side convoId plus the other user's profile
      * bits we need for the thread's TopAppBar. Wraps `chat.bsky.convo.getConvoForMembers`.
      */

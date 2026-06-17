@@ -100,6 +100,24 @@ internal class BenchFakeChatRepository
 
         override suspend fun refreshRequestConvos(): Result<Unit> = Result.success(Unit)
 
+        override suspend fun leaveConvo(convoId: String): Result<Unit> {
+            convosCache.remove(convoId)
+            if (convosFlow.value != null) publishConvos()
+            return Result.success(Unit)
+        }
+
+        // Bench seeds no message requests, so there's nothing to accept — success no-op.
+        override suspend fun acceptConvo(convoId: String): Result<Unit> = Result.success(Unit)
+
+        override suspend fun setMuted(
+            convoId: String,
+            muted: Boolean,
+        ): Result<Unit> {
+            convosCache[convoId]?.let { convosCache[convoId] = it.copy(muted = muted) }
+            if (convosFlow.value != null) publishConvos()
+            return Result.success(Unit)
+        }
+
         override suspend fun refreshConvos(): Result<Unit> {
             ensureLoaded()
             publishConvos()

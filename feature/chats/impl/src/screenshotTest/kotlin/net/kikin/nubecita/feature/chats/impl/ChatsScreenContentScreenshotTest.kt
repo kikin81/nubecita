@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import kotlin.time.Clock
@@ -100,6 +101,22 @@ private val LOADED_REFRESHING_STATE =
             ),
     )
 
+// Multi-select on the Chats segment: the contextual bar replaces the toolbar
+// (count + Mute + Leave); the segment row + FAB are hidden; alice & carol read
+// as selected (secondaryContainer). >1 selected, so no single-only overflow.
+private val SELECTION_MULTI_STATE =
+    LOADED_STATE.copy(selection = persistentSetOf("alice", "carol"))
+
+// Single-select on the Chats segment: same bar but with the ⋮ overflow visible
+// (Profile / Report / Block become available at exactly one selection).
+private val SELECTION_SINGLE_STATE =
+    LOADED_STATE.copy(selection = persistentSetOf("bob"))
+
+// Single-select on the Requests segment: Accept replaces Mute as the inline
+// bulk action; Leave declines the request.
+private val REQUESTS_SELECTION_STATE =
+    REQUESTS_LOADED_STATE.copy(selection = persistentSetOf("dave"))
+
 private val EMPTY_STATE = ChatsScreenViewState(status = ChatsLoadStatus.Loaded(items = persistentListOf()))
 private val NETWORK_ERROR_STATE = ChatsScreenViewState(status = ChatsLoadStatus.InitialError(ChatsError.Network))
 private val NOT_ENROLLED_STATE = ChatsScreenViewState(status = ChatsLoadStatus.InitialError(ChatsError.NotEnrolled))
@@ -133,6 +150,42 @@ private fun ChatsScreenLoadedSelectedScreenshot() {
                 onNewChat = {},
                 selectedOtherUserDid = "did:plc:bob",
             )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "chats-selection-multi-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-selection-multi-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsScreenSelectionMultiScreenshot() {
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaCanvasPreviewTheme {
+            ChatsScreenContent(state = SELECTION_MULTI_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "chats-selection-single-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-selection-single-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsScreenSelectionSingleScreenshot() {
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaCanvasPreviewTheme {
+            ChatsScreenContent(state = SELECTION_SINGLE_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "chats-requests-selection-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-requests-selection-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsScreenRequestsSelectionScreenshot() {
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaCanvasPreviewTheme {
+            ChatsScreenContent(state = REQUESTS_SELECTION_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {})
         }
     }
 }

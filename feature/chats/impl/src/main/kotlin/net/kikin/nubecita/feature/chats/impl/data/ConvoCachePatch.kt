@@ -35,6 +35,57 @@ internal fun patchConvosOnSend(
 }
 
 /**
+ * Reflect "the viewer left this convo" in the cached list: drop the matching row.
+ * Applied to both caches (a convo may be accepted or a request).
+ * - `null` cache → `null` (no-op).
+ * - convo absent → same instance returned (no copy, no emission).
+ * - convo present → copy without it, order otherwise preserved.
+ */
+internal fun patchConvosOnLeave(
+    current: ImmutableList<ConvoListItemUi>?,
+    convoId: String,
+): ImmutableList<ConvoListItemUi>? {
+    if (current == null) return null
+    if (current.none { it.convoId == convoId }) return current
+    return current.filterNot { it.convoId == convoId }.toImmutableList()
+}
+
+/**
+ * Reflect a mute/unmute in the cached list: set the matching convo's
+ * [ConvoListItemUi.muted] flag. No reorder.
+ * - `null` cache → `null`.
+ * - convo absent, or flag already [muted] → same instance returned (no emission).
+ */
+internal fun patchConvosOnMute(
+    current: ImmutableList<ConvoListItemUi>?,
+    convoId: String,
+    muted: Boolean,
+): ImmutableList<ConvoListItemUi>? {
+    if (current == null) return null
+    val index = current.indexOfFirst { it.convoId == convoId }
+    if (index < 0 || current[index].muted == muted) return current
+    return current.mapIndexed { i, convo -> if (i == index) convo.copy(muted = muted) else convo }.toImmutableList()
+}
+
+/**
+ * Reflect "the viewer accepted this request" by moving it from the request cache
+ * into the accepted cache. Returns the new `(accepted, requests)` pair: the moved
+ * convo is hoisted to the front of accepted. If it isn't in [requests] (already
+ * gone), both lists are returned unchanged.
+ */
+internal fun patchConvosOnAccept(
+    accepted: ImmutableList<ConvoListItemUi>?,
+    requests: ImmutableList<ConvoListItemUi>?,
+    convoId: String,
+): Pair<ImmutableList<ConvoListItemUi>?, ImmutableList<ConvoListItemUi>?> {
+    val moved = requests?.firstOrNull { it.convoId == convoId } ?: return accepted to requests
+    val newRequests = requests.filterNot { it.convoId == convoId }.toImmutableList()
+    val newAccepted =
+        if (accepted == null) null else (listOf(moved) + accepted.filterNot { it.convoId == convoId }).toImmutableList()
+    return newAccepted to newRequests
+}
+
+/**
  * Reflect "the viewer opened this convo" in the cached list: zero the matching
  * convo's [ConvoListItemUi.unreadCount] in place so the in-row badge and the
  * aggregate bottom-nav badge flip to read immediately, without waiting for the

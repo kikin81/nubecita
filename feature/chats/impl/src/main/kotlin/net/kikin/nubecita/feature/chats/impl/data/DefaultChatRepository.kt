@@ -1,12 +1,16 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
+import io.github.kikin81.atproto.chat.bsky.convo.AcceptConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoService
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoForMembersRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetLogRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesRequest
+import io.github.kikin81.atproto.chat.bsky.convo.LeaveConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ListConvosRequest
 import io.github.kikin81.atproto.chat.bsky.convo.MessageInput
+import io.github.kikin81.atproto.chat.bsky.convo.MuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
+import io.github.kikin81.atproto.chat.bsky.convo.UnmuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
 import io.github.kikin81.atproto.runtime.Did
 import kotlinx.collections.immutable.ImmutableList
@@ -75,6 +79,56 @@ internal class DefaultChatRepository
                     if (throwable is CancellationException) throw throwable
                     // Leave the cache untouched so a failed refresh keeps the prior list.
                     Timber.tag(TAG).e(throwable, "refreshConvos(%s) failed: %s", status, throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun leaveConvo(convoId: String): Result<Unit> =
+            convoMutation("leaveConvo") { service ->
+                service.leaveConvo(LeaveConvoRequest(convoId = convoId))
+                // A convo may be accepted or a request — drop it from both caches.
+                convosCache.update { patchConvosOnLeave(it, convoId) }
+                requestConvosCache.update { patchConvosOnLeave(it, convoId) }
+            }
+
+        override suspend fun acceptConvo(convoId: String): Result<Unit> =
+            convoMutation("acceptConvo") { service ->
+                service.acceptConvo(AcceptConvoRequest(convoId = convoId))
+                // Move it out of requests into the front of accepted (single snapshot
+                // of both caches so the move is atomic).
+                val (newAccepted, newRequests) =
+                    patchConvosOnAccept(convosCache.value, requestConvosCache.value, convoId)
+                convosCache.value = newAccepted
+                requestConvosCache.value = newRequests
+            }
+
+        override suspend fun setMuted(
+            convoId: String,
+            muted: Boolean,
+        ): Result<Unit> =
+            convoMutation("setMuted") { service ->
+                if (muted) {
+                    service.muteConvo(MuteConvoRequest(convoId = convoId))
+                } else {
+                    service.unmuteConvo(UnmuteConvoRequest(convoId = convoId))
+                }
+                convosCache.update { patchConvosOnMute(it, convoId, muted) }
+                requestConvosCache.update { patchConvosOnMute(it, convoId, muted) }
+            }
+
+        // Shared shape for the one-shot convo mutations (leave/accept/mute): run the
+        // XRPC call + cache patch on the IO dispatcher; rethrow cancellation; log and
+        // return failure otherwise (the cache is only patched after the call succeeds,
+        // so a failure leaves the cached list untouched).
+        private suspend inline fun convoMutation(
+            op: String,
+            crossinline block: suspend (ConvoService) -> Unit,
+        ): Result<Unit> =
+            withContext(dispatcher) {
+                runCatching {
+                    block(ConvoService(xrpcClientProvider.authenticated()))
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).e(throwable, "%s failed: %s", op, throwable.javaClass.name)
                 }
             }
 
