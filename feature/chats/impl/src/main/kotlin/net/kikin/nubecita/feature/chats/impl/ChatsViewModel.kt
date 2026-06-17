@@ -6,12 +6,18 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toPersistentSet
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toChatsError
@@ -43,6 +49,10 @@ class ChatsViewModel
     @Inject
     constructor(
         private val repository: ChatRepository,
+        // Commits a deferred leave (timeout / supersede / screen-leave flush) must
+        // outlive viewModelScope — fired here, not on viewModelScope, so navigating
+        // away mid-window still leaves the convo. nubecita-kc17.4 (design D-7).
+        @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : MviViewModel<ChatsScreenViewState, ChatsEvent, ChatsEffect>(ChatsScreenViewState()) {
         // Accepted convos + pending requests are separate caches/lifecycles. The
         // ACTIVE segment decides which (items × phase) drives [status]; the request
@@ -58,14 +68,34 @@ class ChatsViewModel
         private val selection = MutableStateFlow<PersistentSet<String>?>(null)
         private var refreshJob: Job? = null
 
+        // Leave-with-undo (nubecita-kc17.4). Convos pending an optimistic leave are
+        // HIDDEN from the projected list but still live in the cache, so Undo is a
+        // pure client-side un-hide (zero network). `leaveConvo` fires only when the
+        // batch commits (undo window elapsed / superseded / screen-leave flush).
+        private val pendingLeave = MutableStateFlow<PersistentSet<String>>(persistentSetOf())
+
+        // The single currently-undoable batch + its token. Only one batch is undoable
+        // at a time; starting another commits this one first (Gmail-style supersede).
+        // The token guards a stale Undo tap from a superseded/committed batch.
+        private var undoableLeave: PersistentSet<String> = persistentSetOf()
+        private var leaveToken = 0L
+        private var leaveTimerJob: Job? = null
+
         init {
+            // Optimistic-leave projection: hide convos pending a deferred leave from
+            // both segment lists before anything else reads them. Hidden rows stay in
+            // the cache (Undo un-hides without a refetch); the badge count drops too
+            // when a hidden row is a request.
+            val visibleAccepted = acceptedConvos.combine(pendingLeave) { list, hidden -> list.hide(hidden) }
+            val visibleRequests = requestConvos.combine(pendingLeave) { list, hidden -> list.hide(hidden) }
+
             // Project (active segment's items × phase) into status, and the request
             // count into the badge. Both caches are the source of truth for items;
             // the per-segment phase drives loading / refreshing / error.
             val projected =
                 combine(
-                    acceptedConvos,
-                    requestConvos,
+                    visibleAccepted,
+                    visibleRequests,
                     acceptedPhase,
                     requestPhase,
                     activeSegment,
@@ -106,12 +136,13 @@ class ChatsViewModel
                     selection.value = (selection.value ?: persistentSetOf()).add(event.convoId)
                 is ChatsEvent.SelectionToggled -> toggleSelection(event.convoId)
                 ChatsEvent.ClearSelection -> selection.value = null
-                ChatsEvent.LeaveSelected -> runBulkAction { repository.leaveConvo(it) }
+                ChatsEvent.LeaveSelected -> startLeaveWithUndo()
                 ChatsEvent.AcceptSelected -> runBulkAction { repository.acceptConvo(it) }
                 ChatsEvent.ToggleMuteSelected -> toggleMuteSelected()
                 ChatsEvent.ProfileSelected -> navigateSingle { Profile(handle = it.otherUserHandle) }
                 ChatsEvent.ReportSelected -> navigateSingle { Report.forAccount(it.otherUserDid) }
                 ChatsEvent.BlockSelected -> navigateSingle { Block.forAccount(did = it.otherUserDid, handle = it.otherUserHandle) }
+                is ChatsEvent.UndoLeaveTapped -> undoLeave(event.token)
             }
         }
 
@@ -164,6 +195,79 @@ class ChatsViewModel
             val convo = selectedConvos().singleOrNull() ?: return
             selection.value = null
             sendEffect(ChatsEffect.NavigateTo(toKey(convo)))
+        }
+
+        /**
+         * Optimistically leave the selected convos: hide them, start the undo
+         * window, and exit selection. `leaveConvo` is NOT called yet — Undo within
+         * the window is a pure un-hide. Any prior pending batch commits immediately
+         * (single-batch / Gmail supersede).
+         */
+        private fun startLeaveWithUndo() {
+            val ids = selectedConvos().map { it.convoId }.toPersistentSet()
+            if (ids.isEmpty()) return
+            selection.value = null
+            // Supersede: a still-pending batch commits now, before this one starts.
+            commitPendingLeave()
+            undoableLeave = ids
+            val token = ++leaveToken
+            pendingLeave.update { it.addAll(ids) }
+            sendEffect(ChatsEffect.ShowLeaveUndo(token = token, count = ids.size))
+            // VM-owned dismiss timer (not the snackbar's): commit when the window
+            // elapses, guarded by the token so a superseded batch's timer is inert.
+            leaveTimerJob?.cancel()
+            leaveTimerJob =
+                viewModelScope.launch {
+                    delay(LEAVE_UNDO_WINDOW_MS)
+                    if (token == leaveToken) {
+                        commitPendingLeave()
+                        sendEffect(ChatsEffect.HideLeaveUndo)
+                    }
+                }
+        }
+
+        /** Undo the current pending leave: un-hide the rows (zero network). */
+        private fun undoLeave(token: Long) {
+            if (token != leaveToken || undoableLeave.isEmpty()) return
+            leaveTimerJob?.cancel()
+            val restored = undoableLeave
+            undoableLeave = persistentSetOf()
+            pendingLeave.update { it.removeAll(restored) }
+        }
+
+        /**
+         * Commit the undoable batch: fire `leaveConvo` per convo on the application
+         * scope (so it outlives this VM), then un-hide the now-cache-removed rows.
+         * A no-op when nothing is pending. The rows stay hidden until each
+         * `leaveConvo` patches the cache, so there's no reappear-then-vanish flicker.
+         */
+        private fun commitPendingLeave() {
+            val ids = undoableLeave
+            if (ids.isEmpty()) return
+            undoableLeave = persistentSetOf()
+            val pending = pendingLeave
+            applicationScope.launch {
+                ids.forEach { id -> repository.leaveConvo(id) }
+                pending.update { it.removeAll(ids) }
+            }
+        }
+
+        /** Filter convos pending an optimistic leave out of a cache snapshot. */
+        private fun ImmutableList<ConvoListItemUi>?.hide(hidden: PersistentSet<String>): ImmutableList<ConvoListItemUi>? =
+            when {
+                this == null -> null
+                hidden.isEmpty() -> this
+                else -> filterNot { it.convoId in hidden }.toImmutableList()
+            }
+
+        override fun onCleared() {
+            // Normal screen clearance (navigate away) FLUSHES a pending leave — leaving
+            // a chat then navigating away must leave it, not silently restore it. The
+            // commit runs on applicationScope, so it survives this teardown. Process
+            // death skips onCleared, so an un-acknowledged leave is dropped (we never
+            // persist pending leaves to fire post-death). Design D-8.
+            commitPendingLeave()
+            super.onCleared()
         }
 
         private fun statusFor(
@@ -233,5 +337,13 @@ class ChatsViewModel
             data class InitialError(
                 val error: ChatsError,
             ) : RefreshPhase
+        }
+
+        private companion object {
+            // Undo window for a deferred leave. Matches Material's "Long" snackbar
+            // feel; the snackbar itself is shown Indefinite and dismissed by the VM
+            // (HideLeaveUndo) when this elapses, so the affordance and the commit
+            // stay in lock-step regardless of the snackbar's own duration.
+            const val LEAVE_UNDO_WINDOW_MS = 5_000L
         }
     }

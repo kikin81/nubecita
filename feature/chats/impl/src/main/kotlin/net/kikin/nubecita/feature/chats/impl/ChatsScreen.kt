@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.chats.impl
 
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,6 +13,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import kotlinx.coroutines.launch
 
 /**
  * Stateful Chats tab-home entry. Owns the [ChatsViewModel] + effect
@@ -40,11 +43,19 @@ internal fun ChatsScreen(
     val networkErrorMsg = stringResource(R.string.chats_error_network_body)
     val notEnrolledErrorMsg = stringResource(R.string.chats_error_not_enrolled_body)
     val unknownErrorMsg = stringResource(R.string.chats_error_unknown_body)
+    // Pre-resolved leave-undo copy. Singular/plural picked by count (no number in
+    // the text), so two fixed strings suffice — keeps locale + dark-mode tracking
+    // (no context.getString in the effect collector, no count-bearing plural).
+    val leaveUndoOneMsg = stringResource(R.string.chats_leave_undo_one)
+    val leaveUndoManyMsg = stringResource(R.string.chats_leave_undo_many)
+    val leaveUndoActionLabel = stringResource(R.string.chats_leave_undo_action)
     val currentOnNavigateToChat by rememberUpdatedState(onNavigateToChat)
     val currentOnNavigateToChatSettings by rememberUpdatedState(onNavigateToChatSettings)
     val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
 
     LaunchedEffect(Unit) {
+        val effectScope = this
+
         fun messageFor(error: ChatsError) =
             when (error) {
                 ChatsError.Network -> networkErrorMsg
@@ -64,6 +75,25 @@ internal fun ChatsScreen(
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(messageFor(effect.error))
                 }
+                is ChatsEffect.ShowLeaveUndo -> {
+                    // Launch on the effect's own scope so the suspending showSnackbar
+                    // (Indefinite — the VM's timer drives commit/dismissal) doesn't
+                    // block the effect collector for the whole undo window.
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    val message = if (effect.count == 1) leaveUndoOneMsg else leaveUndoManyMsg
+                    effectScope.launch {
+                        val result =
+                            snackbarHostState.showSnackbar(
+                                message = message,
+                                actionLabel = leaveUndoActionLabel,
+                                duration = SnackbarDuration.Indefinite,
+                            )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            viewModel.handleEvent(ChatsEvent.UndoLeaveTapped(effect.token))
+                        }
+                    }
+                }
+                ChatsEffect.HideLeaveUndo -> snackbarHostState.currentSnackbarData?.dismiss()
             }
         }
     }

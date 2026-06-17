@@ -166,6 +166,15 @@ sealed interface ChatsEvent : UiEvent {
     /** Contextual-bar actions. Leave/Mute/Accept work for 1..N selected; */
     data object LeaveSelected : ChatsEvent
 
+    /**
+     * User tapped Undo on the leave snackbar. Carries the [token] of the batch
+     * the snackbar was showing for; a stale tap (token != the current pending
+     * batch, e.g. after a supersede) is ignored by the VM.
+     */
+    data class UndoLeaveTapped(
+        val token: Long,
+    ) : ChatsEvent
+
     data object ToggleMuteSelected : ChatsEvent
 
     data object AcceptSelected : ChatsEvent
@@ -209,4 +218,24 @@ sealed interface ChatsEffect : UiEffect {
     data class ShowActionError(
         val error: ChatsError,
     ) : ChatsEffect
+
+    /**
+     * Show the leave-with-undo snackbar after an optimistic leave. The rows are
+     * already hidden from the list; [count] picks singular/plural copy and
+     * [token] identifies this pending batch so the Undo action can echo it back
+     * (stale taps from a superseded batch are dropped). The VM owns the dismiss
+     * timer and the deferred `leaveConvo` commit — the snackbar is the Undo
+     * affordance, not the commit trigger.
+     */
+    data class ShowLeaveUndo(
+        val token: Long,
+        val count: Int,
+    ) : ChatsEffect
+
+    /**
+     * Dismiss the leave-undo snackbar — emitted when the VM commits the pending
+     * leave on its own timer (the undo window elapsed), so the affordance
+     * disappears in lock-step with the now-irreversible commit.
+     */
+    data object HideLeaveUndo : ChatsEffect
 }
