@@ -13,6 +13,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
@@ -55,6 +56,9 @@ internal fun ChatsScreen(
 
     LaunchedEffect(Unit) {
         val effectScope = this
+        // The single in-flight leave-undo snackbar coroutine; cancelled before a new
+        // one shows (supersede) and on HideLeaveUndo, so stale coroutines never queue.
+        var leaveUndoJob: Job? = null
 
         fun messageFor(error: ChatsError) =
             when (error) {
@@ -78,22 +82,28 @@ internal fun ChatsScreen(
                 is ChatsEffect.ShowLeaveUndo -> {
                     // Launch on the effect's own scope so the suspending showSnackbar
                     // (Indefinite — the VM's timer drives commit/dismissal) doesn't
-                    // block the effect collector for the whole undo window.
+                    // block the effect collector for the whole undo window. Cancel any
+                    // prior snackbar coroutine first so they can't pile up on supersede.
+                    leaveUndoJob?.cancel()
                     snackbarHostState.currentSnackbarData?.dismiss()
                     val message = if (effect.count == 1) leaveUndoOneMsg else leaveUndoManyMsg
-                    effectScope.launch {
-                        val result =
-                            snackbarHostState.showSnackbar(
-                                message = message,
-                                actionLabel = leaveUndoActionLabel,
-                                duration = SnackbarDuration.Indefinite,
-                            )
-                        if (result == SnackbarResult.ActionPerformed) {
-                            viewModel.handleEvent(ChatsEvent.UndoLeaveTapped(effect.token))
+                    leaveUndoJob =
+                        effectScope.launch {
+                            val result =
+                                snackbarHostState.showSnackbar(
+                                    message = message,
+                                    actionLabel = leaveUndoActionLabel,
+                                    duration = SnackbarDuration.Indefinite,
+                                )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.handleEvent(ChatsEvent.UndoLeaveTapped(effect.token))
+                            }
                         }
-                    }
                 }
-                ChatsEffect.HideLeaveUndo -> snackbarHostState.currentSnackbarData?.dismiss()
+                ChatsEffect.HideLeaveUndo -> {
+                    leaveUndoJob?.cancel()
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                }
             }
         }
     }

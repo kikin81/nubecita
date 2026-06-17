@@ -207,7 +207,11 @@ class ChatsViewModel
             val ids = selectedConvos().map { it.convoId }.toPersistentSet()
             if (ids.isEmpty()) return
             selection.value = null
-            // Supersede: a still-pending batch commits now, before this one starts.
+            // Cancel the prior batch's timer FIRST, then commit it (supersede). Doing
+            // this before bumping the token means the old timer can never observe the
+            // new batch — belt-and-suspenders over the token guard, which already makes
+            // a stale timer inert (it captures its own token and compares to leaveToken).
+            leaveTimerJob?.cancel()
             commitPendingLeave()
             undoableLeave = ids
             val token = ++leaveToken
@@ -215,7 +219,6 @@ class ChatsViewModel
             sendEffect(ChatsEffect.ShowLeaveUndo(token = token, count = ids.size))
             // VM-owned dismiss timer (not the snackbar's): commit when the window
             // elapses, guarded by the token so a superseded batch's timer is inert.
-            leaveTimerJob?.cancel()
             leaveTimerJob =
                 viewModelScope.launch {
                     delay(LEAVE_UNDO_WINDOW_MS)
@@ -237,9 +240,12 @@ class ChatsViewModel
 
         /**
          * Commit the undoable batch: fire `leaveConvo` per convo on the application
-         * scope (so it outlives this VM), then un-hide the now-cache-removed rows.
-         * A no-op when nothing is pending. The rows stay hidden until each
-         * `leaveConvo` patches the cache, so there's no reappear-then-vanish flicker.
+         * scope (so it outlives this VM), un-hiding each row as its call settles.
+         * A no-op when nothing is pending. A row stays hidden until its `leaveConvo`
+         * settles, so there's no reappear-then-vanish flicker; the per-id `finally`
+         * un-hides incrementally and guarantees cleanup even if a call throws (a
+         * failed leave leaves the cache untouched, so the un-hide restores the row —
+         * the next refresh reconciles).
          */
         private fun commitPendingLeave() {
             val ids = undoableLeave
@@ -247,8 +253,13 @@ class ChatsViewModel
             undoableLeave = persistentSetOf()
             val pending = pendingLeave
             applicationScope.launch {
-                ids.forEach { id -> repository.leaveConvo(id) }
-                pending.update { it.removeAll(ids) }
+                ids.forEach { id ->
+                    try {
+                        repository.leaveConvo(id)
+                    } finally {
+                        pending.update { it.remove(id) }
+                    }
+                }
             }
         }
 
