@@ -295,6 +295,11 @@ dependencies {
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
     implementation(project(":feature:mediaviewer:impl"))
+    // Hosts the @MainShell EntryProviderInstaller that registers the Report /
+    // Block / BlockedAccounts routes. No other module depends on :impl (they use
+    // :moderation:api NavKeys only), so :app must aggregate it or those routes
+    // crash with "Unknown screen" when pushed (nubecita — moderation routes).
+    implementation(project(":feature:moderation:impl"))
     implementation(project(":feature:notifications:api"))
     implementation(project(":feature:notifications:impl"))
     implementation(project(":feature:onboarding:api"))
