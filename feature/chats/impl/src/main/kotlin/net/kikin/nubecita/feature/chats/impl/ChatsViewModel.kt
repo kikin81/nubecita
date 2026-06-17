@@ -99,7 +99,11 @@ class ChatsViewModel
                     selection.value = null
                     activeSegment.value = event.segment
                 }
-                is ChatsEvent.ConvoLongPressed -> selection.value = persistentSetOf(event.convoId)
+                // Enter selection mode, or extend an existing selection — long-
+                // pressing another row while already selecting adds it rather
+                // than resetting to just that row.
+                is ChatsEvent.ConvoLongPressed ->
+                    selection.value = (selection.value ?: persistentSetOf()).add(event.convoId)
                 is ChatsEvent.SelectionToggled -> toggleSelection(event.convoId)
                 ChatsEvent.ClearSelection -> selection.value = null
                 ChatsEvent.LeaveSelected -> runBulkAction { repository.leaveConvo(it) }
@@ -133,7 +137,12 @@ class ChatsViewModel
          * the deferred leave-with-undo window lands in nubecita-kc17.4.
          */
         private fun runBulkAction(action: suspend (convoId: String) -> Result<Unit>) {
-            val ids = selection.value?.toList() ?: return
+            // Order by the on-screen list (selectedConvos preserves activeList
+            // order), not the selection set's iteration order, so the action
+            // sequence — and which failure becomes the surfaced "first" — is
+            // deterministic and matches what the user sees.
+            val ids = selectedConvos().map { it.convoId }
+            if (ids.isEmpty()) return
             selection.value = null
             viewModelScope.launch {
                 var error: ChatsError? = null

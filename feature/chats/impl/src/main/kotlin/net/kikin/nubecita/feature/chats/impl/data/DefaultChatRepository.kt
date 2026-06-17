@@ -93,12 +93,17 @@ internal class DefaultChatRepository
         override suspend fun acceptConvo(convoId: String): Result<Unit> =
             convoMutation("acceptConvo") { service ->
                 service.acceptConvo(AcceptConvoRequest(convoId = convoId))
-                // Move it out of requests into the front of accepted (single snapshot
-                // of both caches so the move is atomic).
-                val (newAccepted, newRequests) =
-                    patchConvosOnAccept(convosCache.value, requestConvosCache.value, convoId)
-                convosCache.value = newAccepted
-                requestConvosCache.value = newRequests
+                // Move it out of requests into the front of accepted as two
+                // independent atomic `update`s — capture the row while removing
+                // it from requests, then prepend it to accepted. A snapshot-both-
+                // then-assign-both would clobber a concurrent patch to either
+                // cache (send / mark-read / poll) with a stale write.
+                var moved: ConvoListItemUi? = null
+                requestConvosCache.update { current ->
+                    moved = current?.firstOrNull { it.convoId == convoId }
+                    patchConvosOnLeave(current, convoId)
+                }
+                moved?.let { convo -> convosCache.update { patchConvosPrepend(it, convo) } }
             }
 
         override suspend fun setMuted(

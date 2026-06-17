@@ -10,7 +10,10 @@
     <string name="chats_segment_requests">Solicitações</string>
     <string name="chats_action_select">Selecionar</string>
     <string name="chats_selection_close">Sair da seleção</string>
-    <string name="chats_selection_count">%1$d selecionados</string>
+    <plurals name="chats_selection_count">
+        <item quantity="one">%1$d selecionado</item>
+        <item quantity="other">%1$d selecionados</item>
+    </plurals>
     <string name="chats_action_more">Mais opções</string>
     <string name="chats_action_leave">Sair</string>
     <string name="chats_action_mute">Silenciar</string>

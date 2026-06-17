@@ -19,7 +19,10 @@
     <!-- Multi-select contextual action bar (kc17.3) -->
     <string name="chats_action_select">Select</string>
     <string name="chats_selection_close">Exit selection</string>
-    <string name="chats_selection_count">%1$d selected</string>
+    <plurals name="chats_selection_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
     <string name="chats_action_more">More options</string>
     <string name="chats_action_leave">Leave</string>
     <string name="chats_action_mute">Mute</string>

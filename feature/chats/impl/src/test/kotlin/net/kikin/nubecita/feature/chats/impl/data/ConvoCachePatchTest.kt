@@ -44,6 +44,27 @@ internal class ConvoCachePatchTest {
         )
 
     @Test
+    fun `patchConvosPrepend hoists the convo to the front, de-duping by id`() {
+        val before = persistentListOf(convo("alice"), convo("bob"))
+        val after = patchConvosPrepend(before, convo("carol"))!!
+        assertEquals(listOf("carol", "alice", "bob"), after.map { it.convoId })
+    }
+
+    @Test
+    fun `patchConvosPrepend removes any existing row with the same id before prepending`() {
+        val before = persistentListOf(convo("alice"), convo("bob"))
+        val after = patchConvosPrepend(before, convo("bob", snippet = "fresh"))!!
+        // bob appears once, at the front, with the new instance.
+        assertEquals(listOf("bob", "alice"), after.map { it.convoId })
+        assertEquals("fresh", after.first().lastMessageSnippet)
+    }
+
+    @Test
+    fun `patchConvosPrepend returns null when the accepted cache is null`() {
+        assertNull(patchConvosPrepend(null, convo("alice")))
+    }
+
+    @Test
     fun `patches the matching convo and moves it to the top`() {
         val now = Instant.parse("2026-05-01T12:30:00Z")
         val before = persistentListOf(convo("alice"), convo("bob"), convo("carol"))

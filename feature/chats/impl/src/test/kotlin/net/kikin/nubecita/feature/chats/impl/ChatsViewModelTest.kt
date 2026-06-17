@@ -300,6 +300,19 @@ internal class ChatsViewModelTest {
         }
 
     @Test
+    fun `ConvoLongPressed while already selecting extends the selection`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"), sampleItem("c2"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            // A second long-press adds, rather than resetting to just that row.
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c2"))
+            advanceUntilIdle()
+            assertEquals(setOf("c1", "c2"), vm.uiState.value.selection)
+        }
+
+    @Test
     fun `SelectionToggled adds then removes, and emptying exits selection`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"), sampleItem("c2"))))

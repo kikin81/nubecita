@@ -68,6 +68,26 @@ internal fun patchConvosOnMute(
 }
 
 /**
+ * Hoist [convo] to the front of the accepted cache, removing any existing row
+ * with the same id first (so re-accepting can't duplicate it).
+ * - `null` cache (inbox never loaded) → `null` (no-op).
+ *
+ * The accept-side half of the move; pairs with [patchConvosOnLeave] (the
+ * request-side removal) so the real repository can perform the move as two
+ * independent atomic `MutableStateFlow.update` steps rather than a
+ * snapshot-both-then-assign-both (which races concurrent send / mark-read /
+ * poll patches). [patchConvosOnAccept] is retained for the single-threaded
+ * test fakes.
+ */
+internal fun patchConvosPrepend(
+    accepted: ImmutableList<ConvoListItemUi>?,
+    convo: ConvoListItemUi,
+): ImmutableList<ConvoListItemUi>? {
+    if (accepted == null) return null
+    return (listOf(convo) + accepted.filterNot { it.convoId == convo.convoId }).toImmutableList()
+}
+
+/**
  * Reflect "the viewer accepted this request" by moving it from the request cache
  * into the accepted cache. Returns the new `(accepted, requests)` pair: the moved
  * convo is hoisted to the front of accepted. If it isn't in [requests] (already
