@@ -13,13 +13,18 @@ import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.NewChat
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feeds.api.Feeds
 import net.kikin.nubecita.feature.login.api.Login
+import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.moderation.api.Block
 import net.kikin.nubecita.feature.moderation.api.BlockedAccounts
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab
+import net.kikin.nubecita.feature.onboarding.api.Onboarding
+import net.kikin.nubecita.feature.paywall.api.PaywallRoute
+import net.kikin.nubecita.feature.paywall.api.PaywallSuccessRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
@@ -28,6 +33,7 @@ import net.kikin.nubecita.feature.settings.api.AboutLicenses
 import net.kikin.nubecita.feature.settings.api.ContentFilters
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
+import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
@@ -97,7 +103,19 @@ class MainShellRouteCoverageTest {
         val provider = entryProvider { installers.forEach { it() } }
         val unresolved =
             routes.filter { route ->
-                runCatching { provider(route) }.isFailure
+                // Catch Exception (the entryProvider fallback throws
+                // IllegalStateException for an unregistered key), NOT Throwable —
+                // a JVM Error (NoClassDefFoundError / LinkageError) signals a real
+                // classpath problem that should fail loudly, not be reported as an
+                // "unresolved route".
+                try {
+                    provider(route)
+                    false
+                } catch (
+                    @Suppress("SwallowedException") e: Exception,
+                ) {
+                    true
+                }
             }
         assertEquals(
             "$shell routes with no registered entry<> — the feature impl that " +
@@ -127,11 +145,20 @@ class MainShellRouteCoverageTest {
                 About,
                 AboutLicenses,
                 PostDetailRoute(postUri = "at://did:plc:test/app.bsky.feed.post/test"),
+                ComposerRoute(),
+                PaywallRoute,
+                PaywallSuccessRoute,
                 Report.forAccount(did = "did:plc:test"),
                 Block.forAccount(did = "did:plc:test", handle = "test.bsky.social"),
                 Feeds,
             )
 
-        val OUTER_SHELL_ROUTES: List<NavKey> = listOf(Login)
+        val OUTER_SHELL_ROUTES: List<NavKey> =
+            listOf(
+                Login,
+                Onboarding,
+                MediaViewerRoute(postUri = "at://did:plc:test/app.bsky.feed.post/test", imageIndex = 0),
+                VideoPlayerRoute(postUri = "at://did:plc:test/app.bsky.feed.post/test"),
+            )
     }
 }
