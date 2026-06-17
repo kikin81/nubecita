@@ -8,6 +8,20 @@
     <string name="chats_messages_channel_description">Mensajes directos nuevos</string>
     <string name="chats_segment_chats">Chats</string>
     <string name="chats_segment_requests">Solicitudes</string>
+    <string name="chats_action_select">Seleccionar</string>
+    <string name="chats_selection_close">Salir de la selección</string>
+    <plurals name="chats_selection_count">
+        <item quantity="one">%1$d seleccionado</item>
+        <item quantity="other">%1$d seleccionados</item>
+    </plurals>
+    <string name="chats_action_more">Más opciones</string>
+    <string name="chats_action_leave">Salir</string>
+    <string name="chats_action_mute">Silenciar</string>
+    <string name="chats_action_unmute">Reactivar</string>
+    <string name="chats_action_accept">Aceptar</string>
+    <string name="chats_action_profile">Ir al perfil</string>
+    <string name="chats_action_report">Denunciar</string>
+    <string name="chats_action_block">Bloquear</string>
     <string name="chats_empty_title">Aún no tienes conversaciones</string>
     <string name="chats_empty_body">Los mensajes directos con otros usuarios de Bluesky aparecerán aquí.</string>
     <string name="chats_requests_empty_title">No hay solicitudes de mensajes</string>

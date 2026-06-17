@@ -48,9 +48,12 @@ import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
  * tone comes from [ListItemDefaults.segmentedColors] — a tonally-
  * distinct surface so the group reads as one rounded card.
  *
- * Tapping the row invokes [onTap] with the other-user's DID — the
- * screen's effect collector translates that into a
- * `MainShellNavState.add(Chat(did))` push.
+ * [onClick] / [onLongClick] are resolved by the caller per interaction
+ * mode: out of selection mode a tap opens the thread (→ `Chat(did)` push)
+ * and a long-press enters selection mode; in selection mode a tap toggles
+ * this row's membership. [selected] drives the M3 selected container tone
+ * + `selected` semantics — it reflects either the tablet open-thread row
+ * or this row's multi-select membership, decided by the caller.
  *
  * Snippet rendering rules (see [SubtitleText]):
  * - `lastMessageSnippet == null` → em-dash.
@@ -72,19 +75,27 @@ internal fun ConvoListItem(
     item: ConvoListItemUi,
     index: Int,
     count: Int,
-    onTap: (otherUserDid: String) -> Unit,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
 ) {
+    // Long-press a11y action label — describes the gesture's effect ("enter
+    // selection"), surfaced to TalkBack via SegmentedListItem.onLongClickLabel.
+    val selectLabel = stringResource(R.string.chats_action_select)
     SegmentedListItem(
         // The single-selection overload (vs the plain onClick one): passing
         // [selected] makes the framework drive BOTH the selected container tone
         // and the accessibility semantics (`selected` + RadioButton role), so
-        // TalkBack announces the open thread as selected. A manual containerColor
-        // swap would paint the right pixels but leave the row semantically
-        // unselected.
+        // TalkBack announces an open / multi-selected row as selected. A manual
+        // containerColor swap would paint the right pixels but leave the row
+        // semantically unselected. The same overload also natively carries
+        // [onLongClick] — no combinedClickable retrofit needed for the
+        // long-press-to-select gesture.
         selected = selected,
-        onClick = { onTap(item.otherUserDid) },
+        onClick = onClick,
+        onLongClick = onLongClick,
+        onLongClickLabel = selectLabel,
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         // segmentedColors() leaves the resting containerColor transparent —
         // press / ripple is the only feedback. Force surfaceContainer so the

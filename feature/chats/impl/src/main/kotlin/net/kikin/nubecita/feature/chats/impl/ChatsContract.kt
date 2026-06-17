@@ -1,7 +1,9 @@
 package net.kikin.nubecita.feature.chats.impl
 
 import androidx.compose.runtime.Immutable
+import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
@@ -35,6 +37,13 @@ data class ChatsScreenViewState(
      * badge.
      */
     val requestCount: Int = 0,
+    /**
+     * Multi-select mode: the set of selected convoIds, or `null` when not
+     * selecting. Drives the contextual app bar (`selection != null`); the
+     * available actions are DERIVED from `selection.size` × [activeSegment] so
+     * invalid combinations are unrepresentable. Coexists with `status.Loaded`.
+     */
+    val selection: ImmutableSet<String>? = null,
 ) : UiState
 
 /** The two top-level segments of the Chats tab home. */
@@ -140,6 +149,33 @@ sealed interface ChatsEvent : UiEvent {
     data class SegmentSelected(
         val segment: ChatsSegment,
     ) : ChatsEvent
+
+    /** Long-press a row → enter selection mode with that convo selected. */
+    data class ConvoLongPressed(
+        val convoId: String,
+    ) : ChatsEvent
+
+    /** Tap a row while selecting → toggle its membership. */
+    data class SelectionToggled(
+        val convoId: String,
+    ) : ChatsEvent
+
+    /** Exit selection mode (close affordance / back). */
+    data object ClearSelection : ChatsEvent
+
+    /** Contextual-bar actions. Leave/Mute/Accept work for 1..N selected; */
+    data object LeaveSelected : ChatsEvent
+
+    data object ToggleMuteSelected : ChatsEvent
+
+    data object AcceptSelected : ChatsEvent
+
+    /** Profile/Report/Block are single-select only (the overflow hides at 2+). */
+    data object ProfileSelected : ChatsEvent
+
+    data object ReportSelected : ChatsEvent
+
+    data object BlockSelected : ChatsEvent
 }
 
 sealed interface ChatsEffect : UiEffect {
@@ -156,6 +192,21 @@ sealed interface ChatsEffect : UiEffect {
      * errors that should be transient (Loaded → refresh fails → snackbar).
      */
     data class ShowRefreshError(
+        val error: ChatsError,
+    ) : ChatsEffect
+
+    /**
+     * Push a tab-internal sub-route (Profile / Report / Block) onto MainShell's
+     * inner back stack. The VM builds the [NavKey]; the screen forwards it to its
+     * `onNavigateTo` callback (wired to `navState.add` by the entry provider),
+     * mirroring the Feed overflow pattern.
+     */
+    data class NavigateTo(
+        val key: NavKey,
+    ) : ChatsEffect
+
+    /** A contextual action (leave / mute / accept) failed at the network. */
+    data class ShowActionError(
         val error: ChatsError,
     ) : ChatsEffect
 }

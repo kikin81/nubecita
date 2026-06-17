@@ -10,17 +10,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 
 /**
  * Stateful Chats tab-home entry. Owns the [ChatsViewModel] + effect
  * collector + snackbar host. Delegates rendering to [ChatsScreenContent].
  *
  * [onNavigateToChat] is invoked when the user taps a convo row or the
- * VM emits `NavigateToChat`. The caller (the `:feature:chats:impl/di`
- * EntryProviderInstaller for nn3.1; nn3.2's entry provider when that
- * lands) is responsible for translating the DID into a real navigation
- * call (e.g. `MainShellNavState.add(Chat(did))` once the Chat NavKey
- * exists).
+ * VM emits `NavigateToChat`. [onNavigateTo] forwards a tab-internal
+ * sub-route NavKey (Profile / Report / Block from the contextual action
+ * menu) — the entry provider wires it to `navState.add(key)`, mirroring
+ * the Feed overflow pattern.
  */
 @Composable
 internal fun ChatsScreen(
@@ -29,6 +29,7 @@ internal fun ChatsScreen(
     modifier: Modifier = Modifier,
     selectedOtherUserDid: String? = null,
     onNavigateToChatSettings: () -> Unit = {},
+    onNavigateTo: (NavKey) -> Unit = {},
     viewModel: ChatsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -41,21 +42,27 @@ internal fun ChatsScreen(
     val unknownErrorMsg = stringResource(R.string.chats_error_unknown_body)
     val currentOnNavigateToChat by rememberUpdatedState(onNavigateToChat)
     val currentOnNavigateToChatSettings by rememberUpdatedState(onNavigateToChatSettings)
+    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
 
     LaunchedEffect(Unit) {
+        fun messageFor(error: ChatsError) =
+            when (error) {
+                ChatsError.Network -> networkErrorMsg
+                ChatsError.NotEnrolled -> notEnrolledErrorMsg
+                is ChatsError.Unknown -> unknownErrorMsg
+            }
         viewModel.effects.collect { effect ->
             when (effect) {
                 is ChatsEffect.NavigateToChat -> currentOnNavigateToChat(effect.otherUserDid)
                 ChatsEffect.NavigateToChatSettings -> currentOnNavigateToChatSettings()
+                is ChatsEffect.NavigateTo -> currentOnNavigateTo(effect.key)
                 is ChatsEffect.ShowRefreshError -> {
-                    val message =
-                        when (effect.error) {
-                            ChatsError.Network -> networkErrorMsg
-                            ChatsError.NotEnrolled -> notEnrolledErrorMsg
-                            is ChatsError.Unknown -> unknownErrorMsg
-                        }
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message)
+                    snackbarHostState.showSnackbar(messageFor(effect.error))
+                }
+                is ChatsEffect.ShowActionError -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(messageFor(effect.error))
                 }
             }
         }

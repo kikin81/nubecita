@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.chats.impl
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
@@ -17,19 +20,28 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -55,31 +67,65 @@ internal fun ChatsScreenContent(
     // thread is open.
     selectedOtherUserDid: String? = null,
 ) {
+    val selectionIds = state.selection
+    val inSelection = selectionIds != null
+    // Resolve the selected rows against the active segment's loaded list to
+    // derive the mute/unmute label (does the toggle mute or unmute?). Empty
+    // unless we're both selecting AND on a Loaded list.
+    val selectedConvos =
+        when {
+            selectionIds == null -> emptyList()
+            else ->
+                (state.status as? ChatsLoadStatus.Loaded)
+                    ?.items
+                    ?.filter { it.convoId in selectionIds }
+                    .orEmpty()
+        }
+    val selectionCount = selectionIds?.size ?: 0
+    // Toggle target mirrors ChatsViewModel.toggleMuteSelected: when EVERY
+    // selected convo is already muted the action unmutes; otherwise it mutes.
+    val allSelectedMuted = selectedConvos.isNotEmpty() && selectedConvos.all { it.muted }
+
+    // A back press exits selection mode before it falls through to the inner
+    // NavDisplay's back handling. Disabled (transparent) when not selecting.
+    BackHandler(enabled = inSelection) { onEvent(ChatsEvent.ClearSelection) }
+
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.chats_title)) },
-                actions = {
-                    IconButton(onClick = { onEvent(ChatsEvent.SettingsTapped) }) {
-                        NubecitaIcon(
-                            name = NubecitaIconName.Settings,
-                            contentDescription = stringResource(R.string.chat_settings_gear_content_description),
-                        )
-                    }
-                },
-            )
+            if (inSelection) {
+                ChatsSelectionBar(
+                    count = selectionCount,
+                    segment = state.activeSegment,
+                    allSelectedMuted = allSelectedMuted,
+                    onEvent = onEvent,
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.chats_title)) },
+                    actions = {
+                        IconButton(onClick = { onEvent(ChatsEvent.SettingsTapped) }) {
+                            NubecitaIcon(
+                                name = NubecitaIconName.Settings,
+                                contentDescription = stringResource(R.string.chat_settings_gear_content_description),
+                            )
+                        }
+                    },
+                )
+            }
         },
         floatingActionButton = {
-            // A non-DM-enrolled account can't start a chat, so don't offer "new chat" —
-            // it would dead-end on the same not-enrolled screen. ChatsErrorMapping stays
-            // the authoritative post-tap backstop for recipients we can't message.
+            // Hidden while selecting — the contextual bar owns the screen's
+            // actions then. Otherwise: a non-DM-enrolled account can't start a
+            // chat, so don't offer "new chat" — it would dead-end on the same
+            // not-enrolled screen. ChatsErrorMapping stays the authoritative
+            // post-tap backstop for recipients we can't message.
             val status = state.status
             val notEnrolled =
                 status is ChatsLoadStatus.InitialError && status.error == ChatsError.NotEnrolled
-            if (!notEnrolled) {
+            if (!inSelection && !notEnrolled) {
                 FloatingActionButton(onClick = onNewChat) {
                     NubecitaIcon(
                         name = NubecitaIconName.Edit,
@@ -91,12 +137,17 @@ internal fun ChatsScreenContent(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ChatsSegmentTabs(
-                activeSegment = state.activeSegment,
-                requestCount = state.requestCount,
-                onSelect = { segment -> onEvent(ChatsEvent.SegmentSelected(segment)) },
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
+            // Hidden while selecting: switching segments would change the action
+            // set + the underlying list out from under the selection (the VM
+            // clears selection on a segment change anyway).
+            if (!inSelection) {
+                ChatsSegmentTabs(
+                    activeSegment = state.activeSegment,
+                    requestCount = state.requestCount,
+                    onSelect = { segment -> onEvent(ChatsEvent.SegmentSelected(segment)) },
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            }
             // weight(1f), not fillMaxSize(): the segment row above already took its
             // height, so the body fills the REMAINING column space (fillMaxSize here
             // would demand full height and clip the bottom).
@@ -118,7 +169,8 @@ internal fun ChatsScreenContent(
                             } else {
                                 LoadedBody(
                                     items = status.items,
-                                    onTap = { did -> onEvent(ChatsEvent.ConvoTapped(did)) },
+                                    selection = selectionIds,
+                                    onEvent = onEvent,
                                     selectedOtherUserDid = selectedOtherUserDid,
                                 )
                             }
@@ -127,6 +179,131 @@ internal fun ChatsScreenContent(
                         ErrorBody(error = status.error, segment = state.activeSegment, onRetry = { onEvent(ChatsEvent.RetryClicked) })
                 }
             }
+        }
+    }
+}
+
+/**
+ * Contextual app bar shown in place of the normal toolbar while multi-select
+ * is active (Google-Messages CAB pattern). The close affordance exits
+ * selection; the title shows the count. Inline actions are bulk-capable
+ * (Accept on Requests, Mute/Unmute on Chats, Leave on both); the single-only
+ * actions (Profile / Report / Block) live behind the overflow and appear only
+ * at exactly one selection — the VM's `navigateSingle` no-ops past one anyway,
+ * but hiding them keeps the affordance honest.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatsSelectionBar(
+    count: Int,
+    segment: ChatsSegment,
+    allSelectedMuted: Boolean,
+    onEvent: (ChatsEvent) -> Unit,
+) {
+    TopAppBar(
+        navigationIcon = {
+            IconButton(onClick = { onEvent(ChatsEvent.ClearSelection) }) {
+                NubecitaIcon(
+                    name = NubecitaIconName.Close,
+                    contentDescription = stringResource(R.string.chats_selection_close),
+                )
+            }
+        },
+        title = { Text(pluralStringResource(R.plurals.chats_selection_count, count, count)) },
+        actions = {
+            if (segment == ChatsSegment.Requests) {
+                // Accepting a request moves it into the accepted Chats list.
+                SelectionAction(
+                    label = stringResource(R.string.chats_action_accept),
+                    icon = NubecitaIconName.Check,
+                    onClick = { onEvent(ChatsEvent.AcceptSelected) },
+                )
+            } else {
+                val muteLabel =
+                    stringResource(
+                        if (allSelectedMuted) R.string.chats_action_unmute else R.string.chats_action_mute,
+                    )
+                SelectionAction(
+                    label = muteLabel,
+                    icon = if (allSelectedMuted) NubecitaIconName.Notifications else NubecitaIconName.NotificationsOff,
+                    onClick = { onEvent(ChatsEvent.ToggleMuteSelected) },
+                )
+            }
+            // Leave is bulk-capable in both segments (delete chat / decline request).
+            SelectionAction(
+                label = stringResource(R.string.chats_action_leave),
+                icon = NubecitaIconName.Logout,
+                onClick = { onEvent(ChatsEvent.LeaveSelected) },
+            )
+            if (count == 1) {
+                SelectionOverflowMenu(onEvent = onEvent)
+            }
+        },
+    )
+}
+
+/**
+ * An icon-button toolbar action with a hover/long-press [PlainTooltip] (the
+ * icons are unlabeled, so the tooltip + matching `contentDescription` carry
+ * the action name for both sighted long-press and TalkBack).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectionAction(
+    label: String,
+    icon: NubecitaIconName,
+    onClick: () -> Unit,
+) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        IconButton(onClick = onClick) {
+            NubecitaIcon(name = icon, contentDescription = label)
+        }
+    }
+}
+
+/**
+ * Overflow (⋮) for the single-select-only actions. Owns its `expanded`
+ * state; each item closes the menu before dispatching its event.
+ */
+@Composable
+private fun SelectionOverflowMenu(onEvent: (ChatsEvent) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            NubecitaIcon(
+                name = NubecitaIconName.MoreVert,
+                contentDescription = stringResource(R.string.chats_action_more),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chats_action_profile)) },
+                leadingIcon = { NubecitaIcon(name = NubecitaIconName.Person, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onEvent(ChatsEvent.ProfileSelected)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chats_action_report)) },
+                leadingIcon = { NubecitaIcon(name = NubecitaIconName.Flag, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onEvent(ChatsEvent.ReportSelected)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chats_action_block)) },
+                leadingIcon = { NubecitaIcon(name = NubecitaIconName.Block, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onEvent(ChatsEvent.BlockSelected)
+                },
+            )
         }
     }
 }
@@ -216,7 +393,8 @@ private fun EmptyBody(segment: ChatsSegment) {
 @Composable
 private fun LoadedBody(
     items: kotlinx.collections.immutable.ImmutableList<ConvoListItemUi>,
-    onTap: (otherUserDid: String) -> Unit,
+    selection: ImmutableSet<String>?,
+    onEvent: (ChatsEvent) -> Unit,
     selectedOtherUserDid: String?,
 ) {
     // Arrangement.spacedBy(ListItemDefaults.SegmentedGap) — the framework's
@@ -240,12 +418,29 @@ private fun LoadedBody(
             key = { _, item -> item.convoId },
             contentType = { _, _ -> "convo-row" },
         ) { index, item ->
+            val inSelection = selection != null
+            // In selection mode a tap toggles membership; otherwise it opens the
+            // thread. Long-press always enters/extends selection.
             ConvoListItem(
                 item = item,
                 index = index,
                 count = items.size,
-                onTap = onTap,
-                selected = item.otherUserDid == selectedOtherUserDid,
+                onClick = {
+                    if (inSelection) {
+                        onEvent(ChatsEvent.SelectionToggled(item.convoId))
+                    } else {
+                        onEvent(ChatsEvent.ConvoTapped(item.otherUserDid))
+                    }
+                },
+                onLongClick = { onEvent(ChatsEvent.ConvoLongPressed(item.convoId)) },
+                // Highlight by membership while selecting; otherwise reflect the
+                // tablet list-detail open thread.
+                selected =
+                    if (inSelection) {
+                        selection.contains(item.convoId)
+                    } else {
+                        item.otherUserDid == selectedOtherUserDid
+                    },
             )
         }
     }

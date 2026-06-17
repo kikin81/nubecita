@@ -66,6 +66,28 @@ internal class FakeChatRepository(
 
     override suspend fun refreshRequestConvos(): Result<Unit> = Result.success(Unit)
 
+    val leaveCalls = AtomicInteger(0)
+    val acceptCalls = AtomicInteger(0)
+    val setMutedCalls = AtomicInteger(0)
+
+    override suspend fun leaveConvo(convoId: String): Result<Unit> {
+        leaveCalls.incrementAndGet()
+        return Result.success(Unit)
+    }
+
+    override suspend fun acceptConvo(convoId: String): Result<Unit> {
+        acceptCalls.incrementAndGet()
+        return Result.success(Unit)
+    }
+
+    override suspend fun setMuted(
+        convoId: String,
+        muted: Boolean,
+    ): Result<Unit> {
+        setMutedCalls.incrementAndGet()
+        return Result.success(Unit)
+    }
+
     /** Drive the request cache directly (simulating an external update). */
     fun emitRequestConvos(items: ImmutableList<ConvoListItemUi>?) {
         requestConvos.value = items

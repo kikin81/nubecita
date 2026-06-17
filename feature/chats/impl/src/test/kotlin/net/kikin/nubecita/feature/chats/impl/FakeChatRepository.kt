@@ -10,6 +10,9 @@ import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
+import net.kikin.nubecita.feature.chats.impl.data.patchConvosOnAccept
+import net.kikin.nubecita.feature.chats.impl.data.patchConvosOnLeave
+import net.kikin.nubecita.feature.chats.impl.data.patchConvosOnMute
 import net.kikin.nubecita.feature.chats.impl.data.patchConvosOnRead
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Instant
@@ -74,6 +77,41 @@ internal class FakeChatRepository(
     override suspend fun refreshRequestConvos(): Result<Unit> {
         refreshRequestCalls.incrementAndGet()
         return nextRequestRefreshResult.map { items -> requestConvos.value = items }
+    }
+
+    val leaveCalls = mutableListOf<String>()
+    val acceptCalls = mutableListOf<String>()
+    val setMutedCalls = mutableListOf<Pair<String, Boolean>>()
+    var nextLeaveResult: Result<Unit> = Result.success(Unit)
+    var nextAcceptResult: Result<Unit> = Result.success(Unit)
+    var nextSetMutedResult: Result<Unit> = Result.success(Unit)
+
+    override suspend fun leaveConvo(convoId: String): Result<Unit> {
+        leaveCalls += convoId
+        return nextLeaveResult.onSuccess {
+            convos.value = patchConvosOnLeave(convos.value, convoId)
+            requestConvos.value = patchConvosOnLeave(requestConvos.value, convoId)
+        }
+    }
+
+    override suspend fun acceptConvo(convoId: String): Result<Unit> {
+        acceptCalls += convoId
+        return nextAcceptResult.onSuccess {
+            val (accepted, requests) = patchConvosOnAccept(convos.value, requestConvos.value, convoId)
+            convos.value = accepted
+            requestConvos.value = requests
+        }
+    }
+
+    override suspend fun setMuted(
+        convoId: String,
+        muted: Boolean,
+    ): Result<Unit> {
+        setMutedCalls += convoId to muted
+        return nextSetMutedResult.onSuccess {
+            convos.value = patchConvosOnMute(convos.value, convoId, muted)
+            requestConvos.value = patchConvosOnMute(requestConvos.value, convoId, muted)
+        }
     }
 
     /** Drive the cache directly (simulating a [sendMessage] patch or an external update). */

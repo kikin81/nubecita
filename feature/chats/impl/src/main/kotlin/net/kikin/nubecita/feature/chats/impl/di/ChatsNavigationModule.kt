@@ -71,6 +71,12 @@ internal object ChatsNavigationModule {
                     onNewChat = { navState.add(NewChat) },
                     selectedOtherUserDid = selectedDid,
                     onNavigateToChatSettings = { navState.add(ChatSettings) },
+                    // Contextual-action sub-routes (Profile / Report / Block) —
+                    // a plain push onto the inner back stack. Profile is a tab
+                    // sub-route; Report / Block carry adaptiveDialog() metadata
+                    // from :feature:moderation, so they render full-screen on
+                    // Compact and as a centered Dialog on Medium / Expanded.
+                    onNavigateTo = { key -> navState.add(key) },
                 )
             }
             entry<NewChat> {

@@ -6,7 +6,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.feature.moderation.api.Block
+import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.profile.api.Profile
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -280,6 +284,229 @@ internal class ChatsViewModelTest {
                 expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+
+    // ---- Multi-select contextual actions (kc17.3) ----
+
+    @Test
+    fun `ConvoLongPressed enters selection mode with that convo`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"), sampleItem("c2"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            advanceUntilIdle()
+            assertEquals(setOf("c1"), vm.uiState.value.selection)
+        }
+
+    @Test
+    fun `ConvoLongPressed while already selecting extends the selection`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"), sampleItem("c2"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            // A second long-press adds, rather than resetting to just that row.
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c2"))
+            advanceUntilIdle()
+            assertEquals(setOf("c1", "c2"), vm.uiState.value.selection)
+        }
+
+    @Test
+    fun `SelectionToggled adds then removes, and emptying exits selection`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"), sampleItem("c2"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.handleEvent(ChatsEvent.SelectionToggled("c2"))
+            advanceUntilIdle()
+            assertEquals(setOf("c1", "c2"), vm.uiState.value.selection)
+            vm.handleEvent(ChatsEvent.SelectionToggled("c1"))
+            advanceUntilIdle()
+            assertEquals(setOf("c2"), vm.uiState.value.selection)
+            // Toggling the last selected convo off drops out of selection mode.
+            vm.handleEvent(ChatsEvent.SelectionToggled("c2"))
+            advanceUntilIdle()
+            assertNull(vm.uiState.value.selection)
+        }
+
+    @Test
+    fun `ClearSelection exits selection mode`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.handleEvent(ChatsEvent.ClearSelection)
+            advanceUntilIdle()
+            assertNull(vm.uiState.value.selection)
+        }
+
+    @Test
+    fun `SegmentSelected clears any in-progress selection`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+            assertNull(vm.uiState.value.selection)
+        }
+
+    @Test
+    fun `LeaveSelected leaves every selected convo then exits selection`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"), sampleItem("c2"), sampleItem("c3"))),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.handleEvent(ChatsEvent.SelectionToggled("c2"))
+            vm.handleEvent(ChatsEvent.LeaveSelected)
+            advanceUntilIdle()
+            assertEquals(setOf("c1", "c2"), repo.leaveCalls.toSet())
+            assertNull(vm.uiState.value.selection)
+        }
+
+    @Test
+    fun `LeaveSelected surfaces the first failure as ShowActionError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))))
+            repo.nextLeaveResult = Result.failure(IOException("leave down"))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.effects.test {
+                vm.handleEvent(ChatsEvent.LeaveSelected)
+                advanceUntilIdle()
+                val effect = awaitItem()
+                assertTrue(effect is ChatsEffect.ShowActionError)
+                assertEquals(ChatsError.Network, (effect as ChatsEffect.ShowActionError).error)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `AcceptSelected accepts every selected request`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))),
+                    nextRequestRefreshResult = Result.success(persistentListOf(sampleItem("r1"), sampleItem("r2"))),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("r1"))
+            vm.handleEvent(ChatsEvent.SelectionToggled("r2"))
+            vm.handleEvent(ChatsEvent.AcceptSelected)
+            advanceUntilIdle()
+            assertEquals(setOf("r1", "r2"), repo.acceptCalls.toSet())
+            assertNull(vm.uiState.value.selection)
+        }
+
+    @Test
+    fun `ToggleMuteSelected mutes when any selected convo is unmuted`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult =
+                        Result.success(
+                            persistentListOf(sampleItem("c1").copy(muted = true), sampleItem("c2").copy(muted = false)),
+                        ),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.handleEvent(ChatsEvent.SelectionToggled("c2"))
+            vm.handleEvent(ChatsEvent.ToggleMuteSelected)
+            advanceUntilIdle()
+            // c2 is unmuted, so the toggle target is "mute all".
+            assertEquals(setOf("c1" to true, "c2" to true), repo.setMutedCalls.toSet())
+        }
+
+    @Test
+    fun `ToggleMuteSelected unmutes when every selected convo is muted`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1").copy(muted = true))),
+                )
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.handleEvent(ChatsEvent.ToggleMuteSelected)
+            advanceUntilIdle()
+            assertEquals(listOf("c1" to false), repo.setMutedCalls)
+        }
+
+    @Test
+    fun `ProfileSelected at a single selection navigates to that profile`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.effects.test {
+                vm.handleEvent(ChatsEvent.ProfileSelected)
+                assertEquals(ChatsEffect.NavigateTo(Profile(handle = "alice.bsky.social")), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            // navigateSingle exits selection after dispatching.
+            assertNull(vm.uiState.value.selection)
+        }
+
+    @Test
+    fun `ReportSelected navigates to Report for the account DID`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.effects.test {
+                vm.handleEvent(ChatsEvent.ReportSelected)
+                assertEquals(ChatsEffect.NavigateTo(Report.forAccount("did:plc:alice")), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `BlockSelected navigates to Block for the account DID + handle`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.effects.test {
+                vm.handleEvent(ChatsEvent.BlockSelected)
+                assertEquals(
+                    ChatsEffect.NavigateTo(Block.forAccount(did = "did:plc:alice", handle = "alice.bsky.social")),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a single-target action no-ops while multiple are selected`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository(nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"), sampleItem("c2"))))
+            val vm = ChatsViewModel(repository = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("c1"))
+            vm.handleEvent(ChatsEvent.SelectionToggled("c2"))
+            vm.effects.test {
+                vm.handleEvent(ChatsEvent.ProfileSelected)
+                advanceUntilIdle()
+                // navigateSingle requires exactly one selection — no effect, selection intact.
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(setOf("c1", "c2"), vm.uiState.value.selection)
         }
 
     private fun sampleItem(convoId: String): ConvoListItemUi =
