@@ -4,6 +4,7 @@ import android.util.Log
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -45,6 +46,26 @@ class CrashlyticsTreeTest {
         assertEquals("no cause here", recorded.message)
         // No tag → message forwarded verbatim as the breadcrumb.
         assertEquals("no cause here", reporter.logged.single())
+    }
+
+    @Test
+    fun `synthetic exception strips timber and tree frames so it groups by call site`() {
+        val reporter = RecordingReporter()
+        val tree = CrashlyticsTree(reporter)
+
+        tree.log(priority = Log.ERROR, tag = null, message = "boom", t = null)
+
+        // The top frame must be the caller (this test), not the tree/Timber —
+        // otherwise Crashlytics would cluster every message-only error into one issue.
+        val top =
+            reporter.recorded
+                .single()
+                .stackTrace
+                .first()
+                .className
+        assertFalse(top.startsWith("timber."), "Timber frames should be stripped, got $top")
+        assertNotEquals("net.kikin.nubecita.logging.CrashlyticsTree", top, "tree frame should be stripped")
+        assertTrue(top.startsWith("net.kikin.nubecita.logging.CrashlyticsTreeTest"))
     }
 
     private class RecordingReporter : CrashReporter {

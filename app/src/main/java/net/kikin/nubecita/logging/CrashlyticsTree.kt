@@ -50,7 +50,30 @@ internal class CrashlyticsTree(
     /** Synthetic throwable for message-only error logs (no real cause). */
     private class LoggedError(
         message: String,
-    ) : Exception(message)
+    ) : Exception(message) {
+        init {
+            // This exception is constructed inside the tree, so its top stack
+            // frames are always Timber + CrashlyticsTree. Crashlytics groups
+            // non-fatals by the top frames, so without stripping them every
+            // message-only Timber.e(...) in the app would cluster into ONE issue.
+            // Drop the framework frames so grouping falls on the real call site.
+            val trace = stackTrace
+            val firstCaller =
+                trace.indexOfFirst { frame ->
+                    val cn = frame.className
+                    !cn.startsWith("timber.") &&
+                        cn != TREE_CLASS &&
+                        !cn.startsWith("$TREE_CLASS\$")
+                }
+            if (firstCaller > 0) {
+                stackTrace = trace.copyOfRange(firstCaller, trace.size)
+            }
+        }
+
+        private companion object {
+            const val TREE_CLASS = "net.kikin.nubecita.logging.CrashlyticsTree"
+        }
+    }
 }
 
 /**
