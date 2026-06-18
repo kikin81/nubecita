@@ -37,7 +37,7 @@ internal class DefaultPostRepository
                     // PII) and the throwable's javaClass.name so the consumer's
                     // Unknown-error branch doesn't swallow which exception type
                     // we hit.
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "getPost(rkey=%s) failed: %s",
                         uri.substringAfterLast('/'),

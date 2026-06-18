@@ -60,7 +60,7 @@ class PostAudienceDefaultCoordinator
                                 } catch (cancellation: CancellationException) {
                                     throw cancellation
                                 } catch (throwable: Throwable) {
-                                    Timber.tag(TAG).e(
+                                    Timber.tag(TAG).w(
                                         throwable,
                                         "post-audience default refresh failed: %s",
                                         throwable.javaClass.name,

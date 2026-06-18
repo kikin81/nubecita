@@ -53,7 +53,7 @@ internal class DefaultActorProfileRepository
                     // identity — matches the redaction discipline applied to
                     // DIDs in `:core:auth/DefaultXrpcClientProvider` and
                     // `:feature:profile:impl/DefaultProfileRepository`.
-                    Timber.tag(TAG).e(throwable, "fetchProfile failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "fetchProfile failed: %s", throwable.javaClass.name)
                 }
             }
 

@@ -74,7 +74,7 @@ internal class DefaultLikeRepostRepository
                     // guessing whether a "create-record failed" effect came
                     // from a network blip, an auth refresh failure, or a
                     // server-side validation error.
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "createRecord(%s) failed: %s",
                         collection,
@@ -106,7 +106,7 @@ internal class DefaultLikeRepostRepository
                     // crash reporter. The throwable's stack carries the
                     // underlying server / network cause; collection is enough
                     // to disambiguate which path failed.
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "deleteRecord(%s) failed: %s",
                         collection,

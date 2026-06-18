@@ -61,7 +61,7 @@ internal class DefaultSubjectPreviewResolver
                         snippet = GraphemeText.truncate(rawText, max = SNIPPET_GRAPHEMES),
                     )
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "resolvePost failed: %s",
                         throwable.javaClass.name,
@@ -82,7 +82,7 @@ internal class DefaultSubjectPreviewResolver
                         displayName = response.displayName,
                     )
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "resolveAccount failed: %s",
                         throwable.javaClass.name,

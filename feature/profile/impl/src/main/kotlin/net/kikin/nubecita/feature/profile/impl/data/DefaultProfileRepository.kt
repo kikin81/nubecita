@@ -85,7 +85,7 @@ internal class DefaultProfileRepository
                     // `actor` is a raw DID or handle (PII). Log only the
                     // error identity — matches the redaction discipline
                     // applied to DIDs in `:core:auth/DefaultXrpcClientProvider`.
-                    Timber.tag(TAG).e(throwable, "fetchHeader failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "fetchHeader failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -114,7 +114,7 @@ internal class DefaultProfileRepository
                     // `actor` is a raw DID or handle (PII); `cursor` is
                     // opaque appview state, also withheld. `tab` is a
                     // closed enum — safe to include for triage.
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "fetchTab(tab=%s) failed: %s",
                         tab,
@@ -145,7 +145,7 @@ internal class DefaultProfileRepository
                 }.onFailure { throwable ->
                     // `subjectDid` is PII (the followed account's DID); withhold
                     // it from the log, same policy as DefaultLikeRepostRepository.
-                    Timber.tag(TAG).e(throwable, "follow failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "follow failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -166,7 +166,7 @@ internal class DefaultProfileRepository
                     // `followUri` carries the viewer's DID — keep it out of the
                     // log surface for the same reason DefaultLikeRepostRepository
                     // redacts its delete URIs.
-                    Timber.tag(TAG).e(throwable, "unfollow failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "unfollow failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -237,7 +237,7 @@ internal class DefaultProfileRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "updateProfile failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "updateProfile failed: %s", throwable.javaClass.name)
                     Result.failure(mapToProfileUpdateError(throwable))
                 }
             }

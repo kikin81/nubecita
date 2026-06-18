@@ -102,7 +102,7 @@ class FeedNetworkSource
                     // throwable's concrete class so cold-start failures are
                     // attributable. javaClass.name (not qualifiedName) so
                     // anonymous/local classes still produce a non-null id.
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "%s(cursor=%s) failed: %s",
                         operation,

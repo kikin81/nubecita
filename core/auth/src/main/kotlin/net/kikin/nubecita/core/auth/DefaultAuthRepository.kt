@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.auth
 
 import io.github.kikin81.atproto.oauth.AtOAuth
+import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.core.common.session.SessionClearable
 import timber.log.Timber
 import javax.inject.Inject
@@ -14,18 +15,26 @@ internal class DefaultAuthRepository
     ) : AuthRepository {
         override suspend fun beginLogin(handle: String): Result<String> =
             runCatching { atOAuth.beginLogin(handle) }
-                .onFailure { Timber.tag(TAG).e(it, "beginLogin('%s') failed", handle) }
+                .onFailure {
+                    // runCatching on a suspend fn also catches CancellationException —
+                    // rethrow so structured cancellation isn't swallowed into a Result.
+                    if (it is CancellationException) throw it
+                    // The handle is user-provided PII; log only the throwable identity,
+                    // matching the redaction discipline in the profile/actor repos.
+                    Timber.tag(TAG).w(it, "beginLogin failed")
+                }
 
         override suspend fun completeLogin(redirectUri: String): Result<Unit> =
             runCatching {
                 atOAuth.completeLogin(redirectUri)
                 sessionStateProvider.refresh()
             }.onFailure {
+                if (it is CancellationException) throw it
                 // Strip the query string before logging — the redirect URI
                 // carries the one-time-use OAuth `code` and the CSRF `state`
                 // value, neither of which belong in any log surface (logcat
                 // today, hypothetical future remote crash reporter tomorrow).
-                Timber.tag(TAG).e(it, "completeLogin('%s') failed", redirectUri.substringBefore('?'))
+                Timber.tag(TAG).w(it, "completeLogin('%s') failed", redirectUri.substringBefore('?'))
             }
 
         override suspend fun signOut(): Result<Unit> =
@@ -37,7 +46,10 @@ internal class DefaultAuthRepository
                 sessionClearables.forEach { it.clearSession() }
                 atOAuth.logout()
                 sessionStateProvider.refresh()
-            }.onFailure { Timber.tag(TAG).e(it, "signOut() failed") }
+            }.onFailure {
+                if (it is CancellationException) throw it
+                Timber.tag(TAG).w(it, "signOut() failed")
+            }
 
         private companion object {
             // Logcat tag stays under 23 chars (Android Log API ceiling) so it shows up

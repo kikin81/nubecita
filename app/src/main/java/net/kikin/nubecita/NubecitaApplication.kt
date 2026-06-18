@@ -11,6 +11,7 @@ import dagger.hilt.android.HiltAndroidApp
 import net.kikin.nubecita.bootstrap.AppInitializer
 import net.kikin.nubecita.core.push.NotificationChannelInstaller
 import net.kikin.nubecita.firebase.appCheckFactory
+import net.kikin.nubecita.logging.CrashlyticsTree
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -62,12 +63,16 @@ class NubecitaApplication :
         // — keeps DebugAppCheckProviderFactory off the release classpath.
         FirebaseAppCheck.getInstance().installAppCheckProviderFactory(appCheckFactory())
 
-        // Plant a DebugTree in debug builds only — release builds get no tree, so
-        // every Timber.* call short-circuits to a no-op without a per-call BuildConfig
-        // check at the use site. Crash-reporter trees (Crashlytics, Sentry) plug in
-        // here when added.
-        if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
+        // Logging trees by build:
+        //  - debug            → DebugTree (logcat only).
+        //  - productionRelease → CrashlyticsTree: Timber.e/wtf become Crashlytics
+        //                        non-fatals (Timber.w stays a no-op breadcrumb-free
+        //                        signal — see CrashlyticsTree's convention).
+        //  - bench release     → no tree, so every Timber.* short-circuits and the
+        //                        Macrobench APK stays silent.
+        when {
+            BuildConfig.DEBUG -> Timber.plant(Timber.DebugTree())
+            BuildConfig.FLAVOR == "production" -> Timber.plant(CrashlyticsTree())
         }
 
         // Push-related startup wiring — channel installation is direct

@@ -58,7 +58,9 @@ class LoginViewModel
                             )
                         }.onFailure { failure ->
                             val handle = uiState.value.handle.trim()
-                            setState { copy(isLoading = false, errorMessage = failure.toLoginError(handle)) }
+                            val error = failure.toLoginError(handle)
+                            logLoginFailure(stage = "complete", error = error, cause = failure)
+                            setState { copy(isLoading = false, errorMessage = error) }
                         }
                 }
             }
@@ -102,7 +104,7 @@ class LoginViewModel
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (failure: Throwable) {
-                Timber.tag(TAG).e(failure, "POST_NOTIFICATIONS prompt gate threw; skipping prompt this login")
+                Timber.tag(TAG).w(failure, "POST_NOTIFICATIONS prompt gate threw; skipping prompt this login")
                 false
             }
 
@@ -120,8 +122,30 @@ class LoginViewModel
                         setState { copy(isLoading = false) }
                         sendEffect(LoginEffect.LaunchCustomTab(url))
                     }.onFailure { failure ->
-                        setState { copy(isLoading = false, errorMessage = failure.toLoginError(handle)) }
+                        val error = failure.toLoginError(handle)
+                        logLoginFailure(stage = "begin", error = error, cause = failure)
+                        setState { copy(isLoading = false, errorMessage = error) }
                     }
+            }
+        }
+
+        /**
+         * Route a login failure to the right log level so non-fatals stay
+         * high-signal: [LoginError.Network] (offline) and
+         * [LoginError.HandleNotFound] (typo) are expected → `w` (not reported
+         * to Crashlytics). Only the unclassified [LoginError.Generic] is a
+         * genuinely-unexpected failure worth a non-fatal → `e`. The error's
+         * class name is logged, never the handle (PII).
+         */
+        private fun logLoginFailure(
+            stage: String,
+            error: LoginError,
+            cause: Throwable,
+        ) {
+            if (error is LoginError.Generic) {
+                Timber.tag(TAG).e(cause, "login failed (unexpected, stage=%s)", stage)
+            } else {
+                Timber.tag(TAG).w("login failed (stage=%s, error=%s)", stage, error::class.simpleName)
             }
         }
 

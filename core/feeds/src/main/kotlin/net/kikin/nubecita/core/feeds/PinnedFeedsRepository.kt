@@ -90,7 +90,7 @@ internal class DefaultPinnedFeedsRepository
                         // Non-fatal: getPreferences failed (offline, auth
                         // refresh, etc.). Fall back to the local defaults but
                         // tell the caller so it can surface a soft error.
-                        Timber.tag(TAG).e(throwable, "getPreferences failed: %s", throwable.javaClass.name)
+                        Timber.tag(TAG).w(throwable, "getPreferences failed: %s", throwable.javaClass.name)
                         return@withContext fallbackResult(error = throwable)
                     }
 
@@ -130,7 +130,7 @@ internal class DefaultPinnedFeedsRepository
                         } catch (throwable: Throwable) {
                             // Non-fatal: drop the un-hydratable generators but
                             // keep Following/List chips so the Feed still works.
-                            Timber.tag(TAG).e(
+                            Timber.tag(TAG).w(
                                 throwable,
                                 "getFeedGenerators failed: %s",
                                 throwable.javaClass.name,

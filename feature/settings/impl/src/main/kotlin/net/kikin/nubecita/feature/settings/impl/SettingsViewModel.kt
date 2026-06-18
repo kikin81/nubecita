@@ -135,7 +135,7 @@ internal class SettingsViewModel
                             // etc). Don't crash the screen — the state mirror
                             // reverts on the next emission; a failed toggle is
                             // a no-op the user can retry.
-                            Timber.tag(TAG).e(error, "Failed to persist message-checking toggle")
+                            Timber.tag(TAG).w(error, "Failed to persist message-checking toggle")
                         }
                     }
                 SettingsEvent.ProUpsellTapped ->

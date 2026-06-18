@@ -104,7 +104,7 @@ internal abstract class FeedWidget : GlanceAppWidget() {
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
-                Timber.tag(TAG).e(throwable, "widget session refresh failed")
+                Timber.tag(TAG).w(throwable, "widget session refresh failed")
                 return@withContext FeedWidgetUiState.SignedOut
             }
             val did =

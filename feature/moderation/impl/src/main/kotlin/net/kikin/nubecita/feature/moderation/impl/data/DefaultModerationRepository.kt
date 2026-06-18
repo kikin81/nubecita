@@ -26,9 +26,11 @@ import javax.inject.Inject
  * dependencies.
  *
  * Failure handling mirrors [DefaultLikeRepostRepository] —
- * `runCatching { ... }.onFailure { Timber.e(...) }` preserves the
+ * `runCatching { ... }.onFailure { Timber.w(...) }` preserves the
  * underlying throwable for the caller's `Result.exceptionOrNull()` while
- * surfacing the failure class in logs for observability.
+ * surfacing the failure class in logs for observability. These are
+ * expected network failures (offline/server), logged at `w` so they don't
+ * become Crashlytics non-fatals (see `CrashlyticsTree`).
  */
 internal class DefaultModerationRepository
     @Inject
@@ -84,7 +86,7 @@ internal class DefaultModerationRepository
                     ModerationService(client).createReport(request)
                     Unit
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "createReport(%s) failed: %s",
                         subjectLabel,

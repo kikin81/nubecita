@@ -66,7 +66,7 @@ internal class DefaultQuotePostFetcher
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "fetchQuote() failed")
+                    Timber.tag(TAG).w(throwable, "fetchQuote() failed")
                     Result.failure(mapToComposerError(throwable))
                 }
             }

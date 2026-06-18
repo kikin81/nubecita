@@ -253,7 +253,7 @@ internal class DefaultPostingRepository
                     Timber.tag(TAG).d("createPost() — cancelled, re-throwing")
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "createPost() — failed in submit pipeline")
+                    Timber.tag(TAG).w(throwable, "createPost() — failed in submit pipeline")
                     Result.failure(mapToComposerError(throwable))
                 }
             }
@@ -350,7 +350,7 @@ internal class DefaultPostingRepository
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
-                Timber.tag(TAG).e(
+                Timber.tag(TAG).w(
                     "createPost() — %s write failed (post still created): %s",
                     name,
                     throwable.javaClass.name,
@@ -412,7 +412,7 @@ internal class DefaultPostingRepository
         } catch (t: Throwable) {
             // Wrap with the attachment index so the UI can highlight
             // which row failed.
-            Timber.tag(TAG).e(t, "uploadOne(#%d) — threw; wrapping as ComposerError.UploadFailed", index)
+            Timber.tag(TAG).w(t, "uploadOne(#%d) — threw; wrapping as ComposerError.UploadFailed", index)
             throw ComposerError.UploadFailed(attachmentIndex = index, cause = t)
         }
 

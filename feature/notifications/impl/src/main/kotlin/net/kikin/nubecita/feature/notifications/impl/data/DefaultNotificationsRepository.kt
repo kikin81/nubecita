@@ -118,7 +118,7 @@ internal class DefaultNotificationsRepository
             // javaClass.name (not ::class.qualifiedName) so anonymous / local
             // classes still produce a non-null identifier — mirrors
             // DefaultFeedRepository's diagnostic pattern.
-            Timber.tag(TAG).e(
+            Timber.tag(TAG).w(
                 throwable,
                 "%s failed: %s",
                 operation,

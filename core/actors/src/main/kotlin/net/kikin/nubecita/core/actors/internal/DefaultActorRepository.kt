@@ -93,7 +93,7 @@ internal class DefaultActorRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
-                    Timber.tag(TAG).e(t, "searchActors(q=%s, cursor=%s) failed: %s", query, cursor, t.javaClass.name)
+                    Timber.tag(TAG).w(t, "searchActors(q=%s, cursor=%s) failed: %s", query, cursor, t.javaClass.name)
                     Result.failure(t)
                 }
             }

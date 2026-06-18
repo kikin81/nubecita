@@ -83,7 +83,7 @@ internal class DefaultSearchFeedsRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         t,
                         "getPopularFeedGenerators(q=%s, cursor=%s) failed: %s",
                         query,
