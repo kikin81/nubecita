@@ -172,7 +172,9 @@ class SearchViewModelTest {
             vm.handleEvent(SearchEvent.RecentChipTapped("compose"))
             runCurrent()
 
-            assertEquals(SearchPhase.Results("compose"), vm.uiState.value.phase)
+            // A recent-chip tap flags the query as from-recent (threaded to
+            // search_perform's from_recent).
+            assertEquals(SearchPhase.Results("compose", fromRecent = true), vm.uiState.value.phase)
         }
 
     @Test

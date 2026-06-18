@@ -9,6 +9,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.analytics.SearchPerform
+import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsPage
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
@@ -37,6 +39,7 @@ import java.io.IOException
 class SearchPostsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val repo = FakeSearchPostsRepository()
+    private val analytics = RecordingAnalyticsClient()
 
     @BeforeEach
     fun setUp() {
@@ -51,7 +54,7 @@ class SearchPostsViewModelTest {
     @Test
     fun setQuery_blank_stateStaysIdle() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             runCurrent()
 
             assertEquals(SearchPostsLoadStatus.Idle, vm.uiState.value.loadStatus)
@@ -60,9 +63,32 @@ class SearchPostsViewModelTest {
         }
 
     @Test
+    fun search_logsSearchPerform_scopeTracksSort() =
+        runTest {
+            val vm = SearchPostsViewModel(repo, analytics)
+            repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP, items = emptyList(), nextCursor = null)
+            repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.LATEST, items = emptyList(), nextCursor = null)
+
+            // Fresh (typed) search on the default Top sort.
+            vm.setQuery("kotlin", fromRecent = false)
+            runCurrent()
+            // Toggling the sort re-runs the search → a second search_perform in Latest scope.
+            vm.handleEvent(SearchPostsEvent.SortClicked(SearchPostsSort.LATEST))
+            runCurrent()
+
+            assertEquals(
+                listOf(
+                    SearchPerform(scope = SearchScope.Top, fromRecent = false),
+                    SearchPerform(scope = SearchScope.Latest, fromRecent = false),
+                ),
+                analytics.events,
+            )
+        }
+
+    @Test
     fun setQuery_nonBlank_fetchesFirstPage_emitsLoaded() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             val hit = searchPostFixture(uri = "at://did:plc:fake/p1", text = "kotlin")
             repo.respond(
                 query = "kotlin",
@@ -88,7 +114,7 @@ class SearchPostsViewModelTest {
     @Test
     fun setQuery_emptyResponse_emitsEmpty() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             repo.respond(
                 query = "no-matches",
                 cursor = null,
@@ -106,7 +132,7 @@ class SearchPostsViewModelTest {
     @Test
     fun setQuery_failure_emitsInitialError_withMappedError() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             repo.fail(
                 query = "kotlin",
                 cursor = null,
@@ -128,7 +154,7 @@ class SearchPostsViewModelTest {
     @Test
     fun setQuery_rapidChange_cancelsPrior_viaMapLatest() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             // Gate the "ali" fetch so it never completes — mapLatest must
             // cancel it when "alic" arrives.
             val aliGate =
@@ -177,7 +203,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_loaded_appendsNextPage_andClearsIsAppending() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             val page1 = listOf(searchPostFixture("at://p1", "p1"))
             val page2 = listOf(searchPostFixture("at://p2", "p2"), searchPostFixture("at://p3", "p3"))
             repo.respond(
@@ -214,7 +240,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_endReached_isNoOp() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -236,7 +262,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_alreadyAppending_isNoOp_singleFlight() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -270,7 +296,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_failure_emitsShowAppendError_keepsExistingItems() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -310,7 +336,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_inFlight_whenSortChanges_doesNotClobberNewSortItems() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             // Page 1 TOP: one item + nextCursor=c2 so loadMore is valid.
             repo.respond(
                 query = "kotlin",
@@ -388,7 +414,7 @@ class SearchPostsViewModelTest {
     @Test
     fun sortClicked_resetsPaginationAndFetches_freshFirstPage() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -432,7 +458,7 @@ class SearchPostsViewModelTest {
     @Test
     fun retry_initialError_retriggersFirstPage_viaIncarnationBump() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             // First call fails.
             repo.fail(
                 query = "kotlin",
@@ -467,7 +493,7 @@ class SearchPostsViewModelTest {
     @Test
     fun postTapped_emitsNavigateToPostEffect() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             vm.effects.test {
                 vm.handleEvent(SearchPostsEvent.PostTapped("at://did:plc:fake/p1"))
                 runCurrent()
@@ -485,7 +511,7 @@ class SearchPostsViewModelTest {
         // variant. Locks the contract so oftc.3 / .4 / .5 can swap each
         // variant individually for real RPC dispatch.
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             val post =
                 net.kikin.nubecita.data.models.PostUi(
                     id = "at://did:plc:fake/app.bsky.feed.post/over",
@@ -533,7 +559,7 @@ class SearchPostsViewModelTest {
     @Test
     fun clearQueryClicked_emitsNavigateToClearQueryEffect() =
         runTest {
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             vm.effects.test {
                 vm.handleEvent(SearchPostsEvent.ClearQueryClicked)
                 runCurrent()
@@ -550,7 +576,7 @@ class SearchPostsViewModelTest {
             // vrba.7): the prior `.filter { isNotBlank() }` shape silently
             // kept the stale Loaded state visible after the user cleared
             // the field.
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -577,7 +603,7 @@ class SearchPostsViewModelTest {
             // mapLatest, a blank emission would NOT cancel an in-flight
             // runFirstPage — so the prior fetch could resolve late and
             // overwrite the Idle reset with a stale Loaded.
-            val vm = SearchPostsViewModel(repo)
+            val vm = SearchPostsViewModel(repo, analytics)
             val kotlinGate = repo.gate(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP)
 
             vm.setQuery("kotlin")

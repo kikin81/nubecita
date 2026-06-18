@@ -25,6 +25,7 @@ import net.kikin.nubecita.feature.search.impl.ui.FeedsTabContent
 @Composable
 internal fun SearchFeedsScreen(
     currentQuery: String,
+    fromRecent: Boolean,
     onClearQuery: () -> Unit,
     onShowAppendError: (SearchFeedsError) -> Unit,
     modifier: Modifier = Modifier,
@@ -34,8 +35,10 @@ internal fun SearchFeedsScreen(
     val currentOnClearQuery by rememberUpdatedState(onClearQuery)
     val currentOnShowAppendError by rememberUpdatedState(onShowAppendError)
 
-    LaunchedEffect(currentQuery) {
-        viewModel.setQuery(currentQuery)
+    // Key on fromRecent too so a same-query re-submit with a different
+    // origin (typed Search after a recent-chip tap) isn't logged stale.
+    LaunchedEffect(currentQuery, fromRecent) {
+        viewModel.setQuery(currentQuery, fromRecent = fromRecent)
     }
 
     LaunchedEffect(Unit) {

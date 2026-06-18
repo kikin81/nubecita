@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.SearchPerform
+import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import javax.inject.Inject
 
@@ -52,14 +55,17 @@ internal class SearchActorsViewModel
     @Inject
     constructor(
         private val repository: ActorRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchActorsState, SearchActorsEvent, SearchActorsEffect>(SearchActorsState()) {
         private data class FetchKey(
             val query: String,
             /** Bumps on [SearchActorsEvent.Retry] to force a re-emit when query didn't change. */
             val incarnation: Int,
+            /** Whether the query arrived via a recent-search tap (for search_perform). */
+            val fromRecent: Boolean,
         )
 
-        private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0))
+        private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false))
 
         init {
             fetchKey
@@ -79,8 +85,11 @@ internal class SearchActorsViewModel
         }
 
         /** Called by the screen Composable from a `LaunchedEffect(parent.currentQuery)`. */
-        fun setQuery(query: String) {
-            fetchKey.update { it.copy(query = query) }
+        fun setQuery(
+            query: String,
+            fromRecent: Boolean = false,
+        ) {
+            fetchKey.update { it.copy(query = query, fromRecent = fromRecent) }
         }
 
         override fun handleEvent(event: SearchActorsEvent) {
@@ -100,6 +109,9 @@ internal class SearchActorsViewModel
             repository
                 .searchActors(query = key.query, cursor = null)
                 .onSuccess { page ->
+                    // search_perform fires on a completed People search (incl. empty);
+                    // the query text is never attached.
+                    analytics.log(SearchPerform(scope = SearchScope.People, fromRecent = key.fromRecent))
                     val nextStatus =
                         if (page.items.isEmpty()) {
                             SearchActorsLoadStatus.Empty

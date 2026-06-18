@@ -67,6 +67,7 @@ class SearchPostsScreenInstrumentationTest {
                 NubecitaTheme {
                     SearchPostsScreen(
                         currentQuery = "alice",
+                        fromRecent = false,
                         onClearQuery = {},
                         onShowAppendError = {},
                     )
@@ -110,6 +111,7 @@ class SearchPostsScreenInstrumentationTest {
                 NubecitaTheme {
                     SearchPostsScreen(
                         currentQuery = "alice",
+                        fromRecent = false,
                         onClearQuery = {},
                         onShowAppendError = {},
                     )

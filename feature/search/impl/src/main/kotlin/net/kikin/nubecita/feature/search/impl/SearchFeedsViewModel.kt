@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.FeedType
+import net.kikin.nubecita.core.analytics.SearchPerform
+import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.search.impl.data.SearchFeedsRepository
@@ -53,9 +55,11 @@ internal class SearchFeedsViewModel
             val query: String,
             /** Bumps on [SearchFeedsEvent.Retry] to force a re-emit when query didn't change. */
             val incarnation: Int,
+            /** Whether the query arrived via a recent-search tap (for search_perform). */
+            val fromRecent: Boolean,
         )
 
-        private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0))
+        private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false))
 
         init {
             fetchKey
@@ -70,8 +74,11 @@ internal class SearchFeedsViewModel
         }
 
         /** Called by the screen Composable from a `LaunchedEffect(parent.currentQuery)`. */
-        fun setQuery(query: String) {
-            fetchKey.update { it.copy(query = query) }
+        fun setQuery(
+            query: String,
+            fromRecent: Boolean = false,
+        ) {
+            fetchKey.update { it.copy(query = query, fromRecent = fromRecent) }
         }
 
         override fun handleEvent(event: SearchFeedsEvent) {
@@ -93,6 +100,8 @@ internal class SearchFeedsViewModel
                     // are custom generator feeds, so the bucket is Custom; the
                     // query text and per-feed URIs are never attached.
                     analytics.log(ViewFeed(FeedType.Custom))
+                    // search_perform for the Feeds scope (incl. empty results).
+                    analytics.log(SearchPerform(scope = SearchScope.Feeds, fromRecent = key.fromRecent))
                     val nextStatus =
                         if (page.items.isEmpty()) {
                             SearchFeedsLoadStatus.Empty

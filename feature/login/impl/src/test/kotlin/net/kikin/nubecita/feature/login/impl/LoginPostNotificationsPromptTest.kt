@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
@@ -187,6 +188,7 @@ private fun newViewModel(
     LoginViewModel(
         authRepository = authRepository,
         notificationsPromptDecider = decider,
+        analytics = NoOpAnalyticsClient(),
         broker = broker,
     )
 

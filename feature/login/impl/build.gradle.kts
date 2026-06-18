@@ -16,6 +16,7 @@ android {
 dependencies {
     api(project(":feature:login:api"))
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:push"))
     implementation(libs.androidx.browser)

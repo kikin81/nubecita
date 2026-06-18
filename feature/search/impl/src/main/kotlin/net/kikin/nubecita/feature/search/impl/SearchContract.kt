@@ -54,6 +54,13 @@ sealed interface SearchPhase {
     @Immutable
     data class Results(
         val query: String,
+        /**
+         * True when [query] arrived via a recent-search chip tap, false when
+         * typed/submitted fresh. Threaded to each tab VM so the
+         * `search_perform` analytics event can carry `from_recent` — only the
+         * boolean is logged, the query text itself is never sent.
+         */
+        val fromRecent: Boolean = false,
     ) : SearchPhase
 }
 

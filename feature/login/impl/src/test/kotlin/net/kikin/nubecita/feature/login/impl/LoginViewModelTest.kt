@@ -9,6 +9,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsEvent
+import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.core.analytics.Login
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
+import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
@@ -255,6 +261,36 @@ internal class LoginViewModelTest {
         }
 
     @Test
+    fun `successful completeLogin logs the login event once`() =
+        runTest(mainDispatcher.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginResult = Result.success(Unit))
+            val analytics = RecordingAnalyticsClient()
+            newViewModel(authRepository = auth, broker = broker, analytics = analytics)
+            advanceUntilIdle() // let init-time collector subscribe
+
+            broker.emit("net.kikin.nubecita:/oauth-redirect?code=abc")
+            advanceUntilIdle()
+
+            assertEquals(listOf(Login()), analytics.events)
+        }
+
+    @Test
+    fun `failed completeLogin logs no login event`() =
+        runTest(mainDispatcher.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginResult = Result.failure(java.io.IOException("net")))
+            val analytics = RecordingAnalyticsClient()
+            newViewModel(authRepository = auth, broker = broker, analytics = analytics)
+            advanceUntilIdle()
+
+            broker.emit("net.kikin.nubecita:/oauth-redirect?code=abc")
+            advanceUntilIdle()
+
+            assertEquals(emptyList<AnalyticsEvent>(), analytics.events)
+        }
+
+    @Test
     fun `broker emission with generic failure populates errorMessage as Generic and emits no effect`() =
         runTest(mainDispatcher.dispatcher) {
             val broker = FakeOAuthRedirectBroker()
@@ -295,10 +331,12 @@ private fun newViewModel(
     broker: OAuthRedirectBroker = FakeOAuthRedirectBroker(),
     notificationsPromptDecider: NotificationsPromptDecider =
         NotificationsPromptDecider(NoopPromptStore, sdkInt = 0),
+    analytics: AnalyticsClient = NoOpAnalyticsClient(),
 ): LoginViewModel =
     LoginViewModel(
         authRepository = authRepository,
         notificationsPromptDecider = notificationsPromptDecider,
+        analytics = analytics,
         broker = broker,
     )
 
@@ -346,4 +384,16 @@ private class FakeOAuthRedirectBroker : OAuthRedirectBroker {
     suspend fun emit(redirectUri: String) {
         channel.send(redirectUri)
     }
+}
+
+private class RecordingAnalyticsClient : AnalyticsClient {
+    val events = mutableListOf<AnalyticsEvent>()
+
+    override fun log(event: AnalyticsEvent) {
+        events += event
+    }
+
+    override fun setUserProperty(property: UserProperty) = Unit
+
+    override fun logScreen(screen: AnalyticsScreen) = Unit
 }

@@ -62,6 +62,7 @@ class SearchActorsScreenInstrumentationTest {
                 NubecitaTheme {
                     SearchActorsScreen(
                         currentQuery = "alice",
+                        fromRecent = false,
                         onClearQuery = {},
                         onShowAppendError = {},
                     )

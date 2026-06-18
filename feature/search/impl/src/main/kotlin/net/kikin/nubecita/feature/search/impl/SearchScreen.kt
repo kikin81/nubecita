@@ -344,6 +344,7 @@ internal fun SearchScreenContent(
                     // search for unsubmitted text. `phase.query` is the last
                     // submitted query.
                     val submittedQuery = phase.query
+                    val fromRecent = phase.fromRecent
                     SearchResultsTabBar(
                         selectedTabIndex = pagerState.currentPage,
                         onSelectTab = { page -> tabScope.launch { pagerState.animateScrollToPage(page) } },
@@ -360,6 +361,7 @@ internal fun SearchScreenContent(
                             0 ->
                                 SearchPostsScreen(
                                     currentQuery = submittedQuery,
+                                    fromRecent = fromRecent,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onPostsAppendError,
                                     onShowOverflowComingSoon = onPostsOverflowComingSoon,
@@ -367,12 +369,14 @@ internal fun SearchScreenContent(
                             1 ->
                                 SearchActorsScreen(
                                     currentQuery = submittedQuery,
+                                    fromRecent = fromRecent,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onActorsAppendError,
                                 )
                             2 ->
                                 SearchFeedsScreen(
                                     currentQuery = submittedQuery,
+                                    fromRecent = fromRecent,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onFeedsAppendError,
                                 )
