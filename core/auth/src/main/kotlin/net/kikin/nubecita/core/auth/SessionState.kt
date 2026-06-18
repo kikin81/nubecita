@@ -23,9 +23,16 @@ sealed interface SessionState {
     /** No session in the store. */
     data object SignedOut : SessionState
 
-    /** A session is persisted. The two fields are the user-identifying parts. */
+    /** A session is persisted. The fields are the user-identifying parts. */
     data class SignedIn(
         val handle: String,
         val did: String,
+        /**
+         * The account's PDS service endpoint (`OAuthSession.pdsUrl`), or null
+         * when the persisted session predates capturing it. Used only to derive
+         * the `is_self_hosted` analytics boolean — the host string itself never
+         * leaves the auth layer.
+         */
+        val pdsUrl: String? = null,
     ) : SessionState
 }

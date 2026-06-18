@@ -32,4 +32,14 @@ interface UserPreferencesRepository {
 
     /** Persist the AT-URI of the currently selected feed. */
     suspend fun setLastSelectedFeedUri(uri: String)
+
+    /**
+     * The user's theme choice. Defaults to [ThemePreference.SYSTEM] (the app
+     * follows the OS theme today; see [ThemePreference]). Backs the
+     * `theme_preference` analytics user property.
+     */
+    val themePreference: Flow<ThemePreference>
+
+    /** Persist the user's theme choice. */
+    suspend fun setThemePreference(preference: ThemePreference)
 }

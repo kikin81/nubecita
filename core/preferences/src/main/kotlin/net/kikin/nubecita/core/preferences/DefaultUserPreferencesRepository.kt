@@ -56,8 +56,30 @@ internal class DefaultUserPreferencesRepository
             dataStore.edit { prefs -> prefs[Keys.LAST_SELECTED_FEED_URI] = uri }
         }
 
+        // Same IOException recovery as above. Stored as the enum name; an absent
+        // or unrecognized value maps to SYSTEM (the app's current follow-OS default).
+        override val themePreference: Flow<ThemePreference> =
+            dataStore.data
+                .catch { error ->
+                    if (error is IOException) {
+                        Timber.w(error, "Failed to read user preferences; defaulting themePreference to SYSTEM")
+                        emit(emptyPreferences())
+                    } else {
+                        throw error
+                    }
+                }.map { prefs ->
+                    prefs[Keys.THEME_PREFERENCE]
+                        ?.let { stored -> runCatching { ThemePreference.valueOf(stored) }.getOrNull() }
+                        ?: ThemePreference.SYSTEM
+                }
+
+        override suspend fun setThemePreference(preference: ThemePreference) {
+            dataStore.edit { prefs -> prefs[Keys.THEME_PREFERENCE] = preference.name }
+        }
+
         private object Keys {
             val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
             val LAST_SELECTED_FEED_URI = stringPreferencesKey("last_selected_feed_uri")
+            val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
         }
     }

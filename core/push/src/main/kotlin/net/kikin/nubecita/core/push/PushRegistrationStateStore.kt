@@ -4,7 +4,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 /**
  * DataStore-backed persistence for [PushRegistrationState]. The store is
@@ -18,8 +20,12 @@ import kotlinx.coroutines.flow.first
 class PushRegistrationStateStore(
     private val dataStore: DataStore<Preferences>,
 ) {
-    suspend fun read(): PushRegistrationState {
-        val prefs = dataStore.data.first()
+    /** Reactive view of the persisted state — emits the current value + every write. */
+    val state: Flow<PushRegistrationState> = dataStore.data.map(::decode)
+
+    suspend fun read(): PushRegistrationState = decode(dataStore.data.first())
+
+    private fun decode(prefs: Preferences): PushRegistrationState {
         val statusName = prefs[KEY_STATUS] ?: return PushRegistrationState.Default
         val status =
             PushRegistrationState.Status.entries.firstOrNull { it.name == statusName }

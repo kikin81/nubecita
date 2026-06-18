@@ -7,11 +7,19 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsInstanceIdProvider
 import net.kikin.nubecita.core.analytics.IsPro
+import net.kikin.nubecita.core.analytics.NotificationsEnabled
+import net.kikin.nubecita.core.analytics.SelfHosted
+import net.kikin.nubecita.core.analytics.Theme
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.billing.RevenueCatInitializer
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.preferences.UserPreferencesRepository
+import net.kikin.nubecita.core.push.NotificationsEnabledSource
 import javax.inject.Inject
 import javax.inject.Singleton
+import net.kikin.nubecita.core.analytics.ThemePreference as AnalyticsThemePreference
+import net.kikin.nubecita.core.preferences.ThemePreference as PrefsThemePreference
 
 /**
  * Startup glue between Pro entitlement (`:core:billing`) and analytics
@@ -32,6 +40,9 @@ internal class ProAnalyticsCoordinator
         private val analyticsClient: AnalyticsClient,
         private val instanceIdProvider: AnalyticsInstanceIdProvider,
         private val revenueCatInitializer: RevenueCatInitializer,
+        private val userPreferencesRepository: UserPreferencesRepository,
+        private val sessionStateProvider: SessionStateProvider,
+        private val notificationsEnabledSource: NotificationsEnabledSource,
         @param:ApplicationScope private val scope: CoroutineScope,
     ) {
         fun start() {
@@ -48,5 +59,30 @@ internal class ProAnalyticsCoordinator
             entitlementRepository.isPro
                 .onEach { analyticsClient.setUserProperty(IsPro(it)) }
                 .launchIn(scope)
+            // Mirror the persisted theme choice. Reads SYSTEM for everyone until a
+            // theme picker lands (see ThemePreference KDoc), but the observer is
+            // wired now so the property tracks the moment a picker writes a value.
+            userPreferencesRepository.themePreference
+                .onEach { analyticsClient.setUserProperty(Theme(it.toAnalyticsPreference())) }
+                .launchIn(scope)
+            // Whether the signed-in account lives on a non-Bluesky PDS. Derived
+            // from the session host inside :core:auth; only the boolean crosses
+            // the boundary (the host string never leaves the auth layer).
+            sessionStateProvider.isSelfHosted
+                .onEach { analyticsClient.setUserProperty(SelfHosted(it)) }
+                .launchIn(scope)
+            // Whether push notifications are effectively on: system permission AND
+            // a successful registration. Re-evaluated on every app foreground, so
+            // an OS-Settings toggle outside the app is reflected on next resume.
+            notificationsEnabledSource.notificationsEnabled
+                .onEach { analyticsClient.setUserProperty(NotificationsEnabled(it)) }
+                .launchIn(scope)
         }
+    }
+
+private fun PrefsThemePreference.toAnalyticsPreference(): AnalyticsThemePreference =
+    when (this) {
+        PrefsThemePreference.LIGHT -> AnalyticsThemePreference.Light
+        PrefsThemePreference.DARK -> AnalyticsThemePreference.Dark
+        PrefsThemePreference.SYSTEM -> AnalyticsThemePreference.System
     }

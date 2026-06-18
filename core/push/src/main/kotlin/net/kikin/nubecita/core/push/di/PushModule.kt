@@ -20,6 +20,8 @@ import net.kikin.nubecita.core.push.FcmAutoInit
 import net.kikin.nubecita.core.push.FcmTokenProvider
 import net.kikin.nubecita.core.push.MutedActorRepository
 import net.kikin.nubecita.core.push.NotificationChannelInstaller
+import net.kikin.nubecita.core.push.NotificationsEnabledProvider
+import net.kikin.nubecita.core.push.NotificationsEnabledSource
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
 import net.kikin.nubecita.core.push.NotificationsPromptShownStore
 import net.kikin.nubecita.core.push.PushDispatcher
@@ -79,6 +81,12 @@ abstract class PushModule {
     internal abstract fun bindPushRegistrationSessionClearable(
         impl: PushRegistrationSessionClearable,
     ): SessionClearable
+
+    @Binds
+    @Singleton
+    internal abstract fun bindNotificationsEnabledSource(
+        impl: NotificationsEnabledProvider,
+    ): NotificationsEnabledSource
 
     companion object {
         @Provides

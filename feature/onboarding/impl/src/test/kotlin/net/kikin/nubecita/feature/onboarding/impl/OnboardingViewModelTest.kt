@@ -5,7 +5,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.preferences.ThemePreference
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -84,6 +86,10 @@ internal class OnboardingViewModelTest {
         override val lastSelectedFeedUri: Flow<String?> = MutableStateFlow<String?>(null).asStateFlow()
 
         override suspend fun setLastSelectedFeedUri(uri: String) = Unit
+
+        override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.SYSTEM)
+
+        override suspend fun setThemePreference(preference: ThemePreference) = Unit
     }
 
     private class FailingPreferences : UserPreferencesRepository {
@@ -99,5 +105,9 @@ internal class OnboardingViewModelTest {
         override val lastSelectedFeedUri: Flow<String?> = MutableStateFlow<String?>(null).asStateFlow()
 
         override suspend fun setLastSelectedFeedUri(uri: String) = Unit
+
+        override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.SYSTEM)
+
+        override suspend fun setThemePreference(preference: ThemePreference) = Unit
     }
 }

@@ -70,6 +70,26 @@ internal class DefaultUserPreferencesRepositoryTest {
             }
         }
 
+    @Test
+    fun `themePreference defaults to SYSTEM on a fresh store`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+
+            assertEquals(ThemePreference.SYSTEM, repo.themePreference.first())
+        }
+
+    @Test
+    fun `setThemePreference round-trips the stored value`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+
+            repo.themePreference.test {
+                assertEquals(ThemePreference.SYSTEM, awaitItem())
+                repo.setThemePreference(ThemePreference.DARK)
+                assertEquals(ThemePreference.DARK, awaitItem())
+            }
+        }
+
     @JvmField
     @TempDir
     var tempDir: File = File("")
