@@ -13,6 +13,9 @@ import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsEvent
 import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.Login
+import net.kikin.nubecita.core.analytics.LoginErrorReason
+import net.kikin.nubecita.core.analytics.LoginFailed
+import net.kikin.nubecita.core.analytics.LoginStage
 import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.auth.AuthRepository
@@ -276,7 +279,7 @@ internal class LoginViewModelTest {
         }
 
     @Test
-    fun `failed completeLogin logs no login event`() =
+    fun `failed completeLogin logs login_error (not the login success event)`() =
         runTest(mainDispatcher.dispatcher) {
             val broker = FakeOAuthRedirectBroker()
             val auth = FakeAuthRepository(completeLoginResult = Result.failure(java.io.IOException("net")))
@@ -285,6 +288,39 @@ internal class LoginViewModelTest {
             advanceUntilIdle()
 
             broker.emit("net.kikin.nubecita:/oauth-redirect?code=abc")
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(LoginFailed(reason = LoginErrorReason.Network, stage = LoginStage.Complete)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `failed beginLogin logs login_error with the begin stage`() =
+        runTest(mainDispatcher.dispatcher) {
+            val auth = FakeAuthRepository(beginLoginResult = Result.failure(java.io.IOException("net")))
+            val analytics = RecordingAnalyticsClient()
+            val vm = newViewModel(authRepository = auth, analytics = analytics)
+
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(LoginFailed(reason = LoginErrorReason.Network, stage = LoginStage.Begin)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `blank handle submit logs no analytics event`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val vm = newViewModel(analytics = analytics)
+
+            vm.handleEvent(LoginEvent.HandleChanged("   "))
+            vm.handleEvent(LoginEvent.SubmitLogin)
             advanceUntilIdle()
 
             assertEquals(emptyList<AnalyticsEvent>(), analytics.events)

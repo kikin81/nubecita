@@ -11,15 +11,26 @@ import org.junit.jupiter.api.Test
 
 class CrashlyticsTreeTest {
     @Test
-    fun `only error and above are loggable`() {
+    fun `only warn and above are loggable`() {
         val tree = CrashlyticsTree(RecordingReporter())
 
         assertFalse(tree.isLoggable(tag = null, priority = Log.VERBOSE))
         assertFalse(tree.isLoggable(tag = null, priority = Log.DEBUG))
         assertFalse(tree.isLoggable(tag = null, priority = Log.INFO))
-        assertFalse(tree.isLoggable(tag = null, priority = Log.WARN))
+        assertTrue(tree.isLoggable(tag = null, priority = Log.WARN))
         assertTrue(tree.isLoggable(tag = null, priority = Log.ERROR))
         assertTrue(tree.isLoggable(tag = null, priority = Log.ASSERT))
+    }
+
+    @Test
+    fun `warn is a breadcrumb only, not a non-fatal`() {
+        val reporter = RecordingReporter()
+        val tree = CrashlyticsTree(reporter)
+
+        tree.log(priority = Log.WARN, tag = "Tag", message = "offline", t = IllegalStateException("x"))
+
+        assertEquals("[Tag] offline", reporter.logged.single())
+        assertTrue(reporter.recorded.isEmpty(), "WARN must not record a non-fatal")
     }
 
     @Test

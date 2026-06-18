@@ -7,6 +7,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.Login
+import net.kikin.nubecita.core.analytics.LoginErrorReason
+import net.kikin.nubecita.core.analytics.LoginFailed
+import net.kikin.nubecita.core.analytics.LoginStage
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.common.mvi.MviViewModel
@@ -59,7 +62,7 @@ class LoginViewModel
                         }.onFailure { failure ->
                             val handle = uiState.value.handle.trim()
                             val error = failure.toLoginError(handle)
-                            logLoginFailure(stage = "complete", error = error, cause = failure)
+                            logLoginFailure(stage = LoginStage.Complete, error = error, cause = failure)
                             setState { copy(isLoading = false, errorMessage = error) }
                         }
                 }
@@ -123,29 +126,41 @@ class LoginViewModel
                         sendEffect(LoginEffect.LaunchCustomTab(url))
                     }.onFailure { failure ->
                         val error = failure.toLoginError(handle)
-                        logLoginFailure(stage = "begin", error = error, cause = failure)
+                        logLoginFailure(stage = LoginStage.Begin, error = error, cause = failure)
                         setState { copy(isLoading = false, errorMessage = error) }
                     }
             }
         }
 
         /**
-         * Route a login failure to the right log level so non-fatals stay
-         * high-signal: [LoginError.Network] (offline) and
-         * [LoginError.HandleNotFound] (typo) are expected → `w` (not reported
-         * to Crashlytics). Only the unclassified [LoginError.Generic] is a
-         * genuinely-unexpected failure worth a non-fatal → `e`. The error's
-         * class name is logged, never the handle (PII).
+         * Record a login failure to analytics and logs.
+         *
+         * Analytics: emit the PII-free `login_error` event (reason + stage) for
+         * funnel failure-rate reporting — skipped for [LoginError.BlankHandle],
+         * which is client-side validation, not a real attempt (and never reaches
+         * this path anyway).
+         *
+         * Logs: route by level so non-fatals stay high-signal. [LoginError.Network]
+         * (offline) and [LoginError.HandleNotFound] (typo) are expected → `w`
+         * (breadcrumb only). Only the unclassified [LoginError.Generic] is a
+         * genuinely-unexpected failure worth a non-fatal → `e`. The error's class
+         * name is logged, never the handle (PII).
          */
         private fun logLoginFailure(
-            stage: String,
+            stage: LoginStage,
             error: LoginError,
             cause: Throwable,
         ) {
+            error.toAnalyticsReason()?.let { reason ->
+                analytics.log(LoginFailed(reason = reason, stage = stage))
+            }
             if (error is LoginError.Generic) {
-                Timber.tag(TAG).e(cause, "login failed (unexpected, stage=%s)", stage)
+                Timber.tag(TAG).e(cause, "login failed (unexpected, stage=%s)", stage.wire)
             } else {
-                Timber.tag(TAG).w("login failed (stage=%s, error=%s)", stage, error::class.simpleName)
+                // Pass cause for the local logcat stack trace; the CrashlyticsTree
+                // breadcrumb uses only the message (no handle), and WARN never records
+                // a non-fatal, so the throwable's message can't reach Crashlytics.
+                Timber.tag(TAG).w(cause, "login failed (stage=%s, error=%s)", stage.wire, error::class.simpleName)
             }
         }
 
@@ -159,6 +174,16 @@ class LoginViewModel
 // Prefix-match against the upstream OAuthDiscoveryException message is brittle by
 // design — when atproto-kotlin grows a typed HandleNotFoundException, replace the
 // check here and drop the unit test that pins the literal string.
+// Map the UI error to the bucketed analytics reason. BlankHandle returns null
+// (not reported — it's client-side validation and never reaches the failure path).
+private fun LoginError.toAnalyticsReason(): LoginErrorReason? =
+    when (this) {
+        LoginError.Network -> LoginErrorReason.Network
+        is LoginError.HandleNotFound -> LoginErrorReason.HandleNotFound
+        LoginError.Generic -> LoginErrorReason.Unexpected
+        LoginError.BlankHandle -> null
+    }
+
 private fun Throwable.toLoginError(handle: String): LoginError =
     when {
         this is OAuthDiscoveryException &&

@@ -82,13 +82,17 @@ fun FeedViewPost.toFeedItemUiOrNull(
     val parentPostView = replyRef.parent as? PostView
     if (parentPostView == null) {
         Timber.w(
-            "Reply parent is non-PostView (likely BlockedPost/NotFoundPost) for leaf=${leaf.id}; falling back to Single rendering",
+            "Reply parent is non-PostView (likely BlockedPost/NotFoundPost) for leafRkey=${
+                leaf.id.substringAfterLast('/')
+            }; falling back to Single rendering",
         )
         return FeedItemUi.Single(leaf)
     }
     val rootPostView =
         replyRef.root as? PostView ?: run {
-            Timber.w("Reply root is non-PostView for leaf=${leaf.id}; falling back to Single rendering")
+            Timber.w(
+                "Reply root is non-PostView for leafRkey=${leaf.id.substringAfterLast('/')}; falling back to Single rendering",
+            )
             return FeedItemUi.Single(leaf)
         }
 
