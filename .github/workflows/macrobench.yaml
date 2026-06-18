@@ -85,7 +85,7 @@ jobs:
         # Default shallow (depth 1) is enough — the build/benchmark steps
         # don't need history, and github-action-benchmark fetches the
         # gh-pages branch itself.
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up JDK
         uses: actions/setup-java@v5

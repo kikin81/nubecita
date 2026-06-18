@@ -37,7 +37,7 @@ jobs:
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # `persist-credentials: false` would strip the actions/checkout
@@ -99,7 +99,7 @@ jobs:
         # semantic-release's version-bump commit. Without ref:main we'd build
         # from the workflow's triggering SHA (pre-bump) and the APK's
         # versionName would lag the release notes.
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -300,7 +300,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout post-bump main
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
