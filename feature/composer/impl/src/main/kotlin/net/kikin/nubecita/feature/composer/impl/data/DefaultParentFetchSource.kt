@@ -123,7 +123,7 @@ internal class DefaultParentFetchSource
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "fetchParent() failed")
+                    Timber.tag(TAG).w(throwable, "fetchParent() failed")
                     Result.failure(mapToComposerError(throwable))
                 }
             }

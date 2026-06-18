@@ -403,7 +403,7 @@ internal class ComposerViewModel
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "save audience default failed")
+                    Timber.tag(TAG).w(throwable, "save audience default failed")
                     sendEffect(ComposerEffect.ShowAudienceSaveError)
                 }
             }
@@ -479,7 +479,7 @@ internal class ComposerViewModel
                         )
                     },
                     onFailure = { throwable ->
-                        Timber.tag(TAG).e(throwable, "createPost() failed")
+                        Timber.tag(TAG).w(throwable, "createPost() failed")
                         val cause = (throwable as? ComposerError) ?: ComposerError.RecordCreationFailed(throwable)
                         setState { copy(submitStatus = ComposerSubmitStatus.Error(cause)) }
                         // Sticky state already records the typed cause for an

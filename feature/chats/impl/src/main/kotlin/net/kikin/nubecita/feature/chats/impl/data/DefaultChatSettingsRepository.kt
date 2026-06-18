@@ -53,7 +53,7 @@ internal class DefaultChatSettingsRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "getAllowIncoming failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "getAllowIncoming failed: %s", throwable.javaClass.name)
                     Result.failure(throwable)
                 }
             }
@@ -89,7 +89,7 @@ internal class DefaultChatSettingsRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "setAllowIncoming failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "setAllowIncoming failed: %s", throwable.javaClass.name)
                     Result.failure(throwable)
                 }
             }

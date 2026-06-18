@@ -39,7 +39,7 @@ internal class GlanceWidgetUpdater
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
-                Timber.tag(TAG).e(throwable, "widget updateAll failed: %s", widget::class.simpleName)
+                Timber.tag(TAG).w(throwable, "widget updateAll failed: %s", widget::class.simpleName)
             }
         }
 

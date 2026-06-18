@@ -45,7 +45,7 @@ class WidgetRefreshScheduler internal constructor(
                     } catch (cancellation: CancellationException) {
                         throw cancellation
                     } catch (throwable: Throwable) {
-                        Timber.tag(TAG).e(throwable, "widget refresh (re)scheduling failed (signedIn=%s)", signedIn)
+                        Timber.tag(TAG).w(throwable, "widget refresh (re)scheduling failed (signedIn=%s)", signedIn)
                     }
                 }
         }

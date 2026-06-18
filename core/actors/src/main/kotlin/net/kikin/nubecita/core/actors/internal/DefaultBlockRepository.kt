@@ -64,7 +64,7 @@ internal class DefaultBlockRepository
                     Unit
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable
-                    Timber.tag(TAG).e(throwable, "blockActor failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "blockActor failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -87,7 +87,7 @@ internal class DefaultBlockRepository
                     accounts.toList()
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable
-                    Timber.tag(TAG).e(throwable, "blockedAccounts failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "blockedAccounts failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -105,7 +105,7 @@ internal class DefaultBlockRepository
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable
                     // blockUri carries the viewer's DID — log only the throwable identity.
-                    Timber.tag(TAG).e(throwable, "unblockActor failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "unblockActor failed: %s", throwable.javaClass.name)
                 }
             }
 

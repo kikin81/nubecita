@@ -87,7 +87,7 @@ internal class DefaultSearchPostsRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         t,
                         "searchPosts(q=%s, cursor=%s, sort=%s) failed: %s",
                         query,

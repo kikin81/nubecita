@@ -84,7 +84,7 @@ internal class DefaultPushRegistrationRepository(
                     failure.errorMessage,
                 )
         } else {
-            Timber.tag(TAG).e(failure, "(un)register failed with non-XrpcError")
+            Timber.tag(TAG).w(failure, "(un)register failed with non-XrpcError")
         }
     }
 

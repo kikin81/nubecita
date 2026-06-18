@@ -66,7 +66,7 @@ internal class WidgetRefreshRunner
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
-                Timber.tag(TAG).e(throwable, "session refresh failed")
+                Timber.tag(TAG).w(throwable, "session refresh failed")
                 return Outcome.SUCCESS
             }
             // SignedOut or Loading (identity not hydrated yet) → nothing to refresh
@@ -111,13 +111,13 @@ internal class WidgetRefreshRunner
                         } catch (cancellation: CancellationException) {
                             throw cancellation
                         } catch (throwable: Throwable) {
-                            Timber.tag(TAG).e(throwable, "widget image prefetch failed: %s", feedKey)
+                            Timber.tag(TAG).w(throwable, "widget image prefetch failed: %s", feedKey)
                         }
                     }
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "widget feed refresh failed: %s", feedKey)
+                    Timber.tag(TAG).w(throwable, "widget feed refresh failed: %s", feedKey)
                 }
             }
 
@@ -134,7 +134,7 @@ internal class WidgetRefreshRunner
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).e(throwable, "widget update failed")
+                    Timber.tag(TAG).w(throwable, "widget update failed")
                 }
             }
             return Outcome.SUCCESS

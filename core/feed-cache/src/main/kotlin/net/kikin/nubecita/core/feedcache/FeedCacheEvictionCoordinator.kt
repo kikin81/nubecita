@@ -49,7 +49,7 @@ internal class FeedCacheEvictionCoordinator(
                             // a clearAccount failure or swallow the cancel.
                             throw cancellation
                         } catch (throwable: Throwable) {
-                            Timber.tag(TAG).e(throwable, "clearAccount(%s) failed", leaving)
+                            Timber.tag(TAG).w(throwable, "clearAccount(%s) failed", leaving)
                         }
                     }
                     previousDid = currentDid

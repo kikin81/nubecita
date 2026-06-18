@@ -155,7 +155,7 @@ class PushRegistrationCoordinator(
         val tokenResult = runCatchingExceptCancellation { tokenProvider.current() }
         val token =
             tokenResult.getOrElse {
-                Timber.tag(TAG).e(it, "FcmTokenProvider.current() failed; deferring registration")
+                Timber.tag(TAG).w(it, "FcmTokenProvider.current() failed; deferring registration")
                 stateStore.write(
                     PushRegistrationState(
                         accountDid = did,

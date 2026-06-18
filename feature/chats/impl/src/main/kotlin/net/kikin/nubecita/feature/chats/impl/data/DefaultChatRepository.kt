@@ -78,7 +78,7 @@ internal class DefaultChatRepository
                     // tears down cleanly and we don't log a cancel as a network failure.
                     if (throwable is CancellationException) throw throwable
                     // Leave the cache untouched so a failed refresh keeps the prior list.
-                    Timber.tag(TAG).e(throwable, "refreshConvos(%s) failed: %s", status, throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "refreshConvos(%s) failed: %s", status, throwable.javaClass.name)
                 }
             }
 
@@ -133,7 +133,7 @@ internal class DefaultChatRepository
                     block(ConvoService(xrpcClientProvider.authenticated()))
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable
-                    Timber.tag(TAG).e(throwable, "%s failed: %s", op, throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)
                 }
             }
 
@@ -159,7 +159,7 @@ internal class DefaultChatRepository
                         otherUserAvatarHue = avatarHueFor(did = other.did.raw, handle = other.handle.raw),
                     )
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(throwable, "resolveConvo failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "resolveConvo failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -185,7 +185,7 @@ internal class DefaultChatRepository
                         nextCursor = response.cursor,
                     )
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(throwable, "getMessages failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "getMessages failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -206,7 +206,7 @@ internal class DefaultChatRepository
                         )
                     response.toMessageUi(viewerDid = viewerDid).also { patchConvoOnSend(convoId, it) }
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(throwable, "sendMessage failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "sendMessage failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -218,7 +218,7 @@ internal class DefaultChatRepository
                         .getLog(GetLogRequest(cursor = cursor))
                         .toChatLogPage()
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).e(throwable, "getLog failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "getLog failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -234,7 +234,7 @@ internal class DefaultChatRepository
                 }.onFailure { throwable ->
                     // Best-effort: leave the cache untouched; the badge corrects on
                     // the next refresh. Not surfaced to the user.
-                    Timber.tag(TAG).e(throwable, "markConvoRead failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "markConvoRead failed: %s", throwable.javaClass.name)
                 }
             }
 

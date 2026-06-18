@@ -76,7 +76,7 @@ class ModerationPreferencesCoordinator
                                     // Keep the fail-safe DEFAULT / last-good prefs; the next
                                     // session emission retries. Log only the error identity
                                     // (the response may carry account-shaped data).
-                                    Timber.tag(TAG).e(
+                                    Timber.tag(TAG).w(
                                         throwable,
                                         "moderation prefs refresh failed: %s",
                                         throwable.javaClass.name,

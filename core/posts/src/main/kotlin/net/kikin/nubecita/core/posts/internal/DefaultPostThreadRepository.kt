@@ -51,7 +51,7 @@ internal class DefaultPostThreadRepository
                     // DefaultXrpcClientProvider for cache-event logging,
                     // and keeps the diagnostic signal we actually need
                     // (which post failed, which exception type).
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "getPostThread(rkey=%s) failed: %s",
                         uri.substringAfterLast('/'),

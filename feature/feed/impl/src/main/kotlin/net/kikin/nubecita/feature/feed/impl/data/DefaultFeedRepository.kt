@@ -110,7 +110,7 @@ class DefaultFeedRepository
                     // local classes still produce a non-null identifier — this
                     // log exists specifically to identify the throwable, so
                     // "null" here would defeat the entire diagnostic.
-                    Timber.tag(TAG).e(
+                    Timber.tag(TAG).w(
                         throwable,
                         "%s(cursor=%s) failed: %s",
                         operation,
