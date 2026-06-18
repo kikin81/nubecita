@@ -5,6 +5,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.oauth.OAuthDiscoveryException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.Login
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.common.mvi.MviViewModel
@@ -28,6 +30,7 @@ class LoginViewModel
     constructor(
         private val authRepository: AuthRepository,
         private val notificationsPromptDecider: NotificationsPromptDecider,
+        private val analytics: AnalyticsClient,
         broker: OAuthRedirectBroker,
     ) : MviViewModel<LoginState, LoginEvent, LoginEffect>(LoginState()) {
         init {
@@ -45,6 +48,9 @@ class LoginViewModel
                             // isLoading true during the Custom Tab roundtrip, the success
                             // handler should still leave a clean slate before navigation.
                             setState { copy(isLoading = false, errorMessage = null) }
+                            // GA4 login event — fires once per successful OAuth
+                            // completion (default method = OAuth).
+                            analytics.log(Login())
                             sendEffect(
                                 LoginEffect.LoginSucceeded(
                                     requestPostNotificationsPermission = resolvePostNotificationsPrompt(),

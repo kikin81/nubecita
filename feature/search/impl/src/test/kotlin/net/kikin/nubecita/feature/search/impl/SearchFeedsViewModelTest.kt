@@ -8,11 +8,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import net.kikin.nubecita.core.analytics.AnalyticsClient
-import net.kikin.nubecita.core.analytics.AnalyticsEvent
-import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.FeedType
-import net.kikin.nubecita.core.analytics.UserProperty
+import net.kikin.nubecita.core.analytics.SearchPerform
+import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.feedFixture
@@ -86,7 +84,10 @@ class SearchFeedsViewModelTest {
             vm.setQuery("art")
             runCurrent()
 
-            assertEquals(listOf(ViewFeed(FeedType.Custom)), analytics.events)
+            assertEquals(
+                listOf(ViewFeed(FeedType.Custom), SearchPerform(scope = SearchScope.Feeds, fromRecent = false)),
+                analytics.events,
+            )
         }
 
     @Test
@@ -380,16 +381,4 @@ class SearchFeedsViewModelTest {
             assertEquals(SearchFeedsLoadStatus.Idle, vm.uiState.value.loadStatus)
             assertEquals("", vm.uiState.value.currentQuery)
         }
-}
-
-private class RecordingAnalyticsClient : AnalyticsClient {
-    val events = mutableListOf<AnalyticsEvent>()
-
-    override fun log(event: AnalyticsEvent) {
-        events += event
-    }
-
-    override fun setUserProperty(property: UserProperty) = Unit
-
-    override fun logScreen(screen: AnalyticsScreen) = Unit
 }

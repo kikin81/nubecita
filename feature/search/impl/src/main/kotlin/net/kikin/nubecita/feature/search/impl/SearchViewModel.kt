@@ -59,6 +59,11 @@ internal class SearchViewModel
          */
         private var submittedQuery: String = ""
 
+        /** Whether [submittedQuery] came from a recent-search chip tap. Sticky
+         * until the next submit so the debounced re-emission of `phaseForBody()`
+         * preserves it (carried into `search_perform`'s `from_recent`). */
+        private var submittedFromRecent: Boolean = false
+
         init {
             snapshotFlow { textFieldState.text.toString() }
                 .debounce(DEBOUNCE.inWholeMilliseconds)
@@ -85,10 +90,10 @@ internal class SearchViewModel
 
         override fun handleEvent(event: SearchEvent) {
             when (event) {
-                SearchEvent.SubmitClicked -> persistCurrent()
+                SearchEvent.SubmitClicked -> persistCurrent(fromRecent = false)
                 is SearchEvent.RecentChipTapped -> {
                     textFieldState.setTextAndPlaceCursorAtEnd(event.query)
-                    persistCurrent()
+                    persistCurrent(fromRecent = true)
                 }
                 is SearchEvent.RecentChipRemoved ->
                     viewModelScope.launch {
@@ -101,10 +106,11 @@ internal class SearchViewModel
             }
         }
 
-        private fun persistCurrent() {
+        private fun persistCurrent(fromRecent: Boolean) {
             val text = textFieldState.text.toString().trim()
             if (text.isEmpty()) return
             submittedQuery = text
+            submittedFromRecent = fromRecent
             // Atomic phase flip so the body switches to Results immediately
             // on submit rather than waiting for the debounced currentQuery
             // emission. The debounced emission that follows computes the same
@@ -113,7 +119,7 @@ internal class SearchViewModel
                 copy(
                     currentQuery = text,
                     isQueryBlank = false,
-                    phase = SearchPhase.Results(text),
+                    phase = SearchPhase.Results(text, fromRecent = fromRecent),
                 )
             }
             viewModelScope.launch { recentSearches.record(text) }
@@ -131,7 +137,7 @@ internal class SearchViewModel
             if (submittedQuery.isEmpty()) {
                 SearchPhase.Discover
             } else {
-                SearchPhase.Results(submittedQuery)
+                SearchPhase.Results(submittedQuery, fromRecent = submittedFromRecent)
             }
 
         private companion object {

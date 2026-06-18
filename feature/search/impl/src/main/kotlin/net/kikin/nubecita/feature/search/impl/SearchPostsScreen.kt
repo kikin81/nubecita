@@ -31,6 +31,7 @@ import net.kikin.nubecita.feature.search.impl.ui.PostsTabContent
 @Composable
 internal fun SearchPostsScreen(
     currentQuery: String,
+    fromRecent: Boolean,
     onClearQuery: () -> Unit,
     onShowAppendError: (SearchPostsError) -> Unit,
     modifier: Modifier = Modifier,
@@ -47,7 +48,7 @@ internal fun SearchPostsScreen(
     // Push the latest debounced query down to the VM. The VM
     // dedupes via StateFlow operator fusion on the FetchKey.
     LaunchedEffect(currentQuery) {
-        viewModel.setQuery(currentQuery)
+        viewModel.setQuery(currentQuery, fromRecent = fromRecent)
     }
 
     // initialSort is fired once on screen entry — the user's

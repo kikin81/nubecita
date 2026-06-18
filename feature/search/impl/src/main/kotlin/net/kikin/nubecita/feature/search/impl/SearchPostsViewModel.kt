@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.SearchPerform
+import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
@@ -51,16 +54,19 @@ internal class SearchPostsViewModel
     @Inject
     constructor(
         private val repository: SearchPostsRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchPostsState, SearchPostsEvent, SearchPostsEffect>(SearchPostsState()) {
         private data class FetchKey(
             val query: String,
             val sort: SearchPostsSort,
             /** Bumps on [SearchPostsEvent.Retry] to force a re-emit when query+sort didn't change. */
             val incarnation: Int,
+            /** Whether the query arrived via a recent-search tap (for search_perform). */
+            val fromRecent: Boolean,
         )
 
         private val fetchKey =
-            MutableStateFlow(FetchKey(query = "", sort = SearchPostsSort.TOP, incarnation = 0))
+            MutableStateFlow(FetchKey(query = "", sort = SearchPostsSort.TOP, incarnation = 0, fromRecent = false))
 
         init {
             fetchKey
@@ -81,8 +87,11 @@ internal class SearchPostsViewModel
         }
 
         /** Called by the screen Composable from a `LaunchedEffect(parent.currentQuery)`. */
-        fun setQuery(query: String) {
-            fetchKey.update { it.copy(query = query) }
+        fun setQuery(
+            query: String,
+            fromRecent: Boolean = false,
+        ) {
+            fetchKey.update { it.copy(query = query, fromRecent = fromRecent) }
         }
 
         override fun handleEvent(event: SearchPostsEvent) {
@@ -106,6 +115,15 @@ internal class SearchPostsViewModel
             repository
                 .searchPosts(query = key.query, cursor = null, sort = key.sort)
                 .onSuccess { page ->
+                    // search_perform fires on a completed first-page search (incl.
+                    // empty results); scope tracks the active Top/Latest sort. The
+                    // query text is never attached.
+                    analytics.log(
+                        SearchPerform(
+                            scope = if (key.sort == SearchPostsSort.TOP) SearchScope.Top else SearchScope.Latest,
+                            fromRecent = key.fromRecent,
+                        ),
+                    )
                     val nextStatus =
                         if (page.items.isEmpty()) {
                             SearchPostsLoadStatus.Empty

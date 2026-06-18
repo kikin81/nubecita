@@ -28,6 +28,7 @@ import net.kikin.nubecita.feature.search.impl.ui.PeopleTabContent
 @Composable
 internal fun SearchActorsScreen(
     currentQuery: String,
+    fromRecent: Boolean,
     onClearQuery: () -> Unit,
     onShowAppendError: (SearchActorsError) -> Unit,
     modifier: Modifier = Modifier,
@@ -41,7 +42,7 @@ internal fun SearchActorsScreen(
     // Push the latest debounced query down to the VM. The VM
     // dedupes via StateFlow operator fusion on the FetchKey.
     LaunchedEffect(currentQuery) {
-        viewModel.setQuery(currentQuery)
+        viewModel.setQuery(currentQuery, fromRecent = fromRecent)
     }
 
     LaunchedEffect(Unit) {
