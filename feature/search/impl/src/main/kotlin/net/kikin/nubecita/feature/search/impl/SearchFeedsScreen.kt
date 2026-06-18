@@ -35,7 +35,9 @@ internal fun SearchFeedsScreen(
     val currentOnClearQuery by rememberUpdatedState(onClearQuery)
     val currentOnShowAppendError by rememberUpdatedState(onShowAppendError)
 
-    LaunchedEffect(currentQuery) {
+    // Key on fromRecent too so a same-query re-submit with a different
+    // origin (typed Search after a recent-chip tap) isn't logged stale.
+    LaunchedEffect(currentQuery, fromRecent) {
         viewModel.setQuery(currentQuery, fromRecent = fromRecent)
     }
 
