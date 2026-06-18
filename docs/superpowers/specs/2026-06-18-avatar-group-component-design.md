@@ -1,8 +1,8 @@
 # AvatarGroup design-system component + NubecitaAvatar fallback consolidation
 
-**Bead:** nubecita-364e
+**bd:** nubecita-364e — feat: AvatarGroup component + NubecitaAvatar fallback consolidation
 **Date:** 2026-06-18
-**Status:** design approved, pending implementation plan
+**Status:** Pending review
 
 ## Problem
 
@@ -63,7 +63,7 @@ photo  hue+B  hue+C  hue+D   pill
 ```kotlin
 @Composable
 fun AvatarGroup(
-    avatars: ImmutableList<AuthorUi>,
+    members: ImmutableList<AuthorUi>,
     contentDescription: String?,   // caller-supplied; applied via merged semantics
     modifier: Modifier = Modifier,
     maxVisible: Int = 4,
@@ -71,8 +71,8 @@ fun AvatarGroup(
 )
 ```
 
-- Renders `min(maxVisible, avatars.size)` avatars, each photo-or-(hue+initial).
-- When `avatars.size > maxVisible`, appends a `+(avatars.size − maxVisible)` pill.
+- Renders `min(maxVisible, members.size)` avatars, each photo-or-(hue+initial).
+- When `members.size > maxVisible`, appends a `+(members.size − maxVisible)` pill.
 - `contentDescription` is supplied by the caller (the design system does not own the
   domain plural strings); applied with `Modifier.semantics(mergeDescendants = true)`.
 - A pure helper computes the overflow split and is unit-tested directly.
@@ -93,16 +93,22 @@ fun NubecitaAvatar(
 data class AvatarFallback(val hue: Int, val initial: Char?)
 ```
 
-- `fallback != null` + null (or failed) image → hued disc `Color.hsv(hue, 0.5f, 0.55f)`
-  with `initial` centered, text color chosen by `Color.luminance() > 0.5f`.
+- `fallback != null` + null (or failed) image → hued disc `Color.hsv(hue.toFloat(), 0.5f, 0.55f)`
+  (`hue` is `Int`, so `.toFloat()`) with `initial` centered, text color chosen by
+  `Color.luminance() > 0.5f`.
 - `fallback == null` → today's flat `surfaceContainerHighest` placeholder, so existing
   callers that don't pass a fallback are unchanged.
 - `AuthorUi` → `AvatarFallback` mapping lives in `:designsystem` using the relocated
-  `avatarHueFor`: `hue = avatarHueFor(did, handle)`,
-  `initial = (displayName.ifBlank { handle }).firstOrNull()?.uppercaseChar()`.
+  `avatarHueFor`: `hue = avatarHueFor(did, handle)`, and for the initial
+  `(displayName.takeIf { it.isNotBlank() } ?: handle).firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()`.
+  The `isLetterOrDigit()` filter matches the existing `ConvoListItem` / `RecipientRow`
+  logic so names led by an emoji/whitespace/punctuation still yield a readable initial.
 
 ## Migration (this change)
 
+- **`DEFAULT_AVATAR_SIZE` visibility:** it is currently `private` in `NubecitaAvatar.kt`.
+  Promote it to `internal` (or a shared constants location in `:designsystem`) so
+  `AvatarGroup` can reuse the 40dp default.
 - **`:core:profile` → `:core:common`:** move `avatarHueFor` + `AvatarHueTest`; re-point
   importers (~5 sites). Pure move, no behavior change; the pinned hue values (alice→47,
   bob→307, miku→279) must still hold.
