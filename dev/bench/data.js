@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781686672010,
+  "lastUpdate": 1781772444062,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1091,6 +1091,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 890.099,
             "range": "+/- 27.1%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9fc7de000cc8e03a9a1dbf414a9f7860f4bd0028",
+          "message": "test(app): guard @MainShell/@OuterShell route coverage (#542)\n\n* fix(app): register :feature:moderation:impl so its routes resolve\n\n:feature:moderation:impl hosts the @MainShell EntryProviderInstaller that\nregisters the Report, Block, and BlockedAccounts NavKeys in MainShell's\ninner NavDisplay. No other module depends on :impl — feature modules use\n:moderation:api (NavKey-only) and push the keys — so :app must aggregate\n:impl like every other feature. It wasn't, leaving the installer unbound:\npushing any moderation route (Settings → Moderation → Blocked accounts,\nor Report / Block from feed / profile / postdetail / chats overflow)\ncrashed with `IllegalStateException: Unknown screen <key>`.\n\nReproduced on the bench build (Settings → Moderation → Blocked accounts →\ncrash to launcher) and verified the one-line fix end-to-end: the screen\nnow renders the blocked list with Unblock actions, no crash.\n\nThis slipped past CI because the screenshot + instrumentation tests use\nisolated Hilt graphs that install the moderation module directly; no\nend-to-end path navigates these routes on a real app build.\n\nRefs: nubecita-33cb\n\n* test(app): guard @MainShell/@OuterShell route coverage\n\nTwo regression guards for the \"feature :impl module not aggregated in\n:app → Unknown screen crash\" class (nubecita-33cb):\n\n- MainShellRouteCoverageTest (@HiltAndroidTest): builds the REAL aggregated\n  entry providers from :app's actual Hilt graph (NavigationEntryPoint, the\n  same multibindings MainShell/Navigation consume) and asserts every known\n  @MainShell/@OuterShell NavKey resolves to an entry. Uses HiltTestApplication\n  (no session needed), so it runs on the production-flavor connected job — the\n  CI-side guard. Verified it FAILS when :feature:moderation:impl is dropped.\n\n- ModerationNavigationE2ETest: boots the real MainActivity under the bench\n  graph and drives Settings → Moderation → Blocked accounts via UiAutomator —\n  the exact path that crashed — asserting it renders. Bench-only (assumeTrue),\n  the realistic-navigation smoke for local/bench connected runs.\n\nBoth verified on emulator (route-coverage 2/2 production, E2E 1/1 bench).\nAdd the run-instrumented label to exercise them in CI.\n\nRefs: nubecita-77wb\n\n* test(app): address review on route-coverage guards\n\n- MainShellRouteCoverageTest: catch Exception, not Throwable, so a JVM Error\n  (NoClassDefFoundError / LinkageError) fails loudly with its real stack\n  instead of being misreported as an unresolved route. (Gemini)\n- Expand the route lists to every @MainShell / @OuterShell entry so dropping\n  any feature :impl is caught: + ComposerRoute, PaywallRoute,\n  PaywallSuccessRoute (@MainShell); + Onboarding, MediaViewerRoute,\n  VideoPlayerRoute (@OuterShell) alongside Login. Verified each route's shell\n  from its provider's qualifier; all resolve on-device. (Copilot)\n- ModerationNavigationE2ETest: resolve every UI label from app string\n  resources (main_shell_tab_you, profile_action_settings,\n  settings_moderation_label, settings_blocked_accounts_label,\n  blocked_accounts_unblock) instead of hardcoded English, so the UiAutomator\n  selectors stay locale-independent. (Copilot)\n\nRe-verified on emulator: route-coverage 2/2 (production), E2E 1/1 (bench).\n\nRefs: nubecita-77wb",
+          "timestamp": "2026-06-17T19:58:56Z",
+          "url": "https://github.com/kikin81/nubecita/commit/9fc7de000cc8e03a9a1dbf414a9f7860f4bd0028"
+        },
+        "date": 1781772442294,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 32,
+            "range": "+/- 7%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1291.388,
+            "range": "+/- 5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1352.755,
+            "range": "+/- 5.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1046.509,
+            "range": "+/- 31.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1072.69,
+            "range": "+/- 29.6%",
             "unit": "ms"
           }
         ]
