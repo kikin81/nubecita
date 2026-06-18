@@ -39,6 +39,49 @@ data class Login(
     override val params: Map<String, AnalyticsValue> = mapOf("method" to Str(method.wire))
 }
 
+/** Why a login attempt failed. Bucketed — never carries the handle. */
+enum class LoginErrorReason(
+    val wire: String,
+) {
+    /** The submitted handle didn't resolve to a DID (typo / wrong server). */
+    HandleNotFound("handle_not_found"),
+
+    /** Offline / DNS / socket timeout during the flow. */
+    Network("network"),
+
+    /** Any unclassified failure (server config, malformed metadata, unexpected throw). */
+    Unexpected("unexpected"),
+}
+
+/** Which step of the OAuth flow failed. */
+enum class LoginStage(
+    val wire: String,
+) {
+    /** `beginLogin` — handle resolution + authorization-URL construction. */
+    Begin("begin"),
+
+    /** `completeLogin` — redirect handling + token exchange. */
+    Complete("complete"),
+}
+
+/**
+ * Fired when a login attempt fails (`LoginViewModel`), so funnel reports can
+ * track failure *rates* by reason/stage alongside the `login` success event.
+ * Blank-handle (pure client-side validation) is not a real attempt and is not
+ * reported. PII-free: the reason is a bucketed enum, never the handle.
+ */
+data class LoginFailed(
+    val reason: LoginErrorReason,
+    val stage: LoginStage,
+) : AnalyticsEvent {
+    override val name: String = "login_error"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "reason" to Str(reason.wire),
+            "stage" to Str(stage.wire),
+        )
+}
+
 /**
  * Which *kind* of feed was opened — never which feed.
  *

@@ -66,8 +66,8 @@ class NubecitaApplication :
         // Logging trees by build:
         //  - debug            → DebugTree (logcat only).
         //  - productionRelease → CrashlyticsTree: Timber.e/wtf become Crashlytics
-        //                        non-fatals (Timber.w stays a no-op breadcrumb-free
-        //                        signal — see CrashlyticsTree's convention).
+        //                        non-fatals; Timber.w becomes a breadcrumb (context,
+        //                        not an issue) — see CrashlyticsTree's convention.
         //  - bench release     → no tree, so every Timber.* short-circuits and the
         //                        Macrobench APK stays silent.
         when {

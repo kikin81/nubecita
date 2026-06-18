@@ -9,13 +9,16 @@ import timber.log.Timber
  * **non-fatals**, so `Timber.e(...)` / `Timber.wtf(...)` from anywhere in the
  * app become recorded exceptions with stack traces.
  *
- * Only `priority >= Log.ERROR` is forwarded (see [isLoggable]); `w`/`i`/`d`
- * are dropped by this tree. That makes the logging convention the throttle:
+ * `priority >= Log.WARN` is forwarded (see [isLoggable]); `i`/`d` are dropped.
+ * The logging convention sets what each level does:
  *
- * - `Timber.e` / `Timber.wtf` → "unexpected, I want a stack trace" → non-fatal.
+ * - `Timber.e` / `Timber.wtf` → "unexpected, I want a stack trace" → breadcrumb
+ *   **and** a non-fatal (`recordException`).
  * - `Timber.w` → "expected/benign" (offline, timeout, 404, user-cancelled) →
- *   NOT reported. Use it for recoverable failures so non-fatals aren't flooded
- *   (Crashlytics caps logged exceptions per session — noise crowds out signal).
+ *   breadcrumb only (`Crashlytics.log`), NOT a non-fatal. Breadcrumbs are a
+ *   bounded rolling buffer, so they add context to whatever non-fatal/fatal
+ *   fires next without flooding the issue stream (Crashlytics caps recorded
+ *   exceptions per session — noise there crowds out signal).
  *
  * Planted only in `productionRelease` (see `NubecitaApplication`): debug builds
  * keep the logcat [Timber.DebugTree], and the bench flavor plants no tree at all
@@ -30,7 +33,7 @@ internal class CrashlyticsTree(
     public override fun isLoggable(
         tag: String?,
         priority: Int,
-    ): Boolean = priority >= Log.ERROR
+    ): Boolean = priority >= Log.WARN
 
     public override fun log(
         priority: Int,
@@ -38,13 +41,15 @@ internal class CrashlyticsTree(
         message: String,
         t: Throwable?,
     ) {
-        // Attach the message as a breadcrumb so it shows on the non-fatal (and on
-        // any subsequent fatal in the same session).
+        // Every forwarded log (WARN and ERROR) becomes a breadcrumb so the
+        // run-up to a non-fatal/fatal has context.
         reporter.log(if (tag != null) "[$tag] $message" else message)
-        // recordException is what creates the non-fatal. A message-only
-        // `Timber.e("…")` has no throwable, so synthesize one — it still surfaces
-        // and clusters by its call site rather than being silently dropped.
-        reporter.recordException(t ?: LoggedError(message))
+        // Only ERROR+ becomes a non-fatal. A message-only `Timber.e("…")` has no
+        // throwable, so synthesize one — it still surfaces and clusters by its
+        // call site rather than being silently dropped.
+        if (priority >= Log.ERROR) {
+            reporter.recordException(t ?: LoggedError(message))
+        }
     }
 
     /** Synthetic throwable for message-only error logs (no real cause). */

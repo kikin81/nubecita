@@ -20,6 +20,23 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `login_error carries reason and stage but never the handle`() {
+        val event = LoginFailed(reason = LoginErrorReason.Network, stage = LoginStage.Complete)
+        assertEquals("login_error", event.name)
+        assertEquals(
+            mapOf(
+                "reason" to Str("network"),
+                "stage" to Str("complete"),
+            ),
+            event.params,
+        )
+        assertEquals("handle_not_found", LoginErrorReason.HandleNotFound.wire)
+        assertEquals("unexpected", LoginErrorReason.Unexpected.wire)
+        assertEquals("begin", LoginStage.Begin.wire)
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
     fun `view_feed carries the feed type enum`() {
         val event = ViewFeed(FeedType.Following)
         assertEquals("view_feed", event.name)
