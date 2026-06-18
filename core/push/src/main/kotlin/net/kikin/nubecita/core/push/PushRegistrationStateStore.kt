@@ -3,8 +3,14 @@ package net.kikin.nubecita.core.push
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import timber.log.Timber
+import java.io.IOException
 
 /**
  * DataStore-backed persistence for [PushRegistrationState]. The store is
@@ -18,8 +24,30 @@ import kotlinx.coroutines.flow.first
 class PushRegistrationStateStore(
     private val dataStore: DataStore<Preferences>,
 ) {
-    suspend fun read(): PushRegistrationState {
-        val prefs = dataStore.data.first()
+    /**
+     * Reactive view of the persisted state — emits the current value + every write.
+     *
+     * `DataStore.data` cancels its downstream on a read failure, which would
+     * permanently kill long-lived collectors (e.g. `NotificationsEnabledProvider`
+     * and the analytics coordinator) on a single transient IOException. Recover
+     * to [emptyPreferences] (which `decode`s to [PushRegistrationState.Default],
+     * i.e. notifications-off) and keep the stream alive; rethrow non-IO errors so
+     * genuine bugs aren't masked. Mirrors `DefaultUserPreferencesRepository`.
+     */
+    val state: Flow<PushRegistrationState> =
+        dataStore.data
+            .catch { error ->
+                if (error is IOException) {
+                    Timber.w(error, "Failed to read push registration state; defaulting to Default")
+                    emit(emptyPreferences())
+                } else {
+                    throw error
+                }
+            }.map(::decode)
+
+    suspend fun read(): PushRegistrationState = decode(dataStore.data.first())
+
+    private fun decode(prefs: Preferences): PushRegistrationState {
         val statusName = prefs[KEY_STATUS] ?: return PushRegistrationState.Default
         val status =
             PushRegistrationState.Status.entries.firstOrNull { it.name == statusName }

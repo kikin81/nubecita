@@ -28,4 +28,8 @@ internal class FakeUserPreferencesRepository
         override val lastSelectedFeedUri: Flow<String?> = flowOf(null)
 
         override suspend fun setLastSelectedFeedUri(uri: String) = Unit
+
+        override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.SYSTEM)
+
+        override suspend fun setThemePreference(preference: ThemePreference) = Unit
     }

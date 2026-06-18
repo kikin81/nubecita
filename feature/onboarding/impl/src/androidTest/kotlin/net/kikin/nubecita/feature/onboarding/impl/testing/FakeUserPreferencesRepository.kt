@@ -3,6 +3,8 @@ package net.kikin.nubecita.feature.onboarding.impl.testing
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
+import net.kikin.nubecita.core.preferences.ThemePreference
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,4 +42,8 @@ internal class FakeUserPreferencesRepository
         override val lastSelectedFeedUri: Flow<String?> = MutableStateFlow<String?>(null).asStateFlow()
 
         override suspend fun setLastSelectedFeedUri(uri: String) = Unit
+
+        override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.SYSTEM)
+
+        override suspend fun setThemePreference(preference: ThemePreference) = Unit
     }

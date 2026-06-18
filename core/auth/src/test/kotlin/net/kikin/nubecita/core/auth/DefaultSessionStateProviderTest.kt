@@ -22,7 +22,11 @@ class DefaultSessionStateProviderTest {
             provider.refresh()
 
             assertEquals(
-                SessionState.SignedIn(handle = "alice.bsky.social", did = "did:plc:alice"),
+                SessionState.SignedIn(
+                    handle = "alice.bsky.social",
+                    did = "did:plc:alice",
+                    pdsUrl = "https://pds.example",
+                ),
                 provider.state.value,
             )
         }
@@ -70,7 +74,11 @@ class DefaultSessionStateProviderTest {
 
             provider.refresh()
             assertEquals(
-                SessionState.SignedIn(handle = "alice.bsky.social", did = "did:plc:samplesubject"),
+                SessionState.SignedIn(
+                    handle = "alice.bsky.social",
+                    did = "did:plc:samplesubject",
+                    pdsUrl = "https://pds.example",
+                ),
                 provider.state.value,
             )
 
