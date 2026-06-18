@@ -83,10 +83,11 @@ internal class DefaultSearchFeedsRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
+                    // Never log the query itself (user-entered content) — it now
+                    // reaches Crashlytics breadcrumbs. Keep cursor + error identity.
                     Timber.tag(TAG).w(
                         t,
-                        "getPopularFeedGenerators(q=%s, cursor=%s) failed: %s",
-                        query,
+                        "getPopularFeedGenerators failed (cursor=%s): %s",
                         cursor,
                         t.javaClass.name,
                     )

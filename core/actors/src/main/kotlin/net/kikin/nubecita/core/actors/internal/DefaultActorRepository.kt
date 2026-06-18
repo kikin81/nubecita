@@ -93,7 +93,9 @@ internal class DefaultActorRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
-                    Timber.tag(TAG).w(t, "searchActors(q=%s, cursor=%s) failed: %s", query, cursor, t.javaClass.name)
+                    // Never log the query itself (user-entered content) — it now
+                    // reaches Crashlytics breadcrumbs. Keep cursor + error identity.
+                    Timber.tag(TAG).w(t, "searchActors failed (cursor=%s): %s", cursor, t.javaClass.name)
                     Result.failure(t)
                 }
             }

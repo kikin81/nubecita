@@ -9,7 +9,7 @@ import timber.log.Timber
  * **non-fatals**, so `Timber.e(...)` / `Timber.wtf(...)` from anywhere in the
  * app become recorded exceptions with stack traces.
  *
- * `priority >= Log.WARN` is forwarded (see [isLoggable]); `i`/`d` are dropped.
+ * `priority >= Log.WARN` is forwarded (see [isLoggable]); `v`/`d`/`i` are dropped.
  * The logging convention sets what each level does:
  *
  * - `Timber.e` / `Timber.wtf` → "unexpected, I want a stack trace" → breadcrumb

@@ -87,10 +87,11 @@ internal class DefaultSearchPostsRepository
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
+                    // Never log the query itself (user-entered content) — it now
+                    // reaches Crashlytics breadcrumbs. Keep cursor/sort + error identity.
                     Timber.tag(TAG).w(
                         t,
-                        "searchPosts(q=%s, cursor=%s, sort=%s) failed: %s",
-                        query,
+                        "searchPosts failed (cursor=%s, sort=%s): %s",
                         cursor,
                         sort,
                         t.javaClass.name,

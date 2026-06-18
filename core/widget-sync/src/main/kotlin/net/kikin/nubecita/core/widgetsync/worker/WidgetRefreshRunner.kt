@@ -111,13 +111,15 @@ internal class WidgetRefreshRunner
                         } catch (cancellation: CancellationException) {
                             throw cancellation
                         } catch (throwable: Throwable) {
-                            Timber.tag(TAG).w(throwable, "widget image prefetch failed: %s", feedKey)
+                            // Log only the feed type — the full FeedKey embeds the
+                            // account DID + feed URI, which now reach Crashlytics breadcrumbs.
+                            Timber.tag(TAG).w(throwable, "widget image prefetch failed: %s", feedKey.feedType)
                         }
                     }
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (throwable: Throwable) {
-                    Timber.tag(TAG).w(throwable, "widget feed refresh failed: %s", feedKey)
+                    Timber.tag(TAG).w(throwable, "widget feed refresh failed: %s", feedKey.feedType)
                 }
             }
 

@@ -157,7 +157,10 @@ class LoginViewModel
             if (error is LoginError.Generic) {
                 Timber.tag(TAG).e(cause, "login failed (unexpected, stage=%s)", stage.wire)
             } else {
-                Timber.tag(TAG).w("login failed (stage=%s, error=%s)", stage.wire, error::class.simpleName)
+                // Pass cause for the local logcat stack trace; the CrashlyticsTree
+                // breadcrumb uses only the message (no handle), and WARN never records
+                // a non-fatal, so the throwable's message can't reach Crashlytics.
+                Timber.tag(TAG).w(cause, "login failed (stage=%s, error=%s)", stage.wire, error::class.simpleName)
             }
         }
 
