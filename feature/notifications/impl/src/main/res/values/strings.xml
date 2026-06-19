@@ -49,10 +49,6 @@
         <item quantity="other">%1$d participants</item>
     </plurals>
 
-    <!-- "+N" overflow pill on the avatar stack when more actors exist than
-         can fit in the visible cap (maxVisible=5). -->
-    <string name="notifications_avatar_overflow">+%1$d</string>
-
     <!--
       Headline rows. Pattern (a) from openspec design.md open question 3:
       "alice liked your post"

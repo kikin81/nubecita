@@ -35,8 +35,6 @@
         <item quantity="other">%1$d participantes</item>
     </plurals>
 
-    <string name="notifications_avatar_overflow">+%1$d</string>
-
     <plurals name="notifications_headline_like">
         <item quantity="one">A %1$s y %2$d persona más les gustó tu publicación</item>
         <item quantity="other">A %1$s y %2$d personas más les gustó tu publicación</item>

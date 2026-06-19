@@ -35,8 +35,6 @@
         <item quantity="other">%1$d participantes</item>
     </plurals>
 
-    <string name="notifications_avatar_overflow">+%1$d</string>
-
     <plurals name="notifications_headline_like">
         <item quantity="one">%1$s e mais %2$d pessoa curtiram seu post</item>
         <item quantity="other">%1$s e mais %2$d pessoas curtiram seu post</item>

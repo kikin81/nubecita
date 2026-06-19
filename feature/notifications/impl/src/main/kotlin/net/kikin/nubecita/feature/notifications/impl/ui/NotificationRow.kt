@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,7 @@ import net.kikin.nubecita.data.models.NotificationItemUi
 import net.kikin.nubecita.data.models.NotificationItemUiFixtures
 import net.kikin.nubecita.data.models.NotificationReason
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.AvatarGroup
 import net.kikin.nubecita.designsystem.icon.NotificationReasonIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -108,7 +110,17 @@ internal fun NotificationRow(
                             .heightIn(min = MIN_TOUCH_TARGET)
                             .clickable(onClick = onAvatarStackClick),
                 ) {
-                    StackedAvatarRow(actors = item.actors)
+                    AvatarGroup(
+                        members = item.actors,
+                        contentDescription =
+                            pluralStringResource(
+                                R.plurals.notifications_avatar_stack_description,
+                                item.actors.size,
+                                item.actors.size,
+                            ),
+                        maxVisible = 4,
+                        avatarSize = AVATAR_SIZE,
+                    )
                     Spacer(Modifier.width(2.dp))
                     NubecitaIcon(
                         name = NubecitaIconName.ExpandMore,
@@ -118,7 +130,17 @@ internal fun NotificationRow(
                     )
                 }
             } else {
-                StackedAvatarRow(actors = item.actors)
+                AvatarGroup(
+                    members = item.actors,
+                    contentDescription =
+                        pluralStringResource(
+                            R.plurals.notifications_avatar_stack_description,
+                            item.actors.size,
+                            item.actors.size,
+                        ),
+                    maxVisible = 4,
+                    avatarSize = AVATAR_SIZE,
+                )
             }
             Spacer(Modifier.height(8.dp))
             HeadlineWithTimestamp(item = item)
@@ -226,6 +248,7 @@ internal fun NotificationItemUi.buildHeadline(resources: Resources): String {
 
 private val REASON_ICON_SIZE = 24.dp
 private val CHEVRON_SIZE = 20.dp
+private val AVATAR_SIZE = 32.dp
 
 /** WCAG / Material Design 3 minimum interactive touch target. */
 private val MIN_TOUCH_TARGET = 48.dp
