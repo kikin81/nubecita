@@ -222,7 +222,6 @@ class ChatViewModel
                                     otherUserHandle = resolution.otherUserHandle,
                                     otherUserDisplayName = resolution.otherUserDisplayName,
                                     otherUserAvatarUrl = resolution.otherUserAvatarUrl,
-                                    otherUserAvatarHue = resolution.otherUserAvatarHue,
                                 )
                             }
                             repository

@@ -17,7 +17,6 @@ import kotlinx.serialization.json.decodeFromStream
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
-import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
@@ -136,7 +135,6 @@ internal class BenchFakeChatRepository
                             otherUserHandle = convo.otherUserHandle,
                             otherUserDisplayName = convo.displayName,
                             otherUserAvatarUrl = convo.avatarUrl,
-                            otherUserAvatarHue = convo.avatarHue,
                         ),
                     )
                 }
@@ -151,7 +149,6 @@ internal class BenchFakeChatRepository
                     otherUserHandle = handle,
                     otherUserDisplayName = "User ${otherUserDid.takeLast(4)}",
                     otherUserAvatarUrl = null,
-                    otherUserAvatarHue = avatarHueFor(otherUserDid, handle),
                 )
 
             val newConvo =
@@ -161,7 +158,6 @@ internal class BenchFakeChatRepository
                     otherUserHandle = handle,
                     displayName = resolution.otherUserDisplayName,
                     avatarUrl = null,
-                    avatarHue = resolution.otherUserAvatarHue,
                     lastMessageSnippet = null,
                     lastMessageFromViewer = false,
                     lastMessageIsAttachment = false,

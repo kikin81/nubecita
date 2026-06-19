@@ -327,7 +327,6 @@ class ChatsUnreadPollingObserverTest {
                 otherUserHandle = "other.bsky.social",
                 displayName = "Other",
                 avatarUrl = null,
-                avatarHue = 0,
                 lastMessageSnippet = "hi",
                 lastMessageFromViewer = false,
                 lastMessageIsAttachment = false,

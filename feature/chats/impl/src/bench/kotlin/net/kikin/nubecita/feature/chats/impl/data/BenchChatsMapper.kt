@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
-import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
@@ -15,7 +14,6 @@ internal object BenchChatsMapper {
             otherUserHandle = dto.otherUserHandle,
             displayName = dto.displayName,
             avatarUrl = dto.avatarUrl,
-            avatarHue = avatarHueFor(did = dto.otherUserDid, handle = dto.otherUserHandle),
             lastMessageSnippet = dto.lastMessageSnippet,
             lastMessageFromViewer = dto.lastMessageFromViewer,
             lastMessageIsAttachment = dto.lastMessageIsAttachment,

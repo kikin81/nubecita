@@ -4,7 +4,6 @@ import io.github.kikin81.atproto.chat.bsky.convo.ConvoView
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoViewLastMessageUnion
 import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
-import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import kotlin.time.Instant
 
@@ -50,7 +49,6 @@ fun ConvoView.toConvoListItemUi(viewerDid: String): ConvoListItemUi {
         otherUserHandle = other.handle.raw,
         displayName = other.displayName?.takeUnless { it.isBlank() },
         avatarUrl = other.avatar?.raw,
-        avatarHue = avatarHueFor(did = other.did.raw, handle = other.handle.raw),
         lastMessageSnippet = lastMessage?.snippet(),
         lastMessageFromViewer = lastMessage?.senderDid() == viewerDid,
         lastMessageIsAttachment = lastMessage.isAttachmentOnly(),

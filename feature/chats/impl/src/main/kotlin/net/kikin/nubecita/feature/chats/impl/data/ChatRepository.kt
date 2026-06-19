@@ -139,7 +139,6 @@ data class ConvoResolution(
     val otherUserHandle: String,
     val otherUserDisplayName: String?,
     val otherUserAvatarUrl: String?,
-    val otherUserAvatarHue: Int,
 )
 
 data class MessagePage(

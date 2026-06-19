@@ -83,7 +83,6 @@ private val LOADED_STATE =
         otherUserDid = PEER,
         otherUserHandle = "alice.bsky.social",
         otherUserDisplayName = "Alice",
-        otherUserAvatarHue = 217,
         status =
             ChatLoadStatus.Loaded(
                 // Matches the mapper's emission order: newest message at source[0]
@@ -142,7 +141,6 @@ private val LOADED_WITH_EMBEDS_STATE =
         otherUserDid = PEER,
         otherUserHandle = "alice.bsky.social",
         otherUserDisplayName = "Alice",
-        otherUserAvatarHue = 217,
         status =
             ChatLoadStatus.Loaded(
                 items =
@@ -235,7 +233,6 @@ private val LOADED_WITH_SEND_STATUS_STATE =
         otherUserDid = PEER,
         otherUserHandle = "alice.bsky.social",
         otherUserDisplayName = "Alice",
-        otherUserAvatarHue = 217,
         status =
             ChatLoadStatus.Loaded(
                 items =

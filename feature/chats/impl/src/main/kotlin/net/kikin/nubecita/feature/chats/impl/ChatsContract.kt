@@ -112,7 +112,6 @@ data class ConvoListItemUi(
     val otherUserHandle: String,
     val displayName: String?,
     val avatarUrl: String?,
-    val avatarHue: Int,
     val lastMessageSnippet: String?,
     val lastMessageFromViewer: Boolean,
     val lastMessageIsAttachment: Boolean,

@@ -23,7 +23,6 @@ data class ChatScreenViewState(
     val otherUserHandle: String = "",
     val otherUserDisplayName: String? = null,
     val otherUserAvatarUrl: String? = null,
-    val otherUserAvatarHue: Int = 0,
     val status: ChatLoadStatus = ChatLoadStatus.Loading,
     val isSendEnabled: Boolean = false,
 ) : UiState

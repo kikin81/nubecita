@@ -22,7 +22,6 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
-import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.data.models.BlockedAccount
 import timber.log.Timber
@@ -118,7 +117,6 @@ internal class DefaultBlockRepository
                 handle = handle.raw,
                 displayName = displayName?.takeIf { it.isNotBlank() },
                 avatarUrl = avatar?.raw,
-                avatarHue = avatarHueFor(did = did.raw, handle = handle.raw),
                 blockUri = blockUri,
             )
         }

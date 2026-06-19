@@ -26,7 +26,6 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
-import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
@@ -156,7 +155,6 @@ internal class DefaultChatRepository
                         otherUserHandle = other.handle.raw,
                         otherUserDisplayName = other.displayName?.takeUnless { it.isBlank() },
                         otherUserAvatarUrl = other.avatar?.raw,
-                        otherUserAvatarHue = avatarHueFor(did = other.did.raw, handle = other.handle.raw),
                     )
                 }.onFailure { throwable ->
                     Timber.tag(TAG).w(throwable, "resolveConvo failed: %s", throwable.javaClass.name)

@@ -7,9 +7,6 @@ import androidx.compose.runtime.Immutable
  * list. [blockUri] is the AT URI of the viewer's own `app.bsky.graph.block`
  * record (from the profile's `viewer.blocking`) — it's what an unblock deletes,
  * so a row is only listable when it's present.
- *
- * [avatarHue] is the deterministic placeholder hue (degrees, 0–359) used when
- * [avatarUrl] is null, mirroring the convention elsewhere (`ConvoListItemUi`).
  */
 @Immutable
 public data class BlockedAccount(
@@ -17,6 +14,5 @@ public data class BlockedAccount(
     val handle: String,
     val displayName: String?,
     val avatarUrl: String?,
-    val avatarHue: Int,
     val blockUri: String,
 )

@@ -610,7 +610,6 @@ internal class ChatsViewModelTest {
             otherUserHandle = "alice.bsky.social",
             displayName = "Alice",
             avatarUrl = null,
-            avatarHue = 217,
             lastMessageSnippet = "hello",
             lastMessageFromViewer = false,
             lastMessageIsAttachment = false,

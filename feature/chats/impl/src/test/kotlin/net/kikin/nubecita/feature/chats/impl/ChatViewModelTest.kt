@@ -40,7 +40,6 @@ internal class ChatViewModelTest {
                                 otherUserHandle = "alice.bsky.social",
                                 otherUserDisplayName = "Alice",
                                 otherUserAvatarUrl = null,
-                                otherUserAvatarHue = 217,
                             ),
                         ),
                     nextMessagesResult =
@@ -86,7 +85,6 @@ internal class ChatViewModelTest {
                                 otherUserHandle = "alice.bsky.social",
                                 otherUserDisplayName = "Alice",
                                 otherUserAvatarUrl = null,
-                                otherUserAvatarHue = 217,
                             ),
                         ),
                 )
@@ -163,7 +161,6 @@ internal class ChatViewModelTest {
                         otherUserHandle = "alice.bsky.social",
                         otherUserDisplayName = "Alice",
                         otherUserAvatarUrl = null,
-                        otherUserAvatarHue = 0,
                     ),
                 )
             vm.handleEvent(ChatEvent.RetryClicked)

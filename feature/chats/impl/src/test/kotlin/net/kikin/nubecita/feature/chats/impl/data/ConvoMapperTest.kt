@@ -83,14 +83,6 @@ internal class ConvoMapperTest {
     }
 
     @Test
-    fun `avatarHue is deterministic per (did, handle)`() {
-        val a = sampleConvoView(otherDid = "did:plc:alice", otherHandle = "alice.bsky.social").toConvoListItemUi(VIEWER_DID)
-        val b = sampleConvoView(otherDid = "did:plc:alice", otherHandle = "alice.bsky.social").toConvoListItemUi(VIEWER_DID)
-        assertEquals(a.avatarHue, b.avatarHue)
-        assertTrue(a.avatarHue in 0..359, "hue ${a.avatarHue} MUST be in [0, 359]")
-    }
-
-    @Test
     fun `MessageView sentAt is propagated as a raw Instant`() {
         val sent = Instant.parse("2026-05-13T11:50:00Z")
         val view = sampleConvoView(lastMessage = sampleMessage(text = "ok", senderDid = "did:plc:alice", sentAt = sent))
