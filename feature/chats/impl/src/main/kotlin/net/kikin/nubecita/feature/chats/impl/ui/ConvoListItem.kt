@@ -1,13 +1,9 @@
 package net.kikin.nubecita.feature.chats.impl.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
@@ -18,9 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -31,7 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.core.common.time.rememberChatRelativeTimeText
-import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
@@ -133,34 +127,18 @@ private fun Avatar(
     item: ConvoListItemUi,
     modifier: Modifier = Modifier,
 ) {
-    val hueColor = Color.hsv(item.avatarHue.toFloat(), saturation = 0.5f, value = 0.55f)
-    val initials =
-        (item.displayName ?: item.otherUserHandle)
-            .firstOrNull { it.isLetterOrDigit() }
-            ?.uppercase()
-            ?: "?"
-    Box(
-        modifier =
-            modifier
-                .clip(CircleShape)
-                .background(hueColor),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (item.avatarUrl != null) {
-            NubecitaAsyncImage(
-                model = item.avatarUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize().clip(CircleShape),
-            )
-        } else {
-            Text(
-                text = initials,
-                color = if (hueColor.luminance() > 0.5f) Color.Black else Color.White,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-    }
+    NubecitaAvatar(
+        model = item.avatarUrl,
+        contentDescription = null,
+        modifier = modifier,
+        size = 48.dp,
+        fallback =
+            avatarFallbackFor(
+                did = item.otherUserDid,
+                handle = item.otherUserHandle,
+                displayName = item.displayName,
+            ),
+    )
 }
 
 @Composable

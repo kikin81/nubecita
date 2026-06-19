@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.chats.impl
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,12 +15,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
@@ -43,13 +40,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
@@ -57,7 +50,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
-import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
@@ -245,37 +239,17 @@ private fun ChatComposerRow(
 
 @Composable
 private fun ChatTopBarAvatar(state: ChatScreenViewState) {
-    val hueColor = Color.hsv(state.otherUserAvatarHue.toFloat(), saturation = 0.5f, value = 0.55f)
-    val initial =
-        (state.otherUserDisplayName ?: state.otherUserHandle)
-            .firstOrNull { it.isLetterOrDigit() }
-            ?.uppercase() ?: "?"
-    Box(
-        modifier =
-            Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(hueColor),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (state.otherUserAvatarUrl != null) {
-            NubecitaAsyncImage(
-                model = state.otherUserAvatarUrl,
-                contentDescription = null,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape),
-            )
-        } else {
-            Text(
-                text = initial,
-                color = if (hueColor.luminance() > 0.5f) Color.Black else Color.White,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-    }
+    NubecitaAvatar(
+        model = state.otherUserAvatarUrl,
+        contentDescription = null,
+        size = 40.dp,
+        fallback =
+            avatarFallbackFor(
+                did = state.otherUserDid,
+                handle = state.otherUserHandle,
+                displayName = state.otherUserDisplayName,
+            ),
+    )
 }
 
 @Composable
