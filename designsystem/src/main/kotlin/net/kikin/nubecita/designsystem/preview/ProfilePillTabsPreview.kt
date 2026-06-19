@@ -65,11 +65,10 @@ fun ProfilePillTabsCatalog(modifier: Modifier = Modifier) {
 
 private enum class SamplePillValue { Posts, Replies, Media }
 
-// Sample-only — the real Profile screen (Bead D / E) picks the
-// canonical icons. `Article` is a placeholder for the Media tab here
-// because `Image` isn't in NubecitaIconName yet; adding it requires
-// re-subsetting the icon font (see NubecitaIconName.kt KDoc) and is
-// out of scope for Bead B (BoldHeroGradient + ProfilePillTabs).
+// Sample-only — the real Profile screen picks the canonical icons.
+// `Article` is a placeholder for the Media tab here because `Image`
+// isn't in NubecitaIconName yet; adding it requires re-subsetting the
+// icon font (see NubecitaIconName.kt KDoc).
 private val tabs: ImmutableList<PillTab<SamplePillValue>> =
     persistentListOf(
         PillTab(SamplePillValue.Posts, "Posts", NubecitaIconName.Home),

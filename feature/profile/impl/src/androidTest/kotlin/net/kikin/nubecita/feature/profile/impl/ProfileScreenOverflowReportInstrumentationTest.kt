@@ -89,7 +89,6 @@ class ProfileScreenOverflowReportInstrumentationTest {
                 displayName = "Bob",
                 avatarUrl = null,
                 bannerUrl = null,
-                avatarHue = 217,
                 bio = null,
                 location = null,
                 website = null,
