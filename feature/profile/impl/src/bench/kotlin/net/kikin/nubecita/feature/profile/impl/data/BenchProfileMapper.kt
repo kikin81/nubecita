@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
-import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
@@ -28,7 +27,6 @@ internal object BenchProfileMapper {
                 displayName = dto.displayName,
                 avatarUrl = dto.avatarUrl,
                 bannerUrl = dto.bannerUrl,
-                avatarHue = avatarHueFor(dto.did, dto.handle),
                 bio = dto.bio,
                 location = dto.location,
                 website = dto.website,

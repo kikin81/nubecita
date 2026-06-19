@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState
-import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.core.profile.canViewerMessage
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
@@ -33,7 +32,6 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
         displayName = displayName?.takeUnless { it.isBlank() },
         avatarUrl = avatar?.raw,
         bannerUrl = banner?.raw,
-        avatarHue = avatarHueFor(did.raw, handle.raw),
         bio = description?.takeUnless { it.isBlank() },
         location = null, // No location field on profileViewDetailed yet — atproto-side stretch.
         website = website?.raw,

@@ -59,7 +59,6 @@ private val SAMPLE_HEADER =
         displayName = "Alice",
         avatarUrl = null,
         bannerUrl = null,
-        avatarHue = 217,
         bio = "Designer · lima → barcelona · she/her",
         location = "Lima, Peru",
         website = "alice.example.com",
@@ -71,11 +70,9 @@ private val SAMPLE_HEADER =
 
 private val SAMPLE_HEADER_WITH_BANNER =
     SAMPLE_HEADER.copy(
-        // Banner URL is just a string; BoldHeroGradient handles the
-        // null/blank short-circuit. We don't actually fetch in screenshot
-        // tests (Coil is no-op'd in Layoutlib) — the gradient renders
-        // the avatarHue fallback for both cases. The visual delta with
-        // a real banner can only be verified on-device.
+        // Banner URL is just a string. We don't actually fetch in screenshot
+        // tests (Coil is no-op'd in Layoutlib). The visual delta with a real
+        // banner can only be verified on-device.
         bannerUrl = "https://cdn.example.com/banner.jpg",
     )
 

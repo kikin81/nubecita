@@ -175,10 +175,7 @@ data class ViewerModerationState(
  * via [net.kikin.nubecita.feature.profile.impl.data.AuthorProfileMapper].
  *
  * `banner` is the nullable banner URL **as a String** (the atproto
- * runtime's `Uri.raw` value) — matches the shape `BoldHeroGradient`
- * accepts in `:designsystem`. `avatarHue` is derived deterministically
- * from `did + first char of handle` so the bold-derived hero gradient
- * has a stable fallback when no banner is set.
+ * runtime's `Uri.raw` value).
  */
 data class ProfileHeaderUi(
     val did: String,
@@ -186,7 +183,6 @@ data class ProfileHeaderUi(
     val displayName: String?,
     val avatarUrl: String?,
     val bannerUrl: String?,
-    val avatarHue: Int,
     val bio: String?,
     val location: String?,
     val website: String?,

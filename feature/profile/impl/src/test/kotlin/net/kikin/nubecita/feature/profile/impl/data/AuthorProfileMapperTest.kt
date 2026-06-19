@@ -94,30 +94,6 @@ internal class AuthorProfileMapperTest {
     }
 
     @Test
-    fun `avatarHue is deterministic across calls`() {
-        val a = sampleView(did = "did:plc:alice123", handle = "alice.bsky.social").toProfileHeaderUi()
-        val b = sampleView(did = "did:plc:alice123", handle = "alice.bsky.social").toProfileHeaderUi()
-        assertEquals(a.avatarHue, b.avatarHue)
-    }
-
-    @Test
-    fun `avatarHue varies across distinct users`() {
-        val alice = sampleView(did = "did:plc:alice123", handle = "alice.bsky.social").toProfileHeaderUi()
-        val bob = sampleView(did = "did:plc:bob456", handle = "bob.bsky.social").toProfileHeaderUi()
-        // Probabilistically these should differ; assert that they do
-        // for our specific test inputs (computed manually + locked).
-        assertNotEquals(alice.avatarHue, bob.avatarHue)
-    }
-
-    @Test
-    fun `avatarHue is always in 0 to 360 range`() {
-        listOf("did:plc:a", "did:plc:b", "did:plc:c", "did:plc:zzzzzzzzzzzz").forEach { d ->
-            val hue = sampleView(did = d, handle = "user.bsky.social").toProfileHeaderUi().avatarHue
-            assertEquals(true, hue in 0..359, "hue $hue MUST be in [0, 359] for did=$d")
-        }
-    }
-
-    @Test
     fun `toProfileHeaderWithViewer returns ViewerRelationship_None when viewer is null`() {
         val wire = sampleView(viewer = null)
 

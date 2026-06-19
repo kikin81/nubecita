@@ -25,7 +25,6 @@ private val SAMPLE_HEADER =
         displayName = "Alice",
         avatarUrl = null,
         bannerUrl = null,
-        avatarHue = 217,
         bio = "Designer · lima → barcelona · she/her",
         location = "Lima, Peru",
         website = "alice.example.com",
