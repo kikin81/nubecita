@@ -172,12 +172,6 @@ private const val FIXTURE_HANDLE = "alice.bsky.social"
 private const val FIXTURE_DID = "did:plc:alice"
 private const val FIXTURE_DISPLAY_NAME = "Alice Anderson"
 
-// Legacy constant kept for compilation — avatarHue is still a field on
-// SettingsViewState (pending removal in a follow-up). The avatar disc
-// colour is now derived at render time from FIXTURE_DID + FIXTURE_HANDLE
-// via avatarFallbackFor, so this constant no longer drives the rendered hue.
-private const val FIXTURE_AVATAR_HUE = 217
-
 // Stable string so screenshot baselines aren't tied to whatever
 // semantic-release happens to have bumped to at fixture-capture time.
 private const val FIXTURE_VERSION_LABEL = "1.104.0 (1104000)"
