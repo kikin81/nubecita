@@ -33,10 +33,34 @@ SDK note: `atproto-kotlin` 9.3.1 is feature-complete for this — `ConvoView.kin
 
 ## Decisions
 
-1. **Identity = `convoId`.** Re-key the `Chat` NavKey from `otherUserDid` to
-   `convoId`. The "message this user" entry points (profile, new-chat) resolve
-   did→convoId via `getConvoForMembers` **before** navigating, then push
-   `Chat(convoId)`. One unified thread route for 1:1 and group.
+1. **Identity = `convoId` internally; `Chat` NavKey accepts `convoId` OR
+   `otherUserDid`.** The data layer/VM work in `convoId`, but the navigation key
+   carries whichever identifier the caller has, and `ChatViewModel` resolves
+   internally — resolution must NOT happen in the calling feature module.
+   - Convo list (Direct + Group) pushes `Chat(convoId = row.convoId)` → VM loads
+     via `getConvo(convoId)`.
+   - "Message this user" entry points (profile, search) keep pushing
+     `Chat(otherUserDid = did)` — they depend only on `:feature:chats:api` and
+     must not resolve anything → VM resolves via `getConvoForMembers` → convoId
+     (today's behavior), then loads.
+
+   ```kotlin
+   data class Chat(
+       val convoId: String? = null,
+       val otherUserDid: String? = null,
+   ) : NavKey {
+       init { require(convoId != null || otherUserDid != null) }
+   }
+   ```
+
+   Rationale (raised in review): resolving did→convoId *before* navigating would
+   force `:feature:profile`/`:feature:search` to call a data-layer repository
+   (`getConvoForMembers`), leaking `:chats:impl` across the api/impl boundary,
+   block the screen transition on a network call, and push resolve-error handling
+   onto the profile screen. Carrying the identifier on the NavKey and resolving in
+   the VM keeps navigation instant, encapsulates loading/error in the chat screen,
+   and preserves clean module boundaries. The internal identity is still `convoId`
+   (the VM normalizes), so groups never carry a meaningless did.
 2. **Fully sealed `ConvoRowUi`** for the convo list, with shared fields as
    interface properties so existing shared-field operations (multi-select, mute,
    leave — all keyed on `convoId`) keep working polymorphically.
@@ -109,19 +133,23 @@ when mapping the message list (pure function, unit-tested).
   - `GroupConvo` → `ConvoRowUi.Group(name, members.map { it.toAuthorUi() })`.
   The **Requests tab uses the same row**, so group invites render correctly for
   free; accepting stays `acceptConvo(convoId)` (already convoId-keyed).
-- **Open thread:** `Chat(convoId)` → `ChatViewModel` calls `getConvo(convoId)`
-  (header + kind + lockStatus + members) then `getMessages(convoId)`.
-- **"Message this user" entry points:** profile / new-chat resolve did→convoId via
-  `getConvoForMembers` before navigating (a brief resolve step on tap; this moves
-  the resolve from inside-the-thread to before-nav — note the minor UX shift, show
-  a loading affordance on the tapped action).
+- **Open thread:** `ChatViewModel` normalizes the NavKey to a convoId, then loads:
+  `Chat(convoId)` → `getConvo(convoId)` directly; `Chat(otherUserDid)` →
+  `getConvoForMembers(did)` → convoId (today's `resolveConvo`), then `getConvo`.
+  Followed by `getMessages(convoId)`. Resolution/loading/errors stay inside the
+  chat screen; navigation is instant (no pre-nav network call).
+- **Entry points:** the convo list (Direct + Group) pushes
+  `Chat(convoId = row.convoId)`; profile/search "Message" push
+  `Chat(otherUserDid = did)` — both depend only on `:feature:chats:api`.
 - **Send:** `sendMessage(convoId, …)` — unchanged.
 - **Send-gating:** `canPost` derived from the loaded `ConvoView`
   (`lockStatus`/membership); composer disabled + hint when false.
 
 ## Files touched
 
-- `feature/chats/api` — `Chat` NavKey (`otherUserDid` → `convoId`).
+- `feature/chats/api` — `Chat` NavKey gains optional `convoId` alongside
+  `otherUserDid` (require at least one); callers outside `:chats:impl` stay on
+  `:chats:api` only.
 - `feature/chats/impl`:
   - `data/ConvoMapper.kt` — `kind` discrimination → sealed `ConvoRowUi`.
   - `data/ChatRepository.kt` / `DefaultChatRepository.kt` — resolve→convoId,
@@ -131,7 +159,8 @@ when mapping the message list (pure function, unit-tested).
   - `ui/ConvoListItem.kt` — variant rendering (Group → `AvatarGroup` + name).
   - `ChatScreenContent.kt` — group header (name + member count + `AvatarGroup`),
     sender-attributed message rows, gated composer.
-  - `ChatViewModel.kt` — load by `convoId`; compute `canPost`.
+  - `ChatViewModel.kt` — normalize NavKey → convoId (load `convoId` directly, or
+    resolve `otherUserDid`); compute `canPost`.
   - "Message this user" call sites (profile / new-chat entry points).
   - All chat fakes / tests / screenshot fixtures updated to the sealed models.
 
