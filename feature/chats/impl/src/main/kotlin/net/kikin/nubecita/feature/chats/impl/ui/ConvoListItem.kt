@@ -3,7 +3,6 @@ package net.kikin.nubecita.feature.chats.impl.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
@@ -107,7 +106,7 @@ internal fun ConvoListItem(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             ),
-        leadingContent = { Avatar(item = item, modifier = Modifier.size(48.dp)) },
+        leadingContent = { Avatar(item = item) },
         supportingContent = { SubtitleText(item = item) },
         trailingContent = { TrailingMeta(item = item) },
         // Stable tag for the screengrab marketing journey to tap into a DM
