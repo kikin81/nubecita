@@ -49,9 +49,9 @@ private fun SettingsSignedInScreenshot() {
             state =
                 SettingsViewState(
                     handle = FIXTURE_HANDLE,
+                    did = FIXTURE_DID,
                     displayName = FIXTURE_DISPLAY_NAME,
                     avatarUrl = null, // pins the initials-disc fallback path so baselines aren't network-dependent
-                    avatarHue = FIXTURE_AVATAR_HUE,
                 ),
             onEvent = {},
             versionLabel = FIXTURE_VERSION_LABEL,
@@ -74,9 +74,9 @@ private fun SettingsMissingDisplayNameScreenshot() {
             state =
                 SettingsViewState(
                     handle = FIXTURE_HANDLE,
+                    did = FIXTURE_DID,
                     displayName = null,
                     avatarUrl = null,
-                    avatarHue = FIXTURE_AVATAR_HUE,
                 ),
             onEvent = {},
             versionLabel = FIXTURE_VERSION_LABEL,
@@ -99,8 +99,8 @@ private fun SettingsConfirmDialogScreenshot() {
             state =
                 SettingsViewState(
                     handle = FIXTURE_HANDLE,
+                    did = FIXTURE_DID,
                     displayName = FIXTURE_DISPLAY_NAME,
-                    avatarHue = FIXTURE_AVATAR_HUE,
                     confirmDialogOpen = true,
                 ),
             onEvent = {},
@@ -124,8 +124,8 @@ private fun SettingsSigningOutScreenshot() {
             state =
                 SettingsViewState(
                     handle = FIXTURE_HANDLE,
+                    did = FIXTURE_DID,
                     displayName = FIXTURE_DISPLAY_NAME,
-                    avatarHue = FIXTURE_AVATAR_HUE,
                     confirmDialogOpen = true,
                     status = SettingsStatus.SigningOut,
                 ),
@@ -154,9 +154,9 @@ private fun SettingsProMemberScreenshot() {
             state =
                 SettingsViewState(
                     handle = FIXTURE_HANDLE,
+                    did = FIXTURE_DID,
                     displayName = FIXTURE_DISPLAY_NAME,
                     avatarUrl = null,
-                    avatarHue = FIXTURE_AVATAR_HUE,
                     isPro = true,
                     currentPlanPeriod = BillingPeriod.Annual,
                     currentPlanFormattedPrice = "$19.99",
@@ -169,12 +169,13 @@ private fun SettingsProMemberScreenshot() {
 }
 
 private const val FIXTURE_HANDLE = "alice.bsky.social"
+private const val FIXTURE_DID = "did:plc:alice"
 private const val FIXTURE_DISPLAY_NAME = "Alice Anderson"
 
-// Stable hue for the deterministic-initials avatar disc — matches the
-// canonical Alice fixture used across ProfileTopBarScreenshotTest etc.
-// Keeps the baseline color identical across runs without computing
-// avatarHueFor(did, handle) at fixture time.
+// Legacy constant kept for compilation — avatarHue is still a field on
+// SettingsViewState (pending removal in a follow-up). The avatar disc
+// colour is now derived at render time from FIXTURE_DID + FIXTURE_HANDLE
+// via avatarFallbackFor, so this constant no longer drives the rendered hue.
 private const val FIXTURE_AVATAR_HUE = 217
 
 // Stable string so screenshot baselines aren't tied to whatever

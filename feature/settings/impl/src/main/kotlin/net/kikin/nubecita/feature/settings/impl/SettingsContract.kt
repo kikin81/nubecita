@@ -36,6 +36,7 @@ import net.kikin.nubecita.data.models.BillingPeriod
  */
 data class SettingsViewState(
     val handle: String? = null,
+    val did: String? = null,
     val displayName: String? = null,
     val avatarUrl: String? = null,
     val avatarHue: Int = 0,

@@ -377,6 +377,7 @@ internal fun SettingsContent(
     // defensive and would only render in the one-frame window before
     // the flow's first emission lands.
     val handle = state.handle.orEmpty()
+    val did = state.did.orEmpty()
     val displayName = state.displayName
     val avatarUrl = state.avatarUrl
 
@@ -552,16 +553,16 @@ internal fun SettingsContent(
     ) {
         SettingsHeader(
             handle = handle,
+            did = did,
             displayName = displayName,
             avatarUrl = avatarUrl,
-            avatarHue = state.avatarHue,
             onManageAccountClick = { onEvent(SettingsEvent.ManageAccountTapped) },
         )
         SwitchAccountRow(
             handle = handle,
+            did = did,
             displayName = displayName,
             avatarUrl = avatarUrl,
-            avatarHue = state.avatarHue,
             onTap = { onEvent(SettingsEvent.SwitchAccountTapped) },
         )
         // Nubecita Pro section sits up top (under the identity rows) for

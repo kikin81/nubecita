@@ -82,6 +82,7 @@ internal class SettingsViewModel
                     setState {
                         copy(
                             handle = signedIn.handle,
+                            did = signedIn.did,
                             avatarHue = avatarHueFor(did = signedIn.did, handle = signedIn.handle),
                         )
                     }

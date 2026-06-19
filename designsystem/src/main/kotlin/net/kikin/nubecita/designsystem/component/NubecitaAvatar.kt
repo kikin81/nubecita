@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -69,6 +70,7 @@ fun NubecitaAvatar(
     modifier: Modifier = Modifier,
     size: Dp = DEFAULT_AVATAR_SIZE,
     fallback: AvatarFallback? = null,
+    initialTextStyle: TextStyle = MaterialTheme.typography.titleSmall,
 ) {
     if (model == null && fallback != null) {
         val hueColor = Color.hsv(fallback.hue.toFloat(), saturation = 0.5f, value = 0.55f)
@@ -80,7 +82,7 @@ fun NubecitaAvatar(
                 Text(
                     text = initial.toString(),
                     color = if (hueColor.luminance() > 0.5f) Color.Black else Color.White,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = initialTextStyle,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
