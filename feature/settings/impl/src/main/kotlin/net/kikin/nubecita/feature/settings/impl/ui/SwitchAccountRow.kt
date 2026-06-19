@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.settings.impl.R
@@ -36,9 +38,9 @@ import net.kikin.nubecita.feature.settings.impl.R
 @Composable
 internal fun SwitchAccountRow(
     handle: String,
+    did: String,
     displayName: String?,
     avatarUrl: String?,
-    avatarHue: Int,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -50,13 +52,11 @@ internal fun SwitchAccountRow(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
         leadingContent = {
-            SettingsAvatar(
-                hue = avatarHue,
-                initialSeed = displayName?.takeIf { it.isNotBlank() } ?: handle,
-                avatarUrl = avatarUrl,
-                modifier = Modifier.size(32.dp),
-                contentDescription =
-                    stringResource(R.string.settings_switch_account_avatar_content_description),
+            NubecitaAvatar(
+                model = avatarUrl,
+                contentDescription = stringResource(R.string.settings_switch_account_avatar_content_description),
+                size = 32.dp,
+                fallback = avatarFallbackFor(did = did, handle = handle, displayName = displayName),
                 initialTextStyle = MaterialTheme.typography.labelMedium,
             )
         },

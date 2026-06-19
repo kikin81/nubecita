@@ -80,6 +80,7 @@ private fun recordEmbed(
 
 private val LOADED_STATE =
     ChatScreenViewState(
+        otherUserDid = PEER,
         otherUserHandle = "alice.bsky.social",
         otherUserDisplayName = "Alice",
         otherUserAvatarHue = 217,
@@ -138,6 +139,7 @@ private val LOADED_STATE =
  */
 private val LOADED_WITH_EMBEDS_STATE =
     ChatScreenViewState(
+        otherUserDid = PEER,
         otherUserHandle = "alice.bsky.social",
         otherUserDisplayName = "Alice",
         otherUserAvatarHue = 217,
@@ -230,6 +232,7 @@ private val LOADED_WITH_EMBEDS_STATE =
  */
 private val LOADED_WITH_SEND_STATUS_STATE =
     ChatScreenViewState(
+        otherUserDid = PEER,
         otherUserHandle = "alice.bsky.social",
         otherUserDisplayName = "Alice",
         otherUserAvatarHue = 217,

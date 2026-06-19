@@ -1,4 +1,4 @@
-package net.kikin.nubecita.core.profile
+package net.kikin.nubecita.core.common.avatar
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue

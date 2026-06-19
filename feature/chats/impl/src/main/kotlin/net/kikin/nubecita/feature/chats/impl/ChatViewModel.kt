@@ -218,6 +218,7 @@ class ChatViewModel
                             convoId = resolution.convoId
                             setState {
                                 copy(
+                                    otherUserDid = otherUserDid,
                                     otherUserHandle = resolution.otherUserHandle,
                                     otherUserDisplayName = resolution.otherUserDisplayName,
                                     otherUserAvatarUrl = resolution.otherUserAvatarUrl,

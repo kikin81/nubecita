@@ -1,6 +1,6 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
-import net.kikin.nubecita.core.profile.avatarHueFor
+import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi

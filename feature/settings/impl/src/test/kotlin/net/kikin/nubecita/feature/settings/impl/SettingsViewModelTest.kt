@@ -15,10 +15,10 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.billing.RestoreResult
+import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import net.kikin.nubecita.core.profile.ActorProfile
 import net.kikin.nubecita.core.profile.ActorProfileRepository
-import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.ActiveSubscription
 import net.kikin.nubecita.data.models.BillingPeriod
@@ -261,12 +261,13 @@ internal class SettingsViewModelTest {
             val vm =
                 createVm(auth = mockk(relaxed = true), session = session, actorProfile = actorProfile)
 
-            // Handle + avatarHue (computed via avatarHueFor from did + handle)
+            // Handle + did + avatarHue (computed via avatarHueFor from did + handle)
             // lands first from the flow's emission. displayName + avatarUrl
             // arrive after fetchProfile resolves. advanceUntilIdle drains
             // both turns.
             advanceUntilIdle()
             assertEquals("alice.bsky.social", vm.uiState.value.handle)
+            assertEquals("did:plc:alice", vm.uiState.value.did)
             // avatarHue is the deterministic 0–359 value for this (did, handle)
             // pair — same helper used by AuthorProfileMapper/ConvoMapper, so
             // the same user paints identically across Settings/Profile/Chats.

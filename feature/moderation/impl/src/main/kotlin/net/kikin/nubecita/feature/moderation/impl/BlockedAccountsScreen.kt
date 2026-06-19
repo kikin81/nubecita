@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.moderation.impl
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,10 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -30,8 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,7 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.data.models.BlockedAccount
-import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
@@ -157,21 +153,16 @@ private fun BlockedRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Hue placeholder behind the avatar (mirrors ConvoListItem) so a missing
-        // avatar still reads as a distinct account rather than a blank circle.
-        Box(
-            modifier =
-                Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.hsv(account.avatarHue.toFloat(), saturation = 0.5f, value = 0.55f)),
-        ) {
-            NubecitaAsyncImage(
-                model = account.avatarUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize().clip(CircleShape),
-            )
-        }
+        NubecitaAvatar(
+            model = account.avatarUrl,
+            contentDescription = null,
+            fallback =
+                avatarFallbackFor(
+                    did = account.did,
+                    handle = account.handle,
+                    displayName = account.displayName,
+                ),
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = account.displayName ?: "@${account.handle}",

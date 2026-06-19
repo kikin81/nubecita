@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -15,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.feature.settings.impl.R
 
 /**
@@ -23,14 +24,15 @@ import net.kikin.nubecita.feature.settings.impl.R
  *
  * - Handle (e.g. `kikin.bsky.social`) as the topmost text in the
  *   centered column.
- * - Large circular avatar (88dp) rendered via [SettingsAvatar] —
+ * - Large circular avatar (88dp) rendered via [NubecitaAvatar] —
  *   loads the async-image when [avatarUrl] is non-null, otherwise
  *   shows the deterministic initials-disc fallback derived from
- *   [displayName] / [handle]. An earlier draft overlaid a camera-
- *   icon edit badge here; it was dropped when the badge had no tap
- *   behavior in v1 and rendering it inside an otherwise-empty
- *   avatar made the header read as unfinished. Restore the overlay
- *   inside whichever follow-on task wires avatar upload.
+ *   [did]+[handle] (hue) and [displayName]/[handle] (initial). An
+ *   earlier draft overlaid a camera-icon edit badge here; it was
+ *   dropped when the badge had no tap behavior in v1 and rendering it
+ *   inside an otherwise-empty avatar made the header read as
+ *   unfinished. Restore the overlay inside whichever follow-on task
+ *   wires avatar upload.
  * - Display-name greeting ("Hi, $name!" when a display name is
  *   present, "Hi!" when absent or blank).
  * - "Manage your Bluesky account" pill-shaped [OutlinedButton] —
@@ -44,9 +46,9 @@ import net.kikin.nubecita.feature.settings.impl.R
 @Composable
 internal fun SettingsHeader(
     handle: String,
+    did: String,
     displayName: String?,
     avatarUrl: String?,
-    avatarHue: Int,
     onManageAccountClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -69,13 +71,11 @@ internal fun SettingsHeader(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        SettingsAvatar(
-            hue = avatarHue,
-            initialSeed = displayName?.takeIf { it.isNotBlank() } ?: handle,
-            avatarUrl = avatarUrl,
-            modifier = Modifier.size(88.dp),
-            contentDescription =
-                stringResource(R.string.settings_header_avatar_content_description),
+        NubecitaAvatar(
+            model = avatarUrl,
+            contentDescription = stringResource(R.string.settings_header_avatar_content_description),
+            size = 88.dp,
+            fallback = avatarFallbackFor(did = did, handle = handle, displayName = displayName),
             initialTextStyle = MaterialTheme.typography.displaySmall,
         )
         Text(

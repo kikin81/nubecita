@@ -19,6 +19,7 @@ import kotlin.time.Instant
  * strings / nulls so the initial Loading composition has stable values.
  */
 data class ChatScreenViewState(
+    val otherUserDid: String = "",
     val otherUserHandle: String = "",
     val otherUserDisplayName: String? = null,
     val otherUserAvatarUrl: String? = null,

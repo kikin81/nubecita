@@ -2,7 +2,7 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState
-import net.kikin.nubecita.core.profile.avatarHueFor
+import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.core.profile.canViewerMessage
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
