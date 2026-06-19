@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781772444062,
+  "lastUpdate": 1781859733583,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1143,6 +1143,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1072.69,
             "range": "+/- 29.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "d933906c64188db89eec9b813235893abb649b59",
+          "message": "ci(release): 1.230.1\n\n## [1.230.1](https://github.com/kikin81/nubecita/compare/v1.230.0...v1.230.1) (2026-06-18)\n\n### Miscellaneous\n\n* **deps:** update actions/checkout action to v7 ([#548](https://github.com/kikin81/nubecita/issues/548)) ([f391377](https://github.com/kikin81/nubecita/commit/f391377862a6e9fcd5b6732338b045b0ce2a134c))\n\n### Bug Fixes\n\n* **deps:** update all non-major dependencies to v1.22.0 ([#547](https://github.com/kikin81/nubecita/issues/547)) ([0915f86](https://github.com/kikin81/nubecita/commit/0915f8647d673e2313f0e5ec4e1ebcf76b9a1ea0))\n* **deps:** update compose-ui ([#540](https://github.com/kikin81/nubecita/issues/540)) ([d9d6c3b](https://github.com/kikin81/nubecita/commit/d9d6c3b742472a90c318a6835022a25586e21451))",
+          "timestamp": "2026-06-18T19:36:28Z",
+          "url": "https://github.com/kikin81/nubecita/commit/d933906c64188db89eec9b813235893abb649b59"
+        },
+        "date": 1781859732570,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 32,
+            "range": "+/- 7%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1470.242,
+            "range": "+/- 6.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1533.185,
+            "range": "+/- 10.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1117.712,
+            "range": "+/- 25.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1217.949,
+            "range": "+/- 30.6%",
             "unit": "ms"
           }
         ]
