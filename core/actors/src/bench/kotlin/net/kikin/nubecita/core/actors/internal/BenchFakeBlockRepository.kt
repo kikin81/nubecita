@@ -3,7 +3,7 @@ package net.kikin.nubecita.core.actors.internal
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.kikin.nubecita.core.actors.BlockRepository
-import net.kikin.nubecita.core.profile.avatarHueFor
+import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.data.models.BlockedAccount
 import javax.inject.Inject
 import javax.inject.Singleton

@@ -14,10 +14,10 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.billing.RestoreResult
+import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import net.kikin.nubecita.core.profile.ActorProfileRepository
-import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.data.models.ActiveSubscription
 import net.kikin.nubecita.data.models.SubscriptionPlanId
 import timber.log.Timber

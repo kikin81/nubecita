@@ -23,9 +23,9 @@ import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
  *
  * [hue] is a precomputed 0–359 value supplied by the caller (the
  * SettingsViewModel derives it via
- * [net.kikin.nubecita.core.profile.avatarHueFor] so it stays identical
+ * [net.kikin.nubecita.core.common.avatar.avatarHueFor] so it stays identical
  * to the same user's Profile / Chats avatar — the three feature
- * surfaces share the same algorithm and seed from `:core:profile`).
+ * surfaces share the same algorithm and seed from `:core:common`).
  * Computing it locally from displayName / handle would drift from the
  * DID-keyed convention used by sibling surfaces AND would visibly
  * re-paint the disc when the display name fetch resolves after the

@@ -15,7 +15,7 @@ import net.kikin.nubecita.data.models.BillingPeriod
  * meaning the first SignedIn emission (typically immediate, since
  * the StateFlow is hot and resolved by the time Settings is
  * reachable) populates [handle] AND [avatarHue] together (the latter
- * computed via [net.kikin.nubecita.core.profile.avatarHueFor] so it
+ * computed via [net.kikin.nubecita.core.common.avatar.avatarHueFor] so it
  * matches the same user's Profile / Chats avatar). [displayName] and
  * [avatarUrl] arrive separately after an
  * `ActorProfileRepository.fetchProfile` round-trip and stay null on

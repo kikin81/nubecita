@@ -2,7 +2,7 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
-import net.kikin.nubecita.core.profile.avatarHueFor
+import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi

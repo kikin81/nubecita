@@ -17,8 +17,8 @@ import kotlinx.serialization.json.decodeFromStream
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
-import net.kikin.nubecita.core.profile.avatarHueFor
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi

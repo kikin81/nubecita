@@ -4,7 +4,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.ConvoView
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoViewLastMessageUnion
 import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
-import net.kikin.nubecita.core.profile.avatarHueFor
+import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import kotlin.time.Instant
 
