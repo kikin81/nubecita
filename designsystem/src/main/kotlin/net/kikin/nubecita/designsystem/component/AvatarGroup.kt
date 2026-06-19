@@ -37,12 +37,16 @@ data class AvatarGroupSplit(
 fun avatarGroupSplit(
     total: Int,
     maxVisible: Int,
-): AvatarGroupSplit =
-    if (total > maxVisible) {
-        AvatarGroupSplit(visibleAvatars = maxVisible, overflowCount = total - maxVisible)
+): AvatarGroupSplit {
+    // Coerce a misuse (negative cap) to 0 so `members.take(visibleAvatars)` can't
+    // throw — maxVisible is a public API param.
+    val cap = maxVisible.coerceAtLeast(0)
+    return if (total > cap) {
+        AvatarGroupSplit(visibleAvatars = cap, overflowCount = total - cap)
     } else {
         AvatarGroupSplit(visibleAvatars = total, overflowCount = 0)
     }
+}
 
 /**
  * Overlapping facepile of [members] — up to [maxVisible] avatars, then a "+N"

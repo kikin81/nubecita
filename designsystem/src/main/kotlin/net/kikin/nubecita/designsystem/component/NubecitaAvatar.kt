@@ -14,6 +14,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -75,7 +77,21 @@ fun NubecitaAvatar(
     if (model == null && fallback != null) {
         val hueColor = Color.hsv(fallback.hue.toFloat(), saturation = 0.5f, value = 0.55f)
         Box(
-            modifier = modifier.size(size).clip(CircleShape).background(hueColor),
+            // Carry contentDescription onto the fallback disc too, so a caller that
+            // supplies one (image branch already forwards it) doesn't lose it when
+            // the avatar is null.
+            modifier =
+                modifier
+                    .size(size)
+                    .clip(CircleShape)
+                    .background(hueColor)
+                    .then(
+                        if (contentDescription != null) {
+                            Modifier.semantics { this.contentDescription = contentDescription }
+                        } else {
+                            Modifier
+                        },
+                    ),
             contentAlignment = Alignment.Center,
         ) {
             fallback.initial?.let { initial ->

@@ -23,4 +23,14 @@ class AvatarGroupSplitTest {
     fun `empty is empty`() {
         assertEquals(AvatarGroupSplit(visibleAvatars = 0, overflowCount = 0), avatarGroupSplit(total = 0, maxVisible = 4))
     }
+
+    @Test
+    fun `maxVisible of zero shows no avatars and all as overflow`() {
+        assertEquals(AvatarGroupSplit(visibleAvatars = 0, overflowCount = 5), avatarGroupSplit(total = 5, maxVisible = 0))
+    }
+
+    @Test
+    fun `negative maxVisible is coerced to zero, not crashing`() {
+        assertEquals(AvatarGroupSplit(visibleAvatars = 0, overflowCount = 5), avatarGroupSplit(total = 5, maxVisible = -1))
+    }
 }
