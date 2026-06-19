@@ -22,7 +22,6 @@ internal class ConvoCachePatchTest {
             otherUserHandle = "$id.bsky.social",
             displayName = id,
             avatarUrl = null,
-            avatarHue = 0,
             lastMessageSnippet = snippet,
             lastMessageFromViewer = false,
             lastMessageIsAttachment = false,

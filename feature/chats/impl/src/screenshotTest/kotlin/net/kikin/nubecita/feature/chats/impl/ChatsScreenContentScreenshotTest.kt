@@ -37,7 +37,6 @@ private fun sampleItem(
         otherUserHandle = "$convoId.bsky.social",
         displayName = displayName,
         avatarUrl = null,
-        avatarHue = (convoId.hashCode() and 0x7fffffff) % 360,
         lastMessageSnippet = snippet,
         lastMessageFromViewer = false,
         lastMessageIsAttachment = false,

@@ -59,7 +59,6 @@ class ChatScreenInstrumentationTest {
                             otherUserHandle = "alice.bsky.social",
                             otherUserDisplayName = "Alice",
                             otherUserAvatarUrl = null,
-                            otherUserAvatarHue = 217,
                         ),
                     ),
                 nextMessagesResult = Result.success(MessagePage(messages = persistentListOf())),

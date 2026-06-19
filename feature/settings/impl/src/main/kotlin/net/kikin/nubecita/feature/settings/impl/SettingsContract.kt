@@ -8,16 +8,15 @@ import net.kikin.nubecita.data.models.BillingPeriod
 /**
  * MVI state for the Settings screen.
  *
- * Identity-header fields ([handle], [did], [avatarHue], [displayName],
+ * Identity-header fields ([handle], [did], [displayName],
  * [avatarUrl]) are session-derived and populated by the VM. The VM
  * observes `SessionStateProvider.state` via
  * `filterIsInstance<SignedIn>().take(1).launchIn(viewModelScope)` —
  * meaning the first SignedIn emission (typically immediate, since
  * the StateFlow is hot and resolved by the time Settings is
- * reachable) populates [handle], [did], and [avatarHue] together
- * ([did] feeds the avatar fallback; [avatarHue] is computed via
- * [net.kikin.nubecita.core.common.avatar.avatarHueFor] so it matches the
- * same user's Profile / Chats avatar). [displayName] and
+ * reachable) populates [handle] and [did] together
+ * ([did] feeds the avatar fallback via `NubecitaAvatar`'s own
+ * `avatarFallbackFor` recomputation). [displayName] and
  * [avatarUrl] arrive separately after an
  * `ActorProfileRepository.fetchProfile` round-trip and stay null on
  * fetch failure (header still renders — greeting falls back to "Hi!",
@@ -40,7 +39,6 @@ data class SettingsViewState(
     val did: String? = null,
     val displayName: String? = null,
     val avatarUrl: String? = null,
-    val avatarHue: Int = 0,
     val confirmDialogOpen: Boolean = false,
     val status: SettingsStatus = SettingsStatus.Idle,
     /**

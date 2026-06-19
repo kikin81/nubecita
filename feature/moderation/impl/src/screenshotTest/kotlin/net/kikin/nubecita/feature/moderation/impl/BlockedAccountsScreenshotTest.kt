@@ -7,7 +7,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.core.common.avatar.avatarHueFor
 import net.kikin.nubecita.data.models.BlockedAccount
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 
@@ -25,7 +24,6 @@ private fun fixture(
         handle = "$id.bsky.social",
         displayName = displayName,
         avatarUrl = null,
-        avatarHue = avatarHueFor(did = "did:plc:$id", handle = "$id.bsky.social"),
         blockUri = "at://did:plc:$id/app.bsky.graph.block/$id",
     )
 

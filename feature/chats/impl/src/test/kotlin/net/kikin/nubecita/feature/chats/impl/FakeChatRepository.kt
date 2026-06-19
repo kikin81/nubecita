@@ -26,7 +26,6 @@ internal class FakeChatRepository(
                 otherUserHandle = "alice.bsky.social",
                 otherUserDisplayName = "Alice",
                 otherUserAvatarUrl = null,
-                otherUserAvatarHue = 0,
             ),
         ),
     var nextMessagesResult: Result<MessagePage> = Result.success(MessagePage(messages = persistentListOf())),

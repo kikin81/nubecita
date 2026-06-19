@@ -178,7 +178,6 @@ internal class DmPollRunnerTest {
             otherUserHandle = handle,
             displayName = displayName,
             avatarUrl = null,
-            avatarHue = 0,
             lastMessageSnippet = null,
             lastMessageFromViewer = false,
             lastMessageIsAttachment = false,

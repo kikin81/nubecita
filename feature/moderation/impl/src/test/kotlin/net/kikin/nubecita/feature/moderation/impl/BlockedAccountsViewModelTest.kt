@@ -105,7 +105,6 @@ internal class BlockedAccountsViewModelTest {
             handle = "$id.bsky.social",
             displayName = id.uppercase(),
             avatarUrl = null,
-            avatarHue = 200,
             blockUri = "at://did:$id/app.bsky.graph.block/$id",
         )
 

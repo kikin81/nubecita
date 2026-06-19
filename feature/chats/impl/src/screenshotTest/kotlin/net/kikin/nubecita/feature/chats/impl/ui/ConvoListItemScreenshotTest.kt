@@ -35,7 +35,6 @@ private val SAMPLE_WITH_AVATAR =
         otherUserHandle = "alice.bsky.social",
         displayName = "Alice Liddell",
         avatarUrl = "https://cdn.example.com/avatars/alice.jpg",
-        avatarHue = 217,
         lastMessageSnippet = "I would love a copy if you have one to spare.",
         lastMessageFromViewer = false,
         lastMessageIsAttachment = false,
@@ -47,7 +46,6 @@ private val SAMPLE_FALLBACK_LETTER =
         otherUserHandle = "bob.bsky.social",
         displayName = "Bob",
         avatarUrl = null,
-        avatarHue = 42,
         lastMessageSnippet = "ok",
         sentAt = FIXTURE_NOW - 28.hours, // renders "Yesterday"
     )
