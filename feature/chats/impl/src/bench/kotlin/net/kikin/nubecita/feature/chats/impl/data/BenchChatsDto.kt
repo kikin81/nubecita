@@ -42,4 +42,12 @@ internal data class BenchMessageDto(
     val text: String,
     val isDeleted: Boolean = false,
     val sentAt: String,
+    val reactions: List<BenchReactionDto> = emptyList(),
+)
+
+@Serializable
+internal data class BenchReactionDto(
+    val emoji: String,
+    val count: Int = 1,
+    val reactedByViewer: Boolean = false,
 )

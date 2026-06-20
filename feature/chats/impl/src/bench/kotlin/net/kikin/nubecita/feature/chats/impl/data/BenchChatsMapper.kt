@@ -5,6 +5,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import net.kikin.nubecita.feature.chats.impl.ReactionUi
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -55,6 +56,10 @@ internal object BenchChatsMapper {
             sentAt = parseInstantOrNow(dto.sentAt),
             embed = null,
             sendStatus = MessageSendStatus.Sent,
+            reactions =
+                dto.reactions
+                    .map { ReactionUi(emoji = it.emoji, count = it.count, reactedByViewer = it.reactedByViewer) }
+                    .toImmutableList(),
         )
 
     private fun parseInstantOrNow(raw: String): Instant =
