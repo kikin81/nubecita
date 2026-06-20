@@ -229,6 +229,28 @@ internal class MessageMapperTest {
         assertTrue(ui[0].reactions.isEmpty())
     }
 
+    // --- Optimistic reaction toggle ---
+
+    @Test
+    fun `optimistic add appends a new viewer chip`() {
+        assertEquals(listOf(ReactionUi("👍", 1, true)), applyOptimisticToggle(emptyList(), "👍"))
+    }
+
+    @Test
+    fun `optimistic add increments an existing chip and flips the viewer flag`() {
+        assertEquals(listOf(ReactionUi("👍", 2, true)), applyOptimisticToggle(listOf(ReactionUi("👍", 1, false)), "👍"))
+    }
+
+    @Test
+    fun `optimistic remove decrements and drops the chip at zero`() {
+        assertEquals(emptyList<ReactionUi>(), applyOptimisticToggle(listOf(ReactionUi("👍", 1, true)), "👍"))
+    }
+
+    @Test
+    fun `optimistic remove keeps others' count and clears the viewer flag`() {
+        assertEquals(listOf(ReactionUi("👍", 1, false)), applyOptimisticToggle(listOf(ReactionUi("👍", 2, true)), "👍"))
+    }
+
     // --- Single-message mapper (sendMessage write path) ---
 
     @Test

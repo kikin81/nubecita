@@ -78,6 +78,7 @@
     <string name="chat_send_error_network">Couldn\'t send — check your connection and retry.</string>
     <string name="chat_send_error_messages_disabled">This person can\'t receive your messages.</string>
     <string name="chat_send_error_generic">Couldn\'t send your message. Tap retry to try again.</string>
+    <string name="chat_reaction_error">Couldn\'t update your reaction. Try again.</string>
 
     <!-- New-chat recipient picker (b6uv.5) -->
     <string name="new_chat_title">New message</string>

@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshots.Snapshot
 import app.cash.turbine.test
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -786,6 +787,102 @@ internal class ChatViewModelTest {
             assertEquals(null, vm.uiState.value.senderFor("m1"))
         }
 
+    // --- Reactions: ToggleReaction (nubecita-hwix.3) ---
+
+    @Test
+    fun `ToggleReaction add fires addReaction and optimistically shows the chip`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(MessagePage(messages = persistentListOf(incoming("m1", "did:plc:bob")))),
+                )
+            repo.getConvoResult = groupConvo("c1")
+            repo.addReactionResult = Result.success(serverMessage("m1", persistentListOf(ReactionUi("👍", 1, true))))
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
+            advanceUntilIdle()
+            assertEquals(Triple("c1", "m1", "👍"), repo.addReactionCalls.single())
+            assertEquals(listOf(ReactionUi("👍", 1, true)), vm.uiState.value.reactionsFor("m1"))
+        }
+
+    @Test
+    fun `ToggleReaction on the viewer's existing reaction fires removeReaction`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(
+                            MessagePage(
+                                messages =
+                                    persistentListOf(
+                                        incoming("m1", "did:plc:bob")
+                                            .copy(reactions = persistentListOf(ReactionUi("👍", 1, true))),
+                                    ),
+                            ),
+                        ),
+                )
+            repo.getConvoResult = groupConvo("c1")
+            repo.removeReactionResult = Result.success(serverMessage("m1", persistentListOf()))
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
+            advanceUntilIdle()
+            assertEquals(Triple("c1", "m1", "👍"), repo.removeReactionCalls.single())
+            assertTrue(
+                vm.uiState.value
+                    .reactionsFor("m1")
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `failed ToggleReaction rolls back and emits ShowReactionError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(MessagePage(messages = persistentListOf(incoming("m1", "did:plc:bob")))),
+                )
+            repo.getConvoResult = groupConvo("c1")
+            repo.addReactionResult = Result.failure(IOException("down"))
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo)
+            advanceUntilIdle()
+            vm.effects.test {
+                vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
+                advanceUntilIdle()
+                assertEquals(ChatEffect.ShowReactionError, awaitItem())
+            }
+            assertTrue(
+                vm.uiState.value
+                    .reactionsFor("m1")
+                    .isEmpty(),
+                "optimistic chip rolled back",
+            )
+        }
+
+    @Test
+    fun `a second toggle for the same key is ignored while one is in flight`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(MessagePage(messages = persistentListOf(incoming("m1", "did:plc:bob")))),
+                )
+            repo.getConvoResult = groupConvo("c1")
+            repo.reactionGate = CompletableDeferred()
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo)
+            advanceUntilIdle()
+            vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
+            advanceUntilIdle()
+            vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
+            advanceUntilIdle()
+            repo.reactionGate!!.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(1, repo.addReactionCalls.size, "second toggle dropped while the first is in-flight")
+        }
+
     /**
      * Mutates the VM's [ChatViewModel.textFieldState] and drives the Compose
      * snapshot system so the change reaches the VM's `snapshotFlow` collector.
@@ -842,6 +939,32 @@ internal class ChatViewModelTest {
             .filterIsInstance<ThreadItem.Message>()
             .firstOrNull { it.message.id == messageId }
             ?.sender
+
+    /** A [ChatConvo] with a Group header whose canonical id is [convoId]. */
+    private fun groupConvo(convoId: String): Result<ChatConvo> =
+        Result.success(
+            ChatConvo(
+                convoId = convoId,
+                header = ChatHeader.Group(name = "Devs", members = persistentListOf(author("did:plc:bob", "bob.dev", "Bob"))),
+                canPost = true,
+            ),
+        )
+
+    /** An incoming [MessageUi] for [id] carrying server-authoritative [reactions]. */
+    private fun serverMessage(
+        id: String,
+        reactions: ImmutableList<ReactionUi>,
+    ): MessageUi = incoming(id, "did:plc:bob").copy(reactions = reactions)
+
+    /** The reactions on the thread item with [messageId], or empty. */
+    private fun ChatScreenViewState.reactionsFor(messageId: String): List<ReactionUi> =
+        (status as ChatLoadStatus.Loaded)
+            .items
+            .filterIsInstance<ThreadItem.Message>()
+            .firstOrNull { it.message.id == messageId }
+            ?.message
+            ?.reactions
+            .orEmpty()
 
     /** A [ChatConvo] with a Direct header whose canonical id is [convoId]. */
     private fun directConvo(convoId: String): Result<ChatConvo> =

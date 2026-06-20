@@ -206,6 +206,12 @@ sealed interface ChatEvent : UiEvent {
     data class QuotedPostTapped(
         val quotedPostUri: String,
     ) : ChatEvent
+
+    /** Toggle the viewer's [emoji] reaction on the message with [messageId] (chip tap or picker pick). */
+    data class ToggleReaction(
+        val messageId: String,
+        val emoji: String,
+    ) : ChatEvent
 }
 
 sealed interface ChatEffect : UiEffect {
@@ -223,4 +229,7 @@ sealed interface ChatEffect : UiEffect {
     data class ShowSendError(
         val error: ChatError,
     ) : ChatEffect
+
+    /** An add/remove-reaction call failed; the optimistic change was rolled back. Surface a transient snackbar. */
+    data object ShowReactionError : ChatEffect
 }

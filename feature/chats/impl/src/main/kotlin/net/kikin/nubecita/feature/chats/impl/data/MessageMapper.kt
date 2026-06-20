@@ -84,6 +84,30 @@ fun List<ReactionView>?.toReactionUis(viewerDid: String): ImmutableList<Reaction
 }
 
 /**
+ * Pure optimistic toggle of the viewer's [emoji] reaction: if the viewer already
+ * reacted → remove (count-1, drop at 0, clear flag); else add (count+1 or a new
+ * appended chip, set flag). Order preserved.
+ */
+fun applyOptimisticToggle(
+    reactions: List<ReactionUi>,
+    emoji: String,
+): List<ReactionUi> {
+    val existing = reactions.firstOrNull { it.emoji == emoji }
+    return when {
+        existing == null -> reactions + ReactionUi(emoji, 1, true)
+        existing.reactedByViewer ->
+            reactions.mapNotNull {
+                if (it.emoji != emoji) {
+                    it
+                } else {
+                    (it.count - 1).takeIf { c -> c > 0 }?.let { c -> it.copy(count = c, reactedByViewer = false) }
+                }
+            }
+        else -> reactions.map { if (it.emoji == emoji) it.copy(count = it.count + 1, reactedByViewer = true) else it }
+    }
+}
+
+/**
  * Maps `MessageView.embed` to [EmbedUi.RecordOrUnavailable]. The chat
  * lexicon's `messageViewEmbedUnion` only admits `app.bsky.embed.record#view`,
  * so the only meaningful mapping is `RecordView → toRecordOrUnavailable()`.
