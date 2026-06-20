@@ -80,8 +80,8 @@ internal class BenchFakeChatRepository
                             val convoItem = BenchChatsMapper.toConvoListItem(convoDto)
                             convosCache[convoDto.convoId] = convoItem
                             // Only direct convos are reachable by peer DID (groups open
-                            // by convoId from the list); skip the empty group placeholder.
-                            if (convoDto.otherUserDid.isNotEmpty()) {
+                            // by convoId from the list), so map by DID for direct only.
+                            if (convoDto.kind == "direct" && convoDto.otherUserDid.isNotEmpty()) {
                                 didToConvoId[convoDto.otherUserDid] = convoDto.convoId
                             }
 
@@ -181,6 +181,8 @@ internal class BenchFakeChatRepository
 
         override suspend fun getConvo(convoId: String): Result<ChatConvo> {
             ensureLoaded()
+            // Unknown convoId → a real failure (surfaces the thread's InitialError),
+            // not a blank dummy header. Mirrors production's error routing.
             val header =
                 when (val convo = convosCache[convoId]) {
                     is ConvoRowUi.Group ->
@@ -193,7 +195,7 @@ internal class BenchFakeChatRepository
                             avatarUrl = convo.avatarUrl,
                         )
                     null ->
-                        ChatHeader.Direct(did = "", handle = "", displayName = null, avatarUrl = null)
+                        return Result.failure(NoSuchElementException("Unknown convoId: $convoId"))
                 }
             return Result.success(
                 ChatConvo(
