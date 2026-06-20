@@ -38,6 +38,14 @@ Feature-complete — no SDK bump:
 - `value` is a **single emoji grapheme** (the lexicon caps graphemes at 1). The
   server also enforces a per-user/per-message reaction cap.
 
+Emoji values come from trusted single-emoji sources: the quick-react bar is six
+string constants, and `EmojiPickerView.onEmojiPicked` returns exactly one emoji —
+so we pass the value through verbatim, **no truncation**. If a future source ever
+needs the first grapheme, use `java.text.BreakIterator.getCharacterInstance()`
+(grapheme clusters), never `take(1)`/`substring(0, 1)` — those split on UTF-16
+code units and mutilate flags / ZWJ / skin-tone sequences. (The composer already
+counts graphemes; reuse that infra rather than naive char ops.)
+
 Because `ReactionViewSender` is DID-only, a "who reacted" list would need the
 profile hydration built in #557 — that's why who-reacted names are out of scope
 here; we show **counts only**, which needs no extra fetch.
@@ -56,11 +64,17 @@ here; we show **counts only**, which needs no extra fetch.
 3. **One `ToggleReaction(messageId, emoji)` path.** Tapping an existing chip and
    selecting from the bar/picker are the same operation: if the viewer already
    reacted with that emoji → remove, else → add.
-4. **Optimistic with authoritative reconcile.** Update the in-memory message's
-   reactions immediately, then call the repository; on success replace that
-   message's reactions from the returned `MessageView`; on failure roll back and
-   surface a transient snackbar. The server's reaction cap is handled by this
-   rollback path (no client-side cap guess).
+4. **Optimistic with authoritative reconcile, guarded against rapid toggles.**
+   Update the in-memory message's reactions immediately, then call the repository;
+   on success replace that message's reactions from the returned `MessageView`; on
+   failure roll back and surface a transient snackbar. The server's reaction cap is
+   handled by this rollback path (no client-side cap guess). To avoid the
+   double-tap race (a second tap resolving against the first tap's *optimistic*
+   state and firing the opposite call, or out-of-order responses), the VM tracks
+   **in-flight toggles per `(messageId, emoji)`** and ignores a new toggle for a
+   key while one is pending (the chip is also visually disabled meanwhile). One
+   in-flight op per key → reconcile is always against the latest authoritative
+   view.
 5. **Gated on `canPost`.** A read-only convo (Phase 1's `canPost = false`) shows
    no reaction affordance, matching the disabled composer.
 
@@ -91,9 +105,14 @@ unaffected). `ThreadItem.Message` is unchanged — it already wraps a `MessageUi
   - Optimistically mutate that message's `reactions` (add a viewer reaction with
     `count + 1`, or remove the viewer's and `count - 1`, dropping the chip at 0)
     and `commitMessages`.
+  - Guard: if a toggle for the same `(messageId, emoji)` is already in flight,
+    ignore the new event (a `Set<Pair<messageId, emoji>>` of pending keys; the
+    chip is disabled while pending). This prevents the rapid double-tap race and
+    keeps reconciliation against a single authoritative response per key.
   - Call `repository.addReaction` / `removeReaction`; on success, replace that
     message's `reactions` with the returned `MessageUi`'s (authoritative); on
     failure, revert to the pre-toggle reactions and emit a reaction-error effect.
+    Clear the in-flight key in both cases.
   - Only **Sent** server messages get the affordance — optimistic `Sending` rows
     and deleted messages are excluded.
 - **Repository.** `addReaction(convoId, messageId, emoji): Result<MessageUi>` and
@@ -116,9 +135,17 @@ unaffected). `ThreadItem.Message` is unchanged — it already wraps a `MessageUi
   sheet. Thread long-press is currently unused (the convo-list long-press —
   multi-select — is a different screen), so there's no gesture conflict.
 - **Picker.** `:feature:chats:impl` adds `androidx.emoji2:emoji2-emojipicker`. An
-  `EmojiPickerSheet` composable hosts `EmojiPickerView` via `AndroidView` in a
-  `ModalBottomSheet`; `setOnEmojiPickedListener` → `onEmojiPicked(emoji)` →
-  `ToggleReaction`. Take the first grapheme defensively; ignore empties.
+  `EmojiPickerSheet` hosts `EmojiPickerView` via `AndroidView`;
+  `setOnEmojiPickedListener` → `onEmojiPicked(emoji)` → `ToggleReaction`.
+  `EmojiPickerView` is a scrollable legacy `View`, which **conflicts with a
+  draggable `ModalBottomSheet`** (vertical drags dismiss the sheet instead of
+  scrolling the grid). Mitigate by hosting it where the sheet doesn't fight the
+  view's scroll: a `Dialog` (or a `ModalBottomSheet` with drag-to-dismiss
+  disabled / full-height + the view owning the scroll). The implementation plan
+  must verify the picker scrolls cleanly on-device and pick whichever container
+  resolves the conflict (default: `Dialog`).
+  `EmojiPickerView`'s `onEmojiPicked` already yields a single emoji, so its value
+  is used directly — no truncation (see Constraints).
 - The affordances render only when `state.canPost` is true.
 
 ## Error handling
