@@ -78,8 +78,11 @@ interface ChatRepository {
     ): Result<Unit>
 
     /**
-     * Resolves a peer DID into the appview-side convoId plus the other user's profile
-     * bits we need for the thread's TopAppBar. Wraps `chat.bsky.convo.getConvoForMembers`.
+     * Resolves a peer DID into the appview-side convoId for a 1:1 DM. Wraps
+     * `chat.bsky.convo.getConvoForMembers`. The thread's TopAppBar header now comes
+     * from [getConvo] (kind-aware); only [ConvoResolution.convoId] is consumed on the
+     * production path — the other profile fields are retained for the bench fake's
+     * on-demand DM simulation.
      */
     suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution>
 
