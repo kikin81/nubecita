@@ -152,7 +152,16 @@ data class MessageUi(
     val isDeleted: Boolean,
     val sentAt: Instant,
     val embed: EmbedUi.RecordOrUnavailable? = null,
+    val reactions: ImmutableList<ReactionUi> = persistentListOf(),
     val sendStatus: MessageSendStatus = MessageSendStatus.Sent,
+)
+
+/** A message reaction aggregated by emoji: how many reacted, and whether the viewer did. */
+@Immutable
+data class ReactionUi(
+    val emoji: String,
+    val count: Int,
+    val reactedByViewer: Boolean,
 )
 
 /**

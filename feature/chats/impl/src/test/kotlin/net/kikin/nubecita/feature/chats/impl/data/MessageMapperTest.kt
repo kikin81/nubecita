@@ -11,6 +11,8 @@ import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesResponseMessagesUnio
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
 import io.github.kikin81.atproto.chat.bsky.convo.MessageViewEmbedUnion
 import io.github.kikin81.atproto.chat.bsky.convo.MessageViewSender
+import io.github.kikin81.atproto.chat.bsky.convo.ReactionView
+import io.github.kikin81.atproto.chat.bsky.convo.ReactionViewSender
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
 import io.github.kikin81.atproto.runtime.Datetime
@@ -20,6 +22,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.feature.chats.impl.ReactionUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
@@ -193,6 +196,39 @@ internal class MessageMapperTest {
         assertNull(ui[0].embed)
     }
 
+    // --- Reactions ---
+
+    @Test
+    fun `reactions aggregate by emoji with count and viewer flag`() {
+        val wire =
+            messageView(
+                id = "m",
+                senderDid = peer,
+                text = "hi",
+                sentAt = "2026-05-01T12:00:00Z",
+                reactions = listOf(reaction("👍", peer), reaction("👍", viewer), reaction("❤️", "did:plc:bob")),
+            )
+        val ui = wire.toMessageUi(viewerDid = viewer)
+        assertEquals(
+            listOf(ReactionUi("👍", 2, true), ReactionUi("❤️", 1, false)),
+            ui.reactions,
+        )
+    }
+
+    @Test
+    fun `null reactions yield empty list`() {
+        val wire =
+            messageView(id = "m", senderDid = peer, text = "hi", sentAt = "2026-05-01T12:00:00Z", reactions = null)
+        assertTrue(wire.toMessageUi(viewerDid = viewer).reactions.isEmpty())
+    }
+
+    @Test
+    fun `deleted message has no reactions`() {
+        val wire = deletedView(id = "m", senderDid = peer, sentAt = "2026-05-01T12:00:00Z")
+        val ui = listOf<GetMessagesResponseMessagesUnion>(wire).toMessageUis(viewerDid = viewer)
+        assertTrue(ui[0].reactions.isEmpty())
+    }
+
     // --- Single-message mapper (sendMessage write path) ---
 
     @Test
@@ -235,16 +271,27 @@ internal class MessageMapperTest {
         text: String,
         sentAt: String,
         embed: MessageViewEmbedUnion? = null,
+        reactions: List<ReactionView>? = null,
     ): MessageView =
         MessageView(
             embed = embed,
             facets = null,
             id = id,
-            reactions = null,
+            reactions = reactions,
             rev = "rev-$id",
             sender = MessageViewSender(did = Did(senderDid)),
             sentAt = Datetime(sentAt),
             text = text,
+        )
+
+    private fun reaction(
+        value: String,
+        senderDid: String,
+    ): ReactionView =
+        ReactionView(
+            value = value,
+            sender = ReactionViewSender(did = Did(senderDid)),
+            createdAt = Datetime("2026-06-20T00:00:00Z"),
         )
 
     /**

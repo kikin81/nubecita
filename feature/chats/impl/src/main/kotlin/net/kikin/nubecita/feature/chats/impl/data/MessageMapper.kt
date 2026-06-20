@@ -5,12 +5,14 @@ import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesResponseMessagesUnion
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
 import io.github.kikin81.atproto.chat.bsky.convo.MessageViewEmbedUnion
+import io.github.kikin81.atproto.chat.bsky.convo.ReactionView
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.feedmapping.toRecordOrUnavailable
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import net.kikin.nubecita.feature.chats.impl.ReactionUi
 import kotlin.time.Instant
 
 /**
@@ -61,7 +63,25 @@ fun MessageView.toMessageUi(viewerDid: String): MessageUi =
         isDeleted = false,
         sentAt = Instant.parse(sentAt.raw),
         embed = embed.toMessageEmbedUi(),
+        reactions = reactions.toReactionUis(viewerDid = viewerDid),
     )
+
+/**
+ * Aggregate wire reactions into per-emoji [ReactionUi]: count + whether the viewer
+ * reacted. Stable order: most-reacted first, then emoji for ties. Null/empty → empty.
+ */
+fun List<ReactionView>?.toReactionUis(viewerDid: String): ImmutableList<ReactionUi> {
+    if (this.isNullOrEmpty()) return persistentListOf()
+    return groupBy { it.value }
+        .map { (emoji, views) ->
+            ReactionUi(
+                emoji = emoji,
+                count = views.size,
+                reactedByViewer = views.any { it.sender.did.raw == viewerDid },
+            )
+        }.sortedWith(compareByDescending<ReactionUi> { it.count }.thenBy { it.emoji })
+        .toImmutableList()
+}
 
 /**
  * Maps `MessageView.embed` to [EmbedUi.RecordOrUnavailable]. The chat
