@@ -26,7 +26,7 @@ import net.kikin.nubecita.feature.chats.impl.ChatSettingsViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
 import net.kikin.nubecita.feature.chats.impl.NewChatScreen
-import net.kikin.nubecita.feature.chats.impl.selectedConvoDid
+import net.kikin.nubecita.feature.chats.impl.selectedConvoId
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
 @Module
@@ -55,21 +55,21 @@ internal object ChatsNavigationModule {
                     ),
             ) {
                 val navState = LocalMainShellNavState.current
-                // The open thread, derived from the back stack — drives the
-                // list pane's selected-row highlight on Medium/Expanded. Reading
+                // The open thread's convoId, derived from the back stack — drives
+                // the list pane's selected-row highlight on Medium/Expanded. Reading
                 // `backStack` (a SnapshotStateList) here recomposes the list on
                 // navigation. Null on Compact's list view (no thread on the
                 // stack) and harmless when a thread covers the list full-screen.
-                val selectedDid = selectedConvoDid(navState.backStack)
+                val selectedConvoId = selectedConvoId(navState.backStack)
                 ChatsScreen(
                     // replaceTop (not add): selecting a conversation swaps the
                     // open detail pane instead of stacking threads, so Back from
                     // a thread returns to the list/placeholder. At the list home
                     // (`[Chats]`, e.g. on a phone) replaceTop degrades to a plain
                     // push, so Compact behavior is unchanged.
-                    onNavigateToChat = { did -> navState.replaceTop(Chat(otherUserDid = did)) },
+                    onNavigateToChat = { convoId -> navState.replaceTop(Chat(convoId = convoId)) },
                     onNewChat = { navState.add(NewChat) },
-                    selectedOtherUserDid = selectedDid,
+                    selectedConvoId = selectedConvoId,
                     onNavigateToChatSettings = { navState.add(ChatSettings) },
                     // Contextual-action sub-routes (Profile / Report / Block) —
                     // a plain push onto the inner back stack. Profile is a tab

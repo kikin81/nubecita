@@ -164,8 +164,9 @@ sealed interface ConvoRowUi {
 sealed interface ChatsEvent : UiEvent {
     data object Refresh : ChatsEvent
 
+    /** Tap a row (not in selection mode) → open that conversation by its convoId. */
     data class ConvoTapped(
-        val otherUserDid: String,
+        val convoId: String,
     ) : ChatsEvent
 
     data object RetryClicked : ChatsEvent
@@ -216,8 +217,9 @@ sealed interface ChatsEvent : UiEvent {
 }
 
 sealed interface ChatsEffect : UiEffect {
+    /** Open the conversation thread identified by [convoId]. */
     data class NavigateToChat(
-        val otherUserDid: String,
+        val convoId: String,
     ) : ChatsEffect
 
     /** Push the account-global chat settings route onto the back stack. */

@@ -62,10 +62,10 @@ internal fun ChatsScreenContent(
     onEvent: (ChatsEvent) -> Unit,
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
-    // The open conversation's otherUserDid (or null) — highlights the matching
+    // The open conversation's convoId (or null) — highlights the matching
     // list row in the tablet list-detail layout. Null on phones / when no
     // thread is open.
-    selectedOtherUserDid: String? = null,
+    selectedConvoId: String? = null,
 ) {
     val selectionIds = state.selection
     val inSelection = selectionIds != null
@@ -171,7 +171,7 @@ internal fun ChatsScreenContent(
                                     items = status.items,
                                     selection = selectionIds,
                                     onEvent = onEvent,
-                                    selectedOtherUserDid = selectedOtherUserDid,
+                                    selectedConvoId = selectedConvoId,
                                 )
                             }
                         }
@@ -395,7 +395,7 @@ private fun LoadedBody(
     items: kotlinx.collections.immutable.ImmutableList<ConvoRowUi>,
     selection: ImmutableSet<String>?,
     onEvent: (ChatsEvent) -> Unit,
-    selectedOtherUserDid: String?,
+    selectedConvoId: String?,
 ) {
     // Arrangement.spacedBy(ListItemDefaults.SegmentedGap) — the framework's
     // canonical gap between rows in a segmented section. Lets the rounded-
@@ -428,22 +428,19 @@ private fun LoadedBody(
                 onClick = {
                     if (inSelection) {
                         onEvent(ChatsEvent.SelectionToggled(item.convoId))
-                    } else if (item is ConvoRowUi.Direct) {
-                        // ConvoTapped is still keyed on the other user's DID this task;
-                        // Task 4 re-keys it to convoId so groups (which have no single
-                        // other user) also open. Until then, a group-row tap is a no-op.
-                        onEvent(ChatsEvent.ConvoTapped(item.otherUserDid))
+                    } else {
+                        // Every row (Direct AND Group) opens its thread by convoId.
+                        onEvent(ChatsEvent.ConvoTapped(item.convoId))
                     }
                 },
                 onLongClick = { onEvent(ChatsEvent.ConvoLongPressed(item.convoId)) },
                 // Highlight by membership while selecting; otherwise reflect the
-                // tablet list-detail open thread (Direct rows only — the open-thread
-                // key is a DID this task).
+                // tablet list-detail open thread by convoId.
                 selected =
                     if (inSelection) {
                         selection.contains(item.convoId)
                     } else {
-                        item is ConvoRowUi.Direct && item.otherUserDid == selectedOtherUserDid
+                        item.convoId == selectedConvoId
                     },
             )
         }

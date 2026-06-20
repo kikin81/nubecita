@@ -94,15 +94,15 @@ internal class ChatsViewModelTest {
         }
 
     @Test
-    fun `ConvoTapped emits NavigateToChat with the same DID`() =
+    fun `ConvoTapped emits NavigateToChat with the same convoId`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository()
             val vm = ChatsViewModel(repository = repo, applicationScope = backgroundScope)
             advanceUntilIdle()
             vm.effects.test {
-                vm.handleEvent(ChatsEvent.ConvoTapped(otherUserDid = "did:plc:alice"))
+                vm.handleEvent(ChatsEvent.ConvoTapped(convoId = "convo-1"))
                 val effect = awaitItem()
-                assertEquals(ChatsEffect.NavigateToChat("did:plc:alice"), effect)
+                assertEquals(ChatsEffect.NavigateToChat("convo-1"), effect)
                 cancelAndIgnoreRemainingEvents()
             }
         }

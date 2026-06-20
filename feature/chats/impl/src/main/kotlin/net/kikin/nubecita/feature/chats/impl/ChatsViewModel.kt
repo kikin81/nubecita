@@ -121,7 +121,7 @@ class ChatsViewModel
             when (event) {
                 ChatsEvent.Refresh -> refresh()
                 ChatsEvent.RetryClicked -> refresh()
-                is ChatsEvent.ConvoTapped -> sendEffect(ChatsEffect.NavigateToChat(event.otherUserDid))
+                is ChatsEvent.ConvoTapped -> sendEffect(ChatsEffect.NavigateToChat(event.convoId))
                 ChatsEvent.SettingsTapped -> sendEffect(ChatsEffect.NavigateToChatSettings)
                 is ChatsEvent.SegmentSelected -> {
                     // Switching segments exits any in-progress selection (the action

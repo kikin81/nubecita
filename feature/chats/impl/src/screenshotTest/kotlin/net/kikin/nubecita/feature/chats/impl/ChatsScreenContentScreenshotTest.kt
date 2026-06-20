@@ -147,7 +147,7 @@ private fun ChatsScreenLoadedSelectedScreenshot() {
                 snackbarHostState = remember { SnackbarHostState() },
                 onEvent = {},
                 onNewChat = {},
-                selectedOtherUserDid = "did:plc:bob",
+                selectedConvoId = "bob",
             )
         }
     }
