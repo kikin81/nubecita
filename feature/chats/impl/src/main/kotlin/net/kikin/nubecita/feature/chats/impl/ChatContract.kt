@@ -6,8 +6,31 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import kotlin.time.Instant
+
+/**
+ * Identity of the open conversation, branched by kind. Direct = the single other
+ * member (today's behavior); Group = the group's name + members for the AvatarGroup
+ * facepile. Consumed by the Chat thread TopAppBar (wired in a later task).
+ */
+@Immutable
+sealed interface ChatHeader {
+    @Immutable
+    data class Direct(
+        val did: String,
+        val handle: String,
+        val displayName: String?,
+        val avatarUrl: String?,
+    ) : ChatHeader
+
+    @Immutable
+    data class Group(
+        val name: String,
+        val members: ImmutableList<AuthorUi>,
+    ) : ChatHeader
+}
 
 /**
  * MVI state for the Chat thread screen. Mirrors `ChatsScreenViewState` shape: one

@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl.data
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.StateFlow
+import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 
@@ -83,6 +84,13 @@ interface ChatRepository {
     suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution>
 
     /**
+     * Loads a single conversation by [convoId] via `chat.bsky.convo.getConvo` and maps it
+     * to a kind-aware [ChatConvo] (header + canPost). Used to open a thread when the convoId
+     * is already known (group convos, and the convo-list direct path).
+     */
+    suspend fun getConvo(convoId: String): Result<ChatConvo>
+
+    /**
      * Loads a page of messages for [convoId]. Page is newest-first per the lexicon.
      * Wraps `chat.bsky.convo.getMessages`. `cursor = null` requests the first page.
      */
@@ -133,6 +141,16 @@ interface ChatRepository {
      */
     suspend fun getLog(cursor: String? = null): Result<ChatLogPage>
 }
+
+/**
+ * A single loaded conversation: its id, the kind-aware [ChatHeader] for the
+ * thread TopAppBar, and a lightweight [canPost] gate (see `canViewerPost`).
+ */
+data class ChatConvo(
+    val convoId: String,
+    val header: ChatHeader,
+    val canPost: Boolean,
+)
 
 data class ConvoResolution(
     val convoId: String,

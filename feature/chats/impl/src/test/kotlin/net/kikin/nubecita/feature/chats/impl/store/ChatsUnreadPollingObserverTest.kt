@@ -21,6 +21,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
@@ -302,6 +303,8 @@ class ChatsUnreadPollingObserverTest {
         ): Result<Unit> = error("not used")
 
         override suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution> = error("not used")
+
+        override suspend fun getConvo(convoId: String): Result<ChatConvo> = error("not used")
 
         override suspend fun getMessages(
             convoId: String,

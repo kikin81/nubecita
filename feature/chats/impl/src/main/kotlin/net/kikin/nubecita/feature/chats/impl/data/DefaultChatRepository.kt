@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl.data
 import io.github.kikin81.atproto.chat.bsky.convo.AcceptConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoService
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoForMembersRequest
+import io.github.kikin81.atproto.chat.bsky.convo.GetConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetLogRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesRequest
 import io.github.kikin81.atproto.chat.bsky.convo.LeaveConvoRequest
@@ -158,6 +159,23 @@ internal class DefaultChatRepository
                     )
                 }.onFailure { throwable ->
                     Timber.tag(TAG).w(throwable, "resolveConvo failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun getConvo(convoId: String): Result<ChatConvo> =
+            withContext(dispatcher) {
+                runCatching {
+                    val viewerDid = currentViewerDid()
+                    val client = xrpcClientProvider.authenticated()
+                    val convo = ConvoService(client).getConvo(GetConvoRequest(convoId = convoId)).convo
+                    ChatConvo(
+                        convoId = convo.id,
+                        header = convo.toChatHeader(viewerDid),
+                        canPost = convo.canViewerPost(viewerDid),
+                    )
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).w(throwable, "getConvo failed: %s", throwable.javaClass.name)
                 }
             }
 

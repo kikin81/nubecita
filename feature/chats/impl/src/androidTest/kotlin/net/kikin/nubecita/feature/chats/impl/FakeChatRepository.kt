@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
@@ -102,6 +103,21 @@ internal class FakeChatRepository(
         lastResolvedDid = otherUserDid
         return nextResolveResult
     }
+
+    override suspend fun getConvo(convoId: String): Result<ChatConvo> =
+        Result.success(
+            ChatConvo(
+                convoId = convoId,
+                header =
+                    ChatHeader.Direct(
+                        did = "",
+                        handle = "",
+                        displayName = null,
+                        avatarUrl = null,
+                    ),
+                canPost = true,
+            ),
+        )
 
     override suspend fun getMessages(
         convoId: String,

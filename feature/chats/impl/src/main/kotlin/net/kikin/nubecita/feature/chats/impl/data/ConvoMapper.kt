@@ -3,7 +3,10 @@ package net.kikin.nubecita.feature.chats.impl.data
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoView
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoViewLastMessageUnion
 import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
+import io.github.kikin81.atproto.chat.bsky.convo.GroupConvo
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
+import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import kotlin.time.Instant
 
@@ -59,6 +62,47 @@ fun ConvoView.toConvoListItemUi(viewerDid: String): ConvoListItemUi {
         muted = muted,
     )
 }
+
+/**
+ * Builds the thread header from a loaded convo. Group → name + all members;
+ * anything else (direct, or an unknown future kind) → the single other member.
+ */
+internal fun ConvoView.toChatHeader(viewerDid: String): ChatHeader =
+    when (val k = kind) {
+        is GroupConvo ->
+            ChatHeader.Group(
+                name = k.name,
+                members = members.map { it.toAuthorUi() }.toImmutableList(),
+            )
+        else -> {
+            val other = members.firstOrNull { it.did.raw != viewerDid } ?: members.firstOrNull()
+            ChatHeader.Direct(
+                did = other?.did?.raw.orEmpty(),
+                handle = other?.handle?.raw.orEmpty(),
+                displayName = other?.displayName?.takeUnless { it.isBlank() },
+                avatarUrl = other?.avatar?.raw,
+            )
+        }
+    }
+
+/**
+ * Lightweight Phase-1 send gate from the loaded convo. FAIL-OPEN: we only disable
+ * the composer when we are confident the viewer can't post, because the real
+ * fallback for a wrongly-enabled composer is the send-error path. So:
+ *  - membership: the viewer must be a member; if members is empty (shouldn't happen)
+ *    treat as a member (fail-open).
+ *  - lock: only a GroupConvo whose lockStatus is explicitly "locked" blocks posting.
+ *    Any other/unknown lockStatus value leaves posting enabled (send-error fallback).
+ */
+internal fun ConvoView.canViewerPost(viewerDid: String): Boolean {
+    val isMember = members.isEmpty() || members.any { it.did.raw == viewerDid }
+    val locked = (kind as? GroupConvo)?.lockStatus == GROUP_LOCK_STATUS_LOCKED
+    return isMember && !locked
+}
+
+// chat.bsky lexicon GroupConvo.lockStatus sentinel for a locked group (admins-only posting).
+// Opaque String in the SDK; this is the conservative known-locked value — see canViewerPost.
+internal const val GROUP_LOCK_STATUS_LOCKED: String = "locked"
 
 private fun ConvoViewLastMessageUnion.snippet(): String? =
     when (this) {

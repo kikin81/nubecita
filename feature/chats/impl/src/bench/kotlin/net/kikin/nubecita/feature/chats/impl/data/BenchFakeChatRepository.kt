@@ -18,6 +18,7 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
@@ -168,6 +169,25 @@ internal class BenchFakeChatRepository
             messagesCache[newConvoId] = emptyList()
 
             return Result.success(resolution)
+        }
+
+        override suspend fun getConvo(convoId: String): Result<ChatConvo> {
+            ensureLoaded()
+            val convo = convosCache[convoId]
+            val header =
+                ChatHeader.Direct(
+                    did = convo?.otherUserDid.orEmpty(),
+                    handle = convo?.otherUserHandle.orEmpty(),
+                    displayName = convo?.displayName,
+                    avatarUrl = convo?.avatarUrl,
+                )
+            return Result.success(
+                ChatConvo(
+                    convoId = convoId,
+                    header = header,
+                    canPost = true,
+                ),
+            )
         }
 
         override suspend fun getMessages(
