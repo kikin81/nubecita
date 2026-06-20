@@ -166,18 +166,27 @@ internal fun ChatScreenContent(
             // each windowInsetsPadding consumes the previous: closed → nav-bar height;
             // open → full IME (which already subsumes the nav-bar area).
             if (state.status is ChatLoadStatus.Loaded) {
-                ChatComposerRow(
-                    textFieldState = textFieldState,
-                    isSendEnabled = state.isSendEnabled,
-                    onSend = { onEvent(ChatEvent.Send) },
-                    // Anchor to newest (index 0 under reverseLayout) when the
-                    // composer gains focus, so the IME never hides the latest run.
-                    onFocus = { scope.launch { listState.animateScrollToItem(0) } },
-                    modifier =
-                        Modifier
-                            .navigationBarsPadding()
-                            .imePadding(),
-                )
+                if (state.canPost) {
+                    ChatComposerRow(
+                        textFieldState = textFieldState,
+                        isSendEnabled = state.isSendEnabled,
+                        onSend = { onEvent(ChatEvent.Send) },
+                        // Anchor to newest (index 0 under reverseLayout) when the
+                        // composer gains focus, so the IME never hides the latest run.
+                        onFocus = { scope.launch { listState.animateScrollToItem(0) } },
+                        modifier =
+                            Modifier
+                                .navigationBarsPadding()
+                                .imePadding(),
+                    )
+                } else {
+                    CannotPostNotice(
+                        modifier =
+                            Modifier
+                                .navigationBarsPadding()
+                                .imePadding(),
+                    )
+                }
             }
         },
     ) { padding ->
@@ -271,6 +280,32 @@ private fun ChatComposerRow(
                 )
             }
         }
+    }
+}
+
+/**
+ * Shown in the composer slot when [ChatScreenViewState.canPost] is false (e.g. a
+ * locked group, or the viewer is not a member). Replaces the editable composer
+ * with a static, low-emphasis notice. The actual "is this postable" decision is
+ * derived from the loaded convo in the ViewModel; this is the non-error disabled
+ * presentation (a true send failure still routes through ShowSendError).
+ */
+@Composable
+private fun CannotPostNotice(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Text(
+            text = stringResource(R.string.chat_cannot_post_notice),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+        )
     }
 }
 
