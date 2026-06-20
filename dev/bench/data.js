@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781859733583,
+  "lastUpdate": 1781943744112,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1195,6 +1195,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1217.949,
             "range": "+/- 30.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "120c2cbf503b5da75f5c996fde023a937c70fde0",
+          "message": "ci(release): 1.232.0\n\n## [1.232.0](https://github.com/kikin81/nubecita/compare/v1.231.0...v1.232.0) (2026-06-20)\n\n### Miscellaneous\n\n* remove orphaned BoldHeroGradient + dead profile avatarHue ([#553](https://github.com/kikin81/nubecita/issues/553)) ([2857fff](https://github.com/kikin81/nubecita/commit/2857ffffd7578a20e3fd93e1fb66c79a972cb201)), closes [#272](https://github.com/kikin81/nubecita/issues/272)\n* **deps:** update all non-major language versions to v9.6.0 ([#551](https://github.com/kikin81/nubecita/issues/551)) ([8643c98](https://github.com/kikin81/nubecita/commit/8643c98441319ebc834751943bb9647a4abfff43))\n\n### Documentation\n\n* group chat Phase 1 (view + send) design spec ([#554](https://github.com/kikin81/nubecita/issues/554)) ([7ab397b](https://github.com/kikin81/nubecita/commit/7ab397b617e51e10d7b162b0391636df48c1c2c6))\n\n### Features\n\n* **chats:** group chat Phase 1 — view and send in group conversations ([#555](https://github.com/kikin81/nubecita/issues/555)) ([b2e7fae](https://github.com/kikin81/nubecita/commit/b2e7fae0fbeca30e6b8ab6330c53e4121c6d67e2))\n\n### Code Refactoring\n\n* remove dead precomputed avatarHue fields ([#552](https://github.com/kikin81/nubecita/issues/552)) ([3ad8909](https://github.com/kikin81/nubecita/commit/3ad8909d16fb29d95275a7594b674252c7c58467))",
+          "timestamp": "2026-06-20T06:33:58Z",
+          "url": "https://github.com/kikin81/nubecita/commit/120c2cbf503b5da75f5c996fde023a937c70fde0"
+        },
+        "date": 1781943742105,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 31,
+            "range": "+/- 12.1%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1134.835,
+            "range": "+/- 3.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1042.248,
+            "range": "+/- 7.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 729.392,
+            "range": "+/- 34.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1018.915,
+            "range": "+/- 49.5%",
             "unit": "ms"
           }
         ]
