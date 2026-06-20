@@ -148,6 +148,38 @@ internal class FakeChatRepository(
         return Result.success(Unit)
     }
 
+    override suspend fun addReaction(
+        convoId: String,
+        messageId: String,
+        emoji: String,
+    ): Result<MessageUi> =
+        Result.success(
+            MessageUi(
+                id = messageId,
+                senderDid = "did:plc:viewer",
+                isOutgoing = true,
+                text = "",
+                isDeleted = false,
+                sentAt = Instant.parse("2026-05-01T12:00:00Z"),
+            ),
+        )
+
+    override suspend fun removeReaction(
+        convoId: String,
+        messageId: String,
+        emoji: String,
+    ): Result<MessageUi> =
+        Result.success(
+            MessageUi(
+                id = messageId,
+                senderDid = "did:plc:viewer",
+                isOutgoing = true,
+                text = "",
+                isDeleted = false,
+                sentAt = Instant.parse("2026-05-01T12:00:00Z"),
+            ),
+        )
+
     override suspend fun getLog(cursor: String?): Result<ChatLogPage> = Result.success(ChatLogPage())
 
     private companion object {

@@ -198,6 +198,34 @@ internal class FakeChatRepository(
         return nextGetLogResult
     }
 
+    val addReactionCalls = mutableListOf<Triple<String, String, String>>() // convoId, messageId, emoji
+    val removeReactionCalls = mutableListOf<Triple<String, String, String>>()
+    var addReactionResult: Result<MessageUi>? = null // null → echo DEFAULT_SENT_MESSAGE.copy(id = messageId)
+    var removeReactionResult: Result<MessageUi>? = null
+
+    /** Optional gate: when set, add/removeReaction suspends on it before returning (test in-flight states). */
+    var reactionGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun addReaction(
+        convoId: String,
+        messageId: String,
+        emoji: String,
+    ): Result<MessageUi> {
+        addReactionCalls += Triple(convoId, messageId, emoji)
+        reactionGate?.await()
+        return addReactionResult ?: Result.success(DEFAULT_SENT_MESSAGE.copy(id = messageId))
+    }
+
+    override suspend fun removeReaction(
+        convoId: String,
+        messageId: String,
+        emoji: String,
+    ): Result<MessageUi> {
+        removeReactionCalls += Triple(convoId, messageId, emoji)
+        reactionGate?.await()
+        return removeReactionResult ?: Result.success(DEFAULT_SENT_MESSAGE.copy(id = messageId))
+    }
+
     private companion object {
         val DEFAULT_SENT_MESSAGE =
             MessageUi(

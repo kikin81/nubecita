@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl.data
 import io.github.kikin81.atproto.app.bsky.actor.ActorService
 import io.github.kikin81.atproto.app.bsky.actor.GetProfilesRequest
 import io.github.kikin81.atproto.chat.bsky.convo.AcceptConvoRequest
+import io.github.kikin81.atproto.chat.bsky.convo.AddReactionRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoService
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoForMembersRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoRequest
@@ -12,6 +13,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.LeaveConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ListConvosRequest
 import io.github.kikin81.atproto.chat.bsky.convo.MessageInput
 import io.github.kikin81.atproto.chat.bsky.convo.MuteConvoRequest
+import io.github.kikin81.atproto.chat.bsky.convo.RemoveReactionRequest
 import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UnmuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
@@ -256,6 +258,44 @@ internal class DefaultChatRepository
                     response.toMessageUi(viewerDid = viewerDid).also { patchConvoOnSend(convoId, it) }
                 }.onFailure { throwable ->
                     Timber.tag(TAG).w(throwable, "sendMessage failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun addReaction(
+            convoId: String,
+            messageId: String,
+            emoji: String,
+        ): Result<MessageUi> =
+            withContext(dispatcher) {
+                runCatching {
+                    val viewerDid = currentViewerDid()
+                    val client = xrpcClientProvider.authenticated()
+                    ConvoService(client)
+                        .addReaction(AddReactionRequest(convoId = convoId, messageId = messageId, value = emoji))
+                        .message
+                        .toMessageUi(viewerDid)
+                }.onFailure {
+                    if (it is CancellationException) throw it
+                    Timber.tag(TAG).w(it, "addReaction failed: %s", it.javaClass.name)
+                }
+            }
+
+        override suspend fun removeReaction(
+            convoId: String,
+            messageId: String,
+            emoji: String,
+        ): Result<MessageUi> =
+            withContext(dispatcher) {
+                runCatching {
+                    val viewerDid = currentViewerDid()
+                    val client = xrpcClientProvider.authenticated()
+                    ConvoService(client)
+                        .removeReaction(RemoveReactionRequest(convoId = convoId, messageId = messageId, value = emoji))
+                        .message
+                        .toMessageUi(viewerDid)
+                }.onFailure {
+                    if (it is CancellationException) throw it
+                    Timber.tag(TAG).w(it, "removeReaction failed: %s", it.javaClass.name)
                 }
             }
 
