@@ -6,8 +6,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.session.SessionClearable
+import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.internal.DefaultFollowRepository
 import net.kikin.nubecita.core.postinteractions.internal.DefaultLikeRepostRepository
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
 import javax.inject.Singleton
@@ -38,6 +40,12 @@ abstract class PostInteractionsModule {
     internal abstract fun bindLikeRepostRepository(
         impl: DefaultLikeRepostRepository,
     ): LikeRepostRepository
+
+    @Binds
+    @Singleton
+    internal abstract fun bindFollowRepository(
+        impl: DefaultFollowRepository,
+    ): FollowRepository
 
     @Binds
     @IntoSet

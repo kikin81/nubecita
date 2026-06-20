@@ -29,6 +29,7 @@ import net.kikin.nubecita.core.moderation.ContentLabel
 import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
+import net.kikin.nubecita.core.postinteractions.FollowRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -554,10 +555,20 @@ class DefaultProfileRepositoryUpdateProfileTest {
                     },
                 moderationPreferences = inertModerationPrefs(),
                 encoder = encoder,
+                followRepository = inertFollowRepository(),
                 dispatcher = UnconfinedTestDispatcher(),
             )
         return engine to repo
     }
+
+    // updateProfile never touches follow/unfollow; an inert delegate
+    // satisfies the constructor without issuing any network call.
+    private fun inertFollowRepository(): FollowRepository =
+        object : FollowRepository {
+            override suspend fun follow(subjectDid: String): Result<String> = error("follow not exercised in updateProfile tests")
+
+            override suspend fun unfollow(followUri: String): Result<Unit> = error("unfollow not exercised in updateProfile tests")
+        }
 
     // updateProfile never reads moderation prefs; an inert DEFAULT repo
     // satisfies the constructor without touching the gate. fetchTab moderation
