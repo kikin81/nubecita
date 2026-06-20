@@ -19,14 +19,28 @@ data object Chats : NavKey
 
 /**
  * Per-conversation thread destination. Pushed onto [MainShellNavState] when the user
- * taps a row in the convo list or (future, nubecita-a7a) the Message button on
- * another user's profile. The screen resolves [otherUserDid] → convoId itself via
- * `chat.bsky.convo.getConvoForMembers`.
+ * opens a DM or group chat.
+ *
+ * Carries EITHER a [convoId] OR an [otherUserDid] — at least one must be non-null
+ * (enforced by the `init` block). The two entry points differ because a group
+ * conversation has no single "other user":
+ *  - The convo list pushes [convoId] (it already knows the resolved conversation id,
+ *    and group convos can only be identified this way).
+ *  - Profile / search (1:1 DM start, future nubecita-a7a) push [otherUserDid]; the
+ *    ViewModel resolves it → convoId itself via `chat.bsky.convo.getConvoForMembers`.
+ *
+ * The ViewModel normalizes the two cases internally, so callers pass whichever
+ * identifier they have.
  */
 @Serializable
 data class Chat(
-    val otherUserDid: String,
-) : NavKey
+    val otherUserDid: String? = null,
+    val convoId: String? = null,
+) : NavKey {
+    init {
+        require(otherUserDid != null || convoId != null) { "Chat needs convoId or otherUserDid" }
+    }
+}
 
 /**
  * Recipient picker for starting a new DM. A `@MainShell` sub-route pushed

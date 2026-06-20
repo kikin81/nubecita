@@ -41,7 +41,9 @@ class ChatViewModel
             fun create(chat: Chat): ChatViewModel
         }
 
-        private val otherUserDid: String = chat.otherUserDid
+        // TODO(nubecita-r3g1, Task 5): the VM will normalize convoId-or-otherUserDid.
+        // Until then, the only push sites pass otherUserDid, so require it here.
+        private val otherUserDid: String = requireNotNull(chat.otherUserDid)
         private var inFlightLoad: Job? = null
 
         /**
