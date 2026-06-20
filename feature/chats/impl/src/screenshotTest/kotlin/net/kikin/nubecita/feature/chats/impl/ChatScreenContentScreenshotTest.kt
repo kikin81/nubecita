@@ -355,6 +355,51 @@ private val GROUP_LOADED_STATE =
             ),
     )
 
+// Mirrors GROUP_LOADED_STATE but attaches a reaction chip to one incoming message,
+// exercising the reaction-chip render path inside a group thread.
+private val GROUP_WITH_REACTIONS_STATE =
+    ChatScreenViewState(
+        header = GROUP_HEADER,
+        canPost = true,
+        status =
+            ChatLoadStatus.Loaded(
+                // Newest-first source order (reverseLayout flips it on screen).
+                items =
+                    persistentListOf(
+                        ThreadItem.Message(
+                            message = mu("g3", isOutgoing = true, text = "Looks great, shipping it", sentAt = "2026-05-14T17:32:00Z"),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = false,
+                            sender = null,
+                        ),
+                        ThreadItem.Message(
+                            message = mu("g2", isOutgoing = false, text = "and the dark variant too", sentAt = "2026-05-14T17:30:00Z"),
+                            runIndex = 1,
+                            runCount = 2,
+                            showAvatar = false,
+                            sender = GROUP_SENDER_CAROL,
+                        ),
+                        ThreadItem.Message(
+                            message =
+                                mu("g1", isOutgoing = false, text = "Pushed the new palette", sentAt = "2026-05-14T17:29:00Z")
+                                    .copy(reactions = persistentListOf(ReactionUi("👍", 3, true))),
+                            runIndex = 0,
+                            runCount = 2,
+                            showAvatar = true,
+                            sender = GROUP_SENDER_CAROL,
+                        ),
+                        ThreadItem.DaySeparator(
+                            epochDay =
+                                java.time.LocalDate
+                                    .parse("2026-05-14")
+                                    .toEpochDay(),
+                            label = "Today",
+                        ),
+                    ),
+            ),
+    )
+
 private val GROUP_HEADER_ONLY_STATE =
     ChatScreenViewState(
         header = GROUP_HEADER,
@@ -530,6 +575,17 @@ private fun ChatScreenNotEnrolledScreenshot() {
 private fun ChatScreenGroupLoadedScreenshot() {
     NubecitaCanvasPreviewTheme {
         ChatScreenContent(state = GROUP_LOADED_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}
+
+// Group thread with a reaction chip under one incoming message.
+@PreviewTest
+@Preview(name = "chat-group-reactions-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-group-reactions-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenGroupReactionsScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = GROUP_WITH_REACTIONS_STATE, onEvent = {}, textFieldState = TextFieldState())
     }
 }
 

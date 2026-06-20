@@ -12,9 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import net.kikin.nubecita.feature.chats.impl.ReactionUi
 import kotlin.time.Instant
 
 private fun mu(
@@ -23,6 +26,7 @@ private fun mu(
     text: String = "Hello there",
     isDeleted: Boolean = false,
     sendStatus: MessageSendStatus = MessageSendStatus.Sent,
+    reactions: ImmutableList<ReactionUi> = persistentListOf(),
 ): MessageUi =
     MessageUi(
         id = id,
@@ -32,6 +36,7 @@ private fun mu(
         isDeleted = isDeleted,
         sentAt = Instant.parse("2026-05-14T12:00:00Z"),
         sendStatus = sendStatus,
+        reactions = reactions,
     )
 
 @PreviewTest
@@ -144,6 +149,35 @@ private fun OutgoingFailed() {
             ) {
                 MessageBubble(
                     mu(isOutgoing = true, text = "Did this go through?", sendStatus = MessageSendStatus.Failed),
+                    runIndex = 0,
+                    runCount = 1,
+                )
+            }
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "bubble-reactions-light", showBackground = true)
+@Preview(name = "bubble-reactions-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun BubbleReactions() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                MessageBubble(
+                    mu(
+                        isOutgoing = false,
+                        text = "nice work!",
+                        reactions =
+                            persistentListOf(
+                                ReactionUi("👍", 2, false),
+                                ReactionUi("❤️", 1, true),
+                            ),
+                    ),
                     runIndex = 0,
                     runCount = 1,
                 )
