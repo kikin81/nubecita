@@ -6,6 +6,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.AcceptConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.AddReactionRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoService
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoForMembersRequest
+import io.github.kikin81.atproto.chat.bsky.convo.GetConvoMembersRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetLogRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesRequest
@@ -308,6 +309,32 @@ internal class DefaultChatRepository
                         .toChatLogPage()
                 }.onFailure { throwable ->
                     Timber.tag(TAG).w(throwable, "getLog failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun getConvoMembers(
+            convoId: String,
+            cursor: String?,
+        ): Result<MemberPage> =
+            withContext(dispatcher) {
+                runCatching {
+                    val viewerDid = currentViewerDid()
+                    val client = xrpcClientProvider.authenticated()
+                    val response =
+                        ConvoService(client).getConvoMembers(
+                            GetConvoMembersRequest(
+                                convoId = convoId,
+                                limit = GET_CONVO_MEMBERS_PAGE_LIMIT.toLong(),
+                                cursor = cursor,
+                            ),
+                        )
+                    MemberPage(
+                        members = response.members.map { it.toGroupMemberUi(viewerDid) }.toImmutableList(),
+                        cursor = response.cursor,
+                    )
+                }.onFailure {
+                    if (it is CancellationException) throw it
+                    Timber.tag(TAG).w(it, "getConvoMembers failed: %s", it.javaClass.name)
                 }
             }
 

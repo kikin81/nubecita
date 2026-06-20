@@ -10,6 +10,7 @@ import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
+import net.kikin.nubecita.feature.chats.impl.data.MemberPage
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Instant
@@ -181,6 +182,11 @@ internal class FakeChatRepository(
         )
 
     override suspend fun getLog(cursor: String?): Result<ChatLogPage> = Result.success(ChatLogPage())
+
+    override suspend fun getConvoMembers(
+        convoId: String,
+        cursor: String?,
+    ): Result<MemberPage> = Result.success(MemberPage())
 
     private companion object {
         val DEFAULT_SENT_MESSAGE =
