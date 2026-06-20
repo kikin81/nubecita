@@ -66,6 +66,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.feature.chats.impl.ui.DaySeparatorChip
+import net.kikin.nubecita.feature.chats.impl.ui.EmojiPickerDialog
 import net.kikin.nubecita.feature.chats.impl.ui.MessageBubble
 import net.kikin.nubecita.feature.chats.impl.ui.ReactionMenu
 
@@ -381,6 +382,8 @@ private fun LoadedBody(
 ) {
     // Tracks which message (by id) currently shows the long-press quick-react menu.
     var reactionMenuFor by remember { mutableStateOf<String?>(null) }
+    // Tracks which message (by id) currently shows the full emoji picker dialog.
+    var pickerFor by remember { mutableStateOf<String?>(null) }
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("chat_thread_list"),
         state = listState,
@@ -475,10 +478,19 @@ private fun LoadedBody(
                                             reactionMenuFor = null
                                         },
                                         onMore = {
-                                            // Task 6 wires the full emoji picker here.
+                                            pickerFor = message.id
                                             reactionMenuFor = null
                                         },
                                         onDismiss = { reactionMenuFor = null },
+                                    )
+                                }
+                                if (pickerFor == message.id) {
+                                    EmojiPickerDialog(
+                                        onEmojiPicked = { emoji ->
+                                            onReactionToggle(message.id, emoji)
+                                            pickerFor = null
+                                        },
+                                        onDismiss = { pickerFor = null },
                                     )
                                 }
                             }
@@ -516,10 +528,19 @@ private fun LoadedBody(
                                         reactionMenuFor = null
                                     },
                                     onMore = {
-                                        // Task 6 wires the full emoji picker here.
+                                        pickerFor = message.id
                                         reactionMenuFor = null
                                     },
                                     onDismiss = { reactionMenuFor = null },
+                                )
+                            }
+                            if (pickerFor == message.id) {
+                                EmojiPickerDialog(
+                                    onEmojiPicked = { emoji ->
+                                        onReactionToggle(message.id, emoji)
+                                        pickerFor = null
+                                    },
+                                    onDismiss = { pickerFor = null },
                                 )
                             }
                         }
