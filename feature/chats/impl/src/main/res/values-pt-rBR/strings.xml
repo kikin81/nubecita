@@ -58,6 +58,8 @@
     <string name="chat_send_error_messages_disabled">Esta pessoa não pode receber suas mensagens.</string>
     <string name="chat_send_error_generic">Não foi possível enviar sua mensagem. Toque em tentar de novo.</string>
     <string name="chat_reaction_error">Não foi possível atualizar sua reação. Tente de novo.</string>
+    <string name="chat_react_more">Mais emojis</string>
+    <string name="chat_react_long_press">Reagir</string>
     <string name="new_chat_title">Nova mensagem</string>
     <string name="new_chat_search_placeholder">Buscar alguém</string>
     <string name="new_chat_recent_header">Recentes</string>
