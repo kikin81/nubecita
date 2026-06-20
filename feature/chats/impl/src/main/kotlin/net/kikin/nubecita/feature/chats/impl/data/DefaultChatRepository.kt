@@ -187,14 +187,23 @@ internal class DefaultChatRepository
             withContext(dispatcher) {
                 runCatching {
                     if (dids.isEmpty()) return@runCatching emptyList()
-                    val client = xrpcClientProvider.authenticated()
-                    val service = ActorService(client)
-                    // app.bsky.actor.getProfiles caps `actors` at 25 per call.
+                    val service = ActorService(xrpcClientProvider.authenticated())
+                    // app.bsky.actor.getProfiles caps `actors` at 25 per call. Hydration
+                    // is best-effort: catch per chunk so one failing batch still yields the
+                    // others' profiles (partial degradation beats all-or-nothing).
                     dids.distinct().chunked(GET_PROFILES_MAX_ACTORS).flatMap { chunk ->
-                        service
-                            .getProfiles(GetProfilesRequest(actors = chunk.map { AtIdentifier(it) }))
-                            .profiles
-                            .map { it.toAuthorUi() }
+                        try {
+                            service
+                                .getProfiles(GetProfilesRequest(actors = chunk.map { AtIdentifier(it) }))
+                                .profiles
+                                .map { it.toAuthorUi() }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // `dids` are PII — log only the failure identity, not the values.
+                            Timber.tag(TAG).w(e, "getProfiles chunk failed: %s", e.javaClass.name)
+                            emptyList()
+                        }
                     }
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable
