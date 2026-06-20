@@ -79,6 +79,16 @@
     <string name="chat_settings_save_error">Não foi possível salvar. Verifique sua rede e tente de novo.</string>
     <string name="chat_settings_load_error">Não foi possível carregar as configurações do chat.</string>
     <string name="chat_settings_retry">Tentar de novo</string>
+    <!-- Group details (nubecita-hwix.4) -->
+    <string name="group_details_member_count">%1$d / %2$d membros</string>
+    <string name="group_details_handle">@%1$s</string>
+    <string name="group_details_role_owner">Administrador</string>
+    <string name="group_details_added_by">Adicionado por %1$s</string>
+    <string name="group_details_follow">Seguir</string>
+    <string name="group_details_following">Seguindo</string>
+    <string name="group_details_load_error">Não foi possível carregar os detalhes do grupo.</string>
+    <string name="group_details_action_error">Algo deu errado. Tente de novo.</string>
+    <string name="group_details_retry">Tentar de novo</string>
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d mensagem não lida</item>
         <item quantity="other">%1$d mensagens não lidas</item>
