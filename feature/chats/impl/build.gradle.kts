@@ -34,6 +34,9 @@ dependencies {
     // `app.bsky.embed.record#view`; we reuse the existing helpers rather
     // than duplicate the JsonObject decode + recursion-bound logic.
     implementation(project(":core:feed-mapping"))
+    // FollowRepository for the group-details per-member Follow toggle
+    // (the shared follow/unfollow write surface; profile uses the same one).
+    implementation(project(":core:post-interactions"))
     // DM-poll cursor + the message-checking opt-in toggle (the background
     // worker's gate). nubecita-1fy.15.
     implementation(project(":core:preferences"))
