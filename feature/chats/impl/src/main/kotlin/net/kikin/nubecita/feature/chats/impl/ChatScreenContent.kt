@@ -133,12 +133,13 @@ internal fun ChatScreenContent(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
+                                    val count = header.memberCount ?: header.members.size
                                     Text(
                                         text =
                                             pluralStringResource(
                                                 R.plurals.chat_group_member_count,
-                                                header.members.size,
-                                                header.members.size,
+                                                count,
+                                                count,
                                             ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,

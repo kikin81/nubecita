@@ -374,6 +374,25 @@ class ChatViewModel
                                         senderProfiles[it.did] = it
                                     }
                                     setState { copy(header = convo.header, canPost = convo.canPost) }
+                                    // Group headers seed only a partial member preview (getConvo
+                                    // returns ~7); fetch the full roster once to show the accurate
+                                    // "N members" count. Fire-and-forget + best-effort: a failure
+                                    // leaves memberCount null so the header falls back to the
+                                    // facepile (members.size). Direct convos skip this entirely.
+                                    if (convo.header is ChatHeader.Group) {
+                                        viewModelScope.launch {
+                                            repository.getConvoMembers(convo.convoId).onSuccess { page ->
+                                                setState {
+                                                    val h = header
+                                                    if (h is ChatHeader.Group) {
+                                                        copy(header = h.copy(memberCount = page.members.size))
+                                                    } else {
+                                                        this
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                     repository
                                         .getMessages(convo.convoId)
                                         .onSuccess { page ->

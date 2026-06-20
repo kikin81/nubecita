@@ -29,6 +29,8 @@ sealed interface ChatHeader {
     data class Group(
         val name: String,
         val members: ImmutableList<AuthorUi>,
+        // Accurate roster size from getConvoMembers; null until loaded → fall back to members.size.
+        val memberCount: Int? = null,
     ) : ChatHeader
 }
 
