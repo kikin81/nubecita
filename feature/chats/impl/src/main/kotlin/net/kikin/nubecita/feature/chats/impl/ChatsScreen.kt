@@ -32,6 +32,7 @@ internal fun ChatsScreen(
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
     selectedConvoId: String? = null,
+    selectedOtherUserDid: String? = null,
     onNavigateToChatSettings: () -> Unit = {},
     onNavigateTo: (NavKey) -> Unit = {},
     viewModel: ChatsViewModel = hiltViewModel(),
@@ -114,6 +115,7 @@ internal fun ChatsScreen(
         onEvent = viewModel::handleEvent,
         onNewChat = onNewChat,
         selectedConvoId = selectedConvoId,
+        selectedOtherUserDid = selectedOtherUserDid,
         modifier = modifier,
     )
 }

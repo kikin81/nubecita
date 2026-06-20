@@ -62,10 +62,12 @@ internal fun ChatsScreenContent(
     onEvent: (ChatsEvent) -> Unit,
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
-    // The open conversation's convoId (or null) — highlights the matching
-    // list row in the tablet list-detail layout. Null on phones / when no
-    // thread is open.
+    // The open conversation's convoId (or null) — highlights the matching list
+    // row in the tablet list-detail layout. Null on phones / when no thread is open.
     selectedConvoId: String? = null,
+    // Fallback highlight key for a profile-initiated DM (opened by otherUserDid, so
+    // its convoId is null until the thread resolves it) — matches the Direct row by did.
+    selectedOtherUserDid: String? = null,
 ) {
     val selectionIds = state.selection
     val inSelection = selectionIds != null
@@ -172,6 +174,7 @@ internal fun ChatsScreenContent(
                                     selection = selectionIds,
                                     onEvent = onEvent,
                                     selectedConvoId = selectedConvoId,
+                                    selectedOtherUserDid = selectedOtherUserDid,
                                 )
                             }
                         }
@@ -396,6 +399,7 @@ private fun LoadedBody(
     selection: ImmutableSet<String>?,
     onEvent: (ChatsEvent) -> Unit,
     selectedConvoId: String?,
+    selectedOtherUserDid: String?,
 ) {
     // Arrangement.spacedBy(ListItemDefaults.SegmentedGap) — the framework's
     // canonical gap between rows in a segmented section. Lets the rounded-
@@ -435,12 +439,15 @@ private fun LoadedBody(
                 },
                 onLongClick = { onEvent(ChatsEvent.ConvoLongPressed(item.convoId)) },
                 // Highlight by membership while selecting; otherwise reflect the
-                // tablet list-detail open thread by convoId.
+                // tablet list-detail open thread — by convoId (convo-list path) or,
+                // for a profile-initiated DM (opened by did, convoId still null), by
+                // matching the Direct row's otherUserDid.
                 selected =
                     if (inSelection) {
                         selection.contains(item.convoId)
                     } else {
-                        item.convoId == selectedConvoId
+                        item.convoId == selectedConvoId ||
+                            (item is ConvoRowUi.Direct && item.otherUserDid == selectedOtherUserDid)
                     },
             )
         }

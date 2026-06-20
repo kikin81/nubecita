@@ -27,6 +27,7 @@ import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
 import net.kikin.nubecita.feature.chats.impl.NewChatScreen
 import net.kikin.nubecita.feature.chats.impl.selectedConvoId
+import net.kikin.nubecita.feature.chats.impl.selectedOtherUserDid
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 
 @Module
@@ -61,6 +62,9 @@ internal object ChatsNavigationModule {
                 // navigation. Null on Compact's list view (no thread on the
                 // stack) and harmless when a thread covers the list full-screen.
                 val selectedConvoId = selectedConvoId(navState.backStack)
+                // Fallback highlight key for a profile-initiated DM (opened by did,
+                // its convoId resolved only after navigating) so its row still highlights.
+                val selectedOtherUserDid = selectedOtherUserDid(navState.backStack)
                 ChatsScreen(
                     // replaceTop (not add): selecting a conversation swaps the
                     // open detail pane instead of stacking threads, so Back from
@@ -70,6 +74,7 @@ internal object ChatsNavigationModule {
                     onNavigateToChat = { convoId -> navState.replaceTop(Chat(convoId = convoId)) },
                     onNewChat = { navState.add(NewChat) },
                     selectedConvoId = selectedConvoId,
+                    selectedOtherUserDid = selectedOtherUserDid,
                     onNavigateToChatSettings = { navState.add(ChatSettings) },
                     // Contextual-action sub-routes (Profile / Report / Block) —
                     // a plain push onto the inner back stack. Profile is a tab
