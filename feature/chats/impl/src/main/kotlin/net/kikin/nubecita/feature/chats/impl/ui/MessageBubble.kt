@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,6 +36,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.R
+import net.kikin.nubecita.feature.chats.impl.ReactionUi
 
 /**
  * Asymmetric M3 Expressive bubble shape for a message at [index] in a run of
@@ -102,6 +106,7 @@ internal fun MessageBubble(
     maxWidth: Dp = 280.dp,
     onQuotedPostTap: (quotedPostUri: String) -> Unit = {},
     onRetrySend: (tempId: String) -> Unit = {},
+    onReactionToggle: (emoji: String) -> Unit = {},
 ) {
     val embed = message.embed
     val showTextBubble = message.isDeleted || message.text.isNotEmpty() || embed == null
@@ -120,6 +125,18 @@ internal fun MessageBubble(
             if (showTextBubble) Spacer(Modifier.height(4.dp))
             MessageEmbedCard(embed = embed, onQuotedPostTap = onQuotedPostTap)
         }
+        @OptIn(ExperimentalLayoutApi::class)
+        if (message.reactions.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                message.reactions.forEach { reaction ->
+                    ReactionChip(reaction = reaction, onClick = { onReactionToggle(reaction.emoji) })
+                }
+            }
+        }
         // Send-status footer for outgoing rows only; server-fetched + reconciled
         // messages are Sent and render nothing.
         if (message.isOutgoing) {
@@ -129,6 +146,39 @@ internal fun MessageBubble(
                 MessageSendStatus.Sent -> Unit
             }
         }
+    }
+}
+
+@Composable
+private fun ReactionChip(
+    reaction: ReactionUi,
+    onClick: () -> Unit,
+) {
+    // Viewer's own reactions use the M3 selected tone; others use the raised-affordance
+    // surfaceContainerHigh (per the surface-roles contract).
+    val container =
+        if (reaction.reactedByViewer) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        }
+    val content =
+        if (reaction.reactedByViewer) {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        }
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = container,
+        contentColor = content,
+    ) {
+        Text(
+            text = "${reaction.emoji} ${reaction.count}",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
     }
 }
 

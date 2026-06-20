@@ -208,6 +208,9 @@ internal fun ChatScreenContent(
                             listState = listState,
                             onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
                             onRetrySend = { tempId -> onEvent(ChatEvent.RetrySend(tempId)) },
+                            onReactionToggle = { messageId, emoji ->
+                                onEvent(ChatEvent.ToggleReaction(messageId, emoji))
+                            },
                         )
                     }
                 is ChatLoadStatus.InitialError ->
@@ -365,6 +368,7 @@ private fun LoadedBody(
     listState: LazyListState,
     onQuotedPostTap: (quotedPostUri: String) -> Unit,
     onRetrySend: (tempId: String) -> Unit,
+    onReactionToggle: (messageId: String, emoji: String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("chat_thread_list"),
@@ -440,6 +444,9 @@ private fun LoadedBody(
                                     runCount = item.runCount,
                                     onQuotedPostTap = onQuotedPostTap,
                                     onRetrySend = onRetrySend,
+                                    onReactionToggle = { emoji ->
+                                        onReactionToggle(item.message.id, emoji)
+                                    },
                                 )
                             }
                         }
@@ -459,6 +466,9 @@ private fun LoadedBody(
                                 runCount = item.runCount,
                                 onQuotedPostTap = onQuotedPostTap,
                                 onRetrySend = onRetrySend,
+                                onReactionToggle = { emoji ->
+                                    onReactionToggle(item.message.id, emoji)
+                                },
                             )
                         }
                     }
