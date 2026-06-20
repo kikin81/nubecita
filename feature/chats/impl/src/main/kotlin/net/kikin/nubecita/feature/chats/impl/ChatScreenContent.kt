@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.designsystem.component.AvatarGroup
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
 import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -95,15 +97,47 @@ internal fun ChatScreenContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ChatTopBarAvatar(state)
-                        Text(
-                            text = state.otherUserDisplayName ?: state.otherUserHandle,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(start = 12.dp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                    when (val header = state.header) {
+                        is ChatHeader.Direct ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ChatTopBarAvatar(header)
+                                Text(
+                                    text = header.displayName ?: header.handle,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(start = 12.dp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        is ChatHeader.Group ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                AvatarGroup(
+                                    members = header.members,
+                                    contentDescription = null,
+                                    avatarSize = 32.dp,
+                                )
+                                Column(modifier = Modifier.padding(start = 12.dp)) {
+                                    Text(
+                                        text = header.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text =
+                                            pluralStringResource(
+                                                R.plurals.chat_group_member_count,
+                                                header.members.size,
+                                                header.members.size,
+                                            ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                        // Pre-load (Loading status): the title is empty until the convo resolves.
+                        null -> Unit
                     }
                 },
                 navigationIcon = {
@@ -238,16 +272,16 @@ private fun ChatComposerRow(
 }
 
 @Composable
-private fun ChatTopBarAvatar(state: ChatScreenViewState) {
+private fun ChatTopBarAvatar(header: ChatHeader.Direct) {
     NubecitaAvatar(
-        model = state.otherUserAvatarUrl,
+        model = header.avatarUrl,
         contentDescription = null,
         size = 40.dp,
         fallback =
             avatarFallbackFor(
-                did = state.otherUserDid,
-                handle = state.otherUserHandle,
-                displayName = state.otherUserDisplayName,
+                did = header.did,
+                handle = header.handle,
+                displayName = header.displayName,
             ),
     )
 }

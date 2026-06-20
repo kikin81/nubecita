@@ -37,15 +37,14 @@ sealed interface ChatHeader {
  * sealed [ChatLoadStatus] sum carries the lifecycle; `isRefreshing` is the only
  * flag that may coexist with `Loaded` and lives inside that variant.
  *
- * The other-user's profile bits (handle/displayName/avatar) populate after the
- * `resolveConvo` call returns; the TopAppBar reads them. Defaults are empty
- * strings / nulls so the initial Loading composition has stable values.
+ * The kind-aware [header] (Direct vs Group) is set after the convo loads — it is
+ * `null` during the initial Loading composition — and drives the TopAppBar.
+ * [canPost] gates the composer (a read-only convo disables send); it defaults to
+ * `true` so the composer is enabled the moment a postable convo resolves.
  */
 data class ChatScreenViewState(
-    val otherUserDid: String = "",
-    val otherUserHandle: String = "",
-    val otherUserDisplayName: String? = null,
-    val otherUserAvatarUrl: String? = null,
+    val header: ChatHeader? = null,
+    val canPost: Boolean = true,
     val status: ChatLoadStatus = ChatLoadStatus.Loading,
     val isSendEnabled: Boolean = false,
 ) : UiState

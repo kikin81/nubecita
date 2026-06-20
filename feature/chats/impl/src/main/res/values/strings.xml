@@ -60,6 +60,12 @@
     <string name="chat_error_messages_disabled_title">Can\'t send messages</string>
     <string name="chat_error_messages_disabled_body">This person has chosen not to receive direct messages.</string>
 
+    <!-- Group thread header (r3g1) -->
+    <plurals name="chat_group_member_count">
+        <item quantity="one">%d member</item>
+        <item quantity="other">%d members</item>
+    </plurals>
+
     <!-- Composer (b6uv.2) -->
     <string name="chat_composer_placeholder">Message</string>
     <string name="chat_composer_send_content_description">Send</string>

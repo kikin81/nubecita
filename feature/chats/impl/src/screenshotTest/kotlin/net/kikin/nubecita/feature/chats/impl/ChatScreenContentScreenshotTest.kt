@@ -78,11 +78,29 @@ private fun recordEmbed(
             ),
     )
 
+private val DIRECT_HEADER =
+    ChatHeader.Direct(
+        did = PEER,
+        handle = "alice.bsky.social",
+        displayName = "Alice",
+        avatarUrl = null,
+    )
+
+// The lifecycle states below (Loading / Empty / error) predate the sealed header
+// and were authored with no peer DID, so the avatar-fallback color was seeded
+// from an empty did. Keep that empty did here so the committed baselines hold;
+// these are pre-load / pre-convo states where the did genuinely isn't known yet.
+private val DIRECT_HEADER_NO_DID =
+    ChatHeader.Direct(
+        did = "",
+        handle = "alice.bsky.social",
+        displayName = "Alice",
+        avatarUrl = null,
+    )
+
 private val LOADED_STATE =
     ChatScreenViewState(
-        otherUserDid = PEER,
-        otherUserHandle = "alice.bsky.social",
-        otherUserDisplayName = "Alice",
+        header = DIRECT_HEADER,
         status =
             ChatLoadStatus.Loaded(
                 // Matches the mapper's emission order: newest message at source[0]
@@ -138,9 +156,7 @@ private val LOADED_STATE =
  */
 private val LOADED_WITH_EMBEDS_STATE =
     ChatScreenViewState(
-        otherUserDid = PEER,
-        otherUserHandle = "alice.bsky.social",
-        otherUserDisplayName = "Alice",
+        header = DIRECT_HEADER,
         status =
             ChatLoadStatus.Loaded(
                 items =
@@ -230,9 +246,7 @@ private val LOADED_WITH_EMBEDS_STATE =
  */
 private val LOADED_WITH_SEND_STATUS_STATE =
     ChatScreenViewState(
-        otherUserDid = PEER,
-        otherUserHandle = "alice.bsky.social",
-        otherUserDisplayName = "Alice",
+        header = DIRECT_HEADER,
         status =
             ChatLoadStatus.Loaded(
                 items =
@@ -282,25 +296,22 @@ private val LOADED_WITH_SEND_STATUS_STATE =
 
 private val EMPTY_STATE =
     ChatScreenViewState(
-        otherUserHandle = "alice.bsky.social",
-        otherUserDisplayName = "Alice",
+        header = DIRECT_HEADER_NO_DID,
         status = ChatLoadStatus.Loaded(items = persistentListOf()),
     )
 
 private val LOADING_STATE =
-    ChatScreenViewState(otherUserHandle = "alice.bsky.social", otherUserDisplayName = "Alice")
+    ChatScreenViewState(header = DIRECT_HEADER_NO_DID)
 
 private val NETWORK_ERROR_STATE =
     ChatScreenViewState(
-        otherUserHandle = "alice.bsky.social",
-        otherUserDisplayName = "Alice",
+        header = DIRECT_HEADER_NO_DID,
         status = ChatLoadStatus.InitialError(ChatError.Network),
     )
 
 private val NOT_ENROLLED_STATE =
     ChatScreenViewState(
-        otherUserHandle = "alice.bsky.social",
-        otherUserDisplayName = "Alice",
+        header = DIRECT_HEADER_NO_DID,
         status = ChatLoadStatus.InitialError(ChatError.NotEnrolled),
     )
 
