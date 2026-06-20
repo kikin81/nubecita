@@ -10,6 +10,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +52,15 @@ internal fun ReactionMenu(
                     Text(
                         text = emoji,
                         style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.clip(CircleShape).clickable { onPick(emoji) }.padding(6.dp),
+                        // minimumInteractiveComponentSize first so the clickable area is the
+                        // enlarged ≥48dp box (Material/WCAG min touch target) — Modifier.clickable
+                        // doesn't apply it automatically the way material buttons do.
+                        modifier =
+                            Modifier
+                                .minimumInteractiveComponentSize()
+                                .clip(CircleShape)
+                                .clickable { onPick(emoji) }
+                                .padding(6.dp),
                     )
                 }
                 IconButton(onClick = onMore) {
