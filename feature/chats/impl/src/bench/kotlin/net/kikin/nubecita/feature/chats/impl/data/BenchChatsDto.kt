@@ -10,15 +10,29 @@ internal data class BenchConvoListDto(
 @Serializable
 internal data class BenchConvoDto(
     val convoId: String,
-    val otherUserDid: String,
-    val otherUserHandle: String,
+    /** `"direct"` (default) or `"group"` — selects which [ConvoRowUi] variant the mapper builds. */
+    val kind: String = "direct",
+    // Direct-only fields (defaulted so a group entry can omit them).
+    val otherUserDid: String = "",
+    val otherUserHandle: String = "",
     val displayName: String? = null,
     val avatarUrl: String? = null,
+    // Group-only fields.
+    val name: String? = null,
+    val members: List<BenchMemberDto> = emptyList(),
     val lastMessageSnippet: String? = null,
     val lastMessageFromViewer: Boolean = false,
     val lastMessageIsAttachment: Boolean = false,
     val sentAt: String? = null,
     val messages: List<BenchMessageDto> = emptyList(),
+)
+
+@Serializable
+internal data class BenchMemberDto(
+    val did: String,
+    val handle: String,
+    val displayName: String? = null,
+    val avatarUrl: String? = null,
 )
 
 @Serializable

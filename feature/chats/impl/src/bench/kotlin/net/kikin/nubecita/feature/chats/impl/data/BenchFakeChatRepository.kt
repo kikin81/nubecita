@@ -40,9 +40,10 @@ internal class BenchFakeChatRepository
         private val initMutex = Mutex()
         private var isInitialized = false
 
-        // Bench fixtures are all direct convos; storing the concrete Direct variant
-        // keeps `.copy(...)` and the per-user fields available for the fake's patches.
-        private val convosCache = ConcurrentHashMap<String, ConvoRowUi.Direct>()
+        // Direct AND group fixtures; the sealed [ConvoRowUi] is patched via the
+        // `withMuted` / `withUnread` / `withLastMessage` extensions (the sealed type
+        // has no shared `copy`), matching the production cache patches.
+        private val convosCache = ConcurrentHashMap<String, ConvoRowUi>()
         private val messagesCache = ConcurrentHashMap<String, List<MessageUi>>()
         private val didToConvoId = ConcurrentHashMap<String, String>()
 
@@ -78,7 +79,11 @@ internal class BenchFakeChatRepository
                         dto.convos.forEach { convoDto ->
                             val convoItem = BenchChatsMapper.toConvoListItem(convoDto)
                             convosCache[convoDto.convoId] = convoItem
-                            didToConvoId[convoDto.otherUserDid] = convoDto.convoId
+                            // Only direct convos are reachable by peer DID (groups open
+                            // by convoId from the list), so map by DID for direct only.
+                            if (convoDto.kind == "direct" && convoDto.otherUserDid.isNotEmpty()) {
+                                didToConvoId[convoDto.otherUserDid] = convoDto.convoId
+                            }
 
                             val msgUis = convoDto.messages.map { BenchChatsMapper.toMessage(it, viewerDid) }
                             messagesCache[convoDto.convoId] = msgUis
@@ -115,7 +120,7 @@ internal class BenchFakeChatRepository
             convoId: String,
             muted: Boolean,
         ): Result<Unit> {
-            convosCache[convoId]?.let { convosCache[convoId] = it.copy(muted = muted) }
+            convosCache[convoId]?.let { convosCache[convoId] = it.withMuted(muted) }
             if (convosFlow.value != null) publishConvos()
             return Result.success(Unit)
         }
@@ -130,7 +135,8 @@ internal class BenchFakeChatRepository
             ensureLoaded()
             val convoId = didToConvoId[otherUserDid]
             if (convoId != null) {
-                val convo = convosCache[convoId]
+                // Only direct convos are reachable by peer DID; a group never maps here.
+                val convo = convosCache[convoId] as? ConvoRowUi.Direct
                 if (convo != null) {
                     return Result.success(
                         ConvoResolution(
@@ -175,14 +181,22 @@ internal class BenchFakeChatRepository
 
         override suspend fun getConvo(convoId: String): Result<ChatConvo> {
             ensureLoaded()
-            val convo = convosCache[convoId]
+            // Unknown convoId → a real failure (surfaces the thread's InitialError),
+            // not a blank dummy header. Mirrors production's error routing.
             val header =
-                ChatHeader.Direct(
-                    did = convo?.otherUserDid.orEmpty(),
-                    handle = convo?.otherUserHandle.orEmpty(),
-                    displayName = convo?.displayName,
-                    avatarUrl = convo?.avatarUrl,
-                )
+                when (val convo = convosCache[convoId]) {
+                    is ConvoRowUi.Group ->
+                        ChatHeader.Group(name = convo.name, members = convo.members)
+                    is ConvoRowUi.Direct ->
+                        ChatHeader.Direct(
+                            did = convo.otherUserDid,
+                            handle = convo.otherUserHandle,
+                            displayName = convo.displayName,
+                            avatarUrl = convo.avatarUrl,
+                        )
+                    null ->
+                        return Result.failure(NoSuchElementException("Unknown convoId: $convoId"))
+                }
             return Result.success(
                 ChatConvo(
                     convoId = convoId,
@@ -232,10 +246,10 @@ internal class BenchFakeChatRepository
             val convo = convosCache[convoId]
             if (convo != null) {
                 convosCache[convoId] =
-                    convo.copy(
-                        lastMessageSnippet = text,
-                        lastMessageFromViewer = true,
-                        lastMessageIsAttachment = false,
+                    convo.withLastMessage(
+                        snippet = text,
+                        fromViewer = true,
+                        isAttachment = false,
                         sentAt = now,
                     )
                 // Republish so an open inbox reflects the send live (only when the
@@ -250,7 +264,7 @@ internal class BenchFakeChatRepository
             ensureLoaded()
             val convo = convosCache[convoId]
             if (convo != null && convo.unreadCount != 0) {
-                convosCache[convoId] = convo.copy(unreadCount = 0)
+                convosCache[convoId] = convo.withUnread(0)
                 if (convosFlow.value != null) publishConvos()
             }
             return Result.success(Unit)

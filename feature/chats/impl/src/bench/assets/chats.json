@@ -2,6 +2,79 @@
   "_comment": "Deterministic mock conversations and messages for the bench flavor. Loaded by BenchFakeChatRepository.",
   "convos": [
     {
+      "convoId": "convo_group_design",
+      "kind": "group",
+      "name": "Design Team",
+      "lastMessageSnippet": "Pushed the new spacing tokens — take a look 🎨",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T17:30:00Z",
+      "members": [
+        {
+          "did": "did:plc:alice000000000000000000",
+          "handle": "alice.bsky.social",
+          "displayName": "Alice Chen",
+          "avatarUrl": "file:///android_asset/img/avatars/alice.jpg"
+        },
+        {
+          "did": "did:plc:bob0000000000000000000000",
+          "handle": "bob.dev",
+          "displayName": "Bob Iglesias",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        {
+          "did": "did:plc:carmen0000000000000000000",
+          "handle": "carmen.codes",
+          "displayName": "Carmen Lopez",
+          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+        },
+        {
+          "did": "did:plc:benchnubecita0000000000000",
+          "handle": "you.bsky.social",
+          "displayName": "You",
+          "avatarUrl": null
+        }
+      ],
+      "messages": [
+        {
+          "id": "msg_group_6",
+          "senderDid": "did:plc:carmen0000000000000000000",
+          "text": "Pushed the new spacing tokens — take a look 🎨",
+          "sentAt": "2026-05-27T17:30:00Z"
+        },
+        {
+          "id": "msg_group_5",
+          "senderDid": "did:plc:alice000000000000000000",
+          "text": "Love it — the dark-mode facepile is chef's kiss 👌",
+          "sentAt": "2026-05-27T17:24:00Z"
+        },
+        {
+          "id": "msg_group_4",
+          "senderDid": "did:plc:alice000000000000000000",
+          "text": "Nice work on the avatar group component!",
+          "sentAt": "2026-05-27T17:23:00Z"
+        },
+        {
+          "id": "msg_group_3",
+          "senderDid": "did:plc:benchnubecita0000000000000",
+          "text": "Thanks all — shipping group chat today 🚀",
+          "sentAt": "2026-05-27T17:15:00Z"
+        },
+        {
+          "id": "msg_group_2",
+          "senderDid": "did:plc:bob0000000000000000000000",
+          "text": "view + send both working end to end in here now.",
+          "sentAt": "2026-05-27T17:06:00Z"
+        },
+        {
+          "id": "msg_group_1",
+          "senderDid": "did:plc:bob0000000000000000000000",
+          "text": "Just tested the new group thread.",
+          "sentAt": "2026-05-27T17:05:00Z"
+        }
+      ]
+    },
+    {
       "convoId": "convo_alice",
       "otherUserDid": "did:plc:alice000000000000000000",
       "otherUserHandle": "alice.bsky.social",
