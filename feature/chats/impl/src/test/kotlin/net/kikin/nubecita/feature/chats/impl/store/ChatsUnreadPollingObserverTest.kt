@@ -306,6 +306,8 @@ class ChatsUnreadPollingObserverTest {
 
         override suspend fun getConvo(convoId: String): Result<ChatConvo> = error("not used")
 
+        override suspend fun getProfiles(dids: List<String>): Result<List<net.kikin.nubecita.data.models.AuthorUi>> = Result.success(emptyList())
+
         override suspend fun getMessages(
             convoId: String,
             cursor: String?,

@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
@@ -680,6 +681,111 @@ internal class ChatViewModelTest {
             assertEquals(true, vm.uiState.value.isSendEnabled)
         }
 
+    // --- Group sender hydration (nubecita-hwix.2) ---
+
+    @Test
+    fun `group senders missing from the roster are hydrated via getProfiles`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(
+                            MessagePage(
+                                messages =
+                                    persistentListOf(
+                                        incoming(id = "m_left", senderDid = "did:plc:left"),
+                                        incoming(id = "m_in", senderDid = "did:plc:inroster"),
+                                    ),
+                            ),
+                        ),
+                )
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header =
+                            ChatHeader.Group(
+                                name = "Devs",
+                                members = persistentListOf(author("did:plc:inroster", "in.bsky.social", "In Roster")),
+                            ),
+                        canPost = true,
+                    ),
+                )
+            repo.getProfilesResult = Result.success(listOf(author("did:plc:left", "left.bsky.social", "Departed")))
+
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            advanceUntilIdle()
+
+            // Only the out-of-roster sender is fetched; the rostered one is already known.
+            assertEquals(listOf(listOf("did:plc:left")), repo.getProfilesCalls)
+            assertEquals(
+                "Departed",
+                vm.uiState.value
+                    .senderFor("m_left")
+                    ?.displayName,
+            )
+            assertEquals(
+                "In Roster",
+                vm.uiState.value
+                    .senderFor("m_in")
+                    ?.displayName,
+            )
+        }
+
+    @Test
+    fun `no getProfiles call when every group sender is in the roster`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(
+                            MessagePage(messages = persistentListOf(incoming(id = "m1", senderDid = "did:plc:inroster"))),
+                        ),
+                )
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header =
+                            ChatHeader.Group(
+                                name = "Devs",
+                                members = persistentListOf(author("did:plc:inroster", "in.bsky.social", "In Roster")),
+                            ),
+                        canPost = true,
+                    ),
+                )
+
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            advanceUntilIdle()
+
+            assertTrue(repo.getProfilesCalls.isEmpty(), "fully-rostered group issues no profile fetch")
+            assertEquals(
+                "In Roster",
+                vm.uiState.value
+                    .senderFor("m1")
+                    ?.displayName,
+            )
+        }
+
+    @Test
+    fun `direct thread never hydrates senders (bubbles stay bare)`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(
+                            MessagePage(messages = persistentListOf(incoming(id = "m1", senderDid = otherUserDid))),
+                        ),
+                )
+            repo.getConvoResult = directConvo(convoId = "resolved-99")
+
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            assertTrue(repo.getProfilesCalls.isEmpty(), "direct threads render bare — no per-message attribution")
+            assertEquals(null, vm.uiState.value.senderFor("m1"))
+        }
+
     /**
      * Mutates the VM's [ChatViewModel.textFieldState] and drives the Compose
      * snapshot system so the change reaches the VM's `snapshotFlow` collector.
@@ -708,6 +814,34 @@ internal class ChatViewModelTest {
             chat = Chat(otherUserDid = otherUserDid),
             repository = repo,
         )
+
+    /** An incoming (not-outgoing) [MessageUi] from [senderDid]. */
+    private fun incoming(
+        id: String,
+        senderDid: String,
+    ): MessageUi =
+        MessageUi(
+            id = id,
+            senderDid = senderDid,
+            isOutgoing = false,
+            text = "hi",
+            isDeleted = false,
+            sentAt = Instant.parse("2026-05-27T12:00:00Z"),
+        )
+
+    private fun author(
+        did: String,
+        handle: String,
+        displayName: String?,
+    ): AuthorUi = AuthorUi(did = did, handle = handle, displayName = displayName ?: handle, avatarUrl = null)
+
+    /** The resolved sender [AuthorUi] for the thread item with [messageId], or null. */
+    private fun ChatScreenViewState.senderFor(messageId: String): AuthorUi? =
+        (status as ChatLoadStatus.Loaded)
+            .items
+            .filterIsInstance<ThreadItem.Message>()
+            .firstOrNull { it.message.id == messageId }
+            ?.sender
 
     /** A [ChatConvo] with a Direct header whose canonical id is [convoId]. */
     private fun directConvo(convoId: String): Result<ChatConvo> =

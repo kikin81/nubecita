@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toChatError
@@ -68,6 +69,16 @@ class ChatViewModel
          */
         private var messages: List<MessageUi> = emptyList()
         private var sendCounter = 0
+
+        /**
+         * Accumulating DID → sender profile map for GROUP message attribution. Seeded
+         * from the loaded convo's member roster ([ChatHeader.Group.members]) and then
+         * augmented by [hydrateMissingSenders] for senders absent from the roster (e.g.
+         * a member who has since left) — the wire `MessageView.sender` is DID-only, so
+         * the roster alone can't attribute every historical message. Empty for direct
+         * threads. Read by [commitMessages] when projecting [ThreadItem]s.
+         */
+        private val senderProfiles = mutableMapOf<String, AuthorUi>()
 
         /**
          * Whether the viewer may post in the open convo (from the loaded
@@ -219,16 +230,11 @@ class ChatViewModel
         private fun commitMessages(
             isRefreshing: Boolean = (uiState.value.status as? ChatLoadStatus.Loaded)?.isRefreshing ?: false,
         ) {
-            // GROUP attribution: join each incoming message's sender DID to the
-            // group's loaded members. Direct threads have a `ChatHeader.Direct`
-            // header → empty map → no attribution (unchanged bare rendering). The
-            // header is set before the first `commitMessages` in the load chain, so
-            // this rebuilds from the current header on every commit.
-            val senderProfiles =
-                (uiState.value.header as? ChatHeader.Group)
-                    ?.members
-                    ?.associateBy { it.did }
-                    .orEmpty()
+            // GROUP attribution: project each incoming message via the accumulating
+            // [senderProfiles] map (roster + hydrated stragglers). Direct threads never
+            // populate it → empty map → unchanged bare rendering. Snapshot to an
+            // immutable copy so the pure mapper sees a stable view.
+            val profiles = senderProfiles.toMap()
             setState {
                 copy(
                     status =
@@ -236,11 +242,42 @@ class ChatViewModel
                             items =
                                 messages.toThreadItems(
                                     now = Clock.System.now(),
-                                    senderProfiles = senderProfiles,
+                                    senderProfiles = profiles,
                                 ),
                             isRefreshing = isRefreshing,
                         ),
                 )
+            }
+        }
+
+        /**
+         * Fill in profiles for GROUP incoming senders missing from [senderProfiles]
+         * (the roster didn't include them — e.g. they left the group). Wire
+         * `MessageView.sender` is DID-only, so we batch-fetch via the repository's
+         * `getProfiles` and merge, then re-project. Fire-and-forget and best-effort:
+         * a failure leaves those rows bare (graceful degradation), and direct threads
+         * are a no-op (no group senders to resolve). Skips when nothing is missing, so
+         * a fully-rostered group issues zero extra calls.
+         */
+        private fun hydrateMissingSenders() {
+            // Attribution is group-only — a 1:1 thread renders bare, so never fetch
+            // (or display) the other user's profile per-message there.
+            if (uiState.value.header !is ChatHeader.Group) return
+            val missing =
+                messages
+                    .asSequence()
+                    .filter { !it.isOutgoing && it.senderDid.isNotBlank() }
+                    .map { it.senderDid }
+                    .filter { it !in senderProfiles }
+                    .distinct()
+                    .toList()
+            if (missing.isEmpty()) return
+            viewModelScope.launch {
+                repository.getProfiles(missing).onSuccess { profiles ->
+                    if (profiles.isEmpty()) return@onSuccess
+                    profiles.forEach { senderProfiles[it.did] = it }
+                    commitMessages()
+                }
             }
         }
 
@@ -270,12 +307,20 @@ class ChatViewModel
                                 .onSuccess { convo ->
                                     convoId = convo.convoId
                                     canPostFlow.value = convo.canPost
+                                    // Seed group attribution from the member roster; the
+                                    // gaps (senders who left) are filled by hydrateMissingSenders.
+                                    (convo.header as? ChatHeader.Group)?.members?.forEach {
+                                        senderProfiles[it.did] = it
+                                    }
                                     setState { copy(header = convo.header, canPost = convo.canPost) }
                                     repository
                                         .getMessages(convo.convoId)
                                         .onSuccess { page ->
                                             messages = page.messages
                                             commitMessages(isRefreshing = false)
+                                            // Resolve any senders the roster didn't cover
+                                            // (group members who have since left, etc.).
+                                            hydrateMissingSenders()
                                             // Opening the thread marks it read: clears the
                                             // server-side unreadCount and optimistically zeros
                                             // the cached convo so the in-row + bottom-nav badges

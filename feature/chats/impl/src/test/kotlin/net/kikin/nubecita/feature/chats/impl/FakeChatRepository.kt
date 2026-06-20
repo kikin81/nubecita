@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
@@ -150,6 +151,14 @@ internal class FakeChatRepository(
         getConvoCalls.incrementAndGet()
         lastGetConvoId = convoId
         return getConvoResult
+    }
+
+    val getProfilesCalls = mutableListOf<List<String>>()
+    var getProfilesResult: Result<List<AuthorUi>> = Result.success(emptyList())
+
+    override suspend fun getProfiles(dids: List<String>): Result<List<AuthorUi>> {
+        getProfilesCalls += dids
+        return getProfilesResult
     }
 
     override suspend fun getMessages(
