@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
@@ -22,7 +23,7 @@ import kotlin.time.Instant
  * be updated.
  */
 internal class FakeChatRepository(
-    var nextRefreshResult: Result<ImmutableList<ConvoListItemUi>> = Result.success(persistentListOf()),
+    var nextRefreshResult: Result<ImmutableList<ConvoRowUi>> = Result.success(persistentListOf()),
     var nextResolveResult: Result<ConvoResolution> =
         Result.success(
             ConvoResolution(
@@ -51,12 +52,12 @@ internal class FakeChatRepository(
     var lastSendText: String? = null
     var lastMarkReadConvoId: String? = null
 
-    private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
-    private val requestConvos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(persistentListOf())
+    private val convos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
+    private val requestConvos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(persistentListOf())
 
-    override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos.asStateFlow()
+    override fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = convos.asStateFlow()
 
-    override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvos.asStateFlow()
+    override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = requestConvos.asStateFlow()
 
     override suspend fun refreshConvos(): Result<Unit> {
         refreshCalls.incrementAndGet()
@@ -88,12 +89,12 @@ internal class FakeChatRepository(
     }
 
     /** Drive the request cache directly (simulating an external update). */
-    fun emitRequestConvos(items: ImmutableList<ConvoListItemUi>?) {
+    fun emitRequestConvos(items: ImmutableList<ConvoRowUi>?) {
         requestConvos.value = items
     }
 
     /** Drive the cache directly (simulating a [sendMessage] patch or an external update). */
-    fun emitConvos(items: ImmutableList<ConvoListItemUi>?) {
+    fun emitConvos(items: ImmutableList<ConvoRowUi>?) {
         convos.value = items
     }
 
@@ -102,6 +103,21 @@ internal class FakeChatRepository(
         lastResolvedDid = otherUserDid
         return nextResolveResult
     }
+
+    override suspend fun getConvo(convoId: String): Result<ChatConvo> =
+        Result.success(
+            ChatConvo(
+                convoId = convoId,
+                header =
+                    ChatHeader.Direct(
+                        did = "",
+                        handle = "",
+                        displayName = null,
+                        avatarUrl = null,
+                    ),
+                canPost = true,
+            ),
+        )
 
     override suspend fun getMessages(
         convoId: String,

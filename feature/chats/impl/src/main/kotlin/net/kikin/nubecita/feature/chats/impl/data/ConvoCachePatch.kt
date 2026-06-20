@@ -2,8 +2,47 @@ package net.kikin.nubecita.feature.chats.impl.data
 
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+
+// The sealed [ConvoRowUi] has no shared `copy` (each variant's is its own), so
+// the cache patches go through these per-shared-field copy extensions that fan
+// out the `when` once instead of at every patch call site.
+
+internal fun ConvoRowUi.withMuted(muted: Boolean): ConvoRowUi =
+    when (this) {
+        is ConvoRowUi.Direct -> copy(muted = muted)
+        is ConvoRowUi.Group -> copy(muted = muted)
+    }
+
+internal fun ConvoRowUi.withUnread(unreadCount: Int): ConvoRowUi =
+    when (this) {
+        is ConvoRowUi.Direct -> copy(unreadCount = unreadCount)
+        is ConvoRowUi.Group -> copy(unreadCount = unreadCount)
+    }
+
+internal fun ConvoRowUi.withLastMessage(
+    snippet: String?,
+    fromViewer: Boolean,
+    isAttachment: Boolean,
+    sentAt: kotlin.time.Instant?,
+): ConvoRowUi =
+    when (this) {
+        is ConvoRowUi.Direct ->
+            copy(
+                lastMessageSnippet = snippet,
+                lastMessageFromViewer = fromViewer,
+                lastMessageIsAttachment = isAttachment,
+                sentAt = sentAt,
+            )
+        is ConvoRowUi.Group ->
+            copy(
+                lastMessageSnippet = snippet,
+                lastMessageFromViewer = fromViewer,
+                lastMessageIsAttachment = isAttachment,
+                sentAt = sentAt,
+            )
+    }
 
 /**
  * Reflect a just-sent [message] in the cached convo list: update the matching
@@ -17,18 +56,18 @@ import net.kikin.nubecita.feature.chats.impl.MessageUi
  * - convo present → patched copy hoisted to index 0, others kept in order.
  */
 internal fun patchConvosOnSend(
-    current: ImmutableList<ConvoListItemUi>?,
+    current: ImmutableList<ConvoRowUi>?,
     convoId: String,
     message: MessageUi,
-): ImmutableList<ConvoListItemUi>? {
+): ImmutableList<ConvoRowUi>? {
     if (current == null) return null
     val index = current.indexOfFirst { it.convoId == convoId }
     if (index < 0) return current
     val patched =
-        current[index].copy(
-            lastMessageSnippet = message.text,
-            lastMessageFromViewer = true,
-            lastMessageIsAttachment = false,
+        current[index].withLastMessage(
+            snippet = message.text,
+            fromViewer = true,
+            isAttachment = false,
             sentAt = message.sentAt,
         )
     return (listOf(patched) + current.filterIndexed { i, _ -> i != index }).toImmutableList()
@@ -42,9 +81,9 @@ internal fun patchConvosOnSend(
  * - convo present → copy without it, order otherwise preserved.
  */
 internal fun patchConvosOnLeave(
-    current: ImmutableList<ConvoListItemUi>?,
+    current: ImmutableList<ConvoRowUi>?,
     convoId: String,
-): ImmutableList<ConvoListItemUi>? {
+): ImmutableList<ConvoRowUi>? {
     if (current == null) return null
     if (current.none { it.convoId == convoId }) return current
     return current.filterNot { it.convoId == convoId }.toImmutableList()
@@ -52,19 +91,19 @@ internal fun patchConvosOnLeave(
 
 /**
  * Reflect a mute/unmute in the cached list: set the matching convo's
- * [ConvoListItemUi.muted] flag. No reorder.
+ * [ConvoRowUi.muted] flag. No reorder.
  * - `null` cache → `null`.
  * - convo absent, or flag already [muted] → same instance returned (no emission).
  */
 internal fun patchConvosOnMute(
-    current: ImmutableList<ConvoListItemUi>?,
+    current: ImmutableList<ConvoRowUi>?,
     convoId: String,
     muted: Boolean,
-): ImmutableList<ConvoListItemUi>? {
+): ImmutableList<ConvoRowUi>? {
     if (current == null) return null
     val index = current.indexOfFirst { it.convoId == convoId }
     if (index < 0 || current[index].muted == muted) return current
-    return current.mapIndexed { i, convo -> if (i == index) convo.copy(muted = muted) else convo }.toImmutableList()
+    return current.mapIndexed { i, convo -> if (i == index) convo.withMuted(muted) else convo }.toImmutableList()
 }
 
 /**
@@ -80,9 +119,9 @@ internal fun patchConvosOnMute(
  * test fakes.
  */
 internal fun patchConvosPrepend(
-    accepted: ImmutableList<ConvoListItemUi>?,
-    convo: ConvoListItemUi,
-): ImmutableList<ConvoListItemUi>? {
+    accepted: ImmutableList<ConvoRowUi>?,
+    convo: ConvoRowUi,
+): ImmutableList<ConvoRowUi>? {
     if (accepted == null) return null
     return (listOf(convo) + accepted.filterNot { it.convoId == convo.convoId }).toImmutableList()
 }
@@ -94,10 +133,10 @@ internal fun patchConvosPrepend(
  * gone), both lists are returned unchanged.
  */
 internal fun patchConvosOnAccept(
-    accepted: ImmutableList<ConvoListItemUi>?,
-    requests: ImmutableList<ConvoListItemUi>?,
+    accepted: ImmutableList<ConvoRowUi>?,
+    requests: ImmutableList<ConvoRowUi>?,
     convoId: String,
-): Pair<ImmutableList<ConvoListItemUi>?, ImmutableList<ConvoListItemUi>?> {
+): Pair<ImmutableList<ConvoRowUi>?, ImmutableList<ConvoRowUi>?> {
     val moved = requests?.firstOrNull { it.convoId == convoId } ?: return accepted to requests
     val newRequests = requests.filterNot { it.convoId == convoId }.toImmutableList()
     val newAccepted =
@@ -107,7 +146,7 @@ internal fun patchConvosOnAccept(
 
 /**
  * Reflect "the viewer opened this convo" in the cached list: zero the matching
- * convo's [ConvoListItemUi.unreadCount] in place so the in-row badge and the
+ * convo's [ConvoRowUi.unreadCount] in place so the in-row badge and the
  * aggregate bottom-nav badge flip to read immediately, without waiting for the
  * next `listConvos` refresh.
  *
@@ -119,15 +158,15 @@ internal fun patchConvosOnAccept(
  * - already-read convo → same instance returned (no copy, no emission).
  */
 internal fun patchConvosOnRead(
-    current: ImmutableList<ConvoListItemUi>?,
+    current: ImmutableList<ConvoRowUi>?,
     convoId: String,
-): ImmutableList<ConvoListItemUi>? {
+): ImmutableList<ConvoRowUi>? {
     if (current == null) return null
     val index = current.indexOfFirst { it.convoId == convoId }
     // Already-read (or absent) → return the same instance: no list copy and no
     // downstream StateFlow emission / recomposition for a no-op open.
     if (index < 0 || current[index].unreadCount == 0) return current
     return current
-        .mapIndexed { i, convo -> if (i == index) convo.copy(unreadCount = 0) else convo }
+        .mapIndexed { i, convo -> if (i == index) convo.withUnread(0) else convo }
         .toImmutableList()
 }

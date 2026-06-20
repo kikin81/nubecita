@@ -2,11 +2,13 @@ package net.kikin.nubecita.feature.chats.impl
 
 import app.cash.turbine.test
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.moderation.api.Block
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -94,15 +96,15 @@ internal class ChatsViewModelTest {
         }
 
     @Test
-    fun `ConvoTapped emits NavigateToChat with the same DID`() =
+    fun `ConvoTapped emits NavigateToChat with the same convoId`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository()
             val vm = ChatsViewModel(repository = repo, applicationScope = backgroundScope)
             advanceUntilIdle()
             vm.effects.test {
-                vm.handleEvent(ChatsEvent.ConvoTapped(otherUserDid = "did:plc:alice"))
+                vm.handleEvent(ChatsEvent.ConvoTapped(convoId = "convo-1"))
                 val effect = awaitItem()
-                assertEquals(ChatsEffect.NavigateToChat("did:plc:alice"), effect)
+                assertEquals(ChatsEffect.NavigateToChat("convo-1"), effect)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -501,6 +503,31 @@ internal class ChatsViewModelTest {
         }
 
     @Test
+    fun `AcceptSelected accepts a group request by its convoId`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextRefreshResult = Result.success(persistentListOf(sampleItem("c1"))),
+                    nextRequestRefreshResult = Result.success(persistentListOf(sampleGroupItem("g1"))),
+                )
+            val vm = ChatsViewModel(repository = repo, applicationScope = backgroundScope)
+            advanceUntilIdle()
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+            // The group request projects into the Requests list via the same mapper path.
+            val status = vm.uiState.value.status
+            assertTrue(status is ChatsLoadStatus.Loaded)
+            assertEquals(listOf("g1"), (status as ChatsLoadStatus.Loaded).items.map { it.convoId })
+
+            vm.handleEvent(ChatsEvent.ConvoLongPressed("g1"))
+            vm.handleEvent(ChatsEvent.AcceptSelected)
+            advanceUntilIdle()
+            // acceptConvo is convoId-keyed, so a group request accepts identically.
+            assertTrue(repo.acceptCalls.contains("g1"))
+            assertNull(vm.uiState.value.selection)
+        }
+
+    @Test
     fun `ToggleMuteSelected mutes when any selected convo is unmuted`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =
@@ -603,8 +630,10 @@ internal class ChatsViewModelTest {
     /** convoIds of the currently-displayed (Loaded) list — assumes Loaded. */
     private fun loadedIds(vm: ChatsViewModel): List<String> = (vm.uiState.value.status as ChatsLoadStatus.Loaded).items.map { it.convoId }
 
-    private fun sampleItem(convoId: String): ConvoListItemUi =
-        ConvoListItemUi(
+    // Returns the concrete Direct variant (not the sealed interface) so call sites
+    // can `.copy(...)` it; the cache stores it as a ConvoRowUi.
+    private fun sampleItem(convoId: String): ConvoRowUi.Direct =
+        ConvoRowUi.Direct(
             convoId = convoId,
             otherUserDid = "did:plc:alice",
             otherUserHandle = "alice.bsky.social",
@@ -614,5 +643,34 @@ internal class ChatsViewModelTest {
             lastMessageFromViewer = false,
             lastMessageIsAttachment = false,
             sentAt = Instant.parse("2026-05-13T11:50:00Z"),
+        )
+
+    // Returns the concrete Group variant so call sites can `.copy(...)`; the cache
+    // stores it as a ConvoRowUi. Group requests flow through the same convoId-keyed
+    // accept path as direct requests.
+    private fun sampleGroupItem(
+        convoId: String,
+        name: String = "Team",
+        memberCount: Int = 3,
+    ): ConvoRowUi.Group =
+        ConvoRowUi.Group(
+            convoId = convoId,
+            name = name,
+            members =
+                (1..memberCount)
+                    .map { i ->
+                        AuthorUi(
+                            did = "did:plc:member$i",
+                            handle = "member$i.bsky.social",
+                            displayName = "Member $i",
+                            avatarUrl = null,
+                        )
+                    }.toPersistentList(),
+            lastMessageSnippet = "hi",
+            lastMessageFromViewer = false,
+            lastMessageIsAttachment = false,
+            sentAt = Instant.parse("2026-05-13T11:50:00Z"),
+            unreadCount = 0,
+            muted = false,
         )
 }

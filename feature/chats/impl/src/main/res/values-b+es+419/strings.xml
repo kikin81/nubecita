@@ -44,8 +44,13 @@
     <string name="chat_error_convo_not_found_body">Todavía no tienes una conversación con este usuario.</string>
     <string name="chat_error_messages_disabled_title">No se pueden enviar mensajes</string>
     <string name="chat_error_messages_disabled_body">Esta persona eligió no recibir mensajes directos.</string>
+    <plurals name="chat_group_member_count">
+        <item quantity="one">%d miembro</item>
+        <item quantity="other">%d miembros</item>
+    </plurals>
     <string name="chat_composer_placeholder">Mensaje</string>
     <string name="chat_composer_send_content_description">Enviar</string>
+    <string name="chat_cannot_post_notice">No puedes enviar mensajes en esta conversación.</string>
     <string name="chat_send_status_sending">Enviando</string>
     <string name="chat_send_status_failed">No entregado</string>
     <string name="chat_send_retry">Reintentar</string>

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.exclude
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -42,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -50,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.designsystem.component.AvatarGroup
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
 import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -95,15 +100,47 @@ internal fun ChatScreenContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ChatTopBarAvatar(state)
-                        Text(
-                            text = state.otherUserDisplayName ?: state.otherUserHandle,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(start = 12.dp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                    when (val header = state.header) {
+                        is ChatHeader.Direct ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ChatTopBarAvatar(header)
+                                Text(
+                                    text = header.displayName ?: header.handle,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(start = 12.dp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        is ChatHeader.Group ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                AvatarGroup(
+                                    members = header.members,
+                                    contentDescription = null,
+                                    avatarSize = 32.dp,
+                                )
+                                Column(modifier = Modifier.padding(start = 12.dp)) {
+                                    Text(
+                                        text = header.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text =
+                                            pluralStringResource(
+                                                R.plurals.chat_group_member_count,
+                                                header.members.size,
+                                                header.members.size,
+                                            ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                        // Pre-load (Loading status): the title is empty until the convo resolves.
+                        null -> Unit
                     }
                 },
                 navigationIcon = {
@@ -129,18 +166,27 @@ internal fun ChatScreenContent(
             // each windowInsetsPadding consumes the previous: closed → nav-bar height;
             // open → full IME (which already subsumes the nav-bar area).
             if (state.status is ChatLoadStatus.Loaded) {
-                ChatComposerRow(
-                    textFieldState = textFieldState,
-                    isSendEnabled = state.isSendEnabled,
-                    onSend = { onEvent(ChatEvent.Send) },
-                    // Anchor to newest (index 0 under reverseLayout) when the
-                    // composer gains focus, so the IME never hides the latest run.
-                    onFocus = { scope.launch { listState.animateScrollToItem(0) } },
-                    modifier =
-                        Modifier
-                            .navigationBarsPadding()
-                            .imePadding(),
-                )
+                if (state.canPost) {
+                    ChatComposerRow(
+                        textFieldState = textFieldState,
+                        isSendEnabled = state.isSendEnabled,
+                        onSend = { onEvent(ChatEvent.Send) },
+                        // Anchor to newest (index 0 under reverseLayout) when the
+                        // composer gains focus, so the IME never hides the latest run.
+                        onFocus = { scope.launch { listState.animateScrollToItem(0) } },
+                        modifier =
+                            Modifier
+                                .navigationBarsPadding()
+                                .imePadding(),
+                    )
+                } else {
+                    CannotPostNotice(
+                        modifier =
+                            Modifier
+                                .navigationBarsPadding()
+                                .imePadding(),
+                    )
+                }
             }
         },
     ) { padding ->
@@ -237,17 +283,43 @@ private fun ChatComposerRow(
     }
 }
 
+/**
+ * Shown in the composer slot when [ChatScreenViewState.canPost] is false (e.g. a
+ * locked group, or the viewer is not a member). Replaces the editable composer
+ * with a static, low-emphasis notice. The actual "is this postable" decision is
+ * derived from the loaded convo in the ViewModel; this is the non-error disabled
+ * presentation (a true send failure still routes through ShowSendError).
+ */
 @Composable
-private fun ChatTopBarAvatar(state: ChatScreenViewState) {
+private fun CannotPostNotice(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Text(
+            text = stringResource(R.string.chat_cannot_post_notice),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+        )
+    }
+}
+
+@Composable
+private fun ChatTopBarAvatar(header: ChatHeader.Direct) {
     NubecitaAvatar(
-        model = state.otherUserAvatarUrl,
+        model = header.avatarUrl,
         contentDescription = null,
         size = 40.dp,
         fallback =
             avatarFallbackFor(
-                did = state.otherUserDid,
-                handle = state.otherUserHandle,
-                displayName = state.otherUserDisplayName,
+                did = header.did,
+                handle = header.handle,
+                displayName = header.displayName,
             ),
     )
 }
@@ -320,21 +392,75 @@ private fun LoadedBody(
                     // gap. position < items.lastIndex skips the screen-topmost item
                     // (no neighbor above; only the TopAppBar).
                     val crossRunGap = if (item.runIndex == 0 && position < items.lastIndex) 10.dp else 0.dp
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = crossRunGap),
-                        horizontalArrangement =
-                            if (item.message.isOutgoing) Arrangement.End else Arrangement.Start,
-                    ) {
-                        MessageBubble(
-                            message = item.message,
-                            runIndex = item.runIndex,
-                            runCount = item.runCount,
-                            onQuotedPostTap = onQuotedPostTap,
-                            onRetrySend = onRetrySend,
-                        )
+                    val sender = item.sender
+                    if (sender != null) {
+                        // GROUP incoming: an avatar gutter (avatar painted only on the
+                        // first-of-run bubble, an equal-width spacer on the rest so all
+                        // bubbles in the run align under the avatar) + the sender name
+                        // above the first bubble. `sender != null` already implies
+                        // `!isOutgoing` (the mapper only resolves incoming senders).
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = crossRunGap),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            if (item.showAvatar) {
+                                NubecitaAvatar(
+                                    model = sender.avatarUrl,
+                                    contentDescription = null,
+                                    size = 28.dp,
+                                    fallback =
+                                        avatarFallbackFor(
+                                            did = sender.did,
+                                            handle = sender.handle,
+                                            displayName = sender.displayName,
+                                        ),
+                                )
+                            } else {
+                                Spacer(Modifier.size(28.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column(horizontalAlignment = Alignment.Start) {
+                                if (item.showAvatar) {
+                                    Text(
+                                        text = sender.displayName,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
+                                    )
+                                }
+                                MessageBubble(
+                                    message = item.message,
+                                    runIndex = item.runIndex,
+                                    runCount = item.runCount,
+                                    onQuotedPostTap = onQuotedPostTap,
+                                    onRetrySend = onRetrySend,
+                                )
+                            }
+                        }
+                    } else {
+                        // Outgoing, or 1:1 incoming — bare (unchanged).
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = crossRunGap),
+                            horizontalArrangement =
+                                if (item.message.isOutgoing) Arrangement.End else Arrangement.Start,
+                        ) {
+                            MessageBubble(
+                                message = item.message,
+                                runIndex = item.runIndex,
+                                runCount = item.runCount,
+                                onQuotedPostTap = onQuotedPostTap,
+                                onRetrySend = onRetrySend,
+                            )
+                        }
                     }
                 }
                 is ThreadItem.DaySeparator -> DaySeparatorChip(label = item.label)

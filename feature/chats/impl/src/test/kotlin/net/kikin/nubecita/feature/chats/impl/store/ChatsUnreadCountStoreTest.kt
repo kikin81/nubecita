@@ -8,7 +8,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -75,9 +75,9 @@ class ChatsUnreadCountStoreTest {
 
     // ---- helpers ----
 
-    private fun storeWith(vararg convos: ConvoListItemUi): ChatsUnreadCountStore = storeWith(convos.toList().toImmutableList())
+    private fun storeWith(vararg convos: ConvoRowUi): ChatsUnreadCountStore = storeWith(convos.toList().toImmutableList())
 
-    private fun storeWith(convos: ImmutableList<ConvoListItemUi>?): ChatsUnreadCountStore {
+    private fun storeWith(convos: ImmutableList<ConvoRowUi>?): ChatsUnreadCountStore {
         val repo = mockk<ChatRepository>()
         every { repo.observeConvos() } returns MutableStateFlow(convos)
         coEvery { repo.refreshConvos() } returns Result.success(Unit)
@@ -88,8 +88,8 @@ class ChatsUnreadCountStoreTest {
         unreadCount: Int,
         muted: Boolean,
         convoId: String = "c$unreadCount${if (muted) "m" else ""}",
-    ): ConvoListItemUi =
-        ConvoListItemUi(
+    ): ConvoRowUi =
+        ConvoRowUi.Direct(
             convoId = convoId,
             otherUserDid = "did:plc:other",
             otherUserHandle = "other.bsky.social",

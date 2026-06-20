@@ -3,7 +3,8 @@ package net.kikin.nubecita.feature.chats.impl.data
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.StateFlow
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ChatHeader
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 
 /**
@@ -26,7 +27,7 @@ interface ChatRepository {
      * latest known convos, newest-first. Populated by [refreshConvos] and patched
      * in place by [sendMessage].
      */
-    fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?>
+    fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?>
 
     /**
      * Fetches the ACCEPTED convo list from the network and publishes it into
@@ -42,7 +43,7 @@ interface ChatRepository {
      * so requests never count toward the unread badge and a request-fetch failure
      * can't disturb the accepted list. Populated by [refreshRequestConvos].
      */
-    fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?>
+    fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?>
 
     /**
      * Fetches the pending message-request list (`status=request`) and publishes it
@@ -77,10 +78,20 @@ interface ChatRepository {
     ): Result<Unit>
 
     /**
-     * Resolves a peer DID into the appview-side convoId plus the other user's profile
-     * bits we need for the thread's TopAppBar. Wraps `chat.bsky.convo.getConvoForMembers`.
+     * Resolves a peer DID into the appview-side convoId for a 1:1 DM. Wraps
+     * `chat.bsky.convo.getConvoForMembers`. The thread's TopAppBar header now comes
+     * from [getConvo] (kind-aware); only [ConvoResolution.convoId] is consumed on the
+     * production path — the other profile fields are retained for the bench fake's
+     * on-demand DM simulation.
      */
     suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution>
+
+    /**
+     * Loads a single conversation by [convoId] via `chat.bsky.convo.getConvo` and maps it
+     * to a kind-aware [ChatConvo] (header + canPost). Used to open a thread when the convoId
+     * is already known (group convos, and the convo-list direct path).
+     */
+    suspend fun getConvo(convoId: String): Result<ChatConvo>
 
     /**
      * Loads a page of messages for [convoId]. Page is newest-first per the lexicon.
@@ -133,6 +144,16 @@ interface ChatRepository {
      */
     suspend fun getLog(cursor: String? = null): Result<ChatLogPage>
 }
+
+/**
+ * A single loaded conversation: its id, the kind-aware [ChatHeader] for the
+ * thread TopAppBar, and a lightweight [canPost] gate (see `canViewerPost`).
+ */
+data class ChatConvo(
+    val convoId: String,
+    val header: ChatHeader,
+    val canPost: Boolean,
+)
 
 data class ConvoResolution(
     val convoId: String,

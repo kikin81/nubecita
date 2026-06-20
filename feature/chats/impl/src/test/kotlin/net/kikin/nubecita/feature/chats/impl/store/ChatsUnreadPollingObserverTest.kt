@@ -19,8 +19,9 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
@@ -263,12 +264,12 @@ class ChatsUnreadPollingObserverTest {
     ) : ChatRepository {
         var refreshCalls: Int = 0
         var failures: Int = 0
-        private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
-        private val requestConvos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+        private val convos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
+        private val requestConvos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
 
-        override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos
+        override fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = convos
 
-        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvos
+        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = requestConvos
 
         override suspend fun refreshRequestConvos(): Result<Unit> {
             // Honor the contract: refresh publishes into the observed cache.
@@ -303,6 +304,8 @@ class ChatsUnreadPollingObserverTest {
 
         override suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution> = error("not used")
 
+        override suspend fun getConvo(convoId: String): Result<ChatConvo> = error("not used")
+
         override suspend fun getMessages(
             convoId: String,
             cursor: String?,
@@ -320,8 +323,8 @@ class ChatsUnreadPollingObserverTest {
     }
 
     private companion object {
-        fun sampleConvo(unread: Int): ConvoListItemUi =
-            ConvoListItemUi(
+        fun sampleConvo(unread: Int): ConvoRowUi =
+            ConvoRowUi.Direct(
                 convoId = "c1",
                 otherUserDid = "did:plc:other",
                 otherUserHandle = "other.bsky.social",

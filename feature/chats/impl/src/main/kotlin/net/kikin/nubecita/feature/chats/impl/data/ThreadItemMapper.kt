@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl.data
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.ThreadItem
 import java.time.LocalDate
@@ -32,10 +33,20 @@ private val MONTH_DAY_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern
  * newest-first, but `runIndex` is assigned oldest-first within the run so the
  * shape resolver's `isFirst` / `isLast` reasoning matches screen-top semantics
  * under `LazyColumn(reverseLayout = true)`.
+ *
+ * [senderProfiles] is a DID→profile join supplied by the ViewModel for GROUP
+ * threads (built from the group's loaded members) — the wire `MessageView` only
+ * carries the sender DID, so the displayable profile is joined here. Each
+ * incoming message whose sender is in the map gets `sender` populated (on EVERY
+ * row of a run, since the UI needs it for the alignment gutter; `showAvatar`
+ * still decides where the avatar + name actually paint). Outgoing messages and
+ * any message whose sender is absent from the map get `sender = null`. Direct
+ * threads pass the empty default → every `sender` is null → bare rendering.
  */
 fun List<MessageUi>.toThreadItems(
     now: Instant,
     zone: ZoneId = ZoneId.systemDefault(),
+    senderProfiles: Map<String, AuthorUi> = emptyMap(),
 ): ImmutableList<ThreadItem> {
     if (isEmpty()) return persistentListOf()
 
@@ -81,6 +92,7 @@ fun List<MessageUi>.toThreadItems(
                     runIndex = runIndex,
                     runCount = runCount,
                     showAvatar = !m.isOutgoing && runIndex == 0,
+                    sender = if (!m.isOutgoing) senderProfiles[m.senderDid] else null,
                 ),
             )
         }

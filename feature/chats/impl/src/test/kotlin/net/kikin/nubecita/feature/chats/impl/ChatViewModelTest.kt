@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.chats.api.Chat
+import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -59,14 +60,35 @@ internal class ChatViewModelTest {
                             ),
                         ),
                 )
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header =
+                            ChatHeader.Direct(
+                                did = otherUserDid,
+                                handle = "alice.bsky.social",
+                                displayName = "Alice",
+                                avatarUrl = null,
+                            ),
+                        canPost = true,
+                    ),
+                )
             val vm = chatViewModel(repo)
             advanceUntilIdle()
             val state = vm.uiState.value
             assertEquals(1, repo.resolveCalls.get())
             assertEquals(1, repo.messagesCalls.get())
             assertEquals("c1", repo.lastMessagesConvoId)
-            assertEquals("alice.bsky.social", state.otherUserHandle)
-            assertEquals("Alice", state.otherUserDisplayName)
+            assertEquals(
+                ChatHeader.Direct(
+                    did = otherUserDid,
+                    handle = "alice.bsky.social",
+                    displayName = "Alice",
+                    avatarUrl = null,
+                ),
+                state.header,
+            )
             assertTrue(state.status is ChatLoadStatus.Loaded)
             val loaded = state.status as ChatLoadStatus.Loaded
             assertEquals(false, loaded.isRefreshing)
@@ -88,6 +110,7 @@ internal class ChatViewModelTest {
                             ),
                         ),
                 )
+            repo.getConvoResult = directConvo(convoId = "c1")
             val vm = chatViewModel(repo)
             advanceUntilIdle()
             assertEquals(1, repo.markReadCalls.get())
@@ -143,7 +166,8 @@ internal class ChatViewModelTest {
             val status = vm.uiState.value.status
             assertTrue(status is ChatLoadStatus.InitialError)
             assertEquals(ChatError.Network, (status as ChatLoadStatus.InitialError).error)
-            assertEquals("alice.bsky.social", vm.uiState.value.otherUserHandle)
+            // getConvo succeeded before getMessages failed, so the header is set.
+            assertTrue(vm.uiState.value.header is ChatHeader.Direct)
         }
 
     @Test
@@ -544,6 +568,118 @@ internal class ChatViewModelTest {
             assertEquals(MessageSendStatus.Failed, outgoing.single().sendStatus)
         }
 
+    // --- NavKey normalization: convoId path vs otherUserDid path (Task 5) ---
+
+    @Test
+    fun `convoId NavKey opens directly via getConvo without resolving`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header =
+                            ChatHeader.Group(
+                                name = "Weekend crew",
+                                members = persistentListOf(),
+                            ),
+                        canPost = true,
+                    ),
+                )
+            val vm =
+                ChatViewModel(
+                    chat = Chat(convoId = "c1"),
+                    repository = repo,
+                )
+            advanceUntilIdle()
+
+            assertEquals(0, repo.resolveCalls.get(), "convoId path must not resolve")
+            assertEquals("c1", repo.lastGetConvoId)
+            assertEquals("c1", repo.lastMessagesConvoId)
+            assertEquals(
+                ChatHeader.Group(name = "Weekend crew", members = persistentListOf()),
+                vm.uiState.value.header,
+            )
+            assertEquals(true, vm.uiState.value.canPost)
+        }
+
+    @Test
+    fun `otherUserDid NavKey resolves then getConvo with the resolved convoId`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextResolveResult =
+                        Result.success(
+                            ConvoResolution(
+                                convoId = "resolved-99",
+                                otherUserHandle = "alice.bsky.social",
+                                otherUserDisplayName = "Alice",
+                                otherUserAvatarUrl = null,
+                            ),
+                        ),
+                )
+            repo.getConvoResult = directConvo(convoId = "resolved-99")
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.resolveCalls.get())
+            assertEquals(otherUserDid, repo.lastResolvedDid)
+            assertEquals("resolved-99", repo.lastGetConvoId, "getConvo uses the resolved convoId")
+            assertEquals("resolved-99", repo.lastMessagesConvoId)
+            assertTrue(vm.uiState.value.header != null)
+        }
+
+    @Test
+    fun `canPost false vetoes the send gate even with non-blank composer text`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header = ChatHeader.Group(name = "G", members = persistentListOf()),
+                        canPost = false,
+                    ),
+                )
+            val vm =
+                ChatViewModel(
+                    chat = Chat(convoId = "c1"),
+                    repository = repo,
+                )
+            advanceUntilIdle()
+            assertEquals(false, vm.uiState.value.canPost)
+
+            setComposerText(vm, "hello")
+            assertEquals(
+                false,
+                vm.uiState.value.isSendEnabled,
+                "canPost=false vetoes a non-blank composer",
+            )
+        }
+
+    @Test
+    fun `canPost true plus non-blank composer enables the send gate`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header = ChatHeader.Group(name = "G", members = persistentListOf()),
+                        canPost = true,
+                    ),
+                )
+            val vm =
+                ChatViewModel(
+                    chat = Chat(convoId = "c1"),
+                    repository = repo,
+                )
+            advanceUntilIdle()
+
+            setComposerText(vm, "hello")
+            assertEquals(true, vm.uiState.value.isSendEnabled)
+        }
+
     /**
      * Mutates the VM's [ChatViewModel.textFieldState] and drives the Compose
      * snapshot system so the change reaches the VM's `snapshotFlow` collector.
@@ -571,5 +707,21 @@ internal class ChatViewModelTest {
         ChatViewModel(
             chat = Chat(otherUserDid = otherUserDid),
             repository = repo,
+        )
+
+    /** A [ChatConvo] with a Direct header whose canonical id is [convoId]. */
+    private fun directConvo(convoId: String): Result<ChatConvo> =
+        Result.success(
+            ChatConvo(
+                convoId = convoId,
+                header =
+                    ChatHeader.Direct(
+                        did = otherUserDid,
+                        handle = "alice.bsky.social",
+                        displayName = "Alice",
+                        avatarUrl = null,
+                    ),
+                canPost = true,
+            ),
         )
 }

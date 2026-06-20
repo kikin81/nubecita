@@ -1,7 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -15,8 +15,8 @@ internal class ConvoCachePatchTest {
         snippet: String? = "old",
         sentAt: Instant? = Instant.parse("2026-05-01T10:00:00Z"),
         unreadCount: Int = 0,
-    ): ConvoListItemUi =
-        ConvoListItemUi(
+    ): ConvoRowUi =
+        ConvoRowUi.Direct(
             convoId = id,
             otherUserDid = "did:plc:$id",
             otherUserHandle = "$id.bsky.social",

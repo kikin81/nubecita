@@ -62,9 +62,11 @@ internal fun ChatsScreenContent(
     onEvent: (ChatsEvent) -> Unit,
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
-    // The open conversation's otherUserDid (or null) — highlights the matching
-    // list row in the tablet list-detail layout. Null on phones / when no
-    // thread is open.
+    // The open conversation's convoId (or null) — highlights the matching list
+    // row in the tablet list-detail layout. Null on phones / when no thread is open.
+    selectedConvoId: String? = null,
+    // Fallback highlight key for a profile-initiated DM (opened by otherUserDid, so
+    // its convoId is null until the thread resolves it) — matches the Direct row by did.
     selectedOtherUserDid: String? = null,
 ) {
     val selectionIds = state.selection
@@ -171,6 +173,7 @@ internal fun ChatsScreenContent(
                                     items = status.items,
                                     selection = selectionIds,
                                     onEvent = onEvent,
+                                    selectedConvoId = selectedConvoId,
                                     selectedOtherUserDid = selectedOtherUserDid,
                                 )
                             }
@@ -392,9 +395,10 @@ private fun EmptyBody(segment: ChatsSegment) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LoadedBody(
-    items: kotlinx.collections.immutable.ImmutableList<ConvoListItemUi>,
+    items: kotlinx.collections.immutable.ImmutableList<ConvoRowUi>,
     selection: ImmutableSet<String>?,
     onEvent: (ChatsEvent) -> Unit,
+    selectedConvoId: String?,
     selectedOtherUserDid: String?,
 ) {
     // Arrangement.spacedBy(ListItemDefaults.SegmentedGap) — the framework's
@@ -429,17 +433,21 @@ private fun LoadedBody(
                     if (inSelection) {
                         onEvent(ChatsEvent.SelectionToggled(item.convoId))
                     } else {
-                        onEvent(ChatsEvent.ConvoTapped(item.otherUserDid))
+                        // Every row (Direct AND Group) opens its thread by convoId.
+                        onEvent(ChatsEvent.ConvoTapped(item.convoId))
                     }
                 },
                 onLongClick = { onEvent(ChatsEvent.ConvoLongPressed(item.convoId)) },
                 // Highlight by membership while selecting; otherwise reflect the
-                // tablet list-detail open thread.
+                // tablet list-detail open thread — by convoId (convo-list path) or,
+                // for a profile-initiated DM (opened by did, convoId still null), by
+                // matching the Direct row's otherUserDid.
                 selected =
                     if (inSelection) {
                         selection.contains(item.convoId)
                     } else {
-                        item.otherUserDid == selectedOtherUserDid
+                        item.convoId == selectedConvoId ||
+                            (item is ConvoRowUi.Direct && item.otherUserDid == selectedOtherUserDid)
                     },
             )
         }

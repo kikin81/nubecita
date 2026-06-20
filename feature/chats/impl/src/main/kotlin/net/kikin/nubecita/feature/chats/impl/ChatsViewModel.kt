@@ -121,7 +121,7 @@ class ChatsViewModel
             when (event) {
                 ChatsEvent.Refresh -> refresh()
                 ChatsEvent.RetryClicked -> refresh()
-                is ChatsEvent.ConvoTapped -> sendEffect(ChatsEffect.NavigateToChat(event.otherUserDid))
+                is ChatsEvent.ConvoTapped -> sendEffect(ChatsEffect.NavigateToChat(event.convoId))
                 ChatsEvent.SettingsTapped -> sendEffect(ChatsEffect.NavigateToChatSettings)
                 is ChatsEvent.SegmentSelected -> {
                     // Switching segments exits any in-progress selection (the action
@@ -154,9 +154,9 @@ class ChatsViewModel
         }
 
         /** The currently-displayed list for the active segment. */
-        private fun activeList(): List<ConvoListItemUi> = (if (activeSegment.value == ChatsSegment.Chats) acceptedConvos.value else requestConvos.value).orEmpty()
+        private fun activeList(): List<ConvoRowUi> = (if (activeSegment.value == ChatsSegment.Chats) acceptedConvos.value else requestConvos.value).orEmpty()
 
-        private fun selectedConvos(): List<ConvoListItemUi> {
+        private fun selectedConvos(): List<ConvoRowUi> {
             val ids = selection.value ?: return emptyList()
             return activeList().filter { it.convoId in ids }
         }
@@ -190,9 +190,11 @@ class ChatsViewModel
             runBulkAction { repository.setMuted(it, targetMuted) }
         }
 
-        private fun navigateSingle(toKey: (ConvoListItemUi) -> NavKey) {
-            // Single-target actions are only offered at exactly one selection.
-            val convo = selectedConvos().singleOrNull() ?: return
+        private fun navigateSingle(toKey: (ConvoRowUi.Direct) -> NavKey) {
+            // Profile / Report / Block are single-user actions; they don't apply to a
+            // group selection in Phase 1, so no-op when the selected row isn't Direct
+            // (and, as before, only fire at exactly one selection).
+            val convo = selectedConvos().singleOrNull() as? ConvoRowUi.Direct ?: return
             selection.value = null
             sendEffect(ChatsEffect.NavigateTo(toKey(convo)))
         }
@@ -264,7 +266,7 @@ class ChatsViewModel
         }
 
         /** Filter convos pending an optimistic leave out of a cache snapshot. */
-        private fun ImmutableList<ConvoListItemUi>?.hide(hidden: PersistentSet<String>): ImmutableList<ConvoListItemUi>? =
+        private fun ImmutableList<ConvoRowUi>?.hide(hidden: PersistentSet<String>): ImmutableList<ConvoRowUi>? =
             when {
                 this == null -> null
                 hidden.isEmpty() -> this
@@ -282,7 +284,7 @@ class ChatsViewModel
         }
 
         private fun statusFor(
-            items: ImmutableList<ConvoListItemUi>?,
+            items: ImmutableList<ConvoRowUi>?,
             phase: RefreshPhase,
         ): ChatsLoadStatus =
             when {

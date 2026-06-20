@@ -6,23 +6,45 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import kotlin.time.Instant
+
+/**
+ * Identity of the open conversation, branched by kind. Direct = the single other
+ * member (today's behavior); Group = the group's name + members for the AvatarGroup
+ * facepile. Consumed by the Chat thread TopAppBar (wired in a later task).
+ */
+@Immutable
+sealed interface ChatHeader {
+    @Immutable
+    data class Direct(
+        val did: String,
+        val handle: String,
+        val displayName: String?,
+        val avatarUrl: String?,
+    ) : ChatHeader
+
+    @Immutable
+    data class Group(
+        val name: String,
+        val members: ImmutableList<AuthorUi>,
+    ) : ChatHeader
+}
 
 /**
  * MVI state for the Chat thread screen. Mirrors `ChatsScreenViewState` shape: one
  * sealed [ChatLoadStatus] sum carries the lifecycle; `isRefreshing` is the only
  * flag that may coexist with `Loaded` and lives inside that variant.
  *
- * The other-user's profile bits (handle/displayName/avatar) populate after the
- * `resolveConvo` call returns; the TopAppBar reads them. Defaults are empty
- * strings / nulls so the initial Loading composition has stable values.
+ * The kind-aware [header] (Direct vs Group) is set after the convo loads — it is
+ * `null` during the initial Loading composition — and drives the TopAppBar.
+ * [canPost] gates the composer (a read-only convo disables send); it defaults to
+ * `true` so the composer is enabled the moment a postable convo resolves.
  */
 data class ChatScreenViewState(
-    val otherUserDid: String = "",
-    val otherUserHandle: String = "",
-    val otherUserDisplayName: String? = null,
-    val otherUserAvatarUrl: String? = null,
+    val header: ChatHeader? = null,
+    val canPost: Boolean = true,
     val status: ChatLoadStatus = ChatLoadStatus.Loading,
     val isSendEnabled: Boolean = false,
 ) : UiState
@@ -79,6 +101,12 @@ sealed interface ChatError {
  * `runIndex` is OLDEST-first within the run: the oldest message of a run gets
  * `runIndex = 0` (top of run on screen with reverseLayout); the newest gets
  * `runCount - 1` (bottom of run on screen).
+ *
+ * `sender` carries the resolved sender profile for GROUP incoming rows — the
+ * wire `MessageView` only carries the sender DID, so the profile is JOINED from
+ * the group's loaded members and threaded through `toThreadItems`. It is `null`
+ * in 1:1 (direct) threads and for the viewer's own (outgoing) messages, both of
+ * which render bare (no avatar / name).
  */
 @Immutable
 sealed interface ThreadItem {
@@ -89,6 +117,7 @@ sealed interface ThreadItem {
         val runIndex: Int,
         val runCount: Int,
         val showAvatar: Boolean,
+        val sender: AuthorUi? = null,
     ) : ThreadItem {
         override val key: String get() = "msg-${message.id}"
     }

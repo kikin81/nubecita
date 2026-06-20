@@ -28,9 +28,10 @@ import kotlinx.coroutines.launch
  */
 @Composable
 internal fun ChatsScreen(
-    onNavigateToChat: (otherUserDid: String) -> Unit,
+    onNavigateToChat: (convoId: String) -> Unit,
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
+    selectedConvoId: String? = null,
     selectedOtherUserDid: String? = null,
     onNavigateToChatSettings: () -> Unit = {},
     onNavigateTo: (NavKey) -> Unit = {},
@@ -68,7 +69,7 @@ internal fun ChatsScreen(
             }
         viewModel.effects.collect { effect ->
             when (effect) {
-                is ChatsEffect.NavigateToChat -> currentOnNavigateToChat(effect.otherUserDid)
+                is ChatsEffect.NavigateToChat -> currentOnNavigateToChat(effect.convoId)
                 ChatsEffect.NavigateToChatSettings -> currentOnNavigateToChatSettings()
                 is ChatsEffect.NavigateTo -> currentOnNavigateTo(effect.key)
                 is ChatsEffect.ShowRefreshError -> {
@@ -113,6 +114,7 @@ internal fun ChatsScreen(
         snackbarHostState = snackbarHostState,
         onEvent = viewModel::handleEvent,
         onNewChat = onNewChat,
+        selectedConvoId = selectedConvoId,
         selectedOtherUserDid = selectedOtherUserDid,
         modifier = modifier,
     )

@@ -35,6 +35,6 @@ internal object ChatDeepLinkModule {
             uriPattern = "nubecita://chat/{otherUserDid}",
             serializer = Chat.serializer(),
             filters = listOf(IntentActionFilter(Intent.ACTION_VIEW)),
-            accept = { chat -> chat.otherUserDid.startsWith("did:") },
+            accept = { chat -> chat.otherUserDid?.startsWith("did:") == true },
         )
 }

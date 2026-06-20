@@ -1,8 +1,10 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.ThreadItem
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.ZoneId
@@ -195,6 +197,65 @@ internal class ThreadItemMapperTest {
         assertTrue(items[2] is ThreadItem.Message && (items[2] as ThreadItem.Message).message.id == "yesterday")
         assertTrue(items[3] is ThreadItem.DaySeparator && (items[3] as ThreadItem.DaySeparator).label == "Yesterday")
     }
+
+    @Test
+    fun `group sender profiles - incoming carries mapped AuthorUi, outgoing is null`() {
+        val aliceProfile =
+            AuthorUi(did = peer, handle = "alice.bsky.social", displayName = "Alice", avatarUrl = "https://x/a.jpg")
+        val items =
+            listOf(
+                msg("out", viewer, "2026-05-14T17:31:00Z"),
+                msg("in", peer, "2026-05-14T17:30:00Z"),
+            ).toThreadItems(nowLocal, laZone, senderProfiles = mapOf(peer to aliceProfile))
+        val msgs = items.filterIsInstance<ThreadItem.Message>().associateBy { it.message.id }
+        assertEquals(aliceProfile, msgs.getValue("in").sender)
+        assertNull(msgs.getValue("out").sender)
+        // showAvatar unchanged: first-of-run incoming.
+        assertTrue(msgs.getValue("in").showAvatar)
+        assertEquals(false, msgs.getValue("out").showAvatar)
+    }
+
+    @Test
+    fun `group sender profiles - every incoming row of a run carries sender, avatar only on oldest`() {
+        val aliceProfile =
+            AuthorUi(did = peer, handle = "alice.bsky.social", displayName = "Alice", avatarUrl = null)
+        val items =
+            listOf(
+                msg("c", peer, "2026-05-14T17:32:00Z"),
+                msg("b", peer, "2026-05-14T17:31:00Z"),
+                msg("a", peer, "2026-05-14T17:30:00Z"),
+            ).toThreadItems(nowLocal, laZone, senderProfiles = mapOf(peer to aliceProfile))
+        val msgs = items.filterIsInstance<ThreadItem.Message>().associateBy { it.message.id }
+        // sender populated on EVERY incoming run row (alignment gutter needs it on all).
+        assertEquals(aliceProfile, msgs.getValue("a").sender)
+        assertEquals(aliceProfile, msgs.getValue("b").sender)
+        assertEquals(aliceProfile, msgs.getValue("c").sender)
+        // showAvatar only on the oldest.
+        assertTrue(msgs.getValue("a").showAvatar)
+        assertEquals(false, msgs.getValue("b").showAvatar)
+        assertEquals(false, msgs.getValue("c").showAvatar)
+    }
+
+    @Test
+    fun `empty sender profiles - direct thread, every sender is null`() {
+        val items =
+            listOf(
+                msg("in", peer, "2026-05-14T17:31:00Z"),
+                msg("out", viewer, "2026-05-14T17:30:00Z"),
+            ).toThreadItems(nowLocal, laZone)
+        items.filterIsInstance<ThreadItem.Message>().forEach { assertNull(it.sender) }
+    }
+
+    @Test
+    fun `incoming sender not in map - sender is null`() {
+        val items =
+            listOf(msg("in", peer, "2026-05-14T17:30:00Z"))
+                .toThreadItems(nowLocal, laZone, senderProfiles = mapOf("did:plc:somebody-else" to bob()))
+        val msg = items.filterIsInstance<ThreadItem.Message>().single()
+        assertNull(msg.sender)
+    }
+
+    private fun bob(): AuthorUi = AuthorUi(did = "did:plc:somebody-else", handle = "bob.bsky.social", displayName = "Bob", avatarUrl = null)
 
     private fun msg(
         id: String,

@@ -9,6 +9,9 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -22,12 +25,15 @@ import kotlin.time.Clock
 /**
  * MVI presenter for the chat thread screen.
  *
- * Receives its peer DID via assisted injection of the [Chat] NavKey at the
- * navigation entry point — matches the project pattern used by
- * `ComposerViewModel` / `MediaViewerViewModel`. Auto-loads on construction:
- * resolves the peer DID to a convoId via `chat.bsky.convo.getConvoForMembers`,
- * then loads the first page of messages via `chat.bsky.convo.getMessages`.
- * Refresh / retry events re-run the chain. Single-flight via [inFlightLoad].
+ * Receives the [Chat] NavKey via assisted injection at the navigation entry
+ * point — matches the project pattern used by `ComposerViewModel` /
+ * `MediaViewerViewModel`. Auto-loads on construction and normalizes the NavKey:
+ * a `convoId` opens directly (group or direct); an `otherUserDid` resolves to
+ * its 1:1 convoId first via `chat.bsky.convo.getConvoForMembers`. Either path
+ * then loads the kind-aware header + `canPost` gate via `chat.bsky.convo.getConvo`
+ * and the first page of messages via `chat.bsky.convo.getMessages`. The composer
+ * send gate folds composer-non-blank with [canPostFlow]. Refresh / retry events
+ * re-run the chain. Single-flight via [inFlightLoad].
  */
 @HiltViewModel(assistedFactory = ChatViewModel.Factory::class)
 class ChatViewModel
@@ -41,7 +47,11 @@ class ChatViewModel
             fun create(chat: Chat): ChatViewModel
         }
 
-        private val otherUserDid: String = chat.otherUserDid
+        // The NavKey carries EITHER a convoId (group or direct, already resolved)
+        // OR an otherUserDid (1:1 start that still needs resolving). Chat.init
+        // guarantees at least one is non-null.
+        private val convoIdArg: String? = chat.convoId
+        private val otherUserDidArg: String? = chat.otherUserDid
         private var inFlightLoad: Job? = null
 
         /**
@@ -60,6 +70,14 @@ class ChatViewModel
         private var sendCounter = 0
 
         /**
+         * Whether the viewer may post in the open convo (from the loaded
+         * [ChatConvo.canPost]). Folded into the send gate so a read-only convo
+         * disables send even with non-blank composer text. Defaults to `true`
+         * (optimistic) until the convo loads.
+         */
+        private val canPostFlow = MutableStateFlow(true)
+
+        /**
          * Composer text/selection, owned here per the sanctioned MVI editor
          * exception (CLAUDE.md). The screen wires the `state =` text-field
          * overload; a `snapshotFlow` collector projects non-blank-ness into
@@ -68,11 +86,16 @@ class ChatViewModel
         val textFieldState: TextFieldState = TextFieldState()
 
         init {
-            // Project the boolean gate (not the raw text) so the collector only
-            // touches state when blank/non-blank actually flips — snapshotFlow
-            // dedupes on the computed value, so per-keystroke setState churn is
+            // The send gate is composer-non-blank AND canPost. snapshotFlow
+            // projects the boolean (not the raw text) so it only emits when
+            // blank/non-blank flips; distinctUntilChanged after the combine
+            // collapses redundant emissions, so per-keystroke setState churn is
             // avoided.
-            snapshotFlow { textFieldState.text.toString().isNotBlank() }
+            combine(
+                snapshotFlow { textFieldState.text.toString().isNotBlank() },
+                canPostFlow,
+            ) { nonBlank, canPost -> nonBlank && canPost }
+                .distinctUntilChanged()
                 .onEach { enabled -> setState { copy(isSendEnabled = enabled) } }
                 .launchIn(viewModelScope)
             launchLoad()
@@ -105,6 +128,9 @@ class ChatViewModel
          */
         private fun onSend() {
             val convo = convoId ?: return
+            // Defensive: the send button is already disabled when !canPost, but the
+            // IME Send action can still fire — veto it here too.
+            if (!canPostFlow.value) return
             val text = textFieldState.text.toString()
             if (text.isBlank()) return
             textFieldState.clearText()
@@ -193,11 +219,25 @@ class ChatViewModel
         private fun commitMessages(
             isRefreshing: Boolean = (uiState.value.status as? ChatLoadStatus.Loaded)?.isRefreshing ?: false,
         ) {
+            // GROUP attribution: join each incoming message's sender DID to the
+            // group's loaded members. Direct threads have a `ChatHeader.Direct`
+            // header → empty map → no attribution (unchanged bare rendering). The
+            // header is set before the first `commitMessages` in the load chain, so
+            // this rebuilds from the current header on every commit.
+            val senderProfiles =
+                (uiState.value.header as? ChatHeader.Group)
+                    ?.members
+                    ?.associateBy { it.did }
+                    .orEmpty()
             setState {
                 copy(
                     status =
                         ChatLoadStatus.Loaded(
-                            items = messages.toThreadItems(now = Clock.System.now()),
+                            items =
+                                messages.toThreadItems(
+                                    now = Clock.System.now(),
+                                    senderProfiles = senderProfiles,
+                                ),
                             isRefreshing = isRefreshing,
                         ),
                 )
@@ -212,31 +252,41 @@ class ChatViewModel
             }
             inFlightLoad =
                 viewModelScope.launch {
-                    repository
-                        .resolveConvo(otherUserDid)
-                        .onSuccess { resolution ->
-                            convoId = resolution.convoId
-                            setState {
-                                copy(
-                                    otherUserDid = otherUserDid,
-                                    otherUserHandle = resolution.otherUserHandle,
-                                    otherUserDisplayName = resolution.otherUserDisplayName,
-                                    otherUserAvatarUrl = resolution.otherUserAvatarUrl,
-                                )
-                            }
+                    // Normalize the NavKey: a convoId opens directly (group or
+                    // direct); an otherUserDid resolves to its 1:1 convoId first.
+                    // requireNotNull is safe — Chat.init guarantees at least one of
+                    // convoId/otherUserDid is non-null, and this branch only runs
+                    // when convoIdArg is null.
+                    val resolvedConvoId: Result<String> =
+                        if (convoIdArg != null) {
+                            Result.success(convoIdArg)
+                        } else {
+                            repository.resolveConvo(requireNotNull(otherUserDidArg)).map { it.convoId }
+                        }
+                    resolvedConvoId
+                        .onSuccess { id ->
                             repository
-                                .getMessages(resolution.convoId)
-                                .onSuccess { page ->
-                                    messages = page.messages
-                                    commitMessages(isRefreshing = false)
-                                    // Opening the thread marks it read: clears the
-                                    // server-side unreadCount and optimistically zeros
-                                    // the cached convo so the in-row + bottom-nav badges
-                                    // flip immediately. Best-effort; failure is ignored.
-                                    // Fire-and-forget so a slow/hung mark-read network
-                                    // call doesn't keep inFlightLoad active and block a
-                                    // manual refresh/retry (launchLoad's isActive guard).
-                                    viewModelScope.launch { repository.markConvoRead(resolution.convoId) }
+                                .getConvo(id)
+                                .onSuccess { convo ->
+                                    convoId = convo.convoId
+                                    canPostFlow.value = convo.canPost
+                                    setState { copy(header = convo.header, canPost = convo.canPost) }
+                                    repository
+                                        .getMessages(convo.convoId)
+                                        .onSuccess { page ->
+                                            messages = page.messages
+                                            commitMessages(isRefreshing = false)
+                                            // Opening the thread marks it read: clears the
+                                            // server-side unreadCount and optimistically zeros
+                                            // the cached convo so the in-row + bottom-nav badges
+                                            // flip immediately. Best-effort; failure is ignored.
+                                            // Fire-and-forget so a slow/hung mark-read network
+                                            // call doesn't keep inFlightLoad active and block a
+                                            // manual refresh/retry (launchLoad's isActive guard).
+                                            viewModelScope.launch { repository.markConvoRead(convo.convoId) }
+                                        }.onFailure { throwable ->
+                                            handleFailure(throwable)
+                                        }
                                 }.onFailure { throwable ->
                                     handleFailure(throwable)
                                 }
