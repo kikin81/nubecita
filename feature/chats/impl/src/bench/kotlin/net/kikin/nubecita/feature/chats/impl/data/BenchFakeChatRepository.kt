@@ -274,6 +274,30 @@ internal class BenchFakeChatRepository
             return Result.success(Unit)
         }
 
+        // Bench has no real reactions backend; the toggle just no-ops visually. Echo
+        // a minimal outgoing Sent message keyed by id so the VM's reconcile is benign.
+        override suspend fun addReaction(
+            convoId: String,
+            messageId: String,
+            emoji: String,
+        ): Result<MessageUi> = Result.success(benchReactionEcho(messageId))
+
+        override suspend fun removeReaction(
+            convoId: String,
+            messageId: String,
+            emoji: String,
+        ): Result<MessageUi> = Result.success(benchReactionEcho(messageId))
+
+        private fun benchReactionEcho(messageId: String): MessageUi =
+            MessageUi(
+                id = messageId,
+                senderDid = currentViewerDid(),
+                isOutgoing = true,
+                text = "",
+                isDeleted = false,
+                sentAt = Clock.System.now(),
+            )
+
         // Bench has no firehose/log fixture and never registers the poll worker;
         // the inbox is fully served by the chats.json convo cache. Empty page.
         override suspend fun getLog(cursor: String?): Result<ChatLogPage> = Result.success(ChatLogPage())

@@ -43,6 +43,7 @@ internal fun ChatScreen(
     val networkErrorMsg = stringResource(R.string.chat_send_error_network)
     val messagesDisabledErrorMsg = stringResource(R.string.chat_send_error_messages_disabled)
     val genericErrorMsg = stringResource(R.string.chat_send_error_generic)
+    val reactionErrorMsg = stringResource(R.string.chat_reaction_error)
 
     LaunchedEffect(Unit) {
         // The effect collector drains a single stream that carries both
@@ -70,6 +71,11 @@ internal fun ChatScreen(
                         snackbarHostState.showSnackbar(message)
                     }
                 }
+                ChatEffect.ShowReactionError ->
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(reactionErrorMsg)
+                    }
             }
         }
     }

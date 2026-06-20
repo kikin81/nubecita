@@ -57,6 +57,9 @@
     <string name="chat_send_error_network">No se pudo enviar — revisa tu conexión y reintenta.</string>
     <string name="chat_send_error_messages_disabled">Esta persona no puede recibir tus mensajes.</string>
     <string name="chat_send_error_generic">No se pudo enviar tu mensaje. Toca reintentar para volver a intentarlo.</string>
+    <string name="chat_reaction_error">No se pudo actualizar tu reacción. Inténtalo de nuevo.</string>
+    <string name="chat_react_more">Más emojis</string>
+    <string name="chat_react_long_press">Reaccionar</string>
     <string name="new_chat_title">Mensaje nuevo</string>
     <string name="new_chat_search_placeholder">Buscar a alguien</string>
     <string name="new_chat_recent_header">Recientes</string>

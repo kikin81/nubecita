@@ -8,6 +8,8 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -19,6 +21,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
+import net.kikin.nubecita.feature.chats.impl.data.applyOptimisticToggle
 import net.kikin.nubecita.feature.chats.impl.data.toChatError
 import net.kikin.nubecita.feature.chats.impl.data.toThreadItems
 import kotlin.time.Clock
@@ -71,6 +74,14 @@ class ChatViewModel
         private var sendCounter = 0
 
         /**
+         * `(messageId, emoji)` pairs with an add/remove-reaction call in flight.
+         * Guards against a rapid double-tap of the same chip issuing two racing
+         * (non-idempotent) calls; a second toggle of the same key is dropped until
+         * the first resolves.
+         */
+        private val inFlightReactions = mutableSetOf<Pair<String, String>>()
+
+        /**
          * Accumulating DID → sender profile map for GROUP message attribution. Seeded
          * from the loaded convo's member roster ([ChatHeader.Group.members]) and then
          * augmented by [hydrateMissingSenders] for senders absent from the roster (e.g.
@@ -121,7 +132,57 @@ class ChatViewModel
                 is ChatEvent.RetrySend -> onRetrySend(event.tempId)
                 is ChatEvent.QuotedPostTapped ->
                     sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
+                is ChatEvent.ToggleReaction -> onToggleReaction(event.messageId, event.emoji)
             }
+        }
+
+        /**
+         * Optimistic reaction toggle: flip the viewer's [emoji] on [messageId] in
+         * place via [applyOptimisticToggle], then call add/removeReaction. On
+         * success the row reconciles to the server-authoritative reactions; on
+         * failure it rolls back to the exact pre-toggle reactions and emits a
+         * transient [ChatEffect.ShowReactionError]. An in-flight `(messageId, emoji)`
+         * guard drops a rapid second tap of the same chip so the two calls can't
+         * race (the SDK addReaction/removeReaction are not idempotent under
+         * concurrency). No-ops on a missing/unsent/deleted target.
+         */
+        private fun onToggleReaction(
+            messageId: String,
+            emoji: String,
+        ) {
+            val convo = convoId ?: return
+            val key = messageId to emoji
+            if (key in inFlightReactions) return
+            val target = messages.firstOrNull { it.id == messageId } ?: return
+            if (target.sendStatus != MessageSendStatus.Sent || target.isDeleted) return
+            val wasReacted = target.reactions.firstOrNull { it.emoji == emoji }?.reactedByViewer == true
+            val original = target.reactions
+            inFlightReactions += key
+            updateMessageReactions(messageId, applyOptimisticToggle(original, emoji).toImmutableList())
+            viewModelScope.launch {
+                val result =
+                    if (wasReacted) {
+                        repository.removeReaction(convo, messageId, emoji)
+                    } else {
+                        repository.addReaction(convo, messageId, emoji)
+                    }
+                result
+                    .onSuccess { server -> updateMessageReactions(messageId, server.reactions) }
+                    .onFailure {
+                        updateMessageReactions(messageId, original) // rollback to the exact pre-toggle reactions
+                        sendEffect(ChatEffect.ShowReactionError)
+                    }
+                inFlightReactions -= key
+            }
+        }
+
+        /** Replace [messageId]'s reactions and re-project the thread. */
+        private fun updateMessageReactions(
+            messageId: String,
+            reactions: ImmutableList<ReactionUi>,
+        ) {
+            messages = messages.map { if (it.id == messageId) it.copy(reactions = reactions) else it }
+            commitMessages()
         }
 
         /**

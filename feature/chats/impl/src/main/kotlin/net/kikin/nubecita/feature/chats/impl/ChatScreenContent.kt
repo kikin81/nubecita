@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,8 +41,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -61,7 +66,9 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
 import net.kikin.nubecita.feature.chats.impl.ui.DaySeparatorChip
+import net.kikin.nubecita.feature.chats.impl.ui.EmojiPickerDialog
 import net.kikin.nubecita.feature.chats.impl.ui.MessageBubble
+import net.kikin.nubecita.feature.chats.impl.ui.ReactionMenu
 
 /**
  * Stateless content for a single chat thread. The stateful entry
@@ -206,8 +213,12 @@ internal fun ChatScreenContent(
                         LoadedBody(
                             items = status.items,
                             listState = listState,
+                            canPost = state.canPost,
                             onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
                             onRetrySend = { tempId -> onEvent(ChatEvent.RetrySend(tempId)) },
+                            onReactionToggle = { messageId, emoji ->
+                                onEvent(ChatEvent.ToggleReaction(messageId, emoji))
+                            },
                         )
                     }
                 is ChatLoadStatus.InitialError ->
@@ -359,13 +370,20 @@ private fun EmptyBody() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LoadedBody(
     items: ImmutableList<ThreadItem>,
     listState: LazyListState,
+    canPost: Boolean,
     onQuotedPostTap: (quotedPostUri: String) -> Unit,
     onRetrySend: (tempId: String) -> Unit,
+    onReactionToggle: (messageId: String, emoji: String) -> Unit,
 ) {
+    // Tracks which message (by id) currently shows the long-press quick-react menu.
+    var reactionMenuFor by remember { mutableStateOf<String?>(null) }
+    // Tracks which message (by id) currently shows the full emoji picker dialog.
+    var pickerFor by remember { mutableStateOf<String?>(null) }
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("chat_thread_list"),
         state = listState,
@@ -393,6 +411,9 @@ private fun LoadedBody(
                     // (no neighbor above; only the TopAppBar).
                     val crossRunGap = if (item.runIndex == 0 && position < items.lastIndex) 10.dp else 0.dp
                     val sender = item.sender
+                    val message = item.message
+                    val canReact = canPost && message.sendStatus == MessageSendStatus.Sent && !message.isDeleted
+                    val reactLongPressLabel = stringResource(R.string.chat_react_long_press)
                     if (sender != null) {
                         // GROUP incoming: an avatar gutter (avatar painted only on the
                         // first-of-run bubble, an equal-width spacer on the rest so all
@@ -440,7 +461,38 @@ private fun LoadedBody(
                                     runCount = item.runCount,
                                     onQuotedPostTap = onQuotedPostTap,
                                     onRetrySend = onRetrySend,
+                                    onReactionToggle = { emoji ->
+                                        onReactionToggle(item.message.id, emoji)
+                                    },
+                                    modifier =
+                                        Modifier.combinedClickable(
+                                            onClick = {},
+                                            onLongClick = { if (canReact) reactionMenuFor = message.id },
+                                            onLongClickLabel = reactLongPressLabel,
+                                        ),
                                 )
+                                if (reactionMenuFor == message.id) {
+                                    ReactionMenu(
+                                        onPick = { emoji ->
+                                            onReactionToggle(message.id, emoji)
+                                            reactionMenuFor = null
+                                        },
+                                        onMore = {
+                                            pickerFor = message.id
+                                            reactionMenuFor = null
+                                        },
+                                        onDismiss = { reactionMenuFor = null },
+                                    )
+                                }
+                                if (pickerFor == message.id) {
+                                    EmojiPickerDialog(
+                                        onEmojiPicked = { emoji ->
+                                            onReactionToggle(message.id, emoji)
+                                            pickerFor = null
+                                        },
+                                        onDismiss = { pickerFor = null },
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -459,7 +511,38 @@ private fun LoadedBody(
                                 runCount = item.runCount,
                                 onQuotedPostTap = onQuotedPostTap,
                                 onRetrySend = onRetrySend,
+                                onReactionToggle = { emoji ->
+                                    onReactionToggle(item.message.id, emoji)
+                                },
+                                modifier =
+                                    Modifier.combinedClickable(
+                                        onClick = {},
+                                        onLongClick = { if (canReact) reactionMenuFor = message.id },
+                                        onLongClickLabel = reactLongPressLabel,
+                                    ),
                             )
+                            if (reactionMenuFor == message.id) {
+                                ReactionMenu(
+                                    onPick = { emoji ->
+                                        onReactionToggle(message.id, emoji)
+                                        reactionMenuFor = null
+                                    },
+                                    onMore = {
+                                        pickerFor = message.id
+                                        reactionMenuFor = null
+                                    },
+                                    onDismiss = { reactionMenuFor = null },
+                                )
+                            }
+                            if (pickerFor == message.id) {
+                                EmojiPickerDialog(
+                                    onEmojiPicked = { emoji ->
+                                        onReactionToggle(message.id, emoji)
+                                        pickerFor = null
+                                    },
+                                    onDismiss = { pickerFor = null },
+                                )
+                            }
                         }
                     }
                 }

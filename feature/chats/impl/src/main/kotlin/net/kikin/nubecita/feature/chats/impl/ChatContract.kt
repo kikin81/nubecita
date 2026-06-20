@@ -152,7 +152,16 @@ data class MessageUi(
     val isDeleted: Boolean,
     val sentAt: Instant,
     val embed: EmbedUi.RecordOrUnavailable? = null,
+    val reactions: ImmutableList<ReactionUi> = persistentListOf(),
     val sendStatus: MessageSendStatus = MessageSendStatus.Sent,
+)
+
+/** A message reaction aggregated by emoji: how many reacted, and whether the viewer did. */
+@Immutable
+data class ReactionUi(
+    val emoji: String,
+    val count: Int,
+    val reactedByViewer: Boolean,
 )
 
 /**
@@ -197,6 +206,12 @@ sealed interface ChatEvent : UiEvent {
     data class QuotedPostTapped(
         val quotedPostUri: String,
     ) : ChatEvent
+
+    /** Toggle the viewer's [emoji] reaction on the message with [messageId] (chip tap or picker pick). */
+    data class ToggleReaction(
+        val messageId: String,
+        val emoji: String,
+    ) : ChatEvent
 }
 
 sealed interface ChatEffect : UiEffect {
@@ -214,4 +229,7 @@ sealed interface ChatEffect : UiEffect {
     data class ShowSendError(
         val error: ChatError,
     ) : ChatEffect
+
+    /** An add/remove-reaction call failed; the optimistic change was rolled back. Surface a transient snackbar. */
+    data object ShowReactionError : ChatEffect
 }

@@ -55,6 +55,9 @@ dependencies {
     // NotificationCompat / MessagingStyle / NotificationManagerCompat for the
     // background DM notifier (nubecita-1fy.15).
     implementation(libs.androidx.core.ktx)
+    // AndroidX emoji2 EmojiPickerView — the full reaction emoji picker, hosted
+    // in a Compose Dialog (nubecita-hwix.3, Task 6).
+    implementation(libs.androidx.emoji2.emojipicker)
     // WorkManager + Hilt-work for the background DM-poll worker (v2,
     // nubecita-1fy.15). Periodic, Doze-cooperative. androidx.hilt.compiler (KSP)
     // generates the @HiltWorker factory binding.

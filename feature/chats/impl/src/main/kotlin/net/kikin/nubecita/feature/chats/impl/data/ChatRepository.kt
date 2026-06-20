@@ -132,6 +132,24 @@ interface ChatRepository {
     ): Result<MessageUi>
 
     /**
+     * Adds [emoji] (a single emoji grapheme) as the viewer's reaction to [messageId] in
+     * [convoId] via `chat.bsky.convo.addReaction`; returns the server-updated message (its
+     * authoritative reactions) for optimistic reconciliation.
+     */
+    suspend fun addReaction(
+        convoId: String,
+        messageId: String,
+        emoji: String,
+    ): Result<MessageUi>
+
+    /** Removes the viewer's [emoji] reaction from [messageId] via `removeReaction`; returns the updated message. */
+    suspend fun removeReaction(
+        convoId: String,
+        messageId: String,
+        emoji: String,
+    ): Result<MessageUi>
+
+    /**
      * Marks [convoId] read via `chat.bsky.convo.updateRead` (omitting the
      * messageId so the server marks read up to the latest message) and
      * optimistically zeros the matching cached convo's `unreadCount` in

@@ -40,7 +40,11 @@
           "id": "msg_group_6",
           "senderDid": "did:plc:carmen0000000000000000000",
           "text": "Pushed the new spacing tokens — take a look 🎨",
-          "sentAt": "2026-05-27T17:30:00Z"
+          "sentAt": "2026-05-27T17:30:00Z",
+          "reactions": [
+            { "emoji": "👍", "count": 2 },
+            { "emoji": "❤️", "count": 1, "reactedByViewer": true }
+          ]
         },
         {
           "id": "msg_group_5",
@@ -64,7 +68,10 @@
           "id": "msg_group_2",
           "senderDid": "did:plc:bob0000000000000000000000",
           "text": "view + send both working end to end in here now.",
-          "sentAt": "2026-05-27T17:06:00Z"
+          "sentAt": "2026-05-27T17:06:00Z",
+          "reactions": [
+            { "emoji": "🎉", "count": 1 }
+          ]
         },
         {
           "id": "msg_group_1",
