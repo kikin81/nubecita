@@ -603,8 +603,10 @@ internal class ChatsViewModelTest {
     /** convoIds of the currently-displayed (Loaded) list — assumes Loaded. */
     private fun loadedIds(vm: ChatsViewModel): List<String> = (vm.uiState.value.status as ChatsLoadStatus.Loaded).items.map { it.convoId }
 
-    private fun sampleItem(convoId: String): ConvoListItemUi =
-        ConvoListItemUi(
+    // Returns the concrete Direct variant (not the sealed interface) so call sites
+    // can `.copy(...)` it; the cache stores it as a ConvoRowUi.
+    private fun sampleItem(convoId: String): ConvoRowUi.Direct =
+        ConvoRowUi.Direct(
             convoId = convoId,
             otherUserDid = "did:plc:alice",
             otherUserHandle = "alice.bsky.social",

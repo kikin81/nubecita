@@ -12,6 +12,7 @@ import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Handle
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -32,7 +33,7 @@ internal class ConvoMapperTest {
                     ),
             )
 
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = assertInstanceOf(ConvoRowUi.Direct::class.java, view.toConvoRowUi(viewerDid = VIEWER_DID))
 
         assertEquals("did:plc:alice", ui.otherUserDid)
         assertEquals("alice.bsky.social", ui.otherUserHandle)
@@ -42,21 +43,21 @@ internal class ConvoMapperTest {
     @Test
     fun `null displayName falls back to null and the row will display the handle upstream`() {
         val view = sampleConvoView(otherDisplayName = null)
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = assertInstanceOf(ConvoRowUi.Direct::class.java, view.toConvoRowUi(viewerDid = VIEWER_DID))
         assertNull(ui.displayName)
     }
 
     @Test
     fun `blank displayName treated as null`() {
         val view = sampleConvoView(otherDisplayName = "   ")
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = assertInstanceOf(ConvoRowUi.Direct::class.java, view.toConvoRowUi(viewerDid = VIEWER_DID))
         assertNull(ui.displayName)
     }
 
     @Test
     fun `text MessageView populates the snippet and is not marked as attachment`() {
         val view = sampleConvoView(lastMessage = sampleMessage(text = "hey there", senderDid = "did:plc:alice"))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = view.toConvoRowUi(viewerDid = VIEWER_DID)
 
         assertEquals("hey there", ui.lastMessageSnippet)
         assertFalse(ui.lastMessageFromViewer)
@@ -66,14 +67,14 @@ internal class ConvoMapperTest {
     @Test
     fun `sender == viewer flips lastMessageFromViewer to true`() {
         val view = sampleConvoView(lastMessage = sampleMessage(text = "ok", senderDid = VIEWER_DID))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = view.toConvoRowUi(viewerDid = VIEWER_DID)
         assertTrue(ui.lastMessageFromViewer)
     }
 
     @Test
     fun `DeletedMessageView yields a 'Message deleted' snippet and isAttachment false`() {
         val view = sampleConvoView(lastMessage = sampleDeleted(senderDid = "did:plc:alice"))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = view.toConvoRowUi(viewerDid = VIEWER_DID)
 
         // Sentinel value the UI layer interprets via the chats_row_deleted_placeholder string resource.
         assertEquals("__deleted__", ui.lastMessageSnippet)
@@ -83,7 +84,7 @@ internal class ConvoMapperTest {
     @Test
     fun `null lastMessage yields null snippet`() {
         val view = sampleConvoView(lastMessage = null)
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = view.toConvoRowUi(viewerDid = VIEWER_DID)
         assertNull(ui.lastMessageSnippet)
     }
 
@@ -91,7 +92,7 @@ internal class ConvoMapperTest {
     fun `MessageView sentAt is propagated as a raw Instant`() {
         val sent = Instant.parse("2026-05-13T11:50:00Z")
         val view = sampleConvoView(lastMessage = sampleMessage(text = "ok", senderDid = "did:plc:alice", sentAt = sent))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = view.toConvoRowUi(viewerDid = VIEWER_DID)
         // Raw Instant: relative-time rendering lives in the UI layer via
         // rememberChatRelativeTimeText. Mapper just propagates the wire value.
         assertEquals(sent, ui.sentAt)
@@ -100,7 +101,7 @@ internal class ConvoMapperTest {
     @Test
     fun `DeletedMessageView sentAt is propagated`() {
         val view = sampleConvoView(lastMessage = sampleDeleted(senderDid = "did:plc:alice"))
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = view.toConvoRowUi(viewerDid = VIEWER_DID)
         // sampleDeleted hardcodes sentAt = 2026-05-13T17:50:00Z (see helper below).
         assertEquals(Instant.parse("2026-05-13T17:50:00Z"), ui.sentAt)
     }
@@ -108,27 +109,75 @@ internal class ConvoMapperTest {
     @Test
     fun `null lastMessage yields null sentAt`() {
         val view = sampleConvoView(lastMessage = null)
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = view.toConvoRowUi(viewerDid = VIEWER_DID)
         assertNull(ui.sentAt)
     }
 
     @Test
     fun `unreadCount maps through (Long narrowed to Int)`() {
         val view = sampleConvoView(unreadCount = 7L)
-        val ui = view.toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = view.toConvoRowUi(viewerDid = VIEWER_DID)
         assertEquals(7, ui.unreadCount)
     }
 
     @Test
     fun `zero unreadCount maps to 0`() {
-        val ui = sampleConvoView(unreadCount = 0L).toConvoListItemUi(viewerDid = VIEWER_DID)
+        val ui = sampleConvoView(unreadCount = 0L).toConvoRowUi(viewerDid = VIEWER_DID)
         assertEquals(0, ui.unreadCount)
     }
 
     @Test
     fun `muted flag maps through`() {
-        assertTrue(sampleConvoView(muted = true).toConvoListItemUi(VIEWER_DID).muted)
-        assertFalse(sampleConvoView(muted = false).toConvoListItemUi(VIEWER_DID).muted)
+        assertTrue(sampleConvoView(muted = true).toConvoRowUi(VIEWER_DID).muted)
+        assertFalse(sampleConvoView(muted = false).toConvoRowUi(VIEWER_DID).muted)
+    }
+
+    // --- toConvoRowUi kind discrimination (group-chat Phase 1) ---
+
+    @Test
+    fun `toConvoRowUi on a GroupConvo yields a Group row with name, all members and shared fields`() {
+        val view =
+            sampleConvoView(
+                members =
+                    listOf(
+                        sampleMember(did = VIEWER_DID, handle = "me.bsky.social", displayName = "Me"),
+                        sampleMember(did = "did:plc:alice", handle = "alice.bsky.social", displayName = "Alice"),
+                        sampleMember(did = "did:plc:bob", handle = "bob.bsky.social", displayName = "Bob"),
+                    ),
+                kind = sampleGroupConvo(name = "Weekend Crew"),
+                lastMessage = sampleMessage(text = "see you all there", senderDid = "did:plc:alice"),
+                unreadCount = 4L,
+                muted = true,
+            )
+
+        val row = assertInstanceOf(ConvoRowUi.Group::class.java, view.toConvoRowUi(viewerDid = VIEWER_DID))
+
+        assertEquals("Weekend Crew", row.name)
+        // All members, including the viewer.
+        assertEquals(3, row.members.size)
+        // Shared fields populated from the wire convo.
+        assertEquals("see you all there", row.lastMessageSnippet)
+        assertFalse(row.lastMessageFromViewer)
+        assertEquals(4, row.unreadCount)
+        assertTrue(row.muted)
+    }
+
+    @Test
+    fun `toConvoRowUi on a direct convo yields a Direct row`() {
+        val view =
+            sampleConvoView(
+                members =
+                    listOf(
+                        sampleMember(did = VIEWER_DID, handle = "me.bsky.social", displayName = "Me"),
+                        sampleMember(did = "did:plc:alice", handle = "alice.bsky.social", displayName = "Alice"),
+                    ),
+            )
+
+        val row = assertInstanceOf(ConvoRowUi.Direct::class.java, view.toConvoRowUi(viewerDid = VIEWER_DID))
+
+        assertEquals("did:plc:alice", row.otherUserDid)
+        assertEquals("alice.bsky.social", row.otherUserHandle)
+        assertEquals("Alice", row.displayName)
     }
 
     // --- toChatHeader / canViewerPost / toAuthorUi (group-chat Phase 1) ---

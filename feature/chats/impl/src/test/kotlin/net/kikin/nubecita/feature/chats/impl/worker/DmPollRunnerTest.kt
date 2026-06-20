@@ -11,7 +11,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.preferences.DmPollCursorStore
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.FakeChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogEvent
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
@@ -171,8 +171,8 @@ internal class DmPollRunnerTest {
         muted: Boolean = false,
         displayName: String? = "Alice",
         handle: String = "alice.bsky.social",
-    ): ConvoListItemUi =
-        ConvoListItemUi(
+    ): ConvoRowUi =
+        ConvoRowUi.Direct(
             convoId = id,
             otherUserDid = ALICE,
             otherUserHandle = handle,

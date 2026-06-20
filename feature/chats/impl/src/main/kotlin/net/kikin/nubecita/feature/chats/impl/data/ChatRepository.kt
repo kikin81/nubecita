@@ -4,7 +4,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.StateFlow
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 
 /**
@@ -27,7 +27,7 @@ interface ChatRepository {
      * latest known convos, newest-first. Populated by [refreshConvos] and patched
      * in place by [sendMessage].
      */
-    fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?>
+    fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?>
 
     /**
      * Fetches the ACCEPTED convo list from the network and publishes it into
@@ -43,7 +43,7 @@ interface ChatRepository {
      * so requests never count toward the unread badge and a request-fetch failure
      * can't disturb the accepted list. Populated by [refreshRequestConvos].
      */
-    fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?>
+    fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?>
 
     /**
      * Fetches the pending message-request list (`status=request`) and publishes it

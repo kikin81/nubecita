@@ -19,7 +19,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
@@ -40,23 +40,25 @@ internal class BenchFakeChatRepository
         private val initMutex = Mutex()
         private var isInitialized = false
 
-        private val convosCache = ConcurrentHashMap<String, ConvoListItemUi>()
+        // Bench fixtures are all direct convos; storing the concrete Direct variant
+        // keeps `.copy(...)` and the per-user fields available for the fake's patches.
+        private val convosCache = ConcurrentHashMap<String, ConvoRowUi.Direct>()
         private val messagesCache = ConcurrentHashMap<String, List<MessageUi>>()
         private val didToConvoId = ConcurrentHashMap<String, String>()
 
         // Reactive published view of [convosCache], so the bench inbox updates
         // live on send just like production. null = not yet refreshed.
-        private val convosFlow = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+        private val convosFlow = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
 
         // Bench has no message-request fixtures; the Requests segment renders its
         // empty state. Published as an empty (not null) list so it reads as loaded.
         private val requestConvosFlow =
-            MutableStateFlow<ImmutableList<ConvoListItemUi>?>(persistentListOf())
+            MutableStateFlow<ImmutableList<ConvoRowUi>?>(persistentListOf())
 
         private fun publishConvos() {
             convosFlow.value =
                 convosCache.values
-                    .sortedWith(compareByDescending<ConvoListItemUi> { it.sentAt }.thenBy { it.convoId })
+                    .sortedWith(compareByDescending<ConvoRowUi> { it.sentAt }.thenBy { it.convoId })
                     .toImmutableList()
         }
 
@@ -94,9 +96,9 @@ internal class BenchFakeChatRepository
                 }
             }
 
-        override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convosFlow.asStateFlow()
+        override fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = convosFlow.asStateFlow()
 
-        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvosFlow.asStateFlow()
+        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = requestConvosFlow.asStateFlow()
 
         override suspend fun refreshRequestConvos(): Result<Unit> = Result.success(Unit)
 
@@ -153,7 +155,7 @@ internal class BenchFakeChatRepository
                 )
 
             val newConvo =
-                ConvoListItemUi(
+                ConvoRowUi.Direct(
                     convoId = newConvoId,
                     otherUserDid = otherUserDid,
                     otherUserHandle = handle,

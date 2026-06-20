@@ -8,6 +8,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.AuthorUi
 import kotlin.time.Instant
 
 /**
@@ -61,7 +62,7 @@ sealed interface ChatsLoadStatus {
 
     /** Convos loaded. May be empty. */
     data class Loaded(
-        val items: ImmutableList<ConvoListItemUi> = persistentListOf(),
+        val items: ImmutableList<ConvoRowUi> = persistentListOf(),
         val isRefreshing: Boolean = false,
     ) : ChatsLoadStatus
 
@@ -87,7 +88,13 @@ sealed interface ChatsError {
 }
 
 /**
- * UI-ready model for a single conversation row.
+ * UI-ready model for a single conversation row. Sealed by kind: a Direct convo
+ * carries the single other user; a Group carries its name + members (for the
+ * AvatarGroup facepile). Shared fields are interface properties so multi-select,
+ * mute, unread and the cache patches operate on every row polymorphically via
+ * `convoId` without branching on the variant.
+ *
+ * Shared snippet/sentAt semantics (apply to both variants):
  *
  * `lastMessageSnippet == null` only when there are no messages in the convo
  * yet (a brand-new conversation surfaced via `listConvos` before any
@@ -104,33 +111,55 @@ sealed interface ChatsError {
  * `LocalConfiguration` resources and ticks live as time passes. Keeping
  * the raw `Instant` here (instead of a pre-formatted string baked at
  * fetch time) is what makes both behaviors work — see nubecita-nn3.3.
+ *
+ * `unreadCount` is the server-reported unread message count for the viewer
+ * (`chat.bsky.convo.ConvoView.unreadCount`); `0` means fully read. Drives
+ * the per-row unread indicator and feeds the Chats-tab badge aggregate.
+ *
+ * `muted` is whether the viewer has muted this convo. Muted convos still
+ * show their unread count in-row but are EXCLUDED from the Chats-tab badge
+ * aggregate (a muted thread shouldn't light up the bottom nav).
  */
 @Immutable
-data class ConvoListItemUi(
-    val convoId: String,
-    val otherUserDid: String,
-    val otherUserHandle: String,
-    val displayName: String?,
-    val avatarUrl: String?,
-    val lastMessageSnippet: String?,
-    val lastMessageFromViewer: Boolean,
-    val lastMessageIsAttachment: Boolean,
-    val sentAt: Instant?,
-    /**
-     * Server-reported unread message count for the viewer in this convo
-     * (`chat.bsky.convo.ConvoView.unreadCount`). `0` means fully read.
-     * Drives the per-row unread indicator and feeds the Chats-tab badge
-     * aggregate. Defaulted so fixture/preview/cache-patch construction
-     * sites don't need updating — only the mapper sets a real value.
-     */
-    val unreadCount: Int = 0,
-    /**
-     * Whether the viewer has muted this convo. Muted convos still show
-     * their unread count in-row but are EXCLUDED from the Chats-tab badge
-     * aggregate (a muted thread shouldn't light up the bottom nav).
-     */
-    val muted: Boolean = false,
-)
+sealed interface ConvoRowUi {
+    val convoId: String
+    val lastMessageSnippet: String?
+    val lastMessageFromViewer: Boolean
+    val lastMessageIsAttachment: Boolean
+    val sentAt: Instant?
+    val unreadCount: Int
+    val muted: Boolean
+
+    /** A 1:1 conversation: the row's identity is the single other user. */
+    @Immutable
+    data class Direct(
+        override val convoId: String,
+        val otherUserDid: String,
+        val otherUserHandle: String,
+        val displayName: String?,
+        val avatarUrl: String?,
+        override val lastMessageSnippet: String?,
+        override val lastMessageFromViewer: Boolean,
+        override val lastMessageIsAttachment: Boolean,
+        override val sentAt: Instant?,
+        override val unreadCount: Int = 0,
+        override val muted: Boolean = false,
+    ) : ConvoRowUi
+
+    /** A group conversation: rendered as its name + a member facepile. */
+    @Immutable
+    data class Group(
+        override val convoId: String,
+        val name: String,
+        val members: ImmutableList<AuthorUi>,
+        override val lastMessageSnippet: String?,
+        override val lastMessageFromViewer: Boolean,
+        override val lastMessageIsAttachment: Boolean,
+        override val sentAt: Instant?,
+        override val unreadCount: Int = 0,
+        override val muted: Boolean = false,
+    ) : ConvoRowUi
+}
 
 sealed interface ChatsEvent : UiEvent {
     data object Refresh : ChatsEvent

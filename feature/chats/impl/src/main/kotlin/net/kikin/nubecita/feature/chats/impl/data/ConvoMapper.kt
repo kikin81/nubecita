@@ -7,7 +7,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.GroupConvo
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import kotlin.time.Instant
 
 /**
@@ -15,22 +15,24 @@ import kotlin.time.Instant
  * [DeletedMessageView]. The UI layer detects this exact value and
  * renders the `chats_row_deleted_placeholder` string in italic.
  *
- * This sentinel is what populates [ConvoListItemUi.lastMessageSnippet]
+ * This sentinel is what populates [ConvoRowUi.lastMessageSnippet]
  * when the last message has been deleted — the UI layer checks for this
  * exact constant and renders the localized placeholder instead.
  *
- * String constant (not enum / sealed sum) because [ConvoListItemUi]
+ * String constant (not enum / sealed sum) because [ConvoRowUi]
  * is `@Immutable` and we want to keep its surface primitive-only.
  */
 internal const val DELETED_MESSAGE_SNIPPET: String = "__deleted__"
 
 /**
- * Maps a wire [ConvoView] to the UI-ready [ConvoListItemUi].
+ * Maps a wire [ConvoView] to the UI-ready, kind-aware [ConvoRowUi]: a
+ * [GroupConvo] becomes a [ConvoRowUi.Group] (name + all members for the
+ * facepile), anything else becomes a [ConvoRowUi.Direct] keyed on the
+ * single other member.
  *
  * Boundary contract: this file is the only place in `:feature:chats:impl`
  * that touches `io.github.kikin81.atproto.chat.bsky.convo.*` runtime
- * types. Everything downstream sees [ConvoListItemUi] with primitive
- * fields.
+ * types. Everything downstream sees [ConvoRowUi].
  *
  * The raw `sentAt: Instant?` is propagated unchanged; relative-time
  * rendering happens in the UI layer via `rememberChatRelativeTimeText`
@@ -38,29 +40,50 @@ internal const val DELETED_MESSAGE_SNIPPET: String = "__deleted__"
  * nubecita-nn3.3.
  *
  * @param viewerDid The current authenticated user's DID, used to pick
- *   the "other member" out of the convo's members list and to determine
- *   whether the last message was sent by the viewer.
+ *   the "other member" of a direct convo and to determine whether the
+ *   last message was sent by the viewer.
  */
-fun ConvoView.toConvoListItemUi(viewerDid: String): ConvoListItemUi {
-    val other =
-        members.firstOrNull { it.did.raw != viewerDid }
-            ?: members.firstOrNull()
-            ?: error("ConvoView.members is empty — protocol violation; direct convos always have 2 members")
-    return ConvoListItemUi(
-        convoId = id,
-        otherUserDid = other.did.raw,
-        otherUserHandle = other.handle.raw,
-        displayName = other.displayName?.takeUnless { it.isBlank() },
-        avatarUrl = other.avatar?.raw,
-        lastMessageSnippet = lastMessage?.snippet(),
-        lastMessageFromViewer = lastMessage?.senderDid() == viewerDid,
-        lastMessageIsAttachment = lastMessage.isAttachmentOnly(),
-        sentAt = lastMessage?.sentAt(),
-        // Wire `unreadCount` is a Long; UI counts are small (badge caps at
-        // 99+), so narrow to Int, clamped non-negative defensively.
-        unreadCount = unreadCount.toInt().coerceAtLeast(0),
-        muted = muted,
-    )
+fun ConvoView.toConvoRowUi(viewerDid: String): ConvoRowUi {
+    val snippet = lastMessage?.snippet()
+    val fromViewer = lastMessage?.senderDid() == viewerDid
+    val attachment = lastMessage.isAttachmentOnly()
+    val at = lastMessage?.sentAt()
+    // Wire `unreadCount` is a Long; UI counts are small (badge caps at
+    // 99+), so narrow to Int, clamped non-negative defensively.
+    val unread = unreadCount.toInt().coerceAtLeast(0)
+    return when (val k = kind) {
+        is GroupConvo ->
+            ConvoRowUi.Group(
+                convoId = id,
+                name = k.name,
+                members = members.map { it.toAuthorUi() }.toImmutableList(),
+                lastMessageSnippet = snippet,
+                lastMessageFromViewer = fromViewer,
+                lastMessageIsAttachment = attachment,
+                sentAt = at,
+                unreadCount = unread,
+                muted = muted,
+            )
+        else -> {
+            val other =
+                members.firstOrNull { it.did.raw != viewerDid }
+                    ?: members.firstOrNull()
+                    ?: error("ConvoView.members is empty — protocol violation; direct convos always have 2 members")
+            ConvoRowUi.Direct(
+                convoId = id,
+                otherUserDid = other.did.raw,
+                otherUserHandle = other.handle.raw,
+                displayName = other.displayName?.takeUnless { it.isBlank() },
+                avatarUrl = other.avatar?.raw,
+                lastMessageSnippet = snippet,
+                lastMessageFromViewer = fromViewer,
+                lastMessageIsAttachment = attachment,
+                sentAt = at,
+                unreadCount = unread,
+                muted = muted,
+            )
+        }
+    }
 }
 
 /**

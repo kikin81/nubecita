@@ -1,14 +1,14 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import kotlin.time.Clock
 import kotlin.time.Instant
 
 internal object BenchChatsMapper {
-    fun toConvoListItem(dto: BenchConvoDto): ConvoListItemUi =
-        ConvoListItemUi(
+    fun toConvoListItem(dto: BenchConvoDto): ConvoRowUi.Direct =
+        ConvoRowUi.Direct(
             convoId = dto.convoId,
             otherUserDid = dto.otherUserDid,
             otherUserHandle = dto.otherUserHandle,

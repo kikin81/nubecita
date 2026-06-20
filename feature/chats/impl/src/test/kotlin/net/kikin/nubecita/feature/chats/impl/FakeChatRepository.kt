@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Instant
 
 internal class FakeChatRepository(
-    var nextRefreshResult: Result<ImmutableList<ConvoListItemUi>> = Result.success(persistentListOf()),
+    var nextRefreshResult: Result<ImmutableList<ConvoRowUi>> = Result.success(persistentListOf()),
     var nextResolveResult: Result<ConvoResolution> =
         Result.success(
             ConvoResolution(
@@ -31,7 +31,7 @@ internal class FakeChatRepository(
         ),
     var nextMessagesResult: Result<MessagePage> = Result.success(MessagePage(messages = persistentListOf())),
     var nextSendResult: Result<MessageUi> = Result.success(DEFAULT_SENT_MESSAGE),
-    var nextRequestRefreshResult: Result<ImmutableList<ConvoListItemUi>> = Result.success(persistentListOf()),
+    var nextRequestRefreshResult: Result<ImmutableList<ConvoRowUi>> = Result.success(persistentListOf()),
 ) : ChatRepository {
     /**
      * Optional gate: when set, `sendMessage` suspends on it before returning,
@@ -78,12 +78,12 @@ internal class FakeChatRepository(
             ),
         )
 
-    private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
-    private val requestConvos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+    private val convos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
+    private val requestConvos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
 
-    override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos.asStateFlow()
+    override fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = convos.asStateFlow()
 
-    override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvos.asStateFlow()
+    override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = requestConvos.asStateFlow()
 
     override suspend fun refreshConvos(): Result<Unit> {
         refreshCalls.incrementAndGet()
@@ -131,12 +131,12 @@ internal class FakeChatRepository(
     }
 
     /** Drive the cache directly (simulating a [sendMessage] patch or an external update). */
-    fun emitConvos(items: ImmutableList<ConvoListItemUi>?) {
+    fun emitConvos(items: ImmutableList<ConvoRowUi>?) {
         convos.value = items
     }
 
     /** Drive the request cache directly (simulating an external update). */
-    fun emitRequestConvos(items: ImmutableList<ConvoListItemUi>?) {
+    fun emitRequestConvos(items: ImmutableList<ConvoRowUi>?) {
         requestConvos.value = items
     }
 

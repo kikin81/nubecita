@@ -23,7 +23,7 @@ import kotlin.time.Instant
  * be updated.
  */
 internal class FakeChatRepository(
-    var nextRefreshResult: Result<ImmutableList<ConvoListItemUi>> = Result.success(persistentListOf()),
+    var nextRefreshResult: Result<ImmutableList<ConvoRowUi>> = Result.success(persistentListOf()),
     var nextResolveResult: Result<ConvoResolution> =
         Result.success(
             ConvoResolution(
@@ -52,12 +52,12 @@ internal class FakeChatRepository(
     var lastSendText: String? = null
     var lastMarkReadConvoId: String? = null
 
-    private val convos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
-    private val requestConvos = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(persistentListOf())
+    private val convos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
+    private val requestConvos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(persistentListOf())
 
-    override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convos.asStateFlow()
+    override fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = convos.asStateFlow()
 
-    override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvos.asStateFlow()
+    override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = requestConvos.asStateFlow()
 
     override suspend fun refreshConvos(): Result<Unit> {
         refreshCalls.incrementAndGet()
@@ -89,12 +89,12 @@ internal class FakeChatRepository(
     }
 
     /** Drive the request cache directly (simulating an external update). */
-    fun emitRequestConvos(items: ImmutableList<ConvoListItemUi>?) {
+    fun emitRequestConvos(items: ImmutableList<ConvoRowUi>?) {
         requestConvos.value = items
     }
 
     /** Drive the cache directly (simulating a [sendMessage] patch or an external update). */
-    fun emitConvos(items: ImmutableList<ConvoListItemUi>?) {
+    fun emitConvos(items: ImmutableList<ConvoRowUi>?) {
         convos.value = items
     }
 

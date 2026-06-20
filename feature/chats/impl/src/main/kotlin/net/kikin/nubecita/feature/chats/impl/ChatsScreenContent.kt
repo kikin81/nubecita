@@ -392,7 +392,7 @@ private fun EmptyBody(segment: ChatsSegment) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LoadedBody(
-    items: kotlinx.collections.immutable.ImmutableList<ConvoListItemUi>,
+    items: kotlinx.collections.immutable.ImmutableList<ConvoRowUi>,
     selection: ImmutableSet<String>?,
     onEvent: (ChatsEvent) -> Unit,
     selectedOtherUserDid: String?,
@@ -428,18 +428,22 @@ private fun LoadedBody(
                 onClick = {
                     if (inSelection) {
                         onEvent(ChatsEvent.SelectionToggled(item.convoId))
-                    } else {
+                    } else if (item is ConvoRowUi.Direct) {
+                        // ConvoTapped is still keyed on the other user's DID this task;
+                        // Task 4 re-keys it to convoId so groups (which have no single
+                        // other user) also open. Until then, a group-row tap is a no-op.
                         onEvent(ChatsEvent.ConvoTapped(item.otherUserDid))
                     }
                 },
                 onLongClick = { onEvent(ChatsEvent.ConvoLongPressed(item.convoId)) },
                 // Highlight by membership while selecting; otherwise reflect the
-                // tablet list-detail open thread.
+                // tablet list-detail open thread (Direct rows only — the open-thread
+                // key is a DID this task).
                 selected =
                     if (inSelection) {
                         selection.contains(item.convoId)
                     } else {
-                        item.otherUserDid == selectedOtherUserDid
+                        item is ConvoRowUi.Direct && item.otherUserDid == selectedOtherUserDid
                     },
             )
         }

@@ -30,8 +30,8 @@ private fun sampleItem(
     displayName: String?,
     snippet: String,
     sentAt: Instant?,
-): ConvoListItemUi =
-    ConvoListItemUi(
+): ConvoRowUi =
+    ConvoRowUi.Direct(
         convoId = convoId,
         otherUserDid = "did:plc:$convoId",
         otherUserHandle = "$convoId.bsky.social",

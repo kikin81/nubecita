@@ -5,6 +5,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.preferences.DmPollCursorStore
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toDmNotificationContent
 import net.kikin.nubecita.feature.chats.impl.data.toDmNotifyPlan
@@ -85,10 +86,16 @@ internal class DmPollRunner
                 notifier.notify(
                     plan.toNotify.map { event ->
                         val convo = convoById[event.convoId]
+                        // Direct convos carry the other user's name/handle/did for the
+                        // notification's sender attribution + deep-link target. Group
+                        // convos don't have a single "other user"; Phase 1 falls back to
+                        // the group name as the title and the message sender's DID as the
+                        // deep-link target (per-message group attribution is Task 6).
+                        val direct = convo as? ConvoRowUi.Direct
                         val content =
                             event.toDmNotificationContent(
-                                senderDisplayName = convo?.displayName,
-                                senderHandle = convo?.otherUserHandle.orEmpty(),
+                                senderDisplayName = direct?.displayName ?: (convo as? ConvoRowUi.Group)?.name,
+                                senderHandle = direct?.otherUserHandle.orEmpty(),
                             )
                         DmNotification(
                             convoId = event.convoId,
@@ -96,7 +103,7 @@ internal class DmPollRunner
                             // cache the unread set is derived from); fall back to the
                             // sender DID — for an inbound 1:1 DM that IS the other
                             // user — so the tap deep-link target is never empty.
-                            otherUserDid = convo?.otherUserDid?.takeIf { it.isNotEmpty() } ?: event.senderDid,
+                            otherUserDid = direct?.otherUserDid?.takeIf { it.isNotEmpty() } ?: event.senderDid,
                             title = content.title,
                             body = content.body,
                             timestampMillis = event.sentAt.toEpochMilliseconds(),

@@ -8,7 +8,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.designsystem.NubecitaTheme
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -29,7 +29,7 @@ private object FixtureClock : Clock {
 }
 
 private val SAMPLE_WITH_AVATAR =
-    ConvoListItemUi(
+    ConvoRowUi.Direct(
         convoId = "c1",
         otherUserDid = "did:plc:alice",
         otherUserHandle = "alice.bsky.social",

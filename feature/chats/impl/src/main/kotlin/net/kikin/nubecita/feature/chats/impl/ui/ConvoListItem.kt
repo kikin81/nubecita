@@ -23,9 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.core.common.time.rememberChatRelativeTimeText
+import net.kikin.nubecita.designsystem.component.AvatarGroup
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
 import net.kikin.nubecita.designsystem.component.avatarFallbackFor
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
 
@@ -65,7 +66,7 @@ import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ConvoListItem(
-    item: ConvoListItemUi,
+    item: ConvoRowUi,
     index: Int,
     count: Int,
     onClick: () -> Unit,
@@ -123,25 +124,36 @@ internal fun ConvoListItem(
 
 @Composable
 private fun Avatar(
-    item: ConvoListItemUi,
+    item: ConvoRowUi,
     modifier: Modifier = Modifier,
 ) {
-    NubecitaAvatar(
-        model = item.avatarUrl,
-        contentDescription = null,
-        modifier = modifier,
-        size = 48.dp,
-        fallback =
-            avatarFallbackFor(
-                did = item.otherUserDid,
-                handle = item.otherUserHandle,
-                displayName = item.displayName,
-            ),
-    )
+    when (item) {
+        is ConvoRowUi.Direct ->
+            NubecitaAvatar(
+                model = item.avatarUrl,
+                contentDescription = null,
+                modifier = modifier,
+                size = 48.dp,
+                fallback =
+                    avatarFallbackFor(
+                        did = item.otherUserDid,
+                        handle = item.otherUserHandle,
+                        displayName = item.displayName,
+                    ),
+            )
+        is ConvoRowUi.Group ->
+            AvatarGroup(
+                members = item.members,
+                // The headline carries the group name; avoid double-announcing it.
+                contentDescription = null,
+                modifier = modifier,
+                avatarSize = 48.dp,
+            )
+    }
 }
 
 @Composable
-private fun HeadlineText(item: ConvoListItemUi) {
+private fun HeadlineText(item: ConvoRowUi) {
     // titleMedium (16sp Medium 500) — Material 3 Expressive's recommended emphasis
     // for the primary identifier in a list row. One token bigger + heavier than the
     // standard SegmentedListItem headline default (bodyLarge, 16sp Regular) so the
@@ -151,8 +163,13 @@ private fun HeadlineText(item: ConvoListItemUi) {
     // Unread rows bump to Bold (700) — the standard chat-inbox "unread = bold"
     // affordance. Muted convos are NOT excluded here: the in-row treatment still
     // reflects unread; only the bottom-nav badge aggregate excludes muted.
+    val title =
+        when (item) {
+            is ConvoRowUi.Direct -> item.displayName ?: item.otherUserHandle
+            is ConvoRowUi.Group -> item.name
+        }
     Text(
-        text = item.displayName ?: item.otherUserHandle,
+        text = title,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = if (item.unreadCount > 0) FontWeight.Bold else null,
         maxLines = 1,
@@ -161,7 +178,7 @@ private fun HeadlineText(item: ConvoListItemUi) {
 }
 
 @Composable
-private fun SubtitleText(item: ConvoListItemUi) {
+private fun SubtitleText(item: ConvoRowUi) {
     val snippet = item.lastMessageSnippet
     val (text, italic) =
         when {
@@ -181,7 +198,7 @@ private fun SubtitleText(item: ConvoListItemUi) {
 }
 
 @Composable
-private fun TrailingMeta(item: ConvoListItemUi) {
+private fun TrailingMeta(item: ConvoRowUi) {
     // Relative timestamp on top, unread-count badge beneath. End-aligned so
     // both hug the row's trailing edge. The badge appears only when unread; a
     // muted convo still shows it (only the bottom-nav aggregate drops muted).
@@ -212,7 +229,7 @@ private fun UnreadBadge(count: Int) {
 }
 
 @Composable
-private fun TrailingTimestamp(item: ConvoListItemUi) {
+private fun TrailingTimestamp(item: ConvoRowUi) {
     // Null sentAt = the convo has no messages yet (listConvos surfaces brand-new
     // conversations before any send). Match the legacy empty-string output for
     // that case so the trailing slot remains empty rather than rendering a stale

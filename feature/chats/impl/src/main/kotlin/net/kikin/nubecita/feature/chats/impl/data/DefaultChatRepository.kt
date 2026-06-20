@@ -28,7 +28,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
-import net.kikin.nubecita.feature.chats.impl.ConvoListItemUi
+import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
 import javax.inject.Inject
@@ -42,16 +42,16 @@ internal class DefaultChatRepository
     ) : ChatRepository {
         // Single source of truth for the ACCEPTED convo list, shared across both
         // screens (this repository is @Singleton-bound). null = not loaded yet.
-        private val convosCache = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+        private val convosCache = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
 
         // Pending message REQUESTS (status=request). Separate cache so requests
         // never inflate the unread badge and a request-fetch failure can't poison
         // the accepted list. null = not loaded yet.
-        private val requestConvosCache = MutableStateFlow<ImmutableList<ConvoListItemUi>?>(null)
+        private val requestConvosCache = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
 
-        override fun observeConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = convosCache.asStateFlow()
+        override fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = convosCache.asStateFlow()
 
-        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoListItemUi>?> = requestConvosCache.asStateFlow()
+        override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = requestConvosCache.asStateFlow()
 
         override suspend fun refreshConvos(): Result<Unit> = refreshConvosWithStatus(STATUS_ACCEPTED, convosCache)
 
@@ -59,7 +59,7 @@ internal class DefaultChatRepository
 
         private suspend fun refreshConvosWithStatus(
             status: String,
-            cache: MutableStateFlow<ImmutableList<ConvoListItemUi>?>,
+            cache: MutableStateFlow<ImmutableList<ConvoRowUi>?>,
         ): Result<Unit> =
             withContext(dispatcher) {
                 runCatching {
@@ -71,7 +71,7 @@ internal class DefaultChatRepository
                         )
                     cache.value =
                         response.convos
-                            .map { it.toConvoListItemUi(viewerDid = viewerDid) }
+                            .map { it.toConvoRowUi(viewerDid = viewerDid) }
                             .toImmutableList()
                 }.onFailure { throwable ->
                     // Never swallow cancellation — let it propagate so the coroutine
@@ -98,7 +98,7 @@ internal class DefaultChatRepository
                 // it from requests, then prepend it to accepted. A snapshot-both-
                 // then-assign-both would clobber a concurrent patch to either
                 // cache (send / mark-read / poll) with a stale write.
-                var moved: ConvoListItemUi? = null
+                var moved: ConvoRowUi? = null
                 requestConvosCache.update { current ->
                     moved = current?.firstOrNull { it.convoId == convoId }
                     patchConvosOnLeave(current, convoId)
