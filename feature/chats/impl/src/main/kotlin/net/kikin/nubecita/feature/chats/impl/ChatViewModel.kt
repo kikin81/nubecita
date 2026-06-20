@@ -219,11 +219,25 @@ class ChatViewModel
         private fun commitMessages(
             isRefreshing: Boolean = (uiState.value.status as? ChatLoadStatus.Loaded)?.isRefreshing ?: false,
         ) {
+            // GROUP attribution: join each incoming message's sender DID to the
+            // group's loaded members. Direct threads have a `ChatHeader.Direct`
+            // header → empty map → no attribution (unchanged bare rendering). The
+            // header is set before the first `commitMessages` in the load chain, so
+            // this rebuilds from the current header on every commit.
+            val senderProfiles =
+                (uiState.value.header as? ChatHeader.Group)
+                    ?.members
+                    ?.associateBy { it.did }
+                    .orEmpty()
             setState {
                 copy(
                     status =
                         ChatLoadStatus.Loaded(
-                            items = messages.toThreadItems(now = Clock.System.now()),
+                            items =
+                                messages.toThreadItems(
+                                    now = Clock.System.now(),
+                                    senderProfiles = senderProfiles,
+                                ),
                             isRefreshing = isRefreshing,
                         ),
                 )

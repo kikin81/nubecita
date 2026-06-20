@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.exclude
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -354,21 +357,75 @@ private fun LoadedBody(
                     // gap. position < items.lastIndex skips the screen-topmost item
                     // (no neighbor above; only the TopAppBar).
                     val crossRunGap = if (item.runIndex == 0 && position < items.lastIndex) 10.dp else 0.dp
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = crossRunGap),
-                        horizontalArrangement =
-                            if (item.message.isOutgoing) Arrangement.End else Arrangement.Start,
-                    ) {
-                        MessageBubble(
-                            message = item.message,
-                            runIndex = item.runIndex,
-                            runCount = item.runCount,
-                            onQuotedPostTap = onQuotedPostTap,
-                            onRetrySend = onRetrySend,
-                        )
+                    val sender = item.sender
+                    if (sender != null) {
+                        // GROUP incoming: an avatar gutter (avatar painted only on the
+                        // first-of-run bubble, an equal-width spacer on the rest so all
+                        // bubbles in the run align under the avatar) + the sender name
+                        // above the first bubble. `sender != null` already implies
+                        // `!isOutgoing` (the mapper only resolves incoming senders).
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = crossRunGap),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            if (item.showAvatar) {
+                                NubecitaAvatar(
+                                    model = sender.avatarUrl,
+                                    contentDescription = null,
+                                    size = 28.dp,
+                                    fallback =
+                                        avatarFallbackFor(
+                                            did = sender.did,
+                                            handle = sender.handle,
+                                            displayName = sender.displayName,
+                                        ),
+                                )
+                            } else {
+                                Spacer(Modifier.size(28.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column(horizontalAlignment = Alignment.Start) {
+                                if (item.showAvatar) {
+                                    Text(
+                                        text = sender.displayName,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(start = 4.dp, bottom = 2.dp),
+                                    )
+                                }
+                                MessageBubble(
+                                    message = item.message,
+                                    runIndex = item.runIndex,
+                                    runCount = item.runCount,
+                                    onQuotedPostTap = onQuotedPostTap,
+                                    onRetrySend = onRetrySend,
+                                )
+                            }
+                        }
+                    } else {
+                        // Outgoing, or 1:1 incoming — bare (unchanged).
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = crossRunGap),
+                            horizontalArrangement =
+                                if (item.message.isOutgoing) Arrangement.End else Arrangement.Start,
+                        ) {
+                            MessageBubble(
+                                message = item.message,
+                                runIndex = item.runIndex,
+                                runCount = item.runCount,
+                                onQuotedPostTap = onQuotedPostTap,
+                                onRetrySend = onRetrySend,
+                            )
+                        }
                     }
                 }
                 is ThreadItem.DaySeparator -> DaySeparatorChip(label = item.label)

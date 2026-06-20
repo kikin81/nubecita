@@ -101,6 +101,12 @@ sealed interface ChatError {
  * `runIndex` is OLDEST-first within the run: the oldest message of a run gets
  * `runIndex = 0` (top of run on screen with reverseLayout); the newest gets
  * `runCount - 1` (bottom of run on screen).
+ *
+ * `sender` carries the resolved sender profile for GROUP incoming rows — the
+ * wire `MessageView` only carries the sender DID, so the profile is JOINED from
+ * the group's loaded members and threaded through `toThreadItems`. It is `null`
+ * in 1:1 (direct) threads and for the viewer's own (outgoing) messages, both of
+ * which render bare (no avatar / name).
  */
 @Immutable
 sealed interface ThreadItem {
@@ -111,6 +117,7 @@ sealed interface ThreadItem {
         val runIndex: Int,
         val runCount: Int,
         val showAvatar: Boolean,
+        val sender: AuthorUi? = null,
     ) : ThreadItem {
         override val key: String get() = "msg-${message.id}"
     }
