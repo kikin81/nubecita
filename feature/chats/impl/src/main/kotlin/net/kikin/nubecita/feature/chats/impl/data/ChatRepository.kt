@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl.data
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.StateFlow
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
@@ -85,6 +86,16 @@ interface ChatRepository {
      * on-demand DM simulation.
      */
     suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution>
+
+    /**
+     * Batch-resolves actor profiles by DID via `app.bsky.actor.getProfiles`. Used to
+     * hydrate GROUP message senders whose profile isn't in the convo's current member
+     * roster ([getConvo]'s `members`) — e.g. a member who has since left — since the
+     * wire `MessageView.sender` carries only a DID. [dids] is chunked to the lexicon's
+     * 25-actor limit; returns the resolved [AuthorUi]s (order/!completeness not
+     * guaranteed — callers key by `did`). An empty [dids] short-circuits to success.
+     */
+    suspend fun getProfiles(dids: List<String>): Result<List<AuthorUi>>
 
     /**
      * Loads a single conversation by [convoId] via `chat.bsky.convo.getConvo` and maps it

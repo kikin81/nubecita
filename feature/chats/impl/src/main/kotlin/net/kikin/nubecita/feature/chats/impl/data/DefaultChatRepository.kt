@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
+import io.github.kikin81.atproto.app.bsky.actor.ActorService
+import io.github.kikin81.atproto.app.bsky.actor.GetProfilesRequest
 import io.github.kikin81.atproto.chat.bsky.convo.AcceptConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ConvoService
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoForMembersRequest
@@ -13,6 +15,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.MuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UnmuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
+import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.Did
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -28,6 +31,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
@@ -179,6 +183,26 @@ internal class DefaultChatRepository
                 }
             }
 
+        override suspend fun getProfiles(dids: List<String>): Result<List<AuthorUi>> =
+            withContext(dispatcher) {
+                runCatching {
+                    if (dids.isEmpty()) return@runCatching emptyList()
+                    val client = xrpcClientProvider.authenticated()
+                    val service = ActorService(client)
+                    // app.bsky.actor.getProfiles caps `actors` at 25 per call.
+                    dids.distinct().chunked(GET_PROFILES_MAX_ACTORS).flatMap { chunk ->
+                        service
+                            .getProfiles(GetProfilesRequest(actors = chunk.map { AtIdentifier(it) }))
+                            .profiles
+                            .map { it.toAuthorUi() }
+                    }
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    // `dids` are PII — log only the failure identity, not the values.
+                    Timber.tag(TAG).w(throwable, "getProfiles failed: %s", throwable.javaClass.name)
+                }
+            }
+
         override suspend fun getMessages(
             convoId: String,
             cursor: String?,
@@ -274,5 +298,8 @@ internal class DefaultChatRepository
             // chat.bsky.convo.listConvos `status` filter values.
             const val STATUS_ACCEPTED = "accepted"
             const val STATUS_REQUEST = "request"
+
+            // app.bsky.actor.getProfiles caps `actors` at 25 per request.
+            const val GET_PROFILES_MAX_ACTORS = 25
         }
     }

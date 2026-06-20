@@ -192,6 +192,10 @@ internal class BenchFakeChatRepository
             )
         }
 
+        // Bench fixtures embed every sender in the convo, so no out-of-roster
+        // hydration is ever needed — return empty so the VM keeps its seeded profiles.
+        override suspend fun getProfiles(dids: List<String>): Result<List<net.kikin.nubecita.data.models.AuthorUi>> = Result.success(emptyList())
+
         override suspend fun getMessages(
             convoId: String,
             cursor: String?,
