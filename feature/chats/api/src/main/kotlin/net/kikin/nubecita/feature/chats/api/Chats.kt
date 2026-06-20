@@ -51,6 +51,18 @@ data class Chat(
 data object NewChat : NavKey
 
 /**
+ * Group details / settings for a group conversation (member roster, role/admin,
+ * invite link, leave/mute/report). A `@MainShell` sub-route pushed from the chat
+ * thread's overflow (⋮) menu; tagged `adaptiveDialog()` so it renders full-screen
+ * on Compact and as a centered Dialog on Medium / Expanded. Carries the [convoId]
+ * whose membership/details it shows.
+ */
+@Serializable
+data class GroupDetails(
+    val convoId: String,
+) : NavKey
+
+/**
  * Account-global chat settings ("Who can message you"). A `@MainShell`
  * sub-route pushed from the inbox toolbar's gear; tagged `adaptiveDialog()` so
  * it renders full-screen on Compact and as a centered Dialog on Medium /
