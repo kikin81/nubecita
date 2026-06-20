@@ -294,6 +294,114 @@ private val LOADED_WITH_SEND_STATUS_STATE =
             ),
     )
 
+// Group sender fixtures. avatarUrl = null on every sender so the deterministic
+// initials-disc fallback renders (no network / Coil). The two incoming messages
+// share one sender to exercise avatar+name run-collapsing (first showAvatar=true,
+// second showAvatar=false); the outgoing message carries sender=null.
+private val GROUP_SENDER_CAROL =
+    AuthorUi(did = "did:plc:carol", handle = "carol.bsky.social", displayName = "Carol", avatarUrl = null)
+private val GROUP_SENDER_DAVE =
+    AuthorUi(did = "did:plc:dave", handle = "dave.bsky.social", displayName = "Dave", avatarUrl = null)
+
+private val GROUP_HEADER =
+    ChatHeader.Group(
+        name = "Design Team",
+        members =
+            persistentListOf(
+                GROUP_SENDER_CAROL,
+                GROUP_SENDER_DAVE,
+                AuthorUi(did = "did:plc:erin", handle = "erin.bsky.social", displayName = "Erin", avatarUrl = null),
+            ),
+    )
+
+private val GROUP_LOADED_STATE =
+    ChatScreenViewState(
+        header = GROUP_HEADER,
+        canPost = true,
+        status =
+            ChatLoadStatus.Loaded(
+                // Newest-first source order (reverseLayout flips it on screen).
+                items =
+                    persistentListOf(
+                        ThreadItem.Message(
+                            message = mu("g3", isOutgoing = true, text = "Looks great, shipping it", sentAt = "2026-05-14T17:32:00Z"),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = false,
+                            sender = null,
+                        ),
+                        ThreadItem.Message(
+                            message = mu("g2", isOutgoing = false, text = "and the dark variant too", sentAt = "2026-05-14T17:30:00Z"),
+                            runIndex = 1,
+                            runCount = 2,
+                            showAvatar = false,
+                            sender = GROUP_SENDER_CAROL,
+                        ),
+                        ThreadItem.Message(
+                            message = mu("g1", isOutgoing = false, text = "Pushed the new palette", sentAt = "2026-05-14T17:29:00Z"),
+                            runIndex = 0,
+                            runCount = 2,
+                            showAvatar = true,
+                            sender = GROUP_SENDER_CAROL,
+                        ),
+                        ThreadItem.DaySeparator(
+                            epochDay =
+                                java.time.LocalDate
+                                    .parse("2026-05-14")
+                                    .toEpochDay(),
+                            label = "Today",
+                        ),
+                    ),
+            ),
+    )
+
+private val GROUP_HEADER_ONLY_STATE =
+    ChatScreenViewState(
+        header = GROUP_HEADER,
+        canPost = true,
+        status =
+            ChatLoadStatus.Loaded(
+                items =
+                    persistentListOf(
+                        ThreadItem.Message(
+                            message = mu("g1", isOutgoing = false, text = "Welcome to the group!", sentAt = "2026-05-14T17:29:00Z"),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = true,
+                            sender = GROUP_SENDER_DAVE,
+                        ),
+                    ),
+            ),
+    )
+
+private val GROUP_CANNOT_POST_STATE =
+    ChatScreenViewState(
+        header =
+            ChatHeader.Group(
+                name = "Locked Group",
+                members =
+                    persistentListOf(
+                        GROUP_SENDER_CAROL,
+                        GROUP_SENDER_DAVE,
+                        AuthorUi(did = "did:plc:erin", handle = "erin.bsky.social", displayName = "Erin", avatarUrl = null),
+                    ),
+            ),
+        canPost = false,
+        status =
+            ChatLoadStatus.Loaded(
+                items =
+                    persistentListOf(
+                        ThreadItem.Message(
+                            message = mu("g1", isOutgoing = false, text = "This thread is read-only now.", sentAt = "2026-05-14T17:29:00Z"),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = true,
+                            sender = GROUP_SENDER_CAROL,
+                        ),
+                    ),
+            ),
+    )
+
 private val EMPTY_STATE =
     ChatScreenViewState(
         header = DIRECT_HEADER_NO_DID,
@@ -410,5 +518,39 @@ private fun ChatScreenNetworkErrorScreenshot() {
 private fun ChatScreenNotEnrolledScreenshot() {
     NubecitaCanvasPreviewTheme {
         ChatScreenContent(state = NOT_ENROLLED_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}
+
+// Group thread with sender attribution: incoming run collapses the avatar+name
+// on the second consecutive message; the outgoing message has no sender.
+@PreviewTest
+@Preview(name = "chat-group-loaded-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-group-loaded-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenGroupLoadedScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = GROUP_LOADED_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}
+
+// Pins the group TopAppBar header (facepile + name + "N members") over a minimal list.
+@PreviewTest
+@Preview(name = "chat-group-header-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-group-header-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenGroupHeaderScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = GROUP_HEADER_ONLY_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}
+
+// canPost = false → the composer slot renders the CannotPostNotice instead of the input.
+@PreviewTest
+@Preview(name = "chat-group-cannot-post-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-group-cannot-post-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenGroupCannotPostScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = GROUP_CANNOT_POST_STATE, onEvent = {}, textFieldState = TextFieldState())
     }
 }

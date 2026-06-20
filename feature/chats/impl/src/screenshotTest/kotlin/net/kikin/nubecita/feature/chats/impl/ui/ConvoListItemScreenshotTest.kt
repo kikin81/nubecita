@@ -6,7 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.time.LocalClock
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
@@ -78,6 +80,40 @@ private val SAMPLE_UNREAD =
         sentAt = FIXTURE_NOW - 5.minutes, // renders "5m"
         unreadCount = 3, // → bold name + "3" badge
     )
+
+// avatarUrl = null on every member so the deterministic initials-disc fallback
+// renders (no network / Coil dependency). Exercises the AvatarGroup facepile +
+// group name + unread badge.
+private val SAMPLE_GROUP =
+    ConvoRowUi.Group(
+        convoId = "g1",
+        name = "Design Team",
+        members =
+            persistentListOf(
+                AuthorUi(did = "did:plc:carol", handle = "carol.bsky.social", displayName = "Carol", avatarUrl = null),
+                AuthorUi(did = "did:plc:dave", handle = "dave.bsky.social", displayName = "Dave", avatarUrl = null),
+                AuthorUi(did = "did:plc:erin", handle = "erin.bsky.social", displayName = "Erin", avatarUrl = null),
+                AuthorUi(did = "did:plc:frank", handle = "frank.bsky.social", displayName = "Frank", avatarUrl = null),
+            ),
+        lastMessageSnippet = "See you at standup",
+        lastMessageFromViewer = false,
+        lastMessageIsAttachment = false,
+        sentAt = FIXTURE_NOW - 10.minutes, // renders "10m"
+        unreadCount = 2,
+        muted = false,
+    )
+
+@PreviewTest
+@Preview(name = "convo-group-light", showBackground = true)
+@Preview(name = "convo-group-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ConvoListItemGroupScreenshot() {
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaTheme(dynamicColor = false) {
+            Surface { ConvoListItem(item = SAMPLE_GROUP, index = 0, count = 1, onClick = {}, onLongClick = {}) }
+        }
+    }
+}
 
 @PreviewTest
 @Preview(name = "convo-unread-light", showBackground = true)
