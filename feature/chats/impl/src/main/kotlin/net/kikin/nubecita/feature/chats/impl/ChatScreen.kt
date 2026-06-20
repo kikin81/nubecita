@@ -31,11 +31,13 @@ internal fun ChatScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     onNavigateToPost: (postUri: String) -> Unit = {},
+    onNavigateToGroupDetails: (convoId: String) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val currentOnNavigateBack by rememberUpdatedState(onNavigateBack)
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
+    val currentOnNavigateToGroupDetails by rememberUpdatedState(onNavigateToGroupDetails)
     // Pre-resolve snackbar copy at composition so locale + dark-mode changes
     // participate in recomposition (reading via context.getString inside the
     // LaunchedEffect would bypass Compose's resource tracking). Mirrors
@@ -56,6 +58,7 @@ internal fun ChatScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is ChatEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
+                is ChatEffect.NavigateToGroupDetails -> currentOnNavigateToGroupDetails(effect.convoId)
                 is ChatEffect.ShowSendError -> {
                     val message =
                         when (effect.error) {

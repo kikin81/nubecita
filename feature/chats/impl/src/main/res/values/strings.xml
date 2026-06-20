@@ -116,6 +116,7 @@
     <string name="group_details_load_error">Couldn\'t load group details.</string>
     <string name="group_details_action_error">Something went wrong. Try again.</string>
     <string name="group_details_retry">Try again</string>
+    <string name="group_details_menu_item">Group details</string>
     <!-- Per-convo unread badge a11y (visual shows the capped count) -->
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d unread message</item>

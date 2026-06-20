@@ -132,8 +132,19 @@ class ChatViewModel
                 is ChatEvent.RetrySend -> onRetrySend(event.tempId)
                 is ChatEvent.QuotedPostTapped ->
                     sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
+                ChatEvent.GroupDetailsTapped -> onGroupDetailsTapped()
                 is ChatEvent.ToggleReaction -> onToggleReaction(event.messageId, event.emoji)
             }
+        }
+
+        /**
+         * Push the group-details screen for the open group convo. Guarded on the
+         * resolved [convoId] (the overflow item is group-only and only visible once
+         * the convo loads, so this is a no-op before resolution).
+         */
+        private fun onGroupDetailsTapped() {
+            val convo = convoId ?: return
+            sendEffect(ChatEffect.NavigateToGroupDetails(convo))
         }
 
         /**

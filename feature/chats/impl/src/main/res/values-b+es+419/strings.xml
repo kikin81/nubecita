@@ -89,6 +89,7 @@
     <string name="group_details_load_error">No se pudieron cargar los detalles del grupo.</string>
     <string name="group_details_action_error">Algo salió mal. Inténtalo de nuevo.</string>
     <string name="group_details_retry">Reintentar</string>
+    <string name="group_details_menu_item">Detalles del grupo</string>
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d mensaje sin leer</item>
         <item quantity="other">%1$d mensajes sin leer</item>

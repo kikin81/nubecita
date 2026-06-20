@@ -19,12 +19,15 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
+import net.kikin.nubecita.feature.chats.api.GroupDetails
 import net.kikin.nubecita.feature.chats.api.NewChat
 import net.kikin.nubecita.feature.chats.impl.ChatScreen
 import net.kikin.nubecita.feature.chats.impl.ChatSettingsScreen
 import net.kikin.nubecita.feature.chats.impl.ChatSettingsViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
+import net.kikin.nubecita.feature.chats.impl.GroupDetailsScreen
+import net.kikin.nubecita.feature.chats.impl.GroupDetailsViewModel
 import net.kikin.nubecita.feature.chats.impl.NewChatScreen
 import net.kikin.nubecita.feature.chats.impl.selectedConvoId
 import net.kikin.nubecita.feature.chats.impl.selectedOtherUserDid
@@ -113,6 +116,22 @@ internal object ChatsNavigationModule {
                     viewModel = viewModel,
                     onNavigateBack = { navState.removeLast() },
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
+                    onNavigateToGroupDetails = { convoId -> navState.add(GroupDetails(convoId = convoId)) },
+                )
+            }
+            // adaptiveDialog(): full-screen on Compact, centered Dialog on
+            // Medium / Expanded. Assisted-injected like Chat — GroupDetailsViewModel
+            // takes the GroupDetails route (its convoId) via its factory.
+            entry<GroupDetails>(metadata = adaptiveDialog()) { route ->
+                val navState = LocalMainShellNavState.current
+                val viewModel =
+                    hiltViewModel<GroupDetailsViewModel, GroupDetailsViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                GroupDetailsScreen(
+                    viewModel = viewModel,
+                    onBack = { navState.removeLast() },
+                    onNavigateTo = { key -> navState.add(key) },
                 )
             }
         }
