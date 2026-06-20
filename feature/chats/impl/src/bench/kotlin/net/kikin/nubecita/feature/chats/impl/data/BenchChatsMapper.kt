@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
+import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
@@ -7,17 +9,37 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 internal object BenchChatsMapper {
-    fun toConvoListItem(dto: BenchConvoDto): ConvoRowUi.Direct =
-        ConvoRowUi.Direct(
-            convoId = dto.convoId,
-            otherUserDid = dto.otherUserDid,
-            otherUserHandle = dto.otherUserHandle,
-            displayName = dto.displayName,
-            avatarUrl = dto.avatarUrl,
-            lastMessageSnippet = dto.lastMessageSnippet,
-            lastMessageFromViewer = dto.lastMessageFromViewer,
-            lastMessageIsAttachment = dto.lastMessageIsAttachment,
-            sentAt = dto.sentAt?.let { parseInstantOrNow(it) },
+    fun toConvoListItem(dto: BenchConvoDto): ConvoRowUi =
+        if (dto.kind == "group") {
+            ConvoRowUi.Group(
+                convoId = dto.convoId,
+                name = dto.name.orEmpty(),
+                members = dto.members.map { it.toAuthorUi() }.toImmutableList(),
+                lastMessageSnippet = dto.lastMessageSnippet,
+                lastMessageFromViewer = dto.lastMessageFromViewer,
+                lastMessageIsAttachment = dto.lastMessageIsAttachment,
+                sentAt = dto.sentAt?.let { parseInstantOrNow(it) },
+            )
+        } else {
+            ConvoRowUi.Direct(
+                convoId = dto.convoId,
+                otherUserDid = dto.otherUserDid,
+                otherUserHandle = dto.otherUserHandle,
+                displayName = dto.displayName,
+                avatarUrl = dto.avatarUrl,
+                lastMessageSnippet = dto.lastMessageSnippet,
+                lastMessageFromViewer = dto.lastMessageFromViewer,
+                lastMessageIsAttachment = dto.lastMessageIsAttachment,
+                sentAt = dto.sentAt?.let { parseInstantOrNow(it) },
+            )
+        }
+
+    private fun BenchMemberDto.toAuthorUi(): AuthorUi =
+        AuthorUi(
+            did = did,
+            handle = handle,
+            displayName = displayName?.takeUnless { it.isBlank() } ?: handle,
+            avatarUrl = avatarUrl,
         )
 
     fun toMessage(
