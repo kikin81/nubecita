@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.api.GroupDetails
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.MemberPage
@@ -352,6 +353,148 @@ internal class GroupDetailsViewModelTest {
             }
         }
 
+    @Test
+    fun `viewerRole is Owner when the viewer member is owner`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            repo.getConvoMembersResult =
+                Result.success(
+                    MemberPage(
+                        members =
+                            persistentListOf(
+                                member("did:self", "me", FollowState.NotFollowing, isViewer = true, role = GroupRole.Owner),
+                            ),
+                    ),
+                )
+            val vm = groupDetailsViewModel(repo)
+            advanceUntilIdle()
+
+            assertEquals(GroupRole.Owner, vm.uiState.value.viewerRole)
+        }
+
+    @Test
+    fun `viewerRole is Member when viewer is standard`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            repo.getConvoMembersResult =
+                Result.success(
+                    MemberPage(
+                        members =
+                            persistentListOf(
+                                member("did:self", "me", FollowState.NotFollowing, isViewer = true, role = GroupRole.Member),
+                            ),
+                    ),
+                )
+            val vm = groupDetailsViewModel(repo)
+            advanceUntilIdle()
+
+            assertEquals(GroupRole.Member, vm.uiState.value.viewerRole)
+        }
+
+    @Test
+    fun `AddMembersTapped navigates to AddGroupMembers`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            val vm = groupDetailsViewModel(repo)
+
+            vm.effects.test {
+                advanceUntilIdle()
+                vm.handleEvent(GroupDetailsEvent.AddMembersTapped)
+                assertEquals(GroupDetailsEffect.NavigateTo(AddGroupMembers(convoId)), awaitItem())
+            }
+        }
+
+    @Test
+    fun `RemoveMember optimistically drops the member and decrements count, and calls repo`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            repo.getConvoMembersResult =
+                Result.success(
+                    MemberPage(
+                        members =
+                            persistentListOf(
+                                member("did:a", "alice", FollowState.NotFollowing, isViewer = true, role = GroupRole.Owner),
+                                member("did:b", "bob", FollowState.NotFollowing),
+                            ),
+                    ),
+                )
+            repo.removeMembersResult = Result.success(Unit)
+            val vm = groupDetailsViewModel(repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(GroupDetailsEvent.RemoveMember("did:b"))
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.status as GroupDetailsLoadStatus.Loaded
+            assertFalse(loaded.members.any { it.did == "did:b" })
+            assertEquals(1, loaded.memberCount)
+            assertEquals(loaded.members.size, loaded.memberCount)
+            assertEquals(convoId to listOf("did:b"), repo.removeMembersCalls.last())
+        }
+
+    @Test
+    fun `RemoveMember failure re-inserts the member and restores count, emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            repo.getConvoMembersResult =
+                Result.success(
+                    MemberPage(
+                        members =
+                            persistentListOf(
+                                member("did:a", "alice", FollowState.NotFollowing, isViewer = true, role = GroupRole.Owner),
+                                member("did:b", "bob", FollowState.NotFollowing),
+                            ),
+                    ),
+                )
+            repo.removeMembersResult = Result.failure(IOException("down"))
+            val vm = groupDetailsViewModel(repo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(GroupDetailsEvent.RemoveMember("did:b"))
+                advanceUntilIdle()
+                assertEquals(GroupDetailsEffect.ShowError(ChatError.Network), awaitItem())
+            }
+
+            val loaded = vm.uiState.value.status as GroupDetailsLoadStatus.Loaded
+            assertTrue(loaded.members.any { it.did == "did:b" })
+            assertEquals(2, loaded.memberCount)
+        }
+
+    @Test
+    fun `memberCount always equals members size after interleaved removes`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            repo.getConvoMembersResult =
+                Result.success(
+                    MemberPage(
+                        members =
+                            persistentListOf(
+                                member("did:self", "me", FollowState.NotFollowing, isViewer = true, role = GroupRole.Owner),
+                                member("did:a", "alice", FollowState.NotFollowing),
+                                member("did:b", "bob", FollowState.NotFollowing),
+                                member("did:c", "carol", FollowState.NotFollowing),
+                            ),
+                    ),
+                )
+            repo.removeMembersResult = Result.success(Unit)
+            val vm = groupDetailsViewModel(repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(GroupDetailsEvent.RemoveMember("did:a"))
+            vm.handleEvent(GroupDetailsEvent.RemoveMember("did:c"))
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.status as GroupDetailsLoadStatus.Loaded
+            assertEquals(loaded.members.size, loaded.memberCount)
+        }
+
     private fun groupDetailsViewModel(
         repo: FakeChatRepository,
         follow: FakeFollowRepository = FakeFollowRepository(),
@@ -377,13 +520,14 @@ internal class GroupDetailsViewModelTest {
         followState: FollowState,
         followUri: String? = null,
         isViewer: Boolean = false,
+        role: GroupRole = GroupRole.Member,
     ): GroupMemberUi =
         GroupMemberUi(
             did = did,
             handle = handle,
             displayName = null,
             avatarUrl = null,
-            role = GroupRole.Member,
+            role = role,
             addedByName = null,
             isViewer = isViewer,
             followState = followState,

@@ -11,9 +11,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.FollowRepository
+import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.api.GroupDetails
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toChatError
+import net.kikin.nubecita.feature.chats.impl.data.toMemberMgmtError
 import net.kikin.nubecita.feature.profile.api.Profile
 
 /**
@@ -57,6 +59,13 @@ class GroupDetailsViewModel
          */
         private val inFlightFollows = mutableSetOf<String>()
 
+        /**
+         * Member DIDs with a remove call in flight. Guards a rapid double-tap of
+         * the same row's remove action from issuing two racing calls; a second
+         * remove of the same DID is dropped until the first resolves.
+         */
+        private val inFlightRemovals = mutableSetOf<String>()
+
         init {
             launchLoad()
         }
@@ -70,6 +79,8 @@ class GroupDetailsViewModel
                 GroupDetailsEvent.LeaveTapped -> onLeave()
                 GroupDetailsEvent.ToggleMute -> onToggleMute()
                 is GroupDetailsEvent.MemberTapped -> onMemberTapped(event.did)
+                GroupDetailsEvent.AddMembersTapped -> onAddMembersTapped()
+                is GroupDetailsEvent.RemoveMember -> onRemoveMember(event.did)
             }
         }
 
@@ -116,8 +127,12 @@ class GroupDetailsViewModel
                 cursor = page.cursor
             } while (cursor != null)
             val members = accumulated.toImmutableList()
+            val viewerRole = members.firstOrNull { it.isViewer }?.role
             setState {
-                copy(status = GroupDetailsLoadStatus.Loaded(members = members, memberCount = members.size))
+                copy(
+                    viewerRole = viewerRole,
+                    status = GroupDetailsLoadStatus.Loaded(members = members, memberCount = members.size),
+                )
             }
         }
 
@@ -224,5 +239,48 @@ class GroupDetailsViewModel
             val loaded = uiState.value.status as? GroupDetailsLoadStatus.Loaded ?: return
             val member = loaded.members.firstOrNull { it.did == did } ?: return
             sendEffect(GroupDetailsEffect.NavigateTo(Profile(handle = member.handle)))
+        }
+
+        private fun onAddMembersTapped() {
+            sendEffect(GroupDetailsEffect.NavigateTo(AddGroupMembers(convoId)))
+        }
+
+        /**
+         * Optimistic per-member removal mirroring [onToggleFollow]: drop the member from the
+         * roster immediately, then call `removeMembers`. On failure re-insert the member at its
+         * prior index and emit [GroupDetailsEffect.ShowError]. An in-flight DID guard drops a
+         * rapid second tap so two non-idempotent calls can't race. `memberCount` is always
+         * re-derived from the list size (see [withMembers]) so it never goes stale. No-ops when
+         * not loaded or the member is missing.
+         */
+        private fun onRemoveMember(did: String) {
+            val loaded = uiState.value.status as? GroupDetailsLoadStatus.Loaded ?: return
+            if (did in inFlightRemovals) return
+            val index = loaded.members.indexOfFirst { it.did == did }
+            if (index < 0) return
+            val removed = loaded.members[index]
+            inFlightRemovals += did
+            setState { withMembers(loaded.members.filterNot { it.did == did }) }
+            viewModelScope.launch {
+                try {
+                    repository.removeMembers(convoId, listOf(did)).onFailure {
+                        setState {
+                            val current = (status as? GroupDetailsLoadStatus.Loaded)?.members ?: return@setState this
+                            val restored = current.toMutableList().apply { add(index.coerceAtMost(size), removed) }
+                            withMembers(restored)
+                        }
+                        sendEffect(GroupDetailsEffect.ShowError(it.toMemberMgmtError()))
+                    }
+                } finally {
+                    inFlightRemovals -= did
+                }
+            }
+        }
+
+        /** Rebuild Loaded with memberCount ALWAYS derived from the list size (never a stale decrement). */
+        private fun GroupDetailsViewState.withMembers(newMembers: List<GroupMemberUi>): GroupDetailsViewState {
+            val loaded = status as? GroupDetailsLoadStatus.Loaded ?: return this
+            val imm = newMembers.toImmutableList()
+            return copy(status = loaded.copy(members = imm, memberCount = imm.size))
         }
     }
