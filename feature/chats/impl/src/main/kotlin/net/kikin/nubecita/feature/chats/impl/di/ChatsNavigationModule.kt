@@ -22,6 +22,7 @@ import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.GroupDetails
 import net.kikin.nubecita.feature.chats.api.NewChat
+import net.kikin.nubecita.feature.chats.api.NewGroup
 import net.kikin.nubecita.feature.chats.impl.AddGroupMembersScreen
 import net.kikin.nubecita.feature.chats.impl.AddGroupMembersViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatScreen
@@ -32,6 +33,7 @@ import net.kikin.nubecita.feature.chats.impl.ChatsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupDetailsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupDetailsViewModel
 import net.kikin.nubecita.feature.chats.impl.NewChatScreen
+import net.kikin.nubecita.feature.chats.impl.NewGroupScreen
 import net.kikin.nubecita.feature.chats.impl.selectedConvoId
 import net.kikin.nubecita.feature.chats.impl.selectedOtherUserDid
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
@@ -79,6 +81,7 @@ internal object ChatsNavigationModule {
                     // push, so Compact behavior is unchanged.
                     onNavigateToChat = { convoId -> navState.replaceTop(Chat(convoId = convoId)) },
                     onNewChat = { navState.add(NewChat) },
+                    onNewGroup = { navState.add(NewGroup) },
                     selectedConvoId = selectedConvoId,
                     selectedOtherUserDid = selectedOtherUserDid,
                     onNavigateToChatSettings = { navState.add(ChatSettings) },
@@ -93,6 +96,14 @@ internal object ChatsNavigationModule {
             entry<NewChat> {
                 val navState = LocalMainShellNavState.current
                 NewChatScreen(onBack = { navState.removeLast() })
+            }
+            entry<NewGroup> {
+                val navState = LocalMainShellNavState.current
+                NewGroupScreen(
+                    viewModel = hiltViewModel(),
+                    onCreated = { convoId -> navState.replaceTop(Chat(convoId = convoId)) },
+                    onBack = { navState.removeLast() },
+                )
             }
             // adaptiveDialog(): full-screen on Compact, centered Dialog on
             // Medium / Expanded — the AdaptiveDialogSceneStrategy in :app reads

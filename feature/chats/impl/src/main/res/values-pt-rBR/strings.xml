@@ -68,6 +68,10 @@
     <string name="new_chat_retry">Tentar de novo</string>
     <string name="new_chat_back_content_description">Voltar</string>
     <string name="new_chat_fab_content_description">Nova mensagem</string>
+    <string name="chats_new_message">Nova mensagem</string>
+    <string name="chats_new_group">Novo grupo</string>
+    <string name="chats_fab_menu_open">Nova conversa</string>
+    <string name="chats_fab_menu_close">Fechar</string>
     <string name="new_chat_cannot_message">Não pode receber mensagens</string>
     <string name="chat_settings_title">Quem pode enviar mensagens para você</string>
     <string name="chat_settings_gear_content_description">Configurações do chat</string>

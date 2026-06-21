@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 internal fun ChatsScreen(
     onNavigateToChat: (convoId: String) -> Unit,
     onNewChat: () -> Unit,
+    onNewGroup: () -> Unit,
     modifier: Modifier = Modifier,
     selectedConvoId: String? = null,
     selectedOtherUserDid: String? = null,
@@ -114,6 +115,7 @@ internal fun ChatsScreen(
         snackbarHostState = snackbarHostState,
         onEvent = viewModel::handleEvent,
         onNewChat = onNewChat,
+        onNewGroup = onNewGroup,
         selectedConvoId = selectedConvoId,
         selectedOtherUserDid = selectedOtherUserDid,
         modifier = modifier,

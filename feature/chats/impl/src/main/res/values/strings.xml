@@ -91,6 +91,10 @@
     <string name="new_chat_retry">Retry</string>
     <string name="new_chat_back_content_description">Back</string>
     <string name="new_chat_fab_content_description">New message</string>
+    <string name="chats_new_message">New message</string>
+    <string name="chats_new_group">New group</string>
+    <string name="chats_fab_menu_open">New conversation</string>
+    <string name="chats_fab_menu_close">Close</string>
     <string name="new_chat_cannot_message">Can\'t be messaged</string>
 
     <!-- Chat settings screen ("Who can message you") — the account-global
