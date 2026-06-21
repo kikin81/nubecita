@@ -252,6 +252,7 @@ internal fun AddGroupMembersScreenContent(
                             RecipientRow(
                                 actor = actor,
                                 enabled = !state.atCapacity,
+                                respectCanMessage = false,
                                 onClick = { onEvent(AddMembersEvent.RecipientToggled(actor.did)) },
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -278,6 +279,7 @@ internal fun AddGroupMembersScreenContent(
                             RecipientRow(
                                 actor = actor,
                                 enabled = !state.atCapacity,
+                                respectCanMessage = false,
                                 onClick = { onEvent(AddMembersEvent.RecipientToggled(actor.did)) },
                                 modifier = Modifier.fillMaxWidth(),
                             )

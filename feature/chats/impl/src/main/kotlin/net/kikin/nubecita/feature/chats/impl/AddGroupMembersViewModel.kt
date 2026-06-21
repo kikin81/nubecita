@@ -184,8 +184,13 @@ class AddGroupMembersViewModel
             viewModelScope.launch {
                 chatRepository
                     .addMembers(convoId, dids)
-                    .onSuccess { sendEffect(AddMembersEffect.MembersAdded) }
-                    .onFailure {
+                    .onSuccess {
+                        // Defensive: MembersAdded pops the screen, which normally tears the VM
+                        // down before this matters — but reset isSubmitting anyway so a stuck
+                        // spinner can't happen if the pop ever becomes async.
+                        setState { copy(isSubmitting = false) }
+                        sendEffect(AddMembersEffect.MembersAdded)
+                    }.onFailure {
                         setState { copy(isSubmitting = false) }
                         sendEffect(AddMembersEffect.ShowError(it.toMemberMgmtError()))
                     }

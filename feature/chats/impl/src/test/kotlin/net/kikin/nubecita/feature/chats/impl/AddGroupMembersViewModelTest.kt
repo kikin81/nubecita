@@ -4,6 +4,7 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshots.Snapshot
 import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.toImmutableList
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class AddGroupMembersViewModelTest {
@@ -191,6 +193,70 @@ internal class AddGroupMembersViewModelTest {
         }
 
     @Test
+    fun `typedQuery_showsResults_excludingExistingAndSelf`() =
+        runTest(mainDispatcher.dispatcher) {
+            fakeChat.getConvoMembersResult =
+                Result.success(MemberPage(members = listOf(groupMember("did:existing")).toImmutableList(), cursor = null))
+            every { actorRepo.recentActors(any(), any()) } returns flowOf(emptyList())
+            coEvery { actorRepo.searchTypeahead("ca", any()) } returns
+                Result.success(listOf(actorUi("did:existing"), actorUi("did:new"), actorUi("did:self")))
+
+            val vm = vm()
+            advanceUntilIdle()
+            setQueryText(vm, "ca")
+            advanceUntilIdle()
+
+            val status = vm.uiState.value.status
+            assertTrue(status is AddMembersStatus.Results, "expected Results, got $status")
+            val dids = (status as AddMembersStatus.Results).items.map { it.did }
+            assertTrue(dids.contains("did:new"), "search results must include the new candidate")
+            assertFalse(dids.contains("did:existing"), "existing members are filtered out")
+            assertFalse(dids.contains("did:self"), "self is filtered out")
+        }
+
+    @Test
+    fun `typedQuery_searchFailure_showsError`() =
+        runTest(mainDispatcher.dispatcher) {
+            every { actorRepo.recentActors(any(), any()) } returns flowOf(emptyList())
+            coEvery { actorRepo.searchTypeahead(any(), any()) } returns Result.failure(IOException("x"))
+
+            val vm = vm()
+            advanceUntilIdle()
+            setQueryText(vm, "ca")
+            advanceUntilIdle()
+
+            assertEquals(AddMembersStatus.Error, vm.uiState.value.status)
+        }
+
+    @Test
+    fun `selectingFromSearchResults_removesThemFromVisibleList`() =
+        runTest(mainDispatcher.dispatcher) {
+            every { actorRepo.recentActors(any(), any()) } returns flowOf(emptyList())
+            coEvery { actorRepo.searchTypeahead("ca", any()) } returns
+                Result.success(listOf(actorUi("did:b"), actorUi("did:c")))
+
+            val vm = vm()
+            advanceUntilIdle()
+            setQueryText(vm, "ca")
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("did:b", "did:c"),
+                (vm.uiState.value.status as AddMembersStatus.Results).items.map { it.did },
+            )
+
+            vm.handleEvent(AddMembersEvent.RecipientToggled("did:c"))
+            advanceUntilIdle()
+
+            // The selection-change re-runs the combine so the picked did drops out of the Results list.
+            assertEquals(
+                listOf("did:b"),
+                (vm.uiState.value.status as AddMembersStatus.Results).items.map { it.did },
+                "a picked did is filtered out of the visible search results",
+            )
+        }
+
+    @Test
     fun `addTapped_failure_mapsToShowError_andClearsSubmitting`() =
         runTest(mainDispatcher.dispatcher) {
             every { actorRepo.recentActors(any(), any()) } returns flowOf(listOf(actorUi("did:new")))
@@ -215,7 +281,6 @@ internal class AddGroupMembersViewModelTest {
      * Compose snapshot system so the change reaches the VM's `snapshotFlow`
      * collector. Mirrors `NewChatViewModelTest.setQueryText`.
      */
-    @Suppress("unused")
     private fun TestScope.setQueryText(
         vm: AddGroupMembersViewModel,
         text: String,

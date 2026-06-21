@@ -495,6 +495,96 @@ internal class GroupDetailsViewModelTest {
             assertEquals(loaded.members.size, loaded.memberCount)
         }
 
+    @Test
+    fun `a second RemoveMember for the same did is dropped while one is in flight`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            repo.getConvoMembersResult =
+                Result.success(
+                    MemberPage(
+                        members =
+                            persistentListOf(
+                                member("did:a", "alice", FollowState.NotFollowing, isViewer = true, role = GroupRole.Owner),
+                                member("did:b", "bob", FollowState.NotFollowing),
+                            ),
+                    ),
+                )
+            // Gate the removal so the first call parks in-flight; without the gate the
+            // launch completes eagerly under UnconfinedTestDispatcher and the guard
+            // never observably holds the DID — gating makes the dedupe deterministic.
+            repo.removeMembersGate = CompletableDeferred()
+            val vm = groupDetailsViewModel(repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(GroupDetailsEvent.RemoveMember("did:b"))
+            advanceUntilIdle()
+            vm.handleEvent(GroupDetailsEvent.RemoveMember("did:b"))
+            advanceUntilIdle()
+            repo.removeMembersGate!!.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(
+                1,
+                repo.removeMembersCalls.count { it == convoId to listOf("did:b") },
+                "second remove of the same did dropped while the first is in-flight",
+            )
+        }
+
+    @Test
+    fun `viewerRole is null when the viewer is not in the roster`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            repo.getConvoMembersResult =
+                Result.success(
+                    MemberPage(
+                        members =
+                            persistentListOf(
+                                member("did:a", "alice", FollowState.NotFollowing),
+                                member("did:b", "bob", FollowState.NotFollowing),
+                            ),
+                    ),
+                )
+            val vm = groupDetailsViewModel(repo)
+            advanceUntilIdle()
+
+            assertEquals(null, vm.uiState.value.viewerRole)
+        }
+
+    @Test
+    fun `interleaved removes with one mid-flight failure rolls back only the failed member`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            repo.getConvoMembersResult =
+                Result.success(
+                    MemberPage(
+                        members =
+                            persistentListOf(
+                                member("did:self", "me", FollowState.NotFollowing, isViewer = true, role = GroupRole.Owner),
+                                member("did:a", "alice", FollowState.NotFollowing),
+                                member("did:c", "carol", FollowState.NotFollowing),
+                            ),
+                    ),
+                )
+            // Per-call results consumed in order: first remove (did:a) succeeds, second (did:c) fails → rolls back.
+            repo.removeMembersResults.addLast(Result.success(Unit))
+            repo.removeMembersResults.addLast(Result.failure(IOException("down")))
+            val vm = groupDetailsViewModel(repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(GroupDetailsEvent.RemoveMember("did:a"))
+            vm.handleEvent(GroupDetailsEvent.RemoveMember("did:c"))
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.status as GroupDetailsLoadStatus.Loaded
+            val dids = loaded.members.map { it.did }
+            assertFalse(dids.contains("did:a"), "the successful removal stays gone")
+            assertTrue(dids.contains("did:c"), "the failed removal is rolled back")
+            assertEquals(loaded.members.size, loaded.memberCount, "count always tracks the list size")
+        }
+
     private fun groupDetailsViewModel(
         repo: FakeChatRepository,
         follow: FakeFollowRepository = FakeFollowRepository(),
