@@ -16,11 +16,14 @@ import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.GroupDetails
 import net.kikin.nubecita.feature.chats.api.NewChat
+import net.kikin.nubecita.feature.chats.impl.AddGroupMembersScreen
+import net.kikin.nubecita.feature.chats.impl.AddGroupMembersViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatScreen
 import net.kikin.nubecita.feature.chats.impl.ChatSettingsScreen
 import net.kikin.nubecita.feature.chats.impl.ChatSettingsViewModel
@@ -130,8 +133,29 @@ internal object ChatsNavigationModule {
                     )
                 GroupDetailsScreen(
                     viewModel = viewModel,
+                    convoId = route.convoId,
                     onBack = { navState.removeLast() },
                     onNavigateTo = { key -> navState.add(key) },
+                )
+            }
+            // adaptiveDialog(): full-screen on Compact, centered Dialog on
+            // Medium / Expanded. Assisted-injected — AddGroupMembersViewModel
+            // takes the AddGroupMembers route via its factory. On success it sets
+            // a one-shot result (the invited count) keyed by convoId that
+            // GroupDetailsScreen consumes on the way back, then pops itself.
+            entry<AddGroupMembers>(metadata = adaptiveDialog()) { route ->
+                val navState = LocalMainShellNavState.current
+                val viewModel =
+                    hiltViewModel<AddGroupMembersViewModel, AddGroupMembersViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                AddGroupMembersScreen(
+                    viewModel = viewModel,
+                    onAdded = { count ->
+                        navState.setResult("group_members_added:${route.convoId}", count)
+                        navState.removeLast()
+                    },
+                    onBack = { navState.removeLast() },
                 )
             }
         }

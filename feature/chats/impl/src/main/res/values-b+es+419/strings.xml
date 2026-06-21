@@ -90,6 +90,15 @@
     <string name="group_details_action_error">Algo salió mal. Inténtalo de nuevo.</string>
     <string name="group_details_retry">Reintentar</string>
     <string name="group_details_menu_item">Detalles del grupo</string>
+    <!-- Group member management (nubecita-hwix.5) -->
+    <string name="group_details_add_members">Agregar miembros</string>
+    <string name="group_details_remove_member">Quitar del grupo</string>
+    <string name="group_details_remove_confirm_title">¿Quitar miembro?</string>
+    <string name="group_details_remove_confirm_body">¿Quitar a %1$s de este grupo?</string>
+    <string name="group_details_remove_confirm_action">Quitar</string>
+    <string name="group_details_cancel">Cancelar</string>
+    <string name="group_details_member_options">Opciones del miembro</string>
+    <string name="group_details_invites_sent">Invitaciones enviadas</string>
     <!-- Add group members (nubecita-hwix.5) -->
     <string name="add_members_title">Agregar miembros</string>
     <string name="add_members_action">Agregar</string>

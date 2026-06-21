@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -23,8 +24,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,6 +40,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.designsystem.component.AvatarGroup
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -57,12 +61,14 @@ import net.kikin.nubecita.feature.chats.impl.ui.GroupMemberRow
 @Composable
 internal fun GroupDetailsScreen(
     viewModel: GroupDetailsViewModel,
+    convoId: String,
     onBack: () -> Unit,
     onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val navState = LocalMainShellNavState.current
     val currentOnBack by rememberUpdatedState(onBack)
     val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
     // Pre-resolve at composition so locale/dark-mode changes track via Compose's
@@ -85,6 +91,20 @@ internal fun GroupDetailsScreen(
                         snackbarHostState.showSnackbar(actionErrorMsg)
                     }
             }
+        }
+    }
+
+    // Consume the one-shot count set by AddGroupMembers on its way back, then
+    // deliberately refresh the roster and surface the Invitations-sent snackbar.
+    val resultKey = "group_members_added:$convoId"
+    val pendingAdd = navState.peekResult(resultKey) as? Int
+    val invitesSentMsg = stringResource(R.string.group_details_invites_sent)
+    LaunchedEffect(pendingAdd) {
+        if (pendingAdd != null) {
+            navState.consumeResult(resultKey)
+            viewModel.handleEvent(GroupDetailsEvent.Refresh) // deliberate roster refresh
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(invitesSentMsg)
         }
     }
 
@@ -194,20 +214,54 @@ private fun LoadedBody(
                 }.toImmutableList()
         }
 
+    var pendingRemoval by remember { mutableStateOf<GroupMemberUi?>(null) }
+
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item(contentType = "header") {
             GroupHeader(state = state, status = status, facepile = facepile)
         }
         item(contentType = "actions") {
-            GroupActionRow(muted = state.muted, onEvent = onEvent)
+            GroupActionRow(muted = state.muted, viewerRole = state.viewerRole, onEvent = onEvent)
         }
         items(status.members, key = { it.did }, contentType = { "member" }) { member ->
             GroupMemberRow(
                 member = member,
+                viewerRole = state.viewerRole,
                 onClick = { onEvent(GroupDetailsEvent.MemberTapped(member.did)) },
                 onToggleFollow = { onEvent(GroupDetailsEvent.ToggleFollow(member.did)) },
+                onRemove = { pendingRemoval = member },
             )
         }
+    }
+
+    pendingRemoval?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingRemoval = null },
+            title = { Text(stringResource(R.string.group_details_remove_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.group_details_remove_confirm_body,
+                        target.displayName ?: target.handle,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onEvent(GroupDetailsEvent.RemoveMember(target.did))
+                        pendingRemoval = null
+                    },
+                ) {
+                    Text(stringResource(R.string.group_details_remove_confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRemoval = null }) {
+                    Text(stringResource(R.string.group_details_cancel))
+                }
+            },
+        )
     }
 }
 
@@ -239,12 +293,21 @@ private fun GroupHeader(
 @Composable
 private fun GroupActionRow(
     muted: Boolean,
+    viewerRole: GroupRole?,
     onEvent: (GroupDetailsEvent) -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (viewerRole == GroupRole.Owner) {
+            OutlinedButton(
+                onClick = { onEvent(GroupDetailsEvent.AddMembersTapped) },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.group_details_add_members))
+            }
+        }
         OutlinedButton(
             onClick = { onEvent(GroupDetailsEvent.ToggleMute) },
             modifier = Modifier.weight(1f),
@@ -324,6 +387,28 @@ private fun GroupDetailsLoadedPreview() {
                 GroupDetailsViewState(
                     name = "Mathematicians",
                     muted = false,
+                    status =
+                        GroupDetailsLoadStatus.Loaded(
+                            members = previewMembers,
+                            memberCount = previewMembers.size,
+                        ),
+                ),
+            onEvent = {},
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(name = "Group details — owner view", showBackground = true)
+@Composable
+private fun GroupDetailsOwnerPreview() {
+    NubecitaCanvasPreviewTheme {
+        GroupDetailsScreenContent(
+            state =
+                GroupDetailsViewState(
+                    name = "Mathematicians",
+                    muted = false,
+                    viewerRole = GroupRole.Owner,
                     status =
                         GroupDetailsLoadStatus.Loaded(
                             members = previewMembers,
