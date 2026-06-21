@@ -38,17 +38,48 @@ directly in the new thread.
 
 ## Architecture
 
-### Entry point — FAB choice menu
+### Entry point — M3 Expressive FAB menu (speed dial)
 
-The inbox FAB in `ChatsScreenContent` currently calls `onNewChat`. Replace its `onClick` with a
-small **`DropdownMenu` anchored to the FAB** (screen-local `var menuExpanded by remember { mutableStateOf(false) }`,
-mirroring the existing overflow menus — no ViewModel involvement):
+Replace the single inbox FAB with the **Material 3 Expressive `FloatingActionButtonMenu`**
+(speed-dial), not a `DropdownMenu`: a primary `ToggleFloatingActionButton` that animates between the
+compose/edit glyph and a close ("X") glyph and, when toggled, reveals a vertical stack of
+pill-shaped `FloatingActionButtonMenuItem`s. These APIs are `@ExperimentalMaterial3ExpressiveApi` in
+material3 **1.5.0-alpha22** (verified present in the resolved artifact).
 
-- **New message** → `onNewChat()` (unchanged → nav module `navState.add(NewChat)`).
-- **New group** → `onNewGroup()` (new callback → nav module `navState.add(NewGroup)`).
-
-`ChatsScreen` gains an `onNewGroup: () -> Unit` param alongside `onNewChat`. The DropdownMenu items
-use new strings; the FAB content description is unchanged.
+In `ChatsScreenContent`, screen-local state drives it (no ViewModel involvement):
+`var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }`. Shape:
+```kotlin
+FloatingActionButtonMenu(
+    expanded = fabMenuExpanded,
+    button = {
+        ToggleFloatingActionButton(
+            checked = fabMenuExpanded,
+            onCheckedChange = { fabMenuExpanded = it },
+        ) { /* animated edit ↔ close icon, driven by the toggle progress */ }
+    },
+) {
+    // Primary action nearest the FAB.
+    FloatingActionButtonMenuItem(
+        onClick = { fabMenuExpanded = false; onNewChat() },
+        icon = { NubecitaIcon(NubecitaIconName.Edit, …) },
+        text = { Text(stringResource(R.string.chats_new_message)) },
+    )
+    FloatingActionButtonMenuItem(
+        onClick = { fabMenuExpanded = false; onNewGroup() },
+        icon = { NubecitaIcon(NubecitaIconName.Group /* or People */, …) },
+        text = { Text(stringResource(R.string.chats_new_group)) },
+    )
+}
+```
+The menu stays gated by the existing FAB conditions (hidden in multi-select mode and when
+`NotEnrolled`). `ChatsScreen` gains an `onNewGroup: () -> Unit` param alongside `onNewChat`; the
+nav module wires `onNewChat = { navState.add(NewChat) }` and `onNewGroup = { navState.add(NewGroup) }`.
+New strings: `chats_new_message`, `chats_new_group` (+ a toggle content-description that flips
+between "New conversation" / "Close" by `fabMenuExpanded`). The expand/scrim/back-to-collapse
+animation is owned by the component. `fabMenuExpanded` uses `rememberSaveable` so the menu collapses
+across config changes. Confirm the exact `FloatingActionButtonMenu` / `ToggleFloatingActionButton` /
+`FloatingActionButtonMenuItem` parameter names against 1.5.0-alpha22 at implementation time and add
+the `@OptIn(ExperimentalMaterial3ExpressiveApi::class)`.
 
 ### `NewGroup` route + screen
 
@@ -83,21 +114,50 @@ Plain `@Inject` VM depending on `ActorRepository`, `ChatRepository`, `SessionSta
 - **Submit:** `CreateTapped` → guard `canCreate` → `isSubmitting = true` →
   `chatRepository.createGroup(name, selectedDids)` → success: `GroupCreated(convoId)`; failure:
   `isSubmitting = false` + `ShowError(it.toMemberMgmtError())`.
+- **Input lock while submitting:** when `isSubmitting`, the VM ignores `RecipientToggled` /
+  `RecipientRemoved` / a second `CreateTapped` (guarded at the top of each handler), and the UI
+  disables both text fields + chip/row interactions (see the screen section), so neither the name
+  nor the membership can change while `createGroup` is in flight. The screen also feeds
+  `enabled = !state.isSubmitting` into the `OutlinedTextField`s, `RecipientChipsRow`, and
+  `RecipientRow`s.
 
 ### `NewGroupScreen` (UI, single screen)
 
-`Scaffold(containerColor = surface)` + TopAppBar (close icon + a trailing **"Create"** `TextButton`,
-`enabled = state.canCreate`, showing a `CircularProgressIndicator` while `isSubmitting`). Body
-(top→bottom):
-1. group-name `OutlinedTextField(state = nameFieldState, singleLine)` with an over-limit supporting
-   text when `nameGraphemeCount > 128`.
-2. selected members as `RecipientChipsRow` (the extracted shared chip FlowRow), hidden when empty.
+`Scaffold(containerColor = surface)` + TopAppBar:
+- **close** nav icon, title "New group".
+- a trailing **"Create"** action. To avoid width jitter when it toggles to a spinner, render a
+  fixed-width `Box` holding BOTH the `Text("Create")` and a `CircularProgressIndicator`: the text at
+  `alpha = if (state.isSubmitting) 0f else 1f` and the indicator shown only while `isSubmitting`, so
+  the control keeps a constant width across states. `enabled = state.canCreate` (so it's disabled,
+  not just opacity-dimmed, while submitting or invalid).
+
+**Adaptive width (tablet/foldable).** The body is wrapped in a centered container constrained to
+`Modifier.widthIn(max = 600.dp)` (e.g. a `Column(Modifier.fillMaxWidth().widthIn(max = 600.dp).align(CenterHorizontally))`,
+or a centered wrapper). On Compact it fills the width; on Medium/Expanded the name field, chips, and
+search list stay within one comfortable reading column instead of stretching edge-to-edge, per M3
+large-screen guidance. (The route stays a single-pane sub-route; this is purely a body max-width
+constraint — no list-detail metadata.) Body (top→bottom), all disabled when `state.isSubmitting`:
+
+1. group-name `OutlinedTextField(state = nameFieldState, singleLine, enabled = !state.isSubmitting,
+   isError = nameGraphemeCount > GROUP_NAME_MAX_GRAPHEMES)` with a **proactive grapheme counter** in
+   `supportingText`: once `nameGraphemeCount >= GROUP_NAME_COUNTER_THRESHOLD` (80% of 128 = 103) show
+   `"$nameGraphemeCount/128"`, coloured `colorScheme.error` when over 128; below the threshold the
+   supporting text is empty. (Surfacing the counter as the user approaches the cap avoids the abrupt
+   appear-only-on-overflow shift.)
+2. selected members as `RecipientChipsRow` (the extracted shared chip FlowRow),
+   `enabled = !state.isSubmitting`, hidden when empty.
 3. an at-capacity hint when `atCapacity`.
-4. member search `OutlinedTextField(state = queryFieldState)`.
-5. results/recent `LazyColumn` reusing `RecipientRow(actor, enabled = !state.atCapacity, respectCanMessage = false, onClick = { RecipientToggled(it.did) })`; `Searching`/`NoResults`/`Error` bodies mirror the add picker.
+4. member search `OutlinedTextField(state = queryFieldState, enabled = !state.isSubmitting)`.
+5. results/recent `LazyColumn` reusing `RecipientRow(actor, enabled = !state.atCapacity && !state.isSubmitting, respectCanMessage = false, onClick = { RecipientToggled(it.did) })`; `Searching`/`NoResults`/`Error` bodies mirror the add picker.
 
 Stateful screen collects effects: `ShowError` → snackbar (child coroutine, pre-resolved copy per
 `ChatError` variant); `GroupCreated(convoId)` → `onCreated(convoId)`.
+
+**Back-to-two-pane on tablets.** On Medium/Expanded the inbox is a list-detail layout; `onCreated`
+does `replaceTop(Chat(convoId))`, which lands the new convo in the **detail pane** (the `Chat` entry
+already carries `ListDetailSceneStrategy.detailPane()` metadata) with the inbox list restored in the
+list pane — the same transition New-Chat's `replaceTop(Chat)` already produces, so there's no abrupt
+full-screen→two-pane jump. Verify this transition on a tablet/expanded width during testing.
 
 ### Navigation
 
@@ -142,6 +202,7 @@ extraction).
 
 - `GROUP_MAX_MEMBERS = 50` (existing, `GroupDetailsContract`) — cap on others = `GROUP_MAX_MEMBERS - 1`.
 - New `GROUP_NAME_MAX_GRAPHEMES = 128`.
+- New `GROUP_NAME_COUNTER_THRESHOLD = 103` (80% of 128) — above this the proactive name counter shows.
 
 ## Files
 
@@ -152,7 +213,7 @@ extraction).
 **Modified**
 - `feature/chats/api/.../Chats.kt` — `NewGroup` NavKey
 - `feature/chats/impl/.../data/ChatRepository.kt` (+ `DefaultChatRepository.kt`) — `createGroup` + 5 fakes
-- `feature/chats/impl/.../ChatsScreen.kt` + `ChatsScreenContent.kt` — `onNewGroup` + FAB DropdownMenu
+- `feature/chats/impl/.../ChatsScreen.kt` + `ChatsScreenContent.kt` — `onNewGroup` + M3 Expressive `FloatingActionButtonMenu`
 - `feature/chats/impl/.../di/ChatsNavigationModule.kt` — `onNewGroup` wiring + `entry<NewGroup>`
 - `feature/chats/impl/.../AddGroupMembersScreen.kt` — use the extracted `RecipientChipsRow`
 - strings `values/`, `values-b+es+419/`, `values-pt-rBR/`
@@ -160,11 +221,17 @@ extraction).
 ## Testing
 
 - **Unit:** `NewGroupViewModel` — name grapheme validation incl. the 128 boundary + empty/blank →
-  `canCreate` gating; search/recent select/deselect; cap at `GROUP_MAX_MEMBERS - 1`; create success →
+  `canCreate` gating; the proactive counter threshold (`nameGraphemeCount` exposed; assert it crosses
+  103/128 correctly); search/recent select/deselect; cap at `GROUP_MAX_MEMBERS - 1`; create success →
   `GroupCreated(convoId)` with `createGroupCalls` recording `(name, dids)`; failure → `ShowError`
-  (e.g. `GroupFull` for `MemberLimitReached`). `ChatRepository` fakes drive results.
-- **Screenshot:** the FAB DropdownMenu open; `NewGroupScreenContent` empty, with name + chips +
-  results, and at-capacity.
+  (e.g. `GroupFull` for `MemberLimitReached`); **input-lock**: while `isSubmitting`, `RecipientToggled`
+  / `RecipientRemoved` / a second `CreateTapped` are ignored (assert no extra `createGroupCalls` and
+  `selected` unchanged). `ChatRepository` fakes drive results (use a gated/suspending `createGroup`
+  result to hold `isSubmitting` true for the lock assertions).
+- **Screenshot:** the **`FloatingActionButtonMenu`** expanded over the inbox; `NewGroupScreenContent`
+  empty, with name + chips + results, at-capacity, the name counter near/over the limit, and the
+  `isSubmitting` state (spinner in the Create slot, inputs disabled). Add a Medium/Expanded-width
+  preview to capture the 600.dp body constraint.
 - **Gate:** `spotlessCheck :app:checkSortDependencies :feature:chats:impl:lintProductionDebug
   :feature:chats:impl:testProductionDebugUnitTest :app:assembleDebug`, screenshot validate (+
   `update-baselines` label), compose-expert review (UI added).
