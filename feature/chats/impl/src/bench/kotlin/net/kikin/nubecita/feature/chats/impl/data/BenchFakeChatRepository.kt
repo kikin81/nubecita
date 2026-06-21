@@ -20,6 +20,9 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
+import net.kikin.nubecita.feature.chats.impl.FollowState
+import net.kikin.nubecita.feature.chats.impl.GroupMemberUi
+import net.kikin.nubecita.feature.chats.impl.GroupRole
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
@@ -302,11 +305,46 @@ internal class BenchFakeChatRepository
         // the inbox is fully served by the chats.json convo cache. Empty page.
         override suspend fun getLog(cursor: String?): Result<ChatLogPage> = Result.success(ChatLogPage())
 
-        // Group-details roster lands in a later task; bench seeds no member fixtures yet.
+        // Roster for the bench group-details screen: the signed-in viewer as owner
+        // (so the owner-only Add / Remove affordances render for manual capture),
+        // followed by the convo's facepile members as standard, removable members.
         override suspend fun getConvoMembers(
             convoId: String,
             cursor: String?,
-        ): Result<MemberPage> = Result.success(MemberPage())
+        ): Result<MemberPage> {
+            ensureLoaded()
+            val viewerDid = currentViewerDid()
+            val group = convosCache[convoId] as? ConvoRowUi.Group ?: return Result.success(MemberPage())
+            val viewer =
+                GroupMemberUi(
+                    did = viewerDid,
+                    handle = "you.bsky.social",
+                    displayName = "You",
+                    avatarUrl = null,
+                    role = GroupRole.Owner,
+                    addedByName = null,
+                    isViewer = true,
+                    followState = FollowState.NotFollowing,
+                    followUri = null,
+                )
+            val others =
+                group.members
+                    .filter { it.did != viewerDid }
+                    .map { author ->
+                        GroupMemberUi(
+                            did = author.did,
+                            handle = author.handle,
+                            displayName = author.displayName,
+                            avatarUrl = author.avatarUrl,
+                            role = GroupRole.Member,
+                            addedByName = null,
+                            isViewer = false,
+                            followState = FollowState.NotFollowing,
+                            followUri = null,
+                        )
+                    }
+            return Result.success(MemberPage(members = (listOf(viewer) + others).toImmutableList(), cursor = null))
+        }
 
         // Bench seeds no member fixtures yet; member management is a no-op success.
         override suspend fun addMembers(
