@@ -1,10 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,8 +14,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -42,11 +37,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.ActorUi
-import net.kikin.nubecita.designsystem.component.NubecitaAvatar
-import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
+import net.kikin.nubecita.feature.chats.impl.ui.RecipientChipsRow
 import net.kikin.nubecita.feature.chats.impl.ui.RecipientRow
 
 /**
@@ -135,7 +129,7 @@ internal fun AddGroupMembersScreen(
  * - Body driven by [AddMembersStatus]: Recent / Results lists reuse
  *   [RecipientRow]; Searching / NoResults / Error render centered bodies.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AddGroupMembersScreenContent(
     state: AddGroupMembersViewState,
@@ -196,40 +190,11 @@ internal fun AddGroupMembersScreenContent(
             )
 
             if (state.selected.isNotEmpty()) {
-                FlowRow(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    state.selected.forEach { r ->
-                        InputChip(
-                            selected = true,
-                            onClick = { onEvent(AddMembersEvent.RecipientRemoved(r.did)) },
-                            label = { Text(r.displayName ?: r.handle, maxLines = 1) },
-                            avatar = {
-                                NubecitaAvatar(
-                                    model = r.avatarUrl,
-                                    contentDescription = null,
-                                    size = InputChipDefaults.AvatarSize,
-                                    fallback =
-                                        avatarFallbackFor(
-                                            did = r.did,
-                                            handle = r.handle,
-                                            displayName = r.displayName,
-                                        ),
-                                )
-                            },
-                            trailingIcon = {
-                                NubecitaIcon(
-                                    name = NubecitaIconName.Close,
-                                    contentDescription = stringResource(R.string.add_members_remove_chip),
-                                )
-                            },
-                        )
-                    }
-                }
+                RecipientChipsRow(
+                    selected = state.selected,
+                    onRemove = { onEvent(AddMembersEvent.RecipientRemoved(it)) },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
 
             if (state.atCapacity) {
