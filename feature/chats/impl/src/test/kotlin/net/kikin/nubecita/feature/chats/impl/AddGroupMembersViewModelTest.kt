@@ -97,6 +97,31 @@ internal class AddGroupMembersViewModelTest {
         }
 
     @Test
+    fun `recipientToggled_removesPickedDidFromVisibleList`() =
+        runTest(mainDispatcher.dispatcher) {
+            every { actorRepo.recentActors(any(), any()) } returns flowOf(listOf(actorUi("did:new"), actorUi("did:other")))
+
+            val vm = vm()
+            advanceUntilIdle()
+
+            // Both candidates are visible before any selection.
+            assertEquals(
+                listOf("did:new", "did:other"),
+                (vm.uiState.value.status as AddMembersStatus.Recent).items.map { it.did },
+            )
+
+            vm.handleEvent(AddMembersEvent.RecipientToggled("did:new"))
+            advanceUntilIdle()
+
+            // The selection-change re-runs the combine so the picked did drops out of the list.
+            assertEquals(
+                listOf("did:other"),
+                (vm.uiState.value.status as AddMembersStatus.Recent).items.map { it.did },
+                "a picked did is filtered out of the visible candidates",
+            )
+        }
+
+    @Test
     fun `recipientRemoved_removesSelectedChip`() =
         runTest(mainDispatcher.dispatcher) {
             every { actorRepo.recentActors(any(), any()) } returns flowOf(listOf(actorUi("did:new")))

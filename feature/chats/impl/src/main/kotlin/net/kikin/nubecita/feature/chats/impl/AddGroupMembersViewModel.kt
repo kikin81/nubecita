@@ -12,6 +12,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
@@ -90,35 +92,49 @@ class AddGroupMembersViewModel
                 }
             }
 
-            merge(
-                snapshotFlow { queryFieldState.text.toString() },
-                retryTrigger.map { queryFieldState.text.toString() },
-            ).flatMapLatest { raw ->
-                val q = raw.trim()
-                if (q.isEmpty()) {
-                    actorRepository
-                        .recentActors(selfDid)
-                        .map<List<ActorUi>, AddMembersStatus> { actors ->
-                            AddMembersStatus.Recent(actors.pickable().toImmutableList())
-                        }.catch { emit(AddMembersStatus.Error) } // recent cache read failed; pipeline survives
-                } else {
-                    flow {
-                        emit(AddMembersStatus.Searching)
-                        delay(DEBOUNCE)
-                        emit(
-                            actorRepository.searchTypeahead(q).fold(
-                                onSuccess = { actors ->
-                                    val filtered = actors.pickable()
-                                    if (filtered.isEmpty()) {
-                                        AddMembersStatus.NoResults
-                                    } else {
-                                        AddMembersStatus.Results(filtered.toImmutableList())
-                                    }
-                                },
-                                onFailure = { AddMembersStatus.Error },
-                            ),
-                        )
+            val rawStatusFlow =
+                merge(
+                    snapshotFlow { queryFieldState.text.toString() },
+                    retryTrigger.map { queryFieldState.text.toString() },
+                ).flatMapLatest { raw ->
+                    val q = raw.trim()
+                    if (q.isEmpty()) {
+                        actorRepository
+                            .recentActors(selfDid)
+                            .map<List<ActorUi>, AddMembersStatus> { actors ->
+                                AddMembersStatus.Recent(actors.toImmutableList())
+                            }.catch { emit(AddMembersStatus.Error) } // recent cache read failed; pipeline survives
+                    } else {
+                        flow {
+                            emit(AddMembersStatus.Searching)
+                            delay(DEBOUNCE)
+                            emit(
+                                actorRepository.searchTypeahead(q).fold(
+                                    onSuccess = { actors ->
+                                        if (actors.isEmpty()) {
+                                            AddMembersStatus.NoResults
+                                        } else {
+                                            AddMembersStatus.Results(actors.toImmutableList())
+                                        }
+                                    },
+                                    onFailure = { AddMembersStatus.Error },
+                                ),
+                            )
+                        }
                     }
+                }
+
+            combine(
+                rawStatusFlow,
+                // uiState is StateFlow-backed (not Compose snapshot state), so observe the
+                // selection via map/distinctUntilChanged — a snapshotFlow wouldn't re-emit.
+                uiState.map { it.selected }.distinctUntilChanged(),
+            ) { rawStatus, selected ->
+                val selectedDids = selected.mapTo(mutableSetOf()) { it.did }
+                when (rawStatus) {
+                    is AddMembersStatus.Recent -> AddMembersStatus.Recent(rawStatus.items.pickable(selectedDids).toImmutableList())
+                    is AddMembersStatus.Results -> AddMembersStatus.Results(rawStatus.items.pickable(selectedDids).toImmutableList())
+                    else -> rawStatus
                 }
             }.onEach { status -> setState { copy(status = status) } }
                 .launchIn(viewModelScope)
@@ -188,10 +204,7 @@ class AddGroupMembersViewModel
          * Drop actors that can't be picked: self, current roster members, and
          * already-selected recipients (they appear as chips, not in the list).
          */
-        private fun List<ActorUi>.pickable(): List<ActorUi> {
-            val selectedDids = uiState.value.selected.mapTo(mutableSetOf()) { it.did }
-            return filter { it.did != selfDid && it.did !in existingDids && it.did !in selectedDids }
-        }
+        private fun List<ActorUi>.pickable(selectedDids: Set<String>): List<ActorUi> = filter { it.did != selfDid && it.did !in existingDids && it.did !in selectedDids }
 
         private companion object {
             val DEBOUNCE = 250.milliseconds

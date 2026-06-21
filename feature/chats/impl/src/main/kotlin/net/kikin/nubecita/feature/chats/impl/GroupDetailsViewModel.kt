@@ -260,7 +260,10 @@ class GroupDetailsViewModel
             if (index < 0) return
             val removed = loaded.members[index]
             inFlightRemovals += did
-            setState { withMembers(loaded.members.filterNot { it.did == did }) }
+            setState {
+                val current = status as? GroupDetailsLoadStatus.Loaded ?: return@setState this
+                withMembers(current.members.filterNot { it.did == did })
+            }
             viewModelScope.launch {
                 try {
                     repository.removeMembers(convoId, listOf(did)).onFailure {

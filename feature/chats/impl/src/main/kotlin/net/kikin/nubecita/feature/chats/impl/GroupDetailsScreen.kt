@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -97,15 +98,24 @@ internal fun GroupDetailsScreen(
     // Consume the one-shot count set by AddGroupMembers on its way back, then
     // deliberately refresh the roster and surface the Invitations-sent snackbar.
     val resultKey = "group_members_added:$convoId"
-    val pendingAdd = navState.peekResult(resultKey) as? Int
     val invitesSentMsg = stringResource(R.string.group_details_invites_sent)
-    LaunchedEffect(pendingAdd) {
-        if (pendingAdd != null) {
-            navState.consumeResult(resultKey)
-            viewModel.handleEvent(GroupDetailsEvent.Refresh) // deliberate roster refresh
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(invitesSentMsg)
-        }
+    LaunchedEffect(convoId) {
+        // peekResult is snapshot-observed; snapshotFlow re-emits when AddGroupMembers
+        // stashes the count on its way back. consumeResult clears it (one-shot). The
+        // snackbar runs in a child coroutine so consuming the result — which would
+        // otherwise flip a pendingAdd-keyed effect to null and cancel it — can't
+        // cancel the suspending showSnackbar.
+        snapshotFlow { navState.peekResult(resultKey) as? Int }
+            .collect { pending ->
+                if (pending != null) {
+                    navState.consumeResult(resultKey)
+                    viewModel.handleEvent(GroupDetailsEvent.Refresh)
+                    launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(invitesSentMsg)
+                    }
+                }
+            }
     }
 
     GroupDetailsScreenContent(

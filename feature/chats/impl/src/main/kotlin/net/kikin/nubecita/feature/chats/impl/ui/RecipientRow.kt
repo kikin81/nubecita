@@ -43,13 +43,14 @@ internal fun RecipientRow(
     actor: ActorUi,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
-    val enabled = actor.canMessage
-    val contentAlpha = if (enabled) 1f else DISABLED_CONTENT_ALPHA
+    val effectiveEnabled = enabled && actor.canMessage
+    val contentAlpha = if (effectiveEnabled) 1f else DISABLED_CONTENT_ALPHA
     Row(
         modifier =
             modifier
-                .clickable(enabled = enabled, onClick = onClick)
+                .clickable(enabled = effectiveEnabled, onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -72,7 +73,7 @@ internal fun RecipientRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.alpha(contentAlpha),
             )
-            if (!enabled) {
+            if (!actor.canMessage) {
                 Text(
                     text = stringResource(R.string.new_chat_cannot_message),
                     style = MaterialTheme.typography.bodySmall,
