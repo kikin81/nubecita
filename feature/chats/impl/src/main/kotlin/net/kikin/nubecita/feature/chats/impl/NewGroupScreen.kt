@@ -238,7 +238,7 @@ internal fun NewGroupScreenContent(
 
                 when (val s = state.status) {
                     is NewGroupStatus.Recent -> {
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                             items(
                                 items = s.items,
                                 key = { it.did },
@@ -257,7 +257,7 @@ internal fun NewGroupScreenContent(
 
                     NewGroupStatus.Searching -> {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxWidth().weight(1f),
                             contentAlignment = Alignment.Center,
                         ) {
                             CircularProgressIndicator()
@@ -265,7 +265,7 @@ internal fun NewGroupScreenContent(
                     }
 
                     is NewGroupStatus.Results -> {
-                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                             items(
                                 items = s.items,
                                 key = { it.did },
@@ -284,7 +284,7 @@ internal fun NewGroupScreenContent(
 
                     NewGroupStatus.NoResults -> {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxWidth().weight(1f),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
@@ -298,7 +298,7 @@ internal fun NewGroupScreenContent(
 
                     NewGroupStatus.Error -> {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxWidth().weight(1f),
                             contentAlignment = Alignment.Center,
                         ) {
                             Column(

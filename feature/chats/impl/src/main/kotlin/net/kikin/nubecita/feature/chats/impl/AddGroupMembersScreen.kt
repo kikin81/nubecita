@@ -208,7 +208,7 @@ internal fun AddGroupMembersScreenContent(
 
             when (val s = state.status) {
                 is AddMembersStatus.Recent -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                         items(
                             items = s.items,
                             key = { it.did },
@@ -227,7 +227,7 @@ internal fun AddGroupMembersScreenContent(
 
                 AddMembersStatus.Searching -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator()
@@ -235,7 +235,7 @@ internal fun AddGroupMembersScreenContent(
                 }
 
                 is AddMembersStatus.Results -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                         items(
                             items = s.items,
                             key = { it.did },
@@ -254,7 +254,7 @@ internal fun AddGroupMembersScreenContent(
 
                 AddMembersStatus.NoResults -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -268,7 +268,7 @@ internal fun AddGroupMembersScreenContent(
 
                 AddMembersStatus.Error -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(
