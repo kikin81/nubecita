@@ -14,7 +14,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
@@ -94,7 +94,7 @@ internal fun NewChatScreen(
  * - Body driven by [NewChatState.status]:
  *   - [NewChatStatus.Recent]: sticky "Recent" header + [RecipientRow] list
  *     (empty → nothing shown).
- *   - [NewChatStatus.Searching]: centered [CircularProgressIndicator].
+ *   - [NewChatStatus.Searching]: centered [NubecitaWavyProgressIndicator].
  *   - [NewChatStatus.Results]: [RecipientRow] list, no header.
  *   - [NewChatStatus.NoResults]: centered "No people found" message.
  *   - [NewChatStatus.Error]: centered error + Retry [Button].
@@ -190,7 +190,7 @@ internal fun NewChatScreenContent(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator()
+                        NubecitaWavyProgressIndicator()
                     }
                 }
 

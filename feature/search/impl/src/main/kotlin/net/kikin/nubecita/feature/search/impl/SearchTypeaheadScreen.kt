@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.feature.search.impl.ui.ActorRow
 import net.kikin.nubecita.feature.search.impl.ui.SearchForCtaButton
 import net.kikin.nubecita.feature.search.impl.ui.TypeaheadSectionHeader
@@ -131,7 +131,7 @@ internal fun SearchTypeaheadContent(
                                 .padding(vertical = 24.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator(strokeWidth = 2.dp)
+                        NubecitaWavyProgressIndicator()
                     }
                 }
             is SearchTypeaheadStatus.NoResults -> Unit

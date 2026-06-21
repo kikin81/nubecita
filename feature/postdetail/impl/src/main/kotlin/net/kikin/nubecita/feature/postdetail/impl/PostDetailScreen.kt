@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
@@ -70,6 +69,7 @@ import net.kikin.nubecita.designsystem.component.BlockedPostCard
 import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.NotFoundPostCard
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -619,7 +619,7 @@ private fun LoadingState(contentPadding: PaddingValues) {
                 .padding(contentPadding),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator()
+        NubecitaWavyProgressIndicator()
     }
 }
 
