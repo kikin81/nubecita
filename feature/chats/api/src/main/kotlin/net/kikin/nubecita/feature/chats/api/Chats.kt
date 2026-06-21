@@ -63,6 +63,17 @@ data class GroupDetails(
 ) : NavKey
 
 /**
+ * Recipient picker for adding members to a group conversation. A `@MainShell`
+ * sub-route pushed from the group-details "Add members" action; tagged
+ * `adaptiveDialog()` so it renders full-screen on Compact and as a centered
+ * Dialog on Medium / Expanded. Carries the [convoId] whose membership it extends.
+ */
+@Serializable
+data class AddGroupMembers(
+    val convoId: String,
+) : NavKey
+
+/**
  * Account-global chat settings ("Who can message you"). A `@MainShell`
  * sub-route pushed from the inbox toolbar's gear; tagged `adaptiveDialog()` so
  * it renders full-screen on Compact and as a centered Dialog on Medium /
