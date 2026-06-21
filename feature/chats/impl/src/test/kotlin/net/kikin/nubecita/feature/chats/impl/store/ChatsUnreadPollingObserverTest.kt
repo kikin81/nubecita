@@ -341,6 +341,11 @@ class ChatsUnreadPollingObserverTest {
             emoji: String,
         ): Result<MessageUi> = error("not used")
 
+        override suspend fun createGroup(
+            name: String,
+            dids: List<String>,
+        ): Result<String> = error("not used")
+
         override suspend fun addMembers(
             convoId: String,
             dids: List<String>,

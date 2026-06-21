@@ -188,6 +188,11 @@ internal class FakeChatRepository(
         cursor: String?,
     ): Result<MemberPage> = Result.success(MemberPage())
 
+    override suspend fun createGroup(
+        name: String,
+        dids: List<String>,
+    ): Result<String> = Result.success("convo:new")
+
     override suspend fun addMembers(
         convoId: String,
         dids: List<String>,

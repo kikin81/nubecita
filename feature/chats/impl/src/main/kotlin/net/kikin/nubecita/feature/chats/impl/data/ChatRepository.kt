@@ -185,6 +185,12 @@ interface ChatRepository {
         cursor: String? = null,
     ): Result<MemberPage>
 
+    /** Create a group named [name] with [dids] as initial (pending) members. Returns the new convoId. */
+    suspend fun createGroup(
+        name: String,
+        dids: List<String>,
+    ): Result<String>
+
     /** Add [dids] to group [convoId]. Added with pending status; invitees must accept. */
     suspend fun addMembers(
         convoId: String,

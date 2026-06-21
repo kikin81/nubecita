@@ -19,6 +19,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UnmuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
 import io.github.kikin81.atproto.chat.bsky.group.AddMembersRequest
+import io.github.kikin81.atproto.chat.bsky.group.CreateGroupRequest
 import io.github.kikin81.atproto.chat.bsky.group.GroupService
 import io.github.kikin81.atproto.chat.bsky.group.RemoveMembersRequest
 import io.github.kikin81.atproto.runtime.AtIdentifier
@@ -338,6 +339,21 @@ internal class DefaultChatRepository
                 }.onFailure {
                     if (it is CancellationException) throw it
                     Timber.tag(TAG).w(it, "getConvoMembers failed: %s", it.javaClass.name)
+                }
+            }
+
+        override suspend fun createGroup(
+            name: String,
+            dids: List<String>,
+        ): Result<String> =
+            withContext(dispatcher) {
+                runCatching {
+                    GroupService(xrpcClientProvider.authenticated())
+                        .createGroup(CreateGroupRequest(members = dids.map { Did(it) }, name = name))
+                        .convo.id
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).w(throwable, "createGroup failed: %s", throwable.javaClass.name)
                 }
             }
 

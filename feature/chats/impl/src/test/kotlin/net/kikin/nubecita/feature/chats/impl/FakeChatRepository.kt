@@ -214,6 +214,17 @@ internal class FakeChatRepository(
         return getConvoMembersResult
     }
 
+    var createGroupResult: Result<String> = Result.success("convo:new")
+    val createGroupCalls = mutableListOf<Pair<String, List<String>>>()
+
+    override suspend fun createGroup(
+        name: String,
+        dids: List<String>,
+    ): Result<String> {
+        createGroupCalls += name to dids
+        return createGroupResult
+    }
+
     var addMembersResult: Result<Unit> = Result.success(Unit)
     var removeMembersResult: Result<Unit> = Result.success(Unit)
     val addMembersCalls = mutableListOf<Pair<String, List<String>>>()
