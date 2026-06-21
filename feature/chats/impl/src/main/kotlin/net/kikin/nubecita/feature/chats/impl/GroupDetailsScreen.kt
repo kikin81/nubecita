@@ -177,25 +177,31 @@ private fun LoadedBody(
     status: GroupDetailsLoadStatus.Loaded,
     onEvent: (GroupDetailsEvent) -> Unit,
 ) {
+    // Keyed on the roster so it only rebuilds when membership changes — NOT on a
+    // follow-state flip (which copies the Loaded status but leaves did/handle/
+    // displayName/avatarUrl untouched). AvatarGroup itself still skips via the
+    // persistent list's structural equality; this just drops the throwaway map.
     val facepile =
-        status.members
-            .map { member ->
-                AuthorUi(
-                    did = member.did,
-                    handle = member.handle,
-                    displayName = member.displayName ?: member.handle,
-                    avatarUrl = member.avatarUrl,
-                )
-            }.toImmutableList()
+        remember(status.members) {
+            status.members
+                .map { member ->
+                    AuthorUi(
+                        did = member.did,
+                        handle = member.handle,
+                        displayName = member.displayName ?: member.handle,
+                        avatarUrl = member.avatarUrl,
+                    )
+                }.toImmutableList()
+        }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item {
+        item(contentType = "header") {
             GroupHeader(state = state, status = status, facepile = facepile)
         }
-        item {
+        item(contentType = "actions") {
             GroupActionRow(muted = state.muted, onEvent = onEvent)
         }
-        items(status.members, key = { it.did }) { member ->
+        items(status.members, key = { it.did }, contentType = { "member" }) { member ->
             GroupMemberRow(
                 member = member,
                 onClick = { onEvent(GroupDetailsEvent.MemberTapped(member.did)) },
