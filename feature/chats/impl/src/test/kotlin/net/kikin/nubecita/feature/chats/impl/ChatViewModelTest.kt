@@ -5,6 +5,7 @@ import androidx.compose.runtime.snapshots.Snapshot
 import app.cash.turbine.test
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -16,6 +17,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
+import net.kikin.nubecita.feature.chats.impl.data.MemberPage
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -117,6 +119,33 @@ internal class ChatViewModelTest {
             advanceUntilIdle()
             assertEquals(1, repo.markReadCalls.get())
             assertEquals("c1", repo.lastMarkReadConvoId)
+        }
+
+    @Test
+    fun `a group thread loads the accurate member count from getConvoMembers`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo(convoId = "g1")
+            repo.getConvoMembersResult =
+                Result.success(MemberPage(members = (1..23).map { groupMember("did:plc:m$it") }.toImmutableList()))
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            assertEquals(1, repo.getConvoMembersCalls.get())
+            assertEquals("g1", repo.lastGetConvoMembersConvoId)
+            val header = vm.uiState.value.header
+            assertTrue(header is ChatHeader.Group)
+            assertEquals(23, (header as ChatHeader.Group).memberCount)
+        }
+
+    @Test
+    fun `a direct thread does not fetch the member roster`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = directConvo(convoId = "c1")
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+            assertEquals(0, repo.getConvoMembersCalls.get())
+            assertEquals(null, repo.lastGetConvoMembersConvoId)
         }
 
     @Test
@@ -599,7 +628,9 @@ internal class ChatViewModelTest {
             assertEquals("c1", repo.lastGetConvoId)
             assertEquals("c1", repo.lastMessagesConvoId)
             assertEquals(
-                ChatHeader.Group(name = "Weekend crew", members = persistentListOf()),
+                // memberCount = 0 reflects the default empty MemberPage the fake returns from
+                // the group-only getConvoMembers fetch; the NavKey path (no resolve) is the focus.
+                ChatHeader.Group(name = "Weekend crew", members = persistentListOf(), memberCount = 0),
                 vm.uiState.value.header,
             )
             assertEquals(true, vm.uiState.value.canPost)
@@ -931,6 +962,20 @@ internal class ChatViewModelTest {
         handle: String,
         displayName: String?,
     ): AuthorUi = AuthorUi(did = did, handle = handle, displayName = displayName ?: handle, avatarUrl = null)
+
+    /** A minimal group-roster member; only [did] matters for member-count assertions. */
+    private fun groupMember(did: String): GroupMemberUi =
+        GroupMemberUi(
+            did = did,
+            handle = "$did.bsky.social",
+            displayName = null,
+            avatarUrl = null,
+            role = GroupRole.Member,
+            addedByName = null,
+            isViewer = false,
+            followState = FollowState.NotFollowing,
+            followUri = null,
+        )
 
     /** The resolved sender [AuthorUi] for the thread item with [messageId], or null. */
     private fun ChatScreenViewState.senderFor(messageId: String): AuthorUi? =

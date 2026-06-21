@@ -29,6 +29,8 @@ sealed interface ChatHeader {
     data class Group(
         val name: String,
         val members: ImmutableList<AuthorUi>,
+        // Accurate roster size from getConvoMembers; null until loaded → fall back to members.size.
+        val memberCount: Int? = null,
     ) : ChatHeader
 }
 
@@ -207,6 +209,9 @@ sealed interface ChatEvent : UiEvent {
         val quotedPostUri: String,
     ) : ChatEvent
 
+    /** User tapped "Group details" in the thread overflow menu (group convos only). */
+    data object GroupDetailsTapped : ChatEvent
+
     /** Toggle the viewer's [emoji] reaction on the message with [messageId] (chip tap or picker pick). */
     data class ToggleReaction(
         val messageId: String,
@@ -218,6 +223,11 @@ sealed interface ChatEffect : UiEffect {
     /** Push the post-detail screen for the tapped quoted-post URI. */
     data class NavigateToPost(
         val postUri: String,
+    ) : ChatEffect
+
+    /** Push the group-details screen for the open group convo. */
+    data class NavigateToGroupDetails(
+        val convoId: String,
     ) : ChatEffect
 
     /**

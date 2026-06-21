@@ -2,24 +2,16 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ActorService
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
-import io.github.kikin81.atproto.app.bsky.graph.Follow
-import io.github.kikin81.atproto.com.atproto.repo.CreateRecordRequest
-import io.github.kikin81.atproto.com.atproto.repo.DeleteRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.GetRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.PutRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.RepoService
 import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.AtIdentifier
-import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Blob
 import io.github.kikin81.atproto.runtime.Cid
-import io.github.kikin81.atproto.runtime.Datetime
-import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Nsid
 import io.github.kikin81.atproto.runtime.RecordKey
 import io.github.kikin81.atproto.runtime.XrpcError
-import io.github.kikin81.atproto.runtime.encodeRecord
-import io.github.kikin81.atproto.runtime.parseOrNull
 import io.github.kikin81.atproto.runtime.present
 import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
@@ -38,10 +30,10 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
+import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import timber.log.Timber
 import javax.inject.Inject
-import kotlin.time.Clock
 import kotlinx.serialization.json.Json as KotlinxJson
 
 /**
@@ -55,11 +47,9 @@ import kotlinx.serialization.json.Json as KotlinxJson
  * stays stateless so future multi-account swaps don't have to
  * invalidate any in-repo cache.
  *
- * The follow/unfollow write path mirrors
- * `:core:post-interactions/internal/DefaultLikeRepostRepository` —
- * same `RepoService.createRecord` + `deleteRecord` shape, same
- * redaction discipline (the AT-URI carries the viewer's DID and is
- * never logged).
+ * Follow/unfollow delegate to the shared
+ * `:core:post-interactions` [FollowRepository] so profile and
+ * group-details (chats) write follows through one implementation.
  */
 internal class DefaultProfileRepository
     @Inject
@@ -68,6 +58,7 @@ internal class DefaultProfileRepository
         private val sessionStateProvider: SessionStateProvider,
         private val moderationPreferences: ModerationPreferencesRepository,
         private val encoder: ImageEncoder,
+        private val followRepository: FollowRepository,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ProfileRepository {
         // replay = 0 (only live collectors react) + extraBufferCapacity = 1
@@ -123,52 +114,13 @@ internal class DefaultProfileRepository
                 }
             }
 
-        override suspend fun follow(subjectDid: String): Result<String> =
-            withContext(dispatcher) {
-                runCatching {
-                    val viewerDid = currentViewerDid()
-                    val client = xrpcClientProvider.authenticated()
-                    val record =
-                        encodeRecord(
-                            record = Follow(createdAt = nowDatetime(), subject = Did(subjectDid)),
-                            type = FOLLOW_NSID,
-                        )
-                    val response =
-                        RepoService(client).createRecord(
-                            CreateRecordRequest(
-                                collection = Nsid(FOLLOW_NSID),
-                                repo = AtIdentifier(viewerDid),
-                                record = record,
-                            ),
-                        )
-                    response.uri.raw
-                }.onFailure { throwable ->
-                    // `subjectDid` is PII (the followed account's DID); withhold
-                    // it from the log, same policy as DefaultLikeRepostRepository.
-                    Timber.tag(TAG).w(throwable, "follow failed: %s", throwable.javaClass.name)
-                }
-            }
+        // Follow/unfollow delegate to the shared :core:post-interactions
+        // FollowRepository so profile and group-details (chats) write follows
+        // through one path. The redaction discipline + redaction-safe URI
+        // parsing live there.
+        override suspend fun follow(subjectDid: String): Result<String> = followRepository.follow(subjectDid)
 
-        override suspend fun unfollow(followUri: String): Result<Unit> =
-            withContext(dispatcher) {
-                runCatching {
-                    val (repo, rkey) = parseFollowUri(AtUri(followUri))
-                    val client = xrpcClientProvider.authenticated()
-                    RepoService(client).deleteRecord(
-                        DeleteRecordRequest(
-                            collection = Nsid(FOLLOW_NSID),
-                            repo = repo,
-                            rkey = rkey,
-                        ),
-                    )
-                    Unit
-                }.onFailure { throwable ->
-                    // `followUri` carries the viewer's DID — keep it out of the
-                    // log surface for the same reason DefaultLikeRepostRepository
-                    // redacts its delete URIs.
-                    Timber.tag(TAG).w(throwable, "unfollow failed: %s", throwable.javaClass.name)
-                }
-            }
+        override suspend fun unfollow(followUri: String): Result<Unit> = followRepository.unfollow(followUri)
 
         override suspend fun updateProfile(
             displayName: String?,
@@ -380,34 +332,8 @@ internal class DefaultProfileRepository
                 else -> ProfileUpdateError.WriteFailed(throwable)
             }
 
-        private fun currentViewerDid(): String {
-            val signedIn =
-                sessionStateProvider.state.value as? SessionState.SignedIn
-                    ?: throw NoSessionException()
-            return signedIn.did
-        }
-
-        private fun nowDatetime(): Datetime = Datetime(Clock.System.now().toString())
-
-        // We use `parseOrNull` + a local require() rather than upstream
-        // `parse()` because parse()'s IllegalArgumentException message
-        // includes the raw URI, which carries the viewer's DID. Same
-        // redaction policy as DefaultLikeRepostRepository.parseAtUri.
-        private fun parseFollowUri(uri: AtUri): Pair<AtIdentifier, RecordKey> {
-            val parts =
-                requireNotNull(uri.parseOrNull()) {
-                    "follow AT URI is not structurally valid"
-                }
-            val rkey =
-                requireNotNull(parts.rkey) {
-                    "follow AT URI must be at://<repo>/app.bsky.graph.follow/<rkey>"
-                }
-            return parts.repo to rkey
-        }
-
         private companion object {
             const val TAG = "ProfileRepository"
-            const val FOLLOW_NSID = "app.bsky.graph.follow"
             const val PROFILE_NSID = "app.bsky.actor.profile"
             const val PROFILE_RKEY = "self"
 

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
+import net.kikin.nubecita.feature.chats.impl.GroupMemberUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 
 /**
@@ -172,6 +173,17 @@ interface ChatRepository {
      * foreground convo cache (this does not touch [observeConvos]).
      */
     suspend fun getLog(cursor: String? = null): Result<ChatLogPage>
+
+    /**
+     * Loads one page of a group convo's member roster via `chat.bsky.convo.getConvoMembers`,
+     * mapping each `chat.bsky.actor.ProfileViewBasic` to a [GroupMemberUi]. Groups cap at 50
+     * members, so a single `limit=100` call ([GET_CONVO_MEMBERS_PAGE_LIMIT]) returns the full
+     * roster; [cursor] (`null` = first page) is wired for completeness should the cap ever rise.
+     */
+    suspend fun getConvoMembers(
+        convoId: String,
+        cursor: String? = null,
+    ): Result<MemberPage>
 }
 
 /**
@@ -201,5 +213,13 @@ data class ChatLogPage(
     val nextCursor: String? = null,
 )
 
+data class MemberPage(
+    val members: ImmutableList<GroupMemberUi> = persistentListOf(),
+    val cursor: String? = null,
+)
+
 internal const val LIST_CONVOS_PAGE_LIMIT: Int = 30
 internal const val GET_MESSAGES_PAGE_LIMIT: Int = 50
+
+// Groups cap at 50 members, so a single limit=100 page returns the full roster.
+internal const val GET_CONVO_MEMBERS_PAGE_LIMIT: Int = 100

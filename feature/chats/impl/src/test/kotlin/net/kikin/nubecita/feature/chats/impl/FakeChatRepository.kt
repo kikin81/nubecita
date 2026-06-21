@@ -11,6 +11,7 @@ import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
+import net.kikin.nubecita.feature.chats.impl.data.MemberPage
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import net.kikin.nubecita.feature.chats.impl.data.patchConvosOnAccept
 import net.kikin.nubecita.feature.chats.impl.data.patchConvosOnLeave
@@ -196,6 +197,21 @@ internal class FakeChatRepository(
         getLogCalls.incrementAndGet()
         lastGetLogCursor = cursor
         return nextGetLogResult
+    }
+
+    var getConvoMembersResult: Result<MemberPage> = Result.success(MemberPage())
+    var lastGetConvoMembersConvoId: String? = null
+    var lastGetConvoMembersCursor: String? = null
+    val getConvoMembersCalls = AtomicInteger(0)
+
+    override suspend fun getConvoMembers(
+        convoId: String,
+        cursor: String?,
+    ): Result<MemberPage> {
+        getConvoMembersCalls.incrementAndGet()
+        lastGetConvoMembersConvoId = convoId
+        lastGetConvoMembersCursor = cursor
+        return getConvoMembersResult
     }
 
     val addReactionCalls = mutableListOf<Triple<String, String, String>>() // convoId, messageId, emoji

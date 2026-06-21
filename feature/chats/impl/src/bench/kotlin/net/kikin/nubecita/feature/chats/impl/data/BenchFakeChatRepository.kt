@@ -302,6 +302,12 @@ internal class BenchFakeChatRepository
         // the inbox is fully served by the chats.json convo cache. Empty page.
         override suspend fun getLog(cursor: String?): Result<ChatLogPage> = Result.success(ChatLogPage())
 
+        // Group-details roster lands in a later task; bench seeds no member fixtures yet.
+        override suspend fun getConvoMembers(
+            convoId: String,
+            cursor: String?,
+        ): Result<MemberPage> = Result.success(MemberPage())
+
         private fun currentViewerDid(): String {
             val signedIn =
                 sessionStateProvider.state.value as? SessionState.SignedIn

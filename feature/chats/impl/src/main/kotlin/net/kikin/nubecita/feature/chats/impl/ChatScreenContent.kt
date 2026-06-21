@@ -28,6 +28,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -133,12 +135,13 @@ internal fun ChatScreenContent(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
+                                    val count = header.memberCount ?: header.members.size
                                     Text(
                                         text =
                                             pluralStringResource(
                                                 R.plurals.chat_group_member_count,
-                                                header.members.size,
-                                                header.members.size,
+                                                count,
+                                                count,
                                             ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -158,6 +161,34 @@ internal fun ChatScreenContent(
                             filled = true,
                             modifier = Modifier.mirror(),
                         )
+                    }
+                },
+                actions = {
+                    // Group convos get a ⋮ overflow whose single item opens the
+                    // group-details screen. Direct convos (and the pre-load null
+                    // header) show no overflow.
+                    if (state.header is ChatHeader.Group) {
+                        var menuExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { menuExpanded = true }) {
+                                NubecitaIcon(
+                                    name = NubecitaIconName.MoreVert,
+                                    contentDescription = stringResource(R.string.chats_action_more),
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.group_details_menu_item)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onEvent(ChatEvent.GroupDetailsTapped)
+                                    },
+                                )
+                            }
+                        }
                     }
                 },
             )

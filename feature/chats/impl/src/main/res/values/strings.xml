@@ -106,6 +106,17 @@
     <string name="chat_settings_save_error">Couldn\'t save. Check your network and try again.</string>
     <string name="chat_settings_load_error">Couldn\'t load your chat settings.</string>
     <string name="chat_settings_retry">Retry</string>
+    <!-- Group details (nubecita-hwix.4) -->
+    <string name="group_details_member_count">%1$d / %2$d members</string>
+    <string name="group_details_handle">@%1$s</string>
+    <string name="group_details_role_owner">Admin</string>
+    <string name="group_details_added_by">Added by %1$s</string>
+    <string name="group_details_follow">Follow</string>
+    <string name="group_details_following">Following</string>
+    <string name="group_details_load_error">Couldn\'t load group details.</string>
+    <string name="group_details_action_error">Something went wrong. Try again.</string>
+    <string name="group_details_retry">Try again</string>
+    <string name="group_details_menu_item">Group details</string>
     <!-- Per-convo unread badge a11y (visual shows the capped count) -->
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d unread message</item>

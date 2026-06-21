@@ -132,8 +132,19 @@ class ChatViewModel
                 is ChatEvent.RetrySend -> onRetrySend(event.tempId)
                 is ChatEvent.QuotedPostTapped ->
                     sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
+                ChatEvent.GroupDetailsTapped -> onGroupDetailsTapped()
                 is ChatEvent.ToggleReaction -> onToggleReaction(event.messageId, event.emoji)
             }
+        }
+
+        /**
+         * Push the group-details screen for the open group convo. Guarded on the
+         * resolved [convoId] (the overflow item is group-only and only visible once
+         * the convo loads, so this is a no-op before resolution).
+         */
+        private fun onGroupDetailsTapped() {
+            val convo = convoId ?: return
+            sendEffect(ChatEffect.NavigateToGroupDetails(convo))
         }
 
         /**
@@ -374,6 +385,25 @@ class ChatViewModel
                                         senderProfiles[it.did] = it
                                     }
                                     setState { copy(header = convo.header, canPost = convo.canPost) }
+                                    // Group headers seed only a partial member preview (getConvo
+                                    // returns ~7); fetch the full roster once to show the accurate
+                                    // "N members" count. Fire-and-forget + best-effort: a failure
+                                    // leaves memberCount null so the header falls back to the
+                                    // facepile (members.size). Direct convos skip this entirely.
+                                    if (convo.header is ChatHeader.Group) {
+                                        viewModelScope.launch {
+                                            repository.getConvoMembers(convo.convoId).onSuccess { page ->
+                                                setState {
+                                                    val h = header
+                                                    if (h is ChatHeader.Group) {
+                                                        copy(header = h.copy(memberCount = page.members.size))
+                                                    } else {
+                                                        this
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                     repository
                                         .getMessages(convo.convoId)
                                         .onSuccess { page ->
