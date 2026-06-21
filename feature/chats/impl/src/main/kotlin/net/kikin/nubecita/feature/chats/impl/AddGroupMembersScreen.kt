@@ -40,6 +40,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
 import net.kikin.nubecita.designsystem.component.avatarFallbackFor
@@ -83,6 +84,11 @@ internal fun AddGroupMembersScreen(
     val currentOnBack by rememberUpdatedState(onBack)
 
     LaunchedEffect(Unit) {
+        // showSnackbar suspends until the snackbar is dismissed (~4s); launch it in a
+        // child coroutine so a MembersAdded (pop) queued right behind a ShowError —
+        // e.g. a fail → re-select → succeed within that window — isn't head-of-line
+        // blocked. Mirrors ChatScreen's effect collector.
+        val effectScope = this
         viewModel.effects.collect { effect ->
             when (effect) {
                 is AddMembersEffect.ShowError -> {
@@ -93,8 +99,10 @@ internal fun AddGroupMembersScreen(
                             ChatError.InsufficientPermission -> permMsg
                             else -> genericMsg
                         }
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(msg)
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(msg)
+                    }
                 }
 
                 AddMembersEffect.MembersAdded ->
