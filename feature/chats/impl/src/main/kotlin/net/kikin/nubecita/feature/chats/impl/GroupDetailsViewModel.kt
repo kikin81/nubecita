@@ -154,31 +154,37 @@ class GroupDetailsViewModel
             inFlightFollows += did
             updateMember(did) { it.copy(followState = FollowState.InFlight) }
             viewModelScope.launch {
-                if (wasFollowing) {
-                    val uri = priorUri
-                    val result =
-                        if (uri != null) {
-                            followRepository.unfollow(uri)
-                        } else {
-                            // Defensive: Following with no uri can't be undone; treat as already not-following.
-                            Result.success(Unit)
-                        }
-                    result
-                        .onSuccess { updateMember(did) { it.copy(followState = FollowState.NotFollowing, followUri = null) } }
-                        .onFailure {
-                            updateMember(did) { it.copy(followState = priorState, followUri = priorUri) }
-                            sendEffect(GroupDetailsEffect.ShowError(it.toChatError()))
-                        }
-                } else {
-                    followRepository
-                        .follow(did)
-                        .onSuccess { uri -> updateMember(did) { it.copy(followState = FollowState.Following, followUri = uri) } }
-                        .onFailure {
-                            updateMember(did) { it.copy(followState = priorState, followUri = priorUri) }
-                            sendEffect(GroupDetailsEffect.ShowError(it.toChatError()))
-                        }
+                // finally (not a trailing statement) so a cancellation between the
+                // suspending call and cleanup can't leave the DID permanently in the
+                // in-flight set — which would wedge the row's Follow button at InFlight.
+                try {
+                    if (wasFollowing) {
+                        val uri = priorUri
+                        val result =
+                            if (uri != null) {
+                                followRepository.unfollow(uri)
+                            } else {
+                                // Defensive: Following with no uri can't be undone; treat as already not-following.
+                                Result.success(Unit)
+                            }
+                        result
+                            .onSuccess { updateMember(did) { it.copy(followState = FollowState.NotFollowing, followUri = null) } }
+                            .onFailure {
+                                updateMember(did) { it.copy(followState = priorState, followUri = priorUri) }
+                                sendEffect(GroupDetailsEffect.ShowError(it.toChatError()))
+                            }
+                    } else {
+                        followRepository
+                            .follow(did)
+                            .onSuccess { uri -> updateMember(did) { it.copy(followState = FollowState.Following, followUri = uri) } }
+                            .onFailure {
+                                updateMember(did) { it.copy(followState = priorState, followUri = priorUri) }
+                                sendEffect(GroupDetailsEffect.ShowError(it.toChatError()))
+                            }
+                    }
+                } finally {
+                    inFlightFollows -= did
                 }
-                inFlightFollows -= did
             }
         }
 

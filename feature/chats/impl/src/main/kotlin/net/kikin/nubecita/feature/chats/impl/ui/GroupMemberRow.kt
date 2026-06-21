@@ -7,11 +7,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -67,12 +68,21 @@ internal fun GroupMemberRow(
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (member.role == GroupRole.Owner) {
-                    AssistChip(
-                        onClick = {},
-                        enabled = false,
-                        label = { Text(stringResource(R.string.group_details_role_owner)) },
+                    // A read-only role badge — a small secondary-container pill, NOT a
+                    // disabled AssistChip (which renders at 38% opacity, washing out the
+                    // "Admin" label it's meant to highlight).
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier.padding(start = 8.dp),
-                    )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.group_details_role_owner),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
                 }
             }
             Text(
@@ -115,6 +125,9 @@ private fun FollowAffordance(
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
+                    // Match the disabled button's content color instead of the default
+                    // vibrant primary, which clashes with the greyed-out button surface.
+                    color = LocalContentColor.current,
                 )
             }
     }
