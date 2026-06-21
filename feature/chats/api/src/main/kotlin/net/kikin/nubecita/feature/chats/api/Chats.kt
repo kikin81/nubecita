@@ -51,6 +51,15 @@ data class Chat(
 data object NewChat : NavKey
 
 /**
+ * Group-creation flow: a recipient-chip picker + group-name field that creates a new
+ * group conversation. A `@MainShell` sub-route pushed from the inbox FAB menu's
+ * "New group" action. Plain full-screen (mirrors [NewChat]); on success it `replaceTop`s
+ * the route with the new [Chat]. Carries no arguments.
+ */
+@Serializable
+data object NewGroup : NavKey
+
+/**
  * Group details / settings for a group conversation (member roster, role/admin,
  * invite link, leave/mute/report). A `@MainShell` sub-route pushed from the chat
  * thread's overflow (⋮) menu; tagged `adaptiveDialog()` so it renders full-screen
