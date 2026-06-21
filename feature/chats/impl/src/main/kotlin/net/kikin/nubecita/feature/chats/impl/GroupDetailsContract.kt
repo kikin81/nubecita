@@ -54,6 +54,11 @@ data class GroupDetailsViewState(
     val name: String = "",
     val muted: Boolean = false,
     val maxMembers: Int = GROUP_MAX_MEMBERS,
+    /**
+     * The signed-in viewer's role, derived from the roster; gates owner-only
+     * member management. Null until loaded / if the viewer isn't in the roster.
+     */
+    val viewerRole: GroupRole? = null,
     val status: GroupDetailsLoadStatus = GroupDetailsLoadStatus.Loading,
 ) : UiState
 
@@ -89,6 +94,14 @@ sealed interface GroupDetailsEvent : UiEvent {
 
     /** Tapping a roster row → open that member's Profile. */
     data class MemberTapped(
+        val did: String,
+    ) : GroupDetailsEvent
+
+    /** Owner tapped "Add members" → navigate to the add picker. */
+    data object AddMembersTapped : GroupDetailsEvent
+
+    /** Owner confirmed removing the member with [did] from the group. */
+    data class RemoveMember(
         val did: String,
     ) : GroupDetailsEvent
 }

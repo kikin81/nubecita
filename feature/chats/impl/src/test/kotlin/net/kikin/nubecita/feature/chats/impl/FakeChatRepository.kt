@@ -214,6 +214,44 @@ internal class FakeChatRepository(
         return getConvoMembersResult
     }
 
+    var addMembersResult: Result<Unit> = Result.success(Unit)
+    var removeMembersResult: Result<Unit> = Result.success(Unit)
+    val addMembersCalls = mutableListOf<Pair<String, List<String>>>()
+    val removeMembersCalls = mutableListOf<Pair<String, List<String>>>()
+
+    /**
+     * Optional gate: when set, `removeMembers` records its call and then suspends
+     * on this deferred before returning. Lets a test hold a removal in flight so
+     * the VM's `inFlightRemovals` guard can be observed (a second remove of the
+     * same DID is dropped while the first is parked here).
+     */
+    var removeMembersGate: CompletableDeferred<Unit>? = null
+
+    /**
+     * Optional per-call results for `removeMembers`, consumed in order. When
+     * non-empty, each call dequeues the next result (falling back to
+     * [removeMembersResult] once exhausted) — lets a test fail one interleaved
+     * removal while another succeeds.
+     */
+    val removeMembersResults = ArrayDeque<Result<Unit>>()
+
+    override suspend fun addMembers(
+        convoId: String,
+        dids: List<String>,
+    ): Result<Unit> {
+        addMembersCalls += convoId to dids
+        return addMembersResult
+    }
+
+    override suspend fun removeMembers(
+        convoId: String,
+        dids: List<String>,
+    ): Result<Unit> {
+        removeMembersCalls += convoId to dids
+        removeMembersGate?.await()
+        return removeMembersResults.removeFirstOrNull() ?: removeMembersResult
+    }
+
     val addReactionCalls = mutableListOf<Triple<String, String, String>>() // convoId, messageId, emoji
     val removeReactionCalls = mutableListOf<Triple<String, String, String>>()
     var addReactionResult: Result<MessageUi>? = null // null → echo DEFAULT_SENT_MESSAGE.copy(id = messageId)

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSerializable
@@ -208,6 +209,26 @@ class MainShellNavState(
             else -> false
         }
     }
+
+    // One-shot results handed from a popped sub-route back to the destination beneath it
+    // (the Nav3 analog of Nav2's SavedStateHandle results). Snapshot-backed so a consumer
+    // that reads via peekResult recomposes when a value appears. NOT an event bus: a value
+    // is keyed for a specific consumer and read exactly once.
+    private val results = mutableStateMapOf<String, Any?>()
+
+    /** Stash a one-shot [value] for a returning consumer keyed by [key]; overwrites any prior. */
+    fun setResult(
+        key: String,
+        value: Any?,
+    ) {
+        results[key] = value
+    }
+
+    /** Snapshot-observed read WITHOUT clearing — lets a consumer recompose when a result appears. */
+    fun peekResult(key: String): Any? = results[key]
+
+    /** Read and clear a one-shot result; null if none. */
+    fun consumeResult(key: String): Any? = results.remove(key)
 
     /**
      * Repopulate [_backStack] from the current [topLevelKey] + [backStacks]

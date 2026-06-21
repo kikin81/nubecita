@@ -188,6 +188,16 @@ internal class FakeChatRepository(
         cursor: String?,
     ): Result<MemberPage> = Result.success(MemberPage())
 
+    override suspend fun addMembers(
+        convoId: String,
+        dids: List<String>,
+    ): Result<Unit> = Result.success(Unit)
+
+    override suspend fun removeMembers(
+        convoId: String,
+        dids: List<String>,
+    ): Result<Unit> = Result.success(Unit)
+
     private companion object {
         val DEFAULT_SENT_MESSAGE =
             MessageUi(

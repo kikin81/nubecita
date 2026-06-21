@@ -598,6 +598,14 @@ private fun ErrorBody(
                 Triple(R.string.chat_error_convo_not_found_title, R.string.chat_error_convo_not_found_body, false)
             ChatError.MessagesDisabled ->
                 Triple(R.string.chat_error_messages_disabled_title, R.string.chat_error_messages_disabled_body, false)
+            ChatError.GroupFull,
+            ChatError.FollowRequiredToAdd,
+            ChatError.InsufficientPermission,
+            ->
+                // Member-management error variants never reach the thread-load ErrorBody
+                // (they surface from add/remove-member surfaces, not resolveConvo/getMessages).
+                // Map to the generic, non-retryable fallback to keep this `when` exhaustive.
+                Triple(R.string.chats_error_unknown_title, R.string.chats_error_unknown_body, false)
             is ChatError.Unknown ->
                 Triple(R.string.chats_error_unknown_title, R.string.chats_error_unknown_body, true)
         }

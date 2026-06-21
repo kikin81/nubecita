@@ -32,24 +32,35 @@ import net.kikin.nubecita.feature.chats.impl.R
  * Title: [ActorUi.displayName] when available, else [ActorUi.handle].
  * Subtitle: "@" + [ActorUi.handle] in `onSurfaceVariant`.
  *
- * Disabled state: when [ActorUi.canMessage] is false the actor can't
- * receive a DM from the viewer. The row is greyed ([DISABLED_CONTENT_ALPHA])
- * and the tap target is disabled, and a "Can't be messaged" line is shown —
- * matching the official Bluesky client, which keeps such actors visible
- * rather than hiding them.
+ * Disabled state: when [respectCanMessage] is true (the default — the New-Chat
+ * DM-start picker) and [ActorUi.canMessage] is false, the actor can't receive a
+ * DM from the viewer: the row is greyed ([DISABLED_CONTENT_ALPHA]), the tap
+ * target is disabled, and a "Can't be messaged" line is shown — matching the
+ * official Bluesky client, which keeps such actors visible rather than hiding
+ * them.
+ *
+ * The add-group-members picker passes [respectCanMessage] = false: the group-add
+ * eligibility rule is "they must follow YOU" (server-enforced `NotFollowedBySender`
+ * → [net.kikin.nubecita.feature.chats.impl.ChatError.FollowRequiredToAdd]), NOT
+ * the recipient's DM-privacy. Gating that picker on `canMessage` would wrongly
+ * grey out valid candidates, so the opt-out skips both the disable and the
+ * "Can't be messaged" line.
  */
 @Composable
 internal fun RecipientRow(
     actor: ActorUi,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    respectCanMessage: Boolean = true,
 ) {
-    val enabled = actor.canMessage
-    val contentAlpha = if (enabled) 1f else DISABLED_CONTENT_ALPHA
+    val canMessage = !respectCanMessage || actor.canMessage
+    val effectiveEnabled = enabled && canMessage
+    val contentAlpha = if (effectiveEnabled) 1f else DISABLED_CONTENT_ALPHA
     Row(
         modifier =
             modifier
-                .clickable(enabled = enabled, onClick = onClick)
+                .clickable(enabled = effectiveEnabled, onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -72,7 +83,7 @@ internal fun RecipientRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.alpha(contentAlpha),
             )
-            if (!enabled) {
+            if (!canMessage) {
                 Text(
                     text = stringResource(R.string.new_chat_cannot_message),
                     style = MaterialTheme.typography.bodySmall,

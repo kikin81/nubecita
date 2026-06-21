@@ -66,6 +66,9 @@ internal fun ChatScreen(
                             ChatError.MessagesDisabled -> messagesDisabledErrorMsg
                             ChatError.NotEnrolled,
                             ChatError.ConvoNotFound,
+                            ChatError.GroupFull,
+                            ChatError.FollowRequiredToAdd,
+                            ChatError.InsufficientPermission,
                             is ChatError.Unknown,
                             -> genericErrorMsg
                         }

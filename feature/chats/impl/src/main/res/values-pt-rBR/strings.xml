@@ -90,6 +90,27 @@
     <string name="group_details_action_error">Algo deu errado. Tente de novo.</string>
     <string name="group_details_retry">Tentar de novo</string>
     <string name="group_details_menu_item">Detalhes do grupo</string>
+    <!-- Group member management (nubecita-hwix.5) -->
+    <string name="group_details_add_members">Adicionar membros</string>
+    <string name="group_details_remove_member">Remover do grupo</string>
+    <string name="group_details_remove_confirm_title">Remover membro?</string>
+    <string name="group_details_remove_confirm_body">Remover %1$s deste grupo?</string>
+    <string name="group_details_remove_confirm_action">Remover</string>
+    <string name="group_details_cancel">Cancelar</string>
+    <string name="group_details_member_options">Opções do membro</string>
+    <string name="group_details_invites_sent">Convites enviados</string>
+    <!-- Add group members (nubecita-hwix.5) -->
+    <string name="add_members_title">Adicionar membros</string>
+    <string name="add_members_action">Adicionar</string>
+    <string name="add_members_search_placeholder">Buscar alguém</string>
+    <string name="add_members_remove_chip">Remover</string>
+    <string name="add_members_at_capacity">O grupo está cheio (máx. 50).</string>
+    <string name="add_members_error_full">O grupo está cheio.</string>
+    <string name="add_members_error_follow_required">Você só pode adicionar pessoas que te seguem.</string>
+    <string name="add_members_error_permission">Você não tem permissão para isso.</string>
+    <string name="add_members_error_generic">Algo deu errado. Tente de novo.</string>
+    <string name="add_members_no_results">Nenhuma pessoa encontrada</string>
+    <string name="add_members_close">Fechar</string>
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d mensagem não lida</item>
         <item quantity="other">%1$d mensagens não lidas</item>

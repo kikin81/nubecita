@@ -90,6 +90,15 @@ sealed interface ChatError {
      */
     data object MessagesDisabled : ChatError
 
+    /** Group is at the 50-member cap (addMembers `MemberLimitReached`). */
+    data object GroupFull : ChatError
+
+    /** Can only add people who follow the actor (addMembers `NotFollowedBySender`). */
+    data object FollowRequiredToAdd : ChatError
+
+    /** Viewer lacks the role to manage members (`InsufficientRole`). */
+    data object InsufficientPermission : ChatError
+
     data class Unknown(
         val cause: String?,
     ) : ChatError

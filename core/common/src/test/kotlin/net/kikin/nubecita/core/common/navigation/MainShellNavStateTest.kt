@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -225,6 +226,34 @@ class MainShellNavStateTest {
         // per-tab snapshots survived the round trip, not just the active one.
         after.addTopLevel(TabFeed)
         assertEquals(listOf<NavKey>(TabFeed, SubProfile), after.backStack.toList())
+    }
+
+    @Test
+    fun `setResult then consumeResult returns the value once`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        state.setResult("k", 3)
+        assertEquals(3, state.consumeResult("k"))
+        assertNull(state.consumeResult("k")) // one-shot: gone after first consume
+    }
+
+    @Test
+    fun `peekResult reads without clearing`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        state.setResult("k", 7)
+        assertEquals(7, state.peekResult("k"))
+        assertEquals(7, state.peekResult("k")) // still there
+        assertEquals(7, state.consumeResult("k"))
+        assertNull(state.peekResult("k"))
+    }
+
+    @Test
+    fun `setResult overwrites and keys are independent`() {
+        val state = newState(start = TabFeed, top = setOf(TabFeed, TabSearch))
+        state.setResult("a", 1)
+        state.setResult("a", 2)
+        state.setResult("b", 9)
+        assertEquals(2, state.consumeResult("a"))
+        assertEquals(9, state.consumeResult("b"))
     }
 
     /**
