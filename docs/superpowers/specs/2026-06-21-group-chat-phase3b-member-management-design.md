@@ -101,9 +101,10 @@ Forks the New-Chat picker pipeline. Assisted-injected with the `AddGroupMembers`
 - **Events:** `QueryRetry`, `RecipientToggled(did)`, `RecipientRemoved(did)` (the chip ✕),
   `AddTapped`, `BackPressed`, `RetryClicked`.
 - **Effects:** `ShowError(ChatError)`, `NavigateBack`. On `AddTapped`:
-  set `isSubmitting`, call `addMembers(convoId, selectedDids)` → success: `NavigateBack` (no
-  cross-screen success snackbar — that would require bus/result plumbing; the pop + group-details'
-  resume-refresh is the feedback); failure: clear `isSubmitting`, `ShowError` and stay.
+  set `isSubmitting`, call `addMembers(convoId, selectedDids)` → success: write a one-shot nav
+  **result** (`MembersAddedResult(count)`) for the group-details consumer, then `NavigateBack`.
+  The screen does **not** show its own success snackbar — it's about to be popped, so the snackbar
+  would never render (see §Cross-screen result). Failure: clear `isSubmitting`, `ShowError`, stay.
 
 ### `AddGroupMembersScreen` (UI)
 
@@ -138,18 +139,77 @@ button stays inline as today. Selecting it raises a confirmation `AlertDialog`
 ### Optimistic removal
 
 `GroupDetailsViewModel.onRemoveMember(did)` mirrors the follow-toggle shape:
-- gate on `Loaded`; per-DID in-flight guard (`inFlightRemovals`); look up the target;
-- **optimistically** drop the member from the roster and decrement `memberCount`;
+- gate on `Loaded`; per-DID in-flight guard (`inFlightRemovals`); look up the target + its index;
+- **optimistically** drop the member from the roster;
 - `removeMembers(convoId, listOf(did))` in `viewModelScope.launch { try { … } finally { guard -= did } }`;
-- on failure: re-insert the member at its prior position, restore the count, `ShowError`.
+- on failure: re-insert the member at its prior index, `ShowError`.
 
-## Cross-screen refresh (no event bus)
+**`memberCount` is always derived from `members.size`, never decremented as a standalone int.**
+The `Loaded` reducer computes `memberCount = members.size` after every mutation (removal, rollback),
+so rapid concurrent removes can't race on a stale counter — each `setState` recomputes the count
+from the (atomic) list it just produced. (`memberCount` is retained as an explicit field only so the
+"N / 50" header can render without re-reading the list; it is a pure projection of `members.size`.)
 
-After a successful add, group-details should reflect the change. Per the no-event-bus preference,
-group-details **re-loads its roster on resume** (a lifecycle-`RESUMED` `Refresh`, deduped against the
-initial-composition load) rather than via a shared flow/bus or nav result. This is best-effort:
-added members are pending until they accept, so they may not appear as roster members immediately —
-the authoritative success feedback is the add screen's snackbar.
+## Cross-screen result (success feedback + deliberate refresh)
+
+The add screen must feed two things back to group-details on success: the **"Invitations sent"
+snackbar** (shown on a host that won't be torn down) and a **single, deliberate roster refresh**
+(not a network hit on every `ON_RESUME`). Both ride one mechanism.
+
+### Nav3 one-shot result API on `MainShellNavState` (`:core:common:navigation`)
+
+Nav3 has no `SavedStateHandle` result channel (that's a Nav2 idiom), and `MainShellNavState` has
+none today. Add a minimal, general, **consume-once** result store — the Nav3 analog, scoped to the
+shell's nav state (NOT a global event bus; it's a keyed value a returning consumer reads exactly
+once):
+
+```kotlin
+// MainShellNavState
+private val results = mutableStateMapOf<String, Any?>()       // snapshot-observed
+
+/** Stash a one-shot result for a returning consumer, keyed by [key]. Overwrites any prior value. */
+fun setResult(key: String, value: Any?) { results[key] = value }
+
+/** Snapshot-observed read WITHOUT clearing — lets a consumer recompose when a result appears. */
+fun peekResult(key: String): Any? = results[key]
+
+/** Read and clear a one-shot result (returns null if none). */
+fun consumeResult(key: String): Any? = results.remove(key)
+```
+
+Unit-tested in `MainShellNavStateTest` (set→peek→consume→peek-null; overwrite; independent keys).
+
+### Wiring
+
+- **Add success:** `navState.setResult("group_members_added:$convoId", count)` then `removeLast()`.
+  (`AddGroupMembersScreen` calls `setResult` via the same nav-state it already holds for `onBack`;
+  the VM emits a plain `NavigateBack` and the screen does the `setResult` + pop, keeping the VM free
+  of the nav-state holder per the MVI boundary.)
+- **Group-details consumes it reactively** — works for BOTH form factors: on Compact, group-details
+  re-enters composition when the full-screen add route pops; on Medium/Expanded it stays composed
+  under the dialog. A snapshot read makes both cases fire:
+  ```kotlin
+  val pending = navState.peekResult(key) as? Int       // recomposes when set
+  LaunchedEffect(pending) {
+      if (pending != null) {
+          navState.consumeResult(key)                   // one-shot
+          snackbarHostState.showSnackbar(invitesSentMsg) // correct host — group-details' Scaffold
+          onRefresh()                                    // → GroupDetailsEvent.Refresh → loadMembers()
+      }
+  }
+  ```
+  The refresh is **deliberate** (only on a real add result), eliminating the `ON_RESUME`
+  over-fetch.
+
+### Ghost-invites note (verified)
+
+`chat.bsky.actor.GroupConvoMember` exposes only `role` + `addedBy` — **no membership/status field**
+— so newly-added members (created with `request` status) cannot be rendered with a distinct
+"Pending" treatment, and typically won't appear in `getConvoMembers` until they accept. The
+"Invitations sent" snackbar is therefore the **required** signal that the action succeeded, guarding
+against an owner re-adding the same people (and hitting rate limits / `InsufficientRole`). The
+deliberate post-add refresh stays (cheap, keeps the roster authoritative if the server does surface
+any change), but is not the primary feedback.
 
 ## Files
 
@@ -158,12 +218,14 @@ the authoritative success feedback is the add screen's snackbar.
 - (optional) `feature/chats/impl/.../ui/RecipientChipsRow.kt` if the `InputChip` `FlowRow` warrants extraction
 
 **Modified**
+- `core/common/.../navigation/MainShellNavState.kt` (+ `MainShellNavStateTest.kt`) — one-shot
+  `setResult` / `peekResult` / `consumeResult` result API
 - `feature/chats/api/.../Chats.kt` — `AddGroupMembers` NavKey
 - `feature/chats/impl/.../data/ChatRepository.kt` (+ `DefaultChatRepository.kt`) — `addMembers` / `removeMembers`
 - 5× `ChatRepository` fakes
-- `feature/chats/impl/.../GroupDetailsContract.kt` — `viewerRole`; events `AddMembersTapped`, `RemoveMember(did)`; effect to navigate to `AddGroupMembers`
-- `feature/chats/impl/.../GroupDetailsViewModel.kt` — derive `viewerRole`; add/remove handlers; resume-refresh
-- `feature/chats/impl/.../GroupDetailsScreen.kt` — owner-only "Add members" button; remove confirm dialog; pass `viewerRole`
+- `feature/chats/impl/.../GroupDetailsContract.kt` — `viewerRole`; events `AddMembersTapped`, `RemoveMember(did)`, `Refresh` (exists); effect to navigate to `AddGroupMembers`
+- `feature/chats/impl/.../GroupDetailsViewModel.kt` — derive `viewerRole`; add/remove handlers; `memberCount` from `members.size`
+- `feature/chats/impl/.../GroupDetailsScreen.kt` — owner-only "Add members" button; remove confirm dialog; pass `viewerRole`; consume the add result (snackbar + refresh)
 - `feature/chats/impl/.../ui/GroupMemberRow.kt` — owner-only ⋮ → "Remove from group"
 - `feature/chats/impl/.../di/ChatsNavigationModule.kt` — `entry<AddGroupMembers>`
 - `feature/chats/impl/.../data/GroupMemberMapper.kt` — no change expected (role/viewer already mapped)
@@ -171,10 +233,12 @@ the authoritative success feedback is the add screen's snackbar.
 
 ## Testing
 
-- **Unit:** `GroupDetailsViewModel` — `viewerRole` derivation, add-nav effect (owner only), optimistic
-  remove + rollback + in-flight guard, count decrement/restore. `AddGroupMembersViewModel` —
-  recent/search pipeline, exclusion of existing members, select/deselect, cap enforcement, add
-  success → NavigateBack, add failure → ShowError. Repository fakes drive results.
+- **Unit:** `MainShellNavState` — `setResult`/`peekResult`/`consumeResult` one-shot semantics
+  (set→peek→consume→peek-null, overwrite, independent keys). `GroupDetailsViewModel` — `viewerRole`
+  derivation, add-nav effect (owner only), optimistic remove + rollback + in-flight guard,
+  `memberCount == members.size` after remove + rollback (incl. interleaved removes).
+  `AddGroupMembersViewModel` — recent/search pipeline, exclusion of existing members, select/deselect,
+  cap enforcement, add success → NavigateBack, add failure → ShowError. Repository fakes drive results.
 - **Screenshot:** AddGroupMembersScreen (empty, with selected chips, results, at-cap); group-details
   **owner** view (Add button + a removable row's ⋮) and the remove confirmation dialog.
 - **Gate:** `spotlessCheck :app:checkSortDependencies :feature:chats:impl:lintProductionDebug
