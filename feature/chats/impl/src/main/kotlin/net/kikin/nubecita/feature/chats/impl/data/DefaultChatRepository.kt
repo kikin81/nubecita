@@ -18,6 +18,9 @@ import io.github.kikin81.atproto.chat.bsky.convo.RemoveReactionRequest
 import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UnmuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
+import io.github.kikin81.atproto.chat.bsky.group.AddMembersRequest
+import io.github.kikin81.atproto.chat.bsky.group.GroupService
+import io.github.kikin81.atproto.chat.bsky.group.RemoveMembersRequest
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.Did
 import kotlinx.collections.immutable.ImmutableList
@@ -335,6 +338,38 @@ internal class DefaultChatRepository
                 }.onFailure {
                     if (it is CancellationException) throw it
                     Timber.tag(TAG).w(it, "getConvoMembers failed: %s", it.javaClass.name)
+                }
+            }
+
+        override suspend fun addMembers(
+            convoId: String,
+            dids: List<String>,
+        ): Result<Unit> =
+            groupMutation("addMembers") { service ->
+                service.addMembers(AddMembersRequest(convoId = convoId, members = dids.map { Did(it) }))
+            }
+
+        override suspend fun removeMembers(
+            convoId: String,
+            dids: List<String>,
+        ): Result<Unit> =
+            groupMutation("removeMembers") { service ->
+                service.removeMembers(RemoveMembersRequest(convoId = convoId, members = dids.map { Did(it) }))
+            }
+
+        // Parallel to [convoMutation] but over GroupService for the member-management
+        // procedures: run the XRPC call on IO; rethrow cancellation; log and return
+        // failure otherwise. No cache patch — the roster refetches via getConvoMembers.
+        private suspend inline fun groupMutation(
+            op: String,
+            crossinline block: suspend (GroupService) -> Unit,
+        ): Result<Unit> =
+            withContext(dispatcher) {
+                runCatching {
+                    block(GroupService(xrpcClientProvider.authenticated()))
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)
                 }
             }
 

@@ -308,6 +308,17 @@ internal class BenchFakeChatRepository
             cursor: String?,
         ): Result<MemberPage> = Result.success(MemberPage())
 
+        // Bench seeds no member fixtures yet; member management is a no-op success.
+        override suspend fun addMembers(
+            convoId: String,
+            dids: List<String>,
+        ): Result<Unit> = Result.success(Unit)
+
+        override suspend fun removeMembers(
+            convoId: String,
+            dids: List<String>,
+        ): Result<Unit> = Result.success(Unit)
+
         private fun currentViewerDid(): String {
             val signedIn =
                 sessionStateProvider.state.value as? SessionState.SignedIn

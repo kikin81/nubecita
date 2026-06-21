@@ -184,6 +184,18 @@ interface ChatRepository {
         convoId: String,
         cursor: String? = null,
     ): Result<MemberPage>
+
+    /** Add [dids] to group [convoId]. Added with pending status; invitees must accept. */
+    suspend fun addMembers(
+        convoId: String,
+        dids: List<String>,
+    ): Result<Unit>
+
+    /** Permanently remove [dids] from group [convoId]. */
+    suspend fun removeMembers(
+        convoId: String,
+        dids: List<String>,
+    ): Result<Unit>
 }
 
 /**

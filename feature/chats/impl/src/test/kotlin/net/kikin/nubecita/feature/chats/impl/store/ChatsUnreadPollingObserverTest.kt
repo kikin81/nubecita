@@ -340,6 +340,16 @@ class ChatsUnreadPollingObserverTest {
             messageId: String,
             emoji: String,
         ): Result<MessageUi> = error("not used")
+
+        override suspend fun addMembers(
+            convoId: String,
+            dids: List<String>,
+        ): Result<Unit> = error("not used")
+
+        override suspend fun removeMembers(
+            convoId: String,
+            dids: List<String>,
+        ): Result<Unit> = error("not used")
     }
 
     private companion object {
