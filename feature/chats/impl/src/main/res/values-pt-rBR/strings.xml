@@ -111,6 +111,16 @@
     <string name="add_members_error_generic">Algo deu errado. Tente de novo.</string>
     <string name="add_members_no_results">Nenhuma pessoa encontrada</string>
     <string name="add_members_close">Fechar</string>
+    <!-- New group (nubecita-hwix.6) -->
+    <string name="new_group_title">Novo grupo</string>
+    <string name="new_group_create">Criar</string>
+    <string name="new_group_name_placeholder">Nome do grupo</string>
+    <string name="new_group_name_counter">%1$d/%2$d</string>
+    <string name="new_group_close">Fechar</string>
+    <string name="new_group_at_capacity">Um grupo pode ter até %1$d membros.</string>
+    <string name="new_group_search_placeholder">Buscar alguém</string>
+    <string name="new_group_error_generic">Algo deu errado. Tente de novo.</string>
+    <string name="new_group_no_results">Nenhuma pessoa encontrada</string>
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d mensagem não lida</item>
         <item quantity="other">%1$d mensagens não lidas</item>

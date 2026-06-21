@@ -138,6 +138,16 @@
     <string name="add_members_error_generic">Something went wrong. Try again.</string>
     <string name="add_members_no_results">No people found</string>
     <string name="add_members_close">Close</string>
+    <!-- New group (nubecita-hwix.6) -->
+    <string name="new_group_title">New group</string>
+    <string name="new_group_create">Create</string>
+    <string name="new_group_name_placeholder">Group name</string>
+    <string name="new_group_name_counter">%1$d/%2$d</string>
+    <string name="new_group_close">Close</string>
+    <string name="new_group_at_capacity">A group can have up to %1$d members.</string>
+    <string name="new_group_search_placeholder">Search for someone</string>
+    <string name="new_group_error_generic">Something went wrong. Try again.</string>
+    <string name="new_group_no_results">No people found</string>
     <!-- Per-convo unread badge a11y (visual shows the capped count) -->
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d unread message</item>
