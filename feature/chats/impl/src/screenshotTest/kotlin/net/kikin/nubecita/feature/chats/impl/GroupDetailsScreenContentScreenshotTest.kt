@@ -97,6 +97,65 @@ private fun GroupDetailsLoadedScreenshot() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @PreviewTest
+@Preview(name = "group-details-owner-light", showBackground = true, heightDp = 720)
+@Preview(name = "group-details-owner-dark", showBackground = true, heightDp = 720, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun GroupDetailsOwnerScreenshot() {
+    val members =
+        persistentListOf(
+            GroupMemberUi(
+                did = "did:plc:viewer",
+                handle = "me.bsky.social",
+                displayName = "Me",
+                avatarUrl = null,
+                role = GroupRole.Owner,
+                addedByName = null,
+                isViewer = true,
+                followState = FollowState.NotFollowing,
+                followUri = null,
+            ),
+            GroupMemberUi(
+                did = "did:plc:grace",
+                handle = "grace.bsky.social",
+                displayName = "Grace Hopper",
+                avatarUrl = null,
+                role = GroupRole.Member,
+                addedByName = "Me",
+                isViewer = false,
+                followState = FollowState.Following,
+                followUri = "at://did:plc:grace/app.bsky.graph.follow/1",
+            ),
+            GroupMemberUi(
+                did = "did:plc:katherine",
+                handle = "katherine.bsky.social",
+                displayName = "Katherine Johnson",
+                avatarUrl = null,
+                role = GroupRole.Member,
+                addedByName = "Me",
+                isViewer = false,
+                followState = FollowState.NotFollowing,
+                followUri = null,
+            ),
+        )
+    NubecitaCanvasPreviewTheme {
+        GroupDetailsScreenContent(
+            state =
+                GroupDetailsViewState(
+                    name = "Mathematicians",
+                    viewerRole = GroupRole.Owner,
+                    status =
+                        GroupDetailsLoadStatus.Loaded(
+                            members = members,
+                            memberCount = members.size,
+                        ),
+                ),
+            onEvent = {},
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@PreviewTest
 @Preview(name = "group-details-loading-light", showBackground = true, heightDp = 480)
 @Preview(name = "group-details-loading-dark", showBackground = true, heightDp = 480, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
