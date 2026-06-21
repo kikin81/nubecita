@@ -51,6 +51,9 @@ private const val MESSAGES_DISABLED_MARKER = "messagesdisabled"
  */
 private const val NOT_FOLLOWED_BY_SENDER_MARKER = "notfollowedbysender"
 
+private const val MEMBER_LIMIT_MARKER = "memberlimitreached"
+private const val INSUFFICIENT_ROLE_MARKER = "insufficientrole"
+
 /**
  * Maps a thrown error from the convo-list path (`listConvos`) to a screen-facing
  * [ChatsError] variant. Predates [toChatError]; kept for the existing
@@ -100,3 +103,21 @@ fun Throwable.toChatError(): ChatError =
         }
         else -> ChatError.Unknown(javaClass.simpleName)
     }
+
+/**
+ * Map a `chat.bsky.group.addMembers` / `removeMembers` failure to a [ChatError].
+ * Recognises the member-management error codes first — they carry different UX than the
+ * DM-start codes (here `NotFollowedBySender` means "must follow you to be added", NOT
+ * MessagesDisabled) — then delegates everything else to [toChatError].
+ */
+fun Throwable.toMemberMgmtError(): ChatError {
+    if (this is XrpcError) {
+        val haystack = (errorName + " " + errorMessage).lowercase(Locale.ROOT)
+        when {
+            MEMBER_LIMIT_MARKER in haystack -> return ChatError.GroupFull
+            NOT_FOLLOWED_BY_SENDER_MARKER in haystack -> return ChatError.FollowRequiredToAdd
+            INSUFFICIENT_ROLE_MARKER in haystack -> return ChatError.InsufficientPermission
+        }
+    }
+    return toChatError()
+}
