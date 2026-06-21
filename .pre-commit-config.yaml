@@ -83,6 +83,19 @@ repos:
         files: '^openspec/'
         pass_filenames: false
 
+      - id: brand-progress-indicator
+        name: brand progress indicator (no raw indeterminate spinners)
+        # Greps production Kotlin outside :designsystem for raw
+        # Circular(Wavy)ProgressIndicator and fails unless the call carries a
+        # `// nubecita-allow-raw-progress: <reason>` opt-out. Keeps every
+        # "content is loading" spinner on NubecitaWavyProgressIndicator. Pure
+        # shell (no Gradle), so it runs on every commit; pass_filenames is false
+        # because the script scans the whole src/main tree itself.
+        entry: ./scripts/check_progress_indicators.sh
+        language: system
+        files: '\.kt$'
+        pass_filenames: false
+
       - id: screenshot-test-compile
         name: screenshot test sources compile
         # compileProductionDebugScreenshotTestKotlin specifically — the

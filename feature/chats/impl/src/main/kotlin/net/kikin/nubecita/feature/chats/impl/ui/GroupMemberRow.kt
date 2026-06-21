@@ -155,6 +155,8 @@ private fun FollowAffordance(
             // Disabled while the optimistic follow/unfollow round-trips; keeps the
             // button footprint (and the row's min touch target) stable.
             Button(onClick = {}, enabled = false) {
+                // nubecita-allow-raw-progress: in-button micro-spinner with a
+                // tuned strokeWidth the brand wavy component doesn't expose.
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,

@@ -81,6 +81,8 @@ internal fun ComposerCharacterCounter(
                 .clearAndSetSemantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
+        // nubecita-allow-raw-progress: determinate — the grapheme-count arc
+        // drives a `progress` fraction; the brand spinner is indeterminate only.
         CircularProgressIndicator(
             progress = { progress },
             modifier = Modifier.size(40.dp),

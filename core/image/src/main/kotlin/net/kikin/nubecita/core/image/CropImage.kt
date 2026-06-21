@@ -144,6 +144,9 @@ fun CropImage(
         }
 
         if (working == null) {
+            // nubecita-allow-raw-progress: :core:image must not depend on
+            // :designsystem (no :core:* module does); a cosmetic swap isn't
+            // worth being the first to break that layering invariant.
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center),
                 color = Color.White,

@@ -190,6 +190,8 @@ private fun SendingFooter() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        // nubecita-allow-raw-progress: 10.dp inline "Sending" dot, below the
+        // ~16.dp floor where the wavy ring's waves can render.
         CircularProgressIndicator(
             modifier = Modifier.size(10.dp),
             strokeWidth = 1.5.dp,
