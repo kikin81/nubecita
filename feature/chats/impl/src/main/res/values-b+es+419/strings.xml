@@ -135,4 +135,7 @@
     <string name="join_requests_requested_relative">Solicitó %1$s</string>
     <string name="join_requests_handle">@%1$s</string>
     <string name="join_requests_empty">No hay solicitudes pendientes</string>
+    <string name="join_requests_title">Solicitudes para unirse</string>
+    <string name="join_requests_close">Cerrar</string>
+    <string name="join_requests_error">No se pudieron cargar las solicitudes.</string>
 </resources>

@@ -163,4 +163,7 @@
     <string name="join_requests_requested_relative">Requested %1$s</string>
     <string name="join_requests_handle">@%1$s</string>
     <string name="join_requests_empty">No pending requests</string>
+    <string name="join_requests_title">Join requests</string>
+    <string name="join_requests_close">Close</string>
+    <string name="join_requests_error">Couldn\'t load join requests.</string>
 </resources>
