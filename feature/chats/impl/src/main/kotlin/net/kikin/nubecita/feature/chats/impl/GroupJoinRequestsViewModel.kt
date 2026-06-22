@@ -58,7 +58,7 @@ class GroupJoinRequestsViewModel
         private val removedDids = MutableStateFlow<Set<String>>(emptySet())
 
         val joinRequests: Flow<PagingData<JoinRequestUi>> =
-            Pager(PagingConfig(pageSize = JOIN_REQUESTS_PAGE_LIMIT)) {
+            Pager(PagingConfig(pageSize = JOIN_REQUESTS_PAGE_LIMIT, enablePlaceholders = false)) {
                 JoinRequestPagingSource(convoId, repository)
             }.flow
                 .cachedIn(viewModelScope)
