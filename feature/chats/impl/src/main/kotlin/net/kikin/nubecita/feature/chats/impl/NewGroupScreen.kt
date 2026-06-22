@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
@@ -260,7 +261,7 @@ internal fun NewGroupScreenContent(
                             modifier = Modifier.fillMaxWidth().weight(1f),
                             contentAlignment = Alignment.Center,
                         ) {
-                            CircularProgressIndicator()
+                            NubecitaWavyProgressIndicator()
                         }
                     }
 
@@ -351,6 +352,7 @@ private fun CreateAction(
             )
         }
         if (state.isSubmitting) {
+            // nubecita-allow-raw-progress: in-button micro-spinner with a tuned strokeWidth
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,
