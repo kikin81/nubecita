@@ -11,6 +11,7 @@ import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
+import net.kikin.nubecita.feature.chats.impl.data.JoinRequestPage
 import net.kikin.nubecita.feature.chats.impl.data.MemberPage
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import net.kikin.nubecita.feature.chats.impl.data.patchConvosOnAccept
@@ -270,6 +271,37 @@ internal class FakeChatRepository(
         removeMembersCalls += convoId to dids
         removeMembersGate?.await()
         return removeMembersResults.removeFirstOrNull() ?: removeMembersResult
+    }
+
+    var getJoinRequestsResult: Result<JoinRequestPage> = Result.success(JoinRequestPage())
+    var approveJoinRequestResult: Result<Unit> = Result.success(Unit)
+    var rejectJoinRequestResult: Result<Unit> = Result.success(Unit)
+    val approveJoinRequestCalls = mutableListOf<Pair<String, String>>()
+    val rejectJoinRequestCalls = mutableListOf<Pair<String, String>>()
+
+    /** Optional gate: when set, `approveJoinRequest` suspends on it before returning (test in-flight states). */
+    var approveJoinRequestGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun getJoinRequests(
+        convoId: String,
+        cursor: String?,
+    ): Result<JoinRequestPage> = getJoinRequestsResult
+
+    override suspend fun approveJoinRequest(
+        convoId: String,
+        did: String,
+    ): Result<Unit> {
+        approveJoinRequestCalls += convoId to did
+        approveJoinRequestGate?.await()
+        return approveJoinRequestResult
+    }
+
+    override suspend fun rejectJoinRequest(
+        convoId: String,
+        did: String,
+    ): Result<Unit> {
+        rejectJoinRequestCalls += convoId to did
+        return rejectJoinRequestResult
     }
 
     val addReactionCalls = mutableListOf<Triple<String, String, String>>() // convoId, messageId, emoji

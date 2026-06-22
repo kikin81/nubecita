@@ -10,6 +10,7 @@ import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
+import net.kikin.nubecita.feature.chats.impl.data.JoinRequestPage
 import net.kikin.nubecita.feature.chats.impl.data.MemberPage
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import java.util.concurrent.atomic.AtomicInteger
@@ -201,6 +202,21 @@ internal class FakeChatRepository(
     override suspend fun removeMembers(
         convoId: String,
         dids: List<String>,
+    ): Result<Unit> = Result.success(Unit)
+
+    override suspend fun getJoinRequests(
+        convoId: String,
+        cursor: String?,
+    ): Result<JoinRequestPage> = Result.success(JoinRequestPage())
+
+    override suspend fun approveJoinRequest(
+        convoId: String,
+        did: String,
+    ): Result<Unit> = Result.success(Unit)
+
+    override suspend fun rejectJoinRequest(
+        convoId: String,
+        did: String,
     ): Result<Unit> = Result.success(Unit)
 
     private companion object {

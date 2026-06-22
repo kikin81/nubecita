@@ -7,6 +7,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.GroupMemberUi
+import net.kikin.nubecita.feature.chats.impl.JoinRequestUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 
 /**
@@ -202,6 +203,24 @@ interface ChatRepository {
         convoId: String,
         dids: List<String>,
     ): Result<Unit>
+
+    /** Pending join requests for group [convoId]. */
+    suspend fun getJoinRequests(
+        convoId: String,
+        cursor: String? = null,
+    ): Result<JoinRequestPage>
+
+    /** Approve the pending request from [did] (they become a member). */
+    suspend fun approveJoinRequest(
+        convoId: String,
+        did: String,
+    ): Result<Unit>
+
+    /** Reject the pending request from [did]. */
+    suspend fun rejectJoinRequest(
+        convoId: String,
+        did: String,
+    ): Result<Unit>
 }
 
 /**
@@ -236,8 +255,15 @@ data class MemberPage(
     val cursor: String? = null,
 )
 
+data class JoinRequestPage(
+    val requests: ImmutableList<JoinRequestUi> = persistentListOf(),
+    val cursor: String? = null,
+)
+
 internal const val LIST_CONVOS_PAGE_LIMIT: Int = 30
 internal const val GET_MESSAGES_PAGE_LIMIT: Int = 50
 
 // Groups cap at 50 members, so a single limit=100 page returns the full roster.
 internal const val GET_CONVO_MEMBERS_PAGE_LIMIT: Int = 100
+
+internal const val JOIN_REQUESTS_PAGE_LIMIT: Int = 50

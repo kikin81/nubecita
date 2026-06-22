@@ -25,6 +25,7 @@ import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.ConvoResolution
+import net.kikin.nubecita.feature.chats.impl.data.JoinRequestPage
 import net.kikin.nubecita.feature.chats.impl.data.MemberPage
 import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -354,6 +355,21 @@ class ChatsUnreadPollingObserverTest {
         override suspend fun removeMembers(
             convoId: String,
             dids: List<String>,
+        ): Result<Unit> = error("not used")
+
+        override suspend fun getJoinRequests(
+            convoId: String,
+            cursor: String?,
+        ): Result<JoinRequestPage> = error("not used")
+
+        override suspend fun approveJoinRequest(
+            convoId: String,
+            did: String,
+        ): Result<Unit> = error("not used")
+
+        override suspend fun rejectJoinRequest(
+            convoId: String,
+            did: String,
         ): Result<Unit> = error("not used")
     }
 

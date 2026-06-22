@@ -362,6 +362,23 @@ internal class BenchFakeChatRepository
             dids: List<String>,
         ): Result<Unit> = Result.success(Unit)
 
+        // Bench seeds no join-request fixtures; the join-requests screen renders its
+        // empty state and approve/reject are no-op successes.
+        override suspend fun getJoinRequests(
+            convoId: String,
+            cursor: String?,
+        ): Result<JoinRequestPage> = Result.success(JoinRequestPage())
+
+        override suspend fun approveJoinRequest(
+            convoId: String,
+            did: String,
+        ): Result<Unit> = Result.success(Unit)
+
+        override suspend fun rejectJoinRequest(
+            convoId: String,
+            did: String,
+        ): Result<Unit> = Result.success(Unit)
+
         private fun currentViewerDid(): String {
             val signedIn =
                 sessionStateProvider.state.value as? SessionState.SignedIn
