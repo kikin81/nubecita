@@ -70,11 +70,19 @@ class NewGroupViewModel
         private val retryTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
         init {
-            // Name validation: a trimmed grapheme count, valid in 1..max.
+            // Name validation on the trimmed text: 1..128 graphemes AND ≤1280 UTF-8 bytes
+            // (the lexicon enforces both; a sub-128-grapheme name can still bust the byte cap).
             snapshotFlow { nameFieldState.text.toString() }
                 .onEach { text ->
-                    val count = GraphemeCounter.count(text.trim())
-                    setState { copy(nameGraphemeCount = count, isNameValid = count in 1..GROUP_NAME_MAX_GRAPHEMES) }
+                    val trimmed = text.trim()
+                    val count = GraphemeCounter.count(trimmed)
+                    val withinBytes = trimmed.encodeToByteArray().size <= GROUP_NAME_MAX_BYTES
+                    setState {
+                        copy(
+                            nameGraphemeCount = count,
+                            isNameValid = count in 1..GROUP_NAME_MAX_GRAPHEMES && withinBytes,
+                        )
+                    }
                 }.launchIn(viewModelScope)
 
             val rawStatusFlow =

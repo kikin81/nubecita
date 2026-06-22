@@ -76,3 +76,7 @@ sealed interface NewGroupEffect : UiEffect {
 
 internal const val GROUP_NAME_MAX_GRAPHEMES = 128
 internal const val GROUP_NAME_COUNTER_THRESHOLD = 103 // 80% of 128
+
+// The lexicon caps the name at 1280 UTF-8 bytes in addition to 128 graphemes; a name
+// under the grapheme cap can still exceed this (e.g. a ZWJ emoji ≈ 25 bytes each).
+internal const val GROUP_NAME_MAX_BYTES = 1280

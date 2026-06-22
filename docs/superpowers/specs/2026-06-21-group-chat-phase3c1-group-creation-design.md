@@ -100,7 +100,7 @@ Plain `@Inject` VM depending on `ActorRepository`, `ChatRepository`, `SessionSta
 - **State (`NewGroupViewState`):**
   - `selected: ImmutableList<RecipientUi>`
   - `atCapacity: Boolean` — `selected.size >= GROUP_MAX_MEMBERS - 1` (49 others + creator = 50)
-  - `nameGraphemeCount: Int`, `isNameValid: Boolean` (`count in 1..GROUP_NAME_MAX_GRAPHEMES`, 128)
+  - `nameGraphemeCount: Int`, `isNameValid: Boolean` (on the **trimmed** name: `count in 1..GROUP_NAME_MAX_GRAPHEMES` (128) **and** UTF-8 byte length `<= GROUP_NAME_MAX_BYTES` (1280) — the lexicon enforces both, and a sub-128-grapheme name can still bust the byte cap via multi-byte ZWJ emoji)
   - `isSubmitting: Boolean`
   - `status: NewGroupStatus` — `Recent / Searching / Results / NoResults / Error` (mirrors New-Chat)
   - derived `canCreate: Boolean = isNameValid && selected.isNotEmpty() && !isSubmitting`
@@ -203,6 +203,7 @@ extraction).
 - `GROUP_MAX_MEMBERS = 50` (existing, `GroupDetailsContract`) — cap on others = `GROUP_MAX_MEMBERS - 1`.
 - New `GROUP_NAME_MAX_GRAPHEMES = 128`.
 - New `GROUP_NAME_COUNTER_THRESHOLD = 103` (80% of 128) — above this the proactive name counter shows.
+- New `GROUP_NAME_MAX_BYTES = 1280` — the lexicon's UTF-8 byte cap on the name, validated alongside the grapheme cap (on the trimmed text).
 
 ## Files
 

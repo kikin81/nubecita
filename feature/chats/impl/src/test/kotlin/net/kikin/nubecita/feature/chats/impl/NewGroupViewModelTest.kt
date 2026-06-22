@@ -78,6 +78,23 @@ internal class NewGroupViewModelTest {
         }
 
     @Test
+    fun `nameOverByteCapIsInvalid`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = vm()
+            advanceUntilIdle()
+
+            // A name over the 1280-byte cap must be rejected even if it isn't over the
+            // 128-grapheme cap (a ZWJ family emoji is one ICU grapheme but ~25 UTF-8 bytes).
+            // (JVM BreakIterator may cluster ZWJ emoji differently than Android ICU, so this
+            // asserts the outcome — rejection — not the exact grapheme count.)
+            val longName = "👨‍👩‍👧‍👦".repeat(60)
+            assertTrue(longName.encodeToByteArray().size > GROUP_NAME_MAX_BYTES, "fixture is over the byte cap")
+            setName(vm, longName)
+
+            assertFalse(vm.uiState.value.isNameValid, "a name over the byte cap is rejected")
+        }
+
+    @Test
     fun `blankQuery_recentExcludesSelf_toggleAddsThenRemoves`() =
         runTest(mainDispatcher.dispatcher) {
             every { actorRepo.recentActors("did:self", any()) } returns
