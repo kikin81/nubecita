@@ -347,6 +347,11 @@ internal class BenchFakeChatRepository
         }
 
         // Bench seeds no member fixtures yet; member management is a no-op success.
+        override suspend fun createGroup(
+            name: String,
+            dids: List<String>,
+        ): Result<String> = Result.success("bench:new-group")
+
         override suspend fun addMembers(
             convoId: String,
             dids: List<String>,

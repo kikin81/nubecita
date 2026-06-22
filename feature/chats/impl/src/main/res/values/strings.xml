@@ -91,6 +91,10 @@
     <string name="new_chat_retry">Retry</string>
     <string name="new_chat_back_content_description">Back</string>
     <string name="new_chat_fab_content_description">New message</string>
+    <string name="chats_new_message">New message</string>
+    <string name="chats_new_group">New group</string>
+    <string name="chats_fab_menu_open">New conversation</string>
+    <string name="chats_fab_menu_close">Close</string>
     <string name="new_chat_cannot_message">Can\'t be messaged</string>
 
     <!-- Chat settings screen ("Who can message you") — the account-global
@@ -138,6 +142,16 @@
     <string name="add_members_error_generic">Something went wrong. Try again.</string>
     <string name="add_members_no_results">No people found</string>
     <string name="add_members_close">Close</string>
+    <!-- New group (nubecita-hwix.6) -->
+    <string name="new_group_title">New group</string>
+    <string name="new_group_create">Create</string>
+    <string name="new_group_name_placeholder">Group name</string>
+    <string name="new_group_name_counter">%1$d/%2$d</string>
+    <string name="new_group_close">Close</string>
+    <string name="new_group_at_capacity">A group can have up to %1$d members.</string>
+    <string name="new_group_search_placeholder">Search for someone</string>
+    <string name="new_group_error_generic">Something went wrong. Try again.</string>
+    <string name="new_group_no_results">No people found</string>
     <!-- Per-convo unread badge a11y (visual shows the capped count) -->
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d unread message</item>

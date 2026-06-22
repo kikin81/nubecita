@@ -15,7 +15,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonMenu
+import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
@@ -34,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +64,7 @@ internal fun ChatsScreenContent(
     snackbarHostState: SnackbarHostState,
     onEvent: (ChatsEvent) -> Unit,
     onNewChat: () -> Unit,
+    onNewGroup: () -> Unit,
     modifier: Modifier = Modifier,
     // The open conversation's convoId (or null) — highlights the matching list
     // row in the tablet list-detail layout. Null on phones / when no thread is open.
@@ -128,11 +132,40 @@ internal fun ChatsScreenContent(
             val notEnrolled =
                 status is ChatsLoadStatus.InitialError && status.error == ChatsError.NotEnrolled
             if (!inSelection && !notEnrolled) {
-                FloatingActionButton(onClick = onNewChat) {
-                    NubecitaIcon(
-                        name = NubecitaIconName.Edit,
-                        contentDescription = stringResource(R.string.new_chat_fab_content_description),
-                        filled = true,
+                var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
+                FloatingActionButtonMenu(
+                    expanded = fabMenuExpanded,
+                    button = {
+                        ToggleFloatingActionButton(
+                            checked = fabMenuExpanded,
+                            onCheckedChange = { fabMenuExpanded = it },
+                        ) {
+                            NubecitaIcon(
+                                name = if (fabMenuExpanded) NubecitaIconName.Close else NubecitaIconName.Edit,
+                                contentDescription =
+                                    stringResource(
+                                        if (fabMenuExpanded) R.string.chats_fab_menu_close else R.string.chats_fab_menu_open,
+                                    ),
+                                filled = true,
+                            )
+                        }
+                    },
+                ) {
+                    FloatingActionButtonMenuItem(
+                        onClick = {
+                            fabMenuExpanded = false
+                            onNewChat()
+                        },
+                        icon = { NubecitaIcon(NubecitaIconName.Edit, contentDescription = null) },
+                        text = { Text(stringResource(R.string.chats_new_message)) },
+                    )
+                    FloatingActionButtonMenuItem(
+                        onClick = {
+                            fabMenuExpanded = false
+                            onNewGroup()
+                        },
+                        icon = { NubecitaIcon(NubecitaIconName.PersonAdd, contentDescription = null) },
+                        text = { Text(stringResource(R.string.chats_new_group)) },
                     )
                 }
             }

@@ -214,6 +214,26 @@ internal class FakeChatRepository(
         return getConvoMembersResult
     }
 
+    var createGroupResult: Result<String> = Result.success("convo:new")
+    val createGroupCalls = mutableListOf<Pair<String, List<String>>>()
+
+    /**
+     * Optional gate: when set, `createGroup` records its call and then suspends on
+     * this deferred before returning. Lets a test hold a create in flight so the
+     * VM's `isSubmitting` input-lock can be observed (picker edits and a second
+     * create are dropped while the first is parked here).
+     */
+    var createGroupGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun createGroup(
+        name: String,
+        dids: List<String>,
+    ): Result<String> {
+        createGroupCalls += name to dids
+        createGroupGate?.await()
+        return createGroupResult
+    }
+
     var addMembersResult: Result<Unit> = Result.success(Unit)
     var removeMembersResult: Result<Unit> = Result.success(Unit)
     val addMembersCalls = mutableListOf<Pair<String, List<String>>>()

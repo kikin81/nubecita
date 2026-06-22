@@ -68,6 +68,10 @@
     <string name="new_chat_retry">Reintentar</string>
     <string name="new_chat_back_content_description">Atrás</string>
     <string name="new_chat_fab_content_description">Mensaje nuevo</string>
+    <string name="chats_new_message">Mensaje nuevo</string>
+    <string name="chats_new_group">Grupo nuevo</string>
+    <string name="chats_fab_menu_open">Nueva conversación</string>
+    <string name="chats_fab_menu_close">Cerrar</string>
     <string name="new_chat_cannot_message">No se le puede enviar mensajes</string>
     <string name="chat_settings_title">Quién puede enviarte mensajes</string>
     <string name="chat_settings_gear_content_description">Ajustes del chat</string>
@@ -111,6 +115,16 @@
     <string name="add_members_error_generic">Algo salió mal. Inténtalo de nuevo.</string>
     <string name="add_members_no_results">No se encontraron personas</string>
     <string name="add_members_close">Cerrar</string>
+    <!-- New group (nubecita-hwix.6) -->
+    <string name="new_group_title">Grupo nuevo</string>
+    <string name="new_group_create">Crear</string>
+    <string name="new_group_name_placeholder">Nombre del grupo</string>
+    <string name="new_group_name_counter">%1$d/%2$d</string>
+    <string name="new_group_close">Cerrar</string>
+    <string name="new_group_at_capacity">Un grupo puede tener hasta %1$d miembros.</string>
+    <string name="new_group_search_placeholder">Buscar a alguien</string>
+    <string name="new_group_error_generic">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="new_group_no_results">No se encontraron personas</string>
     <plurals name="chats_unread_messages">
         <item quantity="one">%1$d mensaje sin leer</item>
         <item quantity="other">%1$d mensajes sin leer</item>
