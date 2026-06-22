@@ -144,7 +144,9 @@ sanctioned paging exception — `PagingData` is not a `UiState` field, analogous
 - **Stateless `GroupJoinRequestsScreenContent(lazyItems, inFlight, onApprove, onReject, onClose, …)`** —
   `Scaffold(containerColor = surface)` + TopAppBar (close + title). Body branches on Paging
   `loadState`, NOT a sealed status sum:
-  - `loadState.refresh is LoadState.Loading` → centered `CircularProgressIndicator`.
+  - `loadState.refresh is LoadState.Loading` → a centered **`NubecitaWavyProgressIndicator`** (the
+    brand standalone loader; the `check_progress_indicators.sh` guard from #563 forbids a raw
+    `CircularProgressIndicator` for standalone "content loading" spinners).
   - `loadState.refresh is LoadState.Error` → retry body (`lazyItems.retry()`).
   - `loadState.refresh is NotLoading && lazyItems.itemCount == 0` → **`EmptyStateContent`** (a dedicated
     component: a subdued M3 icon — e.g. `NubecitaIconName.Group`/inbox — + a friendly "No pending
@@ -160,8 +162,18 @@ sanctioned paging exception — `PagingData` is not a `UiState` field, analogous
   supporting line (`rememberChatRelativeTimeText(requestedAt)`); trailing actions use a clear M3
   hierarchy — **Approve = `FilledTonalButton`** (primary positive action), **Reject = `TextButton`**
   (not an `OutlinedButton`, to cut vertical-list visual noise). While the row's DID is in-flight, both
-  are `enabled = false` and Approve hosts a `CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)`
-  in place of its label (explicit size so the button height doesn't jump). Min row height ≥ 48dp.
+  are `enabled = false` and Approve hosts a small spinner in place of its label (explicit size so the
+  button height doesn't jump). This is the **sanctioned in-button micro-spinner** exception in #563's
+  guard, so it stays a raw `CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)` with
+  the opt-out marker on the line above:
+  `// nubecita-allow-raw-progress: in-button micro-spinner`. Min row height ≥ 48dp.
+
+> **Brand-loader alignment (PR #563).** `NubecitaWavyProgressIndicator` is already on `main`; #563
+> adds the `check_progress_indicators.sh` pre-commit guard + migrates the *remaining* raw spinners.
+> C2 aligns up-front: standalone loaders use the wrapper, the in-button spinner carries the opt-out
+> marker. Note #563 currently **conflicts** (opened before C1 merged) and does **not** migrate
+> `NewGroupScreen`'s standalone "Searching" spinner (C1 landed after #563 was cut) — that's a #563
+> rebase/gap to handle separately, out of scope for C2.
 
 ## Files
 
