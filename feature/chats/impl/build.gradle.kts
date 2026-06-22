@@ -71,6 +71,8 @@ dependencies {
     // :feature:notifications:impl.
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.paging.compose)
+    implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
@@ -84,6 +86,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(project(":core:testing"))
+    testImplementation(libs.androidx.paging.testing)
     testImplementation(libs.kotlinx.coroutines.test)
     // Ktor MockEngine for the ChatSettingsRepository getRecord/putRecord
     // write-path tests — stands up a real XrpcClient over deterministic
