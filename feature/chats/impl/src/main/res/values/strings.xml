@@ -157,4 +157,10 @@
         <item quantity="one">%1$d unread message</item>
         <item quantity="other">%1$d unread messages</item>
     </plurals>
+    <!-- Join requests (nubecita-hwix.7) -->
+    <string name="join_requests_approve">Approve</string>
+    <string name="join_requests_reject">Reject</string>
+    <string name="join_requests_requested_relative">Requested %1$s</string>
+    <string name="join_requests_handle">@%1$s</string>
+    <string name="join_requests_empty">No pending requests</string>
 </resources>

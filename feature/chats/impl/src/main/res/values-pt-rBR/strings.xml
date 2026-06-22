@@ -129,4 +129,10 @@
         <item quantity="one">%1$d mensagem não lida</item>
         <item quantity="other">%1$d mensagens não lidas</item>
     </plurals>
+    <!-- Join requests (nubecita-hwix.7) -->
+    <string name="join_requests_approve">Aprovar</string>
+    <string name="join_requests_reject">Recusar</string>
+    <string name="join_requests_requested_relative">Solicitou %1$s</string>
+    <string name="join_requests_handle">@%1$s</string>
+    <string name="join_requests_empty">Nenhuma solicitação pendente</string>
 </resources>
