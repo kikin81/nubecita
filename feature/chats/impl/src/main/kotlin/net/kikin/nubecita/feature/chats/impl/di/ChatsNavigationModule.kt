@@ -21,6 +21,7 @@ import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.GroupDetails
+import net.kikin.nubecita.feature.chats.api.GroupJoinRequests
 import net.kikin.nubecita.feature.chats.api.NewChat
 import net.kikin.nubecita.feature.chats.api.NewGroup
 import net.kikin.nubecita.feature.chats.impl.AddGroupMembersScreen
@@ -32,6 +33,8 @@ import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupDetailsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupDetailsViewModel
+import net.kikin.nubecita.feature.chats.impl.GroupJoinRequestsScreen
+import net.kikin.nubecita.feature.chats.impl.GroupJoinRequestsViewModel
 import net.kikin.nubecita.feature.chats.impl.NewChatScreen
 import net.kikin.nubecita.feature.chats.impl.NewGroupScreen
 import net.kikin.nubecita.feature.chats.impl.selectedConvoId
@@ -166,6 +169,24 @@ internal object ChatsNavigationModule {
                         navState.setResult("group_members_added:${route.convoId}", count)
                         navState.removeLast()
                     },
+                    onBack = { navState.removeLast() },
+                )
+            }
+            // adaptiveDialog(): full-screen on Compact, centered Dialog on
+            // Medium / Expanded. Assisted-injected — GroupJoinRequestsViewModel
+            // takes the GroupJoinRequests route via its factory. On a roster
+            // change (an approved request joins the group) it sets a one-shot
+            // result keyed by convoId that GroupDetailsScreen consumes on the
+            // way back to refresh its member list.
+            entry<GroupJoinRequests>(metadata = adaptiveDialog()) { route ->
+                val navState = LocalMainShellNavState.current
+                val viewModel =
+                    hiltViewModel<GroupJoinRequestsViewModel, GroupJoinRequestsViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                GroupJoinRequestsScreen(
+                    viewModel = viewModel,
+                    onRosterChanged = { navState.setResult("group_roster_refresh:${route.convoId}", true) },
                     onBack = { navState.removeLast() },
                 )
             }
