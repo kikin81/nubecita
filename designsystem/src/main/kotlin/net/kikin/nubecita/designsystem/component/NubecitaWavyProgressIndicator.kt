@@ -28,6 +28,13 @@ import androidx.compose.ui.graphics.Color
  *   pull-to-refresh ([NubecitaPullToRefreshBox]); this is the free-standing
  *   spinner for content/action/overlay loads.
  *
+ * This rule is enforced: `scripts/check_progress_indicators.sh` (wired as the
+ * `brand-progress-indicator` pre-commit hook, and run in CI) fails the build on
+ * a raw `Circular(Wavy)ProgressIndicator` outside `:designsystem`. A genuinely
+ * raw site (determinate `progress`, an in-button micro-spinner, a sub-16.dp
+ * dot) opts out with `// nubecita-allow-raw-progress: <reason>` on or directly
+ * above the call.
+ *
  * @param modifier sizing/placement; defaults to the wavy indicator's natural size.
  * @param color the ring color; defaults to the M3 wavy indicator color
  *   (override e.g. `Color.White` over media, or a container's content color).

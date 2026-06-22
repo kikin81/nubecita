@@ -98,6 +98,8 @@ internal fun BlockDialogContent(
                     ),
             ) {
                 if (state.isSubmitting) {
+                    // nubecita-allow-raw-progress: in-button micro-spinner with
+                    // a tuned strokeWidth the brand wavy component doesn't expose.
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,

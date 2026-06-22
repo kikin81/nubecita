@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.data.models.BlockedAccount
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -106,7 +106,7 @@ internal fun BlockedAccountsContent(
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val status = state.status) {
                 BlockedAccountsStatus.Loading ->
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    NubecitaWavyProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 BlockedAccountsStatus.Error ->
                     CenteredMessage(
                         title = stringResource(R.string.blocked_accounts_error_title),

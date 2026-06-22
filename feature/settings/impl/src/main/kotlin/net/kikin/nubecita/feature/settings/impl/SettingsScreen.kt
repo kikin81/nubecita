@@ -683,6 +683,8 @@ private fun SignOutConfirmDialog(
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !isSigningOut) {
                 if (isSigningOut) {
+                    // nubecita-allow-raw-progress: in-button micro-spinner with
+                    // a tuned strokeWidth the brand wavy component doesn't expose.
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp,
