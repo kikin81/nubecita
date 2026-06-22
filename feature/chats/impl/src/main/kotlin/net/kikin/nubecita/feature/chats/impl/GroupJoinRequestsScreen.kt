@@ -118,14 +118,19 @@ internal fun GroupJoinRequestsScreen(
 }
 
 /**
- * Stateless content for the group join-requests screen. Accepts fixture inputs for
- * @Preview and screenshot-test rendering.
+ * Stateless content for the group join-requests screen.
  *
  * Layout: a [TopAppBar] with a close nav icon and "Join requests" title, over a
  * width-constrained body that branches on the Paging refresh [LoadState] — a centered
  * [NubecitaWavyProgressIndicator] while loading, a centered retry on error, an
  * [EmptyStateContent] when settled-but-empty, and otherwise a [LazyColumn] of
  * [JoinRequestRow]s with an append-state footer (spinner / retry).
+ *
+ * Not screenshot-tested at the screen level: a `LazyPagingItems` can't advance past
+ * `LoadState.Loading` in the recomposer-less screenshot host, so a frame baseline here
+ * would only ever capture the spinner. The meaningful surfaces are covered by the
+ * component baselines instead — `JoinRequestRowScreenshotTest` and
+ * `EmptyStateContentScreenshotTest`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
