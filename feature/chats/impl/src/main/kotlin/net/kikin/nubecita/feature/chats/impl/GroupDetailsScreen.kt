@@ -1,11 +1,13 @@
 package net.kikin.nubecita.feature.chats.impl
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -114,6 +116,19 @@ internal fun GroupDetailsScreen(
                         snackbarHostState.currentSnackbarData?.dismiss()
                         snackbarHostState.showSnackbar(invitesSentMsg)
                     }
+                }
+            }
+    }
+
+    val rosterRefreshKey = "group_roster_refresh:$convoId"
+    LaunchedEffect(convoId) {
+        // A successful approve on the join-requests screen sets this; refresh the roster
+        // (no snackbar — returning to a refreshed roster is the feedback).
+        snapshotFlow { navState.peekResult(rosterRefreshKey) }
+            .collect { value ->
+                if (value != null) {
+                    navState.consumeResult(rosterRefreshKey)
+                    viewModel.handleEvent(GroupDetailsEvent.Refresh)
                 }
             }
     }
@@ -232,6 +247,31 @@ private fun LoadedBody(
         }
         item(contentType = "actions") {
             GroupActionRow(muted = state.muted, viewerRole = state.viewerRole, onEvent = onEvent)
+        }
+        if (state.viewerRole == GroupRole.Owner) {
+            item(contentType = "joinRequests") {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable { onEvent(GroupDetailsEvent.JoinRequestsTapped) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    NubecitaIcon(name = NubecitaIconName.PersonAdd, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.group_details_join_requests),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f).padding(start = 16.dp),
+                    )
+                    NubecitaIcon(
+                        name = NubecitaIconName.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
         items(status.members, key = { it.did }, contentType = { "member" }) { member ->
             GroupMemberRow(

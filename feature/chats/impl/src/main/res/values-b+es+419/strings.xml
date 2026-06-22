@@ -96,6 +96,7 @@
     <string name="group_details_menu_item">Detalles del grupo</string>
     <!-- Group member management (nubecita-hwix.5) -->
     <string name="group_details_add_members">Agregar miembros</string>
+    <string name="group_details_join_requests">Solicitudes para unirse</string>
     <string name="group_details_remove_member">Quitar del grupo</string>
     <string name="group_details_remove_confirm_title">¿Quitar miembro?</string>
     <string name="group_details_remove_confirm_body">¿Quitar a %1$s de este grupo?</string>

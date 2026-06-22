@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.api.GroupDetails
+import net.kikin.nubecita.feature.chats.api.GroupJoinRequests
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.MemberPage
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -404,6 +405,20 @@ internal class GroupDetailsViewModelTest {
                 advanceUntilIdle()
                 vm.handleEvent(GroupDetailsEvent.AddMembersTapped)
                 assertEquals(GroupDetailsEffect.NavigateTo(AddGroupMembers(convoId)), awaitItem())
+            }
+        }
+
+    @Test
+    fun `JoinRequestsTapped navigates to GroupJoinRequests`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            val vm = groupDetailsViewModel(repo)
+
+            vm.effects.test {
+                advanceUntilIdle()
+                vm.handleEvent(GroupDetailsEvent.JoinRequestsTapped)
+                assertEquals(GroupDetailsEffect.NavigateTo(GroupJoinRequests(convoId)), awaitItem())
             }
         }
 

@@ -13,6 +13,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.api.GroupDetails
+import net.kikin.nubecita.feature.chats.api.GroupJoinRequests
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toChatError
 import net.kikin.nubecita.feature.chats.impl.data.toMemberMgmtError
@@ -80,6 +81,7 @@ class GroupDetailsViewModel
                 GroupDetailsEvent.ToggleMute -> onToggleMute()
                 is GroupDetailsEvent.MemberTapped -> onMemberTapped(event.did)
                 GroupDetailsEvent.AddMembersTapped -> onAddMembersTapped()
+                GroupDetailsEvent.JoinRequestsTapped -> sendEffect(GroupDetailsEffect.NavigateTo(GroupJoinRequests(convoId)))
                 is GroupDetailsEvent.RemoveMember -> onRemoveMember(event.did)
             }
         }

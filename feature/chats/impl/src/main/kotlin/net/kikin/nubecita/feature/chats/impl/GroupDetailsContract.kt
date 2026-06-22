@@ -100,6 +100,9 @@ sealed interface GroupDetailsEvent : UiEvent {
     /** Owner tapped "Add members" → navigate to the add picker. */
     data object AddMembersTapped : GroupDetailsEvent
 
+    /** Owner tapped the "Join requests" entry → open the join-requests screen. */
+    data object JoinRequestsTapped : GroupDetailsEvent
+
     /** Owner confirmed removing the member with [did] from the group. */
     data class RemoveMember(
         val did: String,
