@@ -28,6 +28,7 @@ import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
+import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
@@ -122,6 +123,11 @@ internal class ComposerViewModel
         private val actorRepository: ActorRepository,
         private val localeProvider: LocaleProvider,
         private val postAudienceDefaultRepository: PostAudienceDefaultRepository,
+        // Exposed (not private) so `ComposerScreen` can drive the post-publish
+        // in-app review request on the host Activity's scope. The VM never calls
+        // it — it has no Activity handle, and launching here would cancel when the
+        // composer route pops. See `ReviewManager` and design D2/D3.
+        val reviewManager: ReviewManager,
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
             // Pre-fill the audience from the synced default — a point-in-time read
             // of the repo's seeded/refreshed StateFlow at open, mirroring

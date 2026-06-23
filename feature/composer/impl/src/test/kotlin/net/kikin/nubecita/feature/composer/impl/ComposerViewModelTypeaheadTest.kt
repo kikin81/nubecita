@@ -329,6 +329,7 @@ class ComposerViewModelTypeaheadTest {
                 mockk(relaxed = true) {
                     every { default } returns MutableStateFlow(PostAudience.DEFAULT)
                 },
+            reviewManager = mockk(relaxed = true),
         )
 
     private fun TestScope.setComposerText(

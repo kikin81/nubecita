@@ -26,6 +26,7 @@ dependencies {
     // :core:moderation alongside the other app.bsky.actor preferences.
     implementation(project(":core:moderation"))
     implementation(project(":core:posting"))
+    implementation(project(":core:review"))
     implementation(libs.androidx.activity.compose)
     // currentWindowAdaptiveInfoV2() + WindowSizeClass — used by
     // ComposerDiscardDialog to branch its visual treatment on width
