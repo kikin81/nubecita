@@ -139,4 +139,21 @@
     <string name="join_requests_title">Solicitudes para unirse</string>
     <string name="join_requests_close">Cerrar</string>
     <string name="join_requests_error">No se pudieron cargar las solicitudes.</string>
+    <!-- Join link (nubecita-hwix.8) -->
+    <string name="group_details_invite_link">Enlace de invitación</string>
+    <string name="join_link_title">Enlace de invitación</string>
+    <string name="join_link_close">Cerrar</string>
+    <string name="join_link_create_title">Crear un enlace de invitación</string>
+    <string name="join_link_create_body">Comparte un enlace para que otras personas se unan a este grupo.</string>
+    <string name="join_link_create_button">Crear enlace</string>
+    <string name="join_link_copy">Copiar</string>
+    <string name="join_link_share">Compartir</string>
+    <string name="join_link_copied">Enlace copiado</string>
+    <string name="join_link_enabled_toggle">Enlace activo</string>
+    <string name="join_link_who_can_join">Quién puede unirse</string>
+    <string name="join_link_rule_anyone">Cualquiera</string>
+    <string name="join_link_rule_followed">Personas que sigues</string>
+    <string name="join_link_require_approval">Requerir aprobación</string>
+    <string name="join_link_require_approval_help">Si está activado, quienes toquen el enlace aparecerán en Solicitudes para que las apruebes.</string>
+    <string name="join_link_unsupported">Este enlace usa ajustes de una versión más reciente de Nubecita. Actualiza para editar.</string>
 </resources>

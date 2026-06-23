@@ -139,4 +139,21 @@
     <string name="join_requests_title">Solicitações para entrar</string>
     <string name="join_requests_close">Fechar</string>
     <string name="join_requests_error">Não foi possível carregar as solicitações.</string>
+    <!-- Join link (nubecita-hwix.8) -->
+    <string name="group_details_invite_link">Link de convite</string>
+    <string name="join_link_title">Link de convite</string>
+    <string name="join_link_close">Fechar</string>
+    <string name="join_link_create_title">Criar um link de convite</string>
+    <string name="join_link_create_body">Compartilhe um link para que outras pessoas entrem neste grupo.</string>
+    <string name="join_link_create_button">Criar link</string>
+    <string name="join_link_copy">Copiar</string>
+    <string name="join_link_share">Compartilhar</string>
+    <string name="join_link_copied">Link copiado</string>
+    <string name="join_link_enabled_toggle">Link ativo</string>
+    <string name="join_link_who_can_join">Quem pode entrar</string>
+    <string name="join_link_rule_anyone">Qualquer pessoa</string>
+    <string name="join_link_rule_followed">Pessoas que você segue</string>
+    <string name="join_link_require_approval">Exigir aprovação</string>
+    <string name="join_link_require_approval_help">Quando ativado, quem tocar no link aparecerá em Solicitações para você aprovar.</string>
+    <string name="join_link_unsupported">Este link usa configurações de uma versão mais recente do Nubecita. Atualize para editar.</string>
 </resources>
