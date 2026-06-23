@@ -6,7 +6,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.kikin.nubecita.feature.chats.impl.GroupPublicInfoUi
 import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinResult
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
@@ -239,6 +241,10 @@ internal class FakeChatRepository(
 
     override suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
 
+    override suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi> = Result.success(STUB_GROUP_PUBLIC_INFO)
+
+    override suspend fun requestJoin(code: String): Result<JoinResult> = Result.success(JoinResult.Pending)
+
     private companion object {
         val DEFAULT_SENT_MESSAGE =
             MessageUi(
@@ -260,5 +266,8 @@ internal class FakeChatRepository(
                 requireApproval = true,
                 createdAt = Instant.parse("2026-05-13T12:00:00Z"),
             )
+
+        // Duplicated per source set — source-set isolation prevents sharing the JVM test fixture.
+        val STUB_GROUP_PUBLIC_INFO = GroupPublicInfoUi("Group", 1, null, "stub.bsky.social", null, false)
     }
 }

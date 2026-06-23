@@ -22,8 +22,10 @@ import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.FollowState
 import net.kikin.nubecita.feature.chats.impl.GroupMemberUi
+import net.kikin.nubecita.feature.chats.impl.GroupPublicInfoUi
 import net.kikin.nubecita.feature.chats.impl.GroupRole
 import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinResult
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
@@ -401,6 +403,11 @@ internal class BenchFakeChatRepository
 
         override suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
 
+        // Bench has no joiner fixtures; group-public-info and requestJoin are no-op successes.
+        override suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi> = Result.success(STUB_GROUP_PUBLIC_INFO)
+
+        override suspend fun requestJoin(code: String): Result<JoinResult> = Result.success(JoinResult.Pending)
+
         private fun currentViewerDid(): String {
             val signedIn =
                 sessionStateProvider.state.value as? SessionState.SignedIn
@@ -428,5 +435,9 @@ internal class BenchFakeChatRepository
                     requireApproval = true,
                     createdAt = Instant.parse("2026-05-13T12:00:00Z"),
                 )
+
+            // Duplicated per source set — source-set isolation prevents sharing the JVM test fixture.
+            private val STUB_GROUP_PUBLIC_INFO =
+                GroupPublicInfoUi("Group", 1, null, "stub.bsky.social", null, false)
         }
     }
