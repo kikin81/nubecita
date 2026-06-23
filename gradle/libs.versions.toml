@@ -156,6 +156,7 @@ hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt"
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt" }
 revenuecat-purchases = { module = "com.revenuecat.purchases:purchases", version.ref = "revenueCat" }
+androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
 androidx-paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
 androidx-paging-testing = { module = "androidx.paging:paging-testing", version.ref = "paging" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }

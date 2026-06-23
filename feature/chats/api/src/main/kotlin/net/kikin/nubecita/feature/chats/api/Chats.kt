@@ -83,6 +83,17 @@ data class AddGroupMembers(
 ) : NavKey
 
 /**
+ * Owner-side join-requests list for a group conversation. A `@MainShell` sub-route pushed from
+ * the group-details "Join requests" row; tagged `adaptiveDialog()` so it renders full-screen on
+ * Compact and as a centered Dialog on Medium / Expanded. Carries the [convoId] whose pending
+ * requests it shows.
+ */
+@Serializable
+data class GroupJoinRequests(
+    val convoId: String,
+) : NavKey
+
+/**
  * Account-global chat settings ("Who can message you"). A `@MainShell`
  * sub-route pushed from the inbox toolbar's gear; tagged `adaptiveDialog()` so
  * it renders full-screen on Compact and as a centered Dialog on Medium /

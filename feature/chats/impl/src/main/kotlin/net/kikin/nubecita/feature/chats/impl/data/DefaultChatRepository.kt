@@ -19,8 +19,11 @@ import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UnmuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
 import io.github.kikin81.atproto.chat.bsky.group.AddMembersRequest
+import io.github.kikin81.atproto.chat.bsky.group.ApproveJoinRequestRequest
 import io.github.kikin81.atproto.chat.bsky.group.CreateGroupRequest
 import io.github.kikin81.atproto.chat.bsky.group.GroupService
+import io.github.kikin81.atproto.chat.bsky.group.ListJoinRequestsRequest
+import io.github.kikin81.atproto.chat.bsky.group.RejectJoinRequestRequest
 import io.github.kikin81.atproto.chat.bsky.group.RemoveMembersRequest
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.Did
@@ -371,6 +374,47 @@ internal class DefaultChatRepository
         ): Result<Unit> =
             groupMutation("removeMembers") { service ->
                 service.removeMembers(RemoveMembersRequest(convoId = convoId, members = dids.map { Did(it) }))
+            }
+
+        override suspend fun getJoinRequests(
+            convoId: String,
+            cursor: String?,
+        ): Result<JoinRequestPage> =
+            withContext(dispatcher) {
+                runCatching {
+                    val response =
+                        GroupService(xrpcClientProvider.authenticated())
+                            .listJoinRequests(
+                                ListJoinRequestsRequest(
+                                    convoId = convoId,
+                                    limit = JOIN_REQUESTS_PAGE_LIMIT.toLong(),
+                                    cursor = cursor,
+                                ),
+                            )
+                    JoinRequestPage(
+                        requests = response.requests.map { it.toJoinRequestUi() }.toImmutableList(),
+                        cursor = response.cursor,
+                    )
+                }.onFailure {
+                    if (it is CancellationException) throw it
+                    Timber.tag(TAG).w(it, "getJoinRequests failed: %s", it.javaClass.name)
+                }
+            }
+
+        override suspend fun approveJoinRequest(
+            convoId: String,
+            did: String,
+        ): Result<Unit> =
+            groupMutation("approveJoinRequest") { service ->
+                service.approveJoinRequest(ApproveJoinRequestRequest(convoId = convoId, member = Did(did)))
+            }
+
+        override suspend fun rejectJoinRequest(
+            convoId: String,
+            did: String,
+        ): Result<Unit> =
+            groupMutation("rejectJoinRequest") { service ->
+                service.rejectJoinRequest(RejectJoinRequestRequest(convoId = convoId, member = Did(did)))
             }
 
         // Parallel to [convoMutation] but over GroupService for the member-management

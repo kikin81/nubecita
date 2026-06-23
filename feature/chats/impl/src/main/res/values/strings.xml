@@ -123,6 +123,7 @@
     <string name="group_details_menu_item">Group details</string>
     <!-- Group member management (nubecita-hwix.5) -->
     <string name="group_details_add_members">Add members</string>
+    <string name="group_details_join_requests">Join requests</string>
     <string name="group_details_remove_member">Remove from group</string>
     <string name="group_details_remove_confirm_title">Remove member?</string>
     <string name="group_details_remove_confirm_body">Remove %1$s from this group?</string>
@@ -157,4 +158,13 @@
         <item quantity="one">%1$d unread message</item>
         <item quantity="other">%1$d unread messages</item>
     </plurals>
+    <!-- Join requests (nubecita-hwix.7) -->
+    <string name="join_requests_approve">Approve</string>
+    <string name="join_requests_reject">Reject</string>
+    <string name="join_requests_requested_relative">Requested %1$s</string>
+    <string name="join_requests_handle">@%1$s</string>
+    <string name="join_requests_empty">No pending requests</string>
+    <string name="join_requests_title">Join requests</string>
+    <string name="join_requests_close">Close</string>
+    <string name="join_requests_error">Couldn\'t load join requests.</string>
 </resources>

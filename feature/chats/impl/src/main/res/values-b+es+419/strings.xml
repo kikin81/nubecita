@@ -96,6 +96,7 @@
     <string name="group_details_menu_item">Detalles del grupo</string>
     <!-- Group member management (nubecita-hwix.5) -->
     <string name="group_details_add_members">Agregar miembros</string>
+    <string name="group_details_join_requests">Solicitudes para unirse</string>
     <string name="group_details_remove_member">Quitar del grupo</string>
     <string name="group_details_remove_confirm_title">¿Quitar miembro?</string>
     <string name="group_details_remove_confirm_body">¿Quitar a %1$s de este grupo?</string>
@@ -129,4 +130,13 @@
         <item quantity="one">%1$d mensaje sin leer</item>
         <item quantity="other">%1$d mensajes sin leer</item>
     </plurals>
+    <!-- Join requests (nubecita-hwix.7) -->
+    <string name="join_requests_approve">Aprobar</string>
+    <string name="join_requests_reject">Rechazar</string>
+    <string name="join_requests_requested_relative">Solicitó %1$s</string>
+    <string name="join_requests_handle">@%1$s</string>
+    <string name="join_requests_empty">No hay solicitudes pendientes</string>
+    <string name="join_requests_title">Solicitudes para unirse</string>
+    <string name="join_requests_close">Cerrar</string>
+    <string name="join_requests_error">No se pudieron cargar las solicitudes.</string>
 </resources>
