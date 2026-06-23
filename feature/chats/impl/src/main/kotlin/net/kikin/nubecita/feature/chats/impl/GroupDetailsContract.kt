@@ -103,6 +103,9 @@ sealed interface GroupDetailsEvent : UiEvent {
     /** Owner tapped the "Join requests" entry → open the join-requests screen. */
     data object JoinRequestsTapped : GroupDetailsEvent
 
+    /** Owner tapped the "Invite link" entry → open the manage-join-link screen. */
+    data object InviteLinkTapped : GroupDetailsEvent
+
     /** Owner confirmed removing the member with [did] from the group. */
     data class RemoveMember(
         val did: String,

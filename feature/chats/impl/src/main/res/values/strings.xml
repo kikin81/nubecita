@@ -124,6 +124,7 @@
     <!-- Group member management (nubecita-hwix.5) -->
     <string name="group_details_add_members">Add members</string>
     <string name="group_details_join_requests">Join requests</string>
+    <string name="group_details_invite_link">Invite link</string>
     <string name="group_details_remove_member">Remove from group</string>
     <string name="group_details_remove_confirm_title">Remove member?</string>
     <string name="group_details_remove_confirm_body">Remove %1$s from this group?</string>
