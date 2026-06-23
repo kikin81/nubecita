@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import kotlin.time.Instant
 
-class JoinLinkMapperTest {
+internal class JoinLinkMapperTest {
     private fun view(
         code: String = "abc123",
         enabledStatus: String = "enabled",
@@ -51,5 +51,12 @@ class JoinLinkMapperTest {
     fun `toWire round-trips the two supported rules`() {
         assertEquals("anyone", JoinRule.Anyone.toWire())
         assertEquals("followedByOwner", JoinRule.FollowedByOwner.toWire())
+    }
+
+    @Test
+    fun `toWire throws for unsupported rule`() {
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException::class.java) {
+            JoinRule.Unsupported.toWire()
+        }
     }
 }

@@ -5,6 +5,7 @@ import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import kotlin.time.Instant
 
+// Spec §2: the C3b deep-link interceptor MUST match this base when parsing incoming invite URLs.
 private const val JOIN_LINK_BASE_URL = "https://nubecita.app/group/join"
 
 // chat.bsky.group.defs#linkEnabledStatus sentinel for an active link.
