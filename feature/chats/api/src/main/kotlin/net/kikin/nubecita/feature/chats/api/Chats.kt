@@ -104,6 +104,16 @@ data class ManageJoinLink(
 ) : NavKey
 
 /**
+ * Deep-link landing for a group invite (`https://nubecita.app/group/join/{code}`). Previews the
+ * group via `getGroupPublicInfo` and lets the user join / request to join. Rendered as an
+ * adaptiveDialog (full-screen on Compact, centered dialog on Medium/Expanded).
+ */
+@Serializable
+data class GroupJoinPreview(
+    val code: String,
+) : NavKey
+
+/**
  * Account-global chat settings ("Who can message you"). A `@MainShell`
  * sub-route pushed from the inbox toolbar's gear; tagged `adaptiveDialog()` so
  * it renders full-screen on Compact and as a centered Dialog on Medium /
