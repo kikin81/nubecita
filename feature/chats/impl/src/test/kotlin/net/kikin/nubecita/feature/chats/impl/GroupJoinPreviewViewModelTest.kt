@@ -87,6 +87,7 @@ internal class GroupJoinPreviewViewModelTest {
             model.handleEvent(GroupJoinPreviewEvent.JoinTapped)
             advanceUntilIdle()
             assertEquals(GroupJoinPreviewStatus.RequestSent, model.uiState.value.status)
+            assertFalse(model.uiState.value.joinInFlight)
         }
 
     @Test
@@ -125,5 +126,24 @@ internal class GroupJoinPreviewViewModelTest {
             fake.requestJoinGate!!.complete(Unit)
             advanceUntilIdle()
             assertEquals(listOf("code-1"), fake.requestJoinCalls)
+            assertFalse(model.uiState.value.joinInFlight)
+        }
+
+    @Test
+    fun `join after request sent is a no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fake =
+                FakeChatRepository().apply {
+                    getGroupPublicInfoResult = Result.success(info)
+                    requestJoinResult = Result.success(JoinResult.Pending)
+                }
+            val model = vm(fake)
+            advanceUntilIdle()
+            model.handleEvent(GroupJoinPreviewEvent.JoinTapped) // -> RequestSent
+            advanceUntilIdle()
+            model.handleEvent(GroupJoinPreviewEvent.JoinTapped) // guarded: status !is Loaded
+            advanceUntilIdle()
+            assertEquals(1, fake.requestJoinCalls.size)
+            assertEquals(GroupJoinPreviewStatus.RequestSent, model.uiState.value.status)
         }
 }
