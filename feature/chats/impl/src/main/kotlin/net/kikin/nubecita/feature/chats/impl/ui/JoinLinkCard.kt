@@ -110,7 +110,9 @@ internal fun JoinLinkCard(
             style = MaterialTheme.typography.titleSmall,
         )
         JoinRuleSelector(
-            selected = if (unsupported) JoinRule.Anyone else link.joinRule,
+            // Pass the rule as-is: an Unsupported rule matches neither segment, so the (disabled)
+            // selector shows nothing selected rather than misleadingly highlighting "Anyone".
+            selected = link.joinRule,
             enabled = controlsEnabled,
             onSelect = onJoinRuleChange,
         )
