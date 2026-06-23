@@ -14,6 +14,7 @@ import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.api.GroupDetails
 import net.kikin.nubecita.feature.chats.api.GroupJoinRequests
+import net.kikin.nubecita.feature.chats.api.ManageJoinLink
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toChatError
 import net.kikin.nubecita.feature.chats.impl.data.toMemberMgmtError
@@ -82,6 +83,8 @@ class GroupDetailsViewModel
                 is GroupDetailsEvent.MemberTapped -> onMemberTapped(event.did)
                 GroupDetailsEvent.AddMembersTapped -> onAddMembersTapped()
                 GroupDetailsEvent.JoinRequestsTapped -> sendEffect(GroupDetailsEffect.NavigateTo(GroupJoinRequests(convoId)))
+                GroupDetailsEvent.InviteLinkTapped ->
+                    sendEffect(GroupDetailsEffect.NavigateTo(ManageJoinLink(convoId)))
                 is GroupDetailsEvent.RemoveMember -> onRemoveMember(event.did)
             }
         }

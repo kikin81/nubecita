@@ -272,6 +272,29 @@ private fun LoadedBody(
                     )
                 }
             }
+            item(contentType = "inviteLink") {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable { onEvent(GroupDetailsEvent.InviteLinkTapped) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    NubecitaIcon(name = NubecitaIconName.IosShare, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.group_details_invite_link),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f).padding(start = 16.dp),
+                    )
+                    NubecitaIcon(
+                        name = NubecitaIconName.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
         items(status.members, key = { it.did }, contentType = { "member" }) { member ->
             GroupMemberRow(

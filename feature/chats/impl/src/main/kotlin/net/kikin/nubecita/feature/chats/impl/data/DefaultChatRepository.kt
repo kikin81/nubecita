@@ -10,6 +10,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.GetConvoMembersRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetLogRequest
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesRequest
+import io.github.kikin81.atproto.chat.bsky.convo.GroupConvo
 import io.github.kikin81.atproto.chat.bsky.convo.LeaveConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.ListConvosRequest
 import io.github.kikin81.atproto.chat.bsky.convo.MessageInput
@@ -21,12 +22,19 @@ import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
 import io.github.kikin81.atproto.chat.bsky.group.AddMembersRequest
 import io.github.kikin81.atproto.chat.bsky.group.ApproveJoinRequestRequest
 import io.github.kikin81.atproto.chat.bsky.group.CreateGroupRequest
+import io.github.kikin81.atproto.chat.bsky.group.CreateJoinLinkRequest
+import io.github.kikin81.atproto.chat.bsky.group.DisableJoinLinkRequest
+import io.github.kikin81.atproto.chat.bsky.group.EditJoinLinkRequest
+import io.github.kikin81.atproto.chat.bsky.group.EnableJoinLinkRequest
 import io.github.kikin81.atproto.chat.bsky.group.GroupService
+import io.github.kikin81.atproto.chat.bsky.group.JoinLinkView
 import io.github.kikin81.atproto.chat.bsky.group.ListJoinRequestsRequest
 import io.github.kikin81.atproto.chat.bsky.group.RejectJoinRequestRequest
 import io.github.kikin81.atproto.chat.bsky.group.RemoveMembersRequest
+import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.Did
+import io.github.kikin81.atproto.runtime.present
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
@@ -43,6 +51,8 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
+import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
 import javax.inject.Inject
@@ -417,6 +427,62 @@ internal class DefaultChatRepository
                 service.rejectJoinRequest(RejectJoinRequestRequest(convoId = convoId, member = Did(did)))
             }
 
+        override suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?> =
+            withContext(dispatcher) {
+                runCatching {
+                    val convo =
+                        ConvoService(xrpcClientProvider.authenticated())
+                            .getConvo(GetConvoRequest(convoId = convoId))
+                            .convo
+                    (convo.kind as? GroupConvo)?.joinLink?.toJoinLinkUi()
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).w(throwable, "getJoinLink failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun createJoinLink(
+            convoId: String,
+            joinRule: JoinRule,
+            requireApproval: Boolean,
+        ): Result<JoinLinkUi> =
+            joinLinkMutation("createJoinLink") { service ->
+                service
+                    .createJoinLink(
+                        CreateJoinLinkRequest(
+                            convoId = convoId,
+                            joinRule = joinRule.toWire(),
+                            requireApproval = present(requireApproval),
+                        ),
+                    ).joinLink
+            }
+
+        override suspend fun editJoinLink(
+            convoId: String,
+            joinRule: JoinRule?,
+            requireApproval: Boolean?,
+        ): Result<JoinLinkUi> =
+            joinLinkMutation("editJoinLink") { service ->
+                service
+                    .editJoinLink(
+                        EditJoinLinkRequest(
+                            convoId = convoId,
+                            joinRule = joinRule?.let { present(it.toWire()) } ?: AtField.Missing,
+                            requireApproval = requireApproval?.let { present(it) } ?: AtField.Missing,
+                        ),
+                    ).joinLink
+            }
+
+        override suspend fun enableJoinLink(convoId: String): Result<JoinLinkUi> =
+            joinLinkMutation("enableJoinLink") { service ->
+                service.enableJoinLink(EnableJoinLinkRequest(convoId = convoId)).joinLink
+            }
+
+        override suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi> =
+            joinLinkMutation("disableJoinLink") { service ->
+                service.disableJoinLink(DisableJoinLinkRequest(convoId = convoId)).joinLink
+            }
+
         // Parallel to [convoMutation] but over GroupService for the member-management
         // procedures: run the XRPC call on IO; rethrow cancellation; log and return
         // failure otherwise. No cache patch — the roster refetches via getConvoMembers.
@@ -427,6 +493,20 @@ internal class DefaultChatRepository
             withContext(dispatcher) {
                 runCatching {
                     block(GroupService(xrpcClientProvider.authenticated()))
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)
+                }
+            }
+
+        // Parallel to [groupMutation] but returns the mapped JoinLinkUi each link op yields.
+        private suspend inline fun joinLinkMutation(
+            op: String,
+            crossinline block: suspend (GroupService) -> JoinLinkView,
+        ): Result<JoinLinkUi> =
+            withContext(dispatcher) {
+                runCatching {
+                    block(GroupService(xrpcClientProvider.authenticated())).toJoinLinkUi()
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)

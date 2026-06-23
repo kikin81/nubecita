@@ -20,6 +20,8 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
+import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
@@ -31,6 +33,7 @@ import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import kotlin.time.Instant
 
 /**
  * Mirrors `NotificationsPollingObserverTest` — the observer logic is a
@@ -371,9 +374,38 @@ class ChatsUnreadPollingObserverTest {
             convoId: String,
             did: String,
         ): Result<Unit> = error("not used")
+
+        override suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?> = Result.success(null)
+
+        override suspend fun createJoinLink(
+            convoId: String,
+            joinRule: JoinRule,
+            requireApproval: Boolean,
+        ): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+        override suspend fun editJoinLink(
+            convoId: String,
+            joinRule: JoinRule?,
+            requireApproval: Boolean?,
+        ): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+        override suspend fun enableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+        override suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
     }
 
     private companion object {
+        // Duplicated per source set — source-set isolation prevents sharing the JVM test fixture.
+        val STUB_JOIN_LINK =
+            JoinLinkUi(
+                code = "stub",
+                url = "https://nubecita.app/group/join/stub",
+                enabled = true,
+                joinRule = JoinRule.Anyone,
+                requireApproval = true,
+                createdAt = Instant.parse("2026-05-13T12:00:00Z"),
+            )
+
         fun sampleConvo(unread: Int): ConvoRowUi =
             ConvoRowUi.Direct(
                 convoId = "c1",

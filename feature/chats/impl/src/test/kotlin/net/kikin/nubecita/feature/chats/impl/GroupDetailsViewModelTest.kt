@@ -11,6 +11,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.api.GroupDetails
 import net.kikin.nubecita.feature.chats.api.GroupJoinRequests
+import net.kikin.nubecita.feature.chats.api.ManageJoinLink
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.MemberPage
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -638,6 +639,20 @@ internal class GroupDetailsViewModelTest {
             followState = followState,
             followUri = followUri,
         )
+
+    @Test
+    fun `invite link tapped navigates to manage join link`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("G")
+            val vm = groupDetailsViewModel(repo)
+
+            vm.effects.test {
+                advanceUntilIdle()
+                vm.handleEvent(GroupDetailsEvent.InviteLinkTapped)
+                assertEquals(GroupDetailsEffect.NavigateTo(ManageJoinLink(convoId = convoId)), awaitItem())
+            }
+        }
 
     private fun GroupDetailsViewModel.memberFor(did: String): GroupMemberUi = (uiState.value.status as GroupDetailsLoadStatus.Loaded).members.first { it.did == did }
 }

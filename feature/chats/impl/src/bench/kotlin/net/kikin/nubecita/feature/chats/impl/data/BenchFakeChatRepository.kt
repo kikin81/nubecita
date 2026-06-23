@@ -23,6 +23,8 @@ import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.FollowState
 import net.kikin.nubecita.feature.chats.impl.GroupMemberUi
 import net.kikin.nubecita.feature.chats.impl.GroupRole
+import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
@@ -31,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 @Singleton
 internal class BenchFakeChatRepository
@@ -379,6 +382,25 @@ internal class BenchFakeChatRepository
             did: String,
         ): Result<Unit> = Result.success(Unit)
 
+        // Bench has no join-link fixtures; link management is a no-op success.
+        override suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?> = Result.success(null)
+
+        override suspend fun createJoinLink(
+            convoId: String,
+            joinRule: JoinRule,
+            requireApproval: Boolean,
+        ): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+        override suspend fun editJoinLink(
+            convoId: String,
+            joinRule: JoinRule?,
+            requireApproval: Boolean?,
+        ): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+        override suspend fun enableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+        override suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
         private fun currentViewerDid(): String {
             val signedIn =
                 sessionStateProvider.state.value as? SessionState.SignedIn
@@ -395,5 +417,16 @@ internal class BenchFakeChatRepository
                     ignoreUnknownKeys = true
                     coerceInputValues = true
                 }
+
+            // Duplicated per source set — source-set isolation prevents sharing the JVM test fixture.
+            private val STUB_JOIN_LINK =
+                JoinLinkUi(
+                    code = "stub",
+                    url = "https://nubecita.app/group/join/stub",
+                    enabled = true,
+                    joinRule = JoinRule.Anyone,
+                    requireApproval = true,
+                    createdAt = Instant.parse("2026-05-13T12:00:00Z"),
+                )
         }
     }

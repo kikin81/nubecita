@@ -124,6 +124,7 @@
     <!-- Group member management (nubecita-hwix.5) -->
     <string name="group_details_add_members">Add members</string>
     <string name="group_details_join_requests">Join requests</string>
+    <string name="group_details_invite_link">Invite link</string>
     <string name="group_details_remove_member">Remove from group</string>
     <string name="group_details_remove_confirm_title">Remove member?</string>
     <string name="group_details_remove_confirm_body">Remove %1$s from this group?</string>
@@ -158,6 +159,22 @@
         <item quantity="one">%1$d unread message</item>
         <item quantity="other">%1$d unread messages</item>
     </plurals>
+    <!-- Join link management (nubecita-hwix.8) -->
+    <string name="join_link_title">Invite link</string>
+    <string name="join_link_close">Close</string>
+    <string name="join_link_create_title">Create an invite link</string>
+    <string name="join_link_create_body">Share a link so people can join this group.</string>
+    <string name="join_link_create_button">Create link</string>
+    <string name="join_link_copy">Copy</string>
+    <string name="join_link_share">Share</string>
+    <string name="join_link_copied">Link copied</string>
+    <string name="join_link_enabled_toggle">Link active</string>
+    <string name="join_link_who_can_join">Who can join</string>
+    <string name="join_link_rule_anyone">Anyone</string>
+    <string name="join_link_rule_followed">People you follow</string>
+    <string name="join_link_require_approval">Require approval</string>
+    <string name="join_link_require_approval_help">When on, people who tap the link appear in Join requests for you to approve.</string>
+    <string name="join_link_unsupported">This link uses settings from a newer version of Nubecita. Update to edit.</string>
     <!-- Join requests (nubecita-hwix.7) -->
     <string name="join_requests_approve">Approve</string>
     <string name="join_requests_reject">Reject</string>
