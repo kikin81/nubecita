@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.composer.impl
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,10 +44,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.image.PickedImage
 import net.kikin.nubecita.core.image.rememberImagePicker
 import net.kikin.nubecita.core.posting.BLUESKY_LANGUAGE_TAGS
@@ -147,6 +151,12 @@ internal fun ComposerScreen(
     // The Compose-ktlint rule `lambda-param-in-effect` enforces this.
     val currentOnNavigateBack by rememberUpdatedState(onNavigateBack)
     val currentOnSubmitSuccess by rememberUpdatedState(onSubmitSuccess)
+
+    // The host Activity (not the composer route / LocalLifecycleOwner) owns the
+    // scope for the post-publish in-app review request, so it survives this
+    // screen popping on success (design D3). Non-null in the app, like the
+    // paywall purchase flow; null in previews/tests, where the request is skipped.
+    val reviewActivity = LocalActivity.current as? ComponentActivity
 
     // Stabilize the VM-event lambdas that wire ComposerScreenContent.
     // Text input no longer dispatches an event — the IME writes
@@ -271,8 +281,15 @@ internal fun ComposerScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 ComposerEffect.NavigateBack -> currentOnNavigateBack()
-                is ComposerEffect.OnSubmitSuccess ->
+                is ComposerEffect.OnSubmitSuccess -> {
+                    // Fire-and-forget the in-app review request on the Activity's
+                    // scope so it outlives the composer pop below. All gating +
+                    // fail-silence live in ReviewManager; the bench flavor no-ops.
+                    reviewActivity?.let { act ->
+                        act.lifecycleScope.launch { viewModel.reviewManager.onPostPublished(act) }
+                    }
                     currentOnSubmitSuccess(effect.newPostUri, effect.replyToUri)
+                }
                 is ComposerEffect.ShowError -> {
                     val message =
                         when (val cause = effect.error) {

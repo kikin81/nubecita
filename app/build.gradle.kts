@@ -282,6 +282,7 @@ dependencies {
     implementation(project(":core:posting"))
     implementation(project(":core:preferences"))
     implementation(project(":core:push"))
+    implementation(project(":core:review"))
     implementation(project(":core:video"))
     implementation(project(":core:widget-sync"))
     implementation(project(":designsystem"))

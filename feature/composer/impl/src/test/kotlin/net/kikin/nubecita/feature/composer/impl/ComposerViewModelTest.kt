@@ -955,6 +955,7 @@ class ComposerViewModelTest {
             actorRepository = actorRepository,
             localeProvider = fixedLocaleProvider(deviceLocaleTag),
             postAudienceDefaultRepository = postAudienceDefaultRepository,
+            reviewManager = mockk(relaxed = true),
         )
 
     private fun fixedLocaleProvider(tag: String): LocaleProvider =
