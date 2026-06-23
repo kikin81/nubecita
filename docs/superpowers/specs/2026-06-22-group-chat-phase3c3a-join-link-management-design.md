@@ -38,7 +38,7 @@ No "delete link" (the SDK has none — once created, a link is enabled/disabled)
 - `LinkEnabledStatus` = `String` typealias; knownValues `"enabled"`, `"disabled"`.
 
 **No standalone "get link" endpoint.** The current link is read from the convo:
-`ConvoService(client).getConvo(convoId).convo.kind` → `GroupConvo.joinLink: JoinLinkView?`
+`ConvoService(client).getConvo(GetConvoRequest(convoId)).convo.kind` → `GroupConvo.joinLink: JoinLinkView?`
 (optional — `groupConvo` requires only `name` + `lockStatus`, so a group has **0 or 1** link).
 
 `requireApproval` ties directly to C2: `true` routes joiners into the C2 Join-requests approve/reject
@@ -64,7 +64,7 @@ queue; `false` lets them join directly.
 ```kotlin
 suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?>
 suspend fun createJoinLink(convoId: String, joinRule: JoinRule, requireApproval: Boolean): Result<JoinLinkUi>
-suspend fun editJoinLink(convoId: String, joinRule: JoinRule, requireApproval: Boolean): Result<JoinLinkUi>
+suspend fun editJoinLink(convoId: String, joinRule: JoinRule? = null, requireApproval: Boolean? = null): Result<JoinLinkUi>
 suspend fun enableJoinLink(convoId: String): Result<JoinLinkUi>
 suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi>
 ```
@@ -75,6 +75,10 @@ suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi>
   return type intentionally drops `joinLink`.
 - The four mutations wrap `GroupService(client)`; each maps its response's `joinLink` →
   `JoinLinkUi`.
+- `editJoinLink` maps each non-null arg to its `AtField(...)` and leaves a `null` arg as
+  `AtField.Missing` — so a single-field edit (e.g. only `requireApproval`) **never re-sends
+  `joinRule`** and cannot clobber a rule the client doesn't understand. `createJoinLink` always
+  sends `joinRule` (the SDK requires it) + `requireApproval`.
 - All wrap calls in `runCatchingCancellable` style: rethrow `CancellationException`, log
   `throwable.javaClass.name` only (no PII), return `Result.failure`.
 - All 5 fakes updated: a settable result + call capture per method, plus a per-method gate
@@ -83,13 +87,18 @@ suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi>
 
 ### Model + mapper
 
-- `:data:models`: `enum class JoinRule { Anyone, FollowedByOwner }` and
+- `:data:models`: `enum class JoinRule { Anyone, FollowedByOwner, Unsupported }` and
   `@Immutable data class JoinLinkUi(code: String, url: String, enabled: Boolean, joinRule: JoinRule, requireApproval: Boolean, createdAt: kotlin.time.Instant)`.
   - `url = "https://nubecita.app/group/join/$code"` (computed in the mapper, stored on the model so
     the screen reads it directly for Copy/Share).
   - `enabled = enabledStatus == "enabled"`.
-  - `JoinRule` mapping: `"followedByOwner"` → `FollowedByOwner`, everything else (incl. `"anyone"`
-    and unknown future values) → `Anyone` (the permissive-but-safe default; the owner can re-edit).
+  - **`JoinRule` mapping (fail-closed):** `"anyone"` → `Anyone`, `"followedByOwner"` →
+    `FollowedByOwner`, **any other / unknown value → `Unsupported`**. Defaulting an unknown future
+    rule to `Anyone` is a **privacy risk**: a newer client could create a more-restrictive rule (e.g.
+    `"adminsOnly"`); an older Nubecita that mapped it to `Anyone` and then re-saved would silently
+    *widen* the group. `Unsupported` is non-permissive and is **never sent back** to the server
+    (`JoinRule.toWire()` is defined only for `Anyone`/`FollowedByOwner`; `Unsupported` has no wire
+    form). The UI locks setting mutations whenever the link is `Unsupported` (see Screen §).
 - `feature/chats/impl/.../data/JoinLinkMapper.kt`: `internal fun JoinLinkView.toJoinLinkUi()` using
   `kotlin.time.Instant.parse(createdAt.raw)` (codebase uses `kotlin.time.Instant`, **not**
   `kotlinx.datetime`). A `JoinRule.toWire(): String` helper for the request direction.
@@ -129,16 +138,23 @@ sealed interface ManageJoinLinkEffect : UiEffect {
 - **Create** (`CreateTapped`, only valid from `Loaded(null)`): guard on `mutationInFlight`; set
   `mutationInFlight = true`; `createJoinLink(...)` → success `status = Loaded(link)`; failure →
   `ShowError`; `finally mutationInFlight = false`.
-- **Edit settings** (`JoinRuleChanged` / `RequireApprovalChanged`, only valid from `Loaded(non-null)`):
-  guard on `mutationInFlight`; **optimistic** — update `status = Loaded(link.copy(joinRule/requireApproval = …))`
-  immediately, capture the prior link for rollback, call `editJoinLink(convoId, newJoinRule, newRequireApproval)`
-  (sends both current values), success → reconcile with the returned `JoinLinkUi`, failure → roll
-  back to the prior link + `ShowError`; `finally mutationInFlight = false`. Reducers read **current**
+- **Edit settings** (`JoinRuleChanged` / `RequireApprovalChanged`, only valid from `Loaded(non-null)`
+  with `joinRule != Unsupported`): guard on `mutationInFlight`; **optimistic** — update
+  `status = Loaded(link.copy(joinRule/requireApproval = …))` immediately, capture the prior link for
+  rollback, call `editJoinLink` with **only the changed field** (`JoinRuleChanged` → `editJoinLink(convoId, joinRule = new)`;
+  `RequireApprovalChanged` → `editJoinLink(convoId, requireApproval = new)`), success → reconcile with
+  the returned `JoinLinkUi`, failure → roll back to the prior link + `ShowError`;
+  `finally mutationInFlight = false`. Reducers read **current**
   state, not captured snapshots beyond the explicit rollback value.
 - **Enable/Disable** (`EnableTapped` / `DisableTapped`): guard on `mutationInFlight`; **optimistic**
   flip `link.enabled`; call `enableJoinLink` / `disableJoinLink`; reconcile / roll back as above.
 - All mutations share the single `mutationInFlight` flag (the link is one object — no per-row set
   needed, unlike C2). Errors map via the existing `toMemberMgmtError()`.
+- **Unsupported guard:** when `Loaded(link)` and `link.joinRule == JoinRule.Unsupported`, the VM
+  drops **all** setting events (`JoinRuleChanged` / `RequireApprovalChanged` / `EnableTapped` /
+  `DisableTapped`) as no-ops — the screen disables the controls (below), but this is the
+  defence-in-depth backstop so a stray event can never round-trip an `Unsupported` rule to the
+  server.
 
 ### Screen + components
 
@@ -149,18 +165,39 @@ sealed interface ManageJoinLinkEffect : UiEffect {
   `widthIn(max = 600.dp)` centered, branching on `status`:
   - `Loading` → centered `NubecitaWavyProgressIndicator`.
   - `Error` → centered message + retry `TextButton`.
-  - `Loaded(null)` → **create empty-state**: explanatory text + the two shared setting controls
-    (a segmented button **Anyone / Followed by owner** for `joinRule`, a **Require approval** switch)
-    seeded with local defaults (`Anyone`, `requireApproval = true`), and a **"Create link"**
-    `FilledTonalButton` → `CreateTapped(joinRule, requireApproval)`. Button shows an in-button spinner
-    while `mutationInFlight` (with the `// nubecita-allow-raw-progress` marker).
+  - `Loaded(null)` → **create empty-state** (M3 Expressive): a **large tonal icon** — a link/group
+    glyph (~64dp) in a soft `surfaceContainerHighest` circle for visual weight before the call to
+    action — above a short title + explanatory text, then the two shared setting controls (a segmented
+    button **Anyone / Followed by owner** for `joinRule`, a **Require approval** switch) seeded with
+    local defaults (`Anyone`, `requireApproval = true`), and a **"Create link"** `FilledTonalButton`
+    → `CreateTapped(joinRule, requireApproval)`. Button shows an in-button spinner while
+    `mutationInFlight` (with the `// nubecita-allow-raw-progress` marker).
   - `Loaded(link)` → **link card** (`surfaceContainerLow`): the URL (selectable text, truncated) with
     **Copy** (clipboard) and **Share** (`ACTION_SEND` chooser) actions reading `link.url`; an
     **Enable/Disable** affordance reflecting `link.enabled`; the inline segmented `joinRule` +
     `requireApproval` switch bound live to `JoinRuleChanged` / `RequireApprovalChanged`; helper text
     under the switch noting that with approval on, joiners appear in **Join requests** (the C2 queue).
-    Controls are disabled while `mutationInFlight`; when `link.enabled == false`, Copy/Share are
-    disabled and the card is visually de-emphasized.
+    - **Copy feedback:** tapping Copy shows a lightweight **"Link copied"** snackbar (reuses the
+      screen's existing `SnackbarHostState`) so the action has a visible confirmation.
+    - **Disabled-link de-emphasis** (`link.enabled == false`): wrap the card content in
+      `Modifier.alpha(0.6f)`, render the URL in `colorScheme.onSurfaceVariant`, drop text selection
+      (plain `Text`, not `SelectionContainer`), and disable Copy/Share. The Enable toggle stays fully
+      opaque/enabled so re-enabling is always reachable.
+    - **Unsupported-rule banner** (`link.joinRule == JoinRule.Unsupported`): show an inline banner —
+      *"This link uses settings from a newer version of Nubecita. Update to edit."* — and disable the
+      `joinRule` segmented control, the `requireApproval` switch, **and** the Enable/Disable toggle
+      (no setting can be mutated). Copy/Share of the existing URL remain available. Backed by the VM
+      Unsupported guard above.
+- **Top bar inside the adaptive dialog (decision, not a bug):** the screen keeps a normal
+  `Scaffold` + `TopAppBar` at every width. Per `docs/adaptive-layouts.md` ("scene strategies over
+  per-form-factor layouts"), an `adaptiveDialog` screen is **presentation-agnostic** — it does not
+  branch on window size; the shared `AdaptiveDialogSceneStrategy` owns the dialog window, scrim, and
+  fixed **640dp** card (`MAX_CARD_WIDTH`), inside which the standard chrome renders. This matches
+  every existing adaptive surface (`EditProfile` — the canonical reference — and C2's `GroupDetails`
+  / `ChatSettings`). A conditional dialog-title vs. app-bar treatment would couple the screen to its
+  presentation mode and diverge from the established pattern, so it is intentionally **not** done.
+  The body's `widthIn(max = 600.dp)` already sits inside the 640dp card, so the card never stretches
+  past the content.
 - Standalone loaders use `NubecitaWavyProgressIndicator` (per the #563 guard); the only raw spinner
   is the in-button create/mutation micro-spinner, marked `// nubecita-allow-raw-progress: in-button micro-spinner`.
 - Copy uses the platform clipboard; Share builds an `Intent.ACTION_SEND` (`text/plain`,
@@ -184,14 +221,19 @@ state the server rejected. `CancellationException` is always rethrown in the rep
 - **VM unit tests** (JUnit5 + MockK + Turbine + `MainDispatcherExtension`): load success
   (`Loaded(link)`) / empty (`Loaded(null)`) / error (`Error`) + retry; create success → `Loaded`;
   create failure → `ShowError` + stays `Loaded(null)`; enable/disable optimistic flip + reconcile +
-  rollback-on-failure; `joinRule`/`requireApproval` edit optimistic + reconcile + rollback;
-  `mutationInFlight` guard drops a second concurrent tap (driven via a fake gate).
-- **Mapper test**: `JoinLinkView.toJoinLinkUi()` — URL composition, `enabled` derivation, both
-  `joinRule` values + an unknown value → `Anyone`, timestamp parse.
+  rollback-on-failure; single-field edit sends only the changed `AtField` (assert `joinRule` is
+  `Missing` on a `requireApproval` flip and vice-versa); `joinRule`/`requireApproval` edit optimistic
+  + reconcile + rollback; `mutationInFlight` guard drops a second concurrent tap (fake gate);
+  **Unsupported guard** — with `Loaded(link.joinRule == Unsupported)`, every setting event is a no-op
+  (no repo call, state unchanged).
+- **Mapper test**: `JoinLinkView.toJoinLinkUi()` — URL composition, `enabled` derivation, `"anyone"`
+  → `Anyone`, `"followedByOwner"` → `FollowedByOwner`, an **unknown value → `Unsupported`**, and
+  `toWire()` round-trips the two supported values; timestamp parse.
 - **NavKey test**: `ManageJoinLink` serializes/round-trips (mirrors `GroupJoinRequestsNavKeyTest`).
-- **Screenshot tests** (component-level, light/dark): the link card **enabled** and **disabled**, and
-  the **create empty-state**. Unlike C2, there is no Paging, so these render statically in the
-  recomposer-less screenshot host. Baselines under `src/screenshotTestProductionDebug/reference/`.
+- **Screenshot tests** (component-level, light/dark): the link card **enabled**, **disabled**, and
+  **Unsupported-rule** (banner + locked controls), plus the **create empty-state**. Unlike C2, there
+  is no Paging, so these render statically in the recomposer-less screenshot host. Baselines under
+  `src/screenshotTestProductionDebug/reference/`.
 - Full gate: `spotlessCheck lint :app:checkSortDependencies testDebugUnitTest`,
   `validateProductionDebugScreenshotTest`, and a **compose-expert** review pass before PR (gate fires
   because the diff adds `@Composable`).
