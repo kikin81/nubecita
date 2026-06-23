@@ -8,11 +8,11 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
-import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.review.di.ReviewDataStore
 import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
+import kotlin.time.Instant
 
 /**
  * DataStore-backed [ReviewPreferences]. Owns its own preferences file so the

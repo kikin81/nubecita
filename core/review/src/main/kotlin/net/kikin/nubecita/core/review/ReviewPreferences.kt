@@ -1,6 +1,6 @@
 package net.kikin.nubecita.core.review
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Persistence seam for the in-app-review eligibility counters, owned by

@@ -14,7 +14,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.datetime.Clock
 import net.kikin.nubecita.core.review.DefaultReviewManager
 import net.kikin.nubecita.core.review.DefaultReviewPreferences
 import net.kikin.nubecita.core.review.PlayReviewClient
@@ -51,10 +50,6 @@ internal abstract class ReviewModule {
     abstract fun bindReviewPreferences(impl: DefaultReviewPreferences): ReviewPreferences
 
     companion object {
-        @Provides
-        @Singleton
-        fun provideClock(): Clock = Clock.System
-
         @Provides
         @Singleton
         fun providePlayReviewManager(

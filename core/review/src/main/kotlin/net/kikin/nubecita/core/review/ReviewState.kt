@@ -1,6 +1,6 @@
 package net.kikin.nubecita.core.review
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Snapshot of the locally stored in-app-review eligibility counters, read once

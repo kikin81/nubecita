@@ -1,7 +1,7 @@
 package net.kikin.nubecita.core.review
 
-import kotlinx.datetime.Instant
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
 
 /**
  * Pure, side-effect-free eligibility predicate for the in-app review prompt.

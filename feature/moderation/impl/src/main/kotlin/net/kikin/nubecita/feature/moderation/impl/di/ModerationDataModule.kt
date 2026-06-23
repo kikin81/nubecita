@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.moderation.impl.di
 
 import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.feature.moderation.impl.ModerationRepository
@@ -10,8 +9,6 @@ import net.kikin.nubecita.feature.moderation.impl.data.DefaultModerationReposito
 import net.kikin.nubecita.feature.moderation.impl.data.DefaultSubjectPreviewResolver
 import net.kikin.nubecita.feature.moderation.impl.data.SubjectPreviewResolver
 import javax.inject.Singleton
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /**
  * Hilt bindings for the moderation data layer.
@@ -35,18 +32,4 @@ internal abstract class ModerationDataModule {
     @Binds
     @Singleton
     abstract fun bindSubjectPreviewResolver(impl: DefaultSubjectPreviewResolver): SubjectPreviewResolver
-
-    companion object {
-        /**
-         * Wall clock for `ReportDialogViewModel`'s success-card `sentAt`
-         * stamp. Production binds [Clock.System]; tests construct the VM
-         * directly with a fixed-instant clock so the success state is
-         * deterministic across runs. Lives here (rather than `:core:common`)
-         * because it has no other consumers yet — promote when the second
-         * needs it.
-         */
-        @Provides
-        @OptIn(ExperimentalTime::class)
-        fun provideClock(): Clock = Clock.System
-    }
 }

@@ -1,11 +1,11 @@
 package net.kikin.nubecita.core.review
 
-import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 class ReviewPolicyTest {
     private val now = Instant.parse("2026-06-23T12:00:00Z")

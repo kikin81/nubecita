@@ -25,7 +25,6 @@ dependencies {
     implementation(libs.google.play.review)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.play.services)
-    implementation(libs.kotlinx.datetime)
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))

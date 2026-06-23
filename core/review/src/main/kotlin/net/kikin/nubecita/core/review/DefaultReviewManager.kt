@@ -1,12 +1,13 @@
 package net.kikin.nubecita.core.review
 
 import android.app.Activity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Clock
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.time.Clock
 
 /**
  * Orchestrates the post-publish in-app review request (design D5/D6):
@@ -45,16 +46,35 @@ internal class DefaultReviewManager
 
                     // The attempt is already spent; a launch failure is swallowed.
                     runCatching { reviewClient.launchReview(activity, handle) }
-                        .onFailure { Timber.tag(TAG).d(it, "launchReview failed") }
-                }.onFailure { Timber.tag(TAG).d(it, "onPostPublished failed") }
+                        .onFailure {
+                            it.rethrowIfCancellation()
+                            Timber.tag(TAG).w(it, "launchReview failed")
+                        }
+                }.onFailure {
+                    it.rethrowIfCancellation()
+                    Timber.tag(TAG).w(it, "onPostPublished failed")
+                }
             }
         }
 
         override suspend fun onAppLaunch() {
             withContext(dispatcher) {
                 runCatching { preferences.stampFirstLaunchIfUnset(clock.now()) }
-                    .onFailure { Timber.tag(TAG).d(it, "onAppLaunch failed") }
+                    .onFailure {
+                        it.rethrowIfCancellation()
+                        Timber.tag(TAG).w(it, "onAppLaunch failed")
+                    }
             }
+        }
+
+        // `runCatching` catches everything, including CancellationException —
+        // swallowing it would break cooperative cancellation when the host
+        // Activity scope is cancelled. Rethrow it; log only genuine failures.
+        // Logged at `w` (not `d`) so integration/storage issues are visible in
+        // logcat, and not `e` so expected offline failures don't reach
+        // Crashlytics — matches `DefaultModerationRepository`.
+        private fun Throwable.rethrowIfCancellation() {
+            if (this is CancellationException) throw this
         }
 
         private companion object {
