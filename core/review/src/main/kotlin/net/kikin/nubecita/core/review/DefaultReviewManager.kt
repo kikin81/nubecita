@@ -28,6 +28,7 @@ internal class DefaultReviewManager
     constructor(
         private val reviewClient: ReviewClient,
         private val preferences: ReviewPreferences,
+        private val installTimeProvider: InstallTimeProvider,
         private val clock: Clock,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ReviewManager {
@@ -37,7 +38,7 @@ internal class DefaultReviewManager
                     preferences.incrementPostCount()
                     val state = preferences.currentState()
                     val now = clock.now()
-                    if (!ReviewPolicy.isEligible(state, now)) return@runCatching
+                    if (!ReviewPolicy.isEligible(state, installTimeProvider.firstInstallTime(), now)) return@runCatching
 
                     // requestReview may throw (offline / no Play Store) → caught
                     // below, NOT recorded, so a later eligible publish retries.
@@ -54,16 +55,6 @@ internal class DefaultReviewManager
                     it.rethrowIfCancellation()
                     Timber.tag(TAG).w(it, "onPostPublished failed")
                 }
-            }
-        }
-
-        override suspend fun onAppLaunch() {
-            withContext(dispatcher) {
-                runCatching { preferences.stampFirstLaunchIfUnset(clock.now()) }
-                    .onFailure {
-                        it.rethrowIfCancellation()
-                        Timber.tag(TAG).w(it, "onAppLaunch failed")
-                    }
             }
         }
 

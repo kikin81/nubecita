@@ -7,7 +7,7 @@
 
 ## 2. Eligibility state & policy
 
-- [ ] 2.1 Add `ReviewState` (firstLaunchAt, successfulPostCount, requestCount, lastRequestedAt) and `ReviewPreferences` (own DataStore in `:core:review`): read snapshot + `incrementPostCount`, `recordReviewRequested(now)`, `stampFirstLaunchIfUnset(now)`
+- [ ] 2.1 Add `ReviewState` (successfulPostCount, requestCount, lastRequestedAt) and `ReviewPreferences` (own DataStore in `:core:review`): read snapshot + `incrementPostCount`, `recordReviewRequested(now)`. Add `InstallTimeProvider` reading `PackageManager.firstInstallTime` for the app's age.
 - [ ] 2.2 Add pure `ReviewPolicy` object with constants (MIN_POSTS=3, MIN_DAYS_SINCE_FIRST_LAUNCH=3, MAX_LIFETIME_REQUESTS=3, COOLDOWN_DAYS=90) and `isEligible(state, now)` using exact `Duration` math
 
 ## 3. Play seam & manager
@@ -20,7 +20,7 @@
 
 - [ ] 4.1 `src/production/.../ReviewModule` — bind `DefaultReviewManager` + `PlayReviewClient`
 - [ ] 4.2 `src/bench/.../ReviewModule` — bind no-op `BenchFakeReviewManager` (`onPostPublished` does nothing)
-- [ ] 4.3 Stamp `firstLaunchAt` once in the production `AppInitializer` (alongside `RevenueCatInitializer`); ensure bench never registers it
+- [ ] 4.3 Bind `DefaultInstallTimeProvider` in the production `ReviewModule`; no startup initializer needed (install time is read on-demand from `PackageManager`)
 
 ## 5. Composer trigger
 
@@ -36,7 +36,7 @@
 - [ ] 7.1 `ReviewPolicyTest` — eligibility truth table incl. boundaries (exactly 3 posts / 3 days / 90 days / 3rd request)
 - [ ] 7.2 `DefaultReviewManagerTest` — fake `ReviewClient` + in-memory `ReviewPreferences`: ineligible⇒increment-only; eligible⇒launch+record; `requestReview` throws⇒silent, not recorded; `launchReview` throws⇒silent, recorded; within-cooldown⇒no launch
 - [ ] 7.3 `ReviewClientTest` — verify `PlayReviewClient` wiring with Google's `FakeReviewManager`
-- [ ] 7.4 `ReviewPreferencesTest` — counter increments, first-launch stamp idempotency, request recording
+- [ ] 7.4 `ReviewPreferencesTest` — counter increments, request recording, fresh-store defaults
 - [ ] 7.5 `PlayStoreLauncherTest` — intent action/data + https fallback
 - [ ] 7.6 Settings row `@Preview` + screenshot baseline; UI test asserting the tap fires the listing intent
 

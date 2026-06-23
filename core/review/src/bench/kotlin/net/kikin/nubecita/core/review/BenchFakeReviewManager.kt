@@ -15,6 +15,4 @@ internal class BenchFakeReviewManager
     @Inject
     constructor() : ReviewManager {
         override suspend fun onPostPublished(activity: Activity) = Unit
-
-        override suspend fun onAppLaunch() = Unit
     }

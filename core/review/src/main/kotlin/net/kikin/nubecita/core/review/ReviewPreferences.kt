@@ -17,7 +17,4 @@ internal interface ReviewPreferences {
 
     /** Records that a review request was launched at [now] (count + timestamp). */
     suspend fun recordReviewRequested(now: Instant)
-
-    /** Stamps the first-launch time to [now] only if it has never been set. */
-    suspend fun stampFirstLaunchIfUnset(now: Instant)
 }

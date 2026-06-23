@@ -14,7 +14,7 @@ internal object ReviewPolicy {
     /** Minimum lifetime successful posts before the first request. */
     const val MIN_POSTS = 3
 
-    /** Minimum age since first launch before the first request. */
+    /** Minimum age since first install before the first request. */
     val MIN_AGE = 3.days
 
     /** Hard lifetime cap on the number of review requests we will make. */
@@ -25,12 +25,11 @@ internal object ReviewPolicy {
 
     fun isEligible(
         state: ReviewState,
+        firstInstallTime: Instant,
         now: Instant,
-    ): Boolean {
-        val firstLaunch = state.firstLaunchAt ?: return false
-        return state.successfulPostCount >= MIN_POSTS &&
-            (now - firstLaunch) >= MIN_AGE &&
+    ): Boolean =
+        state.successfulPostCount >= MIN_POSTS &&
+            (now - firstInstallTime) >= MIN_AGE &&
             state.requestCount < MAX_LIFETIME_REQUESTS &&
             (state.lastRequestedAt == null || (now - state.lastRequestedAt) >= COOLDOWN)
-    }
 }

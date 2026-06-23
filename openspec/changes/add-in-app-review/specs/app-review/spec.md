@@ -18,14 +18,14 @@ The system SHALL request a Google Play in-app review after a user successfully p
 
 ### Requirement: Conservative eligibility policy
 
-The system SHALL determine eligibility from a pure predicate over locally stored counters and the current time. A user SHALL be eligible only when ALL of the following hold: at least 3 successful posts; at least 3 days elapsed since first launch; fewer than 3 lifetime review requests made; and either no prior request or at least 90 days since the last request. Elapsed-time comparisons MUST use exact durations, not calendar-day arithmetic.
+The system SHALL determine eligibility from a pure predicate over locally stored counters, the OS-provided first-install time, and the current time. A user SHALL be eligible only when ALL of the following hold: at least 3 successful posts; at least 3 days elapsed since first install; fewer than 3 lifetime review requests made; and either no prior request or at least 90 days since the last request. Elapsed-time comparisons MUST use exact durations, not calendar-day arithmetic.
 
 #### Scenario: Below the post threshold
 - **WHEN** the user has fewer than 3 successful posts
 - **THEN** the user is not eligible
 
 #### Scenario: Within the new-user window
-- **WHEN** fewer than 3 days (exact duration) have elapsed since first launch
+- **WHEN** fewer than 3 days (exact duration) have elapsed since first install
 - **THEN** the user is not eligible
 
 #### Scenario: Lifetime cap reached
@@ -37,7 +37,7 @@ The system SHALL determine eligibility from a pure predicate over locally stored
 - **THEN** the user is not eligible
 
 #### Scenario: All gates satisfied at their boundaries
-- **WHEN** the user has exactly 3 posts, exactly 3 days since first launch, fewer than 3 prior requests, and no request within the last 90 days
+- **WHEN** the user has exactly 3 posts, exactly 3 days since first install, fewer than 3 prior requests, and no request within the last 90 days
 - **THEN** the user is eligible
 
 ### Requirement: Quota-aware attempt recording
@@ -66,7 +66,7 @@ The system SHALL never surface a review-related error to the user and SHALL neve
 
 ### Requirement: Bench-flavor inertness
 
-The system SHALL make zero Google Play or network calls related to reviews in the bench product flavor. The bench flavor MUST bind a no-op review manager, and first-launch stamping MUST occur only in the production initializer.
+The system SHALL make zero Google Play or network calls related to reviews in the bench product flavor. The bench flavor MUST bind a no-op review manager.
 
 #### Scenario: Post published in a bench build
 - **WHEN** a post is published in a bench/keyless build

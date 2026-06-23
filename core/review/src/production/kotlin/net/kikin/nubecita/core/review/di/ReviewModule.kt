@@ -14,8 +14,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.review.DefaultInstallTimeProvider
 import net.kikin.nubecita.core.review.DefaultReviewManager
 import net.kikin.nubecita.core.review.DefaultReviewPreferences
+import net.kikin.nubecita.core.review.InstallTimeProvider
 import net.kikin.nubecita.core.review.PlayReviewClient
 import net.kikin.nubecita.core.review.ReviewClient
 import net.kikin.nubecita.core.review.ReviewManager
@@ -48,6 +50,10 @@ internal abstract class ReviewModule {
     @Binds
     @Singleton
     abstract fun bindReviewPreferences(impl: DefaultReviewPreferences): ReviewPreferences
+
+    @Binds
+    @Singleton
+    abstract fun bindInstallTimeProvider(impl: DefaultInstallTimeProvider): InstallTimeProvider
 
     companion object {
         @Provides

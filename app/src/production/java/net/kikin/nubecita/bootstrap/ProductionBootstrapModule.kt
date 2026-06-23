@@ -5,16 +5,12 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import net.kikin.nubecita.BuildConfig
 import net.kikin.nubecita.core.billing.RevenueCatInitializer
-import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.moderation.ModerationPreferencesCoordinator
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
-import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.core.widgetsync.worker.WidgetRefreshScheduler
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadPollingObserver
 import net.kikin.nubecita.feature.chats.impl.worker.DmPollScheduler
@@ -99,17 +95,6 @@ internal object ProductionBootstrapModule {
     fun providePostAudienceDefaultInitializer(
         coordinator: PostAudienceDefaultCoordinator,
     ): AppInitializer = AppInitializer { coordinator.start() }
-
-    // Stamp the in-app-review first-launch baseline once per install (the
-    // "≥N days since first launch" eligibility gate needs it). Production-only:
-    // the bench flavor binds a no-op ReviewManager and contributes nothing here,
-    // so Macrobench windows make zero Play calls. Fire-and-forget on the app scope.
-    @Provides
-    @IntoSet
-    fun provideReviewFirstLaunchInitializer(
-        reviewManager: ReviewManager,
-        @ApplicationScope scope: CoroutineScope,
-    ): AppInitializer = AppInitializer { scope.launch { reviewManager.onAppLaunch() } }
 
     // RevenueCat lives only in the production flavor: configure runs here, so the
     // bench flavor (empty initializer set) never touches the SDK or the network.

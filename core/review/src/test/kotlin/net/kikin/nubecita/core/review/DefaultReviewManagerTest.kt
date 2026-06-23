@@ -18,7 +18,6 @@ internal class DefaultReviewManagerTest {
 
     private val eligible =
         ReviewState(
-            firstLaunchAt = now - 10.days,
             successfulPostCount = 5,
             requestCount = 0,
             lastRequestedAt = null,
@@ -88,22 +87,17 @@ internal class DefaultReviewManagerTest {
             assertEquals(1, prefs.incrementCalls)
         }
 
-    @Test
-    fun `onAppLaunch stamps first launch with the current time`() =
-        runTest {
-            val prefs = FakeReviewPreferences(eligible)
-            val client = FakeReviewClient()
-
-            manager(prefs, client).onAppLaunch()
-
-            assertEquals(1, prefs.stampCalls)
-            assertEquals(now, prefs.stampedAt)
-        }
-
     private fun manager(
         prefs: ReviewPreferences,
         client: ReviewClient,
-    ) = DefaultReviewManager(client, prefs, fixedClock(now), UnconfinedTestDispatcher())
+    ) = DefaultReviewManager(
+        client,
+        prefs,
+        // Installed 10 days ago — clears the new-user window.
+        InstallTimeProvider { now - 10.days },
+        fixedClock(now),
+        UnconfinedTestDispatcher(),
+    )
 
     private fun fixedClock(instant: Instant) =
         object : Clock {
@@ -116,8 +110,6 @@ internal class DefaultReviewManagerTest {
         var incrementCalls = 0
         var recordCalls = 0
         var recordedAt: Instant? = null
-        var stampCalls = 0
-        var stampedAt: Instant? = null
 
         override suspend fun currentState(): ReviewState = state
 
@@ -130,11 +122,6 @@ internal class DefaultReviewManagerTest {
             recordCalls++
             recordedAt = now
             state = state.copy(requestCount = state.requestCount + 1, lastRequestedAt = now)
-        }
-
-        override suspend fun stampFirstLaunchIfUnset(now: Instant) {
-            stampCalls++
-            stampedAt = now
         }
     }
 

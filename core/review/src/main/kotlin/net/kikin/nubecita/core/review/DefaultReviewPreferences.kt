@@ -40,7 +40,6 @@ internal class DefaultReviewPreferences
                         }
                     }.first()
             return ReviewState(
-                firstLaunchAt = prefs[Keys.FIRST_LAUNCH_AT]?.let { Instant.fromEpochMilliseconds(it) },
                 successfulPostCount = prefs[Keys.POST_COUNT] ?: 0,
                 requestCount = prefs[Keys.REQUEST_COUNT] ?: 0,
                 lastRequestedAt = prefs[Keys.LAST_REQUESTED_AT]?.let { Instant.fromEpochMilliseconds(it) },
@@ -58,16 +57,7 @@ internal class DefaultReviewPreferences
             }
         }
 
-        override suspend fun stampFirstLaunchIfUnset(now: Instant) {
-            dataStore.edit { prefs ->
-                if (prefs[Keys.FIRST_LAUNCH_AT] == null) {
-                    prefs[Keys.FIRST_LAUNCH_AT] = now.toEpochMilliseconds()
-                }
-            }
-        }
-
         private object Keys {
-            val FIRST_LAUNCH_AT = longPreferencesKey("review_first_launch_at")
             val POST_COUNT = intPreferencesKey("review_successful_post_count")
             val REQUEST_COUNT = intPreferencesKey("review_request_count")
             val LAST_REQUESTED_AT = longPreferencesKey("review_last_requested_at")

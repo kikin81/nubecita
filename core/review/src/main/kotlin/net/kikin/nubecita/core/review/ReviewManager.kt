@@ -17,11 +17,4 @@ interface ReviewManager {
      * error is swallowed and never surfaced to the user.
      */
     suspend fun onPostPublished(activity: Activity)
-
-    /**
-     * Call once at app launch (production `AppInitializer`). Stamps the
-     * first-launch time if it has never been set, so the "≥N days since first
-     * launch" gate has a baseline. Fail-silent; a no-op in the bench flavor.
-     */
-    suspend fun onAppLaunch()
 }

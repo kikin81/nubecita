@@ -6,7 +6,7 @@ Nubecita has crossed ~1.66K device acquisitions but holds only **2 ratings** (3.
 
 - New self-contained **`:core:review`** module wrapping the Google Play In-App Review API behind an SDK-agnostic `ReviewManager` boundary (no Play Core type leaks past the module), mirroring `:core:billing`'s boundary + product-flavor split.
 - After a successful post publish (`ComposerEffect.OnSubmitSuccess`), the composer Composable invokes `ReviewManager.onPostPublished(activity)` on the host **Activity's** `lifecycleScope` so the flow survives the composer route popping.
-- A **conservative eligibility gate** (DataStore-backed counters in `:core:review`): request only when the user has ≥3 successful posts AND ≥3 days since first launch, at most once per 90 days, lifetime cap of 3 requests.
+- A **conservative eligibility gate** (DataStore-backed counters in `:core:review`, plus the OS first-install time): request only when the user has ≥3 successful posts AND ≥3 days since first install, at most once per 90 days, lifetime cap of 3 requests.
 - A manual **"Rate Nubecita"** row in Settings → About that opens the Play Store listing via a `market://` intent (https fallback) — **not** the in-app API (per Google's guidance that a button-triggered review can render nothing once the quota is hit).
 - The flow is **fully fail-silent** and **inert in the bench flavor** (no Play/network calls in keyless/macrobenchmark builds).
 
@@ -28,6 +28,6 @@ Nubecita has crossed ~1.66K device acquisitions but holds only **2 ratings** (3.
 - **New module:** `:core:review` (`src/main`, `src/production`, `src/bench`); registered in `settings.gradle.kts`, added to the version catalog.
 - **`:feature:composer:impl`:** the composer screen Composable gains a side-effect on `OnSubmitSuccess` that calls `ReviewManager.onPostPublished(activity)` (launched on the Activity scope). No composer ViewModel/state changes.
 - **`:feature:settings:impl`:** new "Rate Nubecita" row in the About section (relates to `nubecita-37to.7`).
-- **`:app`:** production `AppInitializer` stamps `firstLaunchAt` once (alongside `RevenueCatInitializer`); the bench flavor never registers it.
+- **`:app`:** no change — the app's age is read on-demand from `PackageManager.firstInstallTime`, so no startup initializer is added.
 - **Dependencies:** new `com.google.android.play:review`; reuses the already-present `kotlinx-coroutines-play-services` for `Task.await()`.
 - **Tracking:** bd `nubecita-ijuv`.

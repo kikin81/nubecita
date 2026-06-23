@@ -16,7 +16,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DefaultReviewPreferencesTest {
     private val now = Instant.parse("2026-06-23T12:00:00Z")
-    private val later = Instant.parse("2026-07-01T12:00:00Z")
 
     @Test
     fun `fresh store returns default state`() =
@@ -25,7 +24,6 @@ internal class DefaultReviewPreferencesTest {
 
             val state = prefs.currentState()
 
-            assertNull(state.firstLaunchAt)
             assertEquals(0, state.successfulPostCount)
             assertEquals(0, state.requestCount)
             assertNull(state.lastRequestedAt)
@@ -52,17 +50,6 @@ internal class DefaultReviewPreferencesTest {
             val state = prefs.currentState()
             assertEquals(1, state.requestCount)
             assertEquals(now, state.lastRequestedAt)
-        }
-
-    @Test
-    fun `stampFirstLaunchIfUnset sets once and never overwrites`() =
-        runTest {
-            val prefs = DefaultReviewPreferences(newDataStore(this))
-
-            prefs.stampFirstLaunchIfUnset(now)
-            prefs.stampFirstLaunchIfUnset(later)
-
-            assertEquals(now, prefs.currentState().firstLaunchAt)
         }
 
     @JvmField
