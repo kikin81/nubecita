@@ -1,7 +1,6 @@
 package net.kikin.nubecita.feature.chats.impl
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -150,36 +149,43 @@ internal fun GroupJoinPreviewScreenContent(
                         )
 
                     GroupJoinPreviewStatus.RequestSent ->
-                        Column(
-                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            NubecitaIcon(
-                                name = NubecitaIconName.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier =
-                                    Modifier
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primaryContainer)
-                                        .padding(24.dp)
-                                        .size(48.dp),
-                            )
-                            Text(
-                                text = stringResource(R.string.group_join_sent_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(top = 16.dp),
-                            )
-                            Text(
-                                text = stringResource(R.string.group_join_sent_body),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                            Button(onClick = onClose, modifier = Modifier.padding(top = 24.dp)) {
-                                Text(stringResource(R.string.group_join_done))
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                NubecitaIcon(
+                                    name = NubecitaIconName.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier =
+                                        Modifier
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primaryContainer)
+                                            .padding(24.dp)
+                                            .size(48.dp),
+                                )
+                                Text(
+                                    text = stringResource(R.string.group_join_sent_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(top = 16.dp),
+                                )
+                                Text(
+                                    text = stringResource(R.string.group_join_sent_body),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                                Button(onClick = onClose, modifier = Modifier.padding(top = 24.dp)) {
+                                    Text(stringResource(R.string.group_join_done))
+                                }
                             }
                         }
                 }
