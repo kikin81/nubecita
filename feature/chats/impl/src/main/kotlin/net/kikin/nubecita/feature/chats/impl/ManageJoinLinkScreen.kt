@@ -3,7 +3,6 @@ package net.kikin.nubecita.feature.chats.impl
 import android.content.ClipData
 import android.content.Intent
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -137,7 +136,7 @@ internal fun ManageJoinLinkScreenContent(
             Box(
                 modifier =
                     Modifier
-                        .fillMaxHeight()
+                        .fillMaxSize()
                         .widthIn(max = 600.dp)
                         .align(Alignment.TopCenter),
             ) {
