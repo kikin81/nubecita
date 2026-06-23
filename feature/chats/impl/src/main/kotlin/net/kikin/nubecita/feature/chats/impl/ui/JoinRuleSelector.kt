@@ -12,6 +12,8 @@ import androidx.compose.ui.res.stringResource
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.R
 
+private val JOIN_RULE_OPTIONS = listOf(JoinRule.Anyone, JoinRule.FollowedByOwner)
+
 /**
  * Two-option segmented control for the editable [JoinRule]s (Anyone / Followed by owner).
  * [JoinRule.Unsupported] is never passed here — callers disable the control for unsupported links.
@@ -24,14 +26,13 @@ internal fun JoinRuleSelector(
     onSelect: (JoinRule) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val options = listOf(JoinRule.Anyone, JoinRule.FollowedByOwner)
     SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
-        options.forEachIndexed { index, rule ->
+        JOIN_RULE_OPTIONS.forEachIndexed { index, rule ->
             SegmentedButton(
                 selected = selected == rule,
                 onClick = { onSelect(rule) },
                 enabled = enabled,
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = JOIN_RULE_OPTIONS.size),
             ) {
                 Text(
                     text =

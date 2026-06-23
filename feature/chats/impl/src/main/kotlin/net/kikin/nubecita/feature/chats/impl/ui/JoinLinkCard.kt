@@ -29,7 +29,8 @@ import net.kikin.nubecita.feature.chats.impl.R
 /**
  * The existing-link body. A disabled link is de-emphasized (alpha 0.6, onSurfaceVariant URL,
  * no copy/share); an [JoinRule.Unsupported] link shows the update banner and locks every control.
- * The Enable toggle stays fully opaque/enabled so re-enabling is always reachable.
+ * A merely *disabled* link keeps its Enable toggle interactive so re-enabling is always reachable;
+ * an *Unsupported* link (a rule a newer client created) locks every control, including Enable/Disable.
  */
 @Composable
 internal fun JoinLinkCard(
