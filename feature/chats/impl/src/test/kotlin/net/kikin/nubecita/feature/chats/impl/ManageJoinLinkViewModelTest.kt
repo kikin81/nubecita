@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.chats.api.ManageJoinLink
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -98,6 +99,7 @@ internal class ManageJoinLinkViewModelTest {
                 assertTrue(awaitItem() is ManageJoinLinkEffect.ShowError)
             }
             assertEquals(ManageJoinLinkStatus.Loaded(null), model.uiState.value.status)
+            assertFalse(model.uiState.value.mutationInFlight)
         }
 
     @Test
@@ -129,6 +131,7 @@ internal class ManageJoinLinkViewModelTest {
             model.handleEvent(ManageJoinLinkEvent.DisableTapped)
             advanceUntilIdle()
             assertEquals(true, (model.uiState.value.status as ManageJoinLinkStatus.Loaded).link?.enabled)
+            assertFalse(model.uiState.value.mutationInFlight)
         }
 
     @Test
@@ -209,9 +212,11 @@ internal class ManageJoinLinkViewModelTest {
             model.handleEvent(ManageJoinLinkEvent.RequireApprovalChanged(false))
             model.handleEvent(ManageJoinLinkEvent.JoinRuleChanged(JoinRule.Anyone))
             model.handleEvent(ManageJoinLinkEvent.DisableTapped)
+            model.handleEvent(ManageJoinLinkEvent.EnableTapped)
             advanceUntilIdle()
             assertTrue(fake.editJoinLinkCalls.isEmpty())
             assertTrue(fake.disableJoinLinkCalls.isEmpty())
+            assertTrue(fake.enableJoinLinkCalls.isEmpty())
             assertEquals(
                 JoinRule.Unsupported,
                 (model.uiState.value.status as ManageJoinLinkStatus.Loaded).link?.joinRule,
