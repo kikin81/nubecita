@@ -193,6 +193,10 @@
                     android:scheme="https"
                     android:host="nubecita.app"
                     android:pathPrefix="/profile/" />
+                <data
+                    android:scheme="https"
+                    android:host="nubecita.app"
+                    android:pathPrefix="/group/join/" />
             </intent-filter>
             <!--
                 bsky.app deep-link entry. Tapping a /profile/{handle} or
