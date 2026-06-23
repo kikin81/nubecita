@@ -6,6 +6,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
@@ -219,6 +221,24 @@ internal class FakeChatRepository(
         did: String,
     ): Result<Unit> = Result.success(Unit)
 
+    override suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?> = Result.success(null)
+
+    override suspend fun createJoinLink(
+        convoId: String,
+        joinRule: JoinRule,
+        requireApproval: Boolean,
+    ): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+    override suspend fun editJoinLink(
+        convoId: String,
+        joinRule: JoinRule?,
+        requireApproval: Boolean?,
+    ): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+    override suspend fun enableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
+    override suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
+
     private companion object {
         val DEFAULT_SENT_MESSAGE =
             MessageUi(
@@ -228,6 +248,16 @@ internal class FakeChatRepository(
                 text = "sent",
                 isDeleted = false,
                 sentAt = Instant.parse("2026-05-01T12:00:00Z"),
+            )
+
+        val STUB_JOIN_LINK =
+            JoinLinkUi(
+                code = "stub",
+                url = "https://nubecita.app/group/join/stub",
+                enabled = true,
+                joinRule = JoinRule.Anyone,
+                requireApproval = true,
+                createdAt = Instant.parse("2026-05-13T12:00:00Z"),
             )
     }
 }

@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
@@ -304,6 +306,51 @@ internal class FakeChatRepository(
         return rejectJoinRequestResult
     }
 
+    var getJoinLinkResult: Result<JoinLinkUi?> = Result.success(null)
+    var createJoinLinkResult: Result<JoinLinkUi> = Result.success(DEFAULT_JOIN_LINK)
+    var editJoinLinkResult: Result<JoinLinkUi> = Result.success(DEFAULT_JOIN_LINK)
+    var enableJoinLinkResult: Result<JoinLinkUi> = Result.success(DEFAULT_JOIN_LINK.copy(enabled = true))
+    var disableJoinLinkResult: Result<JoinLinkUi> = Result.success(DEFAULT_JOIN_LINK.copy(enabled = false))
+    val editJoinLinkCalls = mutableListOf<Triple<String, JoinRule?, Boolean?>>()
+    val enableJoinLinkCalls = mutableListOf<String>()
+    val disableJoinLinkCalls = mutableListOf<String>()
+
+    /** Optional gate: when set, the four link mutations suspend on it before returning. */
+    var joinLinkMutationGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?> = getJoinLinkResult
+
+    override suspend fun createJoinLink(
+        convoId: String,
+        joinRule: JoinRule,
+        requireApproval: Boolean,
+    ): Result<JoinLinkUi> {
+        joinLinkMutationGate?.await()
+        return createJoinLinkResult
+    }
+
+    override suspend fun editJoinLink(
+        convoId: String,
+        joinRule: JoinRule?,
+        requireApproval: Boolean?,
+    ): Result<JoinLinkUi> {
+        editJoinLinkCalls += Triple(convoId, joinRule, requireApproval)
+        joinLinkMutationGate?.await()
+        return editJoinLinkResult
+    }
+
+    override suspend fun enableJoinLink(convoId: String): Result<JoinLinkUi> {
+        enableJoinLinkCalls += convoId
+        joinLinkMutationGate?.await()
+        return enableJoinLinkResult
+    }
+
+    override suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi> {
+        disableJoinLinkCalls += convoId
+        joinLinkMutationGate?.await()
+        return disableJoinLinkResult
+    }
+
     val addReactionCalls = mutableListOf<Triple<String, String, String>>() // convoId, messageId, emoji
     val removeReactionCalls = mutableListOf<Triple<String, String, String>>()
     var addReactionResult: Result<MessageUi>? = null // null → echo DEFAULT_SENT_MESSAGE.copy(id = messageId)
@@ -341,6 +388,16 @@ internal class FakeChatRepository(
                 text = "sent",
                 isDeleted = false,
                 sentAt = Instant.parse("2026-05-01T12:00:00Z"),
+            )
+
+        val DEFAULT_JOIN_LINK =
+            JoinLinkUi(
+                code = "code-1",
+                url = "https://nubecita.app/group/join/code-1",
+                enabled = true,
+                joinRule = JoinRule.Anyone,
+                requireApproval = true,
+                createdAt = Instant.parse("2026-05-13T12:00:00Z"),
             )
     }
 }

@@ -7,7 +7,9 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.GroupMemberUi
+import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
 import net.kikin.nubecita.feature.chats.impl.JoinRequestUi
+import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 
 /**
@@ -221,6 +223,35 @@ interface ChatRepository {
         convoId: String,
         did: String,
     ): Result<Unit>
+
+    /**
+     * The group's current join link, or `null` if none exists yet. Read from
+     * `chat.bsky.convo.getConvo` → `GroupConvo.joinLink` (there is no standalone get-link XRPC).
+     */
+    suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?>
+
+    /** Create the group's join link with [joinRule] + [requireApproval]. */
+    suspend fun createJoinLink(
+        convoId: String,
+        joinRule: JoinRule,
+        requireApproval: Boolean,
+    ): Result<JoinLinkUi>
+
+    /**
+     * Edit the existing link. Only the non-null args are sent (each maps to an `AtField`), so a
+     * single-field edit never re-sends the other and cannot clobber a rule this build can't map.
+     */
+    suspend fun editJoinLink(
+        convoId: String,
+        joinRule: JoinRule? = null,
+        requireApproval: Boolean? = null,
+    ): Result<JoinLinkUi>
+
+    /** Re-enable the previously disabled link. */
+    suspend fun enableJoinLink(convoId: String): Result<JoinLinkUi>
+
+    /** Disable the active link. */
+    suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi>
 }
 
 /**
