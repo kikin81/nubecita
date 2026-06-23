@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.chats.impl
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -170,7 +171,7 @@ internal fun GroupJoinRequestsScreenContent(
             Box(
                 modifier =
                     Modifier
-                        .fillMaxSize()
+                        .fillMaxHeight()
                         .widthIn(max = 600.dp)
                         .align(Alignment.TopCenter),
             ) {
