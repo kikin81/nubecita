@@ -99,7 +99,7 @@ Read it like git: **behind-only → pull · ahead-only → push · both non-zero
 |---|---|
 | Behind only | `bd dolt pull` — clean fast-forward |
 | Ahead only | `bd dolt push` — remote fast-forwards to you |
-| **Diverged (both)** | The side the *other* machine has been pushing is canonical (usually the larger *behind* count). On the **stale** machine: `dolt fetch origin && dolt reset --hard origin/main` to discard its fork. **Merge instead** (`dolt merge remotes/origin/main`, resolve `dolt_conflicts`) only if the local-only commits hold real, unpushed issue work. |
+| **Diverged (both)** | The side the *other* machine has been pushing is canonical (usually the larger *behind* count). On the **stale** machine: `dolt fetch origin && dolt reset --hard remotes/origin/main` to discard its fork. **Merge instead** (`dolt merge remotes/origin/main`, resolve `dolt_conflicts`) only if the local-only commits hold real, unpushed issue work. |
 
 Expected noise: even clean multi-machine pulls can conflict on the `metadata` table rows
 `dolt_auto_push_commit` / `dolt_auto_push_last` — those are machine-local. If they're the
@@ -129,5 +129,5 @@ parity (section 0)** + **pull-first/push-last discipline (section 1)**.
 3. After pulling, `dolt fetch && dolt status` — diverged → stop.
 4. `bd dolt push` last, every session, even trivial ones.
 5. One active machine at a time; `origin/main` is canonical; no branch-per-machine.
-6. Diverged → `dolt reset --hard origin/main` on the stale machine (merge only to save real local work).
+6. Diverged → `dolt reset --hard remotes/origin/main` on the stale machine (merge only to save real local work).
 7. Never sync via `issues.jsonl`. Keep `.beads/` off cloud-synced filesystems (Dropbox/iCloud → DB corruption).
