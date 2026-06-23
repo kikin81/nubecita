@@ -7,8 +7,10 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ChatHeader
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.GroupMemberUi
+import net.kikin.nubecita.feature.chats.impl.GroupPublicInfoUi
 import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
 import net.kikin.nubecita.feature.chats.impl.JoinRequestUi
+import net.kikin.nubecita.feature.chats.impl.JoinResult
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 
@@ -253,6 +255,16 @@ interface ChatRepository {
 
     /** Disable the active link. */
     suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi>
+
+    /** Public preview of a group identified by an invite-link [code] (`getGroupPublicInfo`). */
+    suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi>
+
+    /**
+     * Join (or request to join) the group behind invite-link [code]. Returns [JoinResult.Joined]
+     * with the convo id when admitted immediately, or [JoinResult.Pending] when the group requires
+     * owner approval.
+     */
+    suspend fun requestJoin(code: String): Result<JoinResult>
 }
 
 /**

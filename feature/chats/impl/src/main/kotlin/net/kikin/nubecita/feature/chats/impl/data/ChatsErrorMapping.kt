@@ -53,6 +53,10 @@ private const val NOT_FOLLOWED_BY_SENDER_MARKER = "notfollowedbysender"
 
 private const val MEMBER_LIMIT_MARKER = "memberlimitreached"
 private const val INSUFFICIENT_ROLE_MARKER = "insufficientrole"
+private const val INVALID_CODE_MARKER = "invalidcode"
+private const val LINK_DISABLED_MARKER = "linkdisabled"
+private const val FOLLOW_REQUIRED_MARKER = "followrequired"
+private const val USER_KICKED_MARKER = "userkicked"
 
 /**
  * Maps a thrown error from the convo-list path (`listConvos`) to a screen-facing
@@ -117,6 +121,26 @@ fun Throwable.toMemberMgmtError(): ChatError {
             MEMBER_LIMIT_MARKER in haystack -> return ChatError.GroupFull
             NOT_FOLLOWED_BY_SENDER_MARKER in haystack -> return ChatError.FollowRequiredToAdd
             INSUFFICIENT_ROLE_MARKER in haystack -> return ChatError.InsufficientPermission
+        }
+    }
+    return toChatError()
+}
+
+/**
+ * Map a `chat.bsky.group.requestJoin` / `getGroupPublicInfo` failure to a [ChatError]. Recognises the
+ * joiner-side error codes (distinct UX from the owner-side member-mgmt codes) — notably the
+ * invalid/disabled-link cases, which joiners routinely hit because owners can disable a link — then
+ * delegates everything else to [toChatError].
+ */
+fun Throwable.toJoinError(): ChatError {
+    if (this is XrpcError) {
+        val haystack = (errorName + " " + errorMessage).lowercase(Locale.ROOT)
+        when {
+            INVALID_CODE_MARKER in haystack -> return ChatError.InvalidInviteLink
+            LINK_DISABLED_MARKER in haystack -> return ChatError.InvalidInviteLink
+            MEMBER_LIMIT_MARKER in haystack -> return ChatError.GroupFull
+            FOLLOW_REQUIRED_MARKER in haystack -> return ChatError.FollowRequiredToJoin
+            USER_KICKED_MARKER in haystack -> return ChatError.CannotRejoin
         }
     }
     return toChatError()

@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.feature.chats.impl.GroupPublicInfoUi
 import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinResult
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
@@ -357,6 +359,25 @@ internal class FakeChatRepository(
         return disableJoinLinkResult
     }
 
+    var getGroupPublicInfoResult: Result<GroupPublicInfoUi> = Result.success(DEFAULT_GROUP_PUBLIC_INFO)
+    var requestJoinResult: Result<JoinResult> = Result.success(JoinResult.Pending)
+    val getGroupPublicInfoCalls = mutableListOf<String>()
+    val requestJoinCalls = mutableListOf<String>()
+
+    /** Optional gate: when set, `requestJoin` suspends on it before returning (test in-flight states). */
+    var requestJoinGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi> {
+        getGroupPublicInfoCalls += code
+        return getGroupPublicInfoResult
+    }
+
+    override suspend fun requestJoin(code: String): Result<JoinResult> {
+        requestJoinCalls += code
+        requestJoinGate?.await()
+        return requestJoinResult
+    }
+
     val addReactionCalls = mutableListOf<Triple<String, String, String>>() // convoId, messageId, emoji
     val removeReactionCalls = mutableListOf<Triple<String, String, String>>()
     var addReactionResult: Result<MessageUi>? = null // null → echo DEFAULT_SENT_MESSAGE.copy(id = messageId)
@@ -404,6 +425,16 @@ internal class FakeChatRepository(
                 joinRule = JoinRule.Anyone,
                 requireApproval = true,
                 createdAt = Instant.parse("2026-05-13T12:00:00Z"),
+            )
+
+        val DEFAULT_GROUP_PUBLIC_INFO =
+            GroupPublicInfoUi(
+                name = "Group",
+                memberCount = 3,
+                ownerDisplayName = "Owner",
+                ownerHandle = "owner.bsky.social",
+                ownerAvatarUrl = null,
+                requireApproval = true,
             )
     }
 }

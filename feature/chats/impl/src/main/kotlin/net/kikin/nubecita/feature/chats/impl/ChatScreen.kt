@@ -69,6 +69,9 @@ internal fun ChatScreen(
                             ChatError.GroupFull,
                             ChatError.FollowRequiredToAdd,
                             ChatError.InsufficientPermission,
+                            ChatError.InvalidInviteLink,
+                            ChatError.FollowRequiredToJoin,
+                            ChatError.CannotRejoin,
                             is ChatError.Unknown,
                             -> genericErrorMsg
                         }

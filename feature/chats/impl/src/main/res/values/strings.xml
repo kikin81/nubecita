@@ -184,4 +184,17 @@
     <string name="join_requests_title">Join requests</string>
     <string name="join_requests_close">Close</string>
     <string name="join_requests_error">Couldn\'t load join requests.</string>
+    <!-- Group join preview (nubecita-hwix.9) -->
+    <string name="group_join_title">Join group</string>
+    <string name="group_join_close">Close</string>
+    <string name="group_join_approval_note">New members are approved by the group owner.</string>
+    <string name="group_join_action_join">Join</string>
+    <string name="group_join_action_request">Request to join</string>
+    <string name="group_join_sent_title">Request sent</string>
+    <string name="group_join_sent_body">The group owner will review your request.</string>
+    <string name="group_join_done">Done</string>
+    <string name="group_join_error_invalid_link">This invite link is invalid or no longer active.</string>
+    <string name="group_join_error_follow_required">Only people the group\'s owner follows can join.</string>
+    <string name="group_join_error_cannot_rejoin">You can\'t rejoin a group you were removed from.</string>
+    <string name="group_join_error_generic">Couldn\'t join the group. Please try again.</string>
 </resources>

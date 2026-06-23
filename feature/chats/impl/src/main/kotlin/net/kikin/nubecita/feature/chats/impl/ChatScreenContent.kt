@@ -601,9 +601,12 @@ private fun ErrorBody(
             ChatError.GroupFull,
             ChatError.FollowRequiredToAdd,
             ChatError.InsufficientPermission,
+            ChatError.InvalidInviteLink,
+            ChatError.FollowRequiredToJoin,
+            ChatError.CannotRejoin,
             ->
-                // Member-management error variants never reach the thread-load ErrorBody
-                // (they surface from add/remove-member surfaces, not resolveConvo/getMessages).
+                // Member-management and join-flow error variants never reach the thread-load ErrorBody
+                // (they surface from add/remove-member and join-request surfaces, not resolveConvo/getMessages).
                 // Map to the generic, non-retryable fallback to keep this `when` exhaustive.
                 Triple(R.string.chats_error_unknown_title, R.string.chats_error_unknown_body, false)
             is ChatError.Unknown ->

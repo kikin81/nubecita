@@ -26,11 +26,13 @@ import io.github.kikin81.atproto.chat.bsky.group.CreateJoinLinkRequest
 import io.github.kikin81.atproto.chat.bsky.group.DisableJoinLinkRequest
 import io.github.kikin81.atproto.chat.bsky.group.EditJoinLinkRequest
 import io.github.kikin81.atproto.chat.bsky.group.EnableJoinLinkRequest
+import io.github.kikin81.atproto.chat.bsky.group.GetGroupPublicInfoRequest
 import io.github.kikin81.atproto.chat.bsky.group.GroupService
 import io.github.kikin81.atproto.chat.bsky.group.JoinLinkView
 import io.github.kikin81.atproto.chat.bsky.group.ListJoinRequestsRequest
 import io.github.kikin81.atproto.chat.bsky.group.RejectJoinRequestRequest
 import io.github.kikin81.atproto.chat.bsky.group.RemoveMembersRequest
+import io.github.kikin81.atproto.chat.bsky.group.RequestJoinRequest
 import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.Did
@@ -51,7 +53,9 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
+import net.kikin.nubecita.feature.chats.impl.GroupPublicInfoUi
 import net.kikin.nubecita.feature.chats.impl.JoinLinkUi
+import net.kikin.nubecita.feature.chats.impl.JoinResult
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import timber.log.Timber
@@ -526,6 +530,33 @@ internal class DefaultChatRepository
                     // Best-effort: leave the cache untouched; the badge corrects on
                     // the next refresh. Not surfaced to the user.
                     Timber.tag(TAG).w(throwable, "markConvoRead failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi> =
+            withContext(dispatcher) {
+                runCatching {
+                    GroupService(xrpcClientProvider.authenticated())
+                        .getGroupPublicInfo(GetGroupPublicInfoRequest(code = code))
+                        .group
+                        .toGroupPublicInfoUi()
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).w(throwable, "getGroupPublicInfo failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun requestJoin(code: String): Result<JoinResult> =
+            withContext(dispatcher) {
+                runCatching {
+                    val response =
+                        GroupService(xrpcClientProvider.authenticated())
+                            .requestJoin(RequestJoinRequest(code = code))
+                    val convo = response.convo
+                    if (convo != null) JoinResult.Joined(convo.id) else JoinResult.Pending
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).w(throwable, "requestJoin failed: %s", throwable.javaClass.name)
                 }
             }
 
