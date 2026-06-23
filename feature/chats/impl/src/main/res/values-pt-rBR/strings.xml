@@ -156,4 +156,17 @@
     <string name="join_link_require_approval">Exigir aprovação</string>
     <string name="join_link_require_approval_help">Quando ativado, quem tocar no link aparecerá em Solicitações para você aprovar.</string>
     <string name="join_link_unsupported">Este link usa configurações de uma versão mais recente do Nubecita. Atualize para editar.</string>
+    <!-- Group join (nubecita-hwix.9) -->
+    <string name="group_join_title">Entrar no grupo</string>
+    <string name="group_join_close">Fechar</string>
+    <string name="group_join_approval_note">O proprietário do grupo aprova os novos membros.</string>
+    <string name="group_join_action_join">Entrar</string>
+    <string name="group_join_action_request">Solicitar entrada</string>
+    <string name="group_join_sent_title">Solicitação enviada</string>
+    <string name="group_join_sent_body">O proprietário do grupo vai analisar sua solicitação.</string>
+    <string name="group_join_done">Concluído</string>
+    <string name="group_join_error_invalid_link">Este link de convite é inválido ou não está mais ativo.</string>
+    <string name="group_join_error_follow_required">Só podem entrar pessoas que o proprietário do grupo segue.</string>
+    <string name="group_join_error_cannot_rejoin">Você não pode voltar a um grupo do qual foi removido.</string>
+    <string name="group_join_error_generic">Não foi possível entrar no grupo. Tente novamente.</string>
 </resources>
