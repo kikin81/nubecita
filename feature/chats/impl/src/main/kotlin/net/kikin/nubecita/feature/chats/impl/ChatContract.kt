@@ -99,6 +99,15 @@ sealed interface ChatError {
     /** Viewer lacks the role to manage members (`InsufficientRole`). */
     data object InsufficientPermission : ChatError
 
+    /** The invite link's code is invalid, expired, or the owner disabled the link. */
+    data object InvalidInviteLink : ChatError
+
+    /** The group's join rule requires the owner to follow the joiner. */
+    data object FollowRequiredToJoin : ChatError
+
+    /** The joiner was removed from this group and cannot rejoin via a link. */
+    data object CannotRejoin : ChatError
+
     data class Unknown(
         val cause: String?,
     ) : ChatError
