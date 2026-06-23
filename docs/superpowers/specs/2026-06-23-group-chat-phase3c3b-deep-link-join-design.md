@@ -111,11 +111,19 @@ sealed interface GroupJoinPreviewEffect : UiEffect {
 ```
 
 - `@HiltViewModel(assistedFactory = Factory::class)`, `@AssistedInject(@Assisted route: GroupJoinPreview, repository: ChatRepository)`.
-- **Load** on init: `getGroupPublicInfo(code)` → `Loaded(info)` / `Error(toMemberMgmtError())`. `Retry`
-  reloads (back to `Loading`).
+- **Load** on init: `getGroupPublicInfo(code)` → `Loaded(info)` / `Error(toJoinError())`. `Retry`
+  reloads (back to `Loading`). A failed load most commonly means `InvalidCode` (a dead/typo'd link)
+  → `ChatError.InvalidInviteLink`, surfaced as the sticky error body with retry.
 - **Join** (`JoinTapped`, only valid from `Loaded`): guard on `joinInFlight`; set `joinInFlight = true`;
   `requestJoin(code)` → `Joined(convoId)` ⇒ `sendEffect(NavigateToConvo(convoId))`; `Pending` ⇒
-  `setState { copy(status = RequestSent) }`; failure ⇒ `sendEffect(ShowError(...))`; `finally joinInFlight = false`.
+  `setState { copy(status = RequestSent) }`; failure ⇒ `sendEffect(ShowError(it.toJoinError()))`;
+  `finally joinInFlight = false`.
+
+  **"Already a member" note:** 9.4.0 defines **no** `AlreadyMember` error and `GroupPublicView` carries
+  no viewer-membership flag, so it can't be detected up front (and there's no `convoId` to power an
+  "Open Chat" affordance — only `requestJoin`'s response has the convo). The expected server behavior
+  is idempotent: an existing member's `requestJoin` returns `status=joined` + the convo, which the
+  `Joined → NavigateToConvo` path already routes into the group. No dedicated state is built.
 
 ### Screen + components (adaptiveDialog)
 
@@ -126,17 +134,34 @@ sealed interface GroupJoinPreviewEffect : UiEffect {
   `widthIn(max = 600.dp)` centered, branching on `status`:
   - `Loading` → centered `NubecitaWavyProgressIndicator`.
   - `Error` → centered message + retry `TextButton`.
-  - `Loaded(info)` → **preview**: the group `name` (titleLarge), "`{memberCount}` members", an owner row
-    (`NubecitaAvatar` + display name + `@handle`), a `requireApproval` note ("New members are approved
-    by the group owner.") shown only when true, and a primary `Button` labeled **Join** (`requireApproval == false`)
-    or **Request to join** (`true`). While `joinInFlight` the button is disabled and hosts an in-button
+  - `Loaded(info)` → **preview**: the group details are wrapped in a prominent `surfaceContainerLow`
+    `Card` (rounded corners) so the invite reads as an invitation rather than raw text — inside it the
+    group `name` (titleLarge), "`{memberCount}` members", and an owner row (`NubecitaAvatar` + display
+    name + `@handle`). A `requireApproval` note ("New members are approved by the group owner.") shows
+    below the card only when true. Below that, a primary `Button` labeled **Join** (`requireApproval == false`)
+    or **Request to join** (`true`); while `joinInFlight` it is disabled and hosts an in-button
     `CircularProgressIndicator(18.dp)` marked `// nubecita-allow-raw-progress: in-button micro-spinner`.
-  - `RequestSent` → a centered confirmation: a `Check` glyph in a tonal circle, "Request sent", a body
-    line ("The group owner will review your request."), and a **Done** `Button` that closes the screen
-    (`onClose`).
+  - `RequestSent` → a centered **hero** confirmation (M3 Expressive success state): a `Check` glyph in a
+    large ~96.dp `primaryContainer` circle (tint `onPrimaryContainer`) above "Request sent" (titleMedium)
+    and a body line ("The group owner will review your request."), then a **Done** `Button` that closes
+    the screen (`onClose`).
 - Standalone loaders use `NubecitaWavyProgressIndicator`; the only raw spinner is the in-button one
-  (marked). Surface tokens per `docs/design-system/surface-roles.md` (canvas `surface`; any preview
-  card `surfaceContainerLow`).
+  (marked). Surface tokens per `docs/design-system/surface-roles.md` (canvas `surface`; preview card
+  `surfaceContainerLow`).
+
+### Two deliberate decisions (so they aren't re-raised in review)
+
+- **`Scaffold` + `TopAppBar` are kept at every width** (not stripped to a bare dialog title at
+  Medium/Expanded). Per `docs/adaptive-layouts.md`, an `adaptiveDialog` screen is
+  presentation-agnostic — the shared `AdaptiveDialogSceneStrategy` owns the dialog window / scrim /
+  640dp card, inside which the standard chrome renders. This matches `EditProfile` (the canonical
+  reference) and C2/C3a. A conditional dialog-title treatment would couple the screen to its
+  presentation mode and diverge from every existing adaptive surface. (Same decision as C3a.)
+- **No blank background on cold-start.** `MainShell` builds its inner stack with
+  `rememberMainShellNavState(startRoute = Feed)`, so **Feed is always the root** beneath any pushed
+  route, and `AdaptiveDialogScene` keeps `overlaidEntries` composed — so a cold-start deep link (app
+  dead → login → drain) renders the preview dialog *over Feed*, never over a blank/black screen. No
+  default-root insertion is needed; the existing nav architecture guarantees it.
 
 ### Navigation wiring
 
@@ -153,6 +178,27 @@ load failure is **sticky** via `GroupJoinPreviewStatus.Error` + retry. `Cancella
 always rethrown; the link `code` is never logged. A join that fails leaves the user on the preview so
 they can retry.
 
+### Joiner-specific error mapping (`toJoinError()`)
+
+`requestJoin` defines six errors and `getGroupPublicInfo` one (`InvalidCode`). The DM-oriented
+`toMemberMgmtError()` doesn't cover the joiner cases, so add a `Throwable.toJoinError(): ChatError`
+mapper (next to it in `ChatsErrorMapping.kt`) keying on `errorName` (lowercased, `Locale.ROOT`),
+falling through to `toChatError()`. This matters concretely: C3a lets owners **disable** a link, so
+joiners will routinely hit `LinkDisabled`/`InvalidCode` and deserve clear copy, not a generic failure.
+
+| Wire error (`requestJoin` / `getGroupPublicInfo`) | `ChatError` | UX copy intent |
+|---|---|---|
+| `InvalidCode`, `LinkDisabled` | **`InvalidInviteLink`** (new) | "This invite link is invalid or no longer active." |
+| `MemberLimitReached` | `GroupFull` (existing) | the group is full |
+| `FollowRequired` | **`FollowRequiredToJoin`** (new) | "Only people the group's owner follows can join." |
+| `UserKicked` | **`CannotRejoin`** (new) | "You can't rejoin a group you were removed from." |
+| `ConvoLocked`, anything else | `Unknown` → generic | generic retryable failure |
+
+Three new `ChatError` variants (`InvalidInviteLink`, `FollowRequiredToJoin`, `CannotRejoin`) are added
+to the existing `sealed interface ChatError` in `ChatContract.kt`. The `GroupJoinPreviewScreen` effect
+collector pre-resolves these three plus the existing `GroupFull`/generic strings (mirrors C2/C3a's
+collector) and maps them to snackbar / sticky-error text.
+
 ## Testing
 
 - **VM unit tests** (JUnit5 + MockK + Turbine + `MainDispatcherExtension`): load success / error +
@@ -161,6 +207,9 @@ they can retry.
   (fake gate); `joinInFlight` cleared after success and after failure.
 - **Mapper test**: `GroupPublicView.toGroupPublicInfoUi()` — `memberCount.toInt()`, owner handle/display/avatar
   mapping (incl. blank display name → null), `requireApproval` passthrough.
+- **`toJoinError()` test**: `InvalidCode`/`LinkDisabled` → `InvalidInviteLink`, `MemberLimitReached` →
+  `GroupFull`, `FollowRequired` → `FollowRequiredToJoin`, `UserKicked` → `CannotRejoin`, an unknown
+  errorName → `Unknown`, `IOException` → `Network` (drive via `XrpcError` fakes keyed on `errorName`).
 - **NavKey test**: `GroupJoinPreview` JSON round-trip + `convoId`/`code` field (mirrors `ManageJoinLinkNavKeyTest`,
   in `:feature:chats:impl/src/test`).
 - **Deep-link matcher test**: feed `https://nubecita.app/group/join/abc123` through the matcher →
