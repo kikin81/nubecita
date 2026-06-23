@@ -27,6 +27,8 @@ pre-commit run --all-files
 
 All work is tracked in [beads](https://github.com/steveyegge/beads) (`bd`). Every change starts from a bd issue and lands through a short-lived branch + PR. When using Claude Code, the `bd-workflow` skill automates the ceremony; without it, the steps below are the convention.
 
+**Working from a second machine?** Read `docs/beads-multi-machine.md` **first**. The bd database syncs across machines via the DoltHub remote (`bd dolt push`/`pull`), and a stale/shadowed `dolt` binary will silently fork it (the symptom is `table has unknown fields`). That runbook covers the required per-machine `dolt` setup, the pull-first/push-last session loop, and fork recovery — the canonical source of truth is the Dolt remote, never `.beads/issues.jsonl`.
+
 ### Loop
 
 1. `bd ready` — pick an unblocked issue.
