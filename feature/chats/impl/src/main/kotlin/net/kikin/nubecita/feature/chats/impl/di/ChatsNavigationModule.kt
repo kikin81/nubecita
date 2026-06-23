@@ -22,6 +22,7 @@ import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.GroupDetails
 import net.kikin.nubecita.feature.chats.api.GroupJoinRequests
+import net.kikin.nubecita.feature.chats.api.ManageJoinLink
 import net.kikin.nubecita.feature.chats.api.NewChat
 import net.kikin.nubecita.feature.chats.api.NewGroup
 import net.kikin.nubecita.feature.chats.impl.AddGroupMembersScreen
@@ -35,6 +36,8 @@ import net.kikin.nubecita.feature.chats.impl.GroupDetailsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupDetailsViewModel
 import net.kikin.nubecita.feature.chats.impl.GroupJoinRequestsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupJoinRequestsViewModel
+import net.kikin.nubecita.feature.chats.impl.ManageJoinLinkScreen
+import net.kikin.nubecita.feature.chats.impl.ManageJoinLinkViewModel
 import net.kikin.nubecita.feature.chats.impl.NewChatScreen
 import net.kikin.nubecita.feature.chats.impl.NewGroupScreen
 import net.kikin.nubecita.feature.chats.impl.selectedConvoId
@@ -187,6 +190,21 @@ internal object ChatsNavigationModule {
                 GroupJoinRequestsScreen(
                     viewModel = viewModel,
                     onRosterChanged = { navState.setResult("group_roster_refresh:${route.convoId}", true) },
+                    onBack = { navState.removeLast() },
+                )
+            }
+            // adaptiveDialog(): full-screen on Compact, centered Dialog on Medium / Expanded.
+            // Assisted-injected — ManageJoinLinkViewModel takes the ManageJoinLink route via its
+            // factory. No result-passing: the link lives on its own screen and GroupDetails does
+            // not display link state, so there's nothing to refresh on the way back.
+            entry<ManageJoinLink>(metadata = adaptiveDialog()) { route ->
+                val navState = LocalMainShellNavState.current
+                val viewModel =
+                    hiltViewModel<ManageJoinLinkViewModel, ManageJoinLinkViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                ManageJoinLinkScreen(
+                    viewModel = viewModel,
                     onBack = { navState.removeLast() },
                 )
             }
