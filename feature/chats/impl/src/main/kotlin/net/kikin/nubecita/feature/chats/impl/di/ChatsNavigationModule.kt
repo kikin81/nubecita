@@ -21,6 +21,7 @@ import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.GroupDetails
+import net.kikin.nubecita.feature.chats.api.GroupJoinPreview
 import net.kikin.nubecita.feature.chats.api.GroupJoinRequests
 import net.kikin.nubecita.feature.chats.api.ManageJoinLink
 import net.kikin.nubecita.feature.chats.api.NewChat
@@ -34,6 +35,8 @@ import net.kikin.nubecita.feature.chats.impl.ChatViewModel
 import net.kikin.nubecita.feature.chats.impl.ChatsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupDetailsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupDetailsViewModel
+import net.kikin.nubecita.feature.chats.impl.GroupJoinPreviewScreen
+import net.kikin.nubecita.feature.chats.impl.GroupJoinPreviewViewModel
 import net.kikin.nubecita.feature.chats.impl.GroupJoinRequestsScreen
 import net.kikin.nubecita.feature.chats.impl.GroupJoinRequestsViewModel
 import net.kikin.nubecita.feature.chats.impl.ManageJoinLinkScreen
@@ -206,6 +209,22 @@ internal object ChatsNavigationModule {
                 ManageJoinLinkScreen(
                     viewModel = viewModel,
                     onBack = { navState.removeLast() },
+                )
+            }
+            // adaptiveDialog(): full-screen on Compact, centered Dialog on Medium / Expanded.
+            // Reached via the GroupJoinDeepLinkModule matcher (an external invite link), pushed onto
+            // the current tab by MainShell's deep-link drain. onJoin swaps the preview for the group
+            // thread (mirrors NewGroup's post-create navigation); a pending request stays on-screen.
+            entry<GroupJoinPreview>(metadata = adaptiveDialog()) { route ->
+                val navState = LocalMainShellNavState.current
+                val viewModel =
+                    hiltViewModel<GroupJoinPreviewViewModel, GroupJoinPreviewViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                GroupJoinPreviewScreen(
+                    viewModel = viewModel,
+                    onJoin = { convoId -> navState.replaceTop(Chat(convoId = convoId)) },
+                    onClose = { navState.removeLast() },
                 )
             }
         }
