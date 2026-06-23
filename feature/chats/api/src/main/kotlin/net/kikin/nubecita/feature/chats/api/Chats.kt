@@ -94,6 +94,16 @@ data class GroupJoinRequests(
 ) : NavKey
 
 /**
+ * Owner-only sub-route to manage the group's single join link (create / share / enable /
+ * disable / configure). Pushed from the "Invite link" row in [GroupDetails]. Rendered as an
+ * adaptiveDialog (full-screen on Compact, centered dialog on Medium/Expanded).
+ */
+@Serializable
+data class ManageJoinLink(
+    val convoId: String,
+) : NavKey
+
+/**
  * Account-global chat settings ("Who can message you"). A `@MainShell`
  * sub-route pushed from the inbox toolbar's gear; tagged `adaptiveDialog()` so
  * it renders full-screen on Compact and as a centered Dialog on Medium /
