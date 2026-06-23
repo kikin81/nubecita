@@ -314,17 +314,23 @@ internal class FakeChatRepository(
     val editJoinLinkCalls = mutableListOf<Triple<String, JoinRule?, Boolean?>>()
     val enableJoinLinkCalls = mutableListOf<String>()
     val disableJoinLinkCalls = mutableListOf<String>()
+    val createJoinLinkCalls = mutableListOf<Triple<String, JoinRule, Boolean>>()
+    val getJoinLinkCalls = mutableListOf<String>()
 
     /** Optional gate: when set, the four link mutations suspend on it before returning. */
     var joinLinkMutationGate: CompletableDeferred<Unit>? = null
 
-    override suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?> = getJoinLinkResult
+    override suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?> {
+        getJoinLinkCalls += convoId
+        return getJoinLinkResult
+    }
 
     override suspend fun createJoinLink(
         convoId: String,
         joinRule: JoinRule,
         requireApproval: Boolean,
     ): Result<JoinLinkUi> {
+        createJoinLinkCalls += Triple(convoId, joinRule, requireApproval)
         joinLinkMutationGate?.await()
         return createJoinLinkResult
     }

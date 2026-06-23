@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 @Singleton
 internal class BenchFakeChatRepository
@@ -417,6 +418,7 @@ internal class BenchFakeChatRepository
                     coerceInputValues = true
                 }
 
+            // Duplicated per source set — source-set isolation prevents sharing the JVM test fixture.
             private val STUB_JOIN_LINK =
                 JoinLinkUi(
                     code = "stub",
@@ -424,7 +426,7 @@ internal class BenchFakeChatRepository
                     enabled = true,
                     joinRule = JoinRule.Anyone,
                     requireApproval = true,
-                    createdAt = kotlin.time.Instant.parse("2026-05-13T12:00:00Z"),
+                    createdAt = Instant.parse("2026-05-13T12:00:00Z"),
                 )
         }
     }

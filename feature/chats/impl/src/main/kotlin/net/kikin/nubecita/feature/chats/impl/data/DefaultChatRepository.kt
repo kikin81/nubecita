@@ -483,20 +483,6 @@ internal class DefaultChatRepository
                 service.disableJoinLink(DisableJoinLinkRequest(convoId = convoId)).joinLink
             }
 
-        // Parallel to [groupMutation] but returns the mapped JoinLinkUi each link op yields.
-        private suspend inline fun joinLinkMutation(
-            op: String,
-            crossinline block: suspend (GroupService) -> JoinLinkView,
-        ): Result<JoinLinkUi> =
-            withContext(dispatcher) {
-                runCatching {
-                    block(GroupService(xrpcClientProvider.authenticated())).toJoinLinkUi()
-                }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
-                    Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)
-                }
-            }
-
         // Parallel to [convoMutation] but over GroupService for the member-management
         // procedures: run the XRPC call on IO; rethrow cancellation; log and return
         // failure otherwise. No cache patch — the roster refetches via getConvoMembers.
@@ -507,6 +493,20 @@ internal class DefaultChatRepository
             withContext(dispatcher) {
                 runCatching {
                     block(GroupService(xrpcClientProvider.authenticated()))
+                }.onFailure { throwable ->
+                    if (throwable is CancellationException) throw throwable
+                    Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)
+                }
+            }
+
+        // Parallel to [groupMutation] but returns the mapped JoinLinkUi each link op yields.
+        private suspend inline fun joinLinkMutation(
+            op: String,
+            crossinline block: suspend (GroupService) -> JoinLinkView,
+        ): Result<JoinLinkUi> =
+            withContext(dispatcher) {
+                runCatching {
+                    block(GroupService(xrpcClientProvider.authenticated())).toJoinLinkUi()
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)

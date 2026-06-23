@@ -238,8 +238,9 @@ interface ChatRepository {
     ): Result<JoinLinkUi>
 
     /**
-     * Edit the existing link. Only the non-null args are sent (each maps to an `AtField`), so a
-     * single-field edit never re-sends the other and cannot clobber a rule this build can't map.
+     * Edit the existing link. Only the changed fields are sent — a non-null arg becomes
+     * `AtField.Present`, a null arg becomes `AtField.Missing` — so a single-field edit never
+     * re-sends the other and cannot clobber a rule this build can't map.
      */
     suspend fun editJoinLink(
         convoId: String,

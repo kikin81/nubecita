@@ -33,6 +33,7 @@ import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import kotlin.time.Instant
 
 /**
  * Mirrors `NotificationsPollingObserverTest` — the observer logic is a
@@ -394,6 +395,7 @@ class ChatsUnreadPollingObserverTest {
     }
 
     private companion object {
+        // Duplicated per source set — source-set isolation prevents sharing the JVM test fixture.
         val STUB_JOIN_LINK =
             JoinLinkUi(
                 code = "stub",
@@ -401,7 +403,7 @@ class ChatsUnreadPollingObserverTest {
                 enabled = true,
                 joinRule = JoinRule.Anyone,
                 requireApproval = true,
-                createdAt = kotlin.time.Instant.parse("2026-05-13T12:00:00Z"),
+                createdAt = Instant.parse("2026-05-13T12:00:00Z"),
             )
 
         fun sampleConvo(unread: Int): ConvoRowUi =

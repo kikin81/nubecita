@@ -250,6 +250,7 @@ internal class FakeChatRepository(
                 sentAt = Instant.parse("2026-05-01T12:00:00Z"),
             )
 
+        // Duplicated per source set — source-set isolation prevents sharing the JVM test fixture.
         val STUB_JOIN_LINK =
             JoinLinkUi(
                 code = "stub",
