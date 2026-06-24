@@ -52,16 +52,23 @@ internal class DefaultInAppUpdateController
         }
 
         override suspend fun onResume(launcher: ActivityResultLauncher<IntentSenderRequest>) {
-            // Catch-up: re-arm the listener, resume an interrupted IMMEDIATE update, and
-            // surface a FLEXIBLE update that finished downloading while backgrounded (the
-            // install listener does not fire for a download that completed before re-register).
-            ensureListener()
+            // Catch-up only — never registers a listener for users with no in-flight update.
+            // Fetch fresh signals, then: resume an interrupted IMMEDIATE update; for an
+            // in-progress FLEXIBLE download re-arm the listener (it does not fire for a
+            // download that completed before it was re-registered) and surface a
+            // download that already finished while the app was backgrounded.
             try {
                 val signals = client.fetchSignals() ?: return
-                when {
-                    signals.availability == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS &&
-                        signals.isImmediateAllowed -> client.startImmediate(launcher)
-                    signals.installStatus == InstallStatusModel.DOWNLOADED -> _state.value = UpdateState.ReadyToInstall
+                if (signals.availability == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                    if (signals.isImmediateAllowed) client.startImmediate(launcher)
+                    return
+                }
+                when (signals.installStatus) {
+                    InstallStatusModel.PENDING, InstallStatusModel.DOWNLOADING -> ensureListener()
+                    InstallStatusModel.DOWNLOADED -> {
+                        ensureListener()
+                        _state.value = UpdateState.ReadyToInstall
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e

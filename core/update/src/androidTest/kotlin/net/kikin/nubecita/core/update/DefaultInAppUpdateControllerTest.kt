@@ -83,6 +83,20 @@ class DefaultInAppUpdateControllerTest {
         }
 
     @Test
+    fun onResume_withNoUpdate_staysIdle() =
+        runTest {
+            // Fresh fake with NO update set → availability UPDATE_NOT_AVAILABLE,
+            // installStatus UNKNOWN. onResume must be a complete no-op: it must not
+            // re-arm the listener nor leave Idle (nothing is in flight).
+            val freshController = DefaultInAppUpdateController(PlayAppUpdateClient(fake), prefs)
+            assertEquals(UpdateState.Idle, freshController.state.value)
+
+            freshController.onResume(launcher)
+
+            assertEquals(UpdateState.Idle, freshController.state.value)
+        }
+
+    @Test
     fun throttle_isWrittenAtFireTime_andSuppressesSecondPromptForSameVersion() =
         runTest {
             fake.setUpdateAvailable(availableVersionCode)
