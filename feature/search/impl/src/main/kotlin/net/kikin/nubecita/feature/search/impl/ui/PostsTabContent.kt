@@ -160,7 +160,7 @@ private fun LoadedBody(
                 bodyMatch = currentQuery.takeIf { it.isNotBlank() },
                 callbacks = callbacks,
                 isMediaRevealed = item.post.id in revealedMedia,
-                onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
+                onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
             )
         }
         if (isAppending) {

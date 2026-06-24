@@ -45,7 +45,7 @@ internal interface ThumbnailDecoder {
 internal class CoilThumbnailDecoder
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         private val imageLoader: ImageLoader,
     ) : ThumbnailDecoder {
         override suspend fun decodeToFile(

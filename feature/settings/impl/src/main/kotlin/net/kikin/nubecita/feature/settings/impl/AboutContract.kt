@@ -17,7 +17,7 @@ data class ThanksRowUi(
     val handle: String,
     val displayName: String?,
     val avatarUrl: String?,
-    @StringRes val blurbRes: Int,
+    @param:StringRes val blurbRes: Int,
 )
 
 /**

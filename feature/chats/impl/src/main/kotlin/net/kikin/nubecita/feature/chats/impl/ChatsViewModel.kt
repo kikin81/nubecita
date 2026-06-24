@@ -133,7 +133,7 @@ class ChatsViewModel
                 // pressing another row while already selecting adds it rather
                 // than resetting to just that row.
                 is ChatsEvent.ConvoLongPressed ->
-                    selection.value = (selection.value ?: persistentSetOf()).add(event.convoId)
+                    selection.value = (selection.value ?: persistentSetOf()).adding(event.convoId)
                 is ChatsEvent.SelectionToggled -> toggleSelection(event.convoId)
                 ChatsEvent.ClearSelection -> selection.value = null
                 ChatsEvent.LeaveSelected -> startLeaveWithUndo()
@@ -148,7 +148,7 @@ class ChatsViewModel
 
         private fun toggleSelection(convoId: String) {
             val current = selection.value ?: persistentSetOf()
-            val next = if (convoId in current) current.remove(convoId) else current.add(convoId)
+            val next = if (convoId in current) current.removing(convoId) else current.adding(convoId)
             // Toggling the last selected convo off exits selection mode.
             selection.value = if (next.isEmpty()) null else next
         }
@@ -217,7 +217,7 @@ class ChatsViewModel
             commitPendingLeave()
             undoableLeave = ids
             val token = ++leaveToken
-            pendingLeave.update { it.addAll(ids) }
+            pendingLeave.update { it.addingAll(ids) }
             sendEffect(ChatsEffect.ShowLeaveUndo(token = token, count = ids.size))
             // VM-owned dismiss timer (not the snackbar's): commit when the window
             // elapses, guarded by the token so a superseded batch's timer is inert.
@@ -237,7 +237,7 @@ class ChatsViewModel
             leaveTimerJob?.cancel()
             val restored = undoableLeave
             undoableLeave = persistentSetOf()
-            pendingLeave.update { it.removeAll(restored) }
+            pendingLeave.update { it.removingAll(restored) }
         }
 
         /**
@@ -259,7 +259,7 @@ class ChatsViewModel
                     try {
                         repository.leaveConvo(id)
                     } finally {
-                        pending.update { it.remove(id) }
+                        pending.update { it.removing(id) }
                     }
                 }
             }

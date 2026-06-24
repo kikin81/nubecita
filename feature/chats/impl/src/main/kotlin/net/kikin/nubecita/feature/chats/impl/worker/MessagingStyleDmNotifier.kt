@@ -29,8 +29,8 @@ import javax.inject.Inject
 internal class MessagingStyleDmNotifier
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
-        @param:DmNotificationSmallIcon @DrawableRes private val smallIconRes: Int,
+        @param:ApplicationContext private val context: Context,
+        @param:DmNotificationSmallIcon @param:DrawableRes private val smallIconRes: Int,
     ) : DmNotifier {
         override fun notify(notifications: List<DmNotification>) {
             if (notifications.isEmpty()) return

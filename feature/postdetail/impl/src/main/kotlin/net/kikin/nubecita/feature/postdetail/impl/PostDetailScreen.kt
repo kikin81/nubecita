@@ -489,7 +489,7 @@ private fun LoadedThread(
                             animateLikeTap = item.post.id == lastLikeTapPostUri,
                             animateRepostTap = item.post.id == lastRepostTapPostUri,
                             isMediaRevealed = item.post.id in revealedMedia,
-                            onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
+                            onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
                         )
                     }
                     is ThreadItem.Focus -> {
@@ -519,7 +519,7 @@ private fun LoadedThread(
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
                                 isMediaRevealed = item.post.id in revealedMedia,
-                                onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
+                                onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
                             )
                         }
                     }
@@ -534,7 +534,7 @@ private fun LoadedThread(
                             animateLikeTap = item.post.id == lastLikeTapPostUri,
                             animateRepostTap = item.post.id == lastRepostTapPostUri,
                             isMediaRevealed = item.post.id in revealedMedia,
-                            onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
+                            onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
                         )
                     }
                     is ThreadItem.Blocked ->

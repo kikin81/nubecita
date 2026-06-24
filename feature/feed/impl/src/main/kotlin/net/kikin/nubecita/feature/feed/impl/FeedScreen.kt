@@ -948,7 +948,7 @@ private fun LoadedFeedContent(
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
                                 isMediaRevealed = item.post.id in revealedMedia,
-                                onRevealMedia = { revealedMedia = revealedMedia.add(item.post.id) },
+                                onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
                             )
                         }
                     is FeedItemUi.ReplyCluster ->
@@ -973,7 +973,7 @@ private fun LoadedFeedContent(
                             lastLikeTapPostUri = lastLikeTapPostUri,
                             lastRepostTapPostUri = lastRepostTapPostUri,
                             revealedMedia = revealedMedia,
-                            onRevealMedia = { id -> revealedMedia = revealedMedia.add(id) },
+                            onRevealMedia = { id -> revealedMedia = revealedMedia.adding(id) },
                         )
                     is FeedItemUi.SelfThreadChain -> {
                         // Same-author chain: render N PostCards stacked
@@ -1011,7 +1011,7 @@ private fun LoadedFeedContent(
                                         animateLikeTap = chainPost.id == lastLikeTapPostUri,
                                         animateRepostTap = chainPost.id == lastRepostTapPostUri,
                                         isMediaRevealed = chainPost.id in revealedMedia,
-                                        onRevealMedia = { revealedMedia = revealedMedia.add(chainPost.id) },
+                                        onRevealMedia = { revealedMedia = revealedMedia.adding(chainPost.id) },
                                     )
                                 }
                             }

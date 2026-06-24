@@ -19,8 +19,8 @@ import net.kikin.nubecita.core.moderation.LabelVisibility
  */
 data class CategoryRowUi(
     val label: ContentLabel,
-    @StringRes val titleRes: Int,
-    @StringRes val descriptionRes: Int,
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val descriptionRes: Int,
     val visibility: LabelVisibility,
     val enabled: Boolean,
 )
