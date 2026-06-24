@@ -5,11 +5,12 @@ import androidx.glance.testing.unit.hasTestTag
 import androidx.glance.testing.unit.hasText
 import net.kikin.nubecita.feature.widgets.impl.model.WidgetPostItem
 import org.junit.jupiter.api.Test
+import kotlin.time.Duration.Companion.seconds
 
 internal class FeedWidgetContentTest {
     @Test
     fun loadingStateComposes() =
-        runGlanceAppWidgetUnitTest {
+        runGlanceAppWidgetUnitTest(timeout = TEST_TIMEOUT) {
             provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loading, STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.LOADING)).assertExists()
@@ -18,7 +19,7 @@ internal class FeedWidgetContentTest {
 
     @Test
     fun signedOutStateComposes() =
-        runGlanceAppWidgetUnitTest {
+        runGlanceAppWidgetUnitTest(timeout = TEST_TIMEOUT) {
             provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.SignedOut, STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.SIGNED_OUT)).assertExists()
@@ -27,7 +28,7 @@ internal class FeedWidgetContentTest {
 
     @Test
     fun emptyLoadedStateShowsTheEmptyState() =
-        runGlanceAppWidgetUnitTest {
+        runGlanceAppWidgetUnitTest(timeout = TEST_TIMEOUT) {
             provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = emptyList()), STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.EMPTY)).assertExists()
@@ -37,7 +38,7 @@ internal class FeedWidgetContentTest {
 
     @Test
     fun populatedStateComposesARowPerPostShowsTitleAndRefresh() =
-        runGlanceAppWidgetUnitTest {
+        runGlanceAppWidgetUnitTest(timeout = TEST_TIMEOUT) {
             provideComposable {
                 FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = listOf(row("at://1", "Alice"), row("at://2", "Bob"), row("at://3", "Cara"))), STRINGS)
             }
@@ -48,6 +49,12 @@ internal class FeedWidgetContentTest {
         }
 
     private companion object {
+        // The default runGlanceAppWidgetUnitTest timeout is short; under CI's
+        // contended scheduler the harness's recomposer coroutine can take longer
+        // to settle, surfacing as a flaky UncompletedCoroutinesError. A generous
+        // timeout absorbs that without affecting the fast happy path (nubecita-o2oi).
+        val TEST_TIMEOUT = 30.seconds
+
         const val TITLE = "Following"
         val STRINGS = WidgetStrings(loading = "Loading…", signedOut = "Sign in to see your feed", empty = "No posts yet", refresh = "Refresh")
 
