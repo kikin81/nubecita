@@ -67,6 +67,10 @@ internal class DefaultInAppUpdateController
             }
         }
 
+        // `listening` is only ever touched on the main thread — both ensureListener()
+        // callers (checkAndMaybePrompt/onResume from the Activity) and Play's
+        // InstallStateUpdatedListener callbacks (delivered on the main looper) — so
+        // no @Volatile/synchronization is needed.
         private var listening = false
 
         private fun ensureListener() {
@@ -78,7 +82,11 @@ internal class DefaultInAppUpdateController
                         InstallStatusModel.DOWNLOADING ->
                             UpdateState.Downloading(progress.bytesDownloaded, progress.totalBytesToDownload)
                         InstallStatusModel.DOWNLOADED -> UpdateState.ReadyToInstall
-                        InstallStatusModel.FAILED -> UpdateState.Failed
+                        InstallStatusModel.FAILED -> {
+                            client.unregisterListener()
+                            listening = false
+                            UpdateState.Failed
+                        }
                         InstallStatusModel.INSTALLED, InstallStatusModel.CANCELED -> {
                             client.unregisterListener()
                             listening = false

@@ -5,6 +5,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.android.play.core.appupdate.testing.FakeAppUpdateManager
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -12,6 +13,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /**
  * Pins the production controller's two behaviours that the JVM policy/prefs tests
@@ -19,12 +21,8 @@ import org.junit.Test
  * the moment a foreground download finishes, no onResume) and the fire-time
  * throttle write — both against Play's real [FakeAppUpdateManager] wired through a
  * real [PlayAppUpdateClient].
- *
- * No `@RunWith(AndroidJUnit4::class)`: this module's androidTest classpath
- * exposes `androidx.test.runner` (via `:core:testing-android`) but not
- * `androidx.test.ext:junit`, and the instrumentation's `AndroidJUnitRunner`
- * already drives a plain JUnit4 class — the annotation is redundant here.
  */
+@RunWith(AndroidJUnit4::class)
 class DefaultInAppUpdateControllerTest {
     private lateinit var fake: FakeAppUpdateManager
     private lateinit var prefs: FakeUpdatePreferences
