@@ -1,7 +1,8 @@
 # app-review Specification
 
 ## Purpose
-TBD - created by archiving change add-in-app-review. Update Purpose after archive.
+Drive more — and higher-quality — Google Play ratings by asking engaged, retained users to rate Nubecita at a moment of delight. The capability surfaces Google's native in-app review flow after a successful post publish, gated conservatively (≥3 successful posts, ≥3 days since install, lifetime/frequency caps) so only retained users are prompted and never too often, and it provides a manual "Rate Nubecita" entry point in Settings that opens the Play Store listing. All prompting is fail-silent and inert in the bench flavor.
+
 ## Requirements
 ### Requirement: Post-publish in-app review request
 
