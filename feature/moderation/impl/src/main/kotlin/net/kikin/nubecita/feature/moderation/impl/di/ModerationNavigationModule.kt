@@ -2,7 +2,8 @@ package net.kikin.nubecita.feature.moderation.impl.di
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,7 +64,7 @@ internal object ModerationNavigationModule {
         {
             entry<Report> { route ->
                 val navState = LocalMainShellNavState.current
-                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                val sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded))
                 val scope = rememberCoroutineScope()
                 val viewModel =
                     hiltViewModel<ReportDialogViewModel, ReportDialogViewModel.Factory>(
@@ -114,7 +115,7 @@ internal object ModerationNavigationModule {
             // RequestDismiss after a successful block — must not double-pop).
             entry<Block> { route ->
                 val navState = LocalMainShellNavState.current
-                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                val sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded))
                 val scope = rememberCoroutineScope()
                 val viewModel =
                     hiltViewModel<BlockDialogViewModel, BlockDialogViewModel.Factory>(
