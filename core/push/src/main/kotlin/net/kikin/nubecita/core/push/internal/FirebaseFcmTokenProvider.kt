@@ -16,5 +16,10 @@ import net.kikin.nubecita.core.push.FcmTokenProvider
  * captures into `Result.failure` and pushes through the backoff loop.
  */
 internal class FirebaseFcmTokenProvider : FcmTokenProvider {
+    // FirebaseMessaging.getToken() (the `token` accessor) is @Deprecated in favor of
+    // Firebase's V1 registration model (register() + onNewToken), which has no
+    // synchronous Task<String> equivalent (register() returns Task<Void>). Suppressed
+    // here; the real migration off the synchronous fetch is tracked in nubecita-8pd0.
+    @Suppress("DEPRECATION")
     override suspend fun current(): String = FirebaseMessaging.getInstance().token.await()
 }

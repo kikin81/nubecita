@@ -112,7 +112,7 @@ internal class DefaultChatSettingsRepository
                             rkey = RecordKey(DECLARATION_RKEY),
                         ),
                     )
-                (response.value as? JsonObject ?: JsonObject(emptyMap())) to response.cid
+                response.value to response.cid
             } catch (error: XrpcError) {
                 if (error.errorName == ERROR_RECORD_NOT_FOUND) {
                     JsonObject(emptyMap()) to null
