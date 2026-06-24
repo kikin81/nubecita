@@ -15,6 +15,9 @@
     <!-- Picture-in-Picture window play/pause RemoteAction labels (surfaced via accessibility). -->
     <string name="pip_action_play">Play</string>
     <string name="pip_action_pause">Pause</string>
+    <!-- In-app FLEXIBLE update: snackbar shown when an update has finished downloading and a restart will install it. -->
+    <string name="in_app_update_downloaded">Update downloaded</string>
+    <string name="in_app_update_restart">Restart</string>
 
     <plurals name="notifications_unread">
         <item quantity="one">%1$d unread notification</item>
