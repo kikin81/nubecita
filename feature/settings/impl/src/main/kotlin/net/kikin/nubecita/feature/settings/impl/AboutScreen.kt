@@ -40,6 +40,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.review.PlayStoreLauncher
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -89,6 +90,8 @@ internal fun AboutScreen(
                     currentOnNavigateTo(Profile(handle = effect.did))
                 AboutEffect.OpenLicenses ->
                     currentOnNavigateTo(AboutLicenses)
+                AboutEffect.OpenPlayStore ->
+                    PlayStoreLauncher.openListing(context)
             }
         }
     }
@@ -145,6 +148,11 @@ internal fun AboutContent(
                 label = stringResource(R.string.about_source_label),
                 contentDescription = stringResource(R.string.about_source_content_desc),
                 onClick = { onEvent(AboutEvent.SourceTapped) },
+            )
+            NavRow(
+                label = stringResource(R.string.about_rate_label),
+                contentDescription = stringResource(R.string.about_rate_content_desc),
+                onClick = { onEvent(AboutEvent.RateAppTapped) },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
