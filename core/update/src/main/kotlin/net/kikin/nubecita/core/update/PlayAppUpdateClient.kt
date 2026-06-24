@@ -48,11 +48,12 @@ internal class PlayAppUpdateClient
             type: Int,
         ) {
             try {
-                manager.appUpdateInfo.addOnSuccessListener { info ->
-                    runCatching {
-                        manager.startUpdateFlowForResult(info, launcher, AppUpdateOptions.newBuilder(type).build())
-                    }.onFailure { Timber.w(it, "startUpdateFlow failed: %s", it.javaClass.name) }
-                }
+                manager.appUpdateInfo
+                    .addOnSuccessListener { info ->
+                        runCatching {
+                            manager.startUpdateFlowForResult(info, launcher, AppUpdateOptions.newBuilder(type).build())
+                        }.onFailure { Timber.w(it, "startUpdateFlow failed: %s", it.javaClass.name) }
+                    }.addOnFailureListener { Timber.w(it, "appUpdateInfo fetch failed: %s", it.javaClass.name) }
             } catch (e: Exception) {
                 Timber.w(e, "start(%d) failed: %s", type, e.javaClass.name)
             }
