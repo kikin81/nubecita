@@ -41,6 +41,9 @@ sealed interface AboutEvent : UiEvent {
 
     /** User tapped the "Open source licenses" row. */
     data object LicensesTapped : AboutEvent
+
+    /** User tapped the "Rate Nubecita" row. */
+    data object RateAppTapped : AboutEvent
 }
 
 sealed interface AboutEffect : UiEffect {
@@ -60,4 +63,7 @@ sealed interface AboutEffect : UiEffect {
 
     /** Push the open-source licenses sub-route (`AboutLicenses`). */
     data object OpenLicenses : AboutEffect
+
+    /** Open the app's Play Store listing (the manual rate path, not the in-app API). */
+    data object OpenPlayStore : AboutEffect
 }

@@ -77,6 +77,19 @@ class AboutViewModelTest {
         }
 
     @Test
+    fun `rate tap opens the play store listing`() =
+        runTest {
+            val repo = mockk<ActorProfileRepository>()
+            coEvery { repo.fetchProfile(any()) } answers { Result.success(profileFor(firstArg())) }
+            val vm = AboutViewModel(repo)
+
+            vm.effects.test {
+                vm.handleEvent(AboutEvent.RateAppTapped)
+                assertEquals(AboutEffect.OpenPlayStore, awaitItem())
+            }
+        }
+
+    @Test
     fun `thanks row tap navigates to that profile and licenses tap opens licenses`() =
         runTest {
             val repo = mockk<ActorProfileRepository>()

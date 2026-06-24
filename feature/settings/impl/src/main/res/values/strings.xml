@@ -79,6 +79,8 @@
     <string name="about_app_tagline">A fast, native Bluesky client for Android.</string>
     <string name="about_source_label">Source on GitHub</string>
     <string name="about_source_content_desc">Open the Nubecita source code on GitHub</string>
+    <string name="about_rate_label">Rate Nubecita</string>
+    <string name="about_rate_content_desc">Rate Nubecita on the Play Store</string>
     <string name="about_thanks_section">Special thanks</string>
     <string name="about_licenses_label">Open source licenses</string>
     <string name="about_licenses_title">Open source licenses</string>

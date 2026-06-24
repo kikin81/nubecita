@@ -66,6 +66,7 @@ internal class AboutViewModel
                 AboutEvent.SourceTapped -> sendEffect(AboutEffect.LaunchUri(GITHUB_URL))
                 is AboutEvent.ThanksRowTapped -> sendEffect(AboutEffect.NavigateToProfile(event.did))
                 AboutEvent.LicensesTapped -> sendEffect(AboutEffect.OpenLicenses)
+                AboutEvent.RateAppTapped -> sendEffect(AboutEffect.OpenPlayStore)
             }
         }
 
