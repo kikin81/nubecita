@@ -44,6 +44,14 @@ class UpdatePolicyTest {
     }
 
     @Test
+    fun `staleness just below threshold is not Immediate`() {
+        assertEquals(
+            UpdateAction.Flexible,
+            UpdatePolicy.decide(signals(priority = 0, staleness = 59), lastPromptedVersionCode = null),
+        )
+    }
+
+    @Test
     fun `graceful fallback - high priority but immediate not allowed is Flexible`() {
         // Intentional: a priority-5 update with isImmediateAllowed=false degrades to the gentle flow, not None.
         assertEquals(

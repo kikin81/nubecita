@@ -8,6 +8,12 @@ enum class UpdateAction { None, Flexible, Immediate }
  * fields without importing the Play SDK (mapped in [PlayAppUpdateClient]).
  *
  * @property availability one of [UpdateAvailability] values.
+ * @property isFlexibleAllowed whether Play reports the FLEXIBLE update flow is allowed for this update.
+ * @property isImmediateAllowed whether Play reports the IMMEDIATE update flow is allowed for this update.
+ * @property updatePriority the release's update priority (0–5), set per-release via the Play Developer
+ *   API; absent in Internal App Sharing (treated as 0).
+ * @property stalenessDays days since the update became available on Play, or null if Play has not
+ *   reported it.
  * @property availableVersionCode the versionCode Play would update us to.
  */
 data class UpdateSignals(
