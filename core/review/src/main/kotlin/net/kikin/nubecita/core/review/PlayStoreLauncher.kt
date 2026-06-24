@@ -34,7 +34,12 @@ object PlayStoreLauncher {
         context: Context,
         pkg: String = PACKAGE,
     ) {
-        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(marketUri(pkg)))) }
-            .recoverCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl(pkg)))) }
+        runCatching { context.startActivity(viewIntent(marketUri(pkg))) }
+            .recoverCatching { context.startActivity(viewIntent(webUrl(pkg))) }
     }
+
+    // FLAG_ACTIVITY_NEW_TASK so this works regardless of the caller's Context
+    // (a non-Activity context would otherwise throw), and so the external
+    // Play Store / browser opens in its own task — standard for external links.
+    private fun viewIntent(uri: String): Intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }
