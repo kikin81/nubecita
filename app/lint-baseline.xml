@@ -2,17 +2,6 @@
 <issues format="6" by="lint 9.2.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.0)" variant="all" version="9.2.0">
 
     <issue
-        id="Instantiatable"
-        message="`MainActivity` must extend android.app.Activity"
-        errorLine1="            android:name=&quot;.MainActivity&quot;"
-        errorLine2="                          ~~~~~~~~~~~~~">
-        <location
-            file="src/main/AndroidManifest.xml"
-            line="14"
-            column="27"/>
-    </issue>
-
-    <issue
         id="UnusedResources"
         message="The resource `R.xml.backup_rules` appears to be unused"
         errorLine1="&lt;full-backup-content>"
