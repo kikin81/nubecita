@@ -1,5 +1,6 @@
 package net.kikin.nubecita.update
 
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -26,12 +27,13 @@ fun InAppUpdateHost(
     modifier: Modifier = Modifier,
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
+    val isReadyToInstall = state is UpdateState.ReadyToInstall
     val hostState = remember { SnackbarHostState() }
     val message = stringResource(R.string.in_app_update_downloaded)
     val action = stringResource(R.string.in_app_update_restart)
 
-    LaunchedEffect(state) {
-        if (state is UpdateState.ReadyToInstall) {
+    LaunchedEffect(isReadyToInstall) {
+        if (isReadyToInstall) {
             val result =
                 hostState.showSnackbar(
                     message = message,
@@ -43,5 +45,5 @@ fun InAppUpdateHost(
             }
         }
     }
-    SnackbarHost(hostState, modifier = modifier)
+    SnackbarHost(hostState, modifier = modifier.navigationBarsPadding())
 }
