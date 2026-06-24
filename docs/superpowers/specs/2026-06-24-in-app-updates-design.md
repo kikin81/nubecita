@@ -69,30 +69,50 @@ decide(signals, lastPromptedVersionCode):
 - **IMMEDIATE is never throttled** (a critical update should always prompt; it also auto-resumes on
   `DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS`). Thresholds (`>= 4`, `>= 60d`) are Google's high-priority
   gate and are tunable constants.
+- **Graceful degradation (intentional, not a bug):** the `Immediate` branch is gated on
+  `isImmediateAllowed`. If a high-priority update arrives but Play reports IMMEDIATE *not* allowed
+  (device/Play state), the policy falls through to `Flexible` — a high-priority update then shows the
+  gentle flow rather than nothing. This is deliberate; a policy test pins it so it isn't mistaken for a
+  bug.
 - **FLEXIBLE is throttled once per `availableVersionCode`.** `lastPromptedVersionCode` persists in the
-  DataStore; it's written when we launch (or the user dismisses) a FLEXIBLE flow for that version. A
-  new, higher `availableVersionCode` re-arms the prompt. Net cadence with **no per-track code**:
-  internal (new versionCode every commit) → ~one prompt per build; production (one versionCode per
-  release) → ~one prompt per release.
+  DataStore and is written **at `startUpdateFlowForResult` fire time** (when the intent is generated),
+  NOT on the returned `ActivityResult` — if the user backgrounds the app while Play's dialog is up the
+  result can be dropped/delayed, and writing at fire time guarantees we don't double-nag the same
+  version. A new, higher `availableVersionCode` re-arms the prompt. Net cadence with **no per-track
+  code**: internal (new versionCode every commit) → ~one prompt per build; production (one versionCode
+  per release) → ~one prompt per release.
 
 ### Controller + state
 
-`InAppUpdateController` exposes `val state: StateFlow<UpdateState>` and:
+`InAppUpdateController` is a `@Singleton` and exposes `val state: StateFlow<UpdateState>` and:
 - `suspend fun checkAndMaybePrompt(launcher)` — query signals, run `UpdatePolicy.decide`, and on
-  `Flexible`/`Immediate` call `startUpdate` (recording `lastPromptedVersionCode` for FLEXIBLE).
-- `fun onResume(launcher)` — resume an interrupted IMMEDIATE; re-surface a FLEXIBLE `DOWNLOADED`.
+  `Flexible`/`Immediate` call `startUpdate` (writing `lastPromptedVersionCode` at fire time for FLEXIBLE).
+- `fun onResume(launcher)` — the **catch-up** path only: resume an interrupted IMMEDIATE, and surface a
+  FLEXIBLE update that finished downloading while the app was **backgrounded**.
 - `suspend fun completeFlexibleUpdate()` — `completeUpdate()` (restart to install).
-- Owns the `InstallStateUpdatedListener`; maps install status → `UpdateState`; registers on first
-  check and unregisters on `onDestroy`. Not a ViewModel (needs the Activity launcher — same boundary
-  as `:core:review`, called from the Activity, never a VM).
+- Owns the `InstallStateUpdatedListener` and maps install status → `UpdateState` **in real time**: when
+  a foreground download reaches `DOWNLOADED`, the listener pushes `UpdateState.ReadyToInstall` to the
+  StateFlow immediately (the snackbar appears the moment the download finishes — not only on the next
+  `onResume`). The listener is registered when a FLEXIBLE flow starts and unregistered on a **terminal
+  install state** (`INSTALLED`/`FAILED`/`CANCELED`) — **not** on Activity destroy.
+- **Lifecycle ownership:** because it's a singleton, its `state` and any in-flight download survive
+  Activity recreation (rotation/theme change). It does **not** persist the per-Activity
+  `ActivityResultLauncher` — the launcher is passed in per call, so a recreated Activity simply hands
+  in its fresh launcher. There is no `controller.onDestroy()`; the listener lifecycle is tied to the
+  download (terminal state), the StateFlow lives in the singleton, and the `AppUpdateManager` is itself
+  app-scoped so the listener can't leak the Activity. Not a ViewModel (the launcher is Activity-scoped
+  — same boundary as `:core:review`, called from the Activity, never a VM).
 
 ### Activity wiring — `MainActivity` (mirror `ActivityPipBridge` / `LocalPipController`)
 
 - `@Inject` the `InAppUpdateController` (Hilt singleton).
-- In `onCreate` (before `setContent`): `val updateLauncher = registerForActivityResult(StartIntentSenderForResult()) { … }`,
-  then `lifecycleScope.launch { controller.checkAndMaybePrompt(updateLauncher) }`.
+- In `onCreate` (before `setContent`): `val updateLauncher = registerForActivityResult(StartIntentSenderForResult()) { … }`
+  (re-registered on each Activity instance — correct), then
+  `lifecycleScope.launch { controller.checkAndMaybePrompt(updateLauncher) }`.
 - Add `override fun onResume()` → `controller.onResume(updateLauncher)`.
-- Add `controller.onDestroy()` in the existing `onDestroy`.
+- **No `controller.onDestroy()`** — the singleton must survive config changes (a teardown there would
+  reset `state` from `Downloading`→`Idle` on every rotation). The controller manages its own listener
+  on terminal install states.
 - **No `BuildConfig.FLAVOR` branch** — the bench no-op binding makes the whole thing inert in
   benchmarks; MainActivity always calls the controller.
 
@@ -107,23 +127,32 @@ full-screen Play UI — no app surface needed. Strings localized (en/es/pt): "Up
 
 ## Error handling
 
-The controller swallows Play failures into `UpdateState.Failed` (logged via Timber `javaClass.name`,
-no PII) and otherwise stays `Idle` — an update prompt failing must never disrupt the app. Off-Play /
-no-update → silent `None`. `RESULT_CANCELED` (user declined) → record the version as prompted (so we
-don't re-nag that versionCode) and return to `Idle`. IMMEDIATE `RESULT_OK` is unreliable (Play may
-restart directly) — only handle CANCELED / `RESULT_IN_APP_UPDATE_FAILED`.
+The controller swallows Play failures into `UpdateState.Failed` and otherwise stays `Idle` — an update
+prompt failing must never disrupt the app. Logging uses **`Timber.w`** (expected/recoverable → visible
+in logcat but kept off Crashlytics non-fatals), `javaClass.name` only (no PII). Any `runCatching` /
+`Throwable` catch in the suspend functions **rethrows `CancellationException`** first (these run in the
+Activity `lifecycleScope`; swallowing it breaks cooperative cancellation). Off-Play / no-update →
+silent `None`. `RESULT_CANCELED` (user declined) → already recorded as prompted at fire time, return to
+`Idle`. IMMEDIATE `RESULT_OK` is unreliable (Play may restart directly) — only handle CANCELED /
+`RESULT_IN_APP_UPDATE_FAILED`.
 
 ## Testing
 
 - **`UpdatePolicy`** → JVM unit tests: the full matrix (availability × FLEXIBLE/IMMEDIATE allowed ×
   priority × staleness × lastPromptedVersionCode → expected `UpdateAction`), incl. the throttle
-  (same versionCode → `None`; new versionCode → `Flexible`) and the IMMEDIATE gate.
+  (same versionCode → `None`; new versionCode → `Flexible`), the IMMEDIATE gate, and the **graceful
+  fallback** (high priority but `isImmediateAllowed == false` → `Flexible`, explicitly asserted so it
+  reads as intended behavior).
 - **`DefaultUpdatePreferences`** → JVM test of the DataStore round-trip (mirrors
   `DefaultReviewPreferencesTest`).
 - **`DefaultInAppUpdateController`** → instrumented test with `FakeAppUpdateManager`
   (`setUpdateAvailable`, `setUpdatePriority`, `userAcceptsUpdate`, `downloadStarts/Completes`,
-  `completeUpdate`, `installCompletes`) asserting the `state` transitions + that the throttle is
-  written. (Behind the `run-instrumented` PR label.)
+  `completeUpdate`, `installCompletes`) asserting: the real-time `state` transitions (foreground
+  `downloadCompletes()` → `ReadyToInstall` without an `onResume`); the throttle is written **at
+  startUpdate fire time** (assert `lastPromptedVersionCode` is set before the result, and a subsequent
+  check for the same versionCode → `None`); and config-change survival (the singleton keeps
+  `Downloading`/`ReadyToInstall` across a simulated Activity teardown — no `onDestroy` reset). (Behind
+  the `run-instrumented` PR label.)
 - **Bench no-op** keeps Macrobench offline.
 - **Manual E2E** → Internal App Sharing only (sideloaded builds no-op); `updatePriority` isn't exposed
   via App Sharing, so the IMMEDIATE path is covered by the Fake, not on-device.
