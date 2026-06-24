@@ -8,6 +8,8 @@
     <string name="main_shell_tab_you">Tú</string>
     <string name="pip_action_play">Reproducir</string>
     <string name="pip_action_pause">Pausar</string>
+    <string name="in_app_update_downloaded">Actualización descargada</string>
+    <string name="in_app_update_restart">Reiniciar</string>
 
     <plurals name="notifications_unread">
         <item quantity="one">%1$d notificación sin leer</item>

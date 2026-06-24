@@ -6,10 +6,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -34,6 +39,7 @@ import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushPayload
+import net.kikin.nubecita.core.update.InAppUpdateController
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -42,6 +48,7 @@ import net.kikin.nubecita.feature.onboarding.api.Onboarding
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.toPostDetailRoute
 import net.kikin.nubecita.pip.ActivityPipBridge
+import net.kikin.nubecita.update.InAppUpdateHost
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -70,6 +77,18 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var sharedVideoPlayer: SharedVideoPlayer
+
+    @Inject
+    lateinit var inAppUpdateController: InAppUpdateController
+
+    /**
+     * Activity-scoped launcher for the in-app-update confirmation flow (Play's
+     * IntentSender-based UI). Registered in [onCreate] before the Activity is
+     * RESUMED and reused by [onResume] for the IMMEDIATE-resume / FLEXIBLE
+     * catch-up paths. Passed per call into the singleton controller, never
+     * stored there, so a recreated Activity hands in its fresh launcher.
+     */
+    private lateinit var updateLauncher: ActivityResultLauncher<IntentSenderRequest>
 
     /**
      * The Activity-side Picture-in-Picture bridge (design D5). Created in
@@ -113,6 +132,16 @@ class MainActivity : ComponentActivity() {
         pipBridge = ActivityPipBridge(this, pipController, sharedVideoPlayer)
         pipBridge.start()
 
+        // In-app updates (nubecita-cf13). registerForActivityResult MUST run
+        // before the Activity is RESUMED — onCreate satisfies that. RESULT_OK /
+        // RESULT_CANCELED are handled inside the controller's update flow, so
+        // the callback is a no-op. The check itself is fail-silent in the impl.
+        updateLauncher =
+            registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+                // No-op: outcome is observed via the controller's state flow.
+            }
+        lifecycleScope.launch { inAppUpdateController.checkAndMaybePrompt(updateLauncher) }
+
         setContent {
             NubecitaTheme {
                 // testTagsAsResourceId surfaces Compose `Modifier.testTag(...)`
@@ -135,7 +164,16 @@ class MainActivity : ComponentActivity() {
                     // fullscreen video player is an @OuterShell route, so it
                     // can't reach a local scoped inside MainShell.
                     CompositionLocalProvider(LocalPipController provides pipBridge) {
-                        MainNavigation()
+                        // The update snackbar floats over the nav as a sibling
+                        // overlay so the FLEXIBLE "downloaded → restart" prompt
+                        // persists across screen/tab changes.
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            MainNavigation()
+                            InAppUpdateHost(
+                                controller = inAppUpdateController,
+                                modifier = Modifier.align(Alignment.BottomCenter),
+                            )
+                        }
                     }
                 }
             }
@@ -204,6 +242,13 @@ class MainActivity : ComponentActivity() {
                 }
             }.catch { error -> Timber.e(error, "Bootstrap routing flow threw upstream; navigation will not react to further state changes") }
             .launchIn(lifecycleScope)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // In-app-update catch-up: resume an interrupted IMMEDIATE flow or
+        // surface a FLEXIBLE update that finished downloading in the background.
+        inAppUpdateController.onResume(updateLauncher)
     }
 
     override fun onUserLeaveHint() {
