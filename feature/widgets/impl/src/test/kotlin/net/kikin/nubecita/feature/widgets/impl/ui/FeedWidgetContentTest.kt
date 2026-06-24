@@ -1,15 +1,27 @@
 package net.kikin.nubecita.feature.widgets.impl.ui
 
+import androidx.glance.appwidget.testing.unit.GlanceAppWidgetUnitTest
 import androidx.glance.appwidget.testing.unit.runGlanceAppWidgetUnitTest
 import androidx.glance.testing.unit.hasTestTag
 import androidx.glance.testing.unit.hasText
 import net.kikin.nubecita.feature.widgets.impl.model.WidgetPostItem
 import org.junit.jupiter.api.Test
+import kotlin.time.Duration.Companion.seconds
+
+/**
+ * Wraps Glance widget unit tests with a generous timeout. The default
+ * `runGlanceAppWidgetUnitTest` timeout is short; under CI's contended scheduler
+ * the harness's Recomposer spin-up can exceed it, surfacing as a flaky
+ * `UncompletedCoroutinesError` (the widget composables themselves launch no
+ * coroutines — verified). Virtual time skips delays, so the happy path stays
+ * fast; the timeout only adds headroom on a slow runner (nubecita-o2oi).
+ */
+private fun runWidgetTest(block: GlanceAppWidgetUnitTest.() -> Unit) = runGlanceAppWidgetUnitTest(timeout = 30.seconds) { block() }
 
 internal class FeedWidgetContentTest {
     @Test
     fun loadingStateComposes() =
-        runGlanceAppWidgetUnitTest {
+        runWidgetTest {
             provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loading, STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.LOADING)).assertExists()
@@ -18,7 +30,7 @@ internal class FeedWidgetContentTest {
 
     @Test
     fun signedOutStateComposes() =
-        runGlanceAppWidgetUnitTest {
+        runWidgetTest {
             provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.SignedOut, STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.SIGNED_OUT)).assertExists()
@@ -27,7 +39,7 @@ internal class FeedWidgetContentTest {
 
     @Test
     fun emptyLoadedStateShowsTheEmptyState() =
-        runGlanceAppWidgetUnitTest {
+        runWidgetTest {
             provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = emptyList()), STRINGS) }
 
             onNode(hasTestTag(WidgetTestTags.EMPTY)).assertExists()
@@ -37,7 +49,7 @@ internal class FeedWidgetContentTest {
 
     @Test
     fun populatedStateComposesARowPerPostShowsTitleAndRefresh() =
-        runGlanceAppWidgetUnitTest {
+        runWidgetTest {
             provideComposable {
                 FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = listOf(row("at://1", "Alice"), row("at://2", "Bob"), row("at://3", "Cara"))), STRINGS)
             }
