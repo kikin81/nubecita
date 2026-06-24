@@ -246,9 +246,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // In-app-update catch-up: resume an interrupted IMMEDIATE flow or
-        // surface a FLEXIBLE update that finished downloading in the background.
-        inAppUpdateController.onResume(updateLauncher)
+        // In-app-update catch-up: resume an interrupted IMMEDIATE flow or surface a
+        // FLEXIBLE update that finished downloading in the background.
+        lifecycleScope.launch {
+            inAppUpdateController.onResume(updateLauncher)
+        }
     }
 
     override fun onUserLeaveHint() {

@@ -18,7 +18,7 @@ interface InAppUpdateController {
     suspend fun checkAndMaybePrompt(launcher: ActivityResultLauncher<IntentSenderRequest>)
 
     /** onResume catch-up: resume an interrupted IMMEDIATE; surface a backgrounded-DOWNLOADED FLEXIBLE. */
-    fun onResume(launcher: ActivityResultLauncher<IntentSenderRequest>)
+    suspend fun onResume(launcher: ActivityResultLauncher<IntentSenderRequest>)
 
     /** Install a DOWNLOADED flexible update (restarts the app). */
     suspend fun completeFlexibleUpdate()

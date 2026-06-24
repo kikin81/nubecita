@@ -17,7 +17,7 @@ internal class BenchNoOpInAppUpdateController
 
         override suspend fun checkAndMaybePrompt(launcher: ActivityResultLauncher<IntentSenderRequest>) = Unit
 
-        override fun onResume(launcher: ActivityResultLauncher<IntentSenderRequest>) = Unit
+        override suspend fun onResume(launcher: ActivityResultLauncher<IntentSenderRequest>) = Unit
 
         override suspend fun completeFlexibleUpdate() = Unit
     }

@@ -87,6 +87,7 @@ internal class PlayAppUpdateClient
         private fun AppUpdateInfo.toUpdateSignals(): UpdateSignals =
             UpdateSignals(
                 availability = updateAvailability(),
+                installStatus = installStatus(),
                 isFlexibleAllowed = isUpdateTypeAllowed(AppUpdateType.FLEXIBLE),
                 isImmediateAllowed = isUpdateTypeAllowed(AppUpdateType.IMMEDIATE),
                 updatePriority = updatePriority(),

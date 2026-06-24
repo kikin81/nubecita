@@ -59,6 +59,30 @@ class DefaultInAppUpdateControllerTest {
         }
 
     @Test
+    fun onResume_surfacesBackgroundedDownloaded_onFreshController() =
+        runTest {
+            // Drive the fake all the way to DOWNLOADED using the first controller's
+            // listener (the foreground path), so the FakeAppUpdateManager now reports
+            // installStatus == DOWNLOADED on its appUpdateInfo.
+            fake.setUpdateAvailable(availableVersionCode)
+            controller.checkAndMaybePrompt(launcher)
+            fake.userAcceptsUpdate()
+            fake.downloadStarts()
+            fake.downloadCompletes()
+
+            // A brand-new controller wired to the SAME (already-DOWNLOADED) fake models
+            // "process recreated mid-download": its in-memory _state is still Idle and its
+            // listener never observed the transition. onResume must fetch a fresh
+            // installStatus signal (DOWNLOADED) and surface ReadyToInstall.
+            val freshController = DefaultInAppUpdateController(PlayAppUpdateClient(fake), prefs)
+            assertEquals(UpdateState.Idle, freshController.state.value)
+
+            freshController.onResume(launcher)
+
+            assertEquals(UpdateState.ReadyToInstall, freshController.state.value)
+        }
+
+    @Test
     fun throttle_isWrittenAtFireTime_andSuppressesSecondPromptForSameVersion() =
         runTest {
             fake.setUpdateAvailable(availableVersionCode)

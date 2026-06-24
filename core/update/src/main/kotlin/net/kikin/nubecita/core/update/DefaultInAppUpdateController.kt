@@ -51,10 +51,23 @@ internal class DefaultInAppUpdateController
             }
         }
 
-        override fun onResume(launcher: ActivityResultLauncher<IntentSenderRequest>) {
-            // Catch-up: resume an interrupted IMMEDIATE, and re-arm the listener so a
-            // download that completed while backgrounded surfaces ReadyToInstall.
+        override suspend fun onResume(launcher: ActivityResultLauncher<IntentSenderRequest>) {
+            // Catch-up: re-arm the listener, resume an interrupted IMMEDIATE update, and
+            // surface a FLEXIBLE update that finished downloading while backgrounded (the
+            // install listener does not fire for a download that completed before re-register).
             ensureListener()
+            try {
+                val signals = client.fetchSignals() ?: return
+                when {
+                    signals.availability == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS &&
+                        signals.isImmediateAllowed -> client.startImmediate(launcher)
+                    signals.installStatus == InstallStatusModel.DOWNLOADED -> _state.value = UpdateState.ReadyToInstall
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "onResume catch-up failed: %s", e.javaClass.name)
+            }
         }
 
         override suspend fun completeFlexibleUpdate() {

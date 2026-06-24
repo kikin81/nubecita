@@ -8,6 +8,9 @@ enum class UpdateAction { None, Flexible, Immediate }
  * fields without importing the Play SDK (mapped in [PlayAppUpdateClient]).
  *
  * @property availability one of [UpdateAvailability] values.
+ * @property installStatus the current FLEXIBLE-flow install status (an [InstallStatusModel] value),
+ *   used by onResume to detect a download that completed while the app was backgrounded; UNKNOWN
+ *   when no flexible flow is in progress.
  * @property isFlexibleAllowed whether Play reports the FLEXIBLE update flow is allowed for this update.
  * @property isImmediateAllowed whether Play reports the IMMEDIATE update flow is allowed for this update.
  * @property updatePriority the release's update priority (0–5), set per-release via the Play Developer
@@ -18,6 +21,7 @@ enum class UpdateAction { None, Flexible, Immediate }
  */
 data class UpdateSignals(
     val availability: Int,
+    val installStatus: Int = InstallStatusModel.UNKNOWN,
     val isFlexibleAllowed: Boolean,
     val isImmediateAllowed: Boolean,
     val updatePriority: Int,

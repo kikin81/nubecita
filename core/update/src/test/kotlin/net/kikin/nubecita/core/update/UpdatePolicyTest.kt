@@ -11,7 +11,14 @@ class UpdatePolicyTest {
         priority: Int = 0,
         staleness: Int? = null,
         versionCode: Int = 100,
-    ) = UpdateSignals(availability, flexible, immediate, priority, staleness, versionCode)
+    ) = UpdateSignals(
+        availability = availability,
+        isFlexibleAllowed = flexible,
+        isImmediateAllowed = immediate,
+        updatePriority = priority,
+        stalenessDays = staleness,
+        availableVersionCode = versionCode,
+    )
 
     @Test
     fun `no update available is None`() {
