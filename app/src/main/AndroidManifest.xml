@@ -224,7 +224,16 @@
                 - Unmatched URIs fall through to the Timber.d log in
                   MainActivity.handleIntent; no destructive side effects.
             -->
-            <intent-filter>
+            <!--
+                autoVerify="false": bsky.app is a third-party domain we don't
+                own, so Android App Links verification (assetlinks.json at the
+                domain's .well-known) can never pass. This is a deliberate
+                (chooser-offered) deep link, NOT a verified App Link — declaring
+                it explicitly silences AppLinkWarning and documents intent. Our
+                own verified App Link work (the OAuth redirect) is separate
+                (nubecita-o4rv).
+            -->
+            <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
