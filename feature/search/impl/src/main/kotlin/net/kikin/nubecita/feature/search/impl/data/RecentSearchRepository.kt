@@ -2,11 +2,11 @@ package net.kikin.nubecita.feature.search.impl.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.Clock
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 import net.kikin.nubecita.core.database.model.RecentSearchEntity
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Clock
 
 /**
  * Persists the user's most recent search queries (LRU, capacity

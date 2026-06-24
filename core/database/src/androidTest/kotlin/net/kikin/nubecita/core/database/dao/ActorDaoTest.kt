@@ -4,7 +4,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.database.DatabaseTest
 import net.kikin.nubecita.core.database.model.ActorEntity
 import org.junit.Assert.assertEquals
@@ -13,6 +12,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.time.Instant
 
 @RunWith(AndroidJUnit4::class)
 internal class ActorDaoTest : DatabaseTest() {

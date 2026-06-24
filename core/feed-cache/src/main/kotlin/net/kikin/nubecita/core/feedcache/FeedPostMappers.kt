@@ -2,12 +2,12 @@ package net.kikin.nubecita.core.feedcache
 
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.PostView
-import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.feedmapping.applyModeration
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.PostUi
+import kotlin.time.Instant
 
 /**
  * Write-through mapper: project one wire [FeedViewPost] into the denormalized

@@ -3,8 +3,8 @@ package net.kikin.nubecita.core.database.model
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import kotlinx.datetime.Instant
 import net.kikin.nubecita.data.models.ActorUi
+import kotlin.time.Instant
 
 /**
  * DID-keyed cache of an actor's display data. Populated by `:core:actors`

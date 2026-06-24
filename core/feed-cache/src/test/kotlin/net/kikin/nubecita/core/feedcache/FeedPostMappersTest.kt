@@ -117,7 +117,7 @@ internal class FeedPostMappersTest {
         // indexedAt comes from the post's indexedAt (2026-04-15T19:51:13Z),
         // NOT the record createdAt (2026-04-15T19:51:12.861Z).
         assertEquals(
-            kotlinx.datetime.Instant.parse("2026-04-15T19:51:13.000Z"),
+            kotlin.time.Instant.parse("2026-04-15T19:51:13.000Z"),
             entity.indexedAt,
         )
         assertNotNull(entity.postBlob)

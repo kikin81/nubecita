@@ -29,7 +29,6 @@ dependencies {
     api(project(":data:models"))
 
     implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.datetime)
     implementation(libs.room.paging)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
