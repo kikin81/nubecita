@@ -20,11 +20,11 @@ The system SHALL detect new inbound direct messages while the app is backgrounde
 - **THEN** no notification is posted and no error is surfaced
 
 ### Requirement: Battery-cooperative scheduling
-Background work SHALL stay within Google's WorkManager guidelines and cooperate with Doze and App Standby. The system MUST NOT use a foreground service for polling cadence, exact alarms, wakelocks, or request battery-optimization exemptions. Polling SHALL use a periodic `WorkManager` request at the platform-minimum interval with a network constraint, accepting OS-imposed delay.
+Background work SHALL stay within Google's WorkManager guidelines and cooperate with Doze and App Standby. The system MUST NOT use a foreground service for polling cadence, exact alarms, wakelocks, or request battery-optimization exemptions. Polling SHALL use a periodic `WorkManager` request at the platform-minimum interval (15 minutes) with a network constraint, accepting OS-imposed delay.
 
 #### Scenario: Worker scheduled with network constraint
 - **WHEN** background DM notifications are enabled and the user is signed in
-- **THEN** a unique periodic work request is enqueued requiring network connectivity, at the platform-minimum period
+- **THEN** a unique periodic work request is enqueued requiring network connectivity, at the platform-minimum period (15 minutes)
 
 #### Scenario: Device in Doze
 - **WHEN** the device is in Doze and defers the work
