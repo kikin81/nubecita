@@ -41,8 +41,8 @@ class NotificationChannelInstaller {
     private data class ChannelSpec(
         val id: String,
         val importance: Int,
-        @StringRes val nameRes: Int,
-        @StringRes val descriptionRes: Int,
+        @param:StringRes val nameRes: Int,
+        @param:StringRes val descriptionRes: Int,
     ) {
         fun toChannel(context: Context): NotificationChannelCompat =
             NotificationChannelCompat

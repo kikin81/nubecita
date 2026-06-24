@@ -38,7 +38,7 @@ import androidx.core.app.NotificationCompat
  * branding of its own.
  */
 class PushNotificationBuilder(
-    @DrawableRes private val smallIconRes: Int,
+    @param:DrawableRes private val smallIconRes: Int,
 ) {
     fun build(
         payload: PushPayload,

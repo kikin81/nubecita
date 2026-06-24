@@ -82,7 +82,7 @@ internal fun ProfileScreenContent(
     var revealedMedia by rememberSaveable(
         stateSaver = listSaver(save = { it.toList() }, restore = { it.toPersistentSet() }),
     ) { mutableStateOf(persistentSetOf<String>()) }
-    val onRevealMedia = remember { { id: String -> revealedMedia = revealedMedia.add(id) } }
+    val onRevealMedia = remember { { id: String -> revealedMedia = revealedMedia.adding(id) } }
 
     Scaffold(
         modifier = modifier,

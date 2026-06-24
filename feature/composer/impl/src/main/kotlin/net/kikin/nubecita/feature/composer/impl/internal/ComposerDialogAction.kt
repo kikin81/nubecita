@@ -15,7 +15,7 @@ import androidx.compose.runtime.Immutable
  */
 @Immutable
 internal data class ComposerDialogAction(
-    @StringRes val label: Int,
+    @param:StringRes val label: Int,
     val destructive: Boolean = false,
     val onClick: () -> Unit,
 )

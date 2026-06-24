@@ -50,7 +50,7 @@ internal interface WidgetWorkScheduler {
 internal class WorkManagerWidgetWorkScheduler
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : WidgetWorkScheduler {
         override suspend fun ensureScheduled() =

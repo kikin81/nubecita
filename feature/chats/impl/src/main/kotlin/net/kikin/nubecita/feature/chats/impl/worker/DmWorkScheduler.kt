@@ -41,7 +41,7 @@ internal interface DmWorkScheduler {
 internal class WorkManagerDmWorkScheduler
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : DmWorkScheduler {
         override suspend fun ensureScheduled() =

@@ -73,7 +73,7 @@ internal class AboutViewModel
         private data class Contributor(
             val did: String,
             val fallbackHandle: String,
-            @StringRes val blurbRes: Int,
+            @param:StringRes val blurbRes: Int,
         ) {
             fun toRow(profile: ActorProfile?): ThanksRowUi =
                 ThanksRowUi(

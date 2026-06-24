@@ -74,7 +74,7 @@ internal class DefaultPostInteractionsCache
                                     repostCount = post.stats.repostCount.toLong(),
                                 )
                         }
-                    acc.put(post.id, merged)
+                    acc.putting(post.id, merged)
                 }
             }
         }
@@ -96,7 +96,7 @@ internal class DefaultPostInteractionsCache
                     likeCount = (before.likeCount + if (before.viewerLikeUri == null) 1 else -1).coerceAtLeast(0),
                     pendingLikeWrite = PendingState.Pending,
                 )
-            _state.update { it.put(postUri, optimistic) }
+            _state.update { it.putting(postUri, optimistic) }
 
             val job =
                 applicationScope.async {
@@ -113,7 +113,7 @@ internal class DefaultPostInteractionsCache
                     callResult.fold(
                         onSuccess = { newLikeUri: AtUri? ->
                             _state.update {
-                                it.put(
+                                it.putting(
                                     postUri,
                                     optimistic.copy(
                                         viewerLikeUri = newLikeUri?.raw,
@@ -124,7 +124,7 @@ internal class DefaultPostInteractionsCache
                             Result.success(Unit)
                         },
                         onFailure = { throwable ->
-                            _state.update { it.put(postUri, before) }
+                            _state.update { it.putting(postUri, before) }
                             Result.failure(throwable)
                         },
                     )
@@ -152,7 +152,7 @@ internal class DefaultPostInteractionsCache
                     repostCount = (before.repostCount + if (before.viewerRepostUri == null) 1 else -1).coerceAtLeast(0),
                     pendingRepostWrite = PendingState.Pending,
                 )
-            _state.update { it.put(postUri, optimistic) }
+            _state.update { it.putting(postUri, optimistic) }
 
             val job =
                 applicationScope.async {
@@ -169,7 +169,7 @@ internal class DefaultPostInteractionsCache
                     callResult.fold(
                         onSuccess = { newRepostUri: AtUri? ->
                             _state.update {
-                                it.put(
+                                it.putting(
                                     postUri,
                                     optimistic.copy(
                                         viewerRepostUri = newRepostUri?.raw,
@@ -180,7 +180,7 @@ internal class DefaultPostInteractionsCache
                             Result.success(Unit)
                         },
                         onFailure = { throwable ->
-                            _state.update { it.put(postUri, before) }
+                            _state.update { it.putting(postUri, before) }
                             Result.failure(throwable)
                         },
                     )
@@ -213,6 +213,6 @@ internal class DefaultPostInteractionsCache
             postUri: String,
             state: PostInteractionState,
         ) {
-            _state.update { it.put(postUri, state) }
+            _state.update { it.putting(postUri, state) }
         }
     }

@@ -59,9 +59,9 @@ sealed interface OnboardingEffect : UiEffect {
  * one enum entry plus three string resources.
  */
 internal enum class OnboardingPage(
-    @StringRes val eyebrow: Int,
-    @StringRes val title: Int,
-    @StringRes val body: Int,
+    @param:StringRes val eyebrow: Int,
+    @param:StringRes val title: Int,
+    @param:StringRes val body: Int,
 ) {
     Welcome(
         eyebrow = R.string.onboarding_page_welcome_eyebrow,

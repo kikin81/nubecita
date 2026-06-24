@@ -33,7 +33,7 @@ internal class GlanceWidgetImagePrefetcher
         private val feedRepository: FeedRepository,
         private val thumbnailStore: WidgetThumbnailStore,
         private val decoder: ThumbnailDecoder,
-        @IoDispatcher private val dispatcher: CoroutineDispatcher,
+        @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : WidgetImagePrefetcher {
         override suspend fun prefetch(feedKey: FeedKey) =
             withContext(dispatcher) {
