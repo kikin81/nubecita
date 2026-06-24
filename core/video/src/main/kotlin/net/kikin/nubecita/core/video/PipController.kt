@@ -52,7 +52,7 @@ public class PipController
     internal constructor(
         @param:PipDeviceSupport private val deviceSupportsPip: Boolean,
         entitlementRepository: EntitlementRepository,
-        @param:ApplicationScope scope: CoroutineScope,
+        @ApplicationScope scope: CoroutineScope,
     ) {
         /**
          * `deviceSupports && isPro`, kept hot so the ~4 PiP call sites can read

@@ -94,5 +94,5 @@ internal fun PurchasesTransactionException.toPurchaseResult(): PurchaseResult =
     if (userCancelled) {
         PurchaseResult.Cancelled
     } else {
-        PurchaseResult.Error(message ?: "Purchase failed")
+        PurchaseResult.Error(message)
     }

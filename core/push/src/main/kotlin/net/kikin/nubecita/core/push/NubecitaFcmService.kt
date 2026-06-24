@@ -58,6 +58,11 @@ class NubecitaFcmService : FirebaseMessagingService() {
     @Inject @ApplicationScope
     lateinit var appScope: CoroutineScope
 
+    // FirebaseMessagingService.onNewToken(String) is @Deprecated as part of
+    // Firebase's V1 registration migration; it is still the delivered token-rotation
+    // callback today. The migration off the deprecated FCM token APIs is tracked in
+    // nubecita-8pd0.
+    @Suppress("OVERRIDE_DEPRECATION")
     override fun onNewToken(token: String) {
         appScope.launch { coordinator.onTokenRotated(token) }
     }
