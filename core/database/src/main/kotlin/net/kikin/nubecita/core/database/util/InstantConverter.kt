@@ -1,10 +1,10 @@
 package net.kikin.nubecita.core.database.util
 
 import androidx.room.TypeConverter
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
- * Persists `kotlinx.datetime.Instant` as the epoch-millisecond `Long`
+ * Persists `kotlin.time.Instant` as the epoch-millisecond `Long`
  * Room natively supports. `null` round-trips through unchanged so DAOs
  * can declare nullable timestamp columns without a separate converter.
  *

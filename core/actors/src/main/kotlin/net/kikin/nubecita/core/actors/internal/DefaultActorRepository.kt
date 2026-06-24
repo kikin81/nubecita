@@ -11,7 +11,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Clock
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.auth.XrpcClientProvider
@@ -24,6 +23,7 @@ import net.kikin.nubecita.data.models.ActorUi
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Clock
 
 /**
  * Production [ActorRepository] backed by the atproto-kotlin SDK's

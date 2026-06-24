@@ -23,7 +23,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.database.dao.ActorDao
 import net.kikin.nubecita.core.database.model.ActorEntity
@@ -34,6 +33,7 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import kotlin.time.Instant
 
 /**
  * Unit tests for [DefaultActorRepository].

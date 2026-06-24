@@ -14,7 +14,6 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 import net.kikin.nubecita.core.database.model.RecentSearchEntity
 import net.kikin.nubecita.feature.search.impl.data.RecentSearchRepository
@@ -23,6 +22,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import kotlin.time.Instant
 
 /**
  * Unit tests for [SearchViewModel].

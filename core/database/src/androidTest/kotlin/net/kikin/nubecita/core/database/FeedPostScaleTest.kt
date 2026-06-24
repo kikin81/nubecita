@@ -5,13 +5,13 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.time.Instant
 
 /**
  * Scale stress test — the **D-A2 gate** for the denormalized `feed_post` schema.

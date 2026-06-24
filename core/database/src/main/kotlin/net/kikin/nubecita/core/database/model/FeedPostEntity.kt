@@ -3,7 +3,7 @@ package net.kikin.nubecita.core.database.model
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * A per-position denormalized snapshot of a single post inside one cached
