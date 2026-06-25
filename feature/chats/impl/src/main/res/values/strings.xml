@@ -12,6 +12,8 @@
     <string name="chats_messages_channel_name">Messages</string>
     <string name="chats_messages_channel_description">New direct messages</string>
     <string name="chats_notification_reply">Reply</string>
+    <!-- Name for the notification's own user (the viewer) in MessagingStyle; also labels inline sent replies. -->
+    <string name="chats_notification_self_name">You</string>
 
     <!-- Chats / Requests segmented toggle -->
     <string name="chats_segment_chats">Chats</string>
