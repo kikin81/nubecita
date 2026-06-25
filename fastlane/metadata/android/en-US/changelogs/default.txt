@@ -1,8 +1,5 @@
-Say hello to nubecita — a fast, native Bluesky client for Android, built by an independent developer.
-Dive into a smoother social experience. In our v1 launch, you can:
-• Scroll a silky timeline with autoplaying video and photo carousels.
-• Open threads, like, reply, and repost seamlessly.
-• Discover new people and custom feeds.
-• Send DMs and share your own posts.
-• Pin new home screen widgets for your Following and Discover feeds.
-Welcome aboard. 💙
+Thanks for using nubecita! This update is all about fixes:
+• More reliable chat notifications — you'll get new DMs, and you can reply right from the notification.
+• Fixed a bug that kept some group chats from opening.
+• More bug fixes and performance improvements under the hood.
+Thanks for being here. 💙
