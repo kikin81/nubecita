@@ -1,1 +1,8 @@
-Correcciones de errores y mejoras de rendimiento.
+Conoce nubecita: tu cliente rápido de Bluesky para Android.
+En nuestra v1 puedes:
+• Ver tu feed con autoplay de videos y fotos.
+• Abrir hilos, dar me gusta, responder y repostear.
+• Descubrir usuarios y feeds.
+• Enviar DMs y publicar posts.
+• Nuevos widgets de inicio: "Siguiendo" y "Descubrir".
+¡Te damos la bienvenida! 💙
