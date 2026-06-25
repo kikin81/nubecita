@@ -9,6 +9,7 @@ import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
+import androidx.core.app.RemoteInput
 import dagger.hilt.android.qualifiers.ApplicationContext
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
@@ -76,6 +77,35 @@ internal class MessagingStyleDmNotifier
                 // sound/vibration on the high-importance channel.
                 .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
                 .setContentIntent(tapIntent(first.otherUserDid, ChatNotificationIds.notifyId(first.convoId)))
+                .addAction(replyAction(first.convoId))
+                .build()
+        }
+
+        /**
+         * Inline Direct Reply action (nubecita-1fy.17): a [RemoteInput] whose typed
+         * text is delivered to [DmReplyReceiver], which sends it via the chat repo.
+         * The PendingIntent is MUTABLE so the system can fill in the reply results.
+         */
+        private fun replyAction(convoId: String): NotificationCompat.Action {
+            val remoteInput =
+                RemoteInput
+                    .Builder(DmReplyReceiver.KEY_REPLY_TEXT)
+                    .setLabel(context.getString(R.string.chats_notification_reply))
+                    .build()
+            val notifyId = ChatNotificationIds.notifyId(convoId)
+            val pendingIntent =
+                PendingIntent.getBroadcast(
+                    context,
+                    notifyId,
+                    DmReplyReceiver.intent(context, convoId, notifyId),
+                    PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+            return NotificationCompat.Action
+                .Builder(smallIconRes, context.getString(R.string.chats_notification_reply), pendingIntent)
+                .addRemoteInput(remoteInput)
+                .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+                .setAllowGeneratedReplies(true)
+                .setShowsUserInterface(false)
                 .build()
         }
 

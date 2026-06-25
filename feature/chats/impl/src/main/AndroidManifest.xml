@@ -1,2 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Inline Direct Reply target for DM notifications (nubecita-1fy.17).
+             Manifest-declared (not runtime-registered) so it works even when the
+             app process was killed between posting the notification and replying.
+             Not exported: only the app's own notification PendingIntent triggers it. -->
+        <receiver
+            android:name=".worker.DmReplyReceiver"
+            android:exported="false" />
+    </application>
+</manifest>
