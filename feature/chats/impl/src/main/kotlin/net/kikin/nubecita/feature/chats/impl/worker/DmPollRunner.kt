@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.chats.impl.worker
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -9,6 +10,7 @@ import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toDmNotificationContent
 import net.kikin.nubecita.feature.chats.impl.data.toDmNotifyPlan
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -49,19 +51,49 @@ internal class DmPollRunner
         enum class Outcome { SUCCESS, RETRY }
 
         suspend fun run(): Outcome {
+            Timber.tag(LOG_TAG).d("run: start")
+            // A cold worker process starts with the session StateFlow at Loading
+            // (only MainActivity refreshes it on app cold start). Without this, a
+            // backgrounded run reads Loading, treats it as signed-out, and skips —
+            // mirror WidgetRefreshRunner and refresh here. Rethrow Cancellation; a
+            // storage error -> SUCCESS (don't retry-loop on corruption).
+            try {
+                sessionStateProvider.refresh()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Timber.tag(LOG_TAG).w(e, "session refresh failed -> SUCCESS")
+                return Outcome.SUCCESS
+            }
             val viewerDid =
                 (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
-                    ?: return Outcome.SUCCESS
-            if (!messageChecking.enabled.first()) return Outcome.SUCCESS
+                    ?: run {
+                        Timber.tag(LOG_TAG).d("gate: signed out -> SUCCESS")
+                        return Outcome.SUCCESS
+                    }
+            if (!messageChecking.enabled.first()) {
+                Timber.tag(LOG_TAG).d("gate: message-checking disabled -> SUCCESS")
+                return Outcome.SUCCESS
+            }
 
             // D5: foreground-suppress before any network or cursor mutation.
-            if (foreground.isForegrounded()) return Outcome.SUCCESS
+            if (foreground.isForegrounded()) {
+                Timber.tag(LOG_TAG).d("gate: app foregrounded -> SUCCESS (suppressed)")
+                return Outcome.SUCCESS
+            }
 
-            repository.refreshConvos().getOrElse { return Outcome.RETRY }
+            repository.refreshConvos().getOrElse {
+                Timber.tag(LOG_TAG).w(it, "refreshConvos failed -> RETRY")
+                return Outcome.RETRY
+            }
             // A successful refresh always populates the cache (possibly empty),
             // so null here would mean an unexpected invariant break — retry
             // rather than silently advance the cursor past un-notified events.
-            val convos = repository.observeConvos().value ?: return Outcome.RETRY
+            val convos =
+                repository.observeConvos().value ?: run {
+                    Timber.tag(LOG_TAG).w("convos null after refresh -> RETRY")
+                    return Outcome.RETRY
+                }
             val unreadConvoIds =
                 convos
                     .asSequence()
@@ -71,16 +103,26 @@ internal class DmPollRunner
                     .toSet()
 
             val cursor = cursorStore.cursor(viewerDid).first()
-            val page = repository.getLog(cursor).getOrElse { return Outcome.RETRY }
+            val page =
+                repository.getLog(cursor).getOrElse {
+                    Timber.tag(LOG_TAG).w(it, "getLog failed -> RETRY")
+                    return Outcome.RETRY
+                }
 
             // First-ever poll: set the baseline so we don't notify the whole
             // pre-existing backlog on install / sign-in.
             if (cursor == null) {
+                Timber.tag(LOG_TAG).d("first poll: baseline cursor set, no notify -> SUCCESS")
                 page.nextCursor?.let { cursorStore.setCursor(viewerDid, it) }
                 return Outcome.SUCCESS
             }
 
             val plan = page.toDmNotifyPlan(viewerDid = viewerDid, unreadConvoIds = unreadConvoIds)
+            Timber.tag(LOG_TAG).d(
+                "plan: %d event(s) to notify (unreadConvos=%d)",
+                plan.toNotify.size,
+                unreadConvoIds.size,
+            )
             if (plan.toNotify.isNotEmpty()) {
                 val convoById = convos.associateBy { it.convoId }
                 notifier.notify(
@@ -113,5 +155,9 @@ internal class DmPollRunner
             }
             plan.advancedCursor?.let { cursorStore.setCursor(viewerDid, it) }
             return Outcome.SUCCESS
+        }
+
+        private companion object {
+            const val LOG_TAG = "DmPoll"
         }
     }
