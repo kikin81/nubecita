@@ -89,7 +89,9 @@ lane :promote_production do |options|
     track_promote_to: already_prod ? nil : "production",
     version_code: vc,
     rollout: rollout,
-    in_app_update_priority: priority,
+    # Priority is immutable per release; only set it on the initial promote, never on a
+    # rollout-advance run (re-sending it would attempt to mutate the existing release).
+    in_app_update_priority: already_prod ? nil : priority,
     metadata_path: nubecita_metadata_android_dir,          # committed en-US/es-419/pt-BR changelogs
     skip_upload_changelogs: false,                         # the localized-notes upload
     skip_upload_apk: true, skip_upload_aab: true,
@@ -122,11 +124,13 @@ on:
   workflow_dispatch:
     inputs:
       in_app_update_priority:
-        description: "Optional in-app update priority 0–5 for this internal upload (blank = 0)"
+        description: "In-app update priority for this internal upload (0 = default)"
         required: false
-        type: string
+        default: "0"
+        type: choice
+        options: ["0", "1", "2", "3", "4", "5"]
   push:
-    branches: [main]
+    branches: [main]   # push events carry no inputs → IN_APP_UPDATE_PRIORITY empty → lane omits (0)
 ```
 …and in the `playstore` job's "Upload AAB" step `env:`, add
 `IN_APP_UPDATE_PRIORITY: ${{ inputs.in_app_update_priority }}` (empty on the push path).
@@ -140,18 +144,21 @@ on:
   workflow_dispatch:
     inputs:
       rollout:
-        description: "Rollout fraction 0.01–1.0 (re-run higher to advance)"
+        description: "Rollout fraction (re-run higher to advance)"
         required: true
         default: "0.1"
-        type: string
+        type: choice            # constrained set → no fat-finger (e.g. 10 vs 1.0)
+        options: ["0.01", "0.05", "0.1", "0.2", "0.5", "1.0"]
       version_code:
         description: "Play versionCode to promote (blank = latest on internal)"
         required: false
         type: string
       in_app_update_priority:
-        description: "Optional production update priority 0–5 (blank = 0; ≥4 forces IMMEDIATE)"
-        required: false
-        type: string
+        description: "Production update priority (≥4 forces IMMEDIATE; 0 = default)"
+        required: true
+        default: "0"
+        type: choice            # only applied on the initial promote, not on rollout-advance runs
+        options: ["0", "1", "2", "3", "4", "5"]
 
 concurrency:
   group: promote-production
@@ -170,6 +177,8 @@ jobs:
       version_code: ${{ steps.resolve.outputs.version_code }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # full history so `git log -1 -- <changelog>` finds the last edit
       - uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
@@ -194,7 +203,11 @@ jobs:
             echo "## Promote target"
             echo "- versionCode: **$vc**"
             for loc in en-US es-419 pt-BR; do
-              echo "### $loc"; echo '```'; cat "fastlane/metadata/android/$loc/changelogs/default.txt"; echo '```'
+              f="fastlane/metadata/android/$loc/changelogs/default.txt"
+              # Surface when the notes were last edited so the approver can spot stale
+              # notes (e.g. "last edited 3 weeks ago" on a fresh promote) before approving.
+              edited=$(git log -1 --format='last edited %cr (%h: %s)' -- "$f")
+              echo "### $loc — _${edited}_"; echo '```'; cat "$f"; echo '```'
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -251,6 +264,10 @@ Two purpose-built checkpoints, no heavyweight release PR:
 - Staged **0.1** rollout caps blast radius; halt/resume in Console.
 - The WIF service-account token gates the actual Play write; the input WIF values aren't load-bearing
   secrets (the GCP-side binding is).
+- **Halt collision (documented behavior, not a bug):** if you HALT a rollout in the Play Console and then
+  re-dispatch to advance it, supply pushes the new fraction and implicitly sets the track status back to
+  `inProgress` — i.e. the action is a **hard override** that silently un-halts. Advance deliberately; to
+  keep a release halted, don't re-dispatch it.
 
 ## One-time setup (manual; not code)
 
@@ -258,7 +275,12 @@ Two purpose-built checkpoints, no heavyweight release PR:
    = `main`.
 2. Add `GCP_WORKLOAD_IDENTITY_PROVIDER` + `GCP_SERVICE_ACCOUNT` as **`production` environment** secrets
    (they are currently `release`-scoped; the `release` env keeps its copies for the `resolve` job).
-3. Confirm the WIF service account's Play Console permission is **not** restricted to the internal track
+3. **GCP-side WIF binding:** confirm the Workload Identity Pool provider's attribute condition / the SA's
+   IAM `principalSet` accepts assertions from the **`production`** environment, not just `release`. If the
+   binding mandates `attribute.environment == "release"` (or an `environment:release`-scoped principalSet),
+   the `promote` job fails authentication until `production` is added GCP-side. (The `resolve` job runs in
+   `release`, so it keeps working regardless.)
+4. Confirm the WIF service account's Play Console permission is **not** restricted to the internal track
    only — it must be able to write the production track (`edits.tracks.update` on `production`).
 
 ## Testing
