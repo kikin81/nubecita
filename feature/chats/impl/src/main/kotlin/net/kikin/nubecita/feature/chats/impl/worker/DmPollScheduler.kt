@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
+import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -35,11 +36,23 @@ class DmPollScheduler internal constructor(
             combine(
                 sessionStateProvider.state,
                 messageChecking.enabled,
-            ) { session, enabled -> session is SessionState.SignedIn && enabled }
-                .distinctUntilChanged()
+            ) { session, enabled ->
+                // nubecita-1fy.20: diagnose why the worker doesn't stay scheduled.
+                Timber.tag(LOG_TAG).d("inputs: session=%s enabled=%s", session::class.simpleName, enabled)
+                session is SessionState.SignedIn && enabled
+            }.distinctUntilChanged()
                 .collect { shouldSchedule ->
+                    Timber.tag(LOG_TAG).d(
+                        "decision: shouldSchedule=%s -> %s",
+                        shouldSchedule,
+                        if (shouldSchedule) "ensureScheduled()" else "cancel()",
+                    )
                     if (shouldSchedule) scheduler.ensureScheduled() else scheduler.cancel()
                 }
         }
+    }
+
+    private companion object {
+        const val LOG_TAG = "DmPoll"
     }
 }
