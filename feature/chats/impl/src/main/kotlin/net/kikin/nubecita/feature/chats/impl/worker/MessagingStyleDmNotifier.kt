@@ -82,17 +82,35 @@ internal class MessagingStyleDmNotifier
             convoId: String,
             otherUserDid: String,
             replyText: String,
+        ) = repostConvo(convoId, otherUserDid, appendReply = replyText)
+
+        /**
+         * Re-post the convo notification unchanged to clear the RemoteInput "sending…"
+         * spinner after a blank or failed reply — the spinner spins until the
+         * notification is next updated. No-op if it was already dismissed.
+         */
+        fun clearReplySpinner(
+            convoId: String,
+            otherUserDid: String,
+        ) = repostConvo(convoId, otherUserDid, appendReply = null)
+
+        private fun repostConvo(
+            convoId: String,
+            otherUserDid: String,
+            appendReply: String?,
         ) {
             val manager = NotificationManagerCompat.from(context)
             if (!manager.areNotificationsEnabled()) return
-            ensureChannel(manager)
             val notifyId = ChatNotificationIds.notifyId(convoId)
             val existing = manager.activeNotifications.firstOrNull { it.id == notifyId }?.notification
+            // Nothing to clear if the notification is already gone (no spinner to stop).
+            if (appendReply == null && existing == null) return
+            ensureChannel(manager)
             val style =
                 existing?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it) }
                     ?: NotificationCompat.MessagingStyle(selfPerson())
             // A null sender attributes the message to the MessagingStyle's user — "you".
-            style.addMessage(replyText, System.currentTimeMillis(), null as Person?)
+            appendReply?.let { style.addMessage(it, System.currentTimeMillis(), null as Person?) }
             manager.notifyIfPermitted(notifyId, convoNotification(style, convoId, otherUserDid, alert = false))
         }
 

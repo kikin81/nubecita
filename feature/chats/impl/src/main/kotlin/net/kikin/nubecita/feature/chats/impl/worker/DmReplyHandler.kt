@@ -1,8 +1,10 @@
 package net.kikin.nubecita.feature.chats.impl.worker
 
 import android.content.BroadcastReceiver
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import timber.log.Timber
@@ -13,10 +15,12 @@ import javax.inject.Inject
  * [DmReplyReceiver] via [DmReplyEntryPoint] and run off the main thread on the
  * application scope so the send survives the receiver returning.
  *
- * On a successful send the per-convo notification is re-posted with the reply
- * appended as a "you" message ([MessagingStyleDmNotifier.appendSentReply]), so the
- * thread shows the reply landed. A failed/blank send leaves the notification in
- * place so the user can retry from the thread.
+ * On success the per-convo notification is re-posted with the reply appended as a
+ * "you" message ([MessagingStyleDmNotifier.appendSentReply]); on a blank / failed /
+ * timed-out send it is re-posted unchanged to clear the RemoteInput "sending…"
+ * spinner. The send is bounded by [SEND_TIMEOUT_MS] (the broadcast's goAsync() has
+ * a ~10s limit before an ANR), and exceptions are caught so an uncaught failure on
+ * the application scope can't crash the app (CancellationException is rethrown).
  */
 internal class DmReplyHandler
     @Inject
@@ -41,7 +45,7 @@ internal class DmReplyHandler
                 .isSuccess
         }
 
-        /** Receiver entry point: send asynchronously, append the reply on success, always finish the broadcast. */
+        /** Receiver entry point: send asynchronously, update the notification, and always finish the broadcast. */
         fun handle(
             convoId: String,
             otherUserDid: String,
@@ -51,9 +55,17 @@ internal class DmReplyHandler
             val trimmed = text.trim()
             scope.launch {
                 try {
-                    if (trySend(convoId, trimmed)) {
+                    val sent = withTimeoutOrNull(SEND_TIMEOUT_MS) { trySend(convoId, trimmed) } ?: false
+                    if (sent) {
                         notifier.appendSentReply(convoId, otherUserDid, trimmed)
+                    } else {
+                        // Blank / failed / timed-out: re-post unchanged so the spinner stops.
+                        notifier.clearReplySpinner(convoId, otherUserDid)
                     }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.tag(LOG_TAG).e(e, "inline reply handling failed for convo %s", convoId)
                 } finally {
                     pendingResult?.finish()
                 }
@@ -62,5 +74,8 @@ internal class DmReplyHandler
 
         private companion object {
             const val LOG_TAG = "DmPoll"
+
+            /** Bound the send under the broadcast's ~10s goAsync() limit (avoids an ANR). */
+            const val SEND_TIMEOUT_MS = 8_000L
         }
     }

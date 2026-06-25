@@ -29,7 +29,9 @@ internal class DmReplyReceiver : BroadcastReceiver() {
                 .orEmpty()
         val convoId = intent.getStringExtra(EXTRA_CONVO_ID).orEmpty()
         val otherUserDid = intent.getStringExtra(EXTRA_OTHER_USER_DID).orEmpty()
-        if (text.isBlank() || convoId.isBlank()) return
+        // Blank text still reaches the handler so it can clear the reply spinner;
+        // only a missing convo (shouldn't happen — it's our own intent) is unhandleable.
+        if (convoId.isBlank()) return
 
         val handler =
             EntryPointAccessors
