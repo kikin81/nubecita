@@ -1,0 +1,103 @@
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      rollout:
+        description: "Rollout fraction (re-run higher to advance)"
+        required: true
+        default: "0.1"
+        type: choice
+        options: ["0.01", "0.05", "0.1", "0.2", "0.5", "1.0"]
+      version_code:
+        description: "Play versionCode to promote (blank = latest on internal)"
+        required: false
+        type: string
+      in_app_update_priority:
+        description: "Production update priority (>=4 forces IMMEDIATE; 0 = default)"
+        required: true
+        default: "0"
+        type: choice
+        options: ["0", "1", "2", "3", "4", "5"]
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  resolve:
+    name: Resolve version code + notes
+    runs-on: ubuntu-latest
+    # Reuse the existing release environment for read-only WIF auth; no reviewer
+    # gate here, so it can surface the target before the gated promote job.
+    environment: release
+    outputs:
+      version_code: ${{ steps.resolve.outputs.version_code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # full history so `git log -1 -- <changelog>` finds the last edit
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - name: Resolve target + echo notes
+        id: resolve
+        env:
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          bundle exec fastlane resolve_promote_target version_code:"${INPUT_VERSION_CODE}" | tee /tmp/resolve.log
+          vc=$(grep -oE 'RESOLVED_VERSION_CODE=[0-9]+' /tmp/resolve.log | tail -1 | cut -d= -f2)
+          if [ -z "$vc" ]; then
+            echo "::error::Failed to resolve a version code from fastlane output."
+            exit 1
+          fi
+          echo "version_code=$vc" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Promote target"
+            echo "- versionCode: **$vc**"
+            echo "- rollout: **${{ inputs.rollout }}**  ·  priority: **${{ inputs.in_app_update_priority }}**"
+            for loc in en-US es-419 pt-BR; do
+              f="fastlane/metadata/android/$loc/changelogs/default.txt"
+              edited=$(git log -1 --format='last edited %cr (%h: %s)' -- "$f")
+              echo "### $loc — _${edited}_"
+              echo '```'
+              cat "$f"
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    name: Promote v${{ needs.resolve.outputs.version_code }} to production
+    needs: resolve
+    runs-on: ubuntu-latest
+    # NEW environment with required reviewers → the "Approve and deploy" gate.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - name: Promote to production
+        run: |
+          bundle exec fastlane promote_production \
+            version_code:"${{ needs.resolve.outputs.version_code }}" \
+            rollout:"${{ inputs.rollout }}" \
+            priority:"${{ inputs.in_app_update_priority }}"
