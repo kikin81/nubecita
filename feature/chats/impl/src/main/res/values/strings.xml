@@ -11,6 +11,7 @@
     <!-- Background DM notifications -->
     <string name="chats_messages_channel_name">Messages</string>
     <string name="chats_messages_channel_description">New direct messages</string>
+    <string name="chats_notification_reply">Reply</string>
 
     <!-- Chats / Requests segmented toggle -->
     <string name="chats_segment_chats">Chats</string>

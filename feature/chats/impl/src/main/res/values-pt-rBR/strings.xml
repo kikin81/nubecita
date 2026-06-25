@@ -6,6 +6,7 @@
     <string name="chats_row_deleted_placeholder">Mensagem excluída</string>
     <string name="chats_messages_channel_name">Mensagens</string>
     <string name="chats_messages_channel_description">Novas mensagens diretas</string>
+    <string name="chats_notification_reply">Responder</string>
     <string name="chats_segment_chats">Chats</string>
     <string name="chats_segment_requests">Solicitações</string>
     <string name="chats_action_select">Selecionar</string>

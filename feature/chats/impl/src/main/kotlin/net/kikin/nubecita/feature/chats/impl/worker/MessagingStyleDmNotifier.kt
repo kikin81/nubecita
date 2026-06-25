@@ -9,6 +9,7 @@ import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
+import androidx.core.app.RemoteInput
 import dagger.hilt.android.qualifiers.ApplicationContext
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
@@ -62,11 +63,67 @@ internal class MessagingStyleDmNotifier
         private fun buildConvoNotification(items: List<DmNotification>): android.app.Notification {
             val first = items.first()
             val sender = Person.Builder().setName(first.title).build()
-            val style = NotificationCompat.MessagingStyle(Person.Builder().setName("").build())
+            val style = NotificationCompat.MessagingStyle(selfPerson())
             items.forEach { item ->
                 style.addMessage(item.displayBody(), item.timestampMillis, sender)
             }
-            return NotificationCompat
+            return convoNotification(style, first.convoId, first.otherUserDid, alert = true)
+        }
+
+        /**
+         * Inline reply history (nubecita-1fy.17): after the viewer sends a reply from
+         * the notification, re-post the convo notification with [replyText] appended as
+         * a "you" message — so the thread shows the reply landed instead of vanishing.
+         * Extracts the live `MessagingStyle` (preserving the incoming messages) and
+         * appends; falls back to a fresh style if the notification was already dismissed.
+         * Called off the main thread from [DmReplyHandler]; re-post does not re-alert.
+         */
+        fun appendSentReply(
+            convoId: String,
+            otherUserDid: String,
+            replyText: String,
+        ) = repostConvo(convoId, otherUserDid, appendReply = replyText)
+
+        /**
+         * Re-post the convo notification unchanged to clear the RemoteInput "sending…"
+         * spinner after a blank or failed reply — the spinner spins until the
+         * notification is next updated. No-op if it was already dismissed.
+         */
+        fun clearReplySpinner(
+            convoId: String,
+            otherUserDid: String,
+        ) = repostConvo(convoId, otherUserDid, appendReply = null)
+
+        private fun repostConvo(
+            convoId: String,
+            otherUserDid: String,
+            appendReply: String?,
+        ) {
+            val manager = NotificationManagerCompat.from(context)
+            if (!manager.areNotificationsEnabled()) return
+            val notifyId = ChatNotificationIds.notifyId(convoId)
+            val existing = manager.activeNotifications.firstOrNull { it.id == notifyId }?.notification
+            // Nothing to clear if the notification is already gone (no spinner to stop).
+            if (appendReply == null && existing == null) return
+            ensureChannel(manager)
+            val style =
+                existing?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it) }
+                    ?: NotificationCompat.MessagingStyle(selfPerson())
+            // A null sender attributes the message to the MessagingStyle's user — "you".
+            appendReply?.let { style.addMessage(it, System.currentTimeMillis(), null as Person?) }
+            manager.notifyIfPermitted(notifyId, convoNotification(style, convoId, otherUserDid, alert = false))
+        }
+
+        private fun selfPerson(): Person = Person.Builder().setName("").build()
+
+        /** Shared builder for a per-convo notification; [alert] = false on a self-reply re-post (no re-sound). */
+        private fun convoNotification(
+            style: NotificationCompat.MessagingStyle,
+            convoId: String,
+            otherUserDid: String,
+            alert: Boolean,
+        ): android.app.Notification =
+            NotificationCompat
                 .Builder(context, ChatNotificationIds.CHANNEL_ID)
                 .setSmallIcon(smallIconRes)
                 .setStyle(style)
@@ -75,7 +132,40 @@ internal class MessagingStyleDmNotifier
                 // Children alert, summary stays silent — avoids a double
                 // sound/vibration on the high-importance channel.
                 .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
-                .setContentIntent(tapIntent(first.otherUserDid, ChatNotificationIds.notifyId(first.convoId)))
+                // Re-posting the viewer's own reply must not re-alert.
+                .setOnlyAlertOnce(!alert)
+                .setContentIntent(tapIntent(otherUserDid, ChatNotificationIds.notifyId(convoId)))
+                .addAction(replyAction(convoId, otherUserDid))
+                .build()
+
+        /**
+         * Inline Direct Reply action (nubecita-1fy.17): a [RemoteInput] whose typed
+         * text is delivered to [DmReplyReceiver], which sends it via the chat repo.
+         * The PendingIntent is MUTABLE so the system can fill in the reply results.
+         */
+        private fun replyAction(
+            convoId: String,
+            otherUserDid: String,
+        ): NotificationCompat.Action {
+            val remoteInput =
+                RemoteInput
+                    .Builder(DmReplyReceiver.KEY_REPLY_TEXT)
+                    .setLabel(context.getString(R.string.chats_notification_reply))
+                    .build()
+            val notifyId = ChatNotificationIds.notifyId(convoId)
+            val pendingIntent =
+                PendingIntent.getBroadcast(
+                    context,
+                    notifyId,
+                    DmReplyReceiver.intent(context, convoId, otherUserDid),
+                    PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+            return NotificationCompat.Action
+                .Builder(smallIconRes, context.getString(R.string.chats_notification_reply), pendingIntent)
+                .addRemoteInput(remoteInput)
+                .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+                .setAllowGeneratedReplies(true)
+                .setShowsUserInterface(false)
                 .build()
         }
 
