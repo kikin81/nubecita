@@ -79,6 +79,35 @@ internal class DmPollSchedulerTest {
         }
 
     @Test
+    fun `transient Loading is a no-op, then sign-in schedules without churn`() =
+        runTest {
+            val session = MutableStateFlow<SessionState>(SessionState.Loading)
+            val f = scheduler(sessionFlow = session, enabled = true)
+            f.scheduler.start()
+            runCurrent()
+            // Loading (the pre-restore state on every launch) must NOT cancel —
+            // cancelling here churns the unique periodic work (nubecita-1fy.20).
+            assertEquals(0, f.work.scheduled)
+            assertEquals(0, f.work.cancelled)
+
+            session.value = signedIn
+            runCurrent()
+            // Resolving to signed-in schedules, with no spurious cancel first.
+            assertEquals(1, f.work.scheduled)
+            assertEquals(0, f.work.cancelled)
+        }
+
+    @Test
+    fun `message-checking off cancels even while the session is still Loading`() =
+        runTest {
+            val f = scheduler(session = SessionState.Loading, enabled = false)
+            f.scheduler.start()
+            runCurrent()
+            assertEquals(0, f.work.scheduled)
+            assertEquals(1, f.work.cancelled)
+        }
+
+    @Test
     fun `distinct-until-changed avoids redundant scheduling`() =
         runTest {
             val session = MutableStateFlow<SessionState>(signedIn)
