@@ -11,6 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
 import timber.log.Timber
@@ -46,13 +47,21 @@ internal class MessagingStyleDmNotifier
             // a throw here becomes a silent worker failure that freezes the cursor, so
             // every later run re-detects the same backlog and re-throws. Isolate + log.
             notifications.groupBy { it.convoId }.forEach { (convoId, items) ->
-                runCatching {
+                try {
                     manager.notifyIfPermitted(ChatNotificationIds.notifyId(convoId), buildConvoNotification(items))
-                }.onFailure { Timber.tag(LOG_TAG).e(it, "failed to post DM notification for convo %s", convoId) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    Timber.tag(LOG_TAG).e(e, "failed to post DM notification for convo %s", convoId)
+                }
             }
-            runCatching {
+            try {
                 manager.notifyIfPermitted(ChatNotificationIds.SUMMARY_ID, buildSummary())
-            }.onFailure { Timber.tag(LOG_TAG).e(it, "failed to post DM notification summary") }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Timber.tag(LOG_TAG).e(e, "failed to post DM notification summary")
+            }
         }
 
         private fun ensureChannel(manager: NotificationManagerCompat) {
