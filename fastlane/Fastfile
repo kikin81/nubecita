@@ -42,6 +42,22 @@ def nubecita_metadata_android_dir
     UI.user_error!("Could not locate fastlane/metadata/android from #{Dir.pwd}")
 end
 
+# Normalize a CLI/ENV value: blank/whitespace-only → nil (so `x || fallback`
+# works; Ruby treats "" as truthy, which would otherwise defeat the fallback).
+def nubecita_blank(value)
+  s = value.to_s.strip
+  s.empty? ? nil : s
+end
+
+# The version code promote_production targets: an explicit override if given,
+# else the highest code currently on the internal track. Integer, or nil if none.
+def nubecita_resolve_promote_version_code(version_code_option)
+  # Integer-coerce before .max so codes compare numerically (not "9" > "10"),
+  # consistent with promote_production's production-track check.
+  nubecita_blank(version_code_option)&.to_i ||
+    google_play_track_version_codes(track: "internal").map(&:to_i).max
+end
+
 # Stage the committed framed marketing screenshots (every device bucket) into
 # <dest_metadata>/<locale>/images/<bucket>/, stripping the `_framed` suffix so
 # Play receives clean filenames. Only `*_framed.jpg` are committed (raw PNG
@@ -128,6 +144,9 @@ platform :android do
 
       upload_to_play_store(
         track: "internal",
+        # Optional: a manual release.yaml dispatch can force a priority for the
+        # internal upload; the automatic push path leaves it unset → Play default 0.
+        in_app_update_priority: nubecita_blank(ENV["IN_APP_UPDATE_PRIORITY"])&.to_i,
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
         metadata_path: metadata_path,
         skip_upload_apk: true,
@@ -136,6 +155,50 @@ platform :android do
         skip_upload_screenshots: true,
       )
     end
+  end
+
+  desc "Print the version code promote_production would target (RESOLVED_VERSION_CODE=<n>)."
+  lane :resolve_promote_target do |options|
+    vc = nubecita_resolve_promote_version_code(options[:version_code]) ||
+      UI.user_error!("No internal version code found to resolve")
+    # Machine-readable marker the promote workflow greps out of fastlane's log.
+    puts "RESOLVED_VERSION_CODE=#{vc}"
+  end
+
+  desc "Promote an internal version code to production at a rollout fraction, with localized notes."
+  lane :promote_production do |options|
+    rollout = nubecita_blank(options[:rollout]) || "0.1"
+    UI.user_error!("Rollout must be in (0.0, 1.0] (got: #{rollout})") unless rollout.to_f > 0.0 && rollout.to_f <= 1.0
+    priority = nubecita_blank(options[:priority])&.to_i
+    UI.user_error!("Priority must be 0..5 (got: #{priority})") if priority && !priority.between?(0, 5)
+    vc = nubecita_resolve_promote_version_code(options[:version_code]) ||
+      UI.user_error!("No internal version code found to promote")
+
+    # Every locale must have a non-empty default.txt within Play's per-locale cap,
+    # else supply ships a partial set or fails the upload mid-request.
+    %w[en-US es-419 pt-BR].each do |loc|
+      f = File.join(nubecita_metadata_android_dir, loc, "changelogs", "default.txt")
+      text = File.exist?(f) ? File.read(f).strip : ""
+      UI.user_error!("Missing/empty changelog: #{f}") if text.empty?
+      UI.user_error!("Changelog #{loc} exceeds #{PLAY_CHANGELOG_MAX_CHARS} chars (#{text.length})") if text.length > PLAY_CHANGELOG_MAX_CHARS
+    end
+
+    already_prod = google_play_track_version_codes(track: "production").map(&:to_i).include?(vc)
+    UI.message("#{already_prod ? 'Advancing rollout for' : 'Promoting'} versionCode #{vc} → production @ #{rollout}")
+
+    upload_to_play_store(
+      track: already_prod ? "production" : "internal",      # first run promotes; re-run advances rollout
+      track_promote_to: already_prod ? nil : "production",
+      version_code: vc,
+      rollout: rollout,
+      # Priority is immutable per release: set it only on the initial promote.
+      in_app_update_priority: already_prod ? nil : priority,
+      metadata_path: nubecita_metadata_android_dir,         # committed en-US/es-419/pt-BR changelogs
+      skip_upload_changelogs: false,                        # the localized-notes upload
+      skip_upload_apk: true, skip_upload_aab: true,
+      skip_upload_metadata: true,                           # listing text / images untouched
+      skip_upload_images: true, skip_upload_screenshots: true,
+    )
   end
 
   desc "Upload the committed framed marketing screenshots to the Play listing."

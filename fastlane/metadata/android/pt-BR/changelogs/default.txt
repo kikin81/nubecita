@@ -1,0 +1,8 @@
+Conheça o nubecita: um cliente Bluesky nativo e rápido para Android, criado de forma independente.
+Curta uma experiência social mais fluida. No lançamento da v1, você pode:
+• Navegar por um feed fluido com autoplay de vídeos e carrosséis de fotos.
+• Abrir threads, curtir, responder e repostar facilmente.
+• Descobrir novas pessoas e feeds personalizados.
+• Enviar DMs e compartilhar seus posts.
+• Fixar novos widgets na tela inicial para seus feeds "Seguindo" e "Descobrir".
+Boas-vindas a bordo! 💙

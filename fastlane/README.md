@@ -5,9 +5,11 @@ for Nubecita.
 
 ## Lanes
 
-| Lane       | What it does                                                                                                                                                                                                                            |
-|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `internal` | Builds a signed release AAB (`./gradlew bundleRelease`) and uploads it to the Play Console **internal** track. Skips listing metadata, images, and screenshots; uploads release notes from `PLAY_RELEASE_NOTES` (placeholder if unset). |
+| Lane                     | What it does                                                                                                                                                                                                                            |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `internal`               | Builds a signed release AAB (`./gradlew bundleRelease`) and uploads it to the Play Console **internal** track. Skips listing metadata, images, and screenshots; uploads release notes from `PLAY_RELEASE_NOTES` (placeholder if unset). Optionally sets `IN_APP_UPDATE_PRIORITY`. |
+| `promote_production`      | Promotes an existing **internal** version code to **production** (no rebuild) at a rollout fraction, uploading the committed localized changelogs and an optional immutable update priority. See [Promote to production](#promote-to-production). |
+| `resolve_promote_target` | Prints `RESOLVED_VERSION_CODE=<n>` for the code `promote_production` would target (auto-detect helper for the promote workflow's confirm step). Reads nothing, uploads nothing.                                                          |
 
 ## Prerequisites
 
@@ -103,6 +105,52 @@ Optional:
   changelog. Truncated to Play Console's 500-char cap. If unset, a generic
   placeholder is uploaded so the track release isn't created without notes
   (real changelog plumbing lands in `nubecita-kbmd.5`).
+- `IN_APP_UPDATE_PRIORITY` — optional in-app update priority `0`–`5` for the
+  internal upload (blank → omitted → Play default `0`). A manual `release`
+  workflow dispatch can set it; the automatic push path leaves it unset.
+
+## Promote to production
+
+`promote_production` promotes an existing internal version code to the
+production track (no rebuild) at a rollout fraction, uploading the committed
+localized changelogs and an optional immutable update priority.
+
+```bash
+# auto-detect latest internal version code, 10% rollout, default priority:
+bundle exec fastlane promote_production
+# explicit code, 50% rollout, force IMMEDIATE:
+bundle exec fastlane promote_production version_code:142 rollout:0.5 priority:5
+```
+
+Re-running with a higher `rollout` advances an in-progress rollout (the lane
+detects the code is already on production). Priority is set only on the initial
+promote — it is immutable per release.
+
+Release notes are the committed files
+`fastlane/metadata/android/<locale>/changelogs/default.txt` (en-US / es-419 /
+pt-BR). Edit them via a PR before promoting; generic notes are intentionally
+reused across routine releases, so there is no staleness check.
+
+### CI
+
+`.github/workflows/promote.yaml` (`workflow_dispatch`) runs a `resolve` job that
+echoes the target version code + the three changelogs to the run summary, then a
+`promote` job gated by the **`production`** GitHub environment (required
+reviewers → "Approve and deploy"). The `resolve` job reuses the `release`
+environment for read-only auth.
+
+### One-time setup (required before first use)
+
+1. Create a **`production`** GitHub environment → **Required reviewers** + a
+   deployment-branch policy of `main`.
+2. Add `GCP_WORKLOAD_IDENTITY_PROVIDER` + `GCP_SERVICE_ACCOUNT` as **`production`
+   environment** secrets (they are otherwise `release`-scoped; `release` keeps its
+   copies for the `resolve` job).
+3. **GCP side:** ensure the Workload Identity provider's attribute condition / the
+   service account's `principalSet` accepts the **`production`** environment, not
+   just `release` — otherwise the `promote` job fails authentication.
+4. Confirm the service account's Play Console permission can write the
+   **production** track (not internal-only).
 
 ## A note on iterative local smoke testing
 
