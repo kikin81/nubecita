@@ -9,6 +9,10 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        // Resolve locally-published artifacts first, so a `publishToMavenLocal` build of a
+        // first-party dependency (e.g. atproto-kotlin during cross-repo development) is picked
+        // up without editing this file. Falls through to the remotes for everything else.
+        mavenLocal()
         google()
         mavenCentral()
     }
