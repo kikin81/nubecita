@@ -43,7 +43,7 @@ class MessagesNotificationChannelInstallerInstrumentationTest {
             managerCompat.getNotificationChannelCompat(ChatNotificationIds.CHANNEL_ID),
         )
 
-        MessagesNotificationChannelInstaller().install(context)
+        MessagesNotificationChannelInstaller.install(context)
 
         val channel = managerCompat.getNotificationChannelCompat(ChatNotificationIds.CHANNEL_ID)
         assertNotNull("expected the 'messages' channel to exist after install", channel)
@@ -59,10 +59,8 @@ class MessagesNotificationChannelInstallerInstrumentationTest {
 
     @Test
     fun install_is_idempotent_across_repeated_calls() {
-        val installer = MessagesNotificationChannelInstaller()
-
-        installer.install(context)
-        installer.install(context)
+        MessagesNotificationChannelInstaller.install(context)
+        MessagesNotificationChannelInstaller.install(context)
 
         val matching =
             managerCompat.notificationChannelsCompat.filter { it.id == ChatNotificationIds.CHANNEL_ID }

@@ -79,7 +79,7 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun provideMessagesNotificationChannelInitializer(
         @ApplicationContext context: Context,
-    ): AppInitializer = AppInitializer { MessagesNotificationChannelInstaller().install(context) }
+    ): AppInitializer = AppInitializer { MessagesNotificationChannelInstaller.install(context) }
 
     // Reactively schedule/cancel the background widget-feed-refresh worker on
     // sign-in / sign-out (sub-project B, nubecita-lgoo.2 §7). Production-only:
