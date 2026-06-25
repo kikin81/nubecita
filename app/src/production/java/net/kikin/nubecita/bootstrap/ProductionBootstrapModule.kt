@@ -1,8 +1,10 @@
 package net.kikin.nubecita.bootstrap
 
+import android.content.Context
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.BuildConfig
@@ -14,6 +16,7 @@ import net.kikin.nubecita.core.push.PushRegistrationCoordinator
 import net.kikin.nubecita.core.widgetsync.worker.WidgetRefreshScheduler
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadPollingObserver
 import net.kikin.nubecita.feature.chats.impl.worker.DmPollScheduler
+import net.kikin.nubecita.feature.chats.impl.worker.MessagesNotificationChannelInstaller
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingObserver
 
 /**
@@ -66,6 +69,17 @@ internal object ProductionBootstrapModule {
     fun provideDmPollSchedulerInitializer(
         scheduler: DmPollScheduler,
     ): AppInitializer = AppInitializer { scheduler.start() }
+
+    // Install the "Messages" DM notification channel eagerly at startup (like
+    // the push channels) so it shows in system notification settings on first
+    // launch, not only after the first DM posts (nubecita-29rw). Unconditional —
+    // independent of sign-in / the message-checking toggle — so the user can
+    // pre-tune or mute it. Production-only; bench's empty set keeps it idle.
+    @Provides
+    @IntoSet
+    fun provideMessagesNotificationChannelInitializer(
+        @ApplicationContext context: Context,
+    ): AppInitializer = AppInitializer { MessagesNotificationChannelInstaller().install(context) }
 
     // Reactively schedule/cancel the background widget-feed-refresh worker on
     // sign-in / sign-out (sub-project B, nubecita-lgoo.2 §7). Production-only:
