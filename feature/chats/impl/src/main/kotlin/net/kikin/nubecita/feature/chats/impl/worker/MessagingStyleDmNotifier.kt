@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.annotation.DrawableRes
-import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
@@ -64,14 +63,13 @@ internal class MessagingStyleDmNotifier
             }
         }
 
+        // Idempotent fallback: the channel is normally installed eagerly at
+        // startup (MessagesNotificationChannelInstaller via the production
+        // AppInitializer set), but keep creating it here too so a notification
+        // never posts to a missing channel. Shares the one channel spec so the
+        // two call sites can't drift (nubecita-29rw).
         private fun ensureChannel(manager: NotificationManagerCompat) {
-            manager.createNotificationChannel(
-                NotificationChannelCompat
-                    .Builder(ChatNotificationIds.CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_HIGH)
-                    .setName(context.getString(R.string.chats_messages_channel_name))
-                    .setDescription(context.getString(R.string.chats_messages_channel_description))
-                    .build(),
-            )
+            manager.createNotificationChannel(MessagesNotificationChannelInstaller.channel(context))
         }
 
         /**
