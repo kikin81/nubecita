@@ -9,6 +9,13 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        // Opt-in only (`-PuseMavenLocal=true`): resolve locally-published artifacts first, so a
+        // `publishToMavenLocal` build of a first-party dependency (e.g. atproto-kotlin during
+        // cross-repo development) is consumed without editing this file. Off by default so CI and
+        // normal builds never silently pick up a stale `~/.m2` artifact (non-reproducible builds).
+        if (providers.gradleProperty("useMavenLocal").orNull?.toBoolean() == true) {
+            mavenLocal()
+        }
         google()
         mavenCentral()
     }
