@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782289463597,
+  "lastUpdate": 1782375848405,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1455,6 +1455,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1058.178,
             "range": "+/- 32%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "595e6fb9fff65be61d9e09820788b5d08d9515c5",
+          "message": "ci(release): 1.243.0\n\n## [1.243.0](https://github.com/kikin81/nubecita/compare/v1.242.0...v1.243.0) (2026-06-25)\n\n### Miscellaneous\n\n* **deps:** update all ci non-major dependencies ([#582](https://github.com/kikin81/nubecita/issues/582)) ([47a3555](https://github.com/kikin81/nubecita/commit/47a355552a7ebf43bf02f4712866964c8437d1f8))\n\n### Features\n\n* promote-to-production workflow (proposal) ([#581](https://github.com/kikin81/nubecita/issues/581)) ([84eef9a](https://github.com/kikin81/nubecita/commit/84eef9ae2d2201d11031560807b534cd75a5f0c5))",
+          "timestamp": "2026-06-25T04:46:55Z",
+          "url": "https://github.com/kikin81/nubecita/commit/595e6fb9fff65be61d9e09820788b5d08d9515c5"
+        },
+        "date": 1782375846179,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 9.3%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1249.109,
+            "range": "+/- 13.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1178.701,
+            "range": "+/- 8.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1243.261,
+            "range": "+/- 30.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1075.041,
+            "range": "+/- 23.8%",
             "unit": "ms"
           }
         ]
