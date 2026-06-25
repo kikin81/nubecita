@@ -277,6 +277,12 @@ Two purpose-built checkpoints, no heavyweight release PR:
   re-dispatch to advance it, supply pushes the new fraction and implicitly sets the track status back to
   `inProgress` — i.e. the action is a **hard override** that silently un-halts. Advance deliberately; to
   keep a release halted, don't re-dispatch it.
+- **Stale notes are tolerated by design (do NOT add a hard staleness guard).** Generic notes
+  ("bug fixes and performance updates") are intentionally reused across back-to-back releases; only big
+  feature releases get bespoke notes. A guard that blocked promotion when `default.txt` was unchanged
+  would therefore reject *legitimate* same-notes releases. The mitigation is visibility only: the
+  `resolve` echo shows the notes + each file's last-edited time, and the deployment approver sees the
+  exact notes before approving.
 
 ## One-time setup (manual; not code)
 
