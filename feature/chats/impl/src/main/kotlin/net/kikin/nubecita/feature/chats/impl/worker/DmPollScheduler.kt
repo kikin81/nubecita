@@ -47,7 +47,7 @@ class DmPollScheduler internal constructor(
                 decide(session, enabled).also { decision ->
                     Timber.tag(LOG_TAG).d(
                         "inputs: session=%s enabled=%s -> %s",
-                        session::class.simpleName,
+                        session.javaClass.simpleName,
                         enabled,
                         decision,
                     )
@@ -67,11 +67,16 @@ class DmPollScheduler internal constructor(
         session: SessionState,
         enabled: Boolean,
     ): Decision =
-        when {
-            !enabled -> Decision.CANCEL
-            session is SessionState.SignedIn -> Decision.SCHEDULE
-            session is SessionState.SignedOut -> Decision.CANCEL
-            else -> Decision.IGNORE // SessionState.Loading — don't churn the schedule
+        if (!enabled) {
+            Decision.CANCEL
+        } else {
+            // Exhaustive over SessionState so a new variant is a compile error here,
+            // not a silent fall-through.
+            when (session) {
+                is SessionState.SignedIn -> Decision.SCHEDULE
+                is SessionState.SignedOut -> Decision.CANCEL
+                is SessionState.Loading -> Decision.IGNORE // transient: don't churn the schedule
+            }
         }
 
     private enum class Decision { SCHEDULE, CANCEL, IGNORE }

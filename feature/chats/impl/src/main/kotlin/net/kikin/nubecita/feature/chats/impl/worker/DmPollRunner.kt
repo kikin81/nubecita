@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.chats.impl.worker
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -51,6 +52,19 @@ internal class DmPollRunner
 
         suspend fun run(): Outcome {
             Timber.tag(LOG_TAG).d("run: start")
+            // A cold worker process starts with the session StateFlow at Loading
+            // (only MainActivity refreshes it on app cold start). Without this, a
+            // backgrounded run reads Loading, treats it as signed-out, and skips —
+            // mirror WidgetRefreshRunner and refresh here. Rethrow Cancellation; a
+            // storage error -> SUCCESS (don't retry-loop on corruption).
+            try {
+                sessionStateProvider.refresh()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Timber.tag(LOG_TAG).w(e, "session refresh failed -> SUCCESS")
+                return Outcome.SUCCESS
+            }
             val viewerDid =
                 (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
                     ?: run {
