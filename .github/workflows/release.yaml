@@ -2,8 +2,15 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      in_app_update_priority:
+        description: "In-app update priority for this internal upload (0 = default)"
+        required: false
+        default: "0"
+        type: choice
+        options: ["0", "1", "2", "3", "4", "5"]
   push:
-    branches: [main]
+    branches: [main]   # push events carry no inputs → IN_APP_UPDATE_PRIORITY empty → lane omits (0)
 
 concurrency:
   group: release-${{ github.ref }}
@@ -448,3 +455,6 @@ jobs:
           # keyless and Pro stays permanently inert. Must live in the `release`
           # environment (same as the keystore secrets above).
           REVENUECAT_API_KEY: ${{ secrets.REVENUECAT_API_KEY }}
+          # Empty on the automatic push path (inputs only exist for workflow_dispatch),
+          # so the internal lane omits it → Play default priority 0.
+          IN_APP_UPDATE_PRIORITY: ${{ inputs.in_app_update_priority }}
