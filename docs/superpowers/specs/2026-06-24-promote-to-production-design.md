@@ -71,14 +71,19 @@ lane :promote_production do |options|
   # because Ruby treats "" as truthy and `"" || fallback` would NOT fall through.
   blank = ->(v) { v.nil? || v.to_s.strip.empty? ? nil : v.to_s.strip }
   rollout  = blank.(options[:rollout]) || "0.1"          # "0.01".."1.0"
+  UI.user_error!("Rollout must be in (0.0, 1.0] (got: #{rollout})") unless rollout.to_f > 0.0 && rollout.to_f <= 1.0
   priority = blank.(options[:priority])&.to_i            # nil → supply omits → Play default 0
+  UI.user_error!("Priority must be 0..5 (got: #{priority})") if priority && !priority.between?(0, 5)
   vc = (blank.(options[:version_code])&.to_i || google_play_track_version_codes(track: "internal").max)&.to_i
   vc || UI.user_error!("No internal version code found to promote")
 
-  # Every locale must have a non-empty default.txt, else supply would ship a partial set.
+  # Every locale must have a non-empty default.txt within Play's per-locale cap,
+  # else supply would ship a partial set or fail the upload mid-request.
   %w[en-US es-419 pt-BR].each do |loc|
     f = File.join(nubecita_metadata_android_dir, loc, "changelogs", "default.txt")
-    UI.user_error!("Missing/empty changelog: #{f}") unless File.exist?(f) && !File.read(f).strip.empty?
+    text = File.exist?(f) ? File.read(f).strip : ""
+    UI.user_error!("Missing/empty changelog: #{f}") if text.empty?
+    UI.user_error!("Changelog #{loc} exceeds #{PLAY_CHANGELOG_MAX_CHARS} chars (#{text.length})") if text.length > PLAY_CHANGELOG_MAX_CHARS
   end
 
   already_prod = google_play_track_version_codes(track: "production").map(&:to_i).include?(vc)
@@ -198,6 +203,10 @@ jobs:
           bundle exec fastlane resolve_promote_target version_code:"${INPUT_VERSION_CODE}" \
             | tee /tmp/resolve.log
           vc=$(grep -oE 'RESOLVED_VERSION_CODE=[0-9]+' /tmp/resolve.log | tail -1 | cut -d= -f2)
+          if [ -z "$vc" ]; then
+            echo "::error::Failed to resolve a version code from fastlane output."
+            exit 1                       # fail resolve early, don't pass an empty code to the gated job
+          fi
           echo "version_code=$vc" >> "$GITHUB_OUTPUT"
           {
             echo "## Promote target"
