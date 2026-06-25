@@ -52,8 +52,10 @@ end
 # The version code promote_production targets: an explicit override if given,
 # else the highest code currently on the internal track. Integer, or nil if none.
 def nubecita_resolve_promote_version_code(version_code_option)
-  (nubecita_blank(version_code_option)&.to_i ||
-    google_play_track_version_codes(track: "internal").max)&.to_i
+  # Integer-coerce before .max so codes compare numerically (not "9" > "10"),
+  # consistent with promote_production's production-track check.
+  nubecita_blank(version_code_option)&.to_i ||
+    google_play_track_version_codes(track: "internal").map(&:to_i).max
 end
 
 # Stage the committed framed marketing screenshots (every device bucket) into
