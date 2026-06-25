@@ -13,6 +13,7 @@ import androidx.core.app.RemoteInput
 import dagger.hilt.android.qualifiers.ApplicationContext
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -39,10 +40,19 @@ internal class MessagingStyleDmNotifier
             if (!manager.areNotificationsEnabled()) return
             ensureChannel(manager)
 
+            // Best-effort (design D4): one convo that fails to build/post must not
+            // abort the others — and, critically, must not throw out of notify(). The
+            // caller ([DmPollRunner]) advances the poll cursor only after this returns;
+            // a throw here becomes a silent worker failure that freezes the cursor, so
+            // every later run re-detects the same backlog and re-throws. Isolate + log.
             notifications.groupBy { it.convoId }.forEach { (convoId, items) ->
-                manager.notifyIfPermitted(ChatNotificationIds.notifyId(convoId), buildConvoNotification(items))
+                runCatching {
+                    manager.notifyIfPermitted(ChatNotificationIds.notifyId(convoId), buildConvoNotification(items))
+                }.onFailure { Timber.tag(LOG_TAG).e(it, "failed to post DM notification for convo %s", convoId) }
             }
-            manager.notifyIfPermitted(ChatNotificationIds.SUMMARY_ID, buildSummary())
+            runCatching {
+                manager.notifyIfPermitted(ChatNotificationIds.SUMMARY_ID, buildSummary())
+            }.onFailure { Timber.tag(LOG_TAG).e(it, "failed to post DM notification summary") }
         }
 
         private fun ensureChannel(manager: NotificationManagerCompat) {
@@ -114,7 +124,11 @@ internal class MessagingStyleDmNotifier
             manager.notifyIfPermitted(notifyId, convoNotification(style, convoId, otherUserDid, alert = false))
         }
 
-        private fun selfPerson(): Person = Person.Builder().setName("").build()
+        // MessagingStyle's "user" is the viewer. androidx.core 1.19's MessagingStyle
+        // ctor throws IllegalArgumentException("User's name must not be empty") on a
+        // blank name (it tolerated "" before), and the name also labels the inline
+        // self-reply "you …" messages (nubecita-1fy.17) — so give it a real localized name.
+        private fun selfPerson(): Person = Person.Builder().setName(context.getString(R.string.chats_notification_self_name)).build()
 
         /** Shared builder for a per-convo notification; [alert] = false on a self-reply re-post (no re-sound). */
         private fun convoNotification(
@@ -206,5 +220,9 @@ internal class MessagingStyleDmNotifier
             notification: android.app.Notification,
         ) {
             notify(id, notification)
+        }
+
+        private companion object {
+            const val LOG_TAG = "DmPoll"
         }
     }

@@ -7,6 +7,7 @@
     <string name="chats_messages_channel_name">Mensajes</string>
     <string name="chats_messages_channel_description">Mensajes directos nuevos</string>
     <string name="chats_notification_reply">Responder</string>
+    <string name="chats_notification_self_name">Tú</string>
     <string name="chats_segment_chats">Chats</string>
     <string name="chats_segment_requests">Solicitudes</string>
     <string name="chats_action_select">Seleccionar</string>
