@@ -40,23 +40,27 @@ Dispatch the **Promote to Production** workflow (`.github/workflows/promote.yaml
    ```
    (`gh workflow run promote.yaml …` works too.)
 
-4. **Dispatch + locate the run.** `gh workflow run` doesn't return the run id, so dispatch then poll for the new run:
+4. **Dispatch + locate the run.** `gh workflow run` doesn't return the run id. Capture the latest run id **before** dispatching, then poll until a **different** id appears — otherwise `gh run list --limit 1` returns the *previous* promote run (the new one takes a few seconds to register) and you'd track the wrong run:
    ```bash
+   old_id=$(gh run list --workflow=promote.yaml --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || echo "")
    gh workflow run "Promote to Production" --ref main -f rollout=<r> -f in_app_update_priority=<p>   # [+ -f version_code=…]
-   # poll until the just-created run appears (a few seconds):
-   for i in $(seq 1 10); do
-     id=$(gh run list --workflow=promote.yaml --limit 1 --json databaseId,status --jq '.[0].databaseId')
-     [ -n "$id" ] && break; sleep 2
+   for i in $(seq 1 15); do
+     id=$(gh run list --workflow=promote.yaml --limit 1 --json databaseId --jq '.[0].databaseId')
+     [ -n "$id" ] && [ "$id" != "$old_id" ] && break; sleep 2
    done
    gh run view "$id" --json url --jq '.url'
    ```
 
-5. **Watch `resolve`, then surface the target.** Wait for the `resolve` job to finish and point the user at the run **Summary** (it renders the resolved versionCode, the rollout/priority, and the three localized changelogs — the review surface before approval):
+5. **Wait for the gate, then surface the target.** Do **not** `gh run watch` — the `promote` job sits in `waiting` on the manual approval gate, so `watch` blocks indefinitely and you'd never hand off. Instead poll until the run is no longer `queued`/`in_progress` (it becomes `waiting` at the gate once `resolve` is done, or `completed` if `resolve` failed), then point the user at the run **Summary** (resolved versionCode, rollout/priority, and the three localized changelogs — the review surface before approval):
    ```bash
-   gh run watch "$id" --exit-status || true   # resolve runs first; promote will then sit pending on the gate
-   echo "Review the target + changelogs: $(gh run view "$id" --json url --jq '.url')"
+   for i in $(seq 1 30); do
+     status=$(gh run view "$id" --json status --jq '.status' 2>/dev/null)
+     [ "$status" != "queued" ] && [ "$status" != "in_progress" ] && break
+     sleep 5
+   done
+   echo "status=$status — review the target + changelogs: $(gh run view "$id" --json url --jq '.url')"
    ```
-   Tell the user to read the **Promote target** summary block and the changelogs.
+   If `status` is `completed` (not `waiting`), `resolve` likely failed before the gate — read its log. Otherwise tell the user to read the **Promote target** summary block + the changelogs.
 
 6. **Hand off the approval (manual — never auto-approve).** The `promote` job is now **waiting on the `production` environment gate**. Direct the user to: the run → **Review deployments** → check `production` → **Approve and deploy**. Do **not** approve it programmatically — the reviewer gate exists so a human consciously authorizes the production push. Give them the run URL.
 
