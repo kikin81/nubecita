@@ -144,6 +144,9 @@ platform :android do
 
       upload_to_play_store(
         track: "internal",
+        # Optional: a manual release.yaml dispatch can force a priority for the
+        # internal upload; the automatic push path leaves it unset → Play default 0.
+        in_app_update_priority: nubecita_blank(ENV["IN_APP_UPDATE_PRIORITY"])&.to_i,
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
         metadata_path: metadata_path,
         skip_upload_apk: true,
