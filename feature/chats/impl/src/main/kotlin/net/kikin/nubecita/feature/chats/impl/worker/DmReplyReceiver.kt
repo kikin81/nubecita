@@ -28,32 +28,36 @@ internal class DmReplyReceiver : BroadcastReceiver() {
                 ?.toString()
                 .orEmpty()
         val convoId = intent.getStringExtra(EXTRA_CONVO_ID).orEmpty()
-        val notifyId = intent.getIntExtra(EXTRA_NOTIFY_ID, 0)
+        val otherUserDid = intent.getStringExtra(EXTRA_OTHER_USER_DID).orEmpty()
         if (text.isBlank() || convoId.isBlank()) return
 
         val handler =
             EntryPointAccessors
                 .fromApplication(context.applicationContext, DmReplyEntryPoint::class.java)
                 .dmReplyHandler()
-        handler.handle(convoId, text, notifyId, goAsync())
+        handler.handle(convoId, otherUserDid, text, goAsync())
     }
 
     companion object {
         /** RemoteInput result key for the typed reply text. */
         const val KEY_REPLY_TEXT = "nubecita.dm.reply.text"
         private const val EXTRA_CONVO_ID = "nubecita.dm.reply.convoId"
-        private const val EXTRA_NOTIFY_ID = "nubecita.dm.reply.notifyId"
+        private const val EXTRA_OTHER_USER_DID = "nubecita.dm.reply.otherUserDid"
 
-        /** The explicit, same-package intent the notification's reply [android.app.PendingIntent] targets. */
+        /**
+         * The explicit, same-package intent the notification's reply
+         * [android.app.PendingIntent] targets. [otherUserDid] rides along so the
+         * reply re-post can rebuild the convo's tap deep-link.
+         */
         fun intent(
             context: Context,
             convoId: String,
-            notifyId: Int,
+            otherUserDid: String,
         ): Intent =
             Intent(context, DmReplyReceiver::class.java).apply {
                 setPackage(context.packageName)
                 putExtra(EXTRA_CONVO_ID, convoId)
-                putExtra(EXTRA_NOTIFY_ID, notifyId)
+                putExtra(EXTRA_OTHER_USER_DID, otherUserDid)
             }
     }
 }

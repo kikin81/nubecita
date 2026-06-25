@@ -15,8 +15,8 @@ internal class DmReplyHandlerTest {
     private val handler =
         DmReplyHandler(
             chatRepository = repository,
+            notifier = mockk(relaxed = true),
             scope = mockk(relaxed = true),
-            context = mockk(relaxed = true),
         )
 
     @Test
