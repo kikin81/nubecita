@@ -23,7 +23,7 @@ import net.kikin.nubecita.data.models.thumbOrFullsize
  */
 internal fun widgetThumbnailUrl(embed: EmbedUi): String? =
     when (embed) {
-        is EmbedUi.Images ->
+        is EmbedUi.ImageContainerEmbed ->
             if (embed.contentWarning != null) {
                 null
             } else {
@@ -54,7 +54,7 @@ internal fun widgetImageCount(embed: EmbedUi): Int =
     when (embed) {
         // Content-warned media renders no thumbnail (see widgetThumbnailUrl), so
         // its count must be 0 too — otherwise a "+N" badge shows on a text-only row.
-        is EmbedUi.Images -> if (embed.contentWarning != null) 0 else embed.items.size
+        is EmbedUi.ImageContainerEmbed -> if (embed.contentWarning != null) 0 else embed.items.size
         is EmbedUi.RecordWithMedia -> widgetImageCount(embed.media)
         is EmbedUi.Video,
         is EmbedUi.External,
@@ -74,7 +74,7 @@ internal fun widgetImageCount(embed: EmbedUi): Int =
  */
 internal fun widgetMediaDescription(embed: EmbedUi): String? =
     when (embed) {
-        is EmbedUi.Images ->
+        is EmbedUi.ImageContainerEmbed ->
             when {
                 embed.contentWarning != null -> null
                 embed.items.size > 1 -> "Image, ${embed.items.size} total"

@@ -276,7 +276,8 @@ private fun EmbedSlot(
     }
     when (embed) {
         EmbedUi.Empty -> Unit
-        is EmbedUi.Images -> {
+        is EmbedUi.ImageContainerEmbed -> {
+            // Images (≤4) and Gallery (≤10) share the same carousel render path.
             Spacer(Modifier.height(10.dp))
             PostCardImageEmbed(items = embed.items, onImageClick = onImageClick, cover = coverFor(embed.contentWarning))
         }

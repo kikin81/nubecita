@@ -15,6 +15,9 @@ import kotlinx.collections.immutable.ImmutableList
  *
  * - [Empty] — post has no embed
  * - [Images] — `app.bsky.embed.images`, 1–4 images
+ * - [Gallery] — `app.bsky.embed.gallery#view`, multi-image (up to 10);
+ *   shares [ImageContainerEmbed] with [Images] (same `ImmutableList<ImageUi>`
+ *   payload), rendered through the same carousel
  * - [Video] — `app.bsky.embed.video#view`, HLS-backed video post
  * - [External] — `app.bsky.embed.external#view`, native link-preview card
  * - [Record] — `app.bsky.embed.record#viewRecord`, resolved quoted post
@@ -45,8 +48,9 @@ public sealed interface EmbedUi {
     /**
      * Marker sealed interface — the set of variants that can occupy
      * [RecordWithMedia]'s `media` slot. Implemented by [Images],
-     * [Video], [External], and [Gif] only; matches the lexicon's
-     * `RecordWithMediaViewMediaUnion` known members exactly.
+     * [Gallery], [Video], [External], and [Gif] only; matches the
+     * lexicon's `RecordWithMediaViewMediaUnion` known members exactly
+     * (which carries `gallery#view` as well as `images#view`).
      *
      * Carries the precomputed [contentWarning]: the moderation layer
      * (`:core:feed-mapping`) stamps a cover onto the media slot off the
@@ -56,14 +60,40 @@ public sealed interface EmbedUi {
         public val contentWarning: MediaContentWarning?
     }
 
+    /**
+     * Marker sealed interface — media embeds that are a flat list of
+     * [ImageUi]: [Images] (`app.bsky.embed.images`, ≤4) and [Gallery]
+     * (`app.bsky.embed.gallery`, ≤10). The two stay distinct concrete
+     * types (wire fidelity — a gallery is not an images embed), but a
+     * dispatch site that only needs the image list can match
+     * `is ImageContainerEmbed` in a single arm instead of duplicating
+     * an [Images] and a [Gallery] case. Both render through the same
+     * carousel.
+     */
+    public sealed interface ImageContainerEmbed : MediaEmbed {
+        public val items: ImmutableList<ImageUi>
+    }
+
     /** No embed on this post. */
     public data object Empty : EmbedUi
 
-    /** 1–4 images. */
+    /** `app.bsky.embed.images`, 1–4 images. */
     public data class Images(
-        val items: ImmutableList<ImageUi>,
+        override val items: ImmutableList<ImageUi>,
         override val contentWarning: MediaContentWarning? = null,
-    ) : MediaEmbed
+    ) : ImageContainerEmbed
+
+    /**
+     * `app.bsky.embed.gallery#view`, a multi-image embed of up to 10
+     * images. Shares the [ImageContainerEmbed] payload with [Images]
+     * and renders through the same carousel; the distinct type
+     * preserves the wire kind so authoring can round-trip it back to
+     * `app.bsky.embed.gallery`.
+     */
+    public data class Gallery(
+        override val items: ImmutableList<ImageUi>,
+        override val contentWarning: MediaContentWarning? = null,
+    ) : ImageContainerEmbed
 
     /**
      * Bluesky `app.bsky.embed.video#view`.

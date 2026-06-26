@@ -162,11 +162,11 @@ private fun QuotedEmbedSlot(
 ) {
     when (embed) {
         QuotedEmbedUi.Empty -> Unit
-        is QuotedEmbedUi.Images -> {
+        is QuotedEmbedUi.ImageContainerEmbed -> {
             Spacer(Modifier.height(8.dp))
-            // Wrapper-type duplication, payload reuse — the inner
-            // ImmutableList<ImageUi> is the same shape parent's
-            // EmbedUi.Images carries.
+            // Images and Gallery share the carousel; wrapper-type
+            // duplication, payload reuse — the inner ImmutableList<ImageUi>
+            // is the same shape the parent's EmbedUi.ImageContainerEmbed carries.
             PostCardImageEmbed(items = embed.items)
         }
         is QuotedEmbedUi.External -> {
@@ -236,7 +236,7 @@ private fun QuotedRecordWithMediaSlot(
     Column {
         val mediaRendered: Boolean =
             when (media) {
-                is QuotedEmbedUi.Images -> {
+                is QuotedEmbedUi.ImageContainerEmbed -> {
                     PostCardImageEmbed(items = media.items)
                     true
                 }

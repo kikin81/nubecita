@@ -74,9 +74,10 @@ internal sealed interface MediaViewerError {
     data object NotFound : MediaViewerError
 
     /**
-     * Post resolved but its embed is not `EmbedUi.Images` (defensive
-     * — viewer was opened on a video / external / record post via some
-     * out-of-band path). Renders "This post has no images".
+     * Post resolved but its embed is not an `EmbedUi.ImageContainerEmbed`
+     * (Images or Gallery; defensive — viewer was opened on a video /
+     * external / record post via some out-of-band path). Renders
+     * "This post has no images".
      */
     @Immutable
     data object NoImages : MediaViewerError

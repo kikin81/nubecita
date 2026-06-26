@@ -28,13 +28,40 @@ public val EmbedUi.quotedRecord: QuotedPostUi?
         }
 
 /**
+ * The [EmbedUi.ImageContainerEmbed] (Images or Gallery) this embed renders, if
+ * any — single source of truth for "given an [EmbedUi], where (if anywhere) is
+ * a flat image set?"
+ *
+ * Returns:
+ * - The embed itself when it is a direct [EmbedUi.ImageContainerEmbed].
+ * - The `media` half of an [EmbedUi.RecordWithMedia] when that media is an
+ *   image container (a quote post carrying its own attached images/gallery).
+ * - `null` for everything else.
+ *
+ * Consumers (the media viewer's resolve guard, the notification subject
+ * preview) use this rather than re-deriving the direct-vs-nested cast at each
+ * call site — mirrors [quotedRecord]. A future composite embed that carries a
+ * media slot updates here once.
+ */
+public val EmbedUi.imageContainer: EmbedUi.ImageContainerEmbed?
+    get() =
+        when (this) {
+            is EmbedUi.ImageContainerEmbed -> this
+            is EmbedUi.RecordWithMedia -> media as? EmbedUi.ImageContainerEmbed
+            else -> null
+        }
+
+/**
  * Returns a copy of this media embed with [warning] applied (pass `null` to
- * clear). Exhaustive over the four [EmbedUi.MediaEmbed] variants, so a new
- * media kind becomes a compile error here.
+ * clear). Exhaustive over the [EmbedUi.MediaEmbed] variants, so a new media
+ * kind becomes a compile error here. Each arm calls the variant's own `copy`,
+ * so [EmbedUi.Images] and [EmbedUi.Gallery] cannot share a single
+ * [EmbedUi.ImageContainerEmbed] arm.
  */
 public fun EmbedUi.MediaEmbed.withContentWarning(warning: MediaContentWarning?): EmbedUi.MediaEmbed =
     when (this) {
         is EmbedUi.Images -> copy(contentWarning = warning)
+        is EmbedUi.Gallery -> copy(contentWarning = warning)
         is EmbedUi.Video -> copy(contentWarning = warning)
         is EmbedUi.External -> copy(contentWarning = warning)
         is EmbedUi.Gif -> copy(contentWarning = warning)
