@@ -23,6 +23,7 @@ internal class QuotedEmbedUiTest {
             listOf(
                 QuotedEmbedUi.Empty,
                 QuotedEmbedUi.Images(items = persistentListOf()),
+                QuotedEmbedUi.Gallery(items = persistentListOf()),
                 QuotedEmbedUi.Video(
                     posterUrl = null,
                     playlistUrl = "https://example/v.m3u8",
@@ -52,6 +53,7 @@ internal class QuotedEmbedUiTest {
                 when (embed) {
                     QuotedEmbedUi.Empty -> "empty"
                     is QuotedEmbedUi.Images -> "images"
+                    is QuotedEmbedUi.Gallery -> "gallery"
                     is QuotedEmbedUi.Video -> "video"
                     is QuotedEmbedUi.External -> "external"
                     QuotedEmbedUi.QuotedThreadChip -> "thread-chip"
@@ -61,23 +63,24 @@ internal class QuotedEmbedUiTest {
                 }
             }
         assertEquals(
-            listOf("empty", "images", "video", "external", "thread-chip", "record-with-media", "unsupported", "gif"),
+            listOf("empty", "images", "gallery", "video", "external", "thread-chip", "record-with-media", "unsupported", "gif"),
             labels,
         )
     }
 
     /**
      * The [QuotedEmbedUi.MediaEmbed] marker constrains the
-     * [QuotedEmbedUi.RecordWithMedia.media] slot to exactly four
+     * [QuotedEmbedUi.RecordWithMedia.media] slot to exactly five
      * variants. The exhaustive `when` below — with no `else` arm —
      * fails to compile if a future variant joins the marker without
      * an arm here, or if a variant is removed from the marker.
      */
     @Test
-    fun `MediaEmbed marker has exactly four implementers`() {
+    fun `MediaEmbed marker has exactly five implementers`() {
         val variants: List<QuotedEmbedUi.MediaEmbed> =
             listOf(
                 QuotedEmbedUi.Images(items = persistentListOf()),
+                QuotedEmbedUi.Gallery(items = persistentListOf()),
                 QuotedEmbedUi.Video(
                     posterUrl = null,
                     playlistUrl = "https://example/v.m3u8",
@@ -103,12 +106,28 @@ internal class QuotedEmbedUiTest {
             variants.map { media ->
                 when (media) {
                     is QuotedEmbedUi.Images -> "images"
+                    is QuotedEmbedUi.Gallery -> "gallery"
                     is QuotedEmbedUi.Video -> "video"
                     is QuotedEmbedUi.External -> "external"
                     is QuotedEmbedUi.Gif -> "gif"
                 }
             }
-        assertEquals(listOf("images", "video", "external", "gif"), labels)
+        assertEquals(listOf("images", "gallery", "video", "external", "gif"), labels)
+    }
+
+    @Test
+    fun `Images and Gallery share the ImageContainerEmbed dispatch arm`() {
+        val items = persistentListOf(ImageUi(fullsizeUrl = "f", thumbUrl = "t", altText = "a", aspectRatio = 1.5f))
+        val embeds: List<QuotedEmbedUi> =
+            listOf(QuotedEmbedUi.Images(items = items), QuotedEmbedUi.Gallery(items = items))
+        embeds.forEach { embed ->
+            val extracted =
+                when (embed) {
+                    is QuotedEmbedUi.ImageContainerEmbed -> embed.items
+                    else -> error("expected ImageContainerEmbed, got $embed")
+                }
+            assertEquals(items, extracted)
+        }
     }
 
     @Test

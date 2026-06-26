@@ -79,6 +79,7 @@ internal class PostUiTest {
             listOf(
                 EmbedUi.Empty,
                 EmbedUi.Images(items = persistentListOf()),
+                EmbedUi.Gallery(items = persistentListOf()),
                 EmbedUi.Video(
                     posterUrl = null,
                     playlistUrl = "https://example/v.m3u8",
@@ -112,6 +113,7 @@ internal class PostUiTest {
                 when (embed) {
                     EmbedUi.Empty -> "empty"
                     is EmbedUi.Images -> "images"
+                    is EmbedUi.Gallery -> "gallery"
                     is EmbedUi.Video -> "video"
                     is EmbedUi.External -> "external"
                     is EmbedUi.Record -> "record"
@@ -122,9 +124,35 @@ internal class PostUiTest {
                 }
             }
         assertEquals(
-            listOf("empty", "images", "video", "external", "record", "record-unavailable", "record-with-media", "unsupported", "gif"),
+            listOf("empty", "images", "gallery", "video", "external", "record", "record-unavailable", "record-with-media", "unsupported", "gif"),
             labels,
         )
+    }
+
+    @Test
+    fun `Images and Gallery are both ImageContainerEmbed and share a single dispatch arm`() {
+        // The shared supertype is what lets render / viewer / media-extraction
+        // sites match `is ImageContainerEmbed` once instead of duplicating an
+        // Images and a Gallery arm. Both still carry their own distinct type.
+        val items = persistentListOf(ImageUi(fullsizeUrl = "f", thumbUrl = "t", altText = "a", aspectRatio = 1.5f))
+        val embeds: List<EmbedUi> = listOf(EmbedUi.Images(items = items), EmbedUi.Gallery(items = items))
+        embeds.forEach { embed ->
+            val extracted =
+                when (embed) {
+                    is EmbedUi.ImageContainerEmbed -> embed.items
+                    else -> error("expected ImageContainerEmbed, got $embed")
+                }
+            assertEquals(items, extracted)
+        }
+    }
+
+    @Test
+    fun `Gallery is a value-equal data class distinct from Images with the same items`() {
+        val items = persistentListOf(ImageUi(fullsizeUrl = "f", thumbUrl = null, altText = null, aspectRatio = null))
+        assertEquals(EmbedUi.Gallery(items = items), EmbedUi.Gallery(items = items))
+        val images: EmbedUi = EmbedUi.Images(items = items)
+        val gallery: EmbedUi = EmbedUi.Gallery(items = items)
+        assertNotEquals(images, gallery)
     }
 
     @Test

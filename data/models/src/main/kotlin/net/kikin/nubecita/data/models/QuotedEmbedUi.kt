@@ -37,14 +37,37 @@ public sealed interface QuotedEmbedUi {
         public val contentWarning: MediaContentWarning?
     }
 
+    /**
+     * Marker sealed interface — quoted media embeds that are a flat
+     * list of [ImageUi]: [Images] and [Gallery]. Mirrors
+     * [EmbedUi.ImageContainerEmbed] at the quoted level so a dispatch
+     * site can match `is ImageContainerEmbed` once instead of an
+     * [Images] and a [Gallery] arm. The two stay distinct concrete
+     * types.
+     */
+    public sealed interface ImageContainerEmbed : MediaEmbed {
+        public val items: ImmutableList<ImageUi>
+    }
+
     /** The quoted post has no embed. */
     public data object Empty : QuotedEmbedUi
 
     /** 1–4 images. Same payload as [EmbedUi.Images]. */
     public data class Images(
-        val items: ImmutableList<ImageUi>,
+        override val items: ImmutableList<ImageUi>,
         override val contentWarning: MediaContentWarning? = null,
-    ) : MediaEmbed
+    ) : ImageContainerEmbed
+
+    /**
+     * `app.bsky.embed.gallery#view` inside a quoted post (up to 10
+     * images). Same payload as [EmbedUi.Gallery]; shares
+     * [ImageContainerEmbed] with [Images] and renders through the same
+     * carousel.
+     */
+    public data class Gallery(
+        override val items: ImmutableList<ImageUi>,
+        override val contentWarning: MediaContentWarning? = null,
+    ) : ImageContainerEmbed
 
     /**
      * Bluesky `app.bsky.embed.video#view` inside a quoted post.

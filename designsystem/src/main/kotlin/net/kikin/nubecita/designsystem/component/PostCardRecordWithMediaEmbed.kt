@@ -81,7 +81,7 @@ public fun PostCardRecordWithMediaEmbed(
         // below would leave a phantom gap above the quoted card.
         val mediaRendered: Boolean =
             when (media) {
-                is EmbedUi.Images -> {
+                is EmbedUi.ImageContainerEmbed -> {
                     PostCardImageEmbed(items = media.items, cover = mediaCover)
                     true
                 }

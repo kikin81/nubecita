@@ -29,12 +29,15 @@ public val EmbedUi.quotedRecord: QuotedPostUi?
 
 /**
  * Returns a copy of this media embed with [warning] applied (pass `null` to
- * clear). Exhaustive over the four [EmbedUi.MediaEmbed] variants, so a new
- * media kind becomes a compile error here.
+ * clear). Exhaustive over the [EmbedUi.MediaEmbed] variants, so a new media
+ * kind becomes a compile error here. Each arm calls the variant's own `copy`,
+ * so [EmbedUi.Images] and [EmbedUi.Gallery] cannot share a single
+ * [EmbedUi.ImageContainerEmbed] arm.
  */
 public fun EmbedUi.MediaEmbed.withContentWarning(warning: MediaContentWarning?): EmbedUi.MediaEmbed =
     when (this) {
         is EmbedUi.Images -> copy(contentWarning = warning)
+        is EmbedUi.Gallery -> copy(contentWarning = warning)
         is EmbedUi.Video -> copy(contentWarning = warning)
         is EmbedUi.External -> copy(contentWarning = warning)
         is EmbedUi.Gif -> copy(contentWarning = warning)

@@ -79,12 +79,12 @@ internal class MediaViewerViewModel
                     .getPost(route.postUri)
                     .onSuccess { post ->
                         val embed = post.embed
-                        if (embed !is EmbedUi.Images || embed.items.isEmpty()) {
-                            // Either the focus post has no image embed (defensive
-                            // — viewer was opened on a non-image post via some
-                            // out-of-band path) or the embed projected to an
-                            // empty list. Coerce-into-empty would throw; render
-                            // the user-facing "no images" state instead.
+                        if (embed !is EmbedUi.ImageContainerEmbed || embed.items.isEmpty()) {
+                            // Either the focus post has no image-container embed
+                            // (Images or Gallery; defensive — viewer was opened on
+                            // a non-image post via some out-of-band path) or the
+                            // embed projected to an empty list. Coerce-into-empty
+                            // would throw; render the user-facing "no images" state.
                             setState {
                                 copy(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.NoImages))
                             }

@@ -68,7 +68,7 @@ internal fun NotificationSubjectPreview(
                 )
             }
             val embed = post.embed
-            if (embed is EmbedUi.Images) {
+            if (embed is EmbedUi.ImageContainerEmbed) {
                 PostCardImageEmbed(items = embed.items)
             }
         }
