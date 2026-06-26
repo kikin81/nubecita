@@ -63,6 +63,34 @@ internal class MediaViewerViewModelTest {
         }
 
     @Test
+    fun `init load with gallery embed transitions to Loaded across all ten images`() =
+        runTest(mainDispatcher.dispatcher) {
+            // A top-level app.bsky.embed.gallery (up to 10 images) opens in the
+            // viewer exactly like images — the VM resolves it via the shared
+            // EmbedUi.ImageContainerEmbed and the pager handles N.
+            val repo = FakeRepo(Result.success(samplePostWithGallery(10)))
+            val vm = newVm(repo, imageIndex = 6)
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.loadStatus as MediaViewerLoadStatus.Loaded
+            assertEquals(10, loaded.images.size)
+            assertEquals(6, loaded.currentIndex)
+        }
+
+    @Test
+    fun `init load with gallery coerces an out-of-range imageIndex`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeRepo(Result.success(samplePostWithGallery(6)))
+            val vm = newVm(repo, imageIndex = 99)
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.loadStatus as MediaViewerLoadStatus.Loaded
+            assertEquals(5, loaded.currentIndex) // size - 1
+        }
+
+    @Test
     fun `init load with non-image embed surfaces Error(NoImages)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeRepo(Result.success(samplePost(EmbedUi.Empty)))
@@ -319,6 +347,22 @@ internal class MediaViewerViewModelTest {
                                 fullsizeUrl = "https://cdn.bsky.app/img/feed_fullsize/plain/cid$it@jpeg",
                                 thumbUrl = "https://cdn.bsky.app/img/feed_thumbnail/plain/cid$it@jpeg",
                                 altText = altText,
+                                aspectRatio = 1.0f,
+                            )
+                        }.toImmutableList(),
+            ),
+        )
+
+    private fun samplePostWithGallery(count: Int): PostUi =
+        samplePost(
+            EmbedUi.Gallery(
+                items =
+                    (0 until count)
+                        .map {
+                            ImageUi(
+                                fullsizeUrl = "https://cdn.bsky.app/img/feed_fullsize/plain/g$it@jpeg",
+                                thumbUrl = "https://cdn.bsky.app/img/feed_thumbnail/plain/g$it@jpeg",
+                                altText = null,
                                 aspectRatio = 1.0f,
                             )
                         }.toImmutableList(),
