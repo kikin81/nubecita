@@ -79,8 +79,14 @@ internal class MessagingStyleDmNotifier
          */
         private fun buildConvoNotification(items: List<DmNotification>): android.app.Notification {
             val first = items.first()
+            val notifyId = ChatNotificationIds.notifyId(first.convoId)
+            val manager = NotificationManagerCompat.from(context)
+            val existing = manager.activeNotifications.firstOrNull { it.id == notifyId }?.notification
+            val style =
+                existing?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it) }
+                    ?: NotificationCompat.MessagingStyle(selfPerson())
+
             val sender = Person.Builder().setName(first.title).build()
-            val style = NotificationCompat.MessagingStyle(selfPerson())
             items.forEach { item ->
                 style.addMessage(item.displayBody(), item.timestampMillis, sender)
             }

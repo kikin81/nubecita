@@ -9,5 +9,11 @@
         <receiver
             android:name=".worker.DmReplyReceiver"
             android:exported="false" />
+
+        <!-- Debug-only trigger for background polls (nubecita-1fy.15).
+             Exported so it can be fired via `adb shell am broadcast`. -->
+        <receiver
+            android:name=".worker.DmPollDebugReceiver"
+            android:exported="true" />
     </application>
 </manifest>
