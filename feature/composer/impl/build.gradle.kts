@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.reorderable)
     implementation(libs.timber)
 
     // Compose UI tests for ComposerScreen — mirrors :feature:feed:impl's

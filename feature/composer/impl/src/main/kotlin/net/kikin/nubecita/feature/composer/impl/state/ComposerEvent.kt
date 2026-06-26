@@ -19,10 +19,10 @@ import net.kikin.nubecita.data.models.ActorUi
  */
 internal sealed interface ComposerEvent : UiEvent {
     /**
-     * The picker returned URIs. Reducer appends up to the 4-image
-     * cap; URIs beyond the cap are silently dropped (the picker also
-     * caps via `maxItems = 4 - state.attachments.size` so this is
-     * defensive depth).
+     * The picker returned URIs. Reducer appends up to the
+     * `MAX_ATTACHMENTS` cap; URIs beyond the cap are silently dropped
+     * (the picker also caps via `maxItems = MAX_ATTACHMENTS -
+     * state.attachments.size` so this is defensive depth).
      */
     data class AddAttachments(
         val attachments: List<ComposerAttachment>,
@@ -34,6 +34,17 @@ internal sealed interface ComposerEvent : UiEvent {
      */
     data class RemoveAttachment(
         val index: Int,
+    ) : ComposerEvent
+
+    /**
+     * The user dragged the attachment at [from] to position [to]
+     * (drag-to-reorder). Reducer moves that attachment, preserving the
+     * others' relative order — post order is list order. Emitted once per
+     * single-step crossing during a drag.
+     */
+    data class MoveAttachment(
+        val from: Int,
+        val to: Int,
     ) : ComposerEvent
 
     /**
