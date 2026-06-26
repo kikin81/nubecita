@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl.worker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -52,7 +53,8 @@ class DmPollScheduler internal constructor(
                         decision,
                     )
                 }
-            }.distinctUntilChanged()
+            }.filter { it != Decision.IGNORE }
+                .distinctUntilChanged()
                 .collect { decision ->
                     when (decision) {
                         Decision.SCHEDULE -> scheduler.ensureScheduled()

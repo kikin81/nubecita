@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG-ONLY manifest contribution. Registers the diagnostic DM-poll trigger
+  receiver. Merged only into debug variants, so it never ships in release —
+  this is why it can safely be exported (adb runs as a different uid and can't
+  reach a non-exported receiver).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <receiver
+            android:name=".worker.DmPollDebugReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver" />
+    </application>
+</manifest>

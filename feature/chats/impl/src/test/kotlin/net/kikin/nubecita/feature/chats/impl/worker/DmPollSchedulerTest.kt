@@ -121,6 +121,30 @@ internal class DmPollSchedulerTest {
             assertEquals(1, f.work.scheduled)
         }
 
+    @Test
+    fun `transient Loading does NOT break the distinct-until-changed chain`() =
+        runTest {
+            val session = MutableStateFlow<SessionState>(signedIn)
+            val f = scheduler(sessionFlow = session, enabled = true)
+            f.scheduler.start()
+            runCurrent()
+            assertEquals(1, f.work.scheduled)
+
+            // Emitting Loading (transiently during app restart)
+            session.value = SessionState.Loading
+            runCurrent()
+            assertEquals(1, f.work.scheduled)
+            assertEquals(0, f.work.cancelled)
+
+            // Resolving back to SignedIn
+            session.value = signedIn
+            runCurrent()
+            // Loading (which maps to Decision.IGNORE) is filtered out before
+            // distinctUntilChanged, so the chain (SCHEDULE -> SCHEDULE) collapses
+            // to a single emission. The timer is NOT reset.
+            assertEquals(1, f.work.scheduled)
+        }
+
     private class Fixture(
         val scheduler: DmPollScheduler,
         val work: FakeWorkScheduler,

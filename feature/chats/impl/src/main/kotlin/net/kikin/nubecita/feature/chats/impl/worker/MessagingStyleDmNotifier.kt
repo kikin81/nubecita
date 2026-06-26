@@ -79,10 +79,25 @@ internal class MessagingStyleDmNotifier
          */
         private fun buildConvoNotification(items: List<DmNotification>): android.app.Notification {
             val first = items.first()
+            val notifyId = ChatNotificationIds.notifyId(first.convoId)
+            val manager = NotificationManagerCompat.from(context)
+            val existing = manager.activeNotifications.firstOrNull { it.id == notifyId }?.notification
+            val style =
+                existing?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it) }
+                    ?: NotificationCompat.MessagingStyle(selfPerson())
+
             val sender = Person.Builder().setName(first.title).build()
-            val style = NotificationCompat.MessagingStyle(selfPerson())
+            // The cursor is persisted only AFTER this notification posts, so a
+            // process death / RETRY between the two re-processes the same events.
+            // De-dup against the messages already in the extracted style (by body
+            // + timestamp) so a retry can't append duplicates to the thread.
+            val existingKeys =
+                style.messages.mapTo(mutableSetOf()) { it.text.toString() to it.timestamp }
             items.forEach { item ->
-                style.addMessage(item.displayBody(), item.timestampMillis, sender)
+                val body = item.displayBody()
+                if ((body.toString() to item.timestampMillis) !in existingKeys) {
+                    style.addMessage(body, item.timestampMillis, sender)
+                }
             }
             return convoNotification(style, first.convoId, first.otherUserDid, alert = true)
         }

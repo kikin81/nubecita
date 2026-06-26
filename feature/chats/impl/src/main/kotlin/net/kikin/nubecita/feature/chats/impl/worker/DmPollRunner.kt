@@ -68,7 +68,7 @@ internal class DmPollRunner
             val viewerDid =
                 (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
                     ?: run {
-                        Timber.tag(LOG_TAG).d("gate: signed out -> SUCCESS")
+                        Timber.tag(LOG_TAG).d("gate: session state is %s (not SignedIn) -> SUCCESS", sessionStateProvider.state.value.javaClass.simpleName)
                         return Outcome.SUCCESS
                     }
             if (!messageChecking.enabled.first()) {
@@ -82,7 +82,7 @@ internal class DmPollRunner
                 return Outcome.SUCCESS
             }
 
-            repository.refreshConvos().getOrElse {
+            repository.refreshConvos().onFailure {
                 Timber.tag(LOG_TAG).w(it, "refreshConvos failed -> RETRY")
                 return Outcome.RETRY
             }
@@ -103,25 +103,35 @@ internal class DmPollRunner
                     .toSet()
 
             val cursor = cursorStore.cursor(viewerDid).first()
+            val pageResult = repository.getLog(cursor)
             val page =
-                repository.getLog(cursor).getOrElse {
-                    Timber.tag(LOG_TAG).w(it, "getLog failed -> RETRY")
+                pageResult.getOrElse {
+                    // If getLog fails, retry at the WorkManager level.
+                    // Log the exception to help debug persistent failures.
+                    Timber.tag(LOG_TAG).w(it, "getLog failed (cursor=%s) -> RETRY", cursor)
                     return Outcome.RETRY
                 }
 
             // First-ever poll: set the baseline so we don't notify the whole
             // pre-existing backlog on install / sign-in.
             if (cursor == null) {
-                Timber.tag(LOG_TAG).d("first poll: baseline cursor set, no notify -> SUCCESS")
-                page.nextCursor?.let { cursorStore.setCursor(viewerDid, it) }
+                // We MUST advance the cursor here even if we don't notify, otherwise
+                // the next run will find the same events and try to notify them.
+                val next = page.nextCursor
+                Timber.tag(LOG_TAG).d("first poll: baseline cursor set to %s, no notify -> SUCCESS", next)
+                if (next != null) {
+                    cursorStore.setCursor(viewerDid, next)
+                }
                 return Outcome.SUCCESS
             }
 
             val plan = page.toDmNotifyPlan(viewerDid = viewerDid, unreadConvoIds = unreadConvoIds)
             Timber.tag(LOG_TAG).d(
-                "plan: %d event(s) to notify (unreadConvos=%d)",
+                "plan: %d event(s) to notify out of %d total log events (unreadConvos=%d, nextCursor=%s)",
                 plan.toNotify.size,
+                page.events.size,
                 unreadConvoIds.size,
+                plan.advancedCursor,
             )
             if (plan.toNotify.isNotEmpty()) {
                 val convoById = convos.associateBy { it.convoId }
