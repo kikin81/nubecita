@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.image.ImageByteSource
+import net.kikin.nubecita.core.image.ImageDimensionDecoder
 import net.kikin.nubecita.core.image.ImageEncoder
 import javax.inject.Singleton
 
@@ -28,4 +29,8 @@ abstract class ImageModule {
     @Binds
     @Singleton
     internal abstract fun bindImageEncoder(impl: BitmapImageEncoder): ImageEncoder
+
+    @Binds
+    @Singleton
+    internal abstract fun bindImageDimensionDecoder(impl: BitmapImageDimensionDecoder): ImageDimensionDecoder
 }

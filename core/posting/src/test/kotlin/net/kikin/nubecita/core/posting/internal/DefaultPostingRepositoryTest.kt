@@ -41,6 +41,8 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.image.EncodedImage
 import net.kikin.nubecita.core.image.ImageByteSource
+import net.kikin.nubecita.core.image.ImageDimensionDecoder
+import net.kikin.nubecita.core.image.ImageDimensions
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
@@ -49,6 +51,7 @@ import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.ReplyAudience
 import net.kikin.nubecita.core.posting.ReplyRefs
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -185,6 +188,54 @@ class DefaultPostingRepositoryTest {
                 3,
                 engine.requestHistory.count { it.url.encodedPath.endsWith("uploadBlob") },
             )
+        }
+
+    @Test
+    fun fourAttachments_emitImagesEmbed() =
+        runTest {
+            // Interop: 1..4 images stay app.bsky.embed.images for maximum
+            // compatibility (a gallery is invisible on clients without support).
+            val body = captureCreatedRecordBody(attachmentCount = 4)
+            assertTrue(body.contains("app.bsky.embed.images"), "expected images embed: $body")
+            assertFalse(body.contains("app.bsky.embed.gallery"), "must not emit gallery at 4: $body")
+        }
+
+    @Test
+    fun fiveAttachments_emitGalleryEmbed() =
+        runTest {
+            // Crossing 4 promotes to app.bsky.embed.gallery.
+            val body = captureCreatedRecordBody(attachmentCount = 5)
+            assertTrue(body.contains("app.bsky.embed.gallery"), "expected gallery embed: $body")
+            assertFalse(body.contains("app.bsky.embed.images"), "must not emit images at 5: $body")
+        }
+
+    @Test
+    fun galleryImages_carryAltTextAndAspectRatio() =
+        runTest {
+            // dimensionDecoder is fixed at 1200x800 -> aspectRatio width/height
+            // must be serialized, and the per-image alt must be carried through.
+            val body =
+                captureCreatedRecordBody(
+                    attachments = (0 until 5).map { attachment("image/jpeg", alt = "described $it") },
+                )
+            assertTrue(body.contains("app.bsky.embed.gallery"), "expected gallery embed: $body")
+            assertTrue(body.contains("described 0"), "alt text missing: $body")
+            assertTrue(body.contains("aspectRatio"), "aspectRatio missing: $body")
+            assertTrue(body.contains("1200") && body.contains("800"), "aspect width/height missing: $body")
+        }
+
+    @Test
+    fun quoteWithFiveImages_emitsRecordWithMediaGallery() =
+        runTest {
+            val quote =
+                StrongRef(
+                    uri = AtUri("at://did:plc:alice/app.bsky.feed.post/quoted"),
+                    cid = Cid("bafquoted"),
+                )
+            val body = captureCreatedRecordBody(attachmentCount = 5, quote = quote)
+            assertTrue(body.contains("app.bsky.embed.recordWithMedia"), "expected recordWithMedia: $body")
+            assertTrue(body.contains("app.bsky.embed.gallery"), "expected gallery media: $body")
+            assertTrue(body.contains("at://did:plc:alice/app.bsky.feed.post/quoted"), "quote uri missing: $body")
         }
 
     @Test
@@ -582,6 +633,7 @@ class DefaultPostingRepositoryTest {
                             override suspend fun read(uri: Uri): ByteArray = byteArrayOf(1)
                         },
                     encoder = passthroughEncoder(),
+                    dimensionDecoder = fixedDimensions(),
                     facetExtractor = passthroughFacetExtractor(),
                     localeProvider = fixedLocaleProvider("en-US"),
                     analytics = analytics,
@@ -1290,12 +1342,59 @@ class DefaultPostingRepositoryTest {
             assertTrue(analytics.events.isEmpty(), "create_post must not fire on a failed write")
         }
 
-    private fun attachment(mime: String): ComposerAttachment = ComposerAttachment(uri = mockk(relaxed = true), mimeType = mime)
+    private fun attachment(
+        mime: String,
+        alt: String = "",
+    ): ComposerAttachment = ComposerAttachment(uri = mockk(relaxed = true), mimeType = mime, alt = alt)
+
+    /**
+     * Runs `createPost` with [attachmentCount] dummy attachments (jpeg, blank
+     * alt) and returns the serialized `createRecord` request body. uploadBlob
+     * is stubbed with a canned blob; the embed shape is asserted from the body.
+     */
+    private suspend fun captureCreatedRecordBody(
+        attachmentCount: Int,
+        quote: StrongRef? = null,
+    ): String = captureCreatedRecordBody((0 until attachmentCount).map { attachment("image/jpeg") }, quote)
+
+    private suspend fun captureCreatedRecordBody(
+        attachments: List<ComposerAttachment>,
+        quote: StrongRef? = null,
+    ): String {
+        val capturedBody = CompletableDeferred<String>()
+        val (_, repo) =
+            newRepo(signedIn = true) { request ->
+                when {
+                    request.url.encodedPath.endsWith("uploadBlob") ->
+                        okJson(
+                            """{"blob":{"ref":{"${'$'}link":"bafblob"},"mimeType":"image/jpeg","size":3,"${'$'}type":"blob"}}""",
+                        )
+                    request.url.encodedPath.endsWith("createRecord") -> {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/x","cid":"bafx"}""")
+                    }
+                    else -> error("Unexpected request: ${request.url}")
+                }
+            }
+        val result = repo.createPost(text = "post", attachments = attachments, replyTo = null, quote = quote)
+        assertTrue(result.isSuccess, "createPost failed: ${result.exceptionOrNull()}")
+        return capturedBody.await()
+    }
+
+    /** Fake [ImageDimensionDecoder] returning fixed dimensions for every input. */
+    private fun fixedDimensions(
+        width: Int = 1200,
+        height: Int = 800,
+    ): ImageDimensionDecoder =
+        object : ImageDimensionDecoder {
+            override fun decode(bytes: ByteArray): ImageDimensions = ImageDimensions(width = width, height = height)
+        }
 
     private fun newRepo(
         signedIn: Boolean,
         encoder: ImageEncoder = passthroughEncoder(),
         byteSource: ImageByteSource = canned(byteArrayOf(1, 2, 3)),
+        dimensionDecoder: ImageDimensionDecoder = fixedDimensions(),
         facetExtractor: FacetExtractor = passthroughFacetExtractor(),
         localeProvider: LocaleProvider = fixedLocaleProvider("en-US"),
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
@@ -1328,6 +1427,7 @@ class DefaultPostingRepositoryTest {
                     },
                 byteSource = byteSource,
                 encoder = encoder,
+                dimensionDecoder = dimensionDecoder,
                 facetExtractor = facetExtractor,
                 localeProvider = localeProvider,
                 analytics = analytics,

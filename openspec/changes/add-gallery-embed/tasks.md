@@ -30,11 +30,11 @@ Grouped to match the beads epic `nubecita-vye3`. Each group names its bd child i
 
 ## 5. Image dimensions + posting — `:core:image` + `:core:posting` (bd: nubecita-vye3.7)
 
-- [ ] 5.1 `:core:image` — add image dimensions (width/height) to `PickedImage`, computed via a bounds-only decode (`BitmapFactory.Options.inJustDecodeBounds = true`) off the main thread when picking. (The picker already opens the `Uri` for its MIME type — no extra `EncodedImage`/decode work in `uploadOne`.)
-- [ ] 5.2 `:core:posting` — add `alt: String = ""` and `aspectRatio` (from `PickedImage` dimensions) to `ComposerAttachment`.
-- [ ] 5.3 Enrich `ComposerEmbedIntent` to carry per-image `(blob, alt, aspectRatio)`.
-- [ ] 5.4 Branch `resolveEmbed`: 0 → no embed; 1–4 → `Images` (with `aspectRatio` now populated + `alt`); **≥5** → `Gallery` (`PostEmbedUnion.Gallery`, each `GalleryImage` with `image`+`alt`+`aspectRatio`). Preserve `RecordWithMedia` for the quote+media case at both counts.
-- [ ] 5.5 Unit tests: 4 images → Images wire type; 5 images → Gallery wire type; alt + aspectRatio present on records; quote+gallery → RecordWithMedia.
+- [x] 5.1 `:core:image` — add `ImageDimensionDecoder` (bounds-only `BitmapFactory.Options.inJustDecodeBounds = true` decode of raw bytes → width/height, off the main thread) + `BitmapImageDimensionDecoder` impl + Hilt binding. (Decode at upload from the raw bytes the repo already reads, not pick-time — the picker callback is main-thread.)
+- [x] 5.2 `:core:posting` — add `alt: String = ""` to `ComposerAttachment`; `uploadOne` decodes dimensions and returns `UploadedImage(blob, alt, dimensions)`.
+- [x] 5.3 Enrich `ComposerEmbedIntent` to carry `List<UploadedImage>` (blob + alt + dimensions).
+- [x] 5.4 Branch `resolveEmbed`: 0 → no embed; 1–4 → `Images` (optional `aspectRatio` populated + `alt`); **≥5** → `Gallery` (each `GalleryImage` with `image`+`alt`+required `aspectRatio`, 1:1 fallback). Preserve `RecordWithMedia` (Images/Gallery both implement `RecordWithMediaMediaUnion`).
+- [x] 5.5 Unit tests: 4 images → Images wire type; 5 images → Gallery wire type; alt + aspectRatio present on records; quote+gallery → RecordWithMedia.
 
 ## 6. Composer multi-image + promote/demote + reorder — `:feature:composer` (bd: nubecita-vye3.6)
 
