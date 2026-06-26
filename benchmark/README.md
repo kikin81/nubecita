@@ -162,7 +162,7 @@ produce materially different profiles:
   a ~weekly cadence**, not CI:
 
   ```bash
-  ./gradlew :app:generateReleaseBaselineProfile -PbaselineProfileEnvironment=production
+  ./gradlew :app:generateProductionReleaseBaselineProfile -PbaselineProfileEnvironment=production
   ```
 
   Pre-requisite — **the device must be signed in** on the
@@ -181,7 +181,7 @@ produce materially different profiles:
   bench-generated profile**.
 
   ```bash
-  ./gradlew :app:generateReleaseBaselineProfile   # bench (validation only)
+  ./gradlew :app:generateBenchReleaseBaselineProfile   # bench (validation only; writes only bench src)
   ```
 
 Outputs land in `app/src/productionRelease/generated/baselineProfiles/`:

@@ -68,10 +68,10 @@ Default to **COLD only** when iterating — under the USB-drop threshold and ans
 **Generate the SHIPPABLE baseline profile** — `production` flavor, *needs a signed-in `productionNonMinifiedRelease` device* (real network, non-deterministic, ~weekly cadence):
 
 ```bash
-./gradlew :app:generateReleaseBaselineProfile -PbaselineProfileEnvironment=production
+./gradlew :app:generateProductionReleaseBaselineProfile -PbaselineProfileEnvironment=production
 ```
 
-Then commit `app/src/productionRelease/generated/baselineProfiles/{startup,baseline}-prof.txt` if the diff is meaningful. (Omit the `-P` flag to gen against the deterministic `bench` flavor — fine for quick local validation, but **don't commit a bench-generated profile**: it omits the real network/crypto/serialization startup path.)
+Then commit `app/src/productionRelease/generated/baselineProfiles/{startup,baseline}-prof.txt` if the diff is meaningful. (For a quick local check against the deterministic `bench` flavor run `:app:generateBenchReleaseBaselineProfile` — but **don't commit a bench-generated profile** (it omits the real network/crypto/serialization startup path). Use the **variant-specific** task, NOT the generic `:app:generateReleaseBaselineProfile`: the generic task generates both flavors, so without the `-P` flag it silently overwrites the committed `productionRelease` profile with the bench one.)
 
 **Run StartupBenchmark — COLD cells only** (recommended default):
 
