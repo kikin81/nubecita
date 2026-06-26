@@ -1,9 +1,13 @@
 package net.kikin.nubecita.core.posting.internal
 
+import io.github.kikin81.atproto.app.bsky.embed.AspectRatio
+import io.github.kikin81.atproto.app.bsky.embed.Gallery
+import io.github.kikin81.atproto.app.bsky.embed.GalleryImage
 import io.github.kikin81.atproto.app.bsky.embed.Images
 import io.github.kikin81.atproto.app.bsky.embed.ImagesImage
 import io.github.kikin81.atproto.app.bsky.embed.Record
 import io.github.kikin81.atproto.app.bsky.embed.RecordWithMedia
+import io.github.kikin81.atproto.app.bsky.embed.RecordWithMediaMediaUnion
 import io.github.kikin81.atproto.app.bsky.feed.Post
 import io.github.kikin81.atproto.app.bsky.feed.PostEmbedUnion
 import io.github.kikin81.atproto.app.bsky.feed.PostReplyRef
@@ -40,6 +44,8 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.image.ImageByteSource
+import net.kikin.nubecita.core.image.ImageDimensionDecoder
+import net.kikin.nubecita.core.image.ImageDimensions
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
@@ -91,6 +97,7 @@ internal class DefaultPostingRepository
         private val sessionStateProvider: SessionStateProvider,
         private val byteSource: ImageByteSource,
         private val encoder: ImageEncoder,
+        private val dimensionDecoder: ImageDimensionDecoder,
         private val facetExtractor: FacetExtractor,
         private val localeProvider: LocaleProvider,
         private val analytics: AnalyticsClient,
@@ -142,7 +149,7 @@ internal class DefaultPostingRepository
                     // Phase 1 — parallel blob uploads. The first failure
                     // throws ComposerError.UploadFailed(index, cause)
                     // out of the coroutineScope, cancelling siblings.
-                    val blobs =
+                    val uploaded =
                         if (attachments.isEmpty()) {
                             Timber.tag(TAG).d("createPost() — no attachments, skipping uploadBlob phase")
                             emptyList()
@@ -172,11 +179,11 @@ internal class DefaultPostingRepository
 
                     // Phase 3 — record creation. Only runs after every
                     // blob upload completed successfully.
-                    val embed = resolveEmbed(ComposerEmbedIntent(blobs = blobs, quote = quote))
+                    val embed = resolveEmbed(ComposerEmbedIntent(images = uploaded, quote = quote))
                     Timber.tag(TAG).d(
-                        "createPost() — building record with embed=%s (blobs.size=%d)",
+                        "createPost() — building record with embed=%s (images.size=%d)",
                         embed::class.simpleName,
-                        blobs.size,
+                        uploaded.size,
                     )
                     val resolvedLangs = resolveLangs(langs)
                     Timber.tag(TAG).d(
@@ -384,6 +391,12 @@ internal class DefaultPostingRepository
                 raw.size,
                 attachment.mimeType,
             )
+            // Decode intrinsic dimensions from the ORIGINAL bytes (bounds-only,
+            // no pixel allocation) for the embed's aspectRatio. Source bytes,
+            // not the encoded variant, so the ratio is right even if the encoder
+            // downscales — and it's available even when the encoder passes the
+            // bytes through without decoding.
+            val dimensions = dimensionDecoder.decode(raw)
             // Image compression sits between read and uploadBlob: any
             // photo over Bluesky's per-blob byte cap is re-encoded
             // (typically as WebP) by the encoder; bytes already under
@@ -403,7 +416,7 @@ internal class DefaultPostingRepository
                     inputContentType = ContentType.parse(encoded.mimeType),
                 )
             Timber.tag(TAG).d("uploadOne(#%d) — ok, blob.size=%d", index, response.blob.size)
-            response.blob
+            UploadedImage(blob = response.blob, alt = attachment.alt, dimensions = dimensions)
         } catch (cancellation: CancellationException) {
             // Cancellation propagates unchanged — required by structured
             // concurrency so siblings cancelled by `awaitAll`'s first-
@@ -432,22 +445,64 @@ internal class DefaultPostingRepository
          * | yes | yes | `app.bsky.embed.recordWithMedia` |
          */
         private fun resolveEmbed(intent: ComposerEmbedIntent): AtField<PostEmbedUnion> {
-            val images =
-                if (intent.blobs.isEmpty()) {
-                    null
-                } else {
-                    Images(images = intent.blobs.map { ImagesImage(alt = "", image = it) })
+            // Interop rule (mirrors social-app): emit app.bsky.embed.images for
+            // 1..4 images (maximum compatibility — a gallery is invisible on
+            // clients without gallery support) and app.bsky.embed.gallery for 5+
+            // (the composer caps adds at the soft limit of 10). Both Images and
+            // Gallery implement RecordWithMediaMediaUnion, so the same value
+            // serves the standalone and quote+media branches below.
+            val media: RecordWithMediaMediaUnion? =
+                when {
+                    intent.images.isEmpty() -> null
+                    intent.images.size <= LEGACY_IMAGES_EMBED_MAX ->
+                        Images(images = intent.images.map { it.toImagesImage() })
+                    else ->
+                        Gallery(items = intent.images.map { it.toGalleryImage() })
                 }
             val quote = intent.quote
             // Positive `!= null` ordering so each branch smart-casts — no `!!`.
             return when {
-                quote != null && images != null ->
-                    AtField.Defined(RecordWithMedia(record = Record(record = quote), media = images))
+                quote != null && media != null ->
+                    AtField.Defined(RecordWithMedia(record = Record(record = quote), media = media))
                 quote != null -> AtField.Defined(Record(record = quote))
-                images != null -> AtField.Defined(images)
+                // Images / Gallery both implement PostEmbedUnion; the cross-cast
+                // is always valid for the two types produced above.
+                media != null -> AtField.Defined(media as PostEmbedUnion)
                 else -> AtField.Missing
             }
         }
+
+        /**
+         * images#image carries an OPTIONAL aspectRatio (AtField). Non-positive
+         * dimensions (defensive — a 0/negative would render as NaN/Infinity and
+         * crash Modifier.aspectRatio) drop to Missing so the render layer uses
+         * its own fallback aspect.
+         */
+        private fun UploadedImage.toImagesImage(): ImagesImage =
+            ImagesImage(
+                alt = alt,
+                image = blob,
+                aspectRatio = dimensions.toAspectRatioOrNull()?.let { AtField.Defined(it) } ?: AtField.Missing,
+            )
+
+        /**
+         * gallery#image REQUIRES a non-null aspectRatio. When dimensions are
+         * absent or non-positive (rare — corrupt bytes), fall back to 1:1 so the
+         * record is still valid and never carries a degenerate ratio; a square
+         * is a neutral default.
+         */
+        private fun UploadedImage.toGalleryImage(): GalleryImage =
+            GalleryImage(
+                alt = alt,
+                image = blob,
+                aspectRatio = dimensions.toAspectRatioOrNull() ?: AspectRatio(width = 1L, height = 1L),
+            )
+
+        /** A wire [AspectRatio] only when both dimensions are strictly positive. */
+        private fun ImageDimensions?.toAspectRatioOrNull(): AspectRatio? =
+            this
+                ?.takeIf { it.width > 0 && it.height > 0 }
+                ?.let { AspectRatio(width = it.width.toLong(), height = it.height.toLong()) }
 
         /**
          * Maps a raw throwable from the SDK or coroutine machinery to
@@ -504,6 +559,13 @@ internal class DefaultPostingRepository
 
         companion object {
             private const val TAG = "PostingRepo"
+
+            /**
+             * Largest image count still emitted as `app.bsky.embed.images`. At
+             * 5+ the repository switches to `app.bsky.embed.gallery`. Matches the
+             * lexicon's images cap and social-app's LEGACY_IMAGES_EMBED_MAX.
+             */
+            private const val LEGACY_IMAGES_EMBED_MAX = 4
 
             // The JVM returns this sentinel from `Locale.forLanguageTag`
             // for any input that doesn't parse as a BCP-47 language tag
