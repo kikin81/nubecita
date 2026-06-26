@@ -21,6 +21,7 @@ import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.data.models.imageContainer
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCardImageEmbed
 import kotlin.time.Instant
@@ -68,8 +69,9 @@ internal fun NotificationSubjectPreview(
                 )
             }
             val embed = post.embed
-            if (embed is EmbedUi.ImageContainerEmbed) {
-                PostCardImageEmbed(items = embed.items)
+            val mediaEmbed = embed.imageContainer
+            if (mediaEmbed != null) {
+                PostCardImageEmbed(items = mediaEmbed.items)
             }
         }
     }

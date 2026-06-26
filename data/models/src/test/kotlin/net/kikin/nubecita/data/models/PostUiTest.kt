@@ -211,6 +211,56 @@ internal class PostUiTest {
         }
     }
 
+    @Test
+    fun `imageContainer returns the embed itself for direct Images and Gallery`() {
+        val images: EmbedUi = PostUiFixtures.fakeImagesEmbed(count = 3)
+        val gallery: EmbedUi = PostUiFixtures.fakeGalleryEmbed(count = 7)
+        assertEquals(images, images.imageContainer)
+        assertEquals(gallery, gallery.imageContainer)
+    }
+
+    @Test
+    fun `imageContainer unwraps the media half of RecordWithMedia when it is an image container`() {
+        val media = PostUiFixtures.fakeGalleryEmbed(count = 6)
+        val embed: EmbedUi =
+            EmbedUi.RecordWithMedia(
+                record = EmbedUi.Record(quotedPost = previewQuotedPost()),
+                media = media,
+            )
+        assertEquals(media, embed.imageContainer)
+    }
+
+    @Test
+    fun `imageContainer is null for RecordWithMedia whose media is not an image container`() {
+        val embed: EmbedUi =
+            EmbedUi.RecordWithMedia(
+                record = EmbedUi.Record(quotedPost = previewQuotedPost()),
+                media =
+                    EmbedUi.External(
+                        uri = "https://example.com/x",
+                        domain = "example.com",
+                        title = "",
+                        description = "",
+                        thumbUrl = null,
+                    ),
+            )
+        assertEquals(null, embed.imageContainer)
+    }
+
+    @Test
+    fun `imageContainer is null for embeds that carry no flat image set`() {
+        val cases: List<EmbedUi> =
+            listOf(
+                EmbedUi.Empty,
+                EmbedUi.Record(quotedPost = previewQuotedPost()),
+                EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
+                EmbedUi.Unsupported(typeUri = "app.bsky.embed.somethingNew"),
+            )
+        cases.forEach { embed ->
+            assertEquals(null, embed.imageContainer, "expected null for $embed")
+        }
+    }
+
     private fun previewQuotedPost(): QuotedPostUi =
         QuotedPostUi(
             uri = "at://did:plc:fake/app.bsky.feed.post/q",

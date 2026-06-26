@@ -13,7 +13,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.posts.PostNotFoundException
 import net.kikin.nubecita.core.posts.PostProjectionException
 import net.kikin.nubecita.core.posts.PostRepository
-import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.imageContainer
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import java.io.IOException
 
@@ -78,13 +78,13 @@ internal class MediaViewerViewModel
                 postRepository
                     .getPost(route.postUri)
                     .onSuccess { post ->
-                        val embed = post.embed
-                        if (embed !is EmbedUi.ImageContainerEmbed || embed.items.isEmpty()) {
-                            // Either the focus post has no image-container embed
-                            // (Images or Gallery; defensive — viewer was opened on
-                            // a non-image post via some out-of-band path) or the
-                            // embed projected to an empty list. Coerce-into-empty
-                            // would throw; render the user-facing "no images" state.
+                        val embed = post.embed.imageContainer
+                        if (embed == null || embed.items.isEmpty()) {
+                            // The focus post has no image-container embed (Images
+                            // or Gallery), directly or as the media half of a
+                            // RecordWithMedia quote — or it projected to an empty
+                            // list. Coerce-into-empty would throw; render the
+                            // user-facing "no images" state instead.
                             setState {
                                 copy(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.NoImages))
                             }

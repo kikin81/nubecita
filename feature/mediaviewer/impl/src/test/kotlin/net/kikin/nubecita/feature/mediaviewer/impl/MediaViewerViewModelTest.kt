@@ -76,6 +76,42 @@ internal class MediaViewerViewModelTest {
         }
 
     @Test
+    fun `init load resolves images nested in a RecordWithMedia quote`() =
+        runTest(mainDispatcher.dispatcher) {
+            // A quote post that carries its own gallery (RecordWithMedia.media)
+            // must open in the viewer across all N images, same as a top-level
+            // embed — resolved via EmbedUi.imageContainer.
+            val media =
+                EmbedUi.Gallery(
+                    items =
+                        (0 until 5)
+                            .map {
+                                ImageUi(
+                                    fullsizeUrl = "https://cdn.bsky.app/img/feed_fullsize/plain/cid$it@jpeg",
+                                    thumbUrl = "https://cdn.bsky.app/img/feed_thumbnail/plain/cid$it@jpeg",
+                                    altText = null,
+                                    aspectRatio = 1.0f,
+                                )
+                            }.toImmutableList(),
+                )
+            val post =
+                samplePost(
+                    EmbedUi.RecordWithMedia(
+                        record = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
+                        media = media,
+                    ),
+                )
+            val repo = FakeRepo(Result.success(post))
+            val vm = newVm(repo, imageIndex = 2)
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.loadStatus as MediaViewerLoadStatus.Loaded
+            assertEquals(5, loaded.images.size)
+            assertEquals(2, loaded.currentIndex)
+        }
+
+    @Test
     fun `IOException surfaces Error(Network)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeRepo(Result.failure(IOException("offline")))
