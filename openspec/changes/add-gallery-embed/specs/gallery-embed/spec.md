@@ -75,15 +75,19 @@ When building the post embed, the system SHALL emit `app.bsky.embed.images` for 
 - **THEN** the post emits an images embed and the remaining images keep their alt text
 
 ### Requirement: Per-image alt-text editor
-The composer SHALL provide a per-image alt-text editor reachable by tapping an attachment thumbnail, presented as an adaptive route (full-screen on compact width, centered dialog on medium/expanded width). Setting alt text SHALL persist it on that attachment, and a thumbnail with non-blank alt text SHALL display an "ALT" indicator.
+The composer SHALL provide a per-image alt-text editor opened by tapping an attachment chip, presented as a layer within the composer's own surface (so it inherits the composer's adaptive presentation — full-screen on compact width, within the centered dialog on medium/expanded width — without a second navigation route or stacked dialog). The editor SHALL show the tapped photo focused with its own alt-text field and allow moving between all attachments (paged, with a thumbnail filmstrip), each retaining its own description. Setting alt text SHALL persist it on that attachment, and a chip with non-blank alt text SHALL display an "ALT" indicator in a described state.
 
 #### Scenario: Editing alt text persists it on the attachment
-- **WHEN** the user opens the alt-text editor for an attachment and saves non-blank text
-- **THEN** that attachment carries the alt text and its thumbnail shows the "ALT" indicator
+- **WHEN** the user opens the editor for an attachment and enters non-blank text
+- **THEN** that attachment carries the alt text and its chip shows the "ALT" indicator as described
 
-#### Scenario: Editor is adaptive by width
-- **WHEN** the alt-text editor is opened on a compact-width device
-- **THEN** it is presented full-screen; on medium/expanded width it is presented as a centered dialog
+#### Scenario: Editor opens at the tapped photo and moves between all photos
+- **WHEN** the user taps the chip at index N
+- **THEN** the editor opens focused on photo N, and the user can page (or use the filmstrip) to any other attachment and edit its alt independently
+
+#### Scenario: Editor inherits the composer's presentation
+- **WHEN** the editor is open on a compact-width device
+- **THEN** it fills the composer surface (full-screen); on medium/expanded width it appears within the composer's centered dialog (no second dialog)
 
 ### Requirement: Required alt text for galleries
 The system SHALL prevent posting a gallery (more than 4 images) until every image has non-blank alt text, surfacing a hint identifying the unmet requirement. Posts with 4 or fewer images SHALL NOT require alt text.

@@ -318,6 +318,46 @@ private fun ComposerScreenGalleryCapScreenshot() {
     }
 }
 
+// The per-photo alt editor layer (altEditTarget set): focused photo + its alt
+// field, with the bottom filmstrip showing ✓ on the two described photos and
+// the rest still needing alt.
+@PreviewTest
+@Preview(name = "alt-editor-light", showBackground = true)
+@Preview(name = "alt-editor-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ComposerScreenAltEditorScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    attachments =
+                        (0 until 6)
+                            .map {
+                                ComposerAttachment(
+                                    uri = Uri.parse("content://fixture/$it"),
+                                    mimeType = "image/jpeg",
+                                    alt = if (it < 2) "Described photo $it" else "",
+                                )
+                            }.toImmutableList(),
+                    altEditTarget = 0,
+                ),
+            textFieldState = remember { TextFieldState() },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
+            onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
+            onLanguageChipClick = {},
+            onAudienceChipClick = {},
+        )
+    }
+}
+
 @PreviewTest
 @Preview(name = "quote-mode-loaded-light", showBackground = true)
 @Preview(name = "quote-mode-loaded-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)

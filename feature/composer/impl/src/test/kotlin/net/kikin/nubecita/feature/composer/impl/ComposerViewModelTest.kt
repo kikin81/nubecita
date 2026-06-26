@@ -39,6 +39,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentPostUi
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuotePostUi
+import net.kikin.nubecita.feature.composer.impl.state.isGalleryMissingAlt
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -275,6 +276,81 @@ class ComposerViewModelTest {
                 vm.uiState.value.attachments
                     .toList(),
             )
+        }
+
+    @Test
+    fun openAltEditor_setsTarget_closeClears_andOutOfRangeIgnored() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att(), att(), att())))
+
+            vm.handleEvent(ComposerEvent.OpenAltEditor(2))
+            assertEquals(2, vm.uiState.value.altEditTarget)
+
+            vm.handleEvent(ComposerEvent.CloseAltEditor)
+            assertNull(vm.uiState.value.altEditTarget)
+
+            vm.handleEvent(ComposerEvent.OpenAltEditor(99))
+            assertNull(vm.uiState.value.altEditTarget)
+        }
+
+    @Test
+    fun setAltText_updatesOnlyThatPhoto_andPersistsAcrossReorder() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+            val a = att()
+            val b = att()
+            val c = att()
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(a, b, c)))
+
+            vm.handleEvent(ComposerEvent.SetAltText(index = 1, text = "the middle one"))
+            assertEquals(
+                listOf("", "the middle one", ""),
+                vm.uiState.value.attachments
+                    .map { it.alt },
+            )
+
+            // Reorder the described photo to the front — its alt rides along.
+            vm.handleEvent(ComposerEvent.MoveAttachment(from = 1, to = 0))
+            assertEquals(
+                "the middle one",
+                vm.uiState.value.attachments[0]
+                    .alt,
+            )
+        }
+
+    @Test
+    fun galleryRequiresAltOnEveryPhoto_butImagesDoNot() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+
+            // 4 images, all blank alt — an images embed, not gated.
+            vm.handleEvent(ComposerEvent.AddAttachments(List(4) { att() }))
+            assertFalse(vm.uiState.value.isGalleryMissingAlt)
+
+            // 5th image promotes to a gallery → now every photo needs alt.
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att())))
+            assertTrue(vm.uiState.value.isGalleryMissingAlt)
+
+            // Submit is gated: with a blank-alt gallery, Submit is a no-op.
+            vm.handleEvent(ComposerEvent.Submit)
+            assertEquals(ComposerSubmitStatus.Idle, vm.uiState.value.submitStatus)
+
+            // Describe all 5 → gate lifts.
+            repeat(5) { i -> vm.handleEvent(ComposerEvent.SetAltText(index = i, text = "desc $i")) }
+            assertFalse(vm.uiState.value.isGalleryMissingAlt)
+        }
+
+    @Test
+    fun demotingGalleryBelowFive_liftsTheAltGate() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+            vm.handleEvent(ComposerEvent.AddAttachments(List(5) { att() }))
+            assertTrue(vm.uiState.value.isGalleryMissingAlt)
+
+            // Remove one → 4 images (images embed) → no longer gated, even blank.
+            vm.handleEvent(ComposerEvent.RemoveAttachment(0))
+            assertFalse(vm.uiState.value.isGalleryMissingAlt)
         }
 
     @Test

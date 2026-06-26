@@ -123,4 +123,14 @@
          which renders the device-locale display name to mirror what
          the repo's wtq.12 device-locale fallback would send. -->
     <string name="composer_language_chip_none">No language</string>
+
+    <!-- Per-photo alt-text editor (gallery). -->
+    <string name="composer_edit_description_action">Edit description</string>
+    <string name="composer_alt_editor_field_label">Describe this photo</string>
+    <string name="composer_alt_editor_done_action">Done</string>
+    <string name="composer_alt_editor_close_action">Close descriptions</string>
+    <!-- Position of the focused photo in the alt editor, e.g. "3 of 7". -->
+    <string name="composer_alt_editor_position">%1$d of %2$d</string>
+    <!-- Shown when a gallery (more than 4 images) still has an undescribed photo, blocking Post. -->
+    <string name="composer_alt_required_hint">Add alt text to every photo</string>
 </resources>

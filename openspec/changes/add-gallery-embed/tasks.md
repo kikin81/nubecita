@@ -46,13 +46,15 @@ Grouped to match the beads epic `nubecita-vye3`. Each group names its bd child i
 
 ## 7. Alt-text editor + required-alt gate — `:feature:composer` (bd: nubecita-vye3.8)
 
-- [ ] 7.1 **Spike first:** resolve how an adaptive alt-edit route is hosted from the composer's hand-rolled overlay (composer-internal nested presentation vs. MainShell `navState`); document the chosen approach.
-- [ ] 7.2 Add an `AltEdit(index)` adaptive route tagged `adaptiveDialog()` (full-screen phone / dialog tablet) showing the image + a text field.
-- [ ] 7.3 Add `SetAltText(index, text)` event + reducer writing `alt` onto the attachment.
-- [ ] 7.4 Tap thumbnail → open editor; show an "ALT" badge on thumbnails with non-blank alt.
-- [ ] 7.5 Gate submit when `attachments.size > 4` and any alt is blank; show a hint naming the requirement. No gate at ≤4. Demotion lifts the gate.
-- [ ] 7.6 Unit tests: gate disables/enables on alt completeness at >4; ≤4 never gated; demotion lifts gate; alt persists across promote/demote.
-- [ ] 7.7 Screenshot test: alt-edit route (compact + dialog) and the "ALT" badge.
+(No spike: the composer is already an `adaptiveDialog()` `@MainShell` entry, so the editor is a composer-internal layer that inherits its presentation — see design D6. Also correct the stale "hand-rolled overlay / nubecita-11st" note in CLAUDE.md.)
+
+- [ ] 7.1 `ComposerState.altEditTarget: Int? = null` + events `OpenAltEditor(index)`, `CloseAltEditor`, `SetAltText(index, text)` (+ reducers; SetAltText writes `ComposerAttachment.alt`).
+- [ ] 7.2 `AltEditorLayer` composable: `HorizontalPager` over attachments opened at the target index — focused photo + its alt `OutlinedTextField` (value/onValueChange → SetAltText) + back/done; bottom thumbnail filmstrip with ✓ for described, tap to jump.
+- [ ] 7.3 Host it in `ComposerScreenContent`: `if (altEditTarget != null) AltEditorLayer(...) else ComposerBody(...)` — inherits the composer's full-screen/dialog presentation.
+- [ ] 7.4 Tap an attachment chip → `OpenAltEditor(index)`; add an "ALT" status badge to the chip (described = filled/✓, else outlined). Keep long-press = reorder, X = remove.
+- [ ] 7.5 Gate submit when `attachments.size > 4` and any alt is blank; show a hint naming the requirement. No gate at ≤4. Demotion lifts the gate. The filmstrip + chip badges surface which photos still need alt.
+- [ ] 7.6 Unit tests: open/close editor; SetAltText updates the right photo; gate disables/enables on completeness at >4; ≤4 never gated; demotion lifts gate; alt persists across reorder.
+- [ ] 7.7 Screenshot tests: AltEditorLayer (focused photo + field + filmstrip) and chip ALT-badge states. Feature-module baselines via the `update-baselines` label.
 
 ## 8. Wrap-up
 

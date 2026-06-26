@@ -50,4 +50,12 @@
     <string name="composer_audience_chip_limited">Interacción limitada</string>
     <string name="composer_audience_save_error">No se pudo guardar como predeterminado. Aún se aplica a esta publicación.</string>
     <string name="composer_language_chip_none">Sin idioma</string>
+
+    <!-- Editor de texto alternativo por foto (galería). -->
+    <string name="composer_edit_description_action">Editar descripción</string>
+    <string name="composer_alt_editor_field_label">Describe esta foto</string>
+    <string name="composer_alt_editor_done_action">Listo</string>
+    <string name="composer_alt_editor_close_action">Cerrar descripciones</string>
+    <string name="composer_alt_editor_position">%1$d de %2$d</string>
+    <string name="composer_alt_required_hint">Agrega texto alternativo a cada foto</string>
 </resources>
