@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.composer.impl.internal
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -70,6 +71,11 @@ internal fun AltEditorLayer(
             pageCount = { attachments.size },
         )
     val scope = rememberCoroutineScope()
+
+    // The editor replaces the composer body, so a system back-press must close
+    // the editor (return to the body) rather than falling through to the
+    // composer's own discard/close BackHandler.
+    BackHandler(onBack = onClose)
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize()) {

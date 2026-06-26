@@ -1,7 +1,6 @@
 package net.kikin.nubecita.feature.composer.impl.internal
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -126,26 +125,19 @@ private fun AltBadge(
     described: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    // Opaque containers (not a scrim/translucent fill) so the "ALT" text stays
+    // legible over any photo and in both themes: described = primary, otherwise
+    // the neutral surfaceContainerHighest disc the remove button also uses.
     val containerColor =
-        if (described) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f)
-        }
+        if (described) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
     val contentColor =
-        if (described) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f)
+        if (described) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     Box(
         modifier =
             modifier
                 .clip(RoundedCornerShape(4.dp))
                 .background(containerColor)
-                .then(
-                    if (described) {
-                        Modifier
-                    } else {
-                        Modifier.border(1.dp, contentColor.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                    },
-                ).padding(horizontal = 4.dp, vertical = 1.dp),
+                .padding(horizontal = 4.dp, vertical = 1.dp),
     ) {
         Text(
             text = "ALT",
