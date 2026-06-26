@@ -42,6 +42,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
+import net.kikin.nubecita.feature.composer.impl.state.isGalleryMissingAlt
 import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -297,6 +298,9 @@ internal class ComposerViewModel
                 is ComposerEvent.AddAttachments -> if (!submitInFlight) handleAddAttachments(event.attachments)
                 is ComposerEvent.RemoveAttachment -> if (!submitInFlight) handleRemoveAttachment(event.index)
                 is ComposerEvent.MoveAttachment -> if (!submitInFlight) handleMoveAttachment(event.from, event.to)
+                is ComposerEvent.OpenAltEditor -> if (!submitInFlight) handleOpenAltEditor(event.index)
+                ComposerEvent.CloseAltEditor -> handleCloseAltEditor()
+                is ComposerEvent.SetAltText -> if (!submitInFlight) handleSetAltText(event.index, event.text)
                 ComposerEvent.Submit -> handleSubmit()
                 ComposerEvent.RetryParentLoad -> if (!submitInFlight) handleRetryParentLoad()
                 ComposerEvent.RetryQuoteLoad -> if (!submitInFlight) handleRetryQuoteLoad()
@@ -357,6 +361,35 @@ internal class ComposerViewModel
                             attachments
                                 .toMutableList()
                                 .apply { add(to, removeAt(from)) }
+                                .toImmutableList(),
+                    )
+                }
+            }
+        }
+
+        private fun handleOpenAltEditor(index: Int) {
+            setState {
+                if (index in attachments.indices) copy(altEditTarget = index) else this
+            }
+        }
+
+        private fun handleCloseAltEditor() {
+            setState { copy(altEditTarget = null) }
+        }
+
+        private fun handleSetAltText(
+            index: Int,
+            text: String,
+        ) {
+            setState {
+                if (index !in attachments.indices) {
+                    this
+                } else {
+                    copy(
+                        attachments =
+                            attachments
+                                .toMutableList()
+                                .apply { this[index] = this[index].copy(alt = text) }
                                 .toImmutableList(),
                     )
                 }
@@ -658,6 +691,10 @@ internal class ComposerViewModel
                     state.quotePostLoad is QuoteLoadStatus.Loaded
             if (!hasContent) return false
             if (state.isOverLimit) return false
+            // Gallery (>4 images, emitted as app.bsky.embed.gallery) requires
+            // alt text on every photo. Images embeds (≤4) stay optional — no
+            // regression to the existing image-post flow.
+            if (state.isGalleryMissingAlt) return false
             val submitInFlight =
                 state.submitStatus is ComposerSubmitStatus.Submitting ||
                     state.submitStatus is ComposerSubmitStatus.Success

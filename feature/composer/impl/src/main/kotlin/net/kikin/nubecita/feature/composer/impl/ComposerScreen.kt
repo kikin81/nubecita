@@ -59,6 +59,7 @@ import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.composer.impl.internal.AltEditorLayer
 import net.kikin.nubecita.feature.composer.impl.internal.AudiencePicker
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAudienceChip
@@ -80,6 +81,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.isGalleryMissingAlt
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.util.Locale
@@ -191,6 +193,18 @@ internal fun ComposerScreen(
     val onMoveAttachment =
         remember(viewModel) {
             { from: Int, to: Int -> viewModel.handleEvent(ComposerEvent.MoveAttachment(from, to)) }
+        }
+    val onOpenAltEditor =
+        remember(viewModel) {
+            { index: Int -> viewModel.handleEvent(ComposerEvent.OpenAltEditor(index)) }
+        }
+    val onCloseAltEditor =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.CloseAltEditor) }
+        }
+    val onSetAltText =
+        remember(viewModel) {
+            { index: Int, text: String -> viewModel.handleEvent(ComposerEvent.SetAltText(index, text)) }
         }
     val onSuggestionClick =
         remember(viewModel) {
@@ -336,6 +350,9 @@ internal fun ComposerScreen(
         onAddImageClick = onAddImageClick,
         onRemoveAttachment = onRemoveAttachment,
         onMoveAttachment = onMoveAttachment,
+        onOpenAltEditor = onOpenAltEditor,
+        onCloseAltEditor = onCloseAltEditor,
+        onSetAltText = onSetAltText,
         onSuggestionClick = onSuggestionClick,
         onRetryParentLoad = onRetryParentLoad,
         onRetryQuoteLoad = onRetryQuoteLoad,
@@ -436,10 +453,30 @@ internal fun ComposerScreenContent(
     onAudienceChipClick: () -> Unit,
     modifier: Modifier = Modifier,
     // Optional (defaulted) so static previews / screenshot fixtures need not
-    // thread it — they never reorder. The live screen passes the real VM
-    // callback. Placed after `modifier` per the Compose parameter-order rule.
+    // thread them — they never reorder or edit alt. The live screen passes the
+    // real VM callbacks. Placed after `modifier` per the Compose param-order rule.
     onMoveAttachment: (Int, Int) -> Unit = { _, _ -> },
+    onOpenAltEditor: (Int) -> Unit = {},
+    onCloseAltEditor: () -> Unit = {},
+    onSetAltText: (Int, String) -> Unit = { _, _ -> },
 ) {
+    // Alt editor is a layer within the composer's own surface: when a photo is
+    // being described, it replaces the composer body (full-screen on phone, or
+    // within the composer's dialog card on tablet — inherited, no second route).
+    // The composer body's text lives on the VM's TextFieldState, so swapping the
+    // subtree out and back loses nothing.
+    val altTarget = state.altEditTarget
+    if (altTarget != null) {
+        AltEditorLayer(
+            attachments = state.attachments,
+            initialIndex = altTarget,
+            onSetAlt = onSetAltText,
+            onClose = onCloseAltEditor,
+            modifier = modifier.fillMaxSize(),
+        )
+        return
+    }
+
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -594,7 +631,19 @@ internal fun ComposerScreenContent(
                 onAddImageClick = onAddImageClick,
                 onRemoveAttachment = onRemoveAttachment,
                 onMoveAttachment = onMoveAttachment,
+                onChipClick = onOpenAltEditor,
             )
+            // Gallery required-alt hint: explains why Post is disabled when a
+            // >4-image gallery still has an undescribed photo. The chip ALT
+            // badges + the editor filmstrip show which ones.
+            if (state.isGalleryMissingAlt) {
+                Text(
+                    text = stringResource(R.string.composer_alt_required_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             // Quote-mode section — renders nothing when not quoting
             // (quotePostLoad == null). Sits at the bottom (below text +
             // attachments), matching the reader's stacked layout: reply
@@ -633,6 +682,7 @@ private fun ComposerAttachmentRow(
     onAddImageClick: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
     onMoveAttachment: (Int, Int) -> Unit,
+    onChipClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val attachmentCount = attachments.size
@@ -687,8 +737,10 @@ private fun ComposerAttachmentRow(
                             // `onRemoveAttachment` is already stable
                             // (hoisted via `remember(viewModel)` upstream).
                             onRemoveClick = { onRemoveAttachment(index) },
-                            // Long-press anywhere on the chip starts a
-                            // drag-to-reorder; the X tap still removes.
+                            // Tap the chip to describe it (alt editor); long-press
+                            // starts a drag-to-reorder; the X tap removes. Tap is
+                            // gated off while submitting, matching remove/drag.
+                            onClick = if (isSubmitting) null else ({ onChipClick(index) }),
                             // Disabled while submitting (the upload pipeline
                             // reads the list — mutations would race awaitAll).
                             modifier = Modifier.longPressDraggableHandle(enabled = !isSubmitting),
@@ -719,6 +771,8 @@ private fun canPost(
     val hasQuote = state.quotePostLoad is QuoteLoadStatus.Loaded
     if (textFieldState.text.isBlank() && state.attachments.isEmpty() && !hasQuote) return false
     if (state.isOverLimit) return false
+    // Gallery (>4 images) requires alt on every photo — mirrors the VM gate.
+    if (state.isGalleryMissingAlt) return false
     // Reply-mode requires the parent to be Loaded — without the
     // parent's CID we can't construct the reply ref. The VM's
     // `canSubmit` enforces the same gate; mirroring it here keeps

@@ -107,4 +107,25 @@ internal data class ComposerState(
     val audience: PostAudience = PostAudience.DEFAULT,
     val submitStatus: ComposerSubmitStatus = ComposerSubmitStatus.Idle,
     val typeahead: TypeaheadStatus = TypeaheadStatus.Idle,
+    /**
+     * Index of the attachment whose alt text is being edited, or `null` when the
+     * alt editor is closed. A non-null value swaps the composer body for the
+     * per-photo alt editor layer (a paged editor opened at this index). The
+     * editor and the composer body are mutually exclusive, so the attachment
+     * row's mutations (add / remove / reorder) never race the editor.
+     */
+    val altEditTarget: Int? = null,
 ) : UiState
+
+/**
+ * True when this is a gallery post (more than 4 images, emitted as
+ * `app.bsky.embed.gallery`) and at least one image still has blank alt text.
+ * Galleries require a description on every photo; images embeds (≤4) do not.
+ * Drives both the submit gate (`canSubmit` / `canPost`) and the "needs alt" hint.
+ * Demoting below 5 images (or describing the last one) flips this to false.
+ */
+internal val ComposerState.isGalleryMissingAlt: Boolean
+    get() = attachments.size > GALLERY_ALT_REQUIRED_ABOVE && attachments.any { it.alt.isBlank() }
+
+/** Above this image count, a post is a gallery and every photo must have alt text. */
+internal const val GALLERY_ALT_REQUIRED_ABOVE = 4

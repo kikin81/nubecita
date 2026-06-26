@@ -48,6 +48,26 @@ internal sealed interface ComposerEvent : UiEvent {
     ) : ComposerEvent
 
     /**
+     * The user tapped attachment chip [index] to describe it. Reducer opens
+     * the per-photo alt editor focused on that index ([ComposerState.altEditTarget]).
+     */
+    data class OpenAltEditor(
+        val index: Int,
+    ) : ComposerEvent
+
+    /** The user dismissed the alt editor (back/done). Reducer clears `altEditTarget`. */
+    data object CloseAltEditor : ComposerEvent
+
+    /**
+     * The user edited the alt text for the photo at [index] in the editor.
+     * Reducer writes [text] onto that attachment's `alt`.
+     */
+    data class SetAltText(
+        val index: Int,
+        val text: String,
+    ) : ComposerEvent
+
+    /**
      * The user tapped Post. Triggers the submit flow: validate (text
      * non-blank or attachments non-empty, not over limit, reply
      * parent loaded if reply-mode), transition to

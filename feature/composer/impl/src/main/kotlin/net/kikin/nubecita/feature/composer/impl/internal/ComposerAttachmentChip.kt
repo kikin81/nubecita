@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.composer.impl.internal
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -10,11 +12,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
@@ -47,18 +51,33 @@ internal fun ComposerAttachmentChip(
     attachment: ComposerAttachment,
     enabled: Boolean,
     onRemoveClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val editLabel = stringResource(R.string.composer_edit_description_action)
     Box(
         modifier =
             modifier
                 .size(CHIP_SIZE)
-                .clip(RoundedCornerShape(8.dp)),
+                .clip(RoundedCornerShape(8.dp))
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(onClickLabel = editLabel, onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                ),
     ) {
         NubecitaAsyncImage(
             model = attachment.uri,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
+        )
+        // "ALT" status badge (bottom-start): filled when the photo is described,
+        // outlined when it still needs alt text. Tapping the chip opens the editor.
+        AltBadge(
+            described = attachment.alt.isNotBlank(),
+            modifier = Modifier.align(Alignment.BottomStart).padding(4.dp),
         )
         // Remove button. The container color paints an opaque
         // `surfaceContainerHighest` disc behind the icon so it stays
@@ -93,6 +112,47 @@ internal fun ComposerAttachmentChip(
                 opticalSize = 16.dp,
             )
         }
+    }
+}
+
+/**
+ * Small "ALT" pill overlaid on a chip. [described] = filled (primary container)
+ * once the photo has alt text; otherwise outlined on a translucent scrim so it
+ * reads as a prompt to add one. Decorative — the chip's click action carries
+ * the accessible "edit description" label, so the badge text is not announced.
+ */
+@Composable
+private fun AltBadge(
+    described: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor =
+        if (described) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f)
+        }
+    val contentColor =
+        if (described) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f)
+    Box(
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(containerColor)
+                .then(
+                    if (described) {
+                        Modifier
+                    } else {
+                        Modifier.border(1.dp, contentColor.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                    },
+                ).padding(horizontal = 4.dp, vertical = 1.dp),
+    ) {
+        Text(
+            text = "ALT",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = contentColor,
+        )
     }
 }
 
