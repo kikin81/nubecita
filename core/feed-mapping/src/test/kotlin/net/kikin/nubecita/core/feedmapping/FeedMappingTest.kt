@@ -59,6 +59,52 @@ internal class FeedMappingTest {
     }
 
     @Test
+    fun `gallery embed projects to EmbedUi Gallery with item count and mapped fields`() {
+        val postView = decodePostView(POST_WITH_GALLERY)
+        val mapped = postView.toPostUiCore()
+        assertNotNull(mapped)
+        val gallery = assertInstanceOf(EmbedUi.Gallery::class.java, mapped!!.embed)
+        assertEquals(5, gallery.items.size)
+        // gallery#viewImage uses `thumbnail` (not images' `thumb`) and `fullsize`.
+        assertEquals(
+            "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/g0@jpeg",
+            gallery.items[0].fullsizeUrl,
+        )
+        assertEquals(
+            "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/g0@jpeg",
+            gallery.items[0].thumbUrl,
+        )
+        assertEquals("image zero", gallery.items[0].altText)
+        // gallery aspectRatio is non-null on the wire (unlike images).
+        assertEquals(3f / 2f, gallery.items[0].aspectRatio!!, 0.0001f)
+    }
+
+    @Test
+    fun `gallery embed skips unknown item-union members`() {
+        // gallery#view items are an open union; an unrecognized member must be
+        // dropped (filterIsInstance) rather than crash the whole post.
+        val postView = decodePostView(POST_WITH_GALLERY_UNKNOWN_ITEM)
+        val mapped = postView.toPostUiCore()
+        assertNotNull(mapped)
+        val gallery = assertInstanceOf(EmbedUi.Gallery::class.java, mapped!!.embed)
+        assertEquals(1, gallery.items.size)
+        assertEquals("only known", gallery.items[0].altText)
+    }
+
+    @Test
+    fun `gallery image with a non-positive aspect ratio dimension maps to null aspectRatio`() {
+        // Defensive: a 0 (or negative) width/height would produce NaN/Infinity
+        // and crash Modifier.aspectRatio — the mapper drops it to null so the
+        // render layer falls back to its default aspect.
+        val postView = decodePostView(POST_WITH_GALLERY_ZERO_ASPECT)
+        val mapped = postView.toPostUiCore()
+        assertNotNull(mapped)
+        val gallery = assertInstanceOf(EmbedUi.Gallery::class.java, mapped!!.embed)
+        assertEquals(1, gallery.items.size)
+        assertNull(gallery.items[0].aspectRatio)
+    }
+
+    @Test
     fun `external embed projects to EmbedUi External with parsed display domain`() {
         val postView = decodePostView(POST_WITH_EXTERNAL_EMBED)
         val mapped = postView.toPostUiCore()
@@ -176,6 +222,125 @@ internal class FeedMappingTest {
                     "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/cid2@jpeg",
                     "alt": "second",
                     "aspectRatio": { "width": 16, "height": 9 }
+                  }
+                ]
+              }
+            }
+        """
+
+        const val POST_WITH_GALLERY = """
+            {
+              "uri": "at://did:plc:fake/app.bsky.feed.post/g1",
+              "cid": "bafyreifakecid000000000000000000000000000000000",
+              "author": {
+                "did": "did:plc:fake",
+                "handle": "fake.bsky.social"
+              },
+              "indexedAt": "2026-04-26T12:00:00Z",
+              "record": {
+                "${'$'}type": "app.bsky.feed.post",
+                "text": "five image gallery",
+                "createdAt": "2026-04-26T12:00:00Z"
+              },
+              "embed": {
+                "${'$'}type": "app.bsky.embed.gallery#view",
+                "items": [
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewImage",
+                    "thumbnail": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/g0@jpeg",
+                    "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/g0@jpeg",
+                    "alt": "image zero",
+                    "aspectRatio": { "width": 3, "height": 2 }
+                  },
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewImage",
+                    "thumbnail": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/g1@jpeg",
+                    "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/g1@jpeg",
+                    "alt": "image one",
+                    "aspectRatio": { "width": 1, "height": 1 }
+                  },
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewImage",
+                    "thumbnail": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/g2@jpeg",
+                    "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/g2@jpeg",
+                    "alt": "image two",
+                    "aspectRatio": { "width": 16, "height": 9 }
+                  },
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewImage",
+                    "thumbnail": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/g3@jpeg",
+                    "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/g3@jpeg",
+                    "alt": "image three",
+                    "aspectRatio": { "width": 4, "height": 3 }
+                  },
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewImage",
+                    "thumbnail": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/g4@jpeg",
+                    "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/g4@jpeg",
+                    "alt": "image four",
+                    "aspectRatio": { "width": 2, "height": 3 }
+                  }
+                ]
+              }
+            }
+        """
+
+        const val POST_WITH_GALLERY_UNKNOWN_ITEM = """
+            {
+              "uri": "at://did:plc:fake/app.bsky.feed.post/g2",
+              "cid": "bafyreifakecid000000000000000000000000000000000",
+              "author": {
+                "did": "did:plc:fake",
+                "handle": "fake.bsky.social"
+              },
+              "indexedAt": "2026-04-26T12:00:00Z",
+              "record": {
+                "${'$'}type": "app.bsky.feed.post",
+                "text": "gallery with an unknown item",
+                "createdAt": "2026-04-26T12:00:00Z"
+              },
+              "embed": {
+                "${'$'}type": "app.bsky.embed.gallery#view",
+                "items": [
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewImage",
+                    "thumbnail": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/k0@jpeg",
+                    "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/k0@jpeg",
+                    "alt": "only known",
+                    "aspectRatio": { "width": 1, "height": 1 }
+                  },
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewSomethingNew",
+                    "foo": "bar"
+                  }
+                ]
+              }
+            }
+        """
+
+        const val POST_WITH_GALLERY_ZERO_ASPECT = """
+            {
+              "uri": "at://did:plc:fake/app.bsky.feed.post/g3",
+              "cid": "bafyreifakecid000000000000000000000000000000000",
+              "author": {
+                "did": "did:plc:fake",
+                "handle": "fake.bsky.social"
+              },
+              "indexedAt": "2026-04-26T12:00:00Z",
+              "record": {
+                "${'$'}type": "app.bsky.feed.post",
+                "text": "gallery with a degenerate aspect ratio",
+                "createdAt": "2026-04-26T12:00:00Z"
+              },
+              "embed": {
+                "${'$'}type": "app.bsky.embed.gallery#view",
+                "items": [
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewImage",
+                    "thumbnail": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/z0@jpeg",
+                    "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/z0@jpeg",
+                    "alt": "zero height",
+                    "aspectRatio": { "width": 1, "height": 0 }
                   }
                 ]
               }

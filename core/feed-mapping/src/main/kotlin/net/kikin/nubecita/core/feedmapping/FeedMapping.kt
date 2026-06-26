@@ -3,6 +3,8 @@ package net.kikin.nubecita.core.feedmapping
 import io.github.kikin81.atproto.app.bsky.actor.ProfileView
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewBasic
 import io.github.kikin81.atproto.app.bsky.embed.ExternalView
+import io.github.kikin81.atproto.app.bsky.embed.GalleryView
+import io.github.kikin81.atproto.app.bsky.embed.GalleryViewImage
 import io.github.kikin81.atproto.app.bsky.embed.ImagesView
 import io.github.kikin81.atproto.app.bsky.embed.RecordView
 import io.github.kikin81.atproto.app.bsky.embed.RecordViewBlocked
@@ -120,6 +122,7 @@ fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi =
     when (this) {
         null -> EmbedUi.Empty
         is ImagesView -> toEmbedUiImages()
+        is GalleryView -> toEmbedUiGallery()
         is ExternalView -> toEmbedUiExternalOrGif()
         is RecordView -> toRecordOrUnavailable()
         is VideoView -> toEmbedUiVideo() ?: EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")
@@ -202,6 +205,8 @@ fun ViewerState?.toViewerStateUi(authorViewer: ActorViewerState? = null): Viewer
  * without the parent-style wrapper.
  */
 fun ImagesView.toEmbedUiImages(): EmbedUi.Images = EmbedUi.Images(items = toImageUiList())
+
+fun GalleryView.toEmbedUiGallery(): EmbedUi.Gallery = EmbedUi.Gallery(items = toGalleryImageUiList())
 
 fun VideoView.toEmbedUiVideo(): EmbedUi.Video? =
     toVideoPayload()?.let { p ->
@@ -349,6 +354,7 @@ private fun RecordWithMediaView.toEmbedUiRecordWithMedia(): EmbedUi {
 private fun RecordWithMediaViewMediaUnion.toMediaEmbed(): EmbedUi.MediaEmbed? =
     when (this) {
         is ImagesView -> toEmbedUiImages()
+        is GalleryView -> toEmbedUiGallery()
         is VideoView -> toEmbedUiVideo()
         is ExternalView -> toEmbedUiExternalOrGif()
         else -> null
@@ -379,6 +385,7 @@ private fun RecordWithMediaView.toQuotedEmbedUiRecordWithMedia(): QuotedEmbedUi 
 private fun RecordWithMediaViewMediaUnion.toQuotedMediaEmbed(): QuotedEmbedUi.MediaEmbed? =
     when (this) {
         is ImagesView -> QuotedEmbedUi.Images(items = toImageUiList())
+        is GalleryView -> QuotedEmbedUi.Gallery(items = toGalleryImageUiList())
         is VideoView ->
             toVideoPayload()?.let { p ->
                 QuotedEmbedUi.Video(
@@ -417,6 +424,11 @@ private fun RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi =
         is ExternalView -> toQuotedExternalOrGif()
         is RecordView -> QuotedEmbedUi.QuotedThreadChip
         is RecordWithMediaView -> toQuotedEmbedUiRecordWithMedia()
+        // NOTE: a quoted post whose OWN embed is an `app.bsky.embed.gallery#view`
+        // falls here to Unsupported — `RecordViewRecordEmbedsUnion` does not yet
+        // carry a gallery variant in the lexicon/SDK (unlike PostViewEmbedUnion
+        // and RecordWithMediaViewMediaUnion, which do). Upstream gap; revisit when
+        // the viewRecord embeds union gains `gallery#view`.
         is RecordViewRecordEmbedsUnion.Unknown -> QuotedEmbedUi.Unsupported(typeUri = type)
         // Open-union fallback — see toEmbedUi's same-shaped comment.
         else -> QuotedEmbedUi.Unsupported(typeUri = (this as? UnknownOpenUnionMember)?.type ?: "unknown")
@@ -442,6 +454,32 @@ private fun ImagesView.toImageUiList(): ImmutableList<ImageUi> =
                 thumbUrl = image.thumb.raw,
                 altText = image.alt.takeIf { it.isNotBlank() },
                 aspectRatio = image.aspectRatio?.let { it.width.toFloat() / it.height.toFloat() },
+            )
+        }.toImmutableList()
+
+/**
+ * Gallery analogue of [toImageUiList] for `app.bsky.embed.gallery#view`.
+ * Two wire differences from images: the items are an open union
+ * ([GalleryViewItemsUnion]) so unrecognized members are dropped via
+ * `filterIsInstance` rather than crashing the whole post; and the view
+ * field is named `thumbnail` (vs images' `thumb`) with a non-null
+ * `aspectRatio` (vs images' optional one).
+ */
+private fun GalleryView.toGalleryImageUiList(): ImmutableList<ImageUi> =
+    items
+        .filterIsInstance<GalleryViewImage>()
+        .map { image ->
+            ImageUi(
+                fullsizeUrl = image.fullsize.raw,
+                thumbUrl = image.thumbnail.raw,
+                altText = image.alt.takeIf { it.isNotBlank() },
+                // Guard against malformed server data: a zero/negative dimension
+                // would yield NaN/Infinity and crash Modifier.aspectRatio. Fall
+                // back to null (render uses its own default aspect).
+                aspectRatio =
+                    image.aspectRatio
+                        .takeIf { it.width > 0 && it.height > 0 }
+                        ?.let { it.width.toFloat() / it.height.toFloat() },
             )
         }.toImmutableList()
 
