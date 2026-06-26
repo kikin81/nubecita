@@ -473,7 +473,13 @@ private fun GalleryView.toGalleryImageUiList(): ImmutableList<ImageUi> =
                 fullsizeUrl = image.fullsize.raw,
                 thumbUrl = image.thumbnail.raw,
                 altText = image.alt.takeIf { it.isNotBlank() },
-                aspectRatio = image.aspectRatio.width.toFloat() / image.aspectRatio.height.toFloat(),
+                // Guard against malformed server data: a zero/negative dimension
+                // would yield NaN/Infinity and crash Modifier.aspectRatio. Fall
+                // back to null (render uses its own default aspect).
+                aspectRatio =
+                    image.aspectRatio
+                        .takeIf { it.width > 0 && it.height > 0 }
+                        ?.let { it.width.toFloat() / it.height.toFloat() },
             )
         }.toImmutableList()
 

@@ -92,6 +92,19 @@ internal class FeedMappingTest {
     }
 
     @Test
+    fun `gallery image with a non-positive aspect ratio dimension maps to null aspectRatio`() {
+        // Defensive: a 0 (or negative) width/height would produce NaN/Infinity
+        // and crash Modifier.aspectRatio — the mapper drops it to null so the
+        // render layer falls back to its default aspect.
+        val postView = decodePostView(POST_WITH_GALLERY_ZERO_ASPECT)
+        val mapped = postView.toPostUiCore()
+        assertNotNull(mapped)
+        val gallery = assertInstanceOf(EmbedUi.Gallery::class.java, mapped!!.embed)
+        assertEquals(1, gallery.items.size)
+        assertNull(gallery.items[0].aspectRatio)
+    }
+
+    @Test
     fun `external embed projects to EmbedUi External with parsed display domain`() {
         val postView = decodePostView(POST_WITH_EXTERNAL_EMBED)
         val mapped = postView.toPostUiCore()
@@ -299,6 +312,35 @@ internal class FeedMappingTest {
                   {
                     "${'$'}type": "app.bsky.embed.gallery#viewSomethingNew",
                     "foo": "bar"
+                  }
+                ]
+              }
+            }
+        """
+
+        const val POST_WITH_GALLERY_ZERO_ASPECT = """
+            {
+              "uri": "at://did:plc:fake/app.bsky.feed.post/g3",
+              "cid": "bafyreifakecid000000000000000000000000000000000",
+              "author": {
+                "did": "did:plc:fake",
+                "handle": "fake.bsky.social"
+              },
+              "indexedAt": "2026-04-26T12:00:00Z",
+              "record": {
+                "${'$'}type": "app.bsky.feed.post",
+                "text": "gallery with a degenerate aspect ratio",
+                "createdAt": "2026-04-26T12:00:00Z"
+              },
+              "embed": {
+                "${'$'}type": "app.bsky.embed.gallery#view",
+                "items": [
+                  {
+                    "${'$'}type": "app.bsky.embed.gallery#viewImage",
+                    "thumbnail": "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:fake/z0@jpeg",
+                    "fullsize": "https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:fake/z0@jpeg",
+                    "alt": "zero height",
+                    "aspectRatio": { "width": 1, "height": 0 }
                   }
                 ]
               }
