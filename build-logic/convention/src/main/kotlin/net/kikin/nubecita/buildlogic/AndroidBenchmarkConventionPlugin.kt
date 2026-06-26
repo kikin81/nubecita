@@ -49,6 +49,19 @@ class AndroidBenchmarkConventionPlugin : Plugin<Project> {
             pluginManager.apply("androidx.baselineprofile")
             pluginManager.apply("com.squareup.sort-dependencies")
 
+            // Which `:app` `environment` flavor `:benchmark` targets. Default
+            // `bench` (deterministic, offline, fake repos + fake SignedIn) — used
+            // by CI Macrobench/StartupBenchmark MEASUREMENT and baseline-profile
+            // VALIDATION, where stable numbers matter. Override with
+            // `-PbaselineProfileEnvironment=production` for the real-device,
+            // signed-in baseline-profile GENERATION run (weekly cadence): only
+            // `production` exercises the real Ktor / atproto / Tink-session-decrypt
+            // / kotlinx.serialization / billing cold-start path the bench flavor
+            // fakes away, so the shipped profile covers what users actually run.
+            // See benchmark/README.md ("Generate the baseline profile").
+            val baselineProfileEnvironment =
+                providers.gradleProperty("baselineProfileEnvironment").orNull ?: "bench"
+
             extensions.configure<TestExtension> {
                 // Shared helper sets compileSdk = 37, minSdk = 28,
                 // Java 17 source/target, and the JVM 17 Kotlin
@@ -122,7 +135,9 @@ class AndroidBenchmarkConventionPlugin : Plugin<Project> {
                     // remaining sections). The current bench-flavor
                     // FeedScrollBenchmark + StartupBenchmark exercise only
                     // the bench-quiet path (Splash → MainShell → Feed).
-                    missingDimensionStrategy("environment", "bench")
+                    // Default `bench`; `-PbaselineProfileEnvironment=production`
+                    // selects the real signed-in path for weekly profile gen.
+                    missingDimensionStrategy("environment", baselineProfileEnvironment)
                 }
 
                 @Suppress("UnstableApiUsage")

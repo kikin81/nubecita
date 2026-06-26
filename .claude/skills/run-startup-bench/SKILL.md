@@ -38,7 +38,7 @@ The two most expensive failure modes of `:benchmark` runs eat ~5–15 min each. 
    -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.targetDeviceSerial=<serial>
    ```
 
-4. **If running the profile generator, sign in first.** The generator drives the signed-in cold-start path and fails fast if Splash routes to Login. The bench (not the generator) wipes app data on each run — sign-in does NOT need to persist for the bench, only for the gen task.
+4. **Only the `production` generator needs sign-in.** The gen task targets `:app`'s `bench` flavor by **default** (fake repos, fake `SignedIn`, mock feed) — no sign-in, never routes to Login, but it produces a profile that's missing ~13k real network/crypto/serialization rules, so **don't ship it**. For the representative, shippable profile pass `-PbaselineProfileEnvironment=production`: that drives the real signed-in cold start, so first install `productionNonMinifiedRelease` and sign in (it fails fast if Splash routes to Login). The bench (not the generator) wipes app data each run, so its sign-in never needs to persist.
 
 ## Decide what to run
 
@@ -65,13 +65,13 @@ Default to **COLD only** when iterating — under the USB-drop threshold and ans
 
 ## Commands
 
-**Generate the baseline profile** (gen task — *needs signed-in device*):
+**Generate the SHIPPABLE baseline profile** — `production` flavor, *needs a signed-in `productionNonMinifiedRelease` device* (real network, non-deterministic, ~weekly cadence):
 
 ```bash
-./gradlew :app:generateReleaseBaselineProfile
+./gradlew :app:generateReleaseBaselineProfile -PbaselineProfileEnvironment=production
 ```
 
-Then commit `app/src/release/generated/baselineProfiles/{startup,baseline}-prof.txt` if the diff is meaningful.
+Then commit `app/src/productionRelease/generated/baselineProfiles/{startup,baseline}-prof.txt` if the diff is meaningful. (Omit the `-P` flag to gen against the deterministic `bench` flavor — fine for quick local validation, but **don't commit a bench-generated profile**: it omits the real network/crypto/serialization startup path.)
 
 **Run StartupBenchmark — COLD cells only** (recommended default):
 
