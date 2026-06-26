@@ -12,6 +12,7 @@ import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Cid
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
@@ -266,6 +267,41 @@ private fun ComposerScreenWithImagesScreenshot() {
                         ),
                 ),
             textFieldState = remember { TextFieldState(initialText = "Three placeholder attachments") },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
+            onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
+            onLanguageChipClick = {},
+            onAudienceChipClick = {},
+        )
+    }
+}
+
+// A full 10-image gallery's worth of attachments — the row is at the cap, so
+// the "Add image" affordance is hidden and the chips scroll horizontally
+// (each is long-press-draggable to reorder, which a static screenshot can't show).
+@PreviewTest
+@Preview(name = "gallery-cap-light", showBackground = true)
+@Preview(name = "gallery-cap-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ComposerScreenGalleryCapScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    graphemeCount = 22,
+                    attachments =
+                        (0 until 10)
+                            .map { ComposerAttachment(uri = Uri.parse("content://fixture/$it"), mimeType = "image/jpeg") }
+                            .toImmutableList(),
+                ),
+            textFieldState = remember { TextFieldState(initialText = "Ten image gallery") },
             snackbarHostState = remember { SnackbarHostState() },
             onSubmit = {},
             onCloseClick = {},

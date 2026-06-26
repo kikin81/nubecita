@@ -296,6 +296,7 @@ internal class ComposerViewModel
             when (event) {
                 is ComposerEvent.AddAttachments -> if (!submitInFlight) handleAddAttachments(event.attachments)
                 is ComposerEvent.RemoveAttachment -> if (!submitInFlight) handleRemoveAttachment(event.index)
+                is ComposerEvent.MoveAttachment -> if (!submitInFlight) handleMoveAttachment(event.from, event.to)
                 ComposerEvent.Submit -> handleSubmit()
                 ComposerEvent.RetryParentLoad -> if (!submitInFlight) handleRetryParentLoad()
                 ComposerEvent.RetryQuoteLoad -> if (!submitInFlight) handleRetryQuoteLoad()
@@ -336,6 +337,28 @@ internal class ComposerViewModel
                     this
                 } else {
                     copy(attachments = attachments.toMutableList().apply { removeAt(index) }.toImmutableList())
+                }
+            }
+        }
+
+        private fun handleMoveAttachment(
+            from: Int,
+            to: Int,
+        ) {
+            setState {
+                // Defensive: ignore out-of-range or no-op moves. The reorderable
+                // row emits a move per single-step crossing, so `to` is always an
+                // adjacent slot in practice, but guard the bounds regardless.
+                if (from !in attachments.indices || to !in attachments.indices || from == to) {
+                    this
+                } else {
+                    copy(
+                        attachments =
+                            attachments
+                                .toMutableList()
+                                .apply { add(to, removeAt(from)) }
+                                .toImmutableList(),
+                    )
                 }
             }
         }
@@ -660,8 +683,14 @@ internal class ComposerViewModel
             /** AT Protocol post-text limit per `app.bsky.richtext.facet.MAX_GRAPHEMES`. */
             const val MAX_GRAPHEMES = 300
 
-            /** Lexicon cap for `app.bsky.embed.images`. */
-            const val MAX_ATTACHMENTS = 4
+            /**
+             * Soft authoring cap on image attachments. Posts with 1–4 images
+             * are emitted as `app.bsky.embed.images` and 5–10 as
+             * `app.bsky.embed.gallery` (the repository chooses by count) — 10 is
+             * the gallery soft limit (lexicon hard ceiling is 20). The picker's
+             * `maxItems` and the add-attachment reducer both enforce this cap.
+             */
+            const val MAX_ATTACHMENTS = 10
 
             /**
              * Per-post `langs` cap. Bluesky's official client lets

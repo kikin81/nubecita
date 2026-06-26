@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,6 +80,8 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.util.Locale
 import kotlin.math.max
 
@@ -184,6 +187,10 @@ internal fun ComposerScreen(
     val onRemoveAttachment =
         remember(viewModel) {
             { index: Int -> viewModel.handleEvent(ComposerEvent.RemoveAttachment(index)) }
+        }
+    val onMoveAttachment =
+        remember(viewModel) {
+            { from: Int, to: Int -> viewModel.handleEvent(ComposerEvent.MoveAttachment(from, to)) }
         }
     val onSuggestionClick =
         remember(viewModel) {
@@ -328,6 +335,7 @@ internal fun ComposerScreen(
         onCloseClick = attemptClose,
         onAddImageClick = onAddImageClick,
         onRemoveAttachment = onRemoveAttachment,
+        onMoveAttachment = onMoveAttachment,
         onSuggestionClick = onSuggestionClick,
         onRetryParentLoad = onRetryParentLoad,
         onRetryQuoteLoad = onRetryQuoteLoad,
@@ -427,6 +435,10 @@ internal fun ComposerScreenContent(
     onLanguageChipClick: () -> Unit,
     onAudienceChipClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // Optional (defaulted) so static previews / screenshot fixtures need not
+    // thread it — they never reorder. The live screen passes the real VM
+    // callback. Placed after `modifier` per the Compose parameter-order rule.
+    onMoveAttachment: (Int, Int) -> Unit = { _, _ -> },
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -581,6 +593,7 @@ internal fun ComposerScreenContent(
                 isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting,
                 onAddImageClick = onAddImageClick,
                 onRemoveAttachment = onRemoveAttachment,
+                onMoveAttachment = onMoveAttachment,
             )
             // Quote-mode section — renders nothing when not quoting
             // (quotePostLoad == null). Sits at the bottom (below text +
@@ -619,11 +632,19 @@ private fun ComposerAttachmentRow(
     isSubmitting: Boolean,
     onAddImageClick: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
+    onMoveAttachment: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val attachmentCount = attachments.size
     val isAtCap = attachmentCount >= ComposerViewModel.MAX_ATTACHMENTS
     val canAddImage = !isSubmitting && !isAtCap
+    // The "Add image" button lives OUTSIDE the LazyRow, so LazyRow item
+    // indices map 1:1 to attachment indices — onMove can forward them as-is.
+    val listState = rememberLazyListState()
+    val reorderableState =
+        rememberReorderableLazyListState(listState) { from, to ->
+            onMoveAttachment(from.index, to.index)
+        }
     Row(
         modifier =
             modifier
@@ -645,6 +666,7 @@ private fun ComposerAttachmentRow(
         }
         if (attachmentCount > 0) {
             LazyRow(
+                state = listState,
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -656,15 +678,22 @@ private fun ComposerAttachmentRow(
                     // twice and the reducer doesn't dedup beyond that.
                     key = { _, item -> item.uri.toString() },
                 ) { index, attachment ->
-                    ComposerAttachmentChip(
-                        attachment = attachment,
-                        enabled = !isSubmitting,
-                        // Inline lambda capture is fine here — the
-                        // LazyRow item subcomposition is bounded and
-                        // `onRemoveAttachment` is already stable
-                        // (hoisted via `remember(viewModel)` upstream).
-                        onRemoveClick = { onRemoveAttachment(index) },
-                    )
+                    ReorderableItem(reorderableState, key = attachment.uri.toString()) { _ ->
+                        ComposerAttachmentChip(
+                            attachment = attachment,
+                            enabled = !isSubmitting,
+                            // Inline lambda capture is fine here — the
+                            // LazyRow item subcomposition is bounded and
+                            // `onRemoveAttachment` is already stable
+                            // (hoisted via `remember(viewModel)` upstream).
+                            onRemoveClick = { onRemoveAttachment(index) },
+                            // Long-press anywhere on the chip starts a
+                            // drag-to-reorder; the X tap still removes.
+                            // Disabled while submitting (the upload pipeline
+                            // reads the list — mutations would race awaitAll).
+                            modifier = Modifier.longPressDraggableHandle(enabled = !isSubmitting),
+                        )
+                    }
                 }
             }
         }

@@ -238,15 +238,43 @@ class ComposerViewModelTest {
         }
 
     @Test
-    fun addAttachments_capsAtFour() =
+    fun addAttachments_capsAtTen() =
         runTest {
             val vm = newVm(replyToUri = null)
 
-            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att(), att(), att())))
-            assertEquals(3, vm.uiState.value.attachments.size)
+            vm.handleEvent(ComposerEvent.AddAttachments(List(6) { att() }))
+            assertEquals(6, vm.uiState.value.attachments.size)
 
-            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att(), att(), att())))
-            assertEquals(4, vm.uiState.value.attachments.size)
+            // 6 + 6 = 12 requested, but the reducer caps at MAX_ATTACHMENTS (10).
+            vm.handleEvent(ComposerEvent.AddAttachments(List(6) { att() }))
+            assertEquals(10, vm.uiState.value.attachments.size)
+        }
+
+    @Test
+    fun moveAttachment_reordersPreservingOthers_andIgnoresOutOfRangeOrNoOp() =
+        runTest {
+            val vm = newVm(replyToUri = null)
+            val a = att()
+            val b = att()
+            val c = att()
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(a, b, c)))
+
+            // Move first to last: [a, b, c] -> [b, c, a].
+            vm.handleEvent(ComposerEvent.MoveAttachment(from = 0, to = 2))
+            assertEquals(
+                listOf(b, c, a),
+                vm.uiState.value.attachments
+                    .toList(),
+            )
+
+            // Out-of-range and no-op moves are silently ignored.
+            vm.handleEvent(ComposerEvent.MoveAttachment(from = 0, to = 99))
+            vm.handleEvent(ComposerEvent.MoveAttachment(from = 1, to = 1))
+            assertEquals(
+                listOf(b, c, a),
+                vm.uiState.value.attachments
+                    .toList(),
+            )
         }
 
     @Test
