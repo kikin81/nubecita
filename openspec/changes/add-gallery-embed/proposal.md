@@ -31,8 +31,9 @@ The governing interop constraint: gallery has **no graceful fallback** — on an
 - **`:core:feed-mapping`** — map `GalleryView` in the top-level `PostViewEmbedUnion` path and the `RecordWithMediaViewMediaUnion` (quoted) path.
 - **`:designsystem`** — `PostCard` dispatches `EmbedUi.Gallery` to the existing carousel; new gallery `@Preview` + screenshot tests.
 - **`:feature:mediaviewer`** — widen the viewer's embed type-guard to accept `EmbedUi.Gallery`.
-- **`:feature:composer`** — 10-image picker cap, promote/demote, drag-reorder, alt-text editor route, required-alt gate; `ComposerAttachment` gains `alt`.
-- **`:core:posting`** — `resolveEmbed` branches Images(≤4)/Gallery(5–10); per-image `alt` + computed `aspectRatio`.
+- **`:feature:composer`** — 10-image picker cap, promote/demote, drag-reorder, alt-text editor route, required-alt gate.
+- **`:core:image`** — `PickedImage` gains image dimensions, computed via a bounds-only decode (`inJustDecodeBounds`) when picking; the picker already opens the `Uri` for its MIME type.
+- **`:core:posting`** — `ComposerAttachment` gains `alt` + `aspectRatio`; `resolveEmbed` branches Images(1–4)/Gallery(≥5, capped at 10 by the composer); per-image `alt` + `aspectRatio` written to records.
 - **SDK**: `io.github.kikin81.atproto` 9.6.0 (already on `main`) — uses `GalleryView` / `GalleryViewImage` / `Gallery` / `GalleryImage` / `PostEmbedUnion.Gallery`. No dependency bump.
 - **Deviation from baseline**: none — stays on MVI / Compose / Hilt / Coil. The composer's alt-edit route uses the established `adaptiveDialog()` scene-strategy pattern; hosting it from the composer's current hand-rolled overlay is an implementation risk to resolve (see design.md).
 

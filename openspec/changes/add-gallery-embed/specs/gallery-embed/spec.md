@@ -60,7 +60,7 @@ The composer SHALL allow up to 10 image attachments (raised from 4). The image p
 - **THEN** the excess images are not added and the total stays at 10
 
 ### Requirement: Automatic promotion and demotion between images and gallery
-When building the post embed, the system SHALL emit `app.bsky.embed.images` for 1–4 images and `app.bsky.embed.gallery` for 5–10 images. The embed kind SHALL be derived solely from the attachment count, with no persisted mode flag. Crossing the boundary by adding or removing images SHALL change the emitted embed accordingly. Per-attachment alt text and computed aspect ratio SHALL be preserved across promotion and demotion.
+When building the post embed, the system SHALL emit `app.bsky.embed.images` for 1–4 images and `app.bsky.embed.gallery` for 5 or more images (the composer caps attachments at 10). Zero attachments SHALL emit no image embed. The posting branch SHALL treat the gallery case as "5 or more" rather than a closed 1–10 range so an unexpected count never silently drops the embed. The embed kind SHALL be derived solely from the attachment count, with no persisted mode flag. Crossing the boundary by adding or removing images SHALL change the emitted embed accordingly. Per-attachment alt text and computed aspect ratio SHALL be preserved across promotion and demotion.
 
 #### Scenario: Four images emit an images embed
 - **WHEN** a post is created with 4 images
@@ -111,8 +111,8 @@ The composer SHALL allow reordering image attachments by drag, and the post SHAL
 - **WHEN** the user drags an attachment from position 1 to position 3
 - **THEN** the created post's embed lists that image in position 3
 
-### Requirement: Per-image aspect ratio at upload
-The system SHALL compute each image's aspect ratio (width and height) from the image during upload and SHALL include it on every `gallery#image`. The system SHALL also include the computed aspect ratio on each `images#image` (previously omitted).
+### Requirement: Per-image aspect ratio
+The system SHALL compute each image's aspect ratio (width and height) via a bounds-only decode when the image is picked, carry it on the attachment, and include it on every `gallery#image`. The system SHALL also include the computed aspect ratio on each `images#image` (previously omitted). The computed ratio SHALL be correct regardless of any upload re-encode/downscale (aspect ratio is scale-invariant).
 
 #### Scenario: Gallery images carry aspect ratio
 - **WHEN** a gallery is uploaded

@@ -4,7 +4,7 @@ Grouped to match the beads epic `nubecita-vye3`. Each group names its bd child i
 
 ## 1. Data model — `:data:models` (bd: nubecita-vye3.2)
 
-- [ ] 1.1 Add `EmbedUi.Gallery(items: ImmutableList<ImageUi>, contentWarning)` as a `MediaEmbed` variant of `EmbedUi`, mirroring `EmbedUi.Images`.
+- [ ] 1.1 Add a sealed supertype `ImageContainerEmbed : MediaEmbed { val items: ImmutableList<ImageUi> }`; make both `EmbedUi.Images` and a new `EmbedUi.Gallery(items, contentWarning)` implement it (lets render/viewer match one branch while staying distinct types).
 - [ ] 1.2 Add `QuotedEmbedUi.Gallery(...)` mirroring `QuotedEmbedUi.Images`.
 - [ ] 1.3 Add gallery fixtures (5- and 10-image) alongside the existing image fixtures.
 - [ ] 1.4 Verify `@Immutable` + `ImmutableList` per `:data:models` conventions.
@@ -18,22 +18,22 @@ Grouped to match the beads epic `nubecita-vye3`. Each group names its bd child i
 
 ## 3. Render — `:designsystem` (bd: nubecita-vye3.4)
 
-- [ ] 3.1 Add `is EmbedUi.Gallery ->` to `PostCard.EmbedSlot`, dispatching to the existing `PostCardImageEmbed`/`MultiImageCarousel` (no new layout).
+- [ ] 3.1 Match `is ImageContainerEmbed ->` in `PostCard.EmbedSlot` (single branch covering Images + Gallery), dispatching to the existing `PostCardImageEmbed`/`MultiImageCarousel` (no new layout).
 - [ ] 3.2 Add `@Preview` fixtures for 5- and 10-image galleries.
 - [ ] 3.3 Add gallery screenshot tests mirroring `PostCardImageEmbedScreenshotTest`; generate baselines. Confirm existing Images baselines are untouched.
 
 ## 4. Lightbox — `:feature:mediaviewer` (bd: nubecita-vye3.5)
 
-- [ ] 4.1 Widen `MediaViewerViewModel`'s `embed !is EmbedUi.Images` guard to also accept `EmbedUi.Gallery`, pulling `.items` from either.
+- [ ] 4.1 Change `MediaViewerViewModel`'s guard to `embed is ImageContainerEmbed` (covers Images + Gallery in one check), pulling `.items` from the supertype.
 - [ ] 4.2 Confirm gallery tap → viewer navigation reuses the existing `onImageClick(index)` wiring (postUri + index route); no count cap.
 - [ ] 4.3 Unit test: gallery embed yields a `Loaded` state across all N images; index clamping holds.
 
-## 5. Posting — `:core:posting` (bd: nubecita-vye3.7)
+## 5. Image dimensions + posting — `:core:image` + `:core:posting` (bd: nubecita-vye3.7)
 
-- [ ] 5.1 Add `alt: String = ""` to `ComposerAttachment`.
-- [ ] 5.2 In `uploadOne`, compute per-image aspect ratio (width/height) from the decoded bitmap bounds; thread it alongside the uploaded `Blob`.
+- [ ] 5.1 `:core:image` — add image dimensions (width/height) to `PickedImage`, computed via a bounds-only decode (`BitmapFactory.Options.inJustDecodeBounds = true`) off the main thread when picking. (The picker already opens the `Uri` for its MIME type — no extra `EncodedImage`/decode work in `uploadOne`.)
+- [ ] 5.2 `:core:posting` — add `alt: String = ""` and `aspectRatio` (from `PickedImage` dimensions) to `ComposerAttachment`.
 - [ ] 5.3 Enrich `ComposerEmbedIntent` to carry per-image `(blob, alt, aspectRatio)`.
-- [ ] 5.4 Branch `resolveEmbed`: 1–4 → `Images` (with `aspectRatio` now populated + `alt`); 5–10 → `Gallery` (`PostEmbedUnion.Gallery`, each `GalleryImage` with `image`+`alt`+`aspectRatio`). Preserve `RecordWithMedia` for the quote+media case at both counts.
+- [ ] 5.4 Branch `resolveEmbed`: 0 → no embed; 1–4 → `Images` (with `aspectRatio` now populated + `alt`); **≥5** → `Gallery` (`PostEmbedUnion.Gallery`, each `GalleryImage` with `image`+`alt`+`aspectRatio`). Preserve `RecordWithMedia` for the quote+media case at both counts.
 - [ ] 5.5 Unit tests: 4 images → Images wire type; 5 images → Gallery wire type; alt + aspectRatio present on records; quote+gallery → RecordWithMedia.
 
 ## 6. Composer multi-image + promote/demote + reorder — `:feature:composer` (bd: nubecita-vye3.6)
