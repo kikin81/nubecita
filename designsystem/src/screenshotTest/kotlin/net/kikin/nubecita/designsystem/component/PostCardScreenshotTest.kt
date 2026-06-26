@@ -13,6 +13,7 @@ import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.ContentWarningCategory
 import net.kikin.nubecita.data.models.EmbedUi
@@ -131,6 +132,28 @@ private fun PostCardWithImageScreenshot() {
             ),
     )
 }
+
+@PreviewTest
+@Preview(name = "with-gallery-light", showBackground = true)
+@Preview(name = "with-gallery-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostCardWithGalleryScreenshot() {
+    // app.bsky.embed.gallery — 5 images, dispatched through PostCard's
+    // EmbedUi.ImageContainerEmbed arm to the same carousel as images.
+    PostCard(post = screenshotPost(embed = EmbedUi.Gallery(items = galleryScreenshotImages(5))))
+}
+
+private fun galleryScreenshotImages(count: Int): ImmutableList<ImageUi> =
+    (0 until count)
+        .map { index ->
+            ImageUi(
+                fullsizeUrl = "https://example.com/g$index.jpg",
+                thumbUrl = "https://example.com/g$index.jpg",
+                altText = "Gallery image $index",
+                aspectRatio = 1.5f,
+            )
+        }.toImmutableList()
 
 // Moderation: a post whose image carries a content warning. `isMediaRevealed`
 // drives the cover (the per-post reveal state a list hoists in the wiring
