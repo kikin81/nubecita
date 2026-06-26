@@ -148,20 +148,43 @@ history is still short.
 
 ## Regenerating the startup baseline profile
 
-The `BaselineProfileGenerator` test drives the signed-in cold-start
-path (Splash → MainShell → first Feed frame). It is invoked via the
-`androidx.baselineprofile` plugin's generation task on `:app`:
+`:benchmark` runs against one of `:app`'s two `environment` flavors,
+selected by the `baselineProfileEnvironment` Gradle property (default
+`bench`). **Which flavor you generate against matters a lot** — they
+produce materially different profiles:
 
-```bash
-./gradlew :app:generateReleaseBaselineProfile
-```
+- **`production` — ship this.** The real signed-in cold-start path
+  (decrypt the stored OAuth session → token refresh → first Feed fetch →
+  Pro entitlement check). Covers the Ktor / atproto-SDK / Tink /
+  `kotlinx.serialization` / billing classes a real user actually loads on
+  launch — the JIT-expensive I/O layer baseline profiles help most.
+  Non-deterministic (real network), so it's a **manual real-device run on
+  a ~weekly cadence**, not CI:
 
-Pre-requisite — **the bench device must be signed in**. The
-generator waits for `feed_list` to appear and fails fast if the
-cold-start path routes Splash → Login instead of Splash → MainShell
-(see `BaselineProfileGenerator`'s KDoc for the diagnostic message).
+  ```bash
+  ./gradlew :app:generateProductionReleaseBaselineProfile -PbaselineProfileEnvironment=production
+  ```
 
-Outputs land in `app/src/release/generated/baselineProfiles/`:
+  Pre-requisite — **the device must be signed in** on the
+  `productionNonMinifiedRelease` build before the run. The generator
+  waits for `feed_list` and fails fast if the cold-start path routes
+  Splash → Login instead of Splash → MainShell (see
+  `BaselineProfileGenerator`'s KDoc for the diagnostic message).
+
+- **`bench` — the default; validation only.** The deterministic offline
+  path (fake repos, fake `SignedIn`, mock feed). No sign-in needed and it
+  never routes to Login, so it's what CI Macrobench / `StartupBenchmark`
+  measurement and profile *validation* use, where stable numbers matter.
+  But it is **not** representative of the real launch path — it omits
+  ~13k network/crypto/serialization rules (measured: production-gen
+  startup profile is +41% vs bench-gen), so **do not ship a
+  bench-generated profile**.
+
+  ```bash
+  ./gradlew :app:generateBenchReleaseBaselineProfile   # bench (validation only; writes only bench src)
+  ```
+
+Outputs land in `app/src/productionRelease/generated/baselineProfiles/`:
 
 | File | Consumer |
 |------|----------|
@@ -172,11 +195,13 @@ Both files are committed to the repo (`saveInSrc = true` is the
 plugin's default in 1.5.x), so the next `:app:assembleRelease` /
 `:app:bundleRelease` picks them up automatically — no extra wiring.
 
-**Cadence.** Regenerate on major Feed, Splash, or Login feature
-merges. Not on every release (the profile decays slowly relative to
-unrelated UI work), and not in CI (cloud runners don't carry the
-signed-in OAuth session this generator depends on; CI integration is
-deferred to `nubecita-crmi.6`).
+**Cadence.** Regenerate the `production` profile on a real signed-in
+device roughly **weekly**, and on major Feed / Splash / Login / startup
+or dependency (Ktor, atproto, billing) merges. Not in CI — cloud runners
+can't carry the signed-in OAuth session the `production` generator
+depends on (this is the deliberate determinism-vs-representativeness
+split: CI measures the `bench` flavor; the shipped profile is generated
+from `production`). CI auto-gen is deferred to `nubecita-crmi.6`.
 
 After regeneration, re-run `StartupBenchmark` on the same device and
 post the new cell medians to the `nubecita-crmi` epic comment thread
