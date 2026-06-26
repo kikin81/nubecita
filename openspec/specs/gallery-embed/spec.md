@@ -120,12 +120,20 @@ The composer SHALL allow reordering image attachments by drag, and the post SHAL
 - **THEN** the created post's embed lists that image in position 3
 
 ### Requirement: Per-image aspect ratio
-The system SHALL compute each image's aspect ratio (width and height) via a bounds-only decode when the image is picked, carry it on the attachment, and include it on every `gallery#image`. The system SHALL also include the computed aspect ratio on each `images#image` (previously omitted). The computed ratio SHALL be correct regardless of any upload re-encode/downscale (aspect ratio is scale-invariant).
+The system SHALL compute each image's aspect ratio (width and height) via a bounds-only decode during the upload phase on an IO dispatcher (reusing the raw bytes the repository already reads, off the main thread), and include it on every `gallery#image`. The system SHALL also include the computed aspect ratio on each `images#image` (previously omitted). The computed ratio SHALL be correct regardless of any upload re-encode/downscale (aspect ratio is scale-invariant). When dimensions are absent or non-positive, `gallery#image` (whose `aspectRatio` is required) SHALL fall back to 1:1, whereas `images#image` (whose `aspectRatio` is optional) SHALL omit it.
 
 #### Scenario: Gallery images carry aspect ratio
-- **WHEN** a gallery is uploaded
+- **WHEN** a gallery is uploaded with valid image dimensions
 - **THEN** every gallery image record includes a non-null aspect ratio computed from the image
 
+#### Scenario: Gallery image with non-positive dimensions falls back to 1:1
+- **WHEN** a gallery image's dimensions are absent or non-positive
+- **THEN** that gallery image record carries a 1:1 aspect ratio rather than a degenerate one
+
 #### Scenario: Images embed also carries aspect ratio
-- **WHEN** an images embed of 1–4 images is uploaded
+- **WHEN** an images embed of 1–4 images is uploaded with valid image dimensions
 - **THEN** every image record includes the computed aspect ratio
+
+#### Scenario: Images embed with non-positive dimensions omits aspect ratio
+- **WHEN** an images embed image's dimensions are absent or non-positive
+- **THEN** that image record omits the aspect ratio
