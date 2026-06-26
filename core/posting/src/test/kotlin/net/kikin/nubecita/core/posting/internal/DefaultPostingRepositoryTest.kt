@@ -239,6 +239,27 @@ class DefaultPostingRepositoryTest {
         }
 
     @Test
+    fun imagesWithNonPositiveDimensions_omitAspectRatio() =
+        runTest {
+            // Defensive guard: a 0/negative dimension would render as NaN/Infinity
+            // and crash Modifier.aspectRatio. On the images path the field is
+            // optional, so it must be omitted entirely.
+            val body = captureCreatedRecordBody(attachmentCount = 4, dimensionDecoder = fixedDimensions(width = 0, height = 0))
+            assertTrue(body.contains("app.bsky.embed.images"), "expected images embed: $body")
+            assertFalse(body.contains("aspectRatio"), "non-positive dims must omit aspectRatio: $body")
+        }
+
+    @Test
+    fun galleryWithNonPositiveDimensions_fallsBackToSquareAspectRatio() =
+        runTest {
+            // gallery#image requires a non-null aspectRatio, so a degenerate
+            // dimension falls back to 1:1 rather than being dropped.
+            val body = captureCreatedRecordBody(attachmentCount = 5, dimensionDecoder = fixedDimensions(width = 0, height = 0))
+            assertTrue(body.contains("app.bsky.embed.gallery"), "expected gallery embed: $body")
+            assertTrue(body.contains("aspectRatio"), "gallery must still carry an aspectRatio: $body")
+        }
+
+    @Test
     fun blobUploadFailure_abortsBeforeCreateRecord() =
         runTest {
             val (engine, repo) =
@@ -1355,15 +1376,17 @@ class DefaultPostingRepositoryTest {
     private suspend fun captureCreatedRecordBody(
         attachmentCount: Int,
         quote: StrongRef? = null,
-    ): String = captureCreatedRecordBody((0 until attachmentCount).map { attachment("image/jpeg") }, quote)
+        dimensionDecoder: ImageDimensionDecoder = fixedDimensions(),
+    ): String = captureCreatedRecordBody((0 until attachmentCount).map { attachment("image/jpeg") }, quote, dimensionDecoder)
 
     private suspend fun captureCreatedRecordBody(
         attachments: List<ComposerAttachment>,
         quote: StrongRef? = null,
+        dimensionDecoder: ImageDimensionDecoder = fixedDimensions(),
     ): String {
         val capturedBody = CompletableDeferred<String>()
         val (_, repo) =
-            newRepo(signedIn = true) { request ->
+            newRepo(signedIn = true, dimensionDecoder = dimensionDecoder) { request ->
                 when {
                     request.url.encodedPath.endsWith("uploadBlob") ->
                         okJson(

@@ -45,6 +45,7 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.image.ImageByteSource
 import net.kikin.nubecita.core.image.ImageDimensionDecoder
+import net.kikin.nubecita.core.image.ImageDimensions
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
@@ -471,31 +472,37 @@ internal class DefaultPostingRepository
             }
         }
 
-        /** images#image carries an OPTIONAL aspectRatio (AtField). */
+        /**
+         * images#image carries an OPTIONAL aspectRatio (AtField). Non-positive
+         * dimensions (defensive — a 0/negative would render as NaN/Infinity and
+         * crash Modifier.aspectRatio) drop to Missing so the render layer uses
+         * its own fallback aspect.
+         */
         private fun UploadedImage.toImagesImage(): ImagesImage =
             ImagesImage(
                 alt = alt,
                 image = blob,
-                aspectRatio =
-                    dimensions
-                        ?.let { AtField.Defined(AspectRatio(width = it.width.toLong(), height = it.height.toLong())) }
-                        ?: AtField.Missing,
+                aspectRatio = dimensions.toAspectRatioOrNull()?.let { AtField.Defined(it) } ?: AtField.Missing,
             )
 
         /**
-         * gallery#image REQUIRES a non-null aspectRatio. When dimensions
-         * couldn't be decoded (rare — corrupt bytes), fall back to 1:1 so the
-         * record is still valid; a square is a neutral default.
+         * gallery#image REQUIRES a non-null aspectRatio. When dimensions are
+         * absent or non-positive (rare — corrupt bytes), fall back to 1:1 so the
+         * record is still valid and never carries a degenerate ratio; a square
+         * is a neutral default.
          */
         private fun UploadedImage.toGalleryImage(): GalleryImage =
             GalleryImage(
                 alt = alt,
                 image = blob,
-                aspectRatio =
-                    dimensions
-                        ?.let { AspectRatio(width = it.width.toLong(), height = it.height.toLong()) }
-                        ?: AspectRatio(width = 1, height = 1),
+                aspectRatio = dimensions.toAspectRatioOrNull() ?: AspectRatio(width = 1L, height = 1L),
             )
+
+        /** A wire [AspectRatio] only when both dimensions are strictly positive. */
+        private fun ImageDimensions?.toAspectRatioOrNull(): AspectRatio? =
+            this
+                ?.takeIf { it.width > 0 && it.height > 0 }
+                ?.let { AspectRatio(width = it.width.toLong(), height = it.height.toLong()) }
 
         /**
          * Maps a raw throwable from the SDK or coroutine machinery to
