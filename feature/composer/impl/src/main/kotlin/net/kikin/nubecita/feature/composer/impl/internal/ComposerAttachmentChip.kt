@@ -33,10 +33,11 @@ import net.kikin.nubecita.feature.composer.impl.R
  * submitting so a stale tap can't mutate the attachment list while
  * the upload pipeline reads it.
  *
- * Sizing is pinned at 72.dp — small enough that 4 chips + the leading
- * "Add image" affordance fit on a Compact-width phone, large enough
- * that the thumbnail is glanceable. The corner radius matches the
- * design-system 8.dp surface radius used elsewhere.
+ * Sizing is pinned at 96.dp — large enough that the thumbnail and its
+ * "ALT" status badge are glanceable; the chip strip scrolls horizontally
+ * so it isn't bounded by how many fit on a Compact-width phone. The photo
+ * uses a 12.dp rounded clip; the remove button sits on the unclipped outer
+ * box so its disc isn't sliced by the corner.
  *
  * The remove-button's a11y `contentDescription` is the localized
  * `composer_remove_attachment_action`. The thumbnail itself sets a
@@ -54,47 +55,46 @@ internal fun ComposerAttachmentChip(
     modifier: Modifier = Modifier,
 ) {
     val editLabel = stringResource(R.string.composer_edit_description_action)
-    Box(
-        modifier =
-            modifier
-                .size(CHIP_SIZE)
-                .clip(RoundedCornerShape(8.dp))
-                .then(
-                    if (onClick != null) {
-                        Modifier.clickable(onClickLabel = editLabel, onClick = onClick)
-                    } else {
-                        Modifier
-                    },
-                ),
-    ) {
-        NubecitaAsyncImage(
-            model = attachment.uri,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-        )
-        // "ALT" status badge (bottom-start): filled when the photo is described,
-        // outlined when it still needs alt text. Tapping the chip opens the editor.
-        AltBadge(
-            described = attachment.alt.isNotBlank(),
-            modifier = Modifier.align(Alignment.BottomStart).padding(4.dp),
-        )
-        // Remove button. The container color paints an opaque
-        // `surfaceContainerHighest` disc behind the icon so it stays
-        // legible against busy thumbnails (a pure black close icon on
-        // a sky-blue photo is otherwise invisible). Opaque is a
-        // deliberate choice: a translucent treatment makes the icon
-        // bleed against bright underlying pixels at the worst-case
-        // photo content. 24.dp button at 4.dp from the chip's top-
-        // right edge keeps the touch target reachable without
-        // dominating the 72.dp thumbnail.
+    // Outer box is NOT clipped, so the remove button can sit flush in the
+    // top-right corner without its disc being sliced off by the rounded corner
+    // (the bug on the 72.dp chip). Only the photo + badge get the rounded clip.
+    Box(modifier = modifier.size(CHIP_SIZE)) {
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .then(
+                        if (onClick != null) {
+                            Modifier.clickable(onClickLabel = editLabel, onClick = onClick)
+                        } else {
+                            Modifier
+                        },
+                    ),
+        ) {
+            NubecitaAsyncImage(
+                model = attachment.uri,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+            )
+            // "ALT" status badge (bottom-start): filled when the photo is described,
+            // outlined when it still needs alt text. Tapping the chip opens the editor.
+            AltBadge(
+                described = attachment.alt.isNotBlank(),
+                modifier = Modifier.align(Alignment.BottomStart).padding(5.dp),
+            )
+        }
+        // Remove button — a child of the unclipped outer box so its opaque
+        // `surfaceContainerHighest` disc renders whole at the corner. (Opaque,
+        // not translucent: a pure icon would be invisible against a bright photo.)
         IconButton(
             onClick = onRemoveClick,
             enabled = enabled,
             modifier =
                 Modifier
                     .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .size(24.dp)
+                    .padding(3.dp)
+                    .size(28.dp)
                     .background(
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
                         shape = CircleShape,
@@ -108,7 +108,7 @@ internal fun ComposerAttachmentChip(
                 name = NubecitaIconName.Close,
                 contentDescription = stringResource(R.string.composer_remove_attachment_action),
                 filled = true,
-                opticalSize = 16.dp,
+                opticalSize = 18.dp,
             )
         }
     }
@@ -148,4 +148,4 @@ private fun AltBadge(
     }
 }
 
-private val CHIP_SIZE = 72.dp
+private val CHIP_SIZE = 96.dp
