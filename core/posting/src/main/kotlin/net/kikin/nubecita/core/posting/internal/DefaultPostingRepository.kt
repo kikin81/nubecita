@@ -519,6 +519,9 @@ internal class DefaultPostingRepository
         ): PreparedExternal {
             val thumb: AtField<Blob> =
                 try {
+                    // downloadThumb is bounded by the metadata repo's own request
+                    // timeout (CardyB: 5 s), so a slow preview host can't hold up the
+                    // post — best-effort, so a timeout just means no thumbnail.
                     val downloaded = external.imageUrl?.let { externalLinkMetadataRepository.downloadThumb(it) }
                     if (downloaded == null) {
                         AtField.Missing

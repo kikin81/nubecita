@@ -80,7 +80,10 @@ internal class CardyBExternalLinkMetadataRepository
             try {
                 val response =
                     httpClient.get(imageUrl) {
-                        timeout { requestTimeoutMillis = REQUEST_TIMEOUT_MS }
+                        // Tighter than the metadata fetch: the thumbnail is best-effort
+                        // and runs on the post-submit path, so a slow image host must
+                        // not hold up the post — give up and ship without a thumb.
+                        timeout { requestTimeoutMillis = THUMB_TIMEOUT_MS }
                     }
                 val declaredLength = response.contentLength()
                 when {
@@ -115,6 +118,10 @@ internal class CardyBExternalLinkMetadataRepository
             const val TAG = "CardyB"
             const val CARDYB_EXTRACT = "https://cardyb.bsky.app/v1/extract"
             const val REQUEST_TIMEOUT_MS = 10_000L
+
+            // The thumbnail download is best-effort and runs while submitting a post,
+            // so it gets a tighter bound than the compose-time metadata fetch.
+            const val THUMB_TIMEOUT_MS = 5_000L
 
             // Bluesky's per-blob byte cap. Oversize thumbnails are skipped rather
             // than posted (the card still posts with title/description/uri).
