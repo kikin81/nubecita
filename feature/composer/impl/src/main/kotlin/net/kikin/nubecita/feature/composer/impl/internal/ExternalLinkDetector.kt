@@ -49,10 +49,13 @@ internal object ExternalLinkDetector {
         var end = url.length
         while (end > 0) {
             val c = url[end - 1]
+            // Count brackets only up to `end` (the candidate URL so far), not the
+            // whole string — otherwise `…/(page))` over-trims the balanced `)` too.
+            val candidate = url.take(end)
             val isPunct = TRAILING_PUNCTUATION.indexOf(c) >= 0
             val isUnbalancedCloser =
-                (c == ')' && url.count { it == '(' } < url.count { it == ')' }) ||
-                    (c == ']' && url.count { it == '[' } < url.count { it == ']' })
+                (c == ')' && candidate.count { it == '(' } < candidate.count { it == ')' }) ||
+                    (c == ']' && candidate.count { it == '[' } < candidate.count { it == ']' })
             if (isPunct || isUnbalancedCloser) end-- else break
         }
         return url.substring(0, end)

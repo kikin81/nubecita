@@ -9,6 +9,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -149,5 +150,22 @@ class CardyBExternalLinkMetadataRepositoryTest {
         runTest {
             val repo = repo { respondError(HttpStatusCode.NotFound) }
             assertNull(repo.downloadThumb("https://cardyb.bsky.app/v1/image?url=missing"))
+        }
+
+    @Test
+    fun downloadThumb_oversizeWithoutContentLength_isBounded_returnsNull() =
+        runTest {
+            // A channel body (no Content-Length) larger than the cap — the bounded
+            // read must reject it without buffering the whole thing.
+            val big = ByteArray(1_000_100)
+            val repo =
+                repo {
+                    respond(
+                        ByteReadChannel(big),
+                        HttpStatusCode.OK,
+                        headersOf(HttpHeaders.ContentType, "image/jpeg"),
+                    )
+                }
+            assertNull(repo.downloadThumb("https://cardyb.bsky.app/v1/image?url=huge"))
         }
 }

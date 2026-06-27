@@ -4,11 +4,14 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsBytes
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.contentLength
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.CancellationException
+import kotlinx.io.readByteArray
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -35,7 +38,7 @@ internal class CardyBExternalLinkMetadataRepository
         private val httpClient: HttpClient,
     ) : ExternalLinkMetadataRepository {
         override suspend fun fetch(url: String): LinkPreview? =
-            runCatching {
+            try {
                 val response =
                     httpClient.get(CARDYB_EXTRACT) {
                         // URL-encoded as a query param — a pasted URL with `?`/`&`
@@ -43,48 +46,67 @@ internal class CardyBExternalLinkMetadataRepository
                         parameter("url", url)
                         timeout { requestTimeoutMillis = REQUEST_TIMEOUT_MS }
                     }
-                if (!response.status.isSuccess()) return null
-                val dto = JSON.decodeFromString(CardyBResponse.serializer(), response.bodyAsText())
-                // Non-empty `error` = CardyB couldn't resolve a card.
-                if (dto.error.isNotBlank()) return null
-                val title = dto.title?.trim().orEmpty()
-                // No usable title → no card (a description-only card is useless).
-                if (title.isBlank()) return null
-                LinkPreview(
-                    // CardyB follows redirects; its `url` is the final destination.
-                    // Fall back to the typed URL only when it's absent.
-                    uri = dto.url?.takeIf { it.isNotBlank() } ?: url,
-                    title = title,
-                    description = dto.description?.trim().orEmpty(),
-                    imageUrl = dto.image?.takeIf { it.isNotBlank() },
-                )
-            }.getOrElse { e ->
+                if (!response.status.isSuccess()) {
+                    null
+                } else {
+                    val dto = JSON.decodeFromString(CardyBResponse.serializer(), response.bodyAsText())
+                    val title = dto.title?.trim().orEmpty()
+                    when {
+                        // Non-empty `error` = CardyB couldn't resolve a card.
+                        dto.error.isNotBlank() -> null
+                        // No usable title → no card (a description-only card is useless).
+                        title.isBlank() -> null
+                        else ->
+                            LinkPreview(
+                                // CardyB follows redirects; its `url` is the final
+                                // destination. Fall back to the typed URL when absent.
+                                uri = dto.url?.takeIf { it.isNotBlank() } ?: url,
+                                title = title,
+                                description = dto.description?.trim().orEmpty(),
+                                imageUrl = dto.image?.takeIf { it.isNotBlank() },
+                            )
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                // Don't swallow cooperative cancellation (the composer cancels an
+                // in-flight fetch when images are added / the card is cleared).
+                throw cancellation
+            } catch (e: Exception) {
                 Timber.tag(TAG).d(e, "fetch(%s) failed → no card", url)
                 null
             }
 
         override suspend fun downloadThumb(imageUrl: String): EncodedImage? =
-            runCatching {
+            try {
                 val response =
                     httpClient.get(imageUrl) {
                         timeout { requestTimeoutMillis = REQUEST_TIMEOUT_MS }
                     }
-                if (!response.status.isSuccess()) return null
-                // OOM/bandwidth guard: reject up-front via Content-Length. CardyB's
-                // image proxy serves resized images and always sends a length, so
-                // this covers the realistic case before buffering anything.
                 val declaredLength = response.contentLength()
-                if (declaredLength != null && declaredLength > MAX_THUMB_BYTES) return null
-                val bytes = response.bodyAsBytes()
-                // Post-guard for a missing/lying Content-Length.
-                if (bytes.size > MAX_THUMB_BYTES) return null
-                val mimeType =
-                    response
-                        .contentType()
-                        ?.let { "${it.contentType}/${it.contentSubtype}" }
-                        ?: DEFAULT_THUMB_MIME
-                EncodedImage(bytes = bytes, mimeType = mimeType)
-            }.getOrElse { e ->
+                when {
+                    !response.status.isSuccess() -> null
+                    // OOM/bandwidth guard: reject up-front via Content-Length when present.
+                    declaredLength != null && declaredLength > MAX_THUMB_BYTES -> null
+                    else -> {
+                        // Bounded read — never buffer more than the cap (+1 to detect
+                        // overflow), so a missing/chunked Content-Length can't OOM.
+                        val bytes =
+                            response.bodyAsChannel().readRemaining(MAX_THUMB_BYTES + 1L).readByteArray()
+                        if (bytes.size > MAX_THUMB_BYTES) {
+                            null
+                        } else {
+                            val mimeType =
+                                response
+                                    .contentType()
+                                    ?.let { "${it.contentType}/${it.contentSubtype}" }
+                                    ?: DEFAULT_THUMB_MIME
+                            EncodedImage(bytes = bytes, mimeType = mimeType)
+                        }
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (e: Exception) {
                 Timber.tag(TAG).d(e, "downloadThumb(%s) failed → no thumb", imageUrl)
                 null
             }

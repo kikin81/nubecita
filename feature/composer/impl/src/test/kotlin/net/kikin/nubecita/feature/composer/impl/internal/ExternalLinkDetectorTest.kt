@@ -24,6 +24,16 @@ class ExternalLinkDetectorTest {
     }
 
     @Test
+    fun trims_unbalanced_trailing_paren_without_overtrimming_balanced() {
+        // `…/(page))` — only the unbalanced outer `)` is trimmed; the balanced
+        // inner `(page)` is kept.
+        assertEquals(
+            "https://example.com/(page)",
+            ExternalLinkDetector.detect("see (https://example.com/(page))")?.matchedText,
+        )
+    }
+
+    @Test
     fun excludes_bluesky_web_quote_link() {
         // A bsky.app post link is a quote, handled by QuoteLinkDetector — not an external card.
         assertNull(
