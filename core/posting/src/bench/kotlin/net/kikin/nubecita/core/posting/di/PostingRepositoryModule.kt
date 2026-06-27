@@ -4,7 +4,9 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
 import net.kikin.nubecita.core.posting.PostingRepository
+import net.kikin.nubecita.core.posting.internal.BenchFakeExternalLinkMetadataRepository
 import net.kikin.nubecita.core.posting.internal.BenchFakePostingRepository
 import javax.inject.Singleton
 
@@ -29,4 +31,10 @@ internal interface PostingRepositoryModule {
     @Binds
     @Singleton
     fun bindPostingRepository(impl: BenchFakePostingRepository): PostingRepository
+
+    @Binds
+    @Singleton
+    fun bindExternalLinkMetadataRepository(
+        impl: BenchFakeExternalLinkMetadataRepository,
+    ): ExternalLinkMetadataRepository
 }

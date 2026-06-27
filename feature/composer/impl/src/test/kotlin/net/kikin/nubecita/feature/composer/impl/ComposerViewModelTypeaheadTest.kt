@@ -329,6 +329,7 @@ class ComposerViewModelTypeaheadTest {
                 mockk(relaxed = true) {
                     every { default } returns MutableStateFlow(PostAudience.DEFAULT)
                 },
+            externalLinkMetadataRepository = mockk(relaxed = true),
             reviewManager = mockk(relaxed = true),
         )
 

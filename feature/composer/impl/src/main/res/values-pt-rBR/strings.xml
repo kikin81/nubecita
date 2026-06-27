@@ -58,4 +58,5 @@
     <string name="composer_alt_editor_close_action">Fechar descrições</string>
     <string name="composer_alt_editor_position">%1$d de %2$d</string>
     <string name="composer_alt_required_hint">Adicione texto alternativo a cada foto</string>
+    <string name="composer_remove_link_action">Remover cartão de link</string>
 </resources>

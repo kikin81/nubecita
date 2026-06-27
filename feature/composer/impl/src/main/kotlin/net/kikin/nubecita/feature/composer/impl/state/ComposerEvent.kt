@@ -96,6 +96,15 @@ internal sealed interface ComposerEvent : UiEvent {
     data object RemoveQuote : ComposerEvent
 
     /**
+     * The user tapped the dismiss (✕) on the link-preview card. Reducer clears
+     * `externalLink` to [net.kikin.nubecita.feature.composer.impl.state.ExternalLinkStatus.Idle]
+     * and cancels any in-flight fetch. The URL stays memoized so it does not
+     * re-pop while it remains in the text (a manual dismiss, unlike the
+     * non-memoizing clear when images are added).
+     */
+    data object RemoveExternalLink : ComposerEvent
+
+    /**
      * The user tapped a row in the `@`-mention typeahead dropdown.
      * Reducer atomically replaces the active `@`-token substring in
      * the field's text with `@<actor.handle> ` (trailing space) and

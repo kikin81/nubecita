@@ -4,7 +4,6 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
 import net.kikin.nubecita.core.posting.JvmLocaleProvider
 import net.kikin.nubecita.core.posting.LocaleProvider
 import javax.inject.Singleton
@@ -39,10 +38,4 @@ abstract class PostingModule {
     @Binds
     @Singleton
     internal abstract fun bindLocaleProvider(impl: JvmLocaleProvider): LocaleProvider
-
-    @Binds
-    @Singleton
-    internal abstract fun bindExternalLinkMetadataRepository(
-        impl: CardyBExternalLinkMetadataRepository,
-    ): ExternalLinkMetadataRepository
 }
