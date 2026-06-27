@@ -10,6 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.InteractPost
+import net.kikin.nubecita.core.analytics.PostAction
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
@@ -1130,6 +1134,33 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `like and repost log InteractPost with the Profile surface`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, analytics = analytics)
+            advanceUntilIdle()
+            val post = samplePostUi(id = "at://post-p", cid = "bafyP") // not liked/reposted by default
+
+            vm.handleEvent(ProfileEvent.OnLikeClicked(post))
+            vm.handleEvent(ProfileEvent.OnRepostClicked(post))
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    InteractPost(PostAction.Like, PostSurface.Profile),
+                    InteractPost(PostAction.Repost, PostSurface.Profile),
+                ),
+                analytics.events,
+            )
+        }
+
+    @Test
     fun `OnLikeClicked failure surfaces ProfileEffect_ShowError`() =
         runTest(mainDispatcher.dispatcher) {
             val cache =
@@ -1332,6 +1363,7 @@ internal class ProfileViewModelTest {
             SessionState.SignedIn(handle = "viewer.bsky.social", did = "did:plc:viewer123"),
         postInteractionsCache: PostInteractionsCache = FakePostInteractionsCache(),
         isPro: Boolean = false,
+        analytics: AnalyticsClient = RecordingAnalyticsClient(),
     ): ProfileViewModel {
         val sessionProvider =
             mockk<SessionStateProvider>(relaxed = true).also {
@@ -1347,6 +1379,7 @@ internal class ProfileViewModelTest {
             sessionStateProvider = sessionProvider,
             postInteractionsCache = postInteractionsCache,
             entitlementRepository = entitlementRepository,
+            analytics = analytics,
         )
     }
 

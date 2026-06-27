@@ -26,6 +26,7 @@ android {
 dependencies {
     api(project(":feature:profile:api"))
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     // EntitlementRepository.isPro — gates the Pro "Supporter" badge on the
     // user's OWN profile hero. Provider-agnostic interface; the badge reacts

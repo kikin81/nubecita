@@ -9,6 +9,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.InteractPost
+import net.kikin.nubecita.core.analytics.PostAction
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -678,17 +682,39 @@ internal class PostDetailViewModelTest {
             assertEquals(3, replyItem.post.stats.likeCount)
         }
 
+    @Test
+    fun `like and repost log InteractPost with the PostDetail surface`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val vm = newVm(FakeRepo(), analytics = analytics)
+            val post = samplePost("at://x", cid = "bafyX") // not liked/reposted by default
+
+            vm.handleEvent(PostDetailEvent.OnLikeClicked(post))
+            vm.handleEvent(PostDetailEvent.OnRepostClicked(post))
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    InteractPost(PostAction.Like, PostSurface.PostDetail),
+                    InteractPost(PostAction.Repost, PostSurface.PostDetail),
+                ),
+                analytics.events,
+            )
+        }
+
     // ---------- helpers ----------
 
     private fun newVm(
         repo: PostThreadRepository,
         focusUri: String = "at://focus",
         cache: PostInteractionsCache = FakePostInteractionsCache(),
+        analytics: AnalyticsClient = RecordingAnalyticsClient(),
     ): PostDetailViewModel =
         PostDetailViewModel(
             route = PostDetailRoute(postUri = focusUri),
             postThreadRepository = repo,
             postInteractionsCache = cache,
+            analytics = analytics,
         )
 
     private fun samplePost(
