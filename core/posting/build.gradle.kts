@@ -24,6 +24,9 @@ android {
 }
 
 dependencies {
+    // :core:image is `api` (not `implementation`) because EncodedImage appears in
+    // ExternalLinkMetadataRepository's public signature (downloadThumb).
+    api(project(":core:image"))
     api(project(":data:models"))
     api(libs.atproto.models)
     api(libs.atproto.runtime)
@@ -31,9 +34,9 @@ dependencies {
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
-    implementation(project(":core:image"))
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))
