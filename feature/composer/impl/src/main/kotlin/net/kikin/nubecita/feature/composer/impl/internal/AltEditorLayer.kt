@@ -11,20 +11,27 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,10 +52,13 @@ import net.kikin.nubecita.feature.composer.impl.R
  * `adaptiveDialog()` entry, this layer inherits its presentation — full-screen
  * on phone, within the centered dialog card on tablet.
  *
- * Messages-inspired: a [HorizontalPager] over the attachments shows one focused
- * photo + its own alt field at a time; a bottom thumbnail filmstrip lets the
- * user jump between photos and see at a glance (via the ✓ overlay) which still
- * need a description. The field is bound to canonical state on
+ * Messages-inspired layout, top to bottom: a top bar (close · "N of M" · Done),
+ * a [HorizontalPager] over the photos, a thumbnail filmstrip (✓ = described),
+ * and a single alt-text field pinned to the bottom that edits whichever photo is
+ * currently paged to. Pinning the field at the bottom keeps it directly above
+ * the keyboard (the layer owns its own `imePadding`, since it replaces the
+ * composer Scaffold body and so can't inherit its IME handling); the photo +
+ * filmstrip sit above it. The field binds to canonical state on
  * [ComposerAttachment.alt] via [onSetAlt] (plain value/onValueChange — alt has
  * no cursor-aware reducer work, so the `TextFieldState` exception isn't needed).
  */
@@ -71,6 +81,11 @@ internal fun AltEditorLayer(
             pageCount = { attachments.size },
         )
     val scope = rememberCoroutineScope()
+    // The bottom field edits whichever photo is currently paged to.
+    val page by remember {
+        derivedStateOf { pagerState.currentPage.coerceIn(0, attachments.lastIndex) }
+    }
+    val current = attachments[page]
 
     // The editor replaces the composer body, so a system back-press must close
     // the editor (return to the body) rather than falling through to the
@@ -78,10 +93,22 @@ internal fun AltEditorLayer(
     BackHandler(onBack = onClose)
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.fillMaxSize()) {
-            // Top bar: close + "N of M" position + Done.
+        // Own the window insets: status bar at the top, nav-bar/IME at the
+        // bottom (chained so the keyboard subsumes the nav-bar area when open).
+        Column(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding(),
+        ) {
+            // Top bar: close + "N of M" position + a prominent Done button.
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onClose) {
@@ -91,16 +118,11 @@ internal fun AltEditorLayer(
                     )
                 }
                 Text(
-                    text =
-                        stringResource(
-                            R.string.composer_alt_editor_position,
-                            pagerState.currentPage + 1,
-                            attachments.size,
-                        ),
+                    text = stringResource(R.string.composer_alt_editor_position, page + 1, attachments.size),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
                 )
-                TextButton(onClick = onClose) {
+                Button(onClick = onClose) {
                     Text(stringResource(R.string.composer_alt_editor_done_action))
                 }
             }
@@ -113,31 +135,34 @@ internal fun AltEditorLayer(
                 key = { attachments[it].uri.toString() },
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 pageSpacing = 16.dp,
-            ) { page ->
-                val attachment = attachments[page]
-                Column(Modifier.fillMaxSize().padding(vertical = 8.dp)) {
-                    NubecitaAsyncImage(
-                        model = attachment.uri,
-                        contentDescription = null,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp)),
-                    )
-                    OutlinedTextField(
-                        value = attachment.alt,
-                        onValueChange = { onSetAlt(page, it) },
-                        label = { Text(stringResource(R.string.composer_alt_editor_field_label)) },
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    )
-                }
+            ) { pageIndex ->
+                NubecitaAsyncImage(
+                    model = attachments[pageIndex].uri,
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 8.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                )
             }
 
             AltEditorFilmstrip(
                 attachments = attachments,
-                selectedIndex = pagerState.currentPage,
+                selectedIndex = page,
                 onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
+            )
+
+            // Single alt field pinned to the bottom, editing the current photo.
+            // Sits directly above the keyboard thanks to the Column's imePadding.
+            OutlinedTextField(
+                value = current.alt,
+                onValueChange = { onSetAlt(page, it) },
+                label = { Text(stringResource(R.string.composer_alt_editor_field_label)) },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
     }
@@ -151,7 +176,7 @@ private fun AltEditorFilmstrip(
     modifier: Modifier = Modifier,
 ) {
     LazyRow(
-        modifier = modifier.fillMaxWidth().padding(8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         itemsIndexed(
@@ -162,7 +187,7 @@ private fun AltEditorFilmstrip(
             Box(
                 modifier =
                     Modifier
-                        .size(48.dp)
+                        .size(52.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .then(
                             if (selected) {
