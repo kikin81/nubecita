@@ -29,9 +29,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,10 +78,11 @@ internal fun AltEditorLayer(
             pageCount = { attachments.size },
         )
     val scope = rememberCoroutineScope()
-    // The bottom field edits whichever photo is currently paged to.
-    val page by remember {
-        derivedStateOf { pagerState.currentPage.coerceIn(0, attachments.lastIndex) }
-    }
+    // The bottom field edits whichever photo is currently paged to. Read
+    // currentPage directly (it's already discrete Compose State, so this
+    // recomposes exactly when the page changes) and clamp against the *current*
+    // attachments — no derivedStateOf/remember, which would capture a stale list.
+    val page = pagerState.currentPage.coerceIn(0, attachments.lastIndex)
     val current = attachments[page]
 
     // The editor replaces the composer body, so a system back-press must close
