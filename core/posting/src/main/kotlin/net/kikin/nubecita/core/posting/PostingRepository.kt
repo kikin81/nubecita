@@ -65,9 +65,15 @@ interface PostingRepository {
      *   [io.github.kikin81.atproto.com.atproto.repo.StrongRef] (`uri` + `cid`), or
      *   `null` for a non-quote post. When non-null the record carries an
      *   `app.bsky.embed.record` embed, or `app.bsky.embed.recordWithMedia` when
-     *   [attachments] are also present. Orthogonal to [replyTo] — a post may both
-     *   reply and quote (`reply` and `embed` are independent fields). An empty-text
-     *   quote is valid: the embed itself is the content.
+     *   [attachments] or [external] are also present. Orthogonal to [replyTo] — a
+     *   post may both reply and quote (`reply` and `embed` are independent fields).
+     *   An empty-text quote is valid: the embed itself is the content.
+     * @param external A resolved external link card ([LinkPreview]), or `null`. When
+     *   non-null and there are no [attachments], the record carries an
+     *   `app.bsky.embed.external` embed (or `app.bsky.embed.recordWithMedia` when
+     *   also quoting). Mutually exclusive with [attachments] — images win the media
+     *   slot, so a card is dropped when images are present. The thumbnail is fetched
+     *   and uploaded best-effort; a thumbnail failure does not fail the post.
      * @return `Result.success(uri)` on a successful submission carrying
      *   the new record's AT URI; `Result.failure(ComposerError)` on any
      *   typed failure mode.
@@ -79,5 +85,6 @@ interface PostingRepository {
         langs: List<String>? = null,
         audience: PostAudience = PostAudience.DEFAULT,
         quote: io.github.kikin81.atproto.com.atproto.repo.StrongRef? = null,
+        external: LinkPreview? = null,
     ): Result<AtUri>
 }

@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.posting.internal
 
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
+import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.Blob
 import net.kikin.nubecita.core.image.ImageDimensions
 
@@ -29,8 +30,25 @@ internal data class UploadedImage(
  *   each carrying its blob + alt + dimensions. Empty for a post with no images. The
  *   resolver picks `app.bsky.embed.images` for 1–4 and `app.bsky.embed.gallery` for 5+.
  * - [quote] — the quoted post's strong ref (`uri` + `cid`), or `null` when not quoting.
+ * - [external] — a resolved external link card (thumbnail already uploaded), or `null`.
+ *   Mutually exclusive with [images] (images win the media slot); may coexist with
+ *   [quote] (emitted as `recordWithMedia`).
  */
 internal data class ComposerEmbedIntent(
     val images: List<UploadedImage>,
     val quote: StrongRef?,
+    val external: PreparedExternal? = null,
+)
+
+/**
+ * A resolved external link card ready to embed: its display fields plus the
+ * already-uploaded [thumb] blob (or [AtField.Missing] when there is no thumbnail
+ * or its upload failed best-effort). The blob upload is a suspend op that happens
+ * before the synchronous embed resolver, so this carries the finished [thumb].
+ */
+internal data class PreparedExternal(
+    val uri: String,
+    val title: String,
+    val description: String,
+    val thumb: AtField<Blob>,
 )

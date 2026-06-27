@@ -46,6 +46,8 @@ import net.kikin.nubecita.core.image.ImageDimensions
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
+import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.ReplyAudience
@@ -442,6 +444,62 @@ class DefaultPostingRepositoryTest {
             assertTrue(!body.contains("app.bsky.embed.record"), "images-only must not write a record embed: $body")
         }
 
+    // ---- External link card (nubecita-gfli.3) ----
+
+    @Test
+    fun externalOnly_writesExternalEmbed() =
+        runTest {
+            val body = captureExternalRecordBody(aLinkPreview(imageUrl = null))
+            assertTrue(body.contains("app.bsky.embed.external"), "external embed missing: $body")
+            assertTrue(body.contains("https://example.com/article"), "external uri missing: $body")
+            assertFalse(body.contains("app.bsky.embed.record"), "external-only must not write a record: $body")
+            assertFalse(body.contains("app.bsky.embed.images"), "external-only must not write images: $body")
+        }
+
+    @Test
+    fun externalPlusQuote_writesRecordWithMedia() =
+        runTest {
+            val quote = StrongRef(uri = AtUri("at://did:plc:bob/app.bsky.feed.post/quoted"), cid = Cid("bafquoted"))
+            val body = captureExternalRecordBody(aLinkPreview(imageUrl = null), quote = quote)
+            assertTrue(body.contains("app.bsky.embed.recordWithMedia"), "recordWithMedia missing: $body")
+            assertTrue(body.contains("app.bsky.embed.external"), "external media missing: $body")
+        }
+
+    @Test
+    fun externalPlusImages_dropsExternal_imagesWin() =
+        runTest {
+            val body =
+                captureExternalRecordBody(
+                    aLinkPreview(imageUrl = null),
+                    attachments = listOf(attachment("image/jpeg")),
+                )
+            assertTrue(body.contains("app.bsky.embed.images"), "images embed missing: $body")
+            assertFalse(body.contains("app.bsky.embed.external"), "external must be dropped when images present: $body")
+        }
+
+    @Test
+    fun externalThumb_uploadedWhenAvailable() =
+        runTest {
+            val body =
+                captureExternalRecordBody(
+                    aLinkPreview(imageUrl = "https://cardyb.bsky.app/v1/image?url=x"),
+                    thumb = EncodedImage(bytes = byteArrayOf(1, 2, 3), mimeType = "image/jpeg"),
+                )
+            assertTrue(body.contains("app.bsky.embed.external"), "external embed missing: $body")
+            assertTrue(body.contains("thumb"), "thumb blob missing: $body")
+            assertTrue(body.contains("bafblob"), "uploaded thumb blob ref missing: $body")
+        }
+
+    @Test
+    fun externalThumb_failure_postsCardWithoutThumb() =
+        runTest {
+            // downloadThumb returns null (the fake's default) — the post still
+            // succeeds and carries the card with no thumb.
+            val body = captureExternalRecordBody(aLinkPreview(imageUrl = "https://cardyb.bsky.app/v1/image?url=x"))
+            assertTrue(body.contains("app.bsky.embed.external"), "external embed missing: $body")
+            assertFalse(body.contains("thumb"), "no thumb expected when the download yields nothing: $body")
+        }
+
     @Test
     fun textOnly_writesNoEmbedField() =
         runTest {
@@ -657,6 +715,7 @@ class DefaultPostingRepositoryTest {
                     dimensionDecoder = fixedDimensions(),
                     facetExtractor = passthroughFacetExtractor(),
                     localeProvider = fixedLocaleProvider("en-US"),
+                    externalLinkMetadataRepository = fakeExternalLinkMetadata(),
                     analytics = analytics,
                     dispatcher = UnconfinedTestDispatcher(),
                 )
@@ -1379,6 +1438,47 @@ class DefaultPostingRepositoryTest {
         dimensionDecoder: ImageDimensionDecoder = fixedDimensions(),
     ): String = captureCreatedRecordBody((0 until attachmentCount).map { attachment("image/jpeg") }, quote, dimensionDecoder)
 
+    private fun aLinkPreview(imageUrl: String?): LinkPreview =
+        LinkPreview(
+            uri = "https://example.com/article",
+            title = "Example title",
+            description = "An example page.",
+            imageUrl = imageUrl,
+        )
+
+    /**
+     * Capture the createRecord body for a post carrying an [external] link card.
+     * [thumb] is what the fake [ExternalLinkMetadataRepository.downloadThumb]
+     * returns (`null` ⇒ no thumbnail); the `uploadBlob` stub returns a `bafblob`
+     * ref so an uploaded thumb is observable in the body.
+     */
+    private suspend fun captureExternalRecordBody(
+        external: LinkPreview,
+        attachments: List<ComposerAttachment> = emptyList(),
+        quote: StrongRef? = null,
+        thumb: EncodedImage? = null,
+    ): String {
+        val capturedBody = CompletableDeferred<String>()
+        val (_, repo) =
+            newRepo(signedIn = true, externalLinkMetadata = fakeExternalLinkMetadata(thumb = thumb)) { request ->
+                when {
+                    request.url.encodedPath.endsWith("uploadBlob") ->
+                        okJson(
+                            """{"blob":{"ref":{"${'$'}link":"bafblob"},"mimeType":"image/jpeg","size":3,"${'$'}type":"blob"}}""",
+                        )
+                    request.url.encodedPath.endsWith("createRecord") -> {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/x","cid":"bafx"}""")
+                    }
+                    else -> error("Unexpected request: ${request.url}")
+                }
+            }
+        val result =
+            repo.createPost(text = "post", attachments = attachments, replyTo = null, quote = quote, external = external)
+        assertTrue(result.isSuccess, "createPost failed: ${result.exceptionOrNull()}")
+        return capturedBody.await()
+    }
+
     private suspend fun captureCreatedRecordBody(
         attachments: List<ComposerAttachment>,
         quote: StrongRef? = null,
@@ -1420,6 +1520,7 @@ class DefaultPostingRepositoryTest {
         dimensionDecoder: ImageDimensionDecoder = fixedDimensions(),
         facetExtractor: FacetExtractor = passthroughFacetExtractor(),
         localeProvider: LocaleProvider = fixedLocaleProvider("en-US"),
+        externalLinkMetadata: ExternalLinkMetadataRepository = fakeExternalLinkMetadata(),
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ): Pair<MockEngine, DefaultPostingRepository> {
         val engine = MockEngine(handler)
@@ -1453,6 +1554,7 @@ class DefaultPostingRepositoryTest {
                 dimensionDecoder = dimensionDecoder,
                 facetExtractor = facetExtractor,
                 localeProvider = localeProvider,
+                externalLinkMetadataRepository = externalLinkMetadata,
                 analytics = analytics,
                 dispatcher = UnconfinedTestDispatcher(),
             )
@@ -1487,6 +1589,18 @@ class DefaultPostingRepositoryTest {
                 sourceMimeType: String,
                 maxBytes: Long,
             ): EncodedImage = EncodedImage(bytes = bytes, mimeType = sourceMimeType)
+        }
+
+    /**
+     * Fake [ExternalLinkMetadataRepository]. The repository only calls
+     * [ExternalLinkMetadataRepository.downloadThumb] (the VM does the fetch), so
+     * [fetch] is a stub; [downloadThumb] returns [thumb] (`null` ⇒ no thumbnail).
+     */
+    private fun fakeExternalLinkMetadata(thumb: EncodedImage? = null): ExternalLinkMetadataRepository =
+        object : ExternalLinkMetadataRepository {
+            override suspend fun fetch(url: String): LinkPreview? = null
+
+            override suspend fun downloadThumb(imageUrl: String): EncodedImage? = thumb
         }
 
     /**

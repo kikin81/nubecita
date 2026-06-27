@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.posting.internal
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtUri
 import net.kikin.nubecita.core.posting.ComposerAttachment
+import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
@@ -35,5 +36,6 @@ internal class BenchFakePostingRepository
             langs: List<String>?,
             audience: PostAudience,
             quote: StrongRef?,
+            external: LinkPreview?,
         ): Result<AtUri> = Result.success(AtUri("at://did:plc:bench/app.bsky.feed.post/${UUID.randomUUID()}"))
     }
