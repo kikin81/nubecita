@@ -34,6 +34,7 @@ import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
 import net.kikin.nubecita.feature.composer.impl.internal.QuoteLinkDetector
+import net.kikin.nubecita.feature.composer.impl.internal.TextLinkScanner
 import net.kikin.nubecita.feature.composer.impl.internal.findActiveMentionStart
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
@@ -193,11 +194,24 @@ internal class ComposerViewModel
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
 
-        // Paste-a-link: post links already attempted (resolved, rejected, or
+        // Paste-a-link: detect a pasted Bluesky post link and attach it as a quote.
+        // The scanner memoizes already-attempted links (resolved, rejected, or
         // failed) so a link whose text remains in the field isn't re-attached on
         // every subsequent snapshot. Not persisted — paste detection is a
-        // session-local editor concern.
-        private val attemptedQuoteLinks = mutableSetOf<String>()
+        // session-local editor concern. Shares its bookkeeping with external-link
+        // detection via TextLinkScanner; the detector + fetch stay quote-specific.
+        private val quoteLinkScanner =
+            TextLinkScanner(
+                detect = { text, exclude ->
+                    QuoteLinkDetector.detect(text, exclude)?.let { TextLinkScanner.Match(it.matchedText, it.atUri) }
+                },
+                // One quote max — skip while a quote is already attached.
+                alreadyHandled = { uiState.value.quotePostUri != null },
+                onDetected = { matchedText, atUri ->
+                    setState { copy(quotePostUri = atUri) }
+                    launchQuoteFetch(atUri, pasteLinkText = matchedText)
+                },
+            )
 
         init {
             uiState.value.replyToUri?.let { uri ->
@@ -232,7 +246,7 @@ internal class ComposerViewModel
                     }
 
                     // Paste-a-link: attach a pasted Bluesky post link as a quote.
-                    maybeDetectQuoteLink(text)
+                    quoteLinkScanner.scan(text)
                 }.launchIn(viewModelScope)
 
             // Typeahead lookup pipeline — dedupe + mapLatest with
@@ -641,24 +655,6 @@ internal class ComposerViewModel
                     },
                 )
             }
-        }
-
-        /**
-         * Detect a pasted Bluesky post link in [text] and attach it as a quote.
-         * No-op while a quote is already attached (one quote max). Each link is
-         * attempted at most once so a rejected/failed link — whose text stays in
-         * the field — isn't re-attached on the next snapshot.
-         */
-        private fun maybeDetectQuoteLink(text: String) {
-            // Forget links no longer present in the text so a removed/edited link
-            // can be pasted again later (and the set stays bounded). A link still
-            // in the text stays remembered, preserving no-re-attach-on-reject.
-            attemptedQuoteLinks.retainAll { text.contains(it) }
-            if (uiState.value.quotePostUri != null) return
-            val match = QuoteLinkDetector.detect(text, exclude = attemptedQuoteLinks) ?: return
-            attemptedQuoteLinks.add(match.matchedText)
-            setState { copy(quotePostUri = match.atUri) }
-            launchQuoteFetch(match.atUri, pasteLinkText = match.matchedText)
         }
 
         /** Remove the first occurrence of [linkText] (and a single trailing space) from the field. */
