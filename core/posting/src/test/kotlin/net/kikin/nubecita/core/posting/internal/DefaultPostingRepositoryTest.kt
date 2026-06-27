@@ -585,7 +585,7 @@ class DefaultPostingRepositoryTest {
             )
 
             assertEquals(
-                listOf(CreatePost(hasMedia = false, isReply = false, isQuote = true)),
+                listOf(CreatePost(hasMedia = false, isReply = false, isQuote = true, hasExternal = false)),
                 analytics.events,
             )
         }
@@ -1366,7 +1366,7 @@ class DefaultPostingRepositoryTest {
             repo.createPost(text = "hello world", attachments = emptyList(), replyTo = null)
 
             assertEquals(
-                listOf(CreatePost(hasMedia = false, isReply = false, isQuote = false)),
+                listOf(CreatePost(hasMedia = false, isReply = false, isQuote = false, hasExternal = false)),
                 analytics.events,
             )
         }
@@ -1399,7 +1399,38 @@ class DefaultPostingRepositoryTest {
             repo.createPost(text = "a reply", attachments = emptyList(), replyTo = parentRef)
 
             assertEquals(
-                listOf(CreatePost(hasMedia = false, isReply = true, isQuote = false)),
+                listOf(CreatePost(hasMedia = false, isReply = true, isQuote = false, hasExternal = false)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun externalCardPost_emitsCreatePost_withHasExternalTrue() =
+        runTest {
+            // A link card and no images → the card lands on the post's embed,
+            // so has_external is true. captureExternalRecordBody drives createPost
+            // through the shared `analytics` sink.
+            captureExternalRecordBody(aLinkPreview(imageUrl = null))
+
+            assertEquals(
+                listOf(CreatePost(hasMedia = false, isReply = false, isQuote = false, hasExternal = true)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun externalPlusImagesPost_emitsCreatePost_withHasExternalFalse() =
+        runTest {
+            // Images win the media slot and the card is dropped from the embed,
+            // so has_external reflects what actually shipped: false (has_media true).
+            // This pins the wiring to `preparedExternal != null`, not `external != null`.
+            captureExternalRecordBody(
+                aLinkPreview(imageUrl = null),
+                attachments = listOf(attachment("image/jpeg")),
+            )
+
+            assertEquals(
+                listOf(CreatePost(hasMedia = true, isReply = false, isQuote = false, hasExternal = false)),
                 analytics.events,
             )
         }

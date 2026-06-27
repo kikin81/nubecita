@@ -14,7 +14,7 @@ class AnalyticsValidatorTest {
                 ViewFeed(FeedType.Video),
                 InteractPost(PostAction.Like, PostSurface.Feed),
                 InteractPost(PostAction.Repost, PostSurface.PostDetail),
-                CreatePost(hasMedia = true, isReply = true, isQuote = true),
+                CreatePost(hasMedia = true, isReply = true, isQuote = true, hasExternal = true),
                 SearchPerform(SearchScope.Top, fromRecent = false),
                 SearchPerform(SearchScope.Feeds, fromRecent = true),
             )

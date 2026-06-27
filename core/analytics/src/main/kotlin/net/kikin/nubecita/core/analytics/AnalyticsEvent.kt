@@ -153,11 +153,19 @@ data class InteractPost(
 /**
  * Fired on a successful `DefaultPostingRepository.createPost`. Carries only
  * structural booleans — never the post body, language, or attachment URIs.
+ *
+ * [hasExternal] is true only when an `app.bsky.embed.external` link card
+ * actually shipped on the post; images win the media slot, so a post with both
+ * images and a link reports `hasMedia = true, hasExternal = false`. Lets us
+ * measure link-card adoption separately from image posts. Surfaces in GA4
+ * reports only once `has_external` is registered as a custom dimension
+ * (forward-only) — see nubecita-049f.10.
  */
 data class CreatePost(
     val hasMedia: Boolean,
     val isReply: Boolean,
     val isQuote: Boolean,
+    val hasExternal: Boolean,
 ) : AnalyticsEvent {
     override val name: String = "create_post"
     override val params: Map<String, AnalyticsValue> =
@@ -165,6 +173,7 @@ data class CreatePost(
             "has_media" to BoolVal(hasMedia),
             "is_reply" to BoolVal(isReply),
             "is_quote" to BoolVal(isQuote),
+            "has_external" to BoolVal(hasExternal),
         )
 }
 
