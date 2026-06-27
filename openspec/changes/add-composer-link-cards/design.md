@@ -7,7 +7,7 @@ Render path for `app.bsky.embed.external` is complete; only creation is missing.
 ## Decisions
 
 ### D1 — Preview source: CardyB
-Fetch previews from `GET https://cardyb.bsky.app/v1/extract?url=<paste>` → `{error, likely_type, url, title, description, image}` (empty `error` = success; `image` is CardyB's own proxied URL). This is the service the official Bluesky app uses, so cards render consistently across clients. Chosen over client-side OpenGraph parsing because it is dramatically less code, battery/data-friendly (one small GET vs. fetching+parsing arbitrary HTML), and avoids leaking the user's IP to arbitrary destination sites. The privacy tradeoff (Bluesky sees the URL pre-post) is negligible — the user is about to post that URL publicly to Bluesky anyway.
+Fetch previews from `GET https://cardyb.bsky.app/v1/extract?url=<paste>` → `{error, likely_type, url, title, description, image}` (empty `error` = success; `image` is CardyB's own proxied URL). The pasted URL MUST be passed **URL-encoded** as the `url` query parameter (e.g. via Ktor's `parameter("url", pastedUrl)` / `URLBuilder`), or a pasted URL containing `?`/`&` would be mis-parsed as CardyB's own query params. This is the service the official Bluesky app uses, so cards render consistently across clients. Chosen over client-side OpenGraph parsing because it is dramatically less code, battery/data-friendly (one small GET vs. fetching+parsing arbitrary HTML), and avoids leaking the user's IP to arbitrary destination sites. The privacy tradeoff (Bluesky sees the URL pre-post) is negligible — the user is about to post that URL publicly to Bluesky anyway. A client-side OpenGraph fallback (for sites CardyB mishandles or CardyB downtime) is a possible future enhancement, deliberately deferred — the `external` wire record is only uri/title/description/thumb, so a fallback could not produce a richer card, only differ in extraction quality.
 
 ### D2 — Auto-detect + dismissable
 The first non–quote-link URL the user types/pastes auto-fetches and shows a card; an `X` dismisses it and memoizes the URL so it does not re-pop. Mirrors the official app and reuses the existing memoized-detector pattern. Detection runs in the existing `snapshotFlow` collector — no new inbound event stream.
@@ -27,15 +27,20 @@ internal class TextLinkScanner<T>(
 ```
 
 ### D5 — Thumbnail upload is best-effort, post-time
-At compose time only the CardyB metadata + image URL are held; Coil loads the thumb directly from CardyB's image URL for preview (no blob upload while composing). At post time, `DefaultPostingRepository` downloads the image bytes and uploads them via the existing `uploadBlob` path → `external.thumb`. CardyB already returns resized/optimized images, so bytes are uploaded directly (a size guard skips the thumb rather than dragging the `content://`-oriented `ImageEncoder` into a bytes path). Any failure — download, oversize, upload — yields `thumb = AtField.Missing` and the post proceeds; a thumbnail never blocks or fails a post.
+At compose time only the CardyB metadata + image URL are held; Coil loads the thumb directly from CardyB's image URL for preview (no blob upload while composing). At post time, `DefaultPostingRepository` downloads the image and uploads it via the **same encode-then-`uploadBlob` path the image attachments use** → `external.thumb`:
+1. `downloadThumb(imageUrl)` reads the bytes with an **OOM/bandwidth guard** — reject up-front via `Content-Length` and cap the streamed read at the Bluesky per-blob limit (~1 MB) — and captures the response `Content-Type`, returning an `EncodedImage(bytes, mimeType)` (raw, un-encoded) or `null`.
+2. The repo runs it through the existing `encoder.encodeForUpload(bytes, sourceMimeType)` — which **compresses oversize images** (typically to WebP) and passes under-cap bytes through, exactly as for image attachments — then `uploadBlob(encoded.bytes, ContentType.parse(encoded.mimeType))`.
+3. Any failure — download, oversize beyond what re-encode can fix, or upload — yields `thumb = AtField.Missing` and the post proceeds. A thumbnail never blocks or fails a post.
+
+(`ImageEncoder` in `:core:image` is already byte-oriented — `encodeForUpload(bytes: ByteArray, sourceMimeType: String): EncodedImage` — so reusing it is the right move, not a size-guarded drop. Earlier-draft reasoning that it was `content://`-oriented was incorrect.)
 
 ## Architecture
 
 ### `:core:posting`
 - `ExternalLinkDetector` — pure: first `http(s)` URL in text, excluding Bluesky quote-links and an exclude set.
 - `ExternalLinkMetadataRepository` (interface) + `CardyBExternalLinkMetadataRepository` (impl), injecting the singleton Ktor `HttpClient` from `:core:auth` DI:
-  - `suspend fun fetch(url: String): LinkPreview?` — CardyB call; blank/`error`/network → `null`. Short timeout.
-  - `suspend fun downloadThumb(imageUrl: String): ByteArray?`
+  - `suspend fun fetch(url: String): LinkPreview?` — CardyB call (URL-encoded `url` param), short timeout. Returns `null` only on a non-empty `error`, network/timeout failure, or **no usable title**. A blank `description` is NOT a failure — `PostCardExternalEmbed` already skips an empty description row, and the wire record carries `description = ""`. The mapper defaults any missing/blank title/description to `""` (both are required `String` fields on the record), never omits them.
+  - `suspend fun downloadThumb(imageUrl: String): EncodedImage?` — bytes + response `Content-Type`, size-guarded (see D5); `null` on failure/oversize. Returns the reused `EncodedImage` type from `:core:image`.
 - `LinkPreview(uri, title, description, imageUrl)` — internal domain model.
 - `ComposerEmbedIntent` gains `external: PreparedExternal?` (uri/title/description/thumbImageUrl).
 - `resolveEmbed` gains the external arm (truth table below).
@@ -43,8 +48,11 @@ At compose time only the CardyB metadata + image URL are held; Coil loads the th
 ### `:feature:composer:impl`
 - `ComposerState.externalLink: ExternalLinkStatus = Idle`; sealed `ExternalLinkStatus { Idle; Loading(url); Loaded(preview) }`. Fetch failure returns to `Idle` silently (no separate Failed state — it would never render); the URL stays memoized so it does not retry.
 - `TextLinkScanner` helper + `ExternalLinkDetector` wiring; quote detection refactored onto the scanner.
-- New event `RemoveExternalLink` (the card's `X`).
+- New event `RemoveExternalLink` (the card's `X`) — a **manual dismiss**, distinct from an image-induced auto-clear (see below).
+- The in-flight fetch is a tracked `Job`, **cancelled** when images are added or the card is cleared; and `launchExternalFetch` re-checks before committing — it only transitions to `Loaded` if the state is still `Loading(thisUrl)` and no images have been attached. This closes the race where a slow CardyB response lands after the user attaches images (which would otherwise show a card alongside images, violating card-XOR-images).
 - `ComposerLinkCard` composable — spinner while Loading; thumb/title/description/domain + dismiss `X` while Loaded.
+
+**Memoization rule:** manual dismiss (`RemoveExternalLink`) memoizes the URL so it does not re-pop. An **image-induced auto-clear does NOT memoize** — so if the user later removes all images, the URL still in the text is re-detected and the card restored automatically. A silently-failed fetch memoizes (no retry-loop).
 
 ## Data flow
 
@@ -72,7 +80,7 @@ At compose time only the CardyB metadata + image URL are held; Coil loads the th
 - CardyB null/error/network/timeout → silent `Idle`, memoized (no retry loop, no snackbar). Short GET timeout.
 - Thumbnail failure (download/oversize/upload) → `thumb = Missing`, post proceeds.
 - Offline → no card; posting unaffected.
-- Races → adding images clears a loaded card; scanner suppresses a card while images present.
+- Races → the in-flight fetch `Job` is cancelled when images are added/card cleared, and `launchExternalFetch` re-checks `Loading(url)` + no-images before → `Loaded`; the scanner also suppresses a card while images are present. Image-induced clear is non-memoizing, so removing images restores the card.
 
 ## Testing
 

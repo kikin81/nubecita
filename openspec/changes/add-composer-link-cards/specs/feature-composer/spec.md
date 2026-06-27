@@ -15,6 +15,10 @@ When the user types or pastes a URL into the post text that is an `http(s)` URL 
 - **WHEN** the text contains two eligible URLs
 - **THEN** only the first detected URL produces a card
 
+#### Scenario: A page with a title but no description still shows a card
+- **WHEN** the fetched preview has a non-empty title and a blank description
+- **THEN** a card is shown (title + thumbnail, no description row) and the embed carries `description = ""`
+
 ### Requirement: Link card is dismissable and does not re-pop
 The link card SHALL provide a dismiss affordance. Dismissing it SHALL remove the card and memoize the URL so that the same URL still present in the text does NOT immediately produce a new card.
 
@@ -32,6 +36,10 @@ A link card SHALL be mutually exclusive with image/gallery attachments: while im
 #### Scenario: Adding images clears an existing card
 - **WHEN** a link card is shown and the user adds an image attachment
 - **THEN** the link card is cleared
+
+#### Scenario: Removing images restores the card
+- **WHEN** a card was auto-cleared by adding images, and the user then removes all images while the URL is still in the text
+- **THEN** the card is re-detected and restored automatically (the image-induced clear did not memoize the URL)
 
 #### Scenario: Card coexists with a quoted post
 - **WHEN** the composer has a quoted post and a link card
