@@ -58,13 +58,14 @@ class AnalyticsModelTest {
 
     @Test
     fun `create_post carries only structural booleans`() {
-        val event = CreatePost(hasMedia = true, isReply = false, isQuote = true)
+        val event = CreatePost(hasMedia = true, isReply = false, isQuote = true, hasExternal = true)
         assertEquals("create_post", event.name)
         assertEquals(
             mapOf(
                 "has_media" to BoolVal(true),
                 "is_reply" to BoolVal(false),
                 "is_quote" to BoolVal(true),
+                "has_external" to BoolVal(true),
             ),
             event.params,
         )

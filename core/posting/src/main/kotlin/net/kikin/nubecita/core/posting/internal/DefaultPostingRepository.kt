@@ -259,6 +259,11 @@ internal class DefaultPostingRepository
                             hasMedia = attachments.isNotEmpty(),
                             isReply = replyTo != null,
                             isQuote = quote != null,
+                            // True only when a link card actually shipped on the embed.
+                            // `preparedExternal` is null when there was no link OR when
+                            // images displaced it (images win the media slot), so this
+                            // measures real link-card adoption, not mere link presence.
+                            hasExternal = preparedExternal != null,
                         ),
                     )
 
