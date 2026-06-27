@@ -684,12 +684,20 @@ internal class ComposerViewModel
             externalFetchJob =
                 viewModelScope.launch {
                     val preview = externalLinkMetadataRepository.fetch(url)
-                    if (uiState.value.externalLink != ExternalLinkStatus.Loading(url)) return@launch
-                    if (preview != null && uiState.value.attachments.isEmpty()) {
-                        setState { copy(externalLink = ExternalLinkStatus.Loaded(preview)) }
-                    } else {
-                        cardedLinkText = null
-                        setState { copy(externalLink = ExternalLinkStatus.Idle) }
+                    // Check-and-set atomically against the *current* state (this read
+                    // is across the fetch suspension, so it must reflect any change —
+                    // e.g. images attached or the card dismissed meanwhile).
+                    setState {
+                        when {
+                            // Superseded or cancelled while the fetch was in flight.
+                            externalLink != ExternalLinkStatus.Loading(url) -> this
+                            // Resolved with no images → show the card.
+                            preview != null && attachments.isEmpty() ->
+                                copy(externalLink = ExternalLinkStatus.Loaded(preview))
+                            // Failed/empty, or images appeared → silent Idle (the URL
+                            // stays memoized in the scanner, so it won't retry-loop).
+                            else -> copy(externalLink = ExternalLinkStatus.Idle)
+                        }
                     }
                 }
         }
