@@ -578,6 +578,7 @@ internal class ComposerViewModel
                         langs = current.selectedLangs,
                         audience = current.audience,
                         quote = quote,
+                        external = (current.externalLink as? ExternalLinkStatus.Loaded)?.preview,
                     )
                 result.fold(
                     onSuccess = { uri ->

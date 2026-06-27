@@ -1,6 +1,8 @@
 package net.kikin.nubecita.core.posting.internal
 
 import io.github.kikin81.atproto.app.bsky.embed.AspectRatio
+import io.github.kikin81.atproto.app.bsky.embed.External
+import io.github.kikin81.atproto.app.bsky.embed.ExternalExternal
 import io.github.kikin81.atproto.app.bsky.embed.Gallery
 import io.github.kikin81.atproto.app.bsky.embed.GalleryImage
 import io.github.kikin81.atproto.app.bsky.embed.Images
@@ -24,10 +26,12 @@ import io.github.kikin81.atproto.com.atproto.repo.RepoService
 import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.AtUri
+import io.github.kikin81.atproto.runtime.Blob
 import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Language
 import io.github.kikin81.atproto.runtime.Nsid
 import io.github.kikin81.atproto.runtime.RecordKey
+import io.github.kikin81.atproto.runtime.Uri
 import io.github.kikin81.atproto.runtime.encodeRecord
 import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
@@ -49,6 +53,8 @@ import net.kikin.nubecita.core.image.ImageDimensions
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
+import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
@@ -100,6 +106,7 @@ internal class DefaultPostingRepository
         private val dimensionDecoder: ImageDimensionDecoder,
         private val facetExtractor: FacetExtractor,
         private val localeProvider: LocaleProvider,
+        private val externalLinkMetadataRepository: ExternalLinkMetadataRepository,
         private val analytics: AnalyticsClient,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PostingRepository {
@@ -110,6 +117,7 @@ internal class DefaultPostingRepository
             langs: List<String>?,
             audience: PostAudience,
             quote: io.github.kikin81.atproto.com.atproto.repo.StrongRef?,
+            external: LinkPreview?,
         ): Result<AtUri> =
             withContext(dispatcher) {
                 // `replyTo` is a typed ReplyRefs(parent, root); both
@@ -177,9 +185,19 @@ internal class DefaultPostingRepository
                     // whole submit.
                     val facets = facetExtractor.extract(text)
 
+                    // Phase 2b — external link card. Mutually exclusive with images
+                    // (images win the media slot), so only prepared when there are
+                    // none. The thumbnail download + upload is best-effort: any
+                    // failure yields a card with no thumb rather than failing the post.
+                    val preparedExternal =
+                        if (external != null && uploaded.isEmpty()) prepareExternal(repo, external) else null
+
                     // Phase 3 — record creation. Only runs after every
                     // blob upload completed successfully.
-                    val embed = resolveEmbed(ComposerEmbedIntent(images = uploaded, quote = quote))
+                    val embed =
+                        resolveEmbed(
+                            ComposerEmbedIntent(images = uploaded, quote = quote, external = preparedExternal),
+                        )
                     Timber.tag(TAG).d(
                         "createPost() — building record with embed=%s (images.size=%d)",
                         embed::class.simpleName,
@@ -437,27 +455,33 @@ internal class DefaultPostingRepository
          * in [ComposerEmbedIntent], never by introducing a second composer or a parallel
          * write path.
          *
-         * | images | quote | embed |
-         * |--------|-------|-------|
-         * | ∅ | ∅ | none (`AtField.Missing`) |
-         * | yes | ∅ | `app.bsky.embed.images` |
-         * | ∅ | yes | `app.bsky.embed.record` |
-         * | yes | yes | `app.bsky.embed.recordWithMedia` |
+         * | images | quote | external | embed |
+         * |--------|-------|----------|-------|
+         * | ∅ | ∅ | ∅ | none (`AtField.Missing`) |
+         * | yes | * | * | `images` (or `recordWithMedia` w/ quote) — external dropped |
+         * | ∅ | ∅ | yes | `app.bsky.embed.external` |
+         * | ∅ | yes | ∅ | `app.bsky.embed.record` |
+         * | ∅ | yes | yes | `app.bsky.embed.recordWithMedia` (external media) |
          */
         private fun resolveEmbed(intent: ComposerEmbedIntent): AtField<PostEmbedUnion> {
             // Interop rule (mirrors social-app): emit app.bsky.embed.images for
             // 1..4 images (maximum compatibility — a gallery is invisible on
             // clients without gallery support) and app.bsky.embed.gallery for 5+
-            // (the composer caps adds at the soft limit of 10). Both Images and
-            // Gallery implement RecordWithMediaMediaUnion, so the same value
-            // serves the standalone and quote+media branches below.
+            // (the composer caps adds at the soft limit of 10). Images win the
+            // media slot over an external card (Bluesky forbids both); a card is
+            // only the media when there are no images. Images, Gallery, and
+            // External all implement RecordWithMediaMediaUnion (and PostEmbedUnion),
+            // so the same value serves the standalone and quote+media branches.
+            val external = intent.external
             val media: RecordWithMediaMediaUnion? =
                 when {
-                    intent.images.isEmpty() -> null
-                    intent.images.size <= LEGACY_IMAGES_EMBED_MAX ->
+                    intent.images.size in 1..LEGACY_IMAGES_EMBED_MAX ->
                         Images(images = intent.images.map { it.toImagesImage() })
-                    else ->
+                    intent.images.isNotEmpty() ->
                         Gallery(items = intent.images.map { it.toGalleryImage() })
+                    // No images → an external card (if any) takes the media slot.
+                    external != null -> External(external = external.toExternalExternal())
+                    else -> null
                 }
             val quote = intent.quote
             // Positive `!= null` ordering so each branch smart-casts — no `!!`.
@@ -465,11 +489,62 @@ internal class DefaultPostingRepository
                 quote != null && media != null ->
                     AtField.Defined(RecordWithMedia(record = Record(record = quote), media = media))
                 quote != null -> AtField.Defined(Record(record = quote))
-                // Images / Gallery both implement PostEmbedUnion; the cross-cast
-                // is always valid for the two types produced above.
+                // Images / Gallery / External all implement PostEmbedUnion; the
+                // cross-cast is always valid for the types produced above.
                 media != null -> AtField.Defined(media as PostEmbedUnion)
                 else -> AtField.Missing
             }
+        }
+
+        /** Build the `app.bsky.embed.external#external` record from a [PreparedExternal]. */
+        private fun PreparedExternal.toExternalExternal(): ExternalExternal =
+            ExternalExternal(
+                uri = Uri(uri),
+                title = title,
+                description = description,
+                thumb = thumb,
+            )
+
+        /**
+         * Resolve [external] into a [PreparedExternal] with its thumbnail uploaded
+         * **best-effort**: download the preview image, re-encode (the same
+         * `encodeForUpload` compression the image attachments use), and `uploadBlob`.
+         * Any failure — no image, download, encode, or upload — yields
+         * `thumb = AtField.Missing`, and the post still carries the card's
+         * uri/title/description. A thumbnail never fails the post.
+         */
+        private suspend fun prepareExternal(
+            repo: RepoService,
+            external: LinkPreview,
+        ): PreparedExternal {
+            val thumb: AtField<Blob> =
+                try {
+                    val downloaded = external.imageUrl?.let { externalLinkMetadataRepository.downloadThumb(it) }
+                    if (downloaded == null) {
+                        AtField.Missing
+                    } else {
+                        val encoded =
+                            encoder.encodeForUpload(bytes = downloaded.bytes, sourceMimeType = downloaded.mimeType)
+                        val blob =
+                            repo
+                                .uploadBlob(
+                                    input = encoded.bytes,
+                                    inputContentType = ContentType.parse(encoded.mimeType),
+                                ).blob
+                        AtField.Defined(blob)
+                    }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (e: Exception) {
+                    Timber.tag(TAG).d(e, "external thumbnail prep failed → posting card without thumb")
+                    AtField.Missing
+                }
+            return PreparedExternal(
+                uri = external.uri,
+                title = external.title,
+                description = external.description,
+                thumb = thumb,
+            )
         }
 
         /**
