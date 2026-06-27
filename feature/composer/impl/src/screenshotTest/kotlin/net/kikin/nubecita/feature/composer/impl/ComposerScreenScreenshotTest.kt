@@ -14,10 +14,12 @@ import io.github.kikin81.atproto.runtime.Cid
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.posting.ComposerAttachment
+import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
+import net.kikin.nubecita.feature.composer.impl.state.ExternalLinkStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentPostUi
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
@@ -385,6 +387,69 @@ private fun ComposerScreenQuoteModeLoadedScreenshot() {
                         ),
                 ),
             textFieldState = remember { TextFieldState(initialText = "Wild that this is still up.") },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
+            onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
+            onLanguageChipClick = {},
+            onAudienceChipClick = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "link-card-loaded-light", showBackground = true)
+@Preview(name = "link-card-loaded-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ComposerScreenLinkCardLoadedScreenshot() {
+    // A resolved external link-preview card below the text field, with its dismiss
+    // ✕. (No thumbnail URL loads in the screenshot host — the card renders text-only.)
+    NubecitaCanvasPreviewTheme {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    externalLink =
+                        ExternalLinkStatus.Loaded(
+                            LinkPreview(
+                                uri = "https://example.com/the-article",
+                                title = "An interesting article title that may wrap to two lines",
+                                description = "A short description of the linked page, also up to two lines long.",
+                                imageUrl = null,
+                            ),
+                        ),
+                ),
+            textFieldState = remember { TextFieldState(initialText = "Worth a read: https://example.com/the-article") },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
+            onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
+            onLanguageChipClick = {},
+            onAudienceChipClick = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "link-card-loading-light", showBackground = true)
+@Preview(name = "link-card-loading-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ComposerScreenLinkCardLoadingScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ComposerScreenContent(
+            state = ComposerState(externalLink = ExternalLinkStatus.Loading("https://example.com/the-article")),
+            textFieldState = remember { TextFieldState(initialText = "Worth a read: https://example.com/the-article") },
             snackbarHostState = remember { SnackbarHostState() },
             onSubmit = {},
             onCloseClick = {},

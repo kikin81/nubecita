@@ -115,6 +115,14 @@ internal data class ComposerState(
      * row's mutations (add / remove / reorder) never race the editor.
      */
     val altEditTarget: Int? = null,
+    /**
+     * External link-preview card lifecycle. [ExternalLinkStatus.Idle] when there's
+     * no card. Set to [ExternalLinkStatus.Loading] when the first eligible pasted
+     * URL is detected, then [ExternalLinkStatus.Loaded] once CardyB resolves a
+     * preview. Mutually exclusive with [attachments] (images win); may coexist
+     * with a quote. Never blocks submit.
+     */
+    val externalLink: ExternalLinkStatus = ExternalLinkStatus.Idle,
 ) : UiState
 
 /**

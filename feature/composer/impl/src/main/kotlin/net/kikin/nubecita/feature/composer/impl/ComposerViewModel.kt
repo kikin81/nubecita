@@ -11,6 +11,7 @@ import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,6 +25,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.common.text.GraphemeCounter
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultRepository
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
@@ -33,6 +35,7 @@ import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
+import net.kikin.nubecita.feature.composer.impl.internal.ExternalLinkDetector
 import net.kikin.nubecita.feature.composer.impl.internal.QuoteLinkDetector
 import net.kikin.nubecita.feature.composer.impl.internal.TextLinkScanner
 import net.kikin.nubecita.feature.composer.impl.internal.findActiveMentionStart
@@ -40,6 +43,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
+import net.kikin.nubecita.feature.composer.impl.state.ExternalLinkStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
@@ -125,6 +129,7 @@ internal class ComposerViewModel
         private val actorRepository: ActorRepository,
         private val localeProvider: LocaleProvider,
         private val postAudienceDefaultRepository: PostAudienceDefaultRepository,
+        private val externalLinkMetadataRepository: ExternalLinkMetadataRepository,
         // Exposed (not private) so `ComposerScreen` can drive the post-publish
         // in-app review request on the host Activity's scope. The VM never calls
         // it — it has no Activity handle, and launching here would cancel when the
@@ -213,6 +218,31 @@ internal class ComposerViewModel
                 },
             )
 
+        // Paste-a-link (external): detect the first non-quote URL and attach a
+        // CardyB preview card. Shares the memoized-detect bookkeeping with the
+        // quote scanner. Suppressed while images are attached (card XOR images) or
+        // a card is already loading/loaded.
+        private val externalLinkScanner =
+            TextLinkScanner(
+                detect = { text, exclude ->
+                    ExternalLinkDetector.detect(text, exclude)?.let { TextLinkScanner.Match(it.matchedText, it.matchedText) }
+                },
+                alreadyHandled = {
+                    uiState.value.attachments.isNotEmpty() || uiState.value.externalLink != ExternalLinkStatus.Idle
+                },
+                onDetected = { _, url -> launchExternalFetch(url) },
+            )
+
+        // Tracks the in-flight CardyB fetch so it can be cancelled when images are
+        // added or the card is cleared (race guard — a slow response must not show
+        // a card alongside images).
+        private var externalFetchJob: Job? = null
+
+        // The typed URL currently backing the card (loading or loaded). Used to
+        // `forget` it from the scanner on an image-induced clear so removing the
+        // images restores the card; a manual dismiss leaves it memoized.
+        private var cardedLinkText: String? = null
+
         init {
             uiState.value.replyToUri?.let { uri ->
                 launchParentFetch(uri)
@@ -247,6 +277,8 @@ internal class ComposerViewModel
 
                     // Paste-a-link: attach a pasted Bluesky post link as a quote.
                     quoteLinkScanner.scan(text)
+                    // Paste-a-link: attach a CardyB preview card for an external URL.
+                    externalLinkScanner.scan(text)
                 }.launchIn(viewModelScope)
 
             // Typeahead lookup pipeline — dedupe + mapLatest with
@@ -319,6 +351,7 @@ internal class ComposerViewModel
                 ComposerEvent.RetryParentLoad -> if (!submitInFlight) handleRetryParentLoad()
                 ComposerEvent.RetryQuoteLoad -> if (!submitInFlight) handleRetryQuoteLoad()
                 ComposerEvent.RemoveQuote -> if (!submitInFlight) handleRemoveQuote()
+                ComposerEvent.RemoveExternalLink -> if (!submitInFlight) handleRemoveExternalLink()
                 is ComposerEvent.TypeaheadResultClicked ->
                     if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
                 is ComposerEvent.LanguageSelectionConfirmed ->
@@ -347,6 +380,14 @@ internal class ComposerViewModel
                 "handleAddAttachments() done — attachments now=%d",
                 uiState.value.attachments.size,
             )
+            // Card XOR images: adding images clears a link card. Non-memoizing —
+            // `forget` the URL so removing all images restores the card.
+            if (uiState.value.attachments.isNotEmpty() && uiState.value.externalLink != ExternalLinkStatus.Idle) {
+                externalFetchJob?.cancel()
+                cardedLinkText?.let { externalLinkScanner.forget(it) }
+                cardedLinkText = null
+                setState { copy(externalLink = ExternalLinkStatus.Idle) }
+            }
         }
 
         private fun handleRemoveAttachment(index: Int) {
@@ -356,6 +397,13 @@ internal class ComposerViewModel
                 } else {
                     copy(attachments = attachments.toMutableList().apply { removeAt(index) }.toImmutableList())
                 }
+            }
+            // Crossed back below the card-XOR-images boundary: a URL still in the
+            // text can re-detect and restore its card (image-add forgot it). Image
+            // removal doesn't change text, so the snapshot collector won't fire —
+            // re-scan explicitly.
+            if (uiState.value.attachments.isEmpty()) {
+                externalLinkScanner.scan(textFieldState.text.toString())
             }
         }
 
@@ -610,6 +658,40 @@ internal class ComposerViewModel
         private fun handleRemoveQuote() {
             // Detach the quote without touching the reply context or text.
             setState { copy(quotePostUri = null, quotePostLoad = null) }
+        }
+
+        /** Manual dismiss of the link card: clear it, cancel any fetch, keep the URL memoized. */
+        private fun handleRemoveExternalLink() {
+            externalFetchJob?.cancel()
+            cardedLinkText = null
+            // Note: not forgetting the URL from the scanner — a manual dismiss
+            // should stay dismissed while the URL remains in the text.
+            setState { copy(externalLink = ExternalLinkStatus.Idle) }
+        }
+
+        /**
+         * Fetch a CardyB preview for [url] and show a link card. Tracks the job so
+         * it can be cancelled if images are added / the card is cleared mid-flight,
+         * and re-checks before committing that the state is still `Loading(url)`
+         * with no images — a slow response must never show a card alongside images.
+         * A failed/empty fetch returns to `Idle` silently (the URL stays memoized
+         * via the scanner, so it won't retry-loop).
+         */
+        private fun launchExternalFetch(url: String) {
+            externalFetchJob?.cancel()
+            cardedLinkText = url
+            setState { copy(externalLink = ExternalLinkStatus.Loading(url)) }
+            externalFetchJob =
+                viewModelScope.launch {
+                    val preview = externalLinkMetadataRepository.fetch(url)
+                    if (uiState.value.externalLink != ExternalLinkStatus.Loading(url)) return@launch
+                    if (preview != null && uiState.value.attachments.isEmpty()) {
+                        setState { copy(externalLink = ExternalLinkStatus.Loaded(preview)) }
+                    } else {
+                        cardedLinkText = null
+                        setState { copy(externalLink = ExternalLinkStatus.Idle) }
+                    }
+                }
         }
 
         /**

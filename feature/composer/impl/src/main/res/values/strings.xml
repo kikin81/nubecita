@@ -133,4 +133,7 @@
     <string name="composer_alt_editor_position">%1$d of %2$d</string>
     <!-- Shown when a gallery (more than 4 images) still has an undescribed photo, blocking Post. -->
     <string name="composer_alt_required_hint">Add alt text to every photo</string>
+
+    <!-- a11y label for the dismiss control on the external link-preview card. -->
+    <string name="composer_remove_link_action">Remove link card</string>
 </resources>

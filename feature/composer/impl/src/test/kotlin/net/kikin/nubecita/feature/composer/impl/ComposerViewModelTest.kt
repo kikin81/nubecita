@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -24,6 +25,8 @@ import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultRepository
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
+import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
@@ -35,6 +38,7 @@ import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
+import net.kikin.nubecita.feature.composer.impl.state.ExternalLinkStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentPostUi
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
@@ -77,6 +81,10 @@ class ComposerViewModelTest {
     private val postingRepository = mockk<PostingRepository>()
     private val parentFetchSource = mockk<ParentFetchSource>()
     private val quotePostFetcher = mockk<QuotePostFetcher>()
+
+    // Default: no link preview (relaxed → fetch/downloadThumb return null). The
+    // link-card tests override `fetch` per case.
+    private val externalLinkMetadataRepository = mockk<ExternalLinkMetadataRepository>(relaxed = true)
 
     // Seeds the composer's audience from PostAudience.DEFAULT; setDefault is a
     // relaxed no-op (the save-as-default path is exercised separately).
@@ -1046,8 +1054,126 @@ class ComposerViewModelTest {
             assertTrue(vm.uiState.value.quotePostLoad is QuoteLoadStatus.Loaded)
         }
 
+    // ---- Paste-a-link external card (nubecita-gfli.2) ----
+
+    @Test
+    fun externalUrl_typed_fetchesAndShowsCard() =
+        runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+            val vm = newVm()
+
+            setComposerText(vm, "look at $EXTERNAL_URL")
+
+            assertEquals(ExternalLinkStatus.Loaded(aLinkPreview()), vm.uiState.value.externalLink)
+        }
+
+    @Test
+    fun quoteLink_doesNotProduceExternalCard() =
+        runTest {
+            coEvery { quotePostFetcher.fetchQuote(any()) } returns Result.success(aQuotePostUi())
+            val vm = newVm()
+
+            setComposerText(vm, QUOTE_WEB_URL)
+
+            // The bsky.app post link is a quote, never an external card.
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+            coVerify(exactly = 0) { externalLinkMetadataRepository.fetch(any()) }
+        }
+
+    @Test
+    fun imagesPresent_suppressExternalFetch() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att())))
+
+            setComposerText(vm, "look at $EXTERNAL_URL")
+
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+            coVerify(exactly = 0) { externalLinkMetadataRepository.fetch(any()) }
+        }
+
+    @Test
+    fun addingImages_clearsLoadedCard() =
+        runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+            val vm = newVm()
+            setComposerText(vm, EXTERNAL_URL)
+            assertTrue(vm.uiState.value.externalLink is ExternalLinkStatus.Loaded)
+
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att())))
+
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+        }
+
+    @Test
+    fun removingImages_restoresCard() =
+        runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+            val vm = newVm()
+            setComposerText(vm, EXTERNAL_URL) // card loaded
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att()))) // cleared + forgotten
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+
+            vm.handleEvent(ComposerEvent.RemoveAttachment(0)) // re-scan restores it
+
+            assertTrue(vm.uiState.value.externalLink is ExternalLinkStatus.Loaded)
+        }
+
+    @Test
+    fun manualDismiss_memoizes_noRepop() =
+        runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+            val vm = newVm()
+            setComposerText(vm, EXTERNAL_URL)
+            vm.handleEvent(ComposerEvent.RemoveExternalLink)
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+
+            // The same URL still in the text must NOT re-pop after a manual dismiss.
+            setComposerText(vm, "$EXTERNAL_URL still here")
+
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+        }
+
+    @Test
+    fun failedFetch_silentlyReturnsToIdle() =
+        runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns null
+            val vm = newVm()
+
+            setComposerText(vm, EXTERNAL_URL)
+
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+        }
+
+    @Test
+    fun lateFetchAfterImagesAttached_doesNotShowCard() =
+        runTest {
+            val gate = CompletableDeferred<LinkPreview?>()
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } coAnswers { gate.await() }
+            val vm = newVm()
+
+            setComposerText(vm, EXTERNAL_URL) // Loading; fetch suspended at the gate
+            assertTrue(vm.uiState.value.externalLink is ExternalLinkStatus.Loading)
+
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att()))) // cancels the fetch
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+
+            gate.complete(aLinkPreview()) // late — but the job was cancelled
+            advanceUntilIdle()
+
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+        }
+
+    private fun aLinkPreview(): LinkPreview =
+        LinkPreview(
+            uri = EXTERNAL_URL,
+            title = "Example Title",
+            description = "An example page.",
+            imageUrl = "https://cardyb.bsky.app/v1/image?url=x",
+        )
+
     private fun newVm(
-        replyToUri: String?,
+        replyToUri: String? = null,
         quotePostUri: String? = null,
         deviceLocaleTag: String = "en-US",
     ): ComposerViewModel =
@@ -1059,6 +1185,7 @@ class ComposerViewModelTest {
             actorRepository = actorRepository,
             localeProvider = fixedLocaleProvider(deviceLocaleTag),
             postAudienceDefaultRepository = postAudienceDefaultRepository,
+            externalLinkMetadataRepository = externalLinkMetadataRepository,
             reviewManager = mockk(relaxed = true),
         )
 
@@ -1115,5 +1242,8 @@ class ComposerViewModelTest {
 
         // Web link whose authority+rkey resolve to QUOTE_URI via QuoteLinkDetector.
         const val QUOTE_WEB_URL = "https://bsky.app/profile/did:plc:bob/post/quoted"
+
+        // A plain external (non-quote) URL for link-card detection.
+        const val EXTERNAL_URL = "https://example.com/article"
     }
 }

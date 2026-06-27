@@ -68,6 +68,7 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerCloseAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDialogAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDiscardDialog
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerLanguageChip
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerLinkCard
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerOptionsChipRow
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerQuoteSection
@@ -224,6 +225,10 @@ internal fun ComposerScreen(
         remember(viewModel) {
             { viewModel.handleEvent(ComposerEvent.RemoveQuote) }
         }
+    val onRemoveExternalLink =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.RemoveExternalLink) }
+        }
 
     // Discard-confirmation gate. The composer is a transient, in-progress
     // surface — leaving it (back-press or toolbar X) while the draft has
@@ -357,6 +362,7 @@ internal fun ComposerScreen(
         onRetryParentLoad = onRetryParentLoad,
         onRetryQuoteLoad = onRetryQuoteLoad,
         onRemoveQuote = onRemoveQuote,
+        onRemoveExternalLink = onRemoveExternalLink,
         onLanguageChipClick = { showPicker = true },
         onAudienceChipClick = { showAudiencePicker = true },
         modifier = modifier,
@@ -459,6 +465,7 @@ internal fun ComposerScreenContent(
     onOpenAltEditor: (Int) -> Unit = {},
     onCloseAltEditor: () -> Unit = {},
     onSetAltText: (Int, String) -> Unit = { _, _ -> },
+    onRemoveExternalLink: () -> Unit = {},
 ) {
     // Alt editor is a layer within the composer's own surface: when a photo is
     // being described, it replaces the composer body (full-screen on phone, or
@@ -644,6 +651,14 @@ internal fun ComposerScreenContent(
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
+            // External link-preview card — renders nothing when Idle. Below the
+            // attachment row (mutually exclusive with images) and above the quote
+            // section (a card may coexist with a quote).
+            ComposerLinkCard(
+                status = state.externalLink,
+                onRemove = onRemoveExternalLink,
+                modifier = Modifier.padding(top = 8.dp),
+            )
             // Quote-mode section — renders nothing when not quoting
             // (quotePostLoad == null). Sits at the bottom (below text +
             // attachments), matching the reader's stacked layout: reply
