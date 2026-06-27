@@ -15,6 +15,10 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.InteractPost
+import net.kikin.nubecita.core.analytics.PostAction
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -60,6 +64,7 @@ internal class ProfileViewModel
         private val sessionStateProvider: SessionStateProvider,
         private val postInteractionsCache: PostInteractionsCache,
         private val entitlementRepository: EntitlementRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>(
             ProfileScreenViewState(
                 handle = route.handle,
@@ -169,6 +174,14 @@ internal class ProfileViewModel
                 ProfileEvent.OnReportAccountRequested -> onReportAccountRequested()
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
                 is ProfileEvent.OnLikeClicked -> {
+                    // Fire-and-forget analytics; action direction from the pre-tap
+                    // viewer state. Mirrors FeedViewModel's InteractPost call site.
+                    analytics.log(
+                        InteractPost(
+                            action = if (event.post.viewer.isLikedByViewer) PostAction.Unlike else PostAction.Like,
+                            surface = PostSurface.Profile,
+                        ),
+                    )
                     setState { copy(lastLikeTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
@@ -177,6 +190,12 @@ internal class ProfileViewModel
                     }
                 }
                 is ProfileEvent.OnRepostClicked -> {
+                    analytics.log(
+                        InteractPost(
+                            action = if (event.post.viewer.isRepostedByViewer) PostAction.Unrepost else PostAction.Repost,
+                            surface = PostSurface.Profile,
+                        ),
+                    )
                     setState { copy(lastRepostTapPostUri = event.post.id) }
                     viewModelScope.launch {
                         postInteractionsCache
