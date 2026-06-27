@@ -34,6 +34,9 @@ At compose time only the CardyB metadata + image URL are held; Coil loads the th
 
 (`ImageEncoder` in `:core:image` is already byte-oriented — `encodeForUpload(bytes: ByteArray, sourceMimeType: String): EncodedImage` — so reusing it is the right move, not a size-guarded drop. Earlier-draft reasoning that it was `content://`-oriented was incorrect.)
 
+### D6 — Embed `uri` is CardyB's redirect-resolved `url`
+CardyB follows redirects and returns the *final* destination in its `url` field. The `external.uri` record uses **that resolved URL**, not the (possibly shortened) string the user typed — so a `bit.ly`/`t.co` link posts a card pointing at the real page. The in-text facet still links the typed URL; only the card's `uri` is resolved. If CardyB omits `url` in a response, fall back to the typed URL. (Surfaced by review; the one CardyB URL tested live returned `url` unchanged, so the redirect path should be confirmed against a real shortener during implementation.)
+
 ## Architecture
 
 ### `:core:posting`
@@ -41,7 +44,7 @@ At compose time only the CardyB metadata + image URL are held; Coil loads the th
 - `ExternalLinkMetadataRepository` (interface) + `CardyBExternalLinkMetadataRepository` (impl), injecting the singleton Ktor `HttpClient` from `:core:auth` DI:
   - `suspend fun fetch(url: String): LinkPreview?` — CardyB call (URL-encoded `url` param), short timeout. Returns `null` only on a non-empty `error`, network/timeout failure, or **no usable title**. A blank `description` is NOT a failure — `PostCardExternalEmbed` already skips an empty description row, and the wire record carries `description = ""`. The mapper defaults any missing/blank title/description to `""` (both are required `String` fields on the record), never omits them.
   - `suspend fun downloadThumb(imageUrl: String): EncodedImage?` — bytes + response `Content-Type`, size-guarded (see D5); `null` on failure/oversize. Returns the reused `EncodedImage` type from `:core:image`.
-- `LinkPreview(uri, title, description, imageUrl)` — internal domain model.
+- `LinkPreview(uri, title, description, imageUrl)` — internal domain model. **`uri` is CardyB's returned `url` (the redirect-resolved *final* destination), NOT the string the user typed.** CardyB follows redirects, so a pasted shortener (`bit.ly`/`t.co`) resolves to its real target; the `external.uri` record SHALL carry that resolved URL. The text facet still links whatever the user typed — only the embed card points at the resolved page. (Fall back to the typed URL only if CardyB omits `url`.)
 - `ComposerEmbedIntent` gains `external: PreparedExternal?` (uri/title/description/thumbImageUrl).
 - `resolveEmbed` gains the external arm (truth table below).
 

@@ -19,6 +19,10 @@ When the user types or pastes a URL into the post text that is an `http(s)` URL 
 - **WHEN** the fetched preview has a non-empty title and a blank description
 - **THEN** a card is shown (title + thumbnail, no description row) and the embed carries `description = ""`
 
+#### Scenario: A shortened link resolves to its final destination
+- **WHEN** the user pastes a shortened URL (e.g. `bit.ly/…`) and CardyB returns a redirect-resolved `url`
+- **THEN** the `external.uri` of the posted embed is the resolved destination URL, not the shortened string the user typed
+
 ### Requirement: Link card is dismissable and does not re-pop
 The link card SHALL provide a dismiss affordance. Dismissing it SHALL remove the card and memoize the URL so that the same URL still present in the text does NOT immediately produce a new card.
 
