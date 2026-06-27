@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782462496177,
+  "lastUpdate": 1782547963427,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1559,6 +1559,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 947.79,
             "range": "+/- 38.2%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3100dd227d2e3e8e73654a2153c627ad4ccd9681",
+          "message": "docs(openspec): archive add-gallery-embed; promote gallery-embed capability (#606)\n\n* docs(openspec): archive add-gallery-embed; promote gallery-embed capability\n\nThe gallery embed epic (nubecita-vye3) shipped across PRs #596-#605. Archive\nthe completed change to openspec/changes/archive/2026-06-26-add-gallery-embed\nand promote its delta into a canonical openspec/specs/gallery-embed capability\n(10 requirements). New capability — `openspec archive` reported +10, ~0, -0,\nso no merge/contradiction with existing specs. Replaced the auto-generated TBD\nPurpose with a real summary; flipped tasks.md checkboxes to complete for an\naccurate archived record (all 9 child slices merged).\n\nRefs: nubecita-vye3\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* docs(openspec): correct gallery aspect-ratio spec to match implementation\n\nThe promoted canonical spec still described pick-time dimension decode, but\nvye3.7 implemented (and design D5 documents) an upload-phase bounds-only\ndecode on the IO dispatcher. Fix the requirement to match, and add the\nnon-positive-dimension fallback the code already enforces: gallery#image\nfalls back to 1:1 (required field), images#image omits it (optional field).\n\nRefs: nubecita-vye3\n\n---------\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-06-27T03:06:47Z",
+          "url": "https://github.com/kikin81/nubecita/commit/3100dd227d2e3e8e73654a2153c627ad4ccd9681"
+        },
+        "date": 1782547961178,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 32,
+            "range": "+/- 8.6%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1311.408,
+            "range": "+/- 4.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1245.456,
+            "range": "+/- 4.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1125.476,
+            "range": "+/- 18.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 972.143,
+            "range": "+/- 18.7%",
             "unit": "ms"
           }
         ]
