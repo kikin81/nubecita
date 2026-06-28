@@ -9,6 +9,7 @@ import coil3.SingletonImageLoader
 import com.google.firebase.appcheck.FirebaseAppCheck
 import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -105,8 +106,19 @@ class NubecitaApplication :
         // (lifecycle registration / ProcessLifecycleOwner are main-thread-only). This
         // runs on background process starts too — it's an app-scope coroutine, not a frame.
         applicationScope.launch(Dispatchers.Default) {
-            val initializers = appInitializers.get()
-            withContext(Dispatchers.Main) { initializers.forEach { it.start() } }
+            // ApplicationScope has a SupervisorJob but no CoroutineExceptionHandler,
+            // so an uncaught throw here would reach the global handler and crash the
+            // app. These initializers are non-critical (polling/analytics/push); a
+            // failure is logged (a Crashlytics non-fatal in production) rather than
+            // fatal. CancellationException is rethrown to preserve cooperative cancel.
+            try {
+                val initializers = appInitializers.get()
+                withContext(Dispatchers.Main) { initializers.forEach { it.start() } }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (t: Throwable) {
+                Timber.e(t, "AppInitializer startup failed")
+            }
         }
     }
 
