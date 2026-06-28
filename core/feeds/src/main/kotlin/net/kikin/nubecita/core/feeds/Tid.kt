@@ -1,5 +1,7 @@
 package net.kikin.nubecita.core.feeds
 
+import java.util.concurrent.atomic.AtomicLong
+
 /**
  * Minimal AT Protocol TID (Timestamp Identifier) generator.
  *
@@ -21,11 +23,20 @@ internal object Tid {
     // Randomise the 10-bit clock-id per process start from the nanosecond timer.
     private val clockId: Long = System.nanoTime() and 0x3FFL
 
+    // Strictly monotonic timestamp tracker: ensures two calls within the same
+    // millisecond (or after a backwards NTP step) never produce the same value.
+    private val lastTimestamp = AtomicLong(0L)
+
     /**
-     * Returns a fresh, monotonically increasing TID string.
+     * Returns a fresh, strictly monotonically increasing TID string.
+     *
+     * If the wall-clock millisecond hasn't advanced since the previous call,
+     * the timestamp is incremented by 1 µs so the output is always strictly
+     * greater than the last issued value, regardless of NTP steps or bursts.
      */
     fun next(): String {
-        val micros = System.currentTimeMillis() * 1000L
+        val now = System.currentTimeMillis() * 1000L
+        val micros = lastTimestamp.updateAndGet { prev -> maxOf(now, prev + 1) }
         // Pack timestamp (53 bits, shifted left 10) | clock-id (10 bits) into 63 bits.
         val n = (micros shl 10) or clockId
         return buildString(13) {

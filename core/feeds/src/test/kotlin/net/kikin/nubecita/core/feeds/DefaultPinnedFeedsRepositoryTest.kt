@@ -50,7 +50,8 @@ internal class DefaultPinnedFeedsRepositoryTest {
         uri: String,
         displayName: String,
         avatar: String?,
-    ): GeneratorMeta = GeneratorMeta(uri = uri, displayName = displayName, avatarUrl = avatar)
+        creatorHandle: String? = null,
+    ): GeneratorMeta = GeneratorMeta(uri = uri, displayName = displayName, avatarUrl = avatar, creatorHandle = creatorHandle)
 
     private fun entity(
         uri: String,
@@ -355,8 +356,8 @@ internal class DefaultPinnedFeedsRepositoryTest {
 
             val entity = upsertSlot.captured.single()
             assertEquals("at://did:plc:x/app.bsky.graph.list/abc", entity.uri)
-            // List display name falls back to the URI (no list-metadata endpoint).
-            assertEquals("at://did:plc:x/app.bsky.graph.list/abc", entity.displayName)
+            // List display name uses the record key (last path segment) as a readable placeholder.
+            assertEquals("abc", entity.displayName)
             assertTrue(entity.pinned)
         }
 
@@ -406,7 +407,7 @@ internal class DefaultPinnedFeedsRepositoryTest {
             val feedA = entities.single { it.uri == "at://a" }
             assertEquals("Feed A", feedA.displayName)
             val feedB = entities.single { it.uri == "at://b" }
-            assertEquals("at://b", feedB.displayName) // URI as last-resort display name
+            assertEquals("b", feedB.displayName) // record key as readable placeholder (last URI segment)
             assertNull(feedB.avatarUrl)
             // Prune key is the saved-prefs set — both feeds are kept.
             assertEquals(listOf("at://a", "at://b"), pruneSlot.captured)
@@ -577,21 +578,19 @@ internal class DefaultPinnedFeedsRepositoryTest {
         }
 
     @Test
-    fun `pinFeed is idempotent when feed is already pinned`() =
+    fun `pinFeed is idempotent when feed is already pinned — skips network and Room writes`() =
         runTest {
             coEvery { dataSource.getFullPreferences() } returns
                 prefsWithFeeds(
                     items = listOf(savedFeed("1", "feed", "at://a", pinned = true)),
                 )
-            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
-            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
 
             val result = repo().pinFeed("at://a")
 
             assertTrue(result.isSuccess)
-            coVerify { dao.setPinned("at://a", true) }
-            val updatedFeeds = putSlot.captured.filterIsInstance<SavedFeedsPrefV2>().single()
-            assertTrue(updatedFeeds.items.single { it.value == "at://a" }.pinned)
+            // Early-return path: no Room write and no network round-trip.
+            coVerify(exactly = 0) { dao.setPinned(any(), any()) }
+            coVerify(exactly = 0) { dataSource.putPreferences(any()) }
         }
 
     @Test
@@ -706,5 +705,107 @@ internal class DefaultPinnedFeedsRepositoryTest {
 
             coVerify(exactly = 2) { dataSource.getFullPreferences() }
             coVerify(exactly = 2) { dataSource.putPreferences(any()) }
+        }
+
+    // -------------------------------------------------------------------------
+    // pinFeed / unpinFeed idempotency — Fix 2
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `unpinFeed feed not in saved list returns success without any write`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items = listOf(savedFeed("1", "feed", "at://other", pinned = true)),
+                )
+
+            val result = repo().unpinFeed("at://not-saved")
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 0) { dao.setPinned(any(), any()) }
+            coVerify(exactly = 0) { dataSource.putPreferences(any()) }
+        }
+
+    @Test
+    fun `unpinFeed already-unpinned feed returns success without any write`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items = listOf(savedFeed("1", "feed", "at://a", pinned = false)),
+                )
+
+            val result = repo().unpinFeed("at://a")
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 0) { dao.setPinned(any(), any()) }
+            coVerify(exactly = 0) { dataSource.putPreferences(any()) }
+        }
+
+    // -------------------------------------------------------------------------
+    // pinFeed new-item placeholder uses record key — Fix 3
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `pinFeed new item uses record key as placeholder displayName`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns prefsWithFeeds(items = emptyList())
+            coEvery { dataSource.putPreferences(any()) } returns Unit
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+
+            repo().pinFeed("at://did:plc:x/app.bsky.feed.generator/whats-hot")
+
+            val upserted = upsertSlot.captured.single()
+            assertEquals("whats-hot", upserted.displayName)
+        }
+
+    // -------------------------------------------------------------------------
+    // creatorHandle populated from GeneratorMeta — Fix 4
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `refresh generator entity captures creator handle from getFeedGenerators`() =
+        runTest {
+            coEvery { dataSource.getSavedFeedItems() } returns
+                listOf(savedFeed("1", "feed", "at://a", pinned = true))
+            coEvery { dataSource.getFeedGenerators(any()) } returns
+                listOf(generator("at://a", "Feed A", null, creatorHandle = "alice.bsky.social"))
+
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+            coEvery { dao.deleteUrisNotIn(any()) } returns Unit
+
+            val result = repo().refresh()
+
+            assertTrue(result.isSuccess)
+            val feedA = upsertSlot.captured.single { it.uri == "at://a" }
+            assertEquals("alice.bsky.social", feedA.creatorHandle)
+        }
+
+    @Test
+    fun `refresh unresolved generator falls back to existing cached creator handle`() =
+        runTest {
+            coEvery { dataSource.getSavedFeedItems() } returns
+                listOf(savedFeed("1", "feed", "at://b", pinned = true))
+            // Server returns nothing for at://b (partial response).
+            coEvery { dataSource.getFeedGenerators(any()) } returns emptyList()
+            coEvery { dao.getAllOnce() } returns
+                listOf(
+                    entity(
+                        uri = "at://b",
+                        displayName = "Cool B",
+                        creatorHandle = "bob.bsky.social",
+                        pinned = true,
+                    ),
+                )
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+            coEvery { dao.deleteUrisNotIn(any()) } returns Unit
+
+            val result = repo().refresh()
+
+            assertTrue(result.isSuccess)
+            val feedB = upsertSlot.captured.single { it.uri == "at://b" }
+            assertEquals("bob.bsky.social", feedB.creatorHandle)
         }
 }

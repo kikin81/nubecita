@@ -274,6 +274,9 @@ internal class DefaultPinnedFeedsRepository
                         val isNew = existingIndex < 0
                         val priorPinned = if (isNew) false else currentItems[existingIndex].pinned
 
+                        // Early return: feed already present and pinned — skip network write.
+                        if (!isNew && priorPinned) return@withLock
+
                         val newItems: List<SavedFeed> =
                             if (!isNew) {
                                 currentItems.toMutableList().also { items ->
@@ -297,8 +300,10 @@ internal class DefaultPinnedFeedsRepository
                                 listOf(
                                     SavedFeedEntity(
                                         uri = uri,
-                                        // Placeholder; the next refresh() call will hydrate the real metadata.
-                                        displayName = uri,
+                                        // Brief placeholder until the next refresh() hydrates real metadata.
+                                        // Use the record key (last path segment) instead of the full AT URI
+                                        // so the chip shows a readable label immediately.
+                                        displayName = uri.feedRkeyOrSelf(),
                                         creatorHandle = null,
                                         avatarUrl = null,
                                         pinned = true,
@@ -339,16 +344,14 @@ internal class DefaultPinnedFeedsRepository
                         val existingIndex = currentItems.indexOfFirst { it.value == uri }
                         val priorPinned = if (existingIndex >= 0) currentItems[existingIndex].pinned else false
 
+                        // Early return: feed not saved at all, or already unpinned — skip network write.
+                        if (existingIndex < 0 || !priorPinned) return@withLock
+
                         // Non-destructive: KEEP the SavedFeed in items, only set pinned=false.
                         // A feed saved on another client must not be deleted from the array.
                         val newItems: List<SavedFeed> =
-                            if (existingIndex >= 0) {
-                                currentItems.toMutableList().also { items ->
-                                    items[existingIndex] = items[existingIndex].copy(pinned = false)
-                                }
-                            } else {
-                                // URI not in saved feeds — nothing to unpin; no-op write.
-                                currentItems
+                            currentItems.toMutableList().also { items ->
+                                items[existingIndex] = items[existingIndex].copy(pinned = false)
                             }
 
                         // Optimistic Room write.
@@ -433,9 +436,9 @@ internal class DefaultPinnedFeedsRepository
                     val existing = existingRows[value]
                     SavedFeedEntity(
                         uri = value,
-                        // Prefer fresh metadata; fall back to cached row; last resort = URI.
-                        displayName = meta?.displayName ?: existing?.displayName ?: value,
-                        creatorHandle = null,
+                        // Prefer fresh metadata; fall back to cached row; last resort = record key.
+                        displayName = meta?.displayName ?: existing?.displayName ?: value.feedRkeyOrSelf(),
+                        creatorHandle = meta?.creatorHandle ?: existing?.creatorHandle,
                         avatarUrl = meta?.avatarUrl ?: existing?.avatarUrl,
                         pinned = pinned,
                         position = position,
@@ -446,8 +449,8 @@ internal class DefaultPinnedFeedsRepository
                     SavedFeedEntity(
                         uri = value,
                         // List display names are not available from getPreferences;
-                        // use the URI as a stable placeholder (same as the old live-load path).
-                        displayName = value,
+                        // use the record key as a readable placeholder.
+                        displayName = value.feedRkeyOrSelf(),
                         creatorHandle = null,
                         avatarUrl = null,
                         pinned = pinned,
@@ -460,6 +463,15 @@ internal class DefaultPinnedFeedsRepository
 
         internal companion object {
             private const val TAG = "PinnedFeedsRepo"
+
+            /**
+             * Returns the last path segment of an AT URI (the record key), e.g.
+             * `"whats-hot"` from `"at://did:plc:…/app.bsky.feed.generator/whats-hot"`.
+             * Falls back to the full string when there is no `/` or the segment is blank.
+             * Used for readable placeholder display names before server metadata arrives.
+             */
+            internal fun String.feedRkeyOrSelf(): String = substringAfterLast('/').ifBlank { this }
+
             private const val TYPE_TIMELINE = "timeline"
             internal const val TYPE_FEED = "feed"
             private const val TYPE_LIST = "list"

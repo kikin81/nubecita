@@ -23,6 +23,7 @@ internal data class GeneratorMeta(
     val uri: String,
     val displayName: String,
     val avatarUrl: String?,
+    val creatorHandle: String?,
 )
 
 /**
@@ -87,6 +88,7 @@ internal class DefaultFeedsDataSource
                     uri = view.uri.raw,
                     displayName = view.displayName,
                     avatarUrl = view.avatar?.raw,
+                    creatorHandle = view.creator.handle.raw,
                 )
             }
         }
