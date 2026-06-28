@@ -26,7 +26,11 @@ import timber.log.Timber
 class AppLifecycleObserver(
     private val mutedActorRepository: MutedActorRepository,
     private val scope: CoroutineScope,
-    private val lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
+    // Null in production; resolved on the main thread inside [start]. Kept out of
+    // the constructor so the observer can be CONSTRUCTED off the main thread during
+    // deferred startup — `ProcessLifecycleOwner.get()` is main-thread-only and was
+    // blocking Application.onCreate (nubecita-jicb). Tests inject a fake directly.
+    private val lifecycle: Lifecycle? = null,
 ) : DefaultLifecycleObserver {
     /**
      * Tracks the [start]-launched disk-hydration job so [onStart] can `join`
@@ -36,11 +40,15 @@ class AppLifecycleObserver(
     private var hydrationJob: Job? = null
 
     /**
-     * Registers the observer with [lifecycle] and triggers the disk-cache
-     * hydration. Idempotent — re-registering an already-attached observer
-     * is a no-op in [androidx.lifecycle.LifecycleRegistry].
+     * Registers the observer with the process lifecycle and triggers the
+     * disk-cache hydration. Idempotent — re-registering an already-attached
+     * observer is a no-op in [androidx.lifecycle.LifecycleRegistry].
+     *
+     * MUST be invoked on the main thread: both [ProcessLifecycleOwner.get] and
+     * [Lifecycle.addObserver] are main-thread-only.
      */
     fun start() {
+        val lifecycle = lifecycle ?: ProcessLifecycleOwner.get().lifecycle
         hydrationJob = scope.launch { mutedActorRepository.loadFromDisk() }
         lifecycle.addObserver(this)
     }
