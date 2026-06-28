@@ -85,8 +85,8 @@ data class Share(
 | Event | Where | Trigger |
 |---|---|---|
 | `interact_actor(follow/unfollow, Profile)` | `ProfileViewModel` follow toggle (`launchFollow`/`launchUnfollow` decision point, ~`:495-541`) | on tap; direction from pre-tap `ViewerRelationship` |
-| `share(share_sheet, surface)` | `OnShareClicked` → `SharePost` effect — Profile + PostDetail VMs, and the Feed `PostCard.onShare` path | on tap |
-| `share(copy_link, surface)` | `OnShareLongPressed` → `CopyPermalink` effect — Profile + PostDetail VMs | on tap |
+| `share(share_sheet, surface)` | `OnShareClicked` → `SharePost` effect — `FeedViewModel`, `PostDetailViewModel`, `ProfileViewModel` | on tap |
+| `share(copy_link, surface)` | `OnShareLongPressed` → `CopyPermalink` effect — `FeedViewModel`, `PostDetailViewModel`, `ProfileViewModel` | on tap |
 
 Follow is **Profile-only today**; `source_surface` is still included for consistency with `interact_post` and forward-room as feed/search follow affordances ship (it will read `profile` until then). Share genuinely varies across feed/post_detail/profile.
 
@@ -120,7 +120,7 @@ Event-specific params (`feed_type`, `search_scope`, `reason`, `stage`, `plan`, `
 
 - **Model** (`AnalyticsModelTest`): `interact_actor` and `share` produce the expected `name` + `params` maps; add to the **No-PII guard test** (all param values are enum-derived `Str`/`Bool`, no free text).
 - **Validator** (`AnalyticsValidatorTest`): both events + all param names pass; add to the "all events pass validation" list.
-- **Per-VM** (`ProfileViewModel`, `PostDetailViewModel`, and Feed share path): using the existing `RecordingAnalyticsClient` fakes, assert the correct event/enum fires on the follow toggle (both directions), share-click, and long-press-copy. Direction (follow vs unfollow) is asserted from pre-tap state.
+- **Per-VM**: `ProfileViewModel` (follow toggle both directions + share/copy), `PostDetailViewModel` and `FeedViewModel` (share/copy) — using the existing `RecordingAnalyticsClient` fakes, assert the correct event/enum fires on each tap. Follow direction (follow vs unfollow) is asserted from pre-tap state.
 - No screenshot/instrumented changes (analytics is non-visual).
 
 ## Risks / notes
