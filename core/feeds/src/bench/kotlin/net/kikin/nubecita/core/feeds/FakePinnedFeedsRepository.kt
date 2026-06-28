@@ -55,4 +55,8 @@ public class FakePinnedFeedsRepository
             uri
                 ?.takeIf { candidate -> pinned.any { it.uri == candidate } }
                 ?: PinnedFeedsRepository.FOLLOWING_FEED_URI
+
+        override suspend fun pinFeed(uri: String): Result<Unit> = Result.success(Unit)
+
+        override suspend fun unpinFeed(uri: String): Result<Unit> = Result.success(Unit)
     }

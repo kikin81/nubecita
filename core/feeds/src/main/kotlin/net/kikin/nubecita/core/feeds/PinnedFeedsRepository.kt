@@ -1,6 +1,9 @@
 package net.kikin.nubecita.core.feeds
 
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeed
+import io.github.kikin81.atproto.app.bsky.actor.SavedFeedsPrefV2
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -8,6 +11,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.database.dao.SavedFeedDao
@@ -74,6 +79,33 @@ public interface PinnedFeedsRepository {
         pinned: List<PinnedFeedUi>,
     ): String
 
+    /**
+     * Non-destructively pins the feed at [uri].
+     *
+     * If [uri] already exists in `savedFeedsPrefV2.items`, its `pinned` flag
+     * is set to `true`. If it is absent, a new `SavedFeed(type="feed")` entry
+     * is appended. Foreign preference entries (moderation prefs, label prefs,
+     * etc.) are preserved. Writes through to the Room cache optimistically;
+     * rolls back on `putPreferences` failure.
+     *
+     * Returns [Result.failure] on network/auth error. `CancellationException`
+     * propagates and is never wrapped.
+     */
+    public suspend fun pinFeed(uri: String): Result<Unit>
+
+    /**
+     * Non-destructively unpins the feed at [uri].
+     *
+     * The `SavedFeed` entry is **kept** in `savedFeedsPrefV2.items` with
+     * `pinned = false` — it is never deleted, so feeds saved on another client
+     * are not lost. Foreign preference entries are preserved. Writes through
+     * to the Room cache optimistically; rolls back on `putPreferences` failure.
+     *
+     * Returns [Result.failure] on network/auth error. `CancellationException`
+     * propagates and is never wrapped.
+     */
+    public suspend fun unpinFeed(uri: String): Result<Unit>
+
     public companion object {
         /**
          * Sentinel URI for the synthesized Following timeline entry. The
@@ -100,6 +132,10 @@ internal class DefaultPinnedFeedsRepository
         private val dao: SavedFeedDao,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PinnedFeedsRepository {
+        // Serializes all read-modify-write operations (pinFeed, unpinFeed) so
+        // concurrent calls cannot clobber each other with a stale server read.
+        private val writeMutex = Mutex()
+
         // -------------------------------------------------------------------------
         // Read path: Room cache → PinnedFeedUi
         // -------------------------------------------------------------------------
@@ -221,6 +257,109 @@ internal class DefaultPinnedFeedsRepository
         }
 
         // -------------------------------------------------------------------------
+        // Pin / unpin: read-modify-write via putPreferences + Room write-through
+        // -------------------------------------------------------------------------
+
+        override suspend fun pinFeed(uri: String): Result<Unit> =
+            withContext(dispatcher) {
+                runCatching {
+                    writeMutex.withLock {
+                        val fullPrefs = dataSource.getFullPreferences()
+                        val currentItems =
+                            extractSavedFeedItems(fullPrefs)
+                                .orEmpty()
+                                .toMutableList()
+
+                        val existingIndex = currentItems.indexOfFirst { it.value == uri }
+                        val isNew = existingIndex < 0
+                        val priorPinned = if (isNew) false else currentItems[existingIndex].pinned
+
+                        val newItems: List<SavedFeed> =
+                            if (!isNew) {
+                                currentItems.toMutableList().also { items ->
+                                    items[existingIndex] = items[existingIndex].copy(pinned = true)
+                                }
+                            } else {
+                                currentItems +
+                                    SavedFeed(
+                                        id = Tid.next(),
+                                        type = TYPE_FEED,
+                                        value = uri,
+                                        pinned = true,
+                                    )
+                            }
+
+                        // Optimistic Room write (before server confirmation; rolled back on failure).
+                        if (!isNew) {
+                            dao.setPinned(uri, true)
+                        } else {
+                            dao.upsert(
+                                listOf(
+                                    SavedFeedEntity(
+                                        uri = uri,
+                                        // Placeholder; the next refresh() call will hydrate the real metadata.
+                                        displayName = uri,
+                                        creatorHandle = null,
+                                        avatarUrl = null,
+                                        pinned = true,
+                                        position = newItems.size - 1,
+                                    ),
+                                ),
+                            )
+                        }
+
+                        try {
+                            dataSource.putPreferences(mergeSavedFeedsPrefs(fullPrefs, newItems))
+                        } catch (t: Throwable) {
+                            // Rollback: restore Room to the state before the optimistic write.
+                            // For new items this leaves a ghost row with pinned=false that is
+                            // invisible to observePinnedFeeds() and pruned on the next refresh().
+                            dao.setPinned(uri, priorPinned)
+                            throw t
+                        }
+                    }
+                }.onFailure { if (it is CancellationException) throw it }
+            }
+
+        override suspend fun unpinFeed(uri: String): Result<Unit> =
+            withContext(dispatcher) {
+                runCatching {
+                    writeMutex.withLock {
+                        val fullPrefs = dataSource.getFullPreferences()
+                        val currentItems =
+                            extractSavedFeedItems(fullPrefs)
+                                .orEmpty()
+                                .toMutableList()
+
+                        val existingIndex = currentItems.indexOfFirst { it.value == uri }
+                        val priorPinned = if (existingIndex >= 0) currentItems[existingIndex].pinned else false
+
+                        // Non-destructive: KEEP the SavedFeed in items, only set pinned=false.
+                        // A feed saved on another client must not be deleted from the array.
+                        val newItems: List<SavedFeed> =
+                            if (existingIndex >= 0) {
+                                currentItems.toMutableList().also { items ->
+                                    items[existingIndex] = items[existingIndex].copy(pinned = false)
+                                }
+                            } else {
+                                // URI not in saved feeds — nothing to unpin; no-op write.
+                                currentItems
+                            }
+
+                        // Optimistic Room write.
+                        dao.setPinned(uri, false)
+
+                        try {
+                            dataSource.putPreferences(mergeSavedFeedsPrefs(fullPrefs, newItems))
+                        } catch (t: Throwable) {
+                            dao.setPinned(uri, priorPinned)
+                            throw t
+                        }
+                    }
+                }.onFailure { if (it is CancellationException) throw it }
+            }
+
+        // -------------------------------------------------------------------------
         // Shared helpers
         // -------------------------------------------------------------------------
 
@@ -317,10 +456,29 @@ internal class DefaultPinnedFeedsRepository
         internal companion object {
             private const val TAG = "PinnedFeedsRepo"
             private const val TYPE_TIMELINE = "timeline"
-            private const val TYPE_FEED = "feed"
+            internal const val TYPE_FEED = "feed"
             private const val TYPE_LIST = "list"
             private const val FOLLOWING_DISPLAY_NAME = "Following"
             private const val DISCOVER_DISPLAY_NAME = "Discover"
+
+            /**
+             * Builds a complete `putPreferences` list preserving every foreign preference
+             * entry from [original] (moderation prefs, label prefs, unmodelled future
+             * entries carried as [GetPreferencesResponsePreferencesUnion.Unknown]) while
+             * replacing the [SavedFeedsPrefV2] entry with one backed by [newItems].
+             *
+             * If [original] contained no [SavedFeedsPrefV2], the new entry is appended.
+             */
+            internal fun mergeSavedFeedsPrefs(
+                original: List<GetPreferencesResponsePreferencesUnion>,
+                newItems: List<SavedFeed>,
+            ): List<PutPreferencesRequestPreferencesUnion> {
+                val preserved =
+                    original
+                        .filterNot { it is SavedFeedsPrefV2 }
+                        .map { it.asPutPreference() }
+                return preserved + SavedFeedsPrefV2(items = newItems)
+            }
 
             /**
              * Infers [FeedKind] from the URI shape:

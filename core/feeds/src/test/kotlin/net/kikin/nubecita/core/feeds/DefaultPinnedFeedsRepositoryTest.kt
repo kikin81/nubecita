@@ -1,7 +1,11 @@
 package net.kikin.nubecita.core.feeds
 
 import app.cash.turbine.test
+import io.github.kikin81.atproto.app.bsky.actor.AdultContentPref
+import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeed
+import io.github.kikin81.atproto.app.bsky.actor.SavedFeedsPrefV2
 import io.mockk.Ordering
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -10,6 +14,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.database.dao.SavedFeedDao
@@ -505,4 +510,180 @@ internal class DefaultPinnedFeedsRepositoryTest {
             repo().validateSelectedFeedUri(null, pinned),
         )
     }
+
+    // -------------------------------------------------------------------------
+    // pinFeed() — write path
+    // -------------------------------------------------------------------------
+
+    /**
+     * Helper that builds a full preferences list containing one SavedFeedsPrefV2
+     * plus an optional foreign preference, for use in pin/unpin tests.
+     */
+    private fun prefsWithFeeds(
+        items: List<SavedFeed>,
+        vararg foreign: GetPreferencesResponsePreferencesUnion,
+    ): List<GetPreferencesResponsePreferencesUnion> = foreign.toList() + SavedFeedsPrefV2(items = items)
+
+    @Test
+    fun `pinFeed sets pinned=true on existing unpinned item and preserves foreign prefs`() =
+        runTest {
+            val foreignPref = AdultContentPref(enabled = false)
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items = listOf(savedFeed("1", "feed", "at://a", pinned = false)),
+                    foreign = arrayOf(foreignPref),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+
+            val result = repo().pinFeed("at://a")
+
+            assertTrue(result.isSuccess)
+            // Room optimistic write
+            coVerify { dao.setPinned("at://a", true) }
+            // putPreferences must carry a SavedFeedsPrefV2 with item pinned=true
+            val putPrefs = putSlot.captured
+            val updatedFeeds = putPrefs.filterIsInstance<SavedFeedsPrefV2>().single()
+            val updated = updatedFeeds.items.single { it.value == "at://a" }
+            assertTrue(updated.pinned)
+            // Foreign pref (AdultContentPref) must be preserved
+            assertTrue(putPrefs.any { it is AdultContentPref }, "foreign pref must survive the round-trip")
+        }
+
+    @Test
+    fun `pinFeed adds new SavedFeed when uri not in saved feeds and Room upserts the new row`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items = listOf(savedFeed("1", "feed", "at://a", pinned = false)),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+
+            val result = repo().pinFeed("at://new")
+
+            assertTrue(result.isSuccess)
+            // Room upsert called with the new entity
+            coVerify { dao.upsert(any()) }
+            val upserted = upsertSlot.captured.single()
+            assertEquals("at://new", upserted.uri)
+            assertTrue(upserted.pinned)
+            // putPreferences includes the new item pinned=true AND the original item
+            val updatedFeeds = putSlot.captured.filterIsInstance<SavedFeedsPrefV2>().single()
+            assertTrue(updatedFeeds.items.any { it.value == "at://new" && it.pinned })
+            assertTrue(updatedFeeds.items.any { it.value == "at://a" }, "existing items must be preserved")
+        }
+
+    @Test
+    fun `pinFeed is idempotent when feed is already pinned`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items = listOf(savedFeed("1", "feed", "at://a", pinned = true)),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+
+            val result = repo().pinFeed("at://a")
+
+            assertTrue(result.isSuccess)
+            coVerify { dao.setPinned("at://a", true) }
+            val updatedFeeds = putSlot.captured.filterIsInstance<SavedFeedsPrefV2>().single()
+            assertTrue(updatedFeeds.items.single { it.value == "at://a" }.pinned)
+        }
+
+    @Test
+    fun `pinFeed rolls back Room setPinned when putPreferences fails`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items = listOf(savedFeed("1", "feed", "at://a", pinned = false)),
+                )
+            coEvery { dataSource.putPreferences(any()) } throws IOException("network error")
+
+            val result = repo().pinFeed("at://a")
+
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is IOException)
+            // Optimistic write then rollback (in order)
+            coVerify(Ordering.ORDERED) {
+                dao.setPinned("at://a", true)
+                dao.setPinned("at://a", false)
+            }
+        }
+
+    // -------------------------------------------------------------------------
+    // unpinFeed() — write path
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `unpinFeed sets pinned=false and item remains in SavedFeedsPrefV2 items (non-destructive)`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("1", "feed", "at://a", pinned = true),
+                            savedFeed("2", "feed", "at://b", pinned = true),
+                        ),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+
+            val result = repo().unpinFeed("at://a")
+
+            assertTrue(result.isSuccess)
+            coVerify { dao.setPinned("at://a", false) }
+            val updatedFeeds = putSlot.captured.filterIsInstance<SavedFeedsPrefV2>().single()
+            // Item is NOT removed — only pinned flag changes
+            assertEquals(2, updatedFeeds.items.size, "both items must stay in the list")
+            val unpinned = updatedFeeds.items.single { it.value == "at://a" }
+            assertFalse(unpinned.pinned)
+            // Other item is untouched
+            assertTrue(updatedFeeds.items.single { it.value == "at://b" }.pinned)
+        }
+
+    @Test
+    fun `unpinFeed rolls back Room setPinned when putPreferences fails`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items = listOf(savedFeed("1", "feed", "at://a", pinned = true)),
+                )
+            coEvery { dataSource.putPreferences(any()) } throws IOException("network error")
+
+            val result = repo().unpinFeed("at://a")
+
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is IOException)
+            coVerify(Ordering.ORDERED) {
+                dao.setPinned("at://a", false) // optimistic
+                dao.setPinned("at://a", true) // rollback
+            }
+        }
+
+    // -------------------------------------------------------------------------
+    // Serialization under writeMutex
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `two concurrent pinFeed calls each call getFullPreferences and putPreferences`() =
+        runTest {
+            // Both calls succeed; verify getFullPreferences and putPreferences are
+            // each invoked once per call (mutex serializes them, not batches them).
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(items = listOf(savedFeed("1", "feed", "at://a", pinned = false)))
+            coEvery { dataSource.putPreferences(any()) } returns Unit
+
+            val repo = repo()
+            val j1 = launch { repo.pinFeed("at://a") }
+            val j2 = launch { repo.pinFeed("at://a") }
+            j1.join()
+            j2.join()
+
+            coVerify(exactly = 2) { dataSource.getFullPreferences() }
+            coVerify(exactly = 2) { dataSource.putPreferences(any()) }
+        }
 }
