@@ -131,6 +131,7 @@ internal fun ProfileScreenContent(
                             onFollow = { onEvent(ProfileEvent.FollowTapped) },
                             onMessage = { onEvent(ProfileEvent.MessageTapped) },
                             onReport = { onEvent(ProfileEvent.OnReportAccountRequested) },
+                            onMute = { onEvent(ProfileEvent.HeroMuteTapped) },
                             onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
                             modifier = Modifier.fillMaxWidth(),
                         )

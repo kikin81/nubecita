@@ -414,16 +414,26 @@ sealed interface ProfileEvent : UiEvent {
     data object MessageTapped : ProfileEvent
 
     /**
-     * User tapped one of the still-stubbed overflow entries (Block / Mute)
+     * User tapped one of the still-stubbed overflow entries (Block)
      * on the other-user actions row. Mirrors the
      * [ProfileEffect.ShowComingSoon] shape on the effect side — VM
      * dispatch stays a one-liner. The Report row graduated out of this
      * event in `oftc.3` and now flows through
-     * [OnReportAccountRequested].
+     * [OnReportAccountRequested]. The Mute row graduated in `oftc.5`
+     * and now flows through [HeroMuteTapped].
      */
     data class StubActionTapped(
         val action: StubbedAction,
     ) : ProfileEvent
+
+    /**
+     * User tapped the Mute / Unmute entry in the other-user hero
+     * overflow menu. The VM reads
+     * [ProfileHeaderUi.viewerModeration.isMutedByViewer] to determine
+     * the current mute state and optimistically flips it before issuing
+     * the network call.
+     */
+    data object HeroMuteTapped : ProfileEvent
 
     /**
      * User tapped the "Report account" overflow entry on the other-user
@@ -612,8 +622,9 @@ sealed interface ProfileEffect : UiEffect {
  * dialog landed — Report taps now flow through
  * [ProfileEvent.OnReportAccountRequested] → [ProfileEffect.NavigateTo]
  * with a `Report(...)` NavKey from `:feature:moderation:api`.
- * `Block` and `Mute` remain stubbed until their own moderation-epic
- * children land (`oftc.4` / `oftc.5`); `Edit` ships in a separate
+ * `Mute` graduated in `oftc.5` — hero mute taps now flow through
+ * [ProfileEvent.HeroMuteTapped]. `Block` remains stubbed until its own
+ * moderation-epic child lands (`oftc.4`); `Edit` ships in a separate
  * profile-edit bd issue.
  */
-enum class StubbedAction { Edit, Block, Mute }
+enum class StubbedAction { Edit, Block }

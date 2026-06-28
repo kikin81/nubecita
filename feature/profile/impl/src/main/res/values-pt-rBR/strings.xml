@@ -16,10 +16,7 @@
 
     <string name="profile_snackbar_edit_coming_soon">Editar perfil — em breve</string>
     <string name="profile_snackbar_block_coming_soon">Bloquear — em breve</string>
-    <string name="profile_snackbar_mute_coming_soon">Silenciar — em breve</string>
 
-    <string name="profile_snackbar_post_overflow_mute_coming_soon">Silenciar — em breve</string>
-    <string name="profile_snackbar_post_overflow_unmute_coming_soon">Reativar som — em breve</string>
     <string name="profile_snackbar_post_overflow_block_coming_soon">Bloquear — em breve</string>
     <string name="profile_snackbar_post_overflow_unblock_coming_soon">Desbloquear — em breve</string>
     <string name="profile_snackbar_post_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
@@ -87,5 +84,8 @@
     <string name="edit_profile_error_swap_conflict">O perfil mudou em outro lugar. Recarregue e tente de novo.</string>
     <string name="edit_profile_error_unauthorized">Você saiu da conta.</string>
     <string name="edit_profile_error_network">Não foi possível salvar seu perfil. Tente de novo.</string>
+
+    <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
+    <string name="profile_muted_notice">Você silenciou este usuário</string>
 
 </resources>

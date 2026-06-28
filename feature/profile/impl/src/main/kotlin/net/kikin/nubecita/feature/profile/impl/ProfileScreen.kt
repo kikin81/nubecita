@@ -155,16 +155,11 @@ internal fun ProfileScreen(
         }
     val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
     val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
-    val comingSoonMute = stringResource(R.string.profile_snackbar_mute_coming_soon)
     // PostCard overflow-menu "coming soon" copy (oftc.2). Pre-resolved
     // via stringResource() at composition time so locale changes
     // participate in recomposition. ReportPost graduated in oftc.3.1
-    // and no longer flows through this effect — see the `when` arm
-    // below for the unreachable-defensive branch.
-    val postOverflowMute =
-        stringResource(R.string.profile_snackbar_post_overflow_mute_coming_soon)
-    val postOverflowUnmute =
-        stringResource(R.string.profile_snackbar_post_overflow_unmute_coming_soon)
+    // and no longer flows through this effect. MuteAuthor/UnmuteAuthor
+    // graduated in oftc.5 and now do real work in the VM.
     val postOverflowBlock =
         stringResource(R.string.profile_snackbar_post_overflow_block_coming_soon)
     val postOverflowUnblock =
@@ -210,23 +205,23 @@ internal fun ProfileScreen(
                         when (effect.action) {
                             StubbedAction.Edit -> comingSoonEdit
                             StubbedAction.Block -> comingSoonBlock
-                            StubbedAction.Mute -> comingSoonMute
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = msg)
                 }
                 is ProfileEffect.ShowPostOverflowComingSoon -> {
-                    // ReportPost graduated out of this effect in oftc.3.1
-                    // — the VM now emits `NavigateTo(Report.forPost(...))`
-                    // for that variant instead. The `null` branch is
-                    // unreachable in production; if it ever fires (a
-                    // SavedStateHandle replay or test-synthesized event),
-                    // skip the snackbar rather than crash the collector.
+                    // ReportPost graduated out of this effect in oftc.3.1;
+                    // MuteAuthor/UnmuteAuthor graduated in oftc.5 — those
+                    // variants now do real work in the VM and no longer reach
+                    // this effect. The `null` branch is unreachable in
+                    // production; if it ever fires (a SavedStateHandle replay
+                    // or test-synthesized event), skip the snackbar rather
+                    // than crash the collector.
                     val msg: String? =
                         when (effect.action) {
                             PostOverflowAction.ReportPost -> null
-                            PostOverflowAction.MuteAuthor -> postOverflowMute
-                            PostOverflowAction.UnmuteAuthor -> postOverflowUnmute
+                            PostOverflowAction.MuteAuthor -> null
+                            PostOverflowAction.UnmuteAuthor -> null
                             PostOverflowAction.BlockAuthor -> postOverflowBlock
                             PostOverflowAction.UnblockAuthor -> postOverflowUnblock
                             PostOverflowAction.MuteThread -> postOverflowMuteThread
