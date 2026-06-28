@@ -15,7 +15,7 @@ The official Bluesky app's Explore shows: interest chips, trending topics, sugge
 - **Stable endpoints only.** Suggested accounts via `app.bsky.actor.getSuggestions` and suggested feeds via `app.bsky.feed.getSuggestedFeeds` — both stable and already generated in our atproto-kotlin SDK.
 - **No trending topics in v1.** `app.bsky.unspecced.getTrendingTopics` is the only trending source; it's in the `unspecced` namespace (not generated in our SDK; can change/break without notice). Deferred — would be a best-effort, gracefully-degrading add later.
 - **No "Your interests" chips in v1.** Those chips edit interest prefs to tune *algorithmic/trending* discovery, which we're not building — without a trending/topic-feed destination they have nowhere to go.
-- **Vertical lists**, not horizontal carousels (most scannable, big tap targets for inline actions, no nested horizontal-in-vertical scroll — best for 120hz; matches the official app).
+- **Horizontal card carousels** for both suggested accounts and discover feeds (Google News-style cards). Rationale: compact — accounts and feeds both sit near the top without much vertical scroll. One keyed `LazyRow` per section with stable items keeps 120hz smooth (the nested-scroll caveat is about *many* stacked horizontal rows, not two).
 - **Inline Follow** on suggested accounts; **inline Pin** on suggested feeds.
 
 ## Architecture — three components, sequenced A → B → C
@@ -62,7 +62,12 @@ A second timeline screen — needed the moment any custom feed is tapped, hence 
 - **Inline Pin** → optimistic `isPinned` flip + `PinnedFeedsRepository.pinFeed/unpinFeed` (write-through to Room); tap row → `NavigateTo(FeedView(uri, name))`.
 - Both optimistic flips use the **targeted flag-flip rollback** (flip back on current state inside `setState`, no snapshot clobber); failures → snackbar via `SearchEffect`.
 
-**Layout (approved):** Recent → Suggested accounts → Discover feeds; section headers; ~10 items capped per section; **no "see more" in v1** (show the first page).
+**Layout (approved):** vertically stacked sections —
+1. Recent searches (chips, existing)
+2. Suggested accounts — a horizontal `LazyRow` of compact **account cards** (avatar, name, @handle, inline Follow button)
+3. Discover feeds — a horizontal `LazyRow` of richer **Google News-style feed cards** (thumbnail/avatar, feed name, creator, inline Pin button)
+
+Section headers; ~10 items capped per section; **no "see more" in v1** (show the first page). Each card taps through (account → `Profile`, feed → `FeedView`); the inline Follow/Pin buttons live on the card and don't trigger the card tap.
 
 ## Error / empty handling
 
