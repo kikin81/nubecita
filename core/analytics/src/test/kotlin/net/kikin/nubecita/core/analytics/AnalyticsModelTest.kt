@@ -147,6 +147,35 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `interact_actor carries action and source surface`() {
+        val event = InteractActor(action = ActorAction.Follow, surface = PostSurface.Profile)
+        assertEquals("interact_actor", event.name)
+        assertEquals(
+            mapOf(
+                "action_type" to Str("follow"),
+                "source_surface" to Str("profile"),
+            ),
+            event.params,
+        )
+        assertEquals("unfollow", ActorAction.Unfollow.wire)
+    }
+
+    @Test
+    fun `share carries method content_type and source surface`() {
+        val event = Share(method = ShareMethod.ShareSheet, surface = PostSurface.Feed)
+        assertEquals("share", event.name)
+        assertEquals(
+            mapOf(
+                "method" to Str("share_sheet"),
+                "content_type" to Str("post"),
+                "source_surface" to Str("feed"),
+            ),
+            event.params,
+        )
+        assertEquals("copy_link", ShareMethod.CopyLink.wire)
+    }
+
+    @Test
     fun `every screen exposes a snake_case route name`() {
         val snakeCase = Regex("^[a-z][a-z0-9_]*$")
         AnalyticsScreen.entries.forEach { screen ->
