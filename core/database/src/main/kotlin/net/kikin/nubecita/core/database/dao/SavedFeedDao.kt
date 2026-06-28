@@ -21,6 +21,10 @@ import net.kikin.nubecita.core.database.model.SavedFeedEntity
  *
  * [deleteUrisNotIn] is used after a refresh to prune feeds that have been
  * removed from the server-side list — pass the URIs you want to keep.
+ *
+ * WARNING: never call [deleteUrisNotIn] with an empty list — Room cannot bind
+ * an empty list to an `IN` clause and throws at runtime. When the refresh
+ * resolves to zero feeds (e.g. the user has none), call [clear] instead.
  */
 @Dao
 interface SavedFeedDao {
@@ -36,6 +40,11 @@ interface SavedFeedDao {
         pinned: Boolean,
     )
 
+    /** Prune feeds absent from [keepUris]. MUST be non-empty — use [clear] for the empty case. */
     @Query("DELETE FROM saved_feeds WHERE uri NOT IN (:keepUris)")
     suspend fun deleteUrisNotIn(keepUris: List<String>)
+
+    /** Removes every cached saved feed — the safe path when a refresh resolves to zero feeds. */
+    @Query("DELETE FROM saved_feeds")
+    suspend fun clear()
 }
