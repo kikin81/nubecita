@@ -37,7 +37,11 @@ class ChatsUnreadPollingObserver(
     private val sessionStateProvider: SessionStateProvider,
     private val messageChecking: MessageCheckingPreference,
     private val scope: CoroutineScope,
-    private val lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
+    // Null in production; resolved on the main thread inside [start]. Kept out of
+    // the constructor so the observer can be CONSTRUCTED off the main thread during
+    // deferred startup — `ProcessLifecycleOwner.get()` is main-thread-only and was
+    // blocking Application.onCreate (nubecita-jicb). Tests inject a fake directly.
+    private val lifecycle: Lifecycle? = null,
 ) {
     /** Guards [start] against double-invocation (parallel loops / double network budget). */
     private val started = AtomicBoolean(false)
@@ -45,9 +49,13 @@ class ChatsUnreadPollingObserver(
     /**
      * Registers the lifecycle-scoped polling loop and the session-state
      * collector. Idempotent — subsequent calls short-circuit via [started].
+     *
+     * MUST be invoked on the main thread: resolves [ProcessLifecycleOwner] when no
+     * lifecycle was injected.
      */
     fun start() {
         if (!started.compareAndSet(false, true)) return
+        val lifecycle = lifecycle ?: ProcessLifecycleOwner.get().lifecycle
         scope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 // Drive the poll loop off the toggle (design D6): collectLatest

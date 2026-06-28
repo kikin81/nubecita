@@ -7,8 +7,14 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import com.google.firebase.appcheck.FirebaseAppCheck
+import dagger.Lazy
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.kikin.nubecita.bootstrap.AppInitializer
+import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.push.NotificationChannelInstaller
 import net.kikin.nubecita.firebase.appCheckFactory
 import net.kikin.nubecita.logging.CrashlyticsTree
@@ -50,7 +56,10 @@ class NubecitaApplication :
      * stays dormant, and the APK emits zero network traffic during the
      * Macrobench measurement window. See `bootstrap/AppInitializer.kt`.
      */
-    @Inject lateinit var appInitializers: Set<@JvmSuppressWildcards AppInitializer>
+    @Inject lateinit var appInitializers: Lazy<Set<@JvmSuppressWildcards AppInitializer>>
+
+    @Inject @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
 
     override fun onCreate() {
         super.onCreate()
@@ -88,7 +97,17 @@ class NubecitaApplication :
         // set is undefined — the three coordinators are independent and
         // fire-and-forget into the application scope.
         notificationChannelInstaller.install(this)
-        appInitializers.forEach { it.start() }
+        // Defer the AppInitializer graph off the onCreate critical path. `appInitializers`
+        // is now `Lazy`, so super.onCreate()'s field injection no longer constructs it —
+        // that deep graph (repositories, DAOs) was blocking the main thread during
+        // onCreate and ANR'ing background cold starts (nubecita-jicb). Build it on
+        // Dispatchers.Default, then run the cheap fire-and-forget start()s back on Main
+        // (lifecycle registration / ProcessLifecycleOwner are main-thread-only). This
+        // runs on background process starts too — it's an app-scope coroutine, not a frame.
+        applicationScope.launch(Dispatchers.Default) {
+            val initializers = appInitializers.get()
+            withContext(Dispatchers.Main) { initializers.forEach { it.start() } }
+        }
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader

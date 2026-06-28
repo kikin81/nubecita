@@ -39,7 +39,11 @@ class NotificationsPollingObserver(
     private val store: NotificationsUnreadCountStore,
     private val sessionStateProvider: SessionStateProvider,
     private val scope: CoroutineScope,
-    private val lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
+    // Null in production; resolved on the main thread inside [start]. Kept out of
+    // the constructor so the observer can be CONSTRUCTED off the main thread during
+    // deferred startup — `ProcessLifecycleOwner.get()` is main-thread-only and was
+    // blocking Application.onCreate (nubecita-jicb). Tests inject a fake directly.
+    private val lifecycle: Lifecycle? = null,
 ) {
     /**
      * Guards [start] against double-invocation. In production `start()` is
@@ -62,6 +66,7 @@ class NotificationsPollingObserver(
      */
     fun start() {
         if (!started.compareAndSet(false, true)) return
+        val lifecycle = lifecycle ?: ProcessLifecycleOwner.get().lifecycle
         scope.launch {
             // repeatOnLifecycle(STARTED) suspends until the lifecycle reaches
             // STARTED, runs the block, cancels it on STOP, and re-runs on the
