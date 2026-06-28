@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.ActorAction
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractActor
@@ -69,6 +70,7 @@ internal class ProfileViewModel
         private val postInteractionsCache: PostInteractionsCache,
         private val entitlementRepository: EntitlementRepository,
         private val analytics: AnalyticsClient,
+        private val muteRepository: MuteRepository,
     ) : MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>(
             ProfileScreenViewState(
                 handle = route.handle,
@@ -153,6 +155,7 @@ internal class ProfileViewModel
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)
                 is ProfileEvent.RetryTab -> onRetryTab(event.tab)
                 ProfileEvent.FollowTapped -> onFollowTapped()
+                ProfileEvent.HeroMuteTapped -> onHeroMuteTapped()
                 ProfileEvent.EditTapped -> {
                     // Only open the editor once the header has loaded. Navigating
                     // with a null header would open an EMPTY form, and a Save
@@ -223,8 +226,30 @@ internal class ProfileViewModel
                     when (event.action) {
                         PostOverflowAction.ReportPost ->
                             sendEffect(ProfileEffect.NavigateTo(Report.forPost(event.post)))
-                        PostOverflowAction.MuteAuthor,
-                        PostOverflowAction.UnmuteAuthor,
+                        PostOverflowAction.MuteAuthor -> {
+                            val authorDid = event.post.author.did
+                            setState { updateMutedByAuthor(authorDid, muted = true) }
+                            viewModelScope.launch {
+                                muteRepository
+                                    .muteActor(authorDid)
+                                    .onFailure {
+                                        setState { updateMutedByAuthor(authorDid, muted = false) }
+                                        sendEffect(ProfileEffect.ShowError(it.toProfileError()))
+                                    }
+                            }
+                        }
+                        PostOverflowAction.UnmuteAuthor -> {
+                            val authorDid = event.post.author.did
+                            setState { updateMutedByAuthor(authorDid, muted = false) }
+                            viewModelScope.launch {
+                                muteRepository
+                                    .unmuteActor(authorDid)
+                                    .onFailure {
+                                        setState { updateMutedByAuthor(authorDid, muted = true) }
+                                        sendEffect(ProfileEffect.ShowError(it.toProfileError()))
+                                    }
+                            }
+                        }
                         PostOverflowAction.BlockAuthor,
                         PostOverflowAction.UnblockAuthor,
                         PostOverflowAction.MuteThread,
@@ -351,6 +376,64 @@ internal class ProfileViewModel
             if (state.ownProfile) return
             val did = state.header?.did ?: return
             sendEffect(ProfileEffect.NavigateToMessage(otherUserDid = did))
+        }
+
+        /**
+         * Handle a Mute / Unmute tap on the other-user hero overflow menu.
+         *
+         * Reads [ProfileHeaderUi.viewerModeration.isMutedByViewer] to
+         * determine the current mute state. Optimistically flips the flag
+         * in [ProfileHeaderUi.viewerModeration] before issuing the network
+         * call so the UI reflects the action immediately. On failure, rolls
+         * back the header to its pre-tap state and surfaces a
+         * [ProfileEffect.ShowError] snackbar.
+         *
+         * Silent no-op when the header hasn't loaded yet — the overflow
+         * menu is only visible on a loaded other-user header, so under
+         * normal UI flow this guard is defensive.
+         */
+        private fun onHeroMuteTapped() {
+            val header = uiState.value.header ?: return
+            val isMuted = header.viewerModeration.isMutedByViewer
+            setState {
+                copy(
+                    header =
+                        header.copy(
+                            viewerModeration = header.viewerModeration.copy(isMutedByViewer = !isMuted),
+                        ),
+                )
+            }
+            viewModelScope.launch {
+                if (isMuted) {
+                    muteRepository
+                        .unmuteActor(header.did)
+                        .onFailure {
+                            setState {
+                                copy(
+                                    header =
+                                        this.header?.copy(
+                                            viewerModeration = this.header.viewerModeration.copy(isMutedByViewer = isMuted),
+                                        ),
+                                )
+                            }
+                            sendEffect(ProfileEffect.ShowError(it.toProfileError()))
+                        }
+                } else {
+                    muteRepository
+                        .muteActor(header.did)
+                        .onFailure {
+                            setState {
+                                copy(
+                                    header =
+                                        this.header?.copy(
+                                            viewerModeration = this.header.viewerModeration.copy(isMutedByViewer = isMuted),
+                                        ),
+                                )
+                            }
+                            sendEffect(ProfileEffect.ShowError(it.toProfileError()))
+                        }
+                }
+            }
         }
 
         private fun onRefresh() {
@@ -625,6 +708,46 @@ private fun TabItemUi.applyInteraction(
             copy(post = post.mergeInteractionState(state))
         }
         is TabItemUi.MediaCell -> this // media cells don't show interaction UI
+    }
+
+/**
+ * Flips [net.kikin.nubecita.data.models.ViewerStateUi.isAuthorMutedByViewer]
+ * on every [TabItemUi.Post] whose `post.author.did` matches [did] across all
+ * three tab statuses. [TabItemUi.MediaCell] items are left unchanged because
+ * they carry no viewer state. Non-Loaded tab statuses are also left unchanged.
+ *
+ * Mirrors the `updateMutedByAuthor` helper from
+ * `:feature:postdetail:impl/PostDetailViewModel` — same pessimistic-copy
+ * pattern, different data shape.
+ */
+private fun ProfileScreenViewState.updateMutedByAuthor(
+    did: String,
+    muted: Boolean,
+): ProfileScreenViewState =
+    copy(
+        postsStatus = postsStatus.updateMutedByAuthor(did, muted),
+        repliesStatus = repliesStatus.updateMutedByAuthor(did, muted),
+        mediaStatus = mediaStatus.updateMutedByAuthor(did, muted),
+    )
+
+private fun TabLoadStatus.updateMutedByAuthor(
+    did: String,
+    muted: Boolean,
+): TabLoadStatus =
+    if (this is TabLoadStatus.Loaded) {
+        copy(
+            items =
+                items
+                    .map { item ->
+                        if (item is TabItemUi.Post && item.post.author.did == did) {
+                            item.copy(post = item.post.copy(viewer = item.post.viewer.copy(isAuthorMutedByViewer = muted)))
+                        } else {
+                            item
+                        }
+                    }.toImmutableList(),
+        )
+    } else {
+        this
     }
 
 /**

@@ -49,10 +49,12 @@ internal fun ProfileVerbsRow(
     ownProfile: Boolean,
     viewerRelationship: ViewerRelationship,
     canMessage: Boolean,
+    isMuted: Boolean,
     onEdit: () -> Unit,
     onFollow: () -> Unit,
     onMessage: () -> Unit,
     onReport: () -> Unit,
+    onMute: () -> Unit,
     onOverflowAction: (StubbedAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -86,7 +88,9 @@ internal fun ProfileVerbsRow(
                 }
             }
             ProfileOverflowMenuButton(
+                isMuted = isMuted,
                 onReport = onReport,
+                onMute = onMute,
                 onOverflowAction = onOverflowAction,
             )
         }
@@ -122,7 +126,9 @@ private fun RowScope.FollowVerbButton(
 
 @Composable
 private fun ProfileOverflowMenuButton(
+    isMuted: Boolean,
     onReport: () -> Unit,
+    onMute: () -> Unit,
     onOverflowAction: (StubbedAction) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -145,10 +151,16 @@ private fun ProfileOverflowMenuButton(
                 },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.profile_action_mute)) },
+                text = {
+                    Text(
+                        stringResource(
+                            if (isMuted) R.string.profile_action_unmute else R.string.profile_action_mute,
+                        ),
+                    )
+                },
                 onClick = {
                     expanded = false
-                    onOverflowAction(StubbedAction.Mute)
+                    onMute()
                 },
             )
             DropdownMenuItem(

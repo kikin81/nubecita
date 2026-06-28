@@ -12,14 +12,12 @@
     <string name="profile_action_settings">Ajustes</string>
     <string name="profile_action_block">Bloquear</string>
     <string name="profile_action_mute">Silenciar</string>
+    <string name="profile_action_unmute">Dejar de silenciar</string>
     <string name="profile_action_report">Denunciar</string>
 
     <string name="profile_snackbar_edit_coming_soon">Editar perfil — próximamente</string>
     <string name="profile_snackbar_block_coming_soon">Bloquear — próximamente</string>
-    <string name="profile_snackbar_mute_coming_soon">Silenciar — próximamente</string>
 
-    <string name="profile_snackbar_post_overflow_mute_coming_soon">Silenciar — próximamente</string>
-    <string name="profile_snackbar_post_overflow_unmute_coming_soon">Dejar de silenciar — próximamente</string>
     <string name="profile_snackbar_post_overflow_block_coming_soon">Bloquear — próximamente</string>
     <string name="profile_snackbar_post_overflow_unblock_coming_soon">Desbloquear — próximamente</string>
     <string name="profile_snackbar_post_overflow_mute_thread_coming_soon">Silenciar hilo — próximamente</string>
@@ -87,5 +85,8 @@
     <string name="edit_profile_error_swap_conflict">El perfil cambió en otro lugar. Recarga e inténtalo de nuevo.</string>
     <string name="edit_profile_error_unauthorized">Cerraste sesión.</string>
     <string name="edit_profile_error_network">No se pudo guardar tu perfil. Inténtalo de nuevo.</string>
+
+    <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
+    <string name="profile_muted_notice">Silenciaste a este usuario</string>
 
 </resources>

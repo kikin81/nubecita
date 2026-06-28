@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.actors.BlockRepository
+import net.kikin.nubecita.core.actors.MuteRepository
 import javax.inject.Singleton
 
 /**
@@ -26,4 +27,8 @@ abstract class ActorsModule {
     @Binds
     @Singleton
     internal abstract fun bindBlockRepository(impl: DefaultBlockRepository): BlockRepository
+
+    @Binds
+    @Singleton
+    internal abstract fun bindMuteRepository(impl: DefaultMuteRepository): MuteRepository
 }

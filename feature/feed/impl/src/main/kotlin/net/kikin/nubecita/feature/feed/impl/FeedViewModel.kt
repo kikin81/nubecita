@@ -11,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.InteractPost
@@ -30,6 +31,7 @@ import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
@@ -49,6 +51,7 @@ class FeedViewModel
         private val postInteractionsCache: PostInteractionsCache,
         val sharedVideoPlayer: SharedVideoPlayer,
         private val analytics: AnalyticsClient,
+        private val muteRepository: MuteRepository,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()) {
         /**
          * The feed this VM renders, bound once via [FeedEvent.Bind]
@@ -153,11 +156,48 @@ class FeedViewModel
                                     Block.forAccount(did = event.post.author.did, handle = event.post.author.handle),
                                 ),
                             )
+                        PostOverflowAction.MuteAuthor -> {
+                            val authorDid = event.post.author.did
+                            val previousItems = uiState.value.feedItems
+                            setState { copy(feedItems = feedItems.removeItemsByAuthor(authorDid)) }
+                            viewModelScope.launch {
+                                muteRepository
+                                    .muteActor(authorDid)
+                                    .onFailure {
+                                        setState { copy(feedItems = previousItems) }
+                                        sendEffect(FeedEffect.ShowError(it.toFeedError()))
+                                    }
+                            }
+                        }
+                        PostOverflowAction.UnmuteAuthor -> {
+                            val authorDid = event.post.author.did
+                            setState {
+                                copy(
+                                    feedItems =
+                                        feedItems.updateViewerStateByAuthor(authorDid) {
+                                            it.copy(isAuthorMutedByViewer = false)
+                                        },
+                                )
+                            }
+                            viewModelScope.launch {
+                                muteRepository
+                                    .unmuteActor(authorDid)
+                                    .onFailure {
+                                        setState {
+                                            copy(
+                                                feedItems =
+                                                    feedItems.updateViewerStateByAuthor(authorDid) {
+                                                        it.copy(isAuthorMutedByViewer = true)
+                                                    },
+                                            )
+                                        }
+                                        sendEffect(FeedEffect.ShowError(it.toFeedError()))
+                                    }
+                            }
+                        }
                         // Unblock has no primitive yet (block is one-way for now); keep it
                         // "coming soon" until the moderation epic adds unblock.
                         PostOverflowAction.UnblockAuthor,
-                        PostOverflowAction.MuteAuthor,
-                        PostOverflowAction.UnmuteAuthor,
                         PostOverflowAction.MuteThread,
                         PostOverflowAction.UnmuteThread,
                         PostOverflowAction.CopyPostText,
@@ -429,6 +469,89 @@ class FeedViewModel
                 else -> FeedError.Unknown(cause = message)
             }
     }
+
+/**
+ * Remove every [FeedItemUi] from the list whose "primary" post is authored
+ * by [did]. Used for the optimistic mute-hide in [FeedViewModel].
+ *
+ * Removal semantics per variant:
+ * - [FeedItemUi.Single] — removed when its post's `author.did` matches.
+ * - [FeedItemUi.ReplyCluster] — removed when the **leaf** post's author
+ *   matches. The leaf is the "followed" post; root/parent are context.
+ *   Keeping a cluster where the leaf is by someone else (replying to the
+ *   muted author) is intentional — the viewer follows that other person.
+ *   Muting hides the muted author's own posts and threads, but a
+ *   non-muted user's reply to (or quote of) a muted author is kept as
+ *   conversation context, matching the server's next-fetch behavior where
+ *   muted accounts appear only as thread context rather than top-level
+ *   feed entries.
+ * - [FeedItemUi.SelfThreadChain] — removed when any post's author matches
+ *   (all posts in a chain share the same author by construction).
+ * - Tombstone variants carry no author — always kept.
+ */
+private fun ImmutableList<FeedItemUi>.removeItemsByAuthor(did: String): ImmutableList<FeedItemUi> =
+    filter { item ->
+        when (item) {
+            is FeedItemUi.Single -> item.post.author.did != did
+            is FeedItemUi.ReplyCluster -> item.leaf.author.did != did
+            is FeedItemUi.SelfThreadChain -> item.posts.none { it.author.did == did }
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> true
+        }
+    }.toImmutableList()
+
+/**
+ * Apply [transform] to the [ViewerStateUi] of every post authored by [did]
+ * across all [FeedItemUi] variants. Used for the optimistic unmute flip in
+ * [FeedViewModel].
+ *
+ * Returns the same instance for any item none of whose contained posts are
+ * authored by [did], preserving reference equality so LazyColumn can skip
+ * recomposition for unchanged items.
+ */
+private fun ImmutableList<FeedItemUi>.updateViewerStateByAuthor(
+    did: String,
+    transform: (ViewerStateUi) -> ViewerStateUi,
+): ImmutableList<FeedItemUi> =
+    map { item ->
+        when (item) {
+            is FeedItemUi.Single -> {
+                if (item.post.author.did != did) {
+                    item
+                } else {
+                    item.copy(post = item.post.copy(viewer = transform(item.post.viewer)))
+                }
+            }
+            is FeedItemUi.ReplyCluster -> {
+                val root =
+                    if (item.root.author.did == did) item.root.copy(viewer = transform(item.root.viewer)) else item.root
+                val parent =
+                    if (item.parent.author.did == did) item.parent.copy(viewer = transform(item.parent.viewer)) else item.parent
+                val leaf =
+                    if (item.leaf.author.did == did) item.leaf.copy(viewer = transform(item.leaf.viewer)) else item.leaf
+                if (root === item.root && parent === item.parent && leaf === item.leaf) {
+                    item
+                } else {
+                    item.copy(root = root, parent = parent, leaf = leaf)
+                }
+            }
+            is FeedItemUi.SelfThreadChain -> {
+                var changed = false
+                val updatedPosts =
+                    item.posts
+                        .map { p ->
+                            if (p.author.did == did) {
+                                changed = true
+                                p.copy(viewer = transform(p.viewer))
+                            } else {
+                                p
+                            }
+                        }.toImmutableList()
+                if (changed) item.copy(posts = updatedPosts) else item
+            }
+            // Tombstones carry no author state — pass through unchanged.
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> item
+        }
+    }.toImmutableList()
 
 /**
  * Flatten every [PostUi] out of every [FeedItemUi] variant in the list.

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,12 +25,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.component.SupporterBadge
 import net.kikin.nubecita.designsystem.extendedTypography
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.profile.impl.ProfileError
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.R
@@ -178,6 +182,11 @@ private fun ProfileHeroLoaded(
                 SupporterBadge()
             }
 
+            if (header.viewerModeration.isMutedByViewer) {
+                Spacer(Modifier.height(4.dp))
+                MutedNotice()
+            }
+
             if (header.bio != null) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -199,6 +208,43 @@ private fun ProfileHeroLoaded(
                 joinedDisplay = header.joinedDisplay,
             )
         }
+    }
+}
+
+/**
+ * Inline chip shown below the display name / handle when the authenticated
+ * viewer has muted this profile's author. Reads from
+ * [ProfileHeaderUi.viewerModeration.isMutedByViewer].
+ *
+ * Visual language: [MaterialTheme.colorScheme.surfaceContainerLow] fill
+ * (the "recessed inset" token per the design-system surface-roles table)
+ * with [MaterialTheme.colorScheme.onSurfaceVariant] content — a passive
+ * notice, not an actionable affordance. Mirrors the pill shape of
+ * [SupporterBadge].
+ */
+@Composable
+private fun MutedNotice(modifier: Modifier = Modifier) {
+    Row(
+        modifier =
+            modifier
+                .semantics(mergeDescendants = true) {}
+                .clip(RoundedCornerShape(percent = 50))
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NubecitaIcon(
+            name = NubecitaIconName.VolumeOff,
+            contentDescription = null,
+            opticalSize = 16.dp,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(R.string.profile_muted_notice),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

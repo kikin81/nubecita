@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.ActorAction
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractActor
@@ -801,11 +802,12 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `StubActionTapped(Edit, Block, Mute) still emits ShowComingSoon, never touches the repo`() =
+    fun `StubActionTapped(Edit, Block) emits ShowComingSoon, Mute no longer stubbed`() =
         // Regression guard: only Report graduated out of ShowComingSoon
         // in oftc.3 (it now flows through OnReportAccountRequested →
-        // NavigateTo(Report)). Edit / Block / Mute remain stubbed until
-        // their own moderation-epic children land (oftc.4 / oftc.5).
+        // NavigateTo(Report)). Mute graduated in oftc.5 — hero mute taps
+        // now flow through HeroMuteTapped → real muteActor/unmuteActor
+        // calls. Edit / Block remain stubbed until their own children land.
         // This test pins the still-stubbed rows so a future migration
         // doesn't silently graduate them without an explicit test diff.
         runTest(mainDispatcher.dispatcher) {
@@ -825,8 +827,6 @@ internal class ProfileViewModelTest {
                 assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Edit), awaitItem())
                 vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Block))
                 assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Block), awaitItem())
-                vm.handleEvent(ProfileEvent.StubActionTapped(StubbedAction.Mute))
-                assertEquals(ProfileEffect.ShowComingSoon(StubbedAction.Mute), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
 
@@ -918,11 +918,12 @@ internal class ProfileViewModelTest {
 
             val post = samplePostUi("at://did:plc:fake/app.bsky.feed.post/x")
             // ReportPost graduated in oftc.3.1 — covered separately below.
-            // The remaining seven variants still surface ShowPostOverflowComingSoon.
+            // MuteAuthor/UnmuteAuthor graduated in oftc.5 — those now do real
+            // work in the VM (see HeroMuteTapped + OnPostOverflowAction mute
+            // tests above). The remaining five variants still surface
+            // ShowPostOverflowComingSoon.
             val stubbedVariants =
                 listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
@@ -1437,6 +1438,635 @@ internal class ProfileViewModelTest {
             assertEquals(42, merged.post.stats.likeCount)
         }
 
+    // -- Mute / Unmute tests (oftc.5) -----------------------------------------
+
+    @Test
+    fun `HeroMuteTapped on unmuted profile optimistically flips isMutedByViewer to true and calls muteActor`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                ViewerRelationship.NotFollowing(),
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            // SAMPLE_HEADER has viewerModeration.isMutedByViewer = false by default.
+            assertFalse(
+                vm.uiState.value.header!!
+                    .viewerModeration.isMutedByViewer,
+                "pre-condition: profile must start as unmuted",
+            )
+
+            vm.handleEvent(ProfileEvent.HeroMuteTapped)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.header!!
+                    .viewerModeration.isMutedByViewer,
+                "HeroMuteTapped on unmuted profile MUST flip isMutedByViewer to true",
+            )
+            assertEquals(1, fakeMuteRepo.muteCalls.get(), "muteActor MUST be called exactly once")
+            assertEquals(SAMPLE_HEADER.did, fakeMuteRepo.lastMuteDid, "muteActor MUST target the header DID")
+            assertEquals(0, fakeMuteRepo.unmuteCalls.get(), "unmuteActor MUST NOT be called")
+        }
+
+    @Test
+    fun `HeroMuteTapped on muted profile optimistically flips isMutedByViewer to false and calls unmuteActor`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository()
+            val mutedHeader =
+                SAMPLE_HEADER.copy(
+                    handle = "bob.bsky.social",
+                    viewerModeration = ViewerModerationState(isMutedByViewer = true),
+                )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(mutedHeader, ViewerRelationship.NotFollowing())),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.header!!
+                    .viewerModeration.isMutedByViewer,
+                "pre-condition: profile must start as muted",
+            )
+
+            vm.handleEvent(ProfileEvent.HeroMuteTapped)
+            advanceUntilIdle()
+
+            assertFalse(
+                vm.uiState.value.header!!
+                    .viewerModeration.isMutedByViewer,
+                "HeroMuteTapped on muted profile MUST flip isMutedByViewer to false",
+            )
+            assertEquals(1, fakeMuteRepo.unmuteCalls.get(), "unmuteActor MUST be called exactly once")
+            assertEquals(0, fakeMuteRepo.muteCalls.get(), "muteActor MUST NOT be called")
+        }
+
+    @Test
+    fun `HeroMuteTapped mute failure rolls back header and emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository(muteResult = Result.failure(IOException("net")))
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                ViewerRelationship.NotFollowing(),
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.HeroMuteTapped)
+                advanceUntilIdle()
+                assertTrue(awaitItem() is ProfileEffect.ShowError, "mute failure MUST surface ShowError")
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertFalse(
+                vm.uiState.value.header!!
+                    .viewerModeration.isMutedByViewer,
+                "mute failure MUST roll back isMutedByViewer to false",
+            )
+        }
+
+    @Test
+    fun `HeroMuteTapped unmute failure rolls back header and emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository(unmuteResult = Result.failure(IOException("net")))
+            val mutedHeader =
+                SAMPLE_HEADER.copy(
+                    handle = "bob.bsky.social",
+                    viewerModeration = ViewerModerationState(isMutedByViewer = true),
+                )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(mutedHeader, ViewerRelationship.NotFollowing())),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.HeroMuteTapped)
+                advanceUntilIdle()
+                assertTrue(awaitItem() is ProfileEffect.ShowError, "unmute failure MUST surface ShowError")
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertTrue(
+                vm.uiState.value.header!!
+                    .viewerModeration.isMutedByViewer,
+                "unmute failure MUST roll back isMutedByViewer to true",
+            )
+        }
+
+    @Test
+    fun `HeroMuteTapped before header loads is a silent no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult = Result.failure(IOException("boom")),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.header, "pre-condition: header must be null after load failure")
+
+            vm.effects.test {
+                // Drain the header-failure ShowError that init emits.
+                awaitItem()
+                vm.handleEvent(ProfileEvent.HeroMuteTapped)
+                advanceUntilIdle()
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(0, fakeMuteRepo.muteCalls.get(), "no-op: muteActor MUST NOT be called")
+            assertEquals(0, fakeMuteRepo.unmuteCalls.get(), "no-op: unmuteActor MUST NOT be called")
+        }
+
+    @Test
+    fun `OnPostOverflowAction MuteAuthor flips isAuthorMutedByViewer to true on matching posts and calls muteActor`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository()
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null))
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
+            val item = loaded.items.filterIsInstance<TabItemUi.Post>().first()
+            assertTrue(
+                item.post.viewer.isAuthorMutedByViewer,
+                "MuteAuthor MUST flip isAuthorMutedByViewer to true on matching posts",
+            )
+            assertEquals(1, fakeMuteRepo.muteCalls.get(), "muteActor MUST be called exactly once")
+            assertEquals(targetDid, fakeMuteRepo.lastMuteDid, "muteActor MUST target the author DID")
+        }
+
+    @Test
+    fun `OnPostOverflowAction MuteAuthor failure rolls back and emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository(muteResult = Result.failure(IOException("net")))
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null))
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+                advanceUntilIdle()
+                assertTrue(awaitItem() is ProfileEffect.ShowError, "MuteAuthor failure MUST surface ShowError")
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
+            val item = loaded.items.filterIsInstance<TabItemUi.Post>().first()
+            assertFalse(
+                item.post.viewer.isAuthorMutedByViewer,
+                "MuteAuthor failure MUST roll back isAuthorMutedByViewer to false",
+            )
+        }
+
+    @Test
+    fun `OnPostOverflowAction UnmuteAuthor flips isAuthorMutedByViewer to false on matching posts and calls unmuteActor`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository()
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(
+                        author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null),
+                        viewer = ViewerStateUi(isAuthorMutedByViewer = true),
+                    )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
+            val item = loaded.items.filterIsInstance<TabItemUi.Post>().first()
+            assertFalse(
+                item.post.viewer.isAuthorMutedByViewer,
+                "UnmuteAuthor MUST flip isAuthorMutedByViewer to false on matching posts",
+            )
+            assertEquals(1, fakeMuteRepo.unmuteCalls.get(), "unmuteActor MUST be called exactly once")
+            assertEquals(targetDid, fakeMuteRepo.lastUnmuteDid, "unmuteActor MUST target the author DID")
+            assertEquals(0, fakeMuteRepo.muteCalls.get(), "muteActor MUST NOT be called")
+        }
+
+    @Test
+    fun `OnPostOverflowAction UnmuteAuthor failure rolls back and emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository(unmuteResult = Result.failure(IOException("net")))
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(
+                        author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null),
+                        viewer = ViewerStateUi(isAuthorMutedByViewer = true),
+                    )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+                advanceUntilIdle()
+                assertTrue(awaitItem() is ProfileEffect.ShowError, "UnmuteAuthor failure MUST surface ShowError")
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
+            val item = loaded.items.filterIsInstance<TabItemUi.Post>().first()
+            assertTrue(
+                item.post.viewer.isAuthorMutedByViewer,
+                "UnmuteAuthor failure MUST roll back isAuthorMutedByViewer to true",
+            )
+        }
+
+    @Test
+    fun `OnPostOverflowAction MuteAuthor also flips isAuthorMutedByViewer on matching posts in the Replies tab`() =
+        // Regression pin: updateMutedByAuthor maps all three tabs.
+        // The existing MuteAuthor test only loads Posts; this test loads
+        // both Posts and Replies with the same target post and asserts
+        // that the Replies tab's items are also updated — and that
+        // reference equality is preserved for unchanged items.
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository()
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null))
+            val otherPost =
+                samplePostUi(id = "at://did:plc:other/app.bsky.feed.post/p2")
+                    .copy(author = AuthorUi(did = "did:plc:other", handle = "other.bsky.social", displayName = "Other", avatarUrl = null))
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost), TabItemUi.Post(otherPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+            advanceUntilIdle()
+
+            val repliesLoaded = vm.uiState.value.repliesStatus as TabLoadStatus.Loaded
+            val repliesItems = repliesLoaded.items.filterIsInstance<TabItemUi.Post>()
+
+            // Target post in Replies tab MUST have isAuthorMutedByViewer flipped to true.
+            val targetInReplies = repliesItems.first { it.post.id == targetPost.id }
+            assertTrue(
+                targetInReplies.post.viewer.isAuthorMutedByViewer,
+                "MuteAuthor MUST flip isAuthorMutedByViewer to true for matching posts in the Replies tab",
+            )
+
+            // Unrelated post in Replies tab MUST be untouched (reference equality).
+            val otherInReplies = repliesItems.first { it.post.id == otherPost.id }
+            assertFalse(
+                otherInReplies.post.viewer.isAuthorMutedByViewer,
+                "MuteAuthor MUST NOT flip isAuthorMutedByViewer for posts by a different author",
+            )
+
+            assertEquals(1, fakeMuteRepo.muteCalls.get(), "muteActor MUST be called exactly once")
+        }
+
+    @Test
+    fun `OnPostOverflowAction UnmuteAuthor also flips isAuthorMutedByViewer on matching posts in the Replies tab`() =
+        // Mirror of the MuteAuthor multi-tab test for the inverse action.
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository()
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(
+                        author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null),
+                        viewer = ViewerStateUi(isAuthorMutedByViewer = true),
+                    )
+            val otherPost =
+                samplePostUi(id = "at://did:plc:other/app.bsky.feed.post/p2")
+                    .copy(
+                        author = AuthorUi(did = "did:plc:other", handle = "other.bsky.social", displayName = "Other", avatarUrl = null),
+                        viewer = ViewerStateUi(isAuthorMutedByViewer = true),
+                    )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost), TabItemUi.Post(otherPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+            advanceUntilIdle()
+
+            val repliesLoaded = vm.uiState.value.repliesStatus as TabLoadStatus.Loaded
+            val repliesItems = repliesLoaded.items.filterIsInstance<TabItemUi.Post>()
+
+            // Target post in Replies tab MUST have isAuthorMutedByViewer flipped to false.
+            val targetInReplies = repliesItems.first { it.post.id == targetPost.id }
+            assertFalse(
+                targetInReplies.post.viewer.isAuthorMutedByViewer,
+                "UnmuteAuthor MUST flip isAuthorMutedByViewer to false for matching posts in the Replies tab",
+            )
+
+            // Unrelated muted post in Replies tab MUST NOT be unmuted (different author DID).
+            val otherInReplies = repliesItems.first { it.post.id == otherPost.id }
+            assertTrue(
+                otherInReplies.post.viewer.isAuthorMutedByViewer,
+                "UnmuteAuthor MUST NOT touch posts by a different author",
+            )
+
+            assertEquals(1, fakeMuteRepo.unmuteCalls.get(), "unmuteActor MUST be called exactly once")
+        }
+
+    @Test
+    fun `OnPostOverflowAction MuteAuthor rollback only reverts tab statuses not concurrent unrelated state`() =
+        // Regression pin for whole-state restore bug (nubecita-oftc.5 Gemini fix):
+        // the MuteAuthor arm must use a targeted flag flip (not a snapshot restore)
+        // on failure so concurrent mutations (e.g. a tab selection) that land while
+        // muteActor is in-flight are not clobbered. The rollback calls
+        // updateMutedByAuthor(authorDid, muted = false) on the CURRENT state inside
+        // setState, so only the mute flag is reverted — all other fields are untouched.
+        // This test drives a gated muteActor failure, injects a concurrent
+        // TabSelected during the in-flight call, and asserts that selectedTab
+        // survives the rollback while the muted flag is correctly reverted.
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository(muteResult = Result.failure(IOException("net")))
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null))
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            // Pre-condition: Posts tab is selected.
+            assertEquals(ProfileTab.Posts, vm.uiState.value.selectedTab)
+
+            // Gate muteActor so we can inject a concurrent state change mid-flight.
+            fakeMuteRepo.gateMute = true
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+            // With UnconfinedTestDispatcher the coroutine runs eagerly until the
+            // first suspension point (gate.await). The optimistic flip has happened.
+            assertTrue(
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first()
+                    .post.viewer.isAuthorMutedByViewer,
+                "optimistic mute flip MUST have applied before muteActor suspends",
+            )
+
+            // Concurrent state mutation: select Replies while muteActor is in-flight.
+            vm.handleEvent(ProfileEvent.TabSelected(ProfileTab.Replies))
+            assertEquals(
+                ProfileTab.Replies,
+                vm.uiState.value.selectedTab,
+                "concurrent TabSelected MUST take effect while muteActor is suspended",
+            )
+
+            // Release the gate → muteActor fails → rollback executes.
+            fakeMuteRepo.releaseMute()
+            advanceUntilIdle()
+
+            // Field-level rollback: selectedTab MUST survive (it's not a tab-status field).
+            assertEquals(
+                ProfileTab.Replies,
+                vm.uiState.value.selectedTab,
+                "rollback MUST preserve concurrent selectedTab change — field-level restore, not whole-state",
+            )
+            // Tab-status rollback: the optimistic mute MUST be reverted.
+            assertFalse(
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first()
+                    .post.viewer.isAuthorMutedByViewer,
+                "rollback MUST revert the optimistic mute on tab items",
+            )
+        }
+
+    @Test
+    fun `OnPostOverflowAction UnmuteAuthor rollback only reverts tab statuses not concurrent unrelated state`() =
+        // Mirror of the MuteAuthor rollback-isolation test for the inverse action.
+        // Confirms that targeted flag flip (updateMutedByAuthor on current state)
+        // is applied to both arms of the per-post mute handler in ProfileViewModel.
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository(unmuteResult = Result.failure(IOException("net")))
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(
+                        author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null),
+                        viewer = ViewerStateUi(isAuthorMutedByViewer = true),
+                    )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            assertEquals(ProfileTab.Posts, vm.uiState.value.selectedTab)
+
+            fakeMuteRepo.gateUnmute = true
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+            assertFalse(
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first()
+                    .post.viewer.isAuthorMutedByViewer,
+                "optimistic unmute flip MUST have applied before unmuteActor suspends",
+            )
+
+            vm.handleEvent(ProfileEvent.TabSelected(ProfileTab.Media))
+            assertEquals(
+                ProfileTab.Media,
+                vm.uiState.value.selectedTab,
+                "concurrent TabSelected MUST take effect while unmuteActor is suspended",
+            )
+
+            fakeMuteRepo.releaseUnmute()
+            advanceUntilIdle()
+
+            assertEquals(
+                ProfileTab.Media,
+                vm.uiState.value.selectedTab,
+                "rollback MUST preserve concurrent selectedTab change — field-level restore, not whole-state",
+            )
+            assertTrue(
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first()
+                    .post.viewer.isAuthorMutedByViewer,
+                "rollback MUST revert the optimistic unmute on tab items",
+            )
+        }
+
     // -- Test helpers ----------------------------------------------------------
 
     private fun samplePostUi(
@@ -1470,6 +2100,7 @@ internal class ProfileViewModelTest {
         postInteractionsCache: PostInteractionsCache = FakePostInteractionsCache(),
         isPro: Boolean = false,
         analytics: AnalyticsClient = RecordingAnalyticsClient(),
+        muteRepository: MuteRepository = FakeMuteRepository(),
     ): ProfileViewModel {
         val sessionProvider =
             mockk<SessionStateProvider>(relaxed = true).also {
@@ -1486,6 +2117,7 @@ internal class ProfileViewModelTest {
             postInteractionsCache = postInteractionsCache,
             entitlementRepository = entitlementRepository,
             analytics = analytics,
+            muteRepository = muteRepository,
         )
     }
 
@@ -1609,5 +2241,65 @@ internal class ProfileViewModelTest {
             avatar: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
             banner: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
         ): Result<Unit> = Result.success(Unit)
+    }
+
+    /**
+     * In-memory [MuteRepository] for VM tests. Tracks call counts and
+     * the last DID passed to each operation so tests can assert exactly
+     * what the VM requested and with which identity.
+     *
+     * Gate support mirrors [FakeProfileRepository]'s `gateFollow` /
+     * `gateUnfollow` pattern: set `gateMute` or `gateUnmute` before
+     * firing the event to suspend the call at the network boundary,
+     * inject a concurrent state mutation, then call `releaseMute()` /
+     * `releaseUnmute()` to let the coroutine resume with the
+     * pre-configured result.
+     */
+    private class FakeMuteRepository(
+        private val muteResult: Result<Unit> = Result.success(Unit),
+        private val unmuteResult: Result<Unit> = Result.success(Unit),
+    ) : MuteRepository {
+        val muteCalls = AtomicInteger(0)
+        val unmuteCalls = AtomicInteger(0)
+        var lastMuteDid: String? = null
+        var lastUnmuteDid: String? = null
+
+        var gateMute: Boolean = false
+        private var muteGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+        fun releaseMute() {
+            muteGate?.complete(Unit)
+            muteGate = null
+            gateMute = false
+        }
+
+        var gateUnmute: Boolean = false
+        private var unmuteGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+        fun releaseUnmute() {
+            unmuteGate?.complete(Unit)
+            unmuteGate = null
+            gateUnmute = false
+        }
+
+        override suspend fun muteActor(did: String): Result<Unit> {
+            muteCalls.incrementAndGet()
+            lastMuteDid = did
+            if (gateMute) {
+                val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { muteGate = it }
+                gate.await()
+            }
+            return muteResult
+        }
+
+        override suspend fun unmuteActor(did: String): Result<Unit> {
+            unmuteCalls.incrementAndGet()
+            lastUnmuteDid = did
+            if (gateUnmute) {
+                val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { unmuteGate = it }
+                gate.await()
+            }
+            return unmuteResult
+        }
     }
 }

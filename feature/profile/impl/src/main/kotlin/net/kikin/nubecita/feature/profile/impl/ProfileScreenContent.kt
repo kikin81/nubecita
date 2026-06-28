@@ -127,10 +127,12 @@ internal fun ProfileScreenContent(
                             ownProfile = state.ownProfile,
                             viewerRelationship = state.viewerRelationship,
                             canMessage = state.header?.canMessage == true,
+                            isMuted = state.header?.viewerModeration?.isMutedByViewer == true,
                             onEdit = { onEvent(ProfileEvent.EditTapped) },
                             onFollow = { onEvent(ProfileEvent.FollowTapped) },
                             onMessage = { onEvent(ProfileEvent.MessageTapped) },
                             onReport = { onEvent(ProfileEvent.OnReportAccountRequested) },
+                            onMute = { onEvent(ProfileEvent.HeroMuteTapped) },
                             onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
                             modifier = Modifier.fillMaxWidth(),
                         )

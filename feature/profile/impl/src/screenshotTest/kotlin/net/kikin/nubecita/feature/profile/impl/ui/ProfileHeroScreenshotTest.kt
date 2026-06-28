@@ -7,14 +7,24 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
+import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
 
 /**
- * Screenshot baselines for [ProfileHero] focused on the Pro "Supporter"
- * badge: the hero WITH the badge (Pro, own profile) and WITHOUT it (the
- * non-Pro / other-profile rendering), across light + dark. The badge's
- * presence is driven purely by `showSupporterBadge` here — the four-way
- * `isPro × own/other` gate logic is asserted in `ProfileViewModelTest`,
- * not pinned visually. Regenerate with
+ * Screenshot baselines for [ProfileHero] covering two concerns:
+ *
+ * 1. **Pro "Supporter" badge** — the hero WITH the badge (Pro, own profile)
+ *    and WITHOUT it (the non-Pro / other-profile rendering), across light +
+ *    dark. The badge's presence is driven purely by `showSupporterBadge`
+ *    here — the four-way `isPro × own/other` gate logic is asserted in
+ *    `ProfileViewModelTest`, not pinned visually.
+ *
+ * 2. **Muted-user notice** — the hero rendered with
+ *    `viewerModeration.isMutedByViewer = true`, showing the inline muted
+ *    notice that the [ProfileHeroMutedScreenshot] fixtures capture. The
+ *    optimistic-flip + rollback behaviour for the mute/unmute actions is
+ *    asserted in `ProfileViewModelTest`.
+ *
+ * Regenerate with
  * `./gradlew :feature:profile:impl:updateDebugScreenshotTest` after
  * intentional visual changes.
  */
@@ -60,6 +70,26 @@ private fun ProfileHeroWithoutSupporterBadgeScreenshot() {
         Surface {
             ProfileHero(
                 header = SAMPLE_HEADER,
+                headerError = null,
+                showSupporterBadge = false,
+                onRetryHeader = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "hero-muted-light", showBackground = true)
+@Preview(name = "hero-muted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileHeroMutedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ProfileHero(
+                header =
+                    SAMPLE_HEADER.copy(
+                        viewerModeration = ViewerModerationState(isMutedByViewer = true),
+                    ),
                 headerError = null,
                 showSupporterBadge = false,
                 onRetryHeader = {},

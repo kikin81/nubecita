@@ -14,24 +14,23 @@
     <string name="profile_action_settings">Settings</string>
     <string name="profile_action_block">Block</string>
     <string name="profile_action_mute">Mute</string>
+    <string name="profile_action_unmute">Unmute</string>
     <string name="profile_action_report">Report</string>
 
     <!-- Snackbar copy for stubbed actions (ShowComingSoon). Report
-         graduated out of this list in oftc.3; Block / Mute follow in
-         oftc.4 / oftc.5. -->
+         graduated out of this list in oftc.3; Mute graduated in oftc.5;
+         Block follows in oftc.4. -->
     <string name="profile_snackbar_edit_coming_soon">Edit profile — coming soon</string>
     <string name="profile_snackbar_block_coming_soon">Block — coming soon</string>
-    <string name="profile_snackbar_mute_coming_soon">Mute — coming soon</string>
 
     <!-- PostCard overflow-menu "coming soon" snackbars (oftc.2). Distinct
-         from the profile-level Block / Mute stubs above — these fire
+         from the profile-level Block stub above — these fire
          from PostCard's per-post overflow menu in the tab bodies.
-         oftc.4 / .5 swap each variant for its real RPC. ReportPost
+         oftc.4 swaps each remaining variant for its real RPC. ReportPost
          graduated in oftc.3.1 and now flows through
-         ProfileEffect.NavigateTo(Report.forPost(...)); its
-         coming-soon string was removed at the same time. -->
-    <string name="profile_snackbar_post_overflow_mute_coming_soon">Mute — coming soon</string>
-    <string name="profile_snackbar_post_overflow_unmute_coming_soon">Unmute — coming soon</string>
+         ProfileEffect.NavigateTo(Report.forPost(...)); MuteAuthor /
+         UnmuteAuthor graduated in oftc.5 — all three coming-soon
+         strings were removed at the same time. -->
     <string name="profile_snackbar_post_overflow_block_coming_soon">Block — coming soon</string>
     <string name="profile_snackbar_post_overflow_unblock_coming_soon">Unblock — coming soon</string>
     <string name="profile_snackbar_post_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
@@ -86,6 +85,9 @@
     <string name="profile_tab_placeholder_replies_title">Replies tab arrives soon</string>
     <string name="profile_tab_placeholder_media_title">Media tab arrives soon</string>
     <string name="profile_tab_placeholder_body">Coming in the next release.</string>
+
+    <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
+    <string name="profile_muted_notice">You\'ve muted this user</string>
 
     <!-- Header inline-error -->
     <string name="profile_header_error_title">Couldn\'t load profile</string>
