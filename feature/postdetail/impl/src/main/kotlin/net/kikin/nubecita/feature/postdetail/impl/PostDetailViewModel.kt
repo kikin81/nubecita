@@ -149,26 +149,24 @@ internal class PostDetailViewModel
                             sendEffect(PostDetailEffect.NavigateTo(Report.forPost(event.post)))
                         PostOverflowAction.MuteAuthor -> {
                             val authorDid = event.post.author.did
-                            val previousItems = uiState.value.items
                             setState { copy(items = items.updateMutedByAuthor(authorDid, muted = true)) }
                             viewModelScope.launch {
                                 muteRepository
                                     .muteActor(authorDid)
                                     .onFailure {
-                                        setState { copy(items = previousItems) }
+                                        setState { copy(items = items.updateMutedByAuthor(authorDid, muted = false)) }
                                         sendEffect(PostDetailEffect.ShowError(it.toPostDetailError()))
                                     }
                             }
                         }
                         PostOverflowAction.UnmuteAuthor -> {
                             val authorDid = event.post.author.did
-                            val previousItems = uiState.value.items
                             setState { copy(items = items.updateMutedByAuthor(authorDid, muted = false)) }
                             viewModelScope.launch {
                                 muteRepository
                                     .unmuteActor(authorDid)
                                     .onFailure {
-                                        setState { copy(items = previousItems) }
+                                        setState { copy(items = items.updateMutedByAuthor(authorDid, muted = true)) }
                                         sendEffect(PostDetailEffect.ShowError(it.toPostDetailError()))
                                     }
                             }

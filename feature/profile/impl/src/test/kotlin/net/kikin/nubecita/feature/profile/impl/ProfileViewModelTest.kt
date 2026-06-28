@@ -1914,11 +1914,12 @@ internal class ProfileViewModelTest {
 
     @Test
     fun `OnPostOverflowAction MuteAuthor rollback only reverts tab statuses not concurrent unrelated state`() =
-        // Regression pin for whole-state restore bug (nubecita-oftc.5 final review):
-        // the MuteAuthor arm previously snapshotted the ENTIRE state and restored
-        // it on failure, clobbering any concurrent mutation (e.g. a tab selection)
-        // that landed while muteActor was in-flight. Fix: capture and restore only
-        // the three tab-status fields (postsStatus / repliesStatus / mediaStatus).
+        // Regression pin for whole-state restore bug (nubecita-oftc.5 Gemini fix):
+        // the MuteAuthor arm must use a targeted flag flip (not a snapshot restore)
+        // on failure so concurrent mutations (e.g. a tab selection) that land while
+        // muteActor is in-flight are not clobbered. The rollback calls
+        // updateMutedByAuthor(authorDid, muted = false) on the CURRENT state inside
+        // setState, so only the mute flag is reverted — all other fields are untouched.
         // This test drives a gated muteActor failure, injects a concurrent
         // TabSelected during the in-flight call, and asserts that selectedTab
         // survives the rollback while the muted flag is correctly reverted.
@@ -1997,8 +1998,8 @@ internal class ProfileViewModelTest {
     @Test
     fun `OnPostOverflowAction UnmuteAuthor rollback only reverts tab statuses not concurrent unrelated state`() =
         // Mirror of the MuteAuthor rollback-isolation test for the inverse action.
-        // Confirms that field-level restore is applied to both arms of the
-        // per-post mute handler in ProfileViewModel.
+        // Confirms that targeted flag flip (updateMutedByAuthor on current state)
+        // is applied to both arms of the per-post mute handler in ProfileViewModel.
         runTest(mainDispatcher.dispatcher) {
             val fakeMuteRepo = FakeMuteRepository(unmuteResult = Result.failure(IOException("net")))
             val targetDid = "did:plc:target"

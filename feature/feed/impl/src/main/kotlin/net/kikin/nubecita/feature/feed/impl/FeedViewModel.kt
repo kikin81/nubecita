@@ -171,7 +171,6 @@ class FeedViewModel
                         }
                         PostOverflowAction.UnmuteAuthor -> {
                             val authorDid = event.post.author.did
-                            val previousItems = uiState.value.feedItems
                             setState {
                                 copy(
                                     feedItems =
@@ -184,7 +183,14 @@ class FeedViewModel
                                 muteRepository
                                     .unmuteActor(authorDid)
                                     .onFailure {
-                                        setState { copy(feedItems = previousItems) }
+                                        setState {
+                                            copy(
+                                                feedItems =
+                                                    feedItems.updateViewerStateByAuthor(authorDid) {
+                                                        it.copy(isAuthorMutedByViewer = true)
+                                                    },
+                                            )
+                                        }
                                         sendEffect(FeedEffect.ShowError(it.toFeedError()))
                                     }
                             }
