@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
 import org.junit.jupiter.api.AfterEach

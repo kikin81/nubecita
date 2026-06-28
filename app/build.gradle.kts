@@ -354,6 +354,7 @@ dependencies {
     testImplementation(libs.mockk)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(project(":core:testing"))
     androidTestImplementation(project(":core:testing-android"))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.core)

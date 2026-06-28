@@ -9,10 +9,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.navigation3.runtime.NavKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.kikin.nubecita.Splash
-import net.kikin.nubecita.core.analytics.AnalyticsClient
-import net.kikin.nubecita.core.analytics.AnalyticsEvent
 import net.kikin.nubecita.core.analytics.AnalyticsScreen
-import net.kikin.nubecita.core.analytics.UserProperty
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.profile.api.Profile
 import org.junit.Assert.assertEquals
@@ -35,18 +33,6 @@ import org.junit.runner.RunWith
 class TrackScreenViewsTest {
     @get:Rule
     val composeTestRule = createComposeRule()
-
-    private class RecordingAnalyticsClient : AnalyticsClient {
-        val screens = mutableListOf<AnalyticsScreen>()
-
-        override fun log(event: AnalyticsEvent) = Unit
-
-        override fun setUserProperty(property: UserProperty) = Unit
-
-        override fun logScreen(screen: AnalyticsScreen) {
-            screens += screen
-        }
-    }
 
     @Test
     fun distinctDestinationsOfSameScreenKind_eachLogAView() {
