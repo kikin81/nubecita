@@ -1912,6 +1912,160 @@ internal class ProfileViewModelTest {
             assertEquals(1, fakeMuteRepo.unmuteCalls.get(), "unmuteActor MUST be called exactly once")
         }
 
+    @Test
+    fun `OnPostOverflowAction MuteAuthor rollback only reverts tab statuses not concurrent unrelated state`() =
+        // Regression pin for whole-state restore bug (nubecita-oftc.5 final review):
+        // the MuteAuthor arm previously snapshotted the ENTIRE state and restored
+        // it on failure, clobbering any concurrent mutation (e.g. a tab selection)
+        // that landed while muteActor was in-flight. Fix: capture and restore only
+        // the three tab-status fields (postsStatus / repliesStatus / mediaStatus).
+        // This test drives a gated muteActor failure, injects a concurrent
+        // TabSelected during the in-flight call, and asserts that selectedTab
+        // survives the rollback while the muted flag is correctly reverted.
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository(muteResult = Result.failure(IOException("net")))
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null))
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            // Pre-condition: Posts tab is selected.
+            assertEquals(ProfileTab.Posts, vm.uiState.value.selectedTab)
+
+            // Gate muteActor so we can inject a concurrent state change mid-flight.
+            fakeMuteRepo.gateMute = true
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+            // With UnconfinedTestDispatcher the coroutine runs eagerly until the
+            // first suspension point (gate.await). The optimistic flip has happened.
+            assertTrue(
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first()
+                    .post.viewer.isAuthorMutedByViewer,
+                "optimistic mute flip MUST have applied before muteActor suspends",
+            )
+
+            // Concurrent state mutation: select Replies while muteActor is in-flight.
+            vm.handleEvent(ProfileEvent.TabSelected(ProfileTab.Replies))
+            assertEquals(
+                ProfileTab.Replies,
+                vm.uiState.value.selectedTab,
+                "concurrent TabSelected MUST take effect while muteActor is suspended",
+            )
+
+            // Release the gate → muteActor fails → rollback executes.
+            fakeMuteRepo.releaseMute()
+            advanceUntilIdle()
+
+            // Field-level rollback: selectedTab MUST survive (it's not a tab-status field).
+            assertEquals(
+                ProfileTab.Replies,
+                vm.uiState.value.selectedTab,
+                "rollback MUST preserve concurrent selectedTab change — field-level restore, not whole-state",
+            )
+            // Tab-status rollback: the optimistic mute MUST be reverted.
+            assertFalse(
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first()
+                    .post.viewer.isAuthorMutedByViewer,
+                "rollback MUST revert the optimistic mute on tab items",
+            )
+        }
+
+    @Test
+    fun `OnPostOverflowAction UnmuteAuthor rollback only reverts tab statuses not concurrent unrelated state`() =
+        // Mirror of the MuteAuthor rollback-isolation test for the inverse action.
+        // Confirms that field-level restore is applied to both arms of the
+        // per-post mute handler in ProfileViewModel.
+        runTest(mainDispatcher.dispatcher) {
+            val fakeMuteRepo = FakeMuteRepository(unmuteResult = Result.failure(IOException("net")))
+            val targetDid = "did:plc:target"
+            val targetPost =
+                samplePostUi(id = "at://did:plc:target/app.bsky.feed.post/p1")
+                    .copy(
+                        author = AuthorUi(did = targetDid, handle = "target.bsky.social", displayName = "Target", avatarUrl = null),
+                        viewer = ViewerStateUi(isAuthorMutedByViewer = true),
+                    )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults =
+                        mapOf(
+                            ProfileTab.Posts to
+                                Result.success(
+                                    ProfileTabPage(
+                                        items = persistentListOf(TabItemUi.Post(targetPost)),
+                                        nextCursor = null,
+                                    ),
+                                ),
+                            ProfileTab.Replies to Result.success(EMPTY_PAGE),
+                            ProfileTab.Media to Result.success(EMPTY_PAGE),
+                        ),
+                )
+            val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
+            advanceUntilIdle()
+
+            assertEquals(ProfileTab.Posts, vm.uiState.value.selectedTab)
+
+            fakeMuteRepo.gateUnmute = true
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+            assertFalse(
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first()
+                    .post.viewer.isAuthorMutedByViewer,
+                "optimistic unmute flip MUST have applied before unmuteActor suspends",
+            )
+
+            vm.handleEvent(ProfileEvent.TabSelected(ProfileTab.Media))
+            assertEquals(
+                ProfileTab.Media,
+                vm.uiState.value.selectedTab,
+                "concurrent TabSelected MUST take effect while unmuteActor is suspended",
+            )
+
+            fakeMuteRepo.releaseUnmute()
+            advanceUntilIdle()
+
+            assertEquals(
+                ProfileTab.Media,
+                vm.uiState.value.selectedTab,
+                "rollback MUST preserve concurrent selectedTab change — field-level restore, not whole-state",
+            )
+            assertTrue(
+                (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
+                    .items
+                    .filterIsInstance<TabItemUi.Post>()
+                    .first()
+                    .post.viewer.isAuthorMutedByViewer,
+                "rollback MUST revert the optimistic unmute on tab items",
+            )
+        }
+
     // -- Test helpers ----------------------------------------------------------
 
     private fun samplePostUi(
@@ -2092,6 +2246,13 @@ internal class ProfileViewModelTest {
      * In-memory [MuteRepository] for VM tests. Tracks call counts and
      * the last DID passed to each operation so tests can assert exactly
      * what the VM requested and with which identity.
+     *
+     * Gate support mirrors [FakeProfileRepository]'s `gateFollow` /
+     * `gateUnfollow` pattern: set `gateMute` or `gateUnmute` before
+     * firing the event to suspend the call at the network boundary,
+     * inject a concurrent state mutation, then call `releaseMute()` /
+     * `releaseUnmute()` to let the coroutine resume with the
+     * pre-configured result.
      */
     private class FakeMuteRepository(
         private val muteResult: Result<Unit> = Result.success(Unit),
@@ -2102,15 +2263,41 @@ internal class ProfileViewModelTest {
         var lastMuteDid: String? = null
         var lastUnmuteDid: String? = null
 
+        var gateMute: Boolean = false
+        private var muteGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+        fun releaseMute() {
+            muteGate?.complete(Unit)
+            muteGate = null
+            gateMute = false
+        }
+
+        var gateUnmute: Boolean = false
+        private var unmuteGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+        fun releaseUnmute() {
+            unmuteGate?.complete(Unit)
+            unmuteGate = null
+            gateUnmute = false
+        }
+
         override suspend fun muteActor(did: String): Result<Unit> {
             muteCalls.incrementAndGet()
             lastMuteDid = did
+            if (gateMute) {
+                val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { muteGate = it }
+                gate.await()
+            }
             return muteResult
         }
 
         override suspend fun unmuteActor(did: String): Result<Unit> {
             unmuteCalls.incrementAndGet()
             lastUnmuteDid = did
+            if (gateUnmute) {
+                val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { unmuteGate = it }
+                gate.await()
+            }
             return unmuteResult
         }
     }

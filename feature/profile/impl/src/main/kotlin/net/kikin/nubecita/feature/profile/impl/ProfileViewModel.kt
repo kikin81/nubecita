@@ -228,26 +228,49 @@ internal class ProfileViewModel
                             sendEffect(ProfileEffect.NavigateTo(Report.forPost(event.post)))
                         PostOverflowAction.MuteAuthor -> {
                             val authorDid = event.post.author.did
-                            val previousState = uiState.value
+                            // Capture only the three tab-status fields before the
+                            // optimistic update. Restoring the ENTIRE state on
+                            // failure would clobber any concurrent mutation
+                            // (e.g. a tab selection) that lands while the network
+                            // call is in-flight. The hero arm uses the same
+                            // field-level pattern: `copy(header = previousHeader)`.
+                            val prevPostsStatus = uiState.value.postsStatus
+                            val prevRepliesStatus = uiState.value.repliesStatus
+                            val prevMediaStatus = uiState.value.mediaStatus
                             setState { updateMutedByAuthor(authorDid, muted = true) }
                             viewModelScope.launch {
                                 muteRepository
                                     .muteActor(authorDid)
                                     .onFailure {
-                                        setState { previousState }
+                                        setState {
+                                            copy(
+                                                postsStatus = prevPostsStatus,
+                                                repliesStatus = prevRepliesStatus,
+                                                mediaStatus = prevMediaStatus,
+                                            )
+                                        }
                                         sendEffect(ProfileEffect.ShowError(it.toProfileError()))
                                     }
                             }
                         }
                         PostOverflowAction.UnmuteAuthor -> {
                             val authorDid = event.post.author.did
-                            val previousState = uiState.value
+                            // Same field-level capture pattern as MuteAuthor above.
+                            val prevPostsStatus = uiState.value.postsStatus
+                            val prevRepliesStatus = uiState.value.repliesStatus
+                            val prevMediaStatus = uiState.value.mediaStatus
                             setState { updateMutedByAuthor(authorDid, muted = false) }
                             viewModelScope.launch {
                                 muteRepository
                                     .unmuteActor(authorDid)
                                     .onFailure {
-                                        setState { previousState }
+                                        setState {
+                                            copy(
+                                                postsStatus = prevPostsStatus,
+                                                repliesStatus = prevRepliesStatus,
+                                                mediaStatus = prevMediaStatus,
+                                            )
+                                        }
                                         sendEffect(ProfileEffect.ShowError(it.toProfileError()))
                                     }
                             }
