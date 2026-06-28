@@ -39,15 +39,16 @@ Foundation for inline Pin *and* fast pinned-feed rendering everywhere ("no full 
 
 Feature modules depend on `:core:feeds`, never `:core:database` directly.
 
-### Component B — Custom-feed view screen (`:feature:feedview:{api,impl}`)
+### Component B — Custom-feed view screen (co-located in `:feature:feed`)
 
-A second timeline screen — needed the moment any custom feed is tapped, hence its own module.
+A custom feed IS a feed — same `FeedItemUi` via `getFeed` → `:core:feed-mapping`, only the data source + NavKey differ. So it **co-locates in `:feature:feed`** rather than a separate `:feature:feedview` module. **Why (B0 recon, 2026-06-28):** `PostFeedList` drags in `:feature:feed:impl`-internal pieces (`ThreadCluster`, `PostCardVideoEmbed`, `FeedAppendingIndicator`, `FeedItemUi`, test tags) that a sibling `:feature:feedview:impl` couldn't import — a separate module would force extracting the whole rendering cluster into a shared UI module. Co-location keeps `PostFeedList` `internal` and trivially reused by both screens.
 
-- `:api`: `FeedView(feedUri: String, displayName: String) : NavKey`, registered `@MainShell` as a sub-route.
-- `:impl`: `FeedViewViewModel` paginates `app.bsky.feed.getFeed(feed=uri, cursor, limit)`, maps via `:core:feed-mapping`, exposes the same `FeedLoadStatus` lifecycle (idle / initial-loading / refreshing / appending / initial-error) the home timeline uses.
-- **Reuse the existing feed-list rendering** (PostCard + paginated `LazyColumn` + like/repost/mute wiring). **Coupling finding (verified):** the home feed is already split `FeedScreen` (stateful) → `FeedScreenContent` (stateless) with a reusable `PostCallbacks` bundle, **but `FeedScreenContent` is tightly coupled to home chrome** (~20 params: feed-switcher chips, pinned-lists sheet, collapsing chip-row nested-scroll, tab-retap, video coordinator) — not reusable wholesale. The genuinely shared core is the **PostCard item-rendering loop** (PostCard + video/quoted/blocked/notFound/same-author-chain slots, driven by `PostCallbacks`) — a bounded ~150-line block.
-- **Step B0 (timeboxed extraction):** before the FeedView screen, extract a shared `PostFeedList(items, listState, callbacks, videoSlot, …)` composable from `FeedScreenContent` (Home keeps its chrome and delegates the list); both Home and FeedView consume it. The one real coupling that travels with it is the **video-coordinator + per-video tap dispatcher** — if that balloons the timebox, fall back to a **bridging composable** that shares PostCard + slot wiring while each screen owns its own video coordination. B0 ships as its own small PR ahead of B.
+- `:feature:feed:api`: add `FeedView(feedUri: String, displayName: String) : NavKey`, registered `@MainShell` as a sub-route.
+- `:feature:feed:impl`: `FeedViewScreen` + `FeedViewViewModel` paginating `app.bsky.feed.getFeed(feed=uri, cursor, limit)` via `:core:feed-mapping`, same `FeedLoadStatus` lifecycle as the home timeline, rendering through the **internal `PostFeedList`** (B0).
 - TopAppBar shows the feed name + a **Pin/Pinned toggle** (reuses Component A) so the feed can be pinned from inside the view too.
+
+#### Step B0 — extract `PostFeedList` (done first; **clean**, low-risk)
+The home feed's post-list is already isolated in a `LoadedFeedContent` composable; the flagged video-coordinator coupling is a non-issue (an explicit param, no hidden state). So B0 is a near-trivial **internal** promotion: `LoadedFeedContent` → `PostFeedList(... , modifier)`, `FeedScreenContent` delegates to it, both screens reuse it. Screenshot tests render via `FeedScreenContent`, so they stay **byte-identical** — the proof the refactor preserved rendering. (No shared module, no bridging fallback needed.)
 
 ### Component C — Discover state (`:feature:search:impl`)
 
