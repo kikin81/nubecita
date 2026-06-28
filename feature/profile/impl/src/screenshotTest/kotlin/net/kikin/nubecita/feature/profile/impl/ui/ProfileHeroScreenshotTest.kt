@@ -7,6 +7,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
+import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
 
 /**
  * Screenshot baselines for [ProfileHero] focused on the Pro "Supporter"
@@ -60,6 +61,26 @@ private fun ProfileHeroWithoutSupporterBadgeScreenshot() {
         Surface {
             ProfileHero(
                 header = SAMPLE_HEADER,
+                headerError = null,
+                showSupporterBadge = false,
+                onRetryHeader = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "hero-muted-light", showBackground = true)
+@Preview(name = "hero-muted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileHeroMutedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ProfileHero(
+                header =
+                    SAMPLE_HEADER.copy(
+                        viewerModeration = ViewerModerationState(isMutedByViewer = true),
+                    ),
                 headerError = null,
                 showSupporterBadge = false,
                 onRetryHeader = {},

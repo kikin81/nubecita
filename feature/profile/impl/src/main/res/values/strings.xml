@@ -87,6 +87,9 @@
     <string name="profile_tab_placeholder_media_title">Media tab arrives soon</string>
     <string name="profile_tab_placeholder_body">Coming in the next release.</string>
 
+    <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
+    <string name="profile_muted_notice">You\'ve muted this user</string>
+
     <!-- Header inline-error -->
     <string name="profile_header_error_title">Couldn\'t load profile</string>
     <string name="profile_header_error_retry">Try again</string>
