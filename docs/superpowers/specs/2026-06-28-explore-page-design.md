@@ -32,8 +32,9 @@ Foundation for inline Pin *and* fast pinned-feed rendering everywhere ("no full 
 - Schema export bump → commit `{N}.json` + an `@AutoMigration` (per `:core:database` conventions).
 
 **`:core:feeds` → offline-first**
-- `PinnedFeedsRepository` exposes `observePinnedFeeds(): Flow<…>` emitting **from Room immediately**, plus `refresh()` that fetches network (`getPreferences` → resolve URIs via `getFeedGenerators` for metadata) and **write-through** replaces the Room rows.
-- Add `suspend fun pinFeed(uri): Result<Unit>` / `unpinFeed(uri): Result<Unit>` — a `putPreferences` read-modify-write of the `SavedFeedsPrefV2` `items` (append `SavedFeed(type="feed", value=uri, pinned=true, id=<fresh TID>)` / drop the match) under a **write-mutex** (mirrors `:core:moderation`'s preference-write pattern), with **write-through to Room** (optimistic update + rollback on `putPreferences` failure). Idempotent.
+- `PinnedFeedsRepository` exposes `observePinnedFeeds(): Flow<…>` emitting **from Room immediately**, plus `refresh()` that fetches network (`getPreferences` → resolve URIs via `getFeedGenerators` for metadata) and write-throughs to Room.
+- **`refresh()` must never destroy the last-good cache** (Gemini): if `getFeedGenerators` fails — fully or partially — do **not** `replaceAll` with empty/incomplete rows. Either **abort the DB write** (treat as a failed refresh, keep the existing cache) or **merge** (retain the old cached metadata for any URI that didn't resolve). And write via **diff/upsert against existing rows, not a table-nuke**, so already-rendered pinned icons don't flicker on refresh.
+- Add `suspend fun pinFeed(uri): Result<Unit>` / `unpinFeed(uri): Result<Unit>` — a `putPreferences` read-modify-write of the `SavedFeedsPrefV2` `items` under a **write-mutex** (mirrors `:core:moderation`), with **write-through to Room** (optimistic update + rollback on `putPreferences` failure), idempotent. **Non-destructive (Gemini):** AT Proto distinguishes *saved* from *pinned*. `pinFeed` upserts the item with `pinned=true` (adding it if absent); `unpinFeed` sets the existing item's **`pinned=false`** — it does **NOT** drop the item, so a feed saved on another client (official app/web) is never silently deleted from the user's account. (A separate "remove from saved" action, out of scope here, would be the only thing that drops an item.)
 - **Cache granularity:** the whole saved-feeds set with each item's `pinned` flag (one `SavedFeedsPrefV2` blob) — serves "pinned feeds fast" and a future saved-feeds-management screen.
 
 Feature modules depend on `:core:feeds`, never `:core:database` directly.
@@ -44,7 +45,8 @@ A second timeline screen — needed the moment any custom feed is tapped, hence 
 
 - `:api`: `FeedView(feedUri: String, displayName: String) : NavKey`, registered `@MainShell` as a sub-route.
 - `:impl`: `FeedViewViewModel` paginates `app.bsky.feed.getFeed(feed=uri, cursor, limit)`, maps via `:core:feed-mapping`, exposes the same `FeedLoadStatus` lifecycle (idle / initial-loading / refreshing / appending / initial-error) the home timeline uses.
-- **Reuse the existing feed-list rendering** (PostCard + paginated `LazyColumn` + like/repost/mute wiring). Implementation note: verify whether `:feature:feed`'s list is extractable into a shared composable (preferred — extract-and-share) or currently private (then extract as part of B). Resolve in the plan.
+- **Reuse the existing feed-list rendering** (PostCard + paginated `LazyColumn` + like/repost/mute wiring). **Coupling finding (verified):** the home feed is already split `FeedScreen` (stateful) → `FeedScreenContent` (stateless) with a reusable `PostCallbacks` bundle, **but `FeedScreenContent` is tightly coupled to home chrome** (~20 params: feed-switcher chips, pinned-lists sheet, collapsing chip-row nested-scroll, tab-retap, video coordinator) — not reusable wholesale. The genuinely shared core is the **PostCard item-rendering loop** (PostCard + video/quoted/blocked/notFound/same-author-chain slots, driven by `PostCallbacks`) — a bounded ~150-line block.
+- **Step B0 (timeboxed extraction):** before the FeedView screen, extract a shared `PostFeedList(items, listState, callbacks, videoSlot, …)` composable from `FeedScreenContent` (Home keeps its chrome and delegates the list); both Home and FeedView consume it. The one real coupling that travels with it is the **video-coordinator + per-video tap dispatcher** — if that balloons the timebox, fall back to a **bridging composable** that shares PostCard + slot wiring while each screen owns its own video coordination. B0 ships as its own small PR ahead of B.
 - TopAppBar shows the feed name + a **Pin/Pinned toggle** (reuses Component A) so the feed can be pinned from inside the view too.
 
 ### Component C — Discover state (`:feature:search:impl`)
@@ -57,7 +59,7 @@ A second timeline screen — needed the moment any custom feed is tapped, hence 
 - a per-section load status; **each section loads independently and is hidden on empty/error** (one failing section never blanks the page).
 
 **Behavior:**
-- On entering Discover (blank query, first time): fire both fetches concurrently; populate each section as it returns. **Load once per VM lifetime; pull-to-refresh to refetch** — battery-conscious, no polling.
+- On entering Discover (blank query): fire both fetches concurrently; populate each section as it returns. **Load once on success** (battery-conscious, no polling), but **auto-retry on re-entering Discover if the previous attempt errored or returned empty** (Gemini) — so a transient failure self-heals on the next visit instead of leaving a permanent empty screen. Pull-to-refresh always refetches.
 - **Inline Follow** → optimistic `isFollowing` flip + `FollowRepository.follow/unfollow`; tap row → `NavigateTo(Profile(did))`.
 - **Inline Pin** → optimistic `isPinned` flip + `PinnedFeedsRepository.pinFeed/unpinFeed` (write-through to Room); tap row → `NavigateTo(FeedView(uri, name))`.
 - Both optimistic flips use the **targeted flag-flip rollback** (flip back on current state inside `setState`, no snapshot clobber); failures → snackbar via `SearchEffect`.
@@ -70,16 +72,17 @@ A second timeline screen — needed the moment any custom feed is tapped, hence 
 Section headers; ~10 items capped per section; **no "see more" in v1**. Inline Follow/Pin/dismiss buttons live on the card and don't trigger the card tap.
 
 **Battery-safe lazy previews (feed cards):** `getSuggestedFeeds` returns metadata only — the 2–3 sample posts need a `getFeed(feed=uri, limit=3)` per feed. To honor "battery is top priority", **only fetch previews for cards actually on-screen** (drive off the `LazyRow`'s visible items via `snapshotFlow` on `LazyListState`, with a small prefetch buffer), **cache each fetched preview** so re-scroll never refetches, and never fetch the full ~10 up front. A card with no preview yet shows a small shimmer/placeholder where the posts will land.
+- **No fling spam (Gemini):** gate the fetch on the carousel being **settled** — only fire for cards still visible once `listState.isScrollInProgress == false` (and/or debounce the `snapshotFlow`), so a fast fling doesn't fire-and-cancel a burst of requests for cards flying past.
 
 ## Error / empty handling
 
-- Each Discover section loads and fails independently; a failed/empty section is silently hidden. If all sections are empty and there are no recent searches → just the search bar (current behavior).
+- Each Discover section loads and fails independently; a failed/empty section is silently hidden. **If ALL sections error/empty and there are no recent searches**, don't revert to the bare search-bar void (reads like a bug) — show a **subtle "Pull to refresh to discover content" hint** (lightweight text/illustration) so it's clear the system tried (Gemini). Combined with the auto-retry-on-re-enter above, the surface self-heals.
 - Follow/pin failures roll back the optimistic flip + show a snackbar.
 - `:core:feeds` `refresh()` failure leaves the last good Room cache in place (offline-first).
 
 ## Testing
 
-- **A:** `SavedFeedDao` (in-memory Room) — upsert/replaceAll/observe/setPinned; `@AutoMigration` schema test; `PinnedFeedsRepository` — offline-first (emit-from-Room, refresh write-through), pin/unpin read-modify-write + write-through + rollback, idempotency, mutex serialization.
+- **A:** `SavedFeedDao` (in-memory Room) — upsert/observe/setPinned; `@AutoMigration` schema test; `PinnedFeedsRepository` — offline-first (emit-from-Room, refresh write-through), **refresh on `getFeedGenerators` failure keeps the last-good cache (abort/merge, no table-nuke)**, **`unpinFeed` sets `pinned=false` and does NOT drop the item**, pin/unpin read-modify-write + write-through + rollback, idempotency, mutex serialization.
 - **B:** `FeedViewViewModel` pagination (initial / append / error / refresh) + a screenshot test of the feed-view screen.
 - **C:** `SuggestionsRepository` mapping; `SearchViewModel` Discover tests (independent section load, empty/error hide, optimistic follow/pin + rollback, session-local account dismiss); **feed-card preview lazy-load** (visible-item-triggered fetch, cached/no-refetch, never all-up-front, per-card placeholder→loaded→error); screenshot tests (Discover populated, feed card with preview, empty).
 
@@ -93,4 +96,4 @@ Section headers; ~10 items capped per section; **no "see more" in v1**. Inline F
 
 ## Delivery
 
-One Explore epic in bd; implement and PR **A → B → C** in sequence (C consumes A + B), via the standard subagent-driven flow.
+One Explore epic in bd; implement and PR **A → B0 → B → C** in sequence (B0 extracts `PostFeedList`; C consumes A + B), via the standard subagent-driven flow.
