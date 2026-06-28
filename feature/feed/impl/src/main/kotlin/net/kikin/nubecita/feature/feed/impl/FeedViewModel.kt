@@ -474,6 +474,11 @@ class FeedViewModel
  *   matches. The leaf is the "followed" post; root/parent are context.
  *   Keeping a cluster where the leaf is by someone else (replying to the
  *   muted author) is intentional — the viewer follows that other person.
+ *   Muting hides the muted author's own posts and threads, but a
+ *   non-muted user's reply to (or quote of) a muted author is kept as
+ *   conversation context, matching the server's next-fetch behavior where
+ *   muted accounts appear only as thread context rather than top-level
+ *   feed entries.
  * - [FeedItemUi.SelfThreadChain] — removed when any post's author matches
  *   (all posts in a chain share the same author by construction).
  * - Tombstone variants carry no author — always kept.

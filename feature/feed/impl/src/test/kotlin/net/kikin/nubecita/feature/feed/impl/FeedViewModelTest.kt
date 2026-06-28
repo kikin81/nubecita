@@ -1860,6 +1860,212 @@ internal class FeedViewModelTest {
                     .first() as FeedItemUi.Single
             assertTrue(item.post.viewer.isAuthorMutedByViewer, "isAuthorMutedByViewer must be restored on failure")
         }
+
+    // ---------- oftc.5 branch coverage: ReplyCluster + SelfThreadChain ----------
+
+    @Test
+    fun `MuteAuthor removes ReplyCluster whose leaf is by the muted author`() =
+        // removeItemsByAuthor removes a ReplyCluster when its leaf post's author
+        // matches the muted DID. The leaf is the "followed" post — muting its
+        // author hides the entire cluster from the feed.
+        runTest(mainDispatcher.dispatcher) {
+            val mutedDid = "did:plc:muted000000000000000000"
+            val otherDid = "did:plc:other000000000000000000"
+            val muteRepo = FakeMuteRepository()
+            val cluster =
+                FeedItemUi.ReplyCluster(
+                    root = samplePost("at://root", authorDid = otherDid),
+                    parent = samplePost("at://parent", authorDid = otherDid),
+                    leaf = samplePost("at://leaf-muted", authorDid = mutedDid),
+                    hasEllipsis = false,
+                )
+            val unrelated = FeedItemUi.Single(samplePost("at://unrelated", authorDid = otherDid))
+            val repo =
+                FakeFeedRepository(
+                    pages =
+                        listOf(
+                            Result.success(
+                                TimelinePage(
+                                    feedItems = persistentListOf(cluster, unrelated),
+                                    nextCursor = null,
+                                ),
+                            ),
+                        ),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo)
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(
+                FeedEvent.OnOverflowAction(
+                    post = samplePost("at://leaf-muted", authorDid = mutedDid),
+                    action = net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
+                ),
+            )
+            advanceUntilIdle()
+
+            val items = vm.uiState.value.feedItems
+            assertEquals(1, items.size, "cluster whose leaf is by the muted author must be removed")
+            assertEquals("at://unrelated", (items.first() as FeedItemUi.Single).post.id)
+        }
+
+    @Test
+    fun `MuteAuthor keeps ReplyCluster whose leaf is by a non-muted author`() =
+        // removeItemsByAuthor keeps a ReplyCluster when the leaf is NOT by
+        // the muted author, even when root/parent are. The non-muted user's
+        // reply is kept as conversation context.
+        runTest(mainDispatcher.dispatcher) {
+            val mutedDid = "did:plc:muted000000000000000000"
+            val leafDid = "did:plc:other000000000000000000"
+            val muteRepo = FakeMuteRepository()
+            val cluster =
+                FeedItemUi.ReplyCluster(
+                    root = samplePost("at://root-muted", authorDid = mutedDid),
+                    parent = samplePost("at://parent-muted", authorDid = mutedDid),
+                    leaf = samplePost("at://leaf-other", authorDid = leafDid),
+                    hasEllipsis = false,
+                )
+            val repo =
+                FakeFeedRepository(
+                    pages =
+                        listOf(
+                            Result.success(
+                                TimelinePage(
+                                    feedItems = persistentListOf(cluster),
+                                    nextCursor = null,
+                                ),
+                            ),
+                        ),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo)
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            val loadedCluster =
+                vm.uiState.value.feedItems
+                    .first()
+            vm.handleEvent(
+                FeedEvent.OnOverflowAction(
+                    post = samplePost("at://root-muted", authorDid = mutedDid),
+                    action = net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
+                ),
+            )
+            advanceUntilIdle()
+
+            val items = vm.uiState.value.feedItems
+            assertEquals(1, items.size, "cluster with non-muted leaf must be kept as context")
+            // The cluster instance itself is preserved — filter kept the reference.
+            assertSame(loadedCluster, items.first())
+        }
+
+    @Test
+    fun `MuteAuthor removes SelfThreadChain whose posts are by the muted author`() =
+        // removeItemsByAuthor removes a SelfThreadChain when any post is authored
+        // by the muted DID. All posts in a chain share the same author by
+        // construction, so the entire chain is removed.
+        runTest(mainDispatcher.dispatcher) {
+            val mutedDid = "did:plc:muted000000000000000000"
+            val otherDid = "did:plc:other000000000000000000"
+            val muteRepo = FakeMuteRepository()
+            val chain =
+                FeedItemUi.SelfThreadChain(
+                    posts =
+                        persistentListOf(
+                            samplePost("at://chain-1", authorDid = mutedDid),
+                            samplePost("at://chain-2", authorDid = mutedDid),
+                        ),
+                )
+            val unrelated = FeedItemUi.Single(samplePost("at://unrelated", authorDid = otherDid))
+            val repo =
+                FakeFeedRepository(
+                    pages =
+                        listOf(
+                            Result.success(
+                                TimelinePage(
+                                    feedItems = persistentListOf(chain, unrelated),
+                                    nextCursor = null,
+                                ),
+                            ),
+                        ),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo)
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(
+                FeedEvent.OnOverflowAction(
+                    post = samplePost("at://chain-1", authorDid = mutedDid),
+                    action = net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
+                ),
+            )
+            advanceUntilIdle()
+
+            val items = vm.uiState.value.feedItems
+            assertEquals(1, items.size, "SelfThreadChain by the muted author must be removed")
+            assertEquals("at://unrelated", (items.first() as FeedItemUi.Single).post.id)
+        }
+
+    @Test
+    fun `UnmuteAuthor flips isAuthorMutedByViewer on ReplyCluster positions by muted author and preserves unchanged post references`() =
+        // updateViewerStateByAuthor updates root, parent, and leaf independently
+        // when the muted author appears at each position. Posts by a different
+        // author are returned as the same reference (no copy), preserving
+        // LazyColumn skip-recomposition for unchanged items.
+        runTest(mainDispatcher.dispatcher) {
+            val mutedDid = "did:plc:muted000000000000000000"
+            val otherDid = "did:plc:other000000000000000000"
+            val muteRepo = FakeMuteRepository()
+            val mutedViewer = ViewerStateUi(isAuthorMutedByViewer = true)
+
+            // root = muted, parent = muted; leaf = different author (not muted).
+            val cluster =
+                FeedItemUi.ReplyCluster(
+                    root = samplePost("at://root", authorDid = mutedDid, viewer = mutedViewer),
+                    parent = samplePost("at://parent", authorDid = mutedDid, viewer = mutedViewer),
+                    leaf = samplePost("at://leaf", authorDid = otherDid),
+                    hasEllipsis = false,
+                )
+            val repo =
+                FakeFeedRepository(
+                    pages =
+                        listOf(
+                            Result.success(
+                                TimelinePage(
+                                    feedItems = persistentListOf(cluster),
+                                    nextCursor = null,
+                                ),
+                            ),
+                        ),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo)
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            // Capture the leaf reference from the loaded cluster before unmute.
+            val loadedLeaf =
+                (
+                    vm.uiState.value.feedItems
+                        .first() as FeedItemUi.ReplyCluster
+                ).leaf
+
+            vm.handleEvent(
+                FeedEvent.OnOverflowAction(
+                    post = samplePost("at://root", authorDid = mutedDid, viewer = mutedViewer),
+                    action = net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
+                ),
+            )
+            advanceUntilIdle()
+
+            val updated =
+                vm.uiState.value.feedItems
+                    .first() as FeedItemUi.ReplyCluster
+            assertFalse(updated.root.viewer.isAuthorMutedByViewer, "root flag must flip to false")
+            assertFalse(updated.parent.viewer.isAuthorMutedByViewer, "parent flag must flip to false")
+            // Leaf is by a different author — reference must be preserved (no copy).
+            assertSame(loadedLeaf, updated.leaf, "leaf reference must be unchanged")
+            assertEquals(1, muteRepo.unmuteActorCalls.size)
+            assertEquals(mutedDid, muteRepo.unmuteActorCalls.first())
+        }
 }
 
 // ---------- m28.4: chain-merge fixture helpers ----------
