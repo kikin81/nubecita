@@ -18,6 +18,8 @@ import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.Share
+import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
@@ -1288,6 +1290,25 @@ internal class FeedViewModelTest {
                     (effect as FeedEffect.CopyPermalink).permalink,
                 )
             }
+        }
+
+    @Test
+    fun `share click and long-press log share events with Feed surface`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = FeedViewModel(FakeFeedRepository(), FakePostInteractionsCache(), sharedVideoPlayer, analytics)
+            advanceUntilIdle()
+            val post = samplePost("at://did:plc:fake/app.bsky.feed.post/sh1")
+
+            vm.handleEvent(FeedEvent.OnShareClicked(post))
+            vm.handleEvent(FeedEvent.OnShareLongPressed(post))
+
+            assertEquals(
+                listOf(
+                    Share(ShareMethod.ShareSheet, PostSurface.Feed),
+                    Share(ShareMethod.CopyLink, PostSurface.Feed),
+                ),
+                analytics.events,
+            )
         }
 
     @Test

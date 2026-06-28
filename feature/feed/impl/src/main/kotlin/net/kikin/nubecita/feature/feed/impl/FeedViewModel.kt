@@ -16,6 +16,8 @@ import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.Share
+import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
@@ -132,9 +134,14 @@ class FeedViewModel
                             .onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
                     }
                 }
-                is FeedEvent.OnShareClicked -> sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
-                is FeedEvent.OnShareLongPressed ->
+                is FeedEvent.OnShareClicked -> {
+                    analytics.log(Share(ShareMethod.ShareSheet, PostSurface.Feed))
+                    sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
+                }
+                is FeedEvent.OnShareLongPressed -> {
+                    analytics.log(Share(ShareMethod.CopyLink, PostSurface.Feed))
                     sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))
+                }
                 is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
                 is FeedEvent.OnOverflowAction ->
                     when (event.action) {
