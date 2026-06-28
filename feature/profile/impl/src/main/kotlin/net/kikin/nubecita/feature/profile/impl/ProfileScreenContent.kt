@@ -127,6 +127,7 @@ internal fun ProfileScreenContent(
                             ownProfile = state.ownProfile,
                             viewerRelationship = state.viewerRelationship,
                             canMessage = state.header?.canMessage == true,
+                            isMuted = state.header?.viewerModeration?.isMutedByViewer == true,
                             onEdit = { onEvent(ProfileEvent.EditTapped) },
                             onFollow = { onEvent(ProfileEvent.FollowTapped) },
                             onMessage = { onEvent(ProfileEvent.MessageTapped) },

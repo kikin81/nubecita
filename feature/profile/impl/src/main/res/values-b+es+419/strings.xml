@@ -12,6 +12,7 @@
     <string name="profile_action_settings">Ajustes</string>
     <string name="profile_action_block">Bloquear</string>
     <string name="profile_action_mute">Silenciar</string>
+    <string name="profile_action_unmute">Dejar de silenciar</string>
     <string name="profile_action_report">Denunciar</string>
 
     <string name="profile_snackbar_edit_coming_soon">Editar perfil — próximamente</string>
