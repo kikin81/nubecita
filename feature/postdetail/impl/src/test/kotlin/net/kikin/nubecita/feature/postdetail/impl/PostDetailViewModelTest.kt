@@ -9,6 +9,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
@@ -496,17 +497,15 @@ internal class PostDetailViewModelTest {
     // ---------- oftc.2 overflow-menu tests ----------
 
     @Test
-    fun `OnOverflowAction emits ShowComingSoon for every action except ReportPost`() =
+    fun `OnOverflowAction emits ShowComingSoon for every action except ReportPost, MuteAuthor, UnmuteAuthor`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = newVm(FakeRepo())
             val post = samplePost("at://post-overflow")
-            // ReportPost graduated in oftc.3.1 — covered by the next test.
-            // The seven remaining variants still pass through as
-            // ShowComingSoon until oftc.4 / .5 / future cleanup land.
+            // ReportPost graduated in oftc.3.1; MuteAuthor/UnmuteAuthor graduated
+            // in oftc.5 — covered by their own tests below.
+            // The five remaining variants still pass through as ShowComingSoon.
             val stubbedVariants =
                 listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
@@ -569,6 +568,160 @@ internal class PostDetailViewModelTest {
                 )
                 assertEquals(post.cid, subject.cid)
             }
+        }
+
+    // ---------- oftc.5 mute/unmute tests ----------
+
+    @Test
+    fun `OnOverflowAction(MuteAuthor) flips isAuthorMutedByViewer=true on thread posts by that author and calls muteActor`() =
+        // Pin (a): MuteAuthor resolves the author DID, optimistically flips
+        // isAuthorMutedByViewer to true on every post by that author in the
+        // thread, then calls muteRepository.muteActor(did). Unlike the feed
+        // surface, posts are NOT removed — the thread view keeps the author's
+        // posts visible but marked muted.
+        runTest(mainDispatcher.dispatcher) {
+            val authorDid = "did:plc:alice"
+            val muteRepo = FakeMuteRepository()
+            val focusPost = samplePost("at://focus", authorDid = authorDid)
+            val replyPost = samplePost("at://reply", authorDid = authorDid)
+            val otherPost = samplePost("at://other", authorDid = "did:plc:other")
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(focusPost),
+                    ThreadItem.Reply(replyPost, depth = 1),
+                    ThreadItem.Reply(otherPost, depth = 1),
+                )
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, muteRepository = muteRepo)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.OnOverflowAction(post = focusPost, action = net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            val focusItem = state.items.filterIsInstance<ThreadItem.Focus>().first()
+            val replyItems = state.items.filterIsInstance<ThreadItem.Reply>()
+            assertTrue(focusItem.post.viewer.isAuthorMutedByViewer, "focus post should be muted")
+            assertTrue(
+                replyItems
+                    .first { it.post.id == "at://reply" }
+                    .post.viewer.isAuthorMutedByViewer,
+                "reply by alice should be muted",
+            )
+            assertFalse(
+                replyItems
+                    .first { it.post.id == "at://other" }
+                    .post.viewer.isAuthorMutedByViewer,
+                "reply by other author should not be muted",
+            )
+
+            assertEquals(1, muteRepo.muteActorCalls.size)
+            assertEquals(authorDid, muteRepo.muteActorCalls.first())
+        }
+
+    @Test
+    fun `OnOverflowAction(MuteAuthor) failure rolls back items and emits ShowError`() =
+        // Pin (b): when muteActor returns failure, the optimistically-flipped
+        // items are restored to their previous state and ShowError is emitted.
+        runTest(mainDispatcher.dispatcher) {
+            val authorDid = "did:plc:alice"
+            val muteRepo =
+                FakeMuteRepository().apply {
+                    nextMuteResult = Result.failure(java.io.IOException("network error"))
+                }
+            val focusPost = samplePost("at://focus", authorDid = authorDid)
+            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(focusPost))
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, muteRepository = muteRepo)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnOverflowAction(post = focusPost, action = net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+                advanceUntilIdle()
+
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.ShowError, "expected ShowError, got $effect")
+                assertEquals(PostDetailError.Network, (effect as PostDetailEffect.ShowError).error)
+            }
+
+            val focusItem =
+                vm.uiState.value.items
+                    .filterIsInstance<ThreadItem.Focus>()
+                    .first()
+            assertFalse(focusItem.post.viewer.isAuthorMutedByViewer, "flag should be rolled back on failure")
+        }
+
+    @Test
+    fun `OnOverflowAction(UnmuteAuthor) flips isAuthorMutedByViewer=false on thread posts by that author and calls unmuteActor`() =
+        // Pin (c): UnmuteAuthor resolves the author DID, optimistically flips
+        // isAuthorMutedByViewer to false on every post by that author in the
+        // thread, then calls muteRepository.unmuteActor(did).
+        runTest(mainDispatcher.dispatcher) {
+            val authorDid = "did:plc:alice"
+            val muteRepo = FakeMuteRepository()
+            val focusPost = samplePost("at://focus", authorDid = authorDid, isAuthorMutedByViewer = true)
+            val replyPost = samplePost("at://reply", authorDid = authorDid, isAuthorMutedByViewer = true)
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(focusPost),
+                    ThreadItem.Reply(replyPost, depth = 1),
+                )
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, muteRepository = muteRepo)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.OnOverflowAction(post = focusPost, action = net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            val focusItem = state.items.filterIsInstance<ThreadItem.Focus>().first()
+            val replyItem = state.items.filterIsInstance<ThreadItem.Reply>().first()
+            assertFalse(focusItem.post.viewer.isAuthorMutedByViewer, "focus post mute flag should be false after unmute")
+            assertFalse(replyItem.post.viewer.isAuthorMutedByViewer, "reply post mute flag should be false after unmute")
+
+            assertEquals(1, muteRepo.unmuteActorCalls.size)
+            assertEquals(authorDid, muteRepo.unmuteActorCalls.first())
+        }
+
+    @Test
+    fun `OnOverflowAction(UnmuteAuthor) failure rolls back items and emits ShowError`() =
+        // Pin (d): when unmuteActor returns failure, items are restored to
+        // their pre-optimistic state (isAuthorMutedByViewer back to true)
+        // and ShowError is emitted.
+        runTest(mainDispatcher.dispatcher) {
+            val authorDid = "did:plc:alice"
+            val muteRepo =
+                FakeMuteRepository().apply {
+                    nextUnmuteResult = Result.failure(java.io.IOException("network error"))
+                }
+            val focusPost = samplePost("at://focus", authorDid = authorDid, isAuthorMutedByViewer = true)
+            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(focusPost))
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, muteRepository = muteRepo)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnOverflowAction(post = focusPost, action = net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+                advanceUntilIdle()
+
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.ShowError, "expected ShowError, got $effect")
+                assertEquals(PostDetailError.Network, (effect as PostDetailEffect.ShowError).error)
+            }
+
+            val focusItem =
+                vm.uiState.value.items
+                    .filterIsInstance<ThreadItem.Focus>()
+                    .first()
+            assertTrue(focusItem.post.viewer.isAuthorMutedByViewer, "flag should be rolled back to true on unmute failure")
         }
 
     // ---------- share tests ----------
@@ -729,12 +882,14 @@ internal class PostDetailViewModelTest {
         focusUri: String = "at://focus",
         cache: PostInteractionsCache = FakePostInteractionsCache(),
         analytics: AnalyticsClient = RecordingAnalyticsClient(),
+        muteRepository: MuteRepository = FakeMuteRepository(),
     ): PostDetailViewModel =
         PostDetailViewModel(
             route = PostDetailRoute(postUri = focusUri),
             postThreadRepository = repo,
             postInteractionsCache = cache,
             analytics = analytics,
+            muteRepository = muteRepository,
         )
 
     private fun samplePost(
@@ -742,14 +897,16 @@ internal class PostDetailViewModelTest {
         text: String = "sample text",
         cid: String = "bafyreifakefakefakefakefakefakefakefakefakefake",
         handle: String = "test.bsky.social",
+        authorDid: String = "did:plc:test",
         canViewerReply: Boolean = true,
+        isAuthorMutedByViewer: Boolean = false,
     ): PostUi =
         PostUi(
             id = id,
             cid = cid,
             author =
                 AuthorUi(
-                    did = "did:plc:test",
+                    did = authorDid,
                     handle = handle,
                     displayName = "Test",
                     avatarUrl = null,
@@ -759,7 +916,7 @@ internal class PostDetailViewModelTest {
             facets = persistentListOf(),
             embed = EmbedUi.Empty,
             stats = PostStatsUi(),
-            viewer = ViewerStateUi(canViewerReply = canViewerReply),
+            viewer = ViewerStateUi(canViewerReply = canViewerReply, isAuthorMutedByViewer = isAuthorMutedByViewer),
             repostedBy = null,
         )
 

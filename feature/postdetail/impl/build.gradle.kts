@@ -9,6 +9,7 @@ android {
 dependencies {
     api(project(":feature:postdetail:api"))
 
+    implementation(project(":core:actors"))
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:post-interactions"))

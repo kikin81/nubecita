@@ -6,11 +6,13 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
@@ -49,6 +51,7 @@ internal class PostDetailViewModel
         private val postThreadRepository: PostThreadRepository,
         private val postInteractionsCache: PostInteractionsCache,
         private val analytics: AnalyticsClient,
+        private val muteRepository: MuteRepository,
     ) : MviViewModel<PostDetailState, PostDetailEvent, PostDetailEffect>(PostDetailState()) {
         @AssistedFactory
         interface Factory {
@@ -144,8 +147,32 @@ internal class PostDetailViewModel
                     when (event.action) {
                         PostOverflowAction.ReportPost ->
                             sendEffect(PostDetailEffect.NavigateTo(Report.forPost(event.post)))
-                        PostOverflowAction.MuteAuthor,
-                        PostOverflowAction.UnmuteAuthor,
+                        PostOverflowAction.MuteAuthor -> {
+                            val authorDid = event.post.author.did
+                            val previousItems = uiState.value.items
+                            setState { copy(items = items.updateMutedByAuthor(authorDid, muted = true)) }
+                            viewModelScope.launch {
+                                muteRepository
+                                    .muteActor(authorDid)
+                                    .onFailure {
+                                        setState { copy(items = previousItems) }
+                                        sendEffect(PostDetailEffect.ShowError(it.toPostDetailError()))
+                                    }
+                            }
+                        }
+                        PostOverflowAction.UnmuteAuthor -> {
+                            val authorDid = event.post.author.did
+                            val previousItems = uiState.value.items
+                            setState { copy(items = items.updateMutedByAuthor(authorDid, muted = false)) }
+                            viewModelScope.launch {
+                                muteRepository
+                                    .unmuteActor(authorDid)
+                                    .onFailure {
+                                        setState { copy(items = previousItems) }
+                                        sendEffect(PostDetailEffect.ShowError(it.toPostDetailError()))
+                                    }
+                            }
+                        }
                         PostOverflowAction.BlockAuthor,
                         PostOverflowAction.UnblockAuthor,
                         PostOverflowAction.MuteThread,
@@ -310,3 +337,44 @@ private fun ThreadItem.applyInteraction(
         is ThreadItem.Fold,
         -> this
     }
+
+/**
+ * Flip [ViewerStateUi.isAuthorMutedByViewer] to [muted] for every
+ * [ThreadItem] whose post is authored by [did]. Items without a [PostUi]
+ * (Blocked, NotFound, Fold) are passed through unchanged.
+ *
+ * Returns the same instance for items that are not authored by [did],
+ * preserving reference equality so LazyColumn can skip recomposition
+ * for unchanged items.
+ */
+private fun ImmutableList<ThreadItem>.updateMutedByAuthor(
+    did: String,
+    muted: Boolean,
+): ImmutableList<ThreadItem> =
+    map { item ->
+        when (item) {
+            is ThreadItem.Ancestor ->
+                if (item.post.author.did == did) {
+                    item.copy(post = item.post.copy(viewer = item.post.viewer.copy(isAuthorMutedByViewer = muted)))
+                } else {
+                    item
+                }
+            is ThreadItem.Focus ->
+                if (item.post.author.did == did) {
+                    item.copy(post = item.post.copy(viewer = item.post.viewer.copy(isAuthorMutedByViewer = muted)))
+                } else {
+                    item
+                }
+            is ThreadItem.Reply ->
+                if (item.post.author.did == did) {
+                    item.copy(post = item.post.copy(viewer = item.post.viewer.copy(isAuthorMutedByViewer = muted)))
+                } else {
+                    item
+                }
+            // Blocked, NotFound, Fold carry no PostUi — pass through.
+            is ThreadItem.Blocked,
+            is ThreadItem.NotFound,
+            is ThreadItem.Fold,
+            -> item
+        }
+    }.toImmutableList()
