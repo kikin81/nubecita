@@ -13,6 +13,8 @@ import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.Share
+import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -609,6 +611,23 @@ internal class PostDetailViewModelTest {
                     (effect as PostDetailEffect.CopyPermalink).permalink,
                 )
             }
+        }
+
+    @Test
+    fun `share click and long-press log share events with PostDetail surface`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val vm = newVm(FakeRepo(), analytics = analytics)
+            val post = samplePost("at://did:plc:fake/app.bsky.feed.post/3kabc123")
+            vm.handleEvent(PostDetailEvent.OnShareClicked(post))
+            vm.handleEvent(PostDetailEvent.OnShareLongPressed(post))
+            assertEquals(
+                listOf(
+                    Share(ShareMethod.ShareSheet, PostSurface.PostDetail),
+                    Share(ShareMethod.CopyLink, PostSurface.PostDetail),
+                ),
+                analytics.events,
+            )
         }
 
     // ---------- cache interaction tests ----------

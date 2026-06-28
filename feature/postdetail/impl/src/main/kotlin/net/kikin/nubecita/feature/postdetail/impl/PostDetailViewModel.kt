@@ -15,6 +15,8 @@ import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.Share
+import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
@@ -151,10 +153,14 @@ internal class PostDetailViewModel
                         PostOverflowAction.CopyPostText,
                         -> sendEffect(PostDetailEffect.ShowComingSoon(event.action))
                     }
-                is PostDetailEvent.OnShareClicked ->
+                is PostDetailEvent.OnShareClicked -> {
+                    analytics.log(Share(ShareMethod.ShareSheet, PostSurface.PostDetail))
                     sendEffect(PostDetailEffect.SharePost(event.post.toShareIntent()))
-                is PostDetailEvent.OnShareLongPressed ->
+                }
+                is PostDetailEvent.OnShareLongPressed -> {
+                    analytics.log(Share(ShareMethod.CopyLink, PostSurface.PostDetail))
                     sendEffect(PostDetailEffect.CopyPermalink(event.post.toShareIntent().permalink))
+                }
             }
         }
 

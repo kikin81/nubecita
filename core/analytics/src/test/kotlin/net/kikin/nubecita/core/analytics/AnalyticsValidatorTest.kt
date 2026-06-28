@@ -17,6 +17,10 @@ class AnalyticsValidatorTest {
                 CreatePost(hasMedia = true, isReply = true, isQuote = true, hasExternal = true),
                 SearchPerform(SearchScope.Top, fromRecent = false),
                 SearchPerform(SearchScope.Feeds, fromRecent = true),
+                InteractActor(ActorAction.Follow, PostSurface.Profile),
+                InteractActor(ActorAction.Unfollow, PostSurface.Search),
+                Share(ShareMethod.ShareSheet, PostSurface.Feed),
+                Share(ShareMethod.CopyLink, PostSurface.PostDetail),
             )
         events.forEach { event ->
             assertDoesNotThrow({ AnalyticsValidator.requireValid(event) }, "v1 event ${event.name}")

@@ -150,6 +150,53 @@ data class InteractPost(
         )
 }
 
+/** A user-to-user interaction (room for mute/block later). */
+enum class ActorAction(
+    val wire: String,
+) {
+    Follow("follow"),
+    Unfollow("unfollow"),
+}
+
+/** Fired at follow/unfollow call sites (Profile today). Generic — mirrors [InteractPost]. */
+data class InteractActor(
+    val action: ActorAction,
+    val surface: PostSurface,
+) : AnalyticsEvent {
+    override val name: String = "interact_actor"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "action_type" to Str(action.wire),
+            "source_surface" to Str(surface.wire),
+        )
+}
+
+/** How a post was shared. */
+enum class ShareMethod(
+    val wire: String,
+) {
+    ShareSheet("share_sheet"),
+    CopyLink("copy_link"),
+}
+
+/**
+ * GA4-recommended `share` event (PII-free: carries no item_id). Named `Share`
+ * (not `SharePost`) to match the wire name and avoid shadowing the existing
+ * `*Effect.SharePost` UI effects.
+ */
+data class Share(
+    val method: ShareMethod,
+    val surface: PostSurface,
+) : AnalyticsEvent {
+    override val name: String = "share"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "method" to Str(method.wire),
+            "content_type" to Str("post"),
+            "source_surface" to Str(surface.wire),
+        )
+}
+
 /**
  * Fired on a successful `DefaultPostingRepository.createPost`. Carries only
  * structural booleans — never the post body, language, or attachment URIs.

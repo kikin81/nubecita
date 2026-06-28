@@ -15,10 +15,14 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.ActorAction
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.InteractActor
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.Share
+import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -207,10 +211,14 @@ internal class ProfileViewModel
                     sendEffect(ProfileEffect.NavigateTo(ComposerRoute(replyToUri = event.post.id)))
                 is ProfileEvent.OnQuoteClicked ->
                     sendEffect(ProfileEffect.NavigateTo(ComposerRoute(quotePostUri = event.post.id)))
-                is ProfileEvent.OnShareClicked ->
+                is ProfileEvent.OnShareClicked -> {
+                    analytics.log(Share(ShareMethod.ShareSheet, PostSurface.Profile))
                     sendEffect(ProfileEffect.SharePost(event.post.toShareIntent()))
-                is ProfileEvent.OnShareLongPressed ->
+                }
+                is ProfileEvent.OnShareLongPressed -> {
+                    analytics.log(Share(ShareMethod.CopyLink, PostSurface.Profile))
                     sendEffect(ProfileEffect.CopyPermalink(event.post.toShareIntent().permalink))
+                }
                 is ProfileEvent.OnPostOverflowAction ->
                     when (event.action) {
                         PostOverflowAction.ReportPost ->
@@ -497,7 +505,10 @@ internal class ProfileViewModel
             val current = uiState.value.viewerRelationship
             if (current.isPending) return
             when (current) {
-                is ViewerRelationship.NotFollowing -> launchFollow(previous = current)
+                is ViewerRelationship.NotFollowing -> {
+                    analytics.log(InteractActor(ActorAction.Follow, PostSurface.Profile))
+                    launchFollow(previous = current)
+                }
                 is ViewerRelationship.Following -> {
                     // Following with isPending=false implies followUri != null,
                     // enforced by Following.init { require(...) }. The require here
@@ -506,6 +517,7 @@ internal class ProfileViewModel
                         requireNotNull(current.followUri) {
                             "committed Following MUST have a non-null followUri"
                         }
+                    analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Profile))
                     launchUnfollow(previous = current, followUri = followUri)
                 }
                 ViewerRelationship.Self, ViewerRelationship.None -> Unit

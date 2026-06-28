@@ -10,10 +10,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.ActorAction
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.InteractActor
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.Share
+import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
@@ -1161,6 +1165,90 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `FollowTapped from NotFollowing logs InteractActor follow`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                ViewerRelationship.NotFollowing(),
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    followResult = Result.success(SAMPLE_FOLLOW_URI),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), analytics = analytics)
+            advanceUntilIdle()
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+            assertEquals(
+                listOf(InteractActor(ActorAction.Follow, PostSurface.Profile)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `FollowTapped from Following logs InteractActor unfollow`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                SAMPLE_FOLLOWING,
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    unfollowResult = Result.success(Unit),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), analytics = analytics)
+            advanceUntilIdle()
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+            assertEquals(
+                listOf(InteractActor(ActorAction.Unfollow, PostSurface.Profile)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `FollowTapped on Self logs no analytics event (silent branch invariant)`() =
+        runTest(mainDispatcher.dispatcher) {
+            // The follow-analytics path MUST only fire on real toggles (NotFollowing→Following
+            // or Following→NotFollowing). Any non-toggle relationship must remain silent.
+            // Self is the most concrete silent case: own-profile route overrides the mapper
+            // result to ViewerRelationship.Self (see own-profile override test), and the VM
+            // must no-op FollowTapped entirely — no wire call, no analytics event.
+            val analytics = RecordingAnalyticsClient()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = null), analytics = analytics)
+            advanceUntilIdle()
+            assertEquals(
+                ViewerRelationship.Self,
+                vm.uiState.value.viewerRelationship,
+                "own-profile route MUST override mapper result to Self (pre-condition)",
+            )
+
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+
+            assertTrue(
+                analytics.events.isEmpty(),
+                "FollowTapped on Self MUST fire zero analytics events; got: ${analytics.events}",
+            )
+        }
+
+    @Test
     fun `OnLikeClicked failure surfaces ProfileEffect_ShowError`() =
         runTest(mainDispatcher.dispatcher) {
             val cache =
@@ -1231,6 +1319,23 @@ internal class ProfileViewModelTest {
                 )
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+
+    @Test
+    fun `share click and long-press log share events with Profile surface`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val vm = newVm(repo = FakeProfileRepository(), analytics = analytics)
+            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
+            vm.handleEvent(ProfileEvent.OnShareClicked(post))
+            vm.handleEvent(ProfileEvent.OnShareLongPressed(post))
+            assertEquals(
+                listOf(
+                    Share(ShareMethod.ShareSheet, PostSurface.Profile),
+                    Share(ShareMethod.CopyLink, PostSurface.Profile),
+                ),
+                analytics.events,
+            )
         }
 
     @Test
