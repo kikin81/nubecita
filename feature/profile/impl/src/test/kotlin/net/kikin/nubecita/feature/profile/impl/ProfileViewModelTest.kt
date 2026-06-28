@@ -10,7 +10,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.ActorAction
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.InteractActor
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
@@ -1156,6 +1158,58 @@ internal class ProfileViewModelTest {
                     InteractPost(PostAction.Like, PostSurface.Profile),
                     InteractPost(PostAction.Repost, PostSurface.Profile),
                 ),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `FollowTapped from NotFollowing logs InteractActor follow`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                ViewerRelationship.NotFollowing(),
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    followResult = Result.success(SAMPLE_FOLLOW_URI),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), analytics = analytics)
+            advanceUntilIdle()
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+            assertEquals(
+                listOf(InteractActor(ActorAction.Follow, PostSurface.Profile)),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `FollowTapped from Following logs InteractActor unfollow`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "bob.bsky.social"),
+                                SAMPLE_FOLLOWING,
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    unfollowResult = Result.success(Unit),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), analytics = analytics)
+            advanceUntilIdle()
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+            assertEquals(
+                listOf(InteractActor(ActorAction.Unfollow, PostSurface.Profile)),
                 analytics.events,
             )
         }
