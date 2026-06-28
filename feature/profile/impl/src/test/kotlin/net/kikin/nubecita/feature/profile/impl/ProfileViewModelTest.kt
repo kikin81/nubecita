@@ -1217,6 +1217,38 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `FollowTapped on Self logs no analytics event (silent branch invariant)`() =
+        runTest(mainDispatcher.dispatcher) {
+            // The follow-analytics path MUST only fire on real toggles (NotFollowing→Following
+            // or Following→NotFollowing). Any non-toggle relationship must remain silent.
+            // Self is the most concrete silent case: own-profile route overrides the mapper
+            // result to ViewerRelationship.Self (see own-profile override test), and the VM
+            // must no-op FollowTapped entirely — no wire call, no analytics event.
+            val analytics = RecordingAnalyticsClient()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = null), analytics = analytics)
+            advanceUntilIdle()
+            assertEquals(
+                ViewerRelationship.Self,
+                vm.uiState.value.viewerRelationship,
+                "own-profile route MUST override mapper result to Self (pre-condition)",
+            )
+
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+
+            assertTrue(
+                analytics.events.isEmpty(),
+                "FollowTapped on Self MUST fire zero analytics events; got: ${analytics.events}",
+            )
+        }
+
+    @Test
     fun `OnLikeClicked failure surfaces ProfileEffect_ShowError`() =
         runTest(mainDispatcher.dispatcher) {
             val cache =
@@ -1291,7 +1323,7 @@ internal class ProfileViewModelTest {
 
     @Test
     fun `share click and long-press log share events with Profile surface`() =
-        runTest {
+        runTest(mainDispatcher.dispatcher) {
             val analytics = RecordingAnalyticsClient()
             val vm = newVm(repo = FakeProfileRepository(), analytics = analytics)
             val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
