@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.analytics.ViewFeed
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.feedFixture
 import org.junit.jupiter.api.AfterEach

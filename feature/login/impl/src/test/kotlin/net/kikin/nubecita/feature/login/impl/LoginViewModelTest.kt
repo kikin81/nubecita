@@ -11,18 +11,17 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsEvent
-import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.Login
 import net.kikin.nubecita.core.analytics.LoginErrorReason
 import net.kikin.nubecita.core.analytics.LoginFailed
 import net.kikin.nubecita.core.analytics.LoginStage
 import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
-import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
 import net.kikin.nubecita.core.push.NotificationsPromptShownStore
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -420,16 +419,4 @@ private class FakeOAuthRedirectBroker : OAuthRedirectBroker {
     suspend fun emit(redirectUri: String) {
         channel.send(redirectUri)
     }
-}
-
-private class RecordingAnalyticsClient : AnalyticsClient {
-    val events = mutableListOf<AnalyticsEvent>()
-
-    override fun log(event: AnalyticsEvent) {
-        events += event
-    }
-
-    override fun setUserProperty(property: UserProperty) = Unit
-
-    override fun logScreen(screen: AnalyticsScreen) = Unit
 }

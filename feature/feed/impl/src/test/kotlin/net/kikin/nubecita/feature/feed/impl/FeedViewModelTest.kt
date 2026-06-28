@@ -11,21 +11,18 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import net.kikin.nubecita.core.analytics.AnalyticsClient
-import net.kikin.nubecita.core.analytics.AnalyticsEvent
-import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.Share
 import net.kikin.nubecita.core.analytics.ShareMethod
-import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -1888,16 +1885,3 @@ private fun FeedItemUi.leafPost(): PostUi =
         is FeedItemUi.Blocked, is FeedItemUi.NotFound ->
             error("leafPost called on tombstone $this")
     }
-
-/** Records every logged [AnalyticsEvent] so emission tests can assert on them. */
-private class RecordingAnalyticsClient : AnalyticsClient {
-    val events = mutableListOf<AnalyticsEvent>()
-
-    override fun log(event: AnalyticsEvent) {
-        events += event
-    }
-
-    override fun setUserProperty(property: UserProperty) = Unit
-
-    override fun logScreen(screen: AnalyticsScreen) = Unit
-}

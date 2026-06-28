@@ -9,19 +9,17 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.AnalyticsClient
-import net.kikin.nubecita.core.analytics.AnalyticsEvent
 import net.kikin.nubecita.core.analytics.AnalyticsInstanceIdProvider
-import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.IsPro
 import net.kikin.nubecita.core.analytics.NotificationsEnabled
 import net.kikin.nubecita.core.analytics.SelfHosted
 import net.kikin.nubecita.core.analytics.Theme
-import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.billing.RevenueCatInitializer
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.NotificationsEnabledSource
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -132,16 +130,4 @@ class ProAnalyticsCoordinatorTest {
             scope = backgroundScope,
         )
     }
-}
-
-private class RecordingAnalyticsClient : AnalyticsClient {
-    val properties = mutableListOf<UserProperty>()
-
-    override fun log(event: AnalyticsEvent) = Unit
-
-    override fun setUserProperty(property: UserProperty) {
-        properties += property
-    }
-
-    override fun logScreen(screen: AnalyticsScreen) = Unit
 }

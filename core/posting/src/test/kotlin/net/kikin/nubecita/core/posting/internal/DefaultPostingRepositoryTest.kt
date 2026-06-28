@@ -30,11 +30,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import net.kikin.nubecita.core.analytics.AnalyticsClient
-import net.kikin.nubecita.core.analytics.AnalyticsEvent
-import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.CreatePost
-import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -52,6 +48,7 @@ import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.ReplyAudience
 import net.kikin.nubecita.core.posting.ReplyRefs
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -1658,15 +1655,3 @@ private fun OutgoingContent.toBodyBytes(): ByteArray =
         is OutgoingContent.ByteArrayContent -> bytes()
         else -> ByteArray(0)
     }
-
-private class RecordingAnalyticsClient : AnalyticsClient {
-    val events = mutableListOf<AnalyticsEvent>()
-
-    override fun log(event: AnalyticsEvent) {
-        events += event
-    }
-
-    override fun setUserProperty(property: UserProperty) = Unit
-
-    override fun logScreen(screen: AnalyticsScreen) = Unit
-}

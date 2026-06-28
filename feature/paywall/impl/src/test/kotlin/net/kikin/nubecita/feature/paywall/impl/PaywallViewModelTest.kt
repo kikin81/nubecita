@@ -10,8 +10,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.AnalyticsClient
-import net.kikin.nubecita.core.analytics.AnalyticsEvent
-import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.PaywallCheckoutStarted
 import net.kikin.nubecita.core.analytics.PaywallPlan
 import net.kikin.nubecita.core.analytics.PaywallPlanSelected
@@ -20,11 +18,11 @@ import net.kikin.nubecita.core.analytics.PaywallPurchaseError
 import net.kikin.nubecita.core.analytics.PaywallRestore
 import net.kikin.nubecita.core.analytics.PaywallViewed
 import net.kikin.nubecita.core.analytics.RestoreOutcome
-import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.PurchaseResult
 import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.SubscriptionOfferingFixtures
 import net.kikin.nubecita.data.models.SubscriptionPlanId
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -471,17 +469,4 @@ internal class PaywallViewModelTest {
             assertEquals(RestoreOutcome.Nothing, outcomeFor(RestoreResult.Completed(isPro = false)))
             assertEquals(RestoreOutcome.Error, outcomeFor(RestoreResult.Error("net")))
         }
-}
-
-/** Records logged events for assertions; user-property / screen calls are dropped. */
-private class RecordingAnalyticsClient : AnalyticsClient {
-    val events = mutableListOf<AnalyticsEvent>()
-
-    override fun log(event: AnalyticsEvent) {
-        events += event
-    }
-
-    override fun setUserProperty(property: UserProperty) = Unit
-
-    override fun logScreen(screen: AnalyticsScreen) = Unit
 }
