@@ -83,4 +83,58 @@ internal class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate5To6_createsSavedFeedsTable_andPreservesExistingData() {
+        // Create the v5 database and seed one row in each existing table.
+        helper.createDatabase(dbName, 5).use { db ->
+            db.execSQL(
+                "INSERT INTO recent_search (`query`, recorded_at) VALUES ('bluesky', 9000)",
+            )
+            db.execSQL(
+                "INSERT INTO actors (did, handle, display_name, avatar_url, last_seen_at, can_message) " +
+                    "VALUES ('did:b', 'bob.bsky.social', 'Bob', NULL, 5000, 0)",
+            )
+            db.execSQL(
+                "INSERT INTO feed_post " +
+                    "(account_did, feed_type, feed_uri, position, uri, cid, author_did, indexed_at, text, post_blob) " +
+                    "VALUES ('did:b', 'FOLLOWING', '', 0, 'at://post/x', 'cidx', 'did:c', 6000, 'hi', NULL)",
+            )
+        }
+
+        // Run the auto-migration to v6 (validates the migrated schema against 6.json).
+        val db =
+            helper.runMigrationsAndValidate(
+                dbName,
+                6,
+                true,
+            )
+
+        // Existing v5 rows survived.
+        db.query("SELECT `query` FROM recent_search").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("bluesky", c.getString(0))
+        }
+        db.query("SELECT did FROM actors").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("did:b", c.getString(0))
+        }
+        db.query("SELECT COUNT(*) FROM feed_post").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+        }
+
+        // New v6 table exists and is usable.
+        db.execSQL(
+            "INSERT INTO saved_feeds (uri, display_name, creator_handle, avatar_url, pinned, position) " +
+                "VALUES ('at://feed/discover', 'Discover', NULL, NULL, 1, 0)",
+        )
+        db.query("SELECT display_name, pinned FROM saved_feeds").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Discover", c.getString(0))
+            assertEquals(1, c.getInt(1))
+        }
+
+        db.close()
+    }
 }

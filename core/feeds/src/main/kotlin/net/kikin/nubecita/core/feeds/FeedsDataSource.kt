@@ -3,6 +3,8 @@ package net.kikin.nubecita.core.feeds
 import io.github.kikin81.atproto.app.bsky.actor.ActorService
 import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesRequest
 import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequest
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeed
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeedsPrefV2
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
@@ -21,6 +23,7 @@ internal data class GeneratorMeta(
     val uri: String,
     val displayName: String,
     val avatarUrl: String?,
+    val creatorHandle: String?,
 )
 
 /**
@@ -43,6 +46,24 @@ internal interface FeedsDataSource {
      * `app.bsky.feed.getFeedGenerators`. Throws on transport/auth failure.
      */
     suspend fun getFeedGenerators(uris: List<String>): List<GeneratorMeta>
+
+    /**
+     * Returns the raw `app.bsky.actor.getPreferences` union list — every
+     * preference entry, not just [SavedFeedsPrefV2]. Required for the
+     * read-modify-write in [DefaultPinnedFeedsRepository.pinFeed] /
+     * [DefaultPinnedFeedsRepository.unpinFeed] so that foreign entries
+     * (moderation prefs, label prefs, etc.) are preserved across the write.
+     * Throws on transport/auth failure.
+     */
+    suspend fun getFullPreferences(): List<GetPreferencesResponsePreferencesUnion>
+
+    /**
+     * Writes a complete preference union array back via
+     * `app.bsky.actor.putPreferences`. The caller is responsible for
+     * constructing the full list (preserved foreign entries + owned entries)
+     * via [mergeSavedFeedsPrefs]. Throws on transport/auth failure.
+     */
+    suspend fun putPreferences(prefs: List<PutPreferencesRequestPreferencesUnion>)
 }
 
 internal class DefaultFeedsDataSource
@@ -67,8 +88,19 @@ internal class DefaultFeedsDataSource
                     uri = view.uri.raw,
                     displayName = view.displayName,
                     avatarUrl = view.avatar?.raw,
+                    creatorHandle = view.creator.handle.raw,
                 )
             }
+        }
+
+        override suspend fun getFullPreferences(): List<GetPreferencesResponsePreferencesUnion> =
+            ActorService(xrpcClientProvider.authenticated())
+                .getPreferences(GetPreferencesRequest())
+                .preferences
+
+        override suspend fun putPreferences(prefs: List<PutPreferencesRequestPreferencesUnion>) {
+            ActorService(xrpcClientProvider.authenticated())
+                .putPreferences(PutPreferencesRequest(prefs))
         }
     }
 
