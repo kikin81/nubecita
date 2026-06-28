@@ -252,6 +252,11 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // JUnit 5 jars (junit-platform-commons, junit-jupiter-api) on the
+            // androidTest classpath (via :core:testing) each ship these, which
+            // collide at androidTest resource-merge. Drop the duplicates.
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/LICENSE-notice.md"
         }
     }
 
