@@ -100,6 +100,22 @@ Follow is **Profile-only today**; `source_surface` is still included for consist
 
 `action_type`, `source_surface`, and `method` are **already registered** (049f.10 — `action_type`/`source_surface` shared with `interact_post`; `method` shared with login). **`content_type`** is the one **new** param needing registration. Forward-only, so register when this ships: add a `("content_type", "Content Type")` row to the local `~/.config/nubecita/analytics/register_ga4_dimensions.py` and run `--apply`. (`share`/`interact_actor` raw event counts work immediately without registration.)
 
+### Dimension display names must be generic for shared params
+
+A GA4 event-scoped custom dimension is keyed by **parameter name**, globally — it surfaces that param's value across *every* event that sends it. So a param reused across events (`method` → login + share; `action_type`, `source_surface` → interact_post + interact_actor) must have an **event-neutral display name**, or the dimension's label misrepresents the other events' values (e.g. a "Login Method" dimension showing `share_sheet`). The data is always correct and event-filterable — this is a labeling concern only — but the labels are fixed metadata, so they must be generic. Reusing `method` is GA4's own convention (its recommended `login`/`sign_up`/`share` events all use `method`); we keep the reuse and fix the labels.
+
+Rename the three shared dimensions (display name only — the param key is immutable, metadata-only change, no data loss):
+
+| Param | Old display name | New display name |
+|---|---|---|
+| `method` | Login Method | **Method** |
+| `action_type` | Post Action | **Action Type** |
+| `source_surface` | Post Surface | **Source Surface** |
+
+Event-specific params (`feed_type`, `search_scope`, `reason`, `stage`, `plan`, `outcome`, `is_*`, `has_*`, `from_recent`, `content_type`) keep their descriptive names — they're sent by a single event each. The local registration script is the source of truth for display names and gains a `--rename` mode to reconcile live dimensions to it.
+
+> **No client-side batching needed.** These events fire optimistically on tap, but Firebase Analytics already persists events to disk and uploads them in batches with offline resilience (events survive no-network and app kills, sent with their device timestamp when connectivity returns). `AnalyticsClient` stays stateless and fire-and-forget; a custom queue/retry would duplicate the SDK and risk double-counting.
+
 ## Testing
 
 - **Model** (`AnalyticsModelTest`): `interact_actor` and `share` produce the expected `name` + `params` maps; add to the **No-PII guard test** (all param values are enum-derived `Str`/`Bool`, no free text).
