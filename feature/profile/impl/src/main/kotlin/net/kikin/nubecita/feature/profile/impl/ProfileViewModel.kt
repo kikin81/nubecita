@@ -21,6 +21,8 @@ import net.kikin.nubecita.core.analytics.InteractActor
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.Share
+import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -209,10 +211,14 @@ internal class ProfileViewModel
                     sendEffect(ProfileEffect.NavigateTo(ComposerRoute(replyToUri = event.post.id)))
                 is ProfileEvent.OnQuoteClicked ->
                     sendEffect(ProfileEffect.NavigateTo(ComposerRoute(quotePostUri = event.post.id)))
-                is ProfileEvent.OnShareClicked ->
+                is ProfileEvent.OnShareClicked -> {
+                    analytics.log(Share(ShareMethod.ShareSheet, PostSurface.Profile))
                     sendEffect(ProfileEffect.SharePost(event.post.toShareIntent()))
-                is ProfileEvent.OnShareLongPressed ->
+                }
+                is ProfileEvent.OnShareLongPressed -> {
+                    analytics.log(Share(ShareMethod.CopyLink, PostSurface.Profile))
                     sendEffect(ProfileEffect.CopyPermalink(event.post.toShareIntent().permalink))
+                }
                 is ProfileEvent.OnPostOverflowAction ->
                     when (event.action) {
                         PostOverflowAction.ReportPost ->

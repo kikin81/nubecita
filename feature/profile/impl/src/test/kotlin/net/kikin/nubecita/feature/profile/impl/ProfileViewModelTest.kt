@@ -16,6 +16,8 @@ import net.kikin.nubecita.core.analytics.InteractActor
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.Share
+import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
@@ -1285,6 +1287,23 @@ internal class ProfileViewModelTest {
                 )
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+
+    @Test
+    fun `share click and long-press log share events with Profile surface`() =
+        runTest {
+            val analytics = RecordingAnalyticsClient()
+            val vm = newVm(repo = FakeProfileRepository(), analytics = analytics)
+            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
+            vm.handleEvent(ProfileEvent.OnShareClicked(post))
+            vm.handleEvent(ProfileEvent.OnShareLongPressed(post))
+            assertEquals(
+                listOf(
+                    Share(ShareMethod.ShareSheet, PostSurface.Profile),
+                    Share(ShareMethod.CopyLink, PostSurface.Profile),
+                ),
+                analytics.events,
+            )
         }
 
     @Test
