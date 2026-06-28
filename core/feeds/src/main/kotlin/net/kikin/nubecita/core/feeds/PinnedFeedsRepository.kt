@@ -5,22 +5,26 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.database.dao.SavedFeedDao
+import net.kikin.nubecita.core.database.model.SavedFeedEntity
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PinnedFeedUi
 import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Outcome of [PinnedFeedsRepository.loadPinnedFeeds].
+ * Outcome of [PinnedFeedsRepository.observePinnedFeeds] emissions.
  *
  * [usedFallback] is `true` when the result is the local `[Following,
- * Discover]` default (no `savedFeedsPrefV2`, an empty pinned set, or a
- * `getPreferences` failure). [error] carries the non-fatal throwable when a
- * network call failed — the feeds list is still populated (with the fallback
- * or whatever could be hydrated) so the Feed stays usable, but the caller
- * can surface a one-shot "couldn't refresh feeds" signal.
+ * Discover]` default (no cached feeds, or nothing pinned). [error] carries
+ * the non-fatal throwable when a network call failed — the feeds list is
+ * still populated (with the fallback or whatever could be hydrated) so the
+ * Feed stays usable, but the caller can surface a one-shot "couldn't refresh
+ * feeds" signal.
  */
 public data class PinnedFeedsResult(
     val feeds: ImmutableList<PinnedFeedUi>,
@@ -29,9 +33,8 @@ public data class PinnedFeedsResult(
 )
 
 /**
- * Reads the user's pinned feeds from their `app.bsky.actor.getPreferences`
- * `savedFeedsPrefV2` and projects them to the UI-ready [PinnedFeedUi] chip
- * model, hydrating generator display-name/avatar via `getFeedGenerators`.
+ * Reads the user's pinned feeds from the Room cache and keeps them
+ * up-to-date via write-through refreshes against the network.
  *
  * This is the only layer that reads saved-feeds preferences; feature modules
  * depend on `:core:feeds`, never on `getPreferences` directly. The future
@@ -39,12 +42,26 @@ public data class PinnedFeedsResult(
  */
 public interface PinnedFeedsRepository {
     /**
-     * Loads the ordered pinned-feed chip set. Never throws on the happy
-     * path: a `getPreferences` failure (or no/empty saved feeds) yields the
-     * `[Following, Discover]` fallback with [PinnedFeedsResult.usedFallback]
-     * set, and any network error is reported via [PinnedFeedsResult.error].
+     * Observes the ordered pinned-feed chip set from the local Room cache.
+     * Emits immediately with whatever is cached (or the `[Following,
+     * Discover]` fallback when the cache is empty / nothing is pinned), then
+     * re-emits whenever [refresh] writes through new data.
+     *
+     * Never throws: an empty cache yields a fallback result with
+     * [PinnedFeedsResult.usedFallback] set to `true`.
      */
-    public suspend fun loadPinnedFeeds(): PinnedFeedsResult
+    public fun observePinnedFeeds(): Flow<PinnedFeedsResult>
+
+    /**
+     * Fetches the latest saved feeds from the network, hydrates generator
+     * metadata, and writes through to the Room cache via a diff-upsert
+     * (`upsert` + `deleteUrisNotIn`, or `clear` when zero feeds resolve).
+     *
+     * Returns [Result.failure] — without touching the cache — when
+     * `getSavedFeedItems` or `getFeedGenerators` throws (network/auth
+     * error), so the cache is preserved for offline use.
+     */
+    public suspend fun refresh(): Result<Unit>
 
     /**
      * Validates a persisted last-selected feed [uri] against the live
@@ -79,71 +96,103 @@ internal class DefaultPinnedFeedsRepository
     @Inject
     constructor(
         private val dataSource: FeedsDataSource,
+        private val dao: SavedFeedDao,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PinnedFeedsRepository {
-        override suspend fun loadPinnedFeeds(): PinnedFeedsResult =
-            withContext(dispatcher) {
-                val items =
-                    try {
-                        dataSource.getSavedFeedItems()
-                    } catch (throwable: Throwable) {
-                        // Non-fatal: getPreferences failed (offline, auth
-                        // refresh, etc.). Fall back to the local defaults but
-                        // tell the caller so it can surface a soft error.
-                        Timber.tag(TAG).w(throwable, "getPreferences failed: %s", throwable.javaClass.name)
-                        return@withContext fallbackResult(error = throwable)
-                    }
+        // -------------------------------------------------------------------------
+        // Read path: Room cache → PinnedFeedUi
+        // -------------------------------------------------------------------------
 
-                // Dedupe `type="timeline"` pins so two identical Following chips
-                // can't appear (all timeline entries collapse to the single
-                // synthesized Following feed); keep the first, drop later dupes.
-                var sawTimeline = false
-                val pinned =
-                    items
-                        .orEmpty()
-                        .filter(SavedFeed::pinned)
-                        .filter { item ->
-                            if (item.type != TYPE_TIMELINE) {
-                                true
-                            } else if (sawTimeline) {
-                                false
-                            } else {
-                                sawTimeline = true
-                                true
-                            }
-                        }
-                if (pinned.isEmpty()) {
-                    // No savedFeedsPrefV2 entry, or nothing pinned → defaults.
-                    return@withContext fallbackResult(error = null)
+        override fun observePinnedFeeds(): Flow<PinnedFeedsResult> =
+            dao.observeSavedFeeds().map { entities ->
+                val pinnedFeeds =
+                    entities
+                        .filter { it.pinned }
+                        .mapNotNull { it.toPinnedFeedUi() }
+                        .toImmutableList()
+                if (pinnedFeeds.isEmpty()) {
+                    PinnedFeedsResult(feeds = fallbackFeeds(), usedFallback = true)
+                } else {
+                    PinnedFeedsResult(feeds = pinnedFeeds, usedFallback = false)
+                }
+            }
+
+        // -------------------------------------------------------------------------
+        // Write path: network → Room cache (diff-upsert)
+        // -------------------------------------------------------------------------
+
+        override suspend fun refresh(): Result<Unit> =
+            withContext(dispatcher) {
+                runCatching { doRefresh() }
+            }
+
+        private suspend fun doRefresh() {
+            val items =
+                try {
+                    dataSource.getSavedFeedItems()
+                } catch (throwable: Throwable) {
+                    Timber.tag(TAG).w(throwable, "getSavedFeedItems failed: %s", throwable.javaClass.name)
+                    throw throwable // propagate → runCatching → Result.failure
                 }
 
-                // Batch-hydrate only the generator pins; Following/List entries
-                // need no network call.
-                val generatorUris = pinned.filter { it.type == TYPE_FEED }.map(SavedFeed::value)
-                var hydrationError: Throwable? = null
-                val generatorsByUri =
-                    if (generatorUris.isEmpty()) {
-                        emptyMap()
+            // Dedupe `type="timeline"` so two identical timeline entries don't
+            // collide on the same "following" PK (keep first, drop later).
+            var sawTimeline = false
+            val deduped =
+                items.orEmpty().filter { item ->
+                    if (item.type != TYPE_TIMELINE) {
+                        true
+                    } else if (sawTimeline) {
+                        false
                     } else {
-                        try {
-                            dataSource.getFeedGenerators(generatorUris).associateBy(GeneratorMeta::uri)
-                        } catch (throwable: Throwable) {
-                            // Non-fatal: drop the un-hydratable generators but
-                            // keep Following/List chips so the Feed still works.
-                            Timber.tag(TAG).w(
-                                throwable,
-                                "getFeedGenerators failed: %s",
-                                throwable.javaClass.name,
-                            )
-                            hydrationError = throwable
-                            emptyMap()
-                        }
+                        sawTimeline = true
+                        true
                     }
+                }
 
-                val feeds =
-                    pinned.mapNotNull { item -> item.toPinnedFeedUi(generatorsByUri) }.toImmutableList()
-                PinnedFeedsResult(feeds = feeds, usedFallback = false, error = hydrationError)
+            // Batch-hydrate only the generator feeds; Following and List entries
+            // don't need a separate network call.
+            val generatorUris = deduped.filter { it.type == TYPE_FEED }.map(SavedFeed::value).distinct()
+            val generatorsByUri: Map<String, GeneratorMeta> =
+                if (generatorUris.isEmpty()) {
+                    emptyMap()
+                } else {
+                    try {
+                        dataSource.getFeedGenerators(generatorUris).associateBy(GeneratorMeta::uri)
+                    } catch (throwable: Throwable) {
+                        // getFeedGenerators threw — abort entirely so the cache
+                        // (which may have valid stale data) is not wiped.
+                        Timber.tag(TAG).w(
+                            throwable,
+                            "getFeedGenerators failed: %s",
+                            throwable.javaClass.name,
+                        )
+                        throw throwable // propagate → runCatching → Result.failure
+                    }
+                }
+
+            // Build display-ready entities. Unhydrated generators (not present
+            // in the server's getFeedGenerators response) are dropped via mapNotNull;
+            // this is a normal partial-result case and is NOT an error.
+            val entities =
+                deduped.mapIndexedNotNull { index, item ->
+                    item.toEntity(position = index, generatorsByUri = generatorsByUri)
+                }
+
+            // Cache-safe write-through:
+            // • When 0 entities resolve, use clear() — deleteUrisNotIn([]) crashes Room.
+            // • Otherwise upsert resolved rows first, then prune stale entries.
+            if (entities.isEmpty()) {
+                dao.clear()
+            } else {
+                dao.upsert(entities)
+                dao.deleteUrisNotIn(entities.map { it.uri })
             }
+        }
+
+        // -------------------------------------------------------------------------
+        // Shared helpers
+        // -------------------------------------------------------------------------
 
         override fun validateSelectedFeedUri(
             uri: String?,
@@ -153,45 +202,79 @@ internal class DefaultPinnedFeedsRepository
                 ?.takeIf { candidate -> pinned.any { it.uri == candidate } }
                 ?: PinnedFeedsRepository.FOLLOWING_FEED_URI
 
-        private fun fallbackResult(error: Throwable?): PinnedFeedsResult = PinnedFeedsResult(feeds = fallbackFeeds(), usedFallback = true, error = error)
+        // -------------------------------------------------------------------------
+        // Mapping: SavedFeedEntity → PinnedFeedUi (entity never escapes this module)
+        // -------------------------------------------------------------------------
 
-        private fun SavedFeed.toPinnedFeedUi(generatorsByUri: Map<String, GeneratorMeta>): PinnedFeedUi? =
+        /**
+         * Maps a cached entity to [PinnedFeedUi], inferring [FeedKind] from
+         * the URI shape. Returns `null` for unrecognised URI schemes so that
+         * unknown future entry types are silently dropped rather than crashing.
+         */
+        private fun SavedFeedEntity.toPinnedFeedUi(): PinnedFeedUi? {
+            val kind = uriToFeedKind(uri) ?: return null
+            return PinnedFeedUi(
+                id = uri,
+                uri = uri,
+                kind = kind,
+                displayName = displayName,
+                avatarUrl = avatarUrl,
+            )
+        }
+
+        // -------------------------------------------------------------------------
+        // Mapping: SavedFeed (wire) → SavedFeedEntity (Room)
+        // -------------------------------------------------------------------------
+
+        /**
+         * Converts one wire-level [SavedFeed] to a [SavedFeedEntity] at the
+         * given position in the user's saved-feed list.
+         *
+         * Returns `null` for unrecognised types and for generator entries whose
+         * metadata was not returned by `getFeedGenerators` (a partial server
+         * response is treated as "this entry is gone" rather than an error).
+         */
+        private fun SavedFeed.toEntity(
+            position: Int,
+            generatorsByUri: Map<String, GeneratorMeta>,
+        ): SavedFeedEntity? =
             when (type) {
                 TYPE_TIMELINE ->
-                    PinnedFeedUi(
-                        id = id,
+                    SavedFeedEntity(
                         uri = PinnedFeedsRepository.FOLLOWING_FEED_URI,
-                        kind = FeedKind.Following,
                         displayName = FOLLOWING_DISPLAY_NAME,
-                        // Renders the local Home glyph — no remote avatar.
+                        creatorHandle = null,
                         avatarUrl = null,
+                        pinned = pinned,
+                        position = position,
                     )
 
                 TYPE_FEED -> {
-                    // A pinned generator whose metadata couldn't be hydrated is
-                    // dropped (mapNotNull) rather than rendered nameless.
+                    // Drop unhydrated generators silently (server didn't return them).
                     val meta = generatorsByUri[value] ?: return null
-                    PinnedFeedUi(
-                        id = id,
+                    SavedFeedEntity(
                         uri = value,
-                        kind = FeedKind.Generator,
                         displayName = meta.displayName,
+                        creatorHandle = null,
                         avatarUrl = meta.avatarUrl,
+                        pinned = pinned,
+                        position = position,
                     )
                 }
 
                 TYPE_LIST ->
-                    PinnedFeedUi(
-                        id = id,
+                    SavedFeedEntity(
                         uri = value,
-                        kind = FeedKind.List,
-                        // List metadata is hydrated by the lists sheet, not the
-                        // chip-row load; the URI is enough to identify the pin.
+                        // List display names are not available from getPreferences;
+                        // use the URI as a stable placeholder (same as the old live-load path).
                         displayName = value,
+                        creatorHandle = null,
                         avatarUrl = null,
+                        pinned = pinned,
+                        position = position,
                     )
 
-                // Unknown future SavedFeed.type → ignore.
+                // Unknown future type → drop silently.
                 else -> null
             }
 
@@ -202,6 +285,21 @@ internal class DefaultPinnedFeedsRepository
             private const val TYPE_LIST = "list"
             private const val FOLLOWING_DISPLAY_NAME = "Following"
             private const val DISCOVER_DISPLAY_NAME = "Discover"
+
+            /**
+             * Infers [FeedKind] from the URI shape:
+             * - `"following"` → [FeedKind.Following]
+             * - contains `/app.bsky.feed.generator/` → [FeedKind.Generator]
+             * - contains `/app.bsky.graph.list/` → [FeedKind.List]
+             * - anything else → `null` (drop the entity)
+             */
+            internal fun uriToFeedKind(uri: String): FeedKind? =
+                when {
+                    uri == PinnedFeedsRepository.FOLLOWING_FEED_URI -> FeedKind.Following
+                    uri.contains("/app.bsky.feed.generator/") -> FeedKind.Generator
+                    uri.contains("/app.bsky.graph.list/") -> FeedKind.List
+                    else -> null
+                }
 
             /**
              * The offline / new-account default chip set: Following plus

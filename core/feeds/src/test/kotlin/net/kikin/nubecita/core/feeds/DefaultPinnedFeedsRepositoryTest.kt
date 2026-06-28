@@ -1,13 +1,19 @@
 package net.kikin.nubecita.core.feeds
 
+import app.cash.turbine.test
 import io.github.kikin81.atproto.app.bsky.actor.SavedFeed
+import io.mockk.Ordering
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.database.dao.SavedFeedDao
+import net.kikin.nubecita.core.database.model.SavedFeedEntity
 import net.kikin.nubecita.data.models.FeedKind
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -19,10 +25,12 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DefaultPinnedFeedsRepositoryTest {
     private val dataSource = mockk<FeedsDataSource>()
+    private val dao = mockk<SavedFeedDao>(relaxed = true)
 
     private fun repo() =
         DefaultPinnedFeedsRepository(
             dataSource = dataSource,
+            dao = dao,
             dispatcher = UnconfinedTestDispatcher(),
         )
 
@@ -39,81 +47,273 @@ internal class DefaultPinnedFeedsRepositoryTest {
         avatar: String?,
     ): GeneratorMeta = GeneratorMeta(uri = uri, displayName = displayName, avatarUrl = avatar)
 
+    private fun entity(
+        uri: String,
+        displayName: String = uri,
+        creatorHandle: String? = null,
+        avatarUrl: String? = null,
+        pinned: Boolean = true,
+        position: Int = 0,
+    ): SavedFeedEntity =
+        SavedFeedEntity(
+            uri = uri,
+            displayName = displayName,
+            creatorHandle = creatorHandle,
+            avatarUrl = avatarUrl,
+            pinned = pinned,
+            position = position,
+        )
+
+    // -------------------------------------------------------------------------
+    // observePinnedFeeds() — read path
+    // -------------------------------------------------------------------------
+
     @Test
-    fun `pinned feeds are returned in stored order and unpinned items are dropped`() =
+    fun `observePinnedFeeds maps pinned entities to PinnedFeedUi in position order`() =
+        runTest {
+            every { dao.observeSavedFeeds() } returns
+                flowOf(
+                    listOf(
+                        entity("following", displayName = "Following", pinned = true, position = 0),
+                        entity(
+                            "at://did:plc:x/app.bsky.feed.generator/art",
+                            displayName = "Art",
+                            avatarUrl = "https://cdn/art.jpg",
+                            pinned = true,
+                            position = 1,
+                        ),
+                        entity(
+                            "at://did:plc:x/app.bsky.graph.list/friends",
+                            displayName = "Friends",
+                            pinned = true,
+                            position = 2,
+                        ),
+                    ),
+                )
+
+            repo().observePinnedFeeds().test {
+                val result = awaitItem()
+                assertFalse(result.usedFallback)
+                assertEquals(3, result.feeds.size)
+                assertEquals("following", result.feeds[0].uri)
+                assertEquals(FeedKind.Following, result.feeds[0].kind)
+                assertEquals("Following", result.feeds[0].displayName)
+                assertNull(result.feeds[0].avatarUrl)
+                assertEquals("at://did:plc:x/app.bsky.feed.generator/art", result.feeds[1].uri)
+                assertEquals(FeedKind.Generator, result.feeds[1].kind)
+                assertEquals("Art", result.feeds[1].displayName)
+                assertEquals("https://cdn/art.jpg", result.feeds[1].avatarUrl)
+                assertEquals("at://did:plc:x/app.bsky.graph.list/friends", result.feeds[2].uri)
+                assertEquals(FeedKind.List, result.feeds[2].kind)
+                cancelAndConsumeRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `observePinnedFeeds filters out unpinned entities`() =
+        runTest {
+            every { dao.observeSavedFeeds() } returns
+                flowOf(
+                    listOf(
+                        entity("following", displayName = "Following", pinned = true, position = 0),
+                        entity(
+                            "at://did:plc:x/app.bsky.feed.generator/art",
+                            displayName = "Art",
+                            pinned = false,
+                            position = 1,
+                        ),
+                    ),
+                )
+
+            repo().observePinnedFeeds().test {
+                val result = awaitItem()
+                assertFalse(result.usedFallback)
+                assertEquals(listOf("following"), result.feeds.map { it.uri })
+                cancelAndConsumeRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `observePinnedFeeds emits fallback when all entities are unpinned`() =
+        runTest {
+            every { dao.observeSavedFeeds() } returns
+                flowOf(
+                    listOf(
+                        entity(
+                            "at://did:plc:x/app.bsky.feed.generator/art",
+                            pinned = false,
+                            position = 0,
+                        ),
+                    ),
+                )
+
+            repo().observePinnedFeeds().test {
+                val result = awaitItem()
+                assertTrue(result.usedFallback)
+                assertEquals(
+                    listOf(
+                        PinnedFeedsRepository.FOLLOWING_FEED_URI,
+                        PinnedFeedsRepository.DISCOVER_FEED_URI,
+                    ),
+                    result.feeds.map { it.uri },
+                )
+                cancelAndConsumeRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `observePinnedFeeds emits fallback when cache is empty`() =
+        runTest {
+            every { dao.observeSavedFeeds() } returns flowOf(emptyList())
+
+            repo().observePinnedFeeds().test {
+                val result = awaitItem()
+                assertTrue(result.usedFallback)
+                assertEquals(
+                    listOf(
+                        PinnedFeedsRepository.FOLLOWING_FEED_URI,
+                        PinnedFeedsRepository.DISCOVER_FEED_URI,
+                    ),
+                    result.feeds.map { it.uri },
+                )
+                cancelAndConsumeRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `observePinnedFeeds drops entities with unknown URI shapes`() =
+        runTest {
+            every { dao.observeSavedFeeds() } returns
+                flowOf(
+                    listOf(
+                        entity("following", displayName = "Following", pinned = true, position = 0),
+                        // Unrecognised URI — should be dropped silently.
+                        entity("unknown-scheme://whatever", pinned = true, position = 1),
+                    ),
+                )
+
+            repo().observePinnedFeeds().test {
+                val result = awaitItem()
+                assertFalse(result.usedFallback)
+                assertEquals(listOf("following"), result.feeds.map { it.uri })
+                cancelAndConsumeRemainingEvents()
+            }
+        }
+
+    // -------------------------------------------------------------------------
+    // refresh() — write path
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `refresh upserts resolved entities and prunes stale URIs`() =
         runTest {
             coEvery { dataSource.getSavedFeedItems() } returns
                 listOf(
                     savedFeed("1", "timeline", "following", pinned = true),
                     savedFeed("2", "feed", "at://a", pinned = true),
-                    savedFeed("3", "feed", "at://b", pinned = false),
-                    savedFeed("4", "list", "at://l", pinned = true),
                 )
             coEvery { dataSource.getFeedGenerators(any()) } returns
                 listOf(generator("at://a", "Feed A", "https://cdn/a.jpg"))
 
-            val result = repo().loadPinnedFeeds()
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            val pruneSlot = slot<List<String>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+            coEvery { dao.deleteUrisNotIn(capture(pruneSlot)) } returns Unit
 
-            assertFalse(result.usedFallback)
-            assertEquals(listOf("following", "at://a", "at://l"), result.feeds.map { it.uri })
-            assertEquals(
-                listOf(FeedKind.Following, FeedKind.Generator, FeedKind.List),
-                result.feeds.map { it.kind },
-            )
+            val result = repo().refresh()
+
+            assertTrue(result.isSuccess)
+            val entities = upsertSlot.captured
+            assertEquals(2, entities.size)
+            val followingEntity = entities.single { it.uri == "following" }
+            assertEquals("Following", followingEntity.displayName)
+            assertTrue(followingEntity.pinned)
+            assertEquals(0, followingEntity.position)
+            val feedAEntity = entities.single { it.uri == "at://a" }
+            assertEquals("Feed A", feedAEntity.displayName)
+            assertEquals("https://cdn/a.jpg", feedAEntity.avatarUrl)
+            assertTrue(feedAEntity.pinned)
+            assertEquals(1, feedAEntity.position)
+            assertEquals(listOf("following", "at://a"), pruneSlot.captured.sorted().let { pruneSlot.captured })
+            coVerify(exactly = 0) { dao.clear() }
         }
 
     @Test
-    fun `generator metadata is hydrated via a single batch call`() =
+    fun `refresh calls clear when no feeds resolve`() =
+        runTest {
+            coEvery { dataSource.getSavedFeedItems() } returns emptyList()
+
+            val result = repo().refresh()
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 1) { dao.clear() }
+            coVerify(exactly = 0) { dao.upsert(any()) }
+            coVerify(exactly = 0) { dao.deleteUrisNotIn(any()) }
+        }
+
+    @Test
+    fun `refresh calls clear when null savedFeedsPrefV2`() =
+        runTest {
+            coEvery { dataSource.getSavedFeedItems() } returns null
+
+            val result = repo().refresh()
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 1) { dao.clear() }
+            coVerify(exactly = 0) { dao.upsert(any()) }
+        }
+
+    @Test
+    fun `refresh on getSavedFeedItems failure does not touch DAO`() =
+        runTest {
+            coEvery { dataSource.getSavedFeedItems() } throws IOException("network down")
+
+            val result = repo().refresh()
+
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is IOException)
+            coVerify(exactly = 0) { dao.upsert(any()) }
+            coVerify(exactly = 0) { dao.deleteUrisNotIn(any()) }
+            coVerify(exactly = 0) { dao.clear() }
+        }
+
+    @Test
+    fun `refresh on getFeedGenerators failure does not touch DAO`() =
         runTest {
             coEvery { dataSource.getSavedFeedItems() } returns
                 listOf(
-                    savedFeed("1", "feed", "at://a", pinned = true),
-                    savedFeed("2", "feed", "at://b", pinned = true),
+                    savedFeed("1", "timeline", "following", pinned = true),
+                    savedFeed("2", "feed", "at://a", pinned = true),
                 )
-            val urisSlot = slot<List<String>>()
-            coEvery { dataSource.getFeedGenerators(capture(urisSlot)) } returns
-                listOf(
-                    generator("at://a", "Feed A", "https://cdn/a.jpg"),
-                    generator("at://b", "Feed B", null),
-                )
+            coEvery { dataSource.getFeedGenerators(any()) } throws IOException("network down")
 
-            val result = repo().loadPinnedFeeds()
+            val result = repo().refresh()
 
-            // Exactly one batch call carrying both URIs in order.
-            coVerify(exactly = 1) { dataSource.getFeedGenerators(any()) }
-            assertEquals(listOf("at://a", "at://b"), urisSlot.captured)
-
-            val a = result.feeds.single { it.uri == "at://a" }
-            assertEquals("Feed A", a.displayName)
-            assertEquals("https://cdn/a.jpg", a.avatarUrl)
-            val b = result.feeds.single { it.uri == "at://b" }
-            assertEquals("Feed B", b.displayName)
-            assertNull(b.avatarUrl)
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is IOException)
+            coVerify(exactly = 0) { dao.upsert(any()) }
+            coVerify(exactly = 0) { dao.deleteUrisNotIn(any()) }
+            coVerify(exactly = 0) { dao.clear() }
         }
 
     @Test
-    fun `partial hydration keeps only the generators that getFeedGenerators returned`() =
+    fun `refresh does not call getFeedGenerators when no generator pins exist`() =
         runTest {
-            // Two pinned generators, but the batch hydrate returns only feed A.
             coEvery { dataSource.getSavedFeedItems() } returns
                 listOf(
-                    savedFeed("1", "feed", "at://a", pinned = true),
-                    savedFeed("2", "feed", "at://b", pinned = true),
+                    savedFeed("1", "timeline", "following", pinned = true),
+                    savedFeed("2", "list", "at://l", pinned = true),
                 )
-            coEvery { dataSource.getFeedGenerators(any()) } returns
-                listOf(generator("at://a", "Feed A", "https://cdn/a.jpg"))
+            coEvery { dao.upsert(any()) } returns Unit
+            coEvery { dao.deleteUrisNotIn(any()) } returns Unit
 
-            val result = repo().loadPinnedFeeds()
+            repo().refresh()
 
-            // B is dropped (un-hydratable), A is kept. Not a fallback, no error:
-            // a present-but-partial hydrate response is a success, not a failure.
-            assertEquals(listOf("at://a"), result.feeds.map { it.uri })
-            assertFalse(result.usedFallback)
-            assertNull(result.error)
+            coVerify(exactly = 0) { dataSource.getFeedGenerators(any()) }
         }
 
     @Test
-    fun `duplicate timeline pins collapse to a single Following chip`() =
+    fun `refresh deduplicates timeline to a single following entity`() =
         runTest {
             coEvery { dataSource.getSavedFeedItems() } returns
                 listOf(
@@ -124,121 +324,84 @@ internal class DefaultPinnedFeedsRepositoryTest {
             coEvery { dataSource.getFeedGenerators(any()) } returns
                 listOf(generator("at://a", "Feed A", null))
 
-            val result = repo().loadPinnedFeeds()
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+            coEvery { dao.deleteUrisNotIn(any()) } returns Unit
 
-            // Only one Following chip despite two timeline pins.
-            assertEquals(listOf("following", "at://a"), result.feeds.map { it.uri })
-            assertEquals(1, result.feeds.count { it.kind == FeedKind.Following })
+            repo().refresh()
+
+            val entities = upsertSlot.captured
+            // Only one "following" entity despite two timeline saved feeds.
+            assertEquals(1, entities.count { it.uri == "following" })
+            assertEquals(2, entities.size) // following + Feed A
         }
 
     @Test
-    fun `following entry carries no remote avatar`() =
-        runTest {
-            coEvery { dataSource.getSavedFeedItems() } returns
-                listOf(savedFeed("1", "timeline", "following", pinned = true))
-
-            val result = repo().loadPinnedFeeds()
-
-            val following = result.feeds.single()
-            assertEquals(FeedKind.Following, following.kind)
-            assertEquals(PinnedFeedsRepository.FOLLOWING_FEED_URI, following.uri)
-            assertNull(following.avatarUrl)
-        }
-
-    @Test
-    fun `list items split to FeedKind List`() =
+    fun `refresh writes list entity with URI as displayName`() =
         runTest {
             coEvery { dataSource.getSavedFeedItems() } returns
                 listOf(savedFeed("1", "list", "at://did:plc:x/app.bsky.graph.list/abc", pinned = true))
 
-            val result = repo().loadPinnedFeeds()
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+            coEvery { dao.deleteUrisNotIn(any()) } returns Unit
 
-            assertEquals(FeedKind.List, result.feeds.single().kind)
+            repo().refresh()
+
+            val entity = upsertSlot.captured.single()
+            assertEquals("at://did:plc:x/app.bsky.graph.list/abc", entity.uri)
+            // List display name falls back to the URI (no list-metadata endpoint).
+            assertEquals("at://did:plc:x/app.bsky.graph.list/abc", entity.displayName)
+            assertTrue(entity.pinned)
         }
 
     @Test
-    fun `no getFeedGenerators call is made when there are no generator pins`() =
+    fun `refresh upsert precedes deleteUrisNotIn (write-before-prune ordering)`() =
         runTest {
+            coEvery { dataSource.getSavedFeedItems() } returns
+                listOf(savedFeed("1", "timeline", "following", pinned = true))
+            coEvery { dao.upsert(any()) } returns Unit
+            coEvery { dao.deleteUrisNotIn(any()) } returns Unit
+
+            repo().refresh()
+
+            // Verify that upsert is called before deleteUrisNotIn (not the other way around).
+            coVerify(Ordering.ORDERED) {
+                dao.upsert(any())
+                dao.deleteUrisNotIn(any())
+            }
+        }
+
+    @Test
+    fun `refresh drops unhydrated generator (mapNotNull) from write-through`() =
+        runTest {
+            // Two pinned generators, server returns metadata only for feed A.
             coEvery { dataSource.getSavedFeedItems() } returns
                 listOf(
-                    savedFeed("1", "timeline", "following", pinned = true),
-                    savedFeed("2", "list", "at://l", pinned = true),
+                    savedFeed("1", "feed", "at://a", pinned = true),
+                    savedFeed("2", "feed", "at://b", pinned = true),
                 )
+            // Server returns only "at://a" — "at://b" is not in the response.
+            coEvery { dataSource.getFeedGenerators(any()) } returns
+                listOf(generator("at://a", "Feed A", null))
 
-            repo().loadPinnedFeeds()
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+            coEvery { dao.deleteUrisNotIn(any()) } returns Unit
 
-            coVerify(exactly = 0) { dataSource.getFeedGenerators(any()) }
+            val result = repo().refresh()
+
+            // Should succeed (partial server response is not an error).
+            assertTrue(result.isSuccess)
+            // Only feed A is written; feed B (unhydrated) is dropped.
+            val entities = upsertSlot.captured
+            assertEquals(1, entities.size)
+            assertEquals("at://a", entities.single().uri)
         }
 
-    @Test
-    fun `no savedFeedsPrefV2 falls back to Following plus Discover without hydration`() =
-        runTest {
-            coEvery { dataSource.getSavedFeedItems() } returns null
-
-            val result = repo().loadPinnedFeeds()
-
-            assertTrue(result.usedFallback)
-            assertEquals(
-                listOf(PinnedFeedsRepository.FOLLOWING_FEED_URI, PinnedFeedsRepository.DISCOVER_FEED_URI),
-                result.feeds.map { it.uri },
-            )
-            assertEquals(listOf(FeedKind.Following, FeedKind.Generator), result.feeds.map { it.kind })
-            // Defaults render from local glyphs — no remote avatar, no network hydration.
-            assertTrue(result.feeds.all { it.avatarUrl == null })
-            coVerify(exactly = 0) { dataSource.getFeedGenerators(any()) }
-        }
-
-    @Test
-    fun `empty pinned set falls back to Following plus Discover`() =
-        runTest {
-            coEvery { dataSource.getSavedFeedItems() } returns
-                listOf(savedFeed("1", "feed", "at://a", pinned = false))
-
-            val result = repo().loadPinnedFeeds()
-
-            assertTrue(result.usedFallback)
-            assertEquals(
-                listOf(PinnedFeedsRepository.FOLLOWING_FEED_URI, PinnedFeedsRepository.DISCOVER_FEED_URI),
-                result.feeds.map { it.uri },
-            )
-            coVerify(exactly = 0) { dataSource.getFeedGenerators(any()) }
-        }
-
-    @Test
-    fun `getPreferences failure falls back and signals a non-fatal error`() =
-        runTest {
-            coEvery { dataSource.getSavedFeedItems() } throws IOException("net down")
-
-            val result = repo().loadPinnedFeeds()
-
-            assertTrue(result.usedFallback)
-            assertEquals(
-                listOf(PinnedFeedsRepository.FOLLOWING_FEED_URI, PinnedFeedsRepository.DISCOVER_FEED_URI),
-                result.feeds.map { it.uri },
-            )
-            // Non-fatal: the call returns normally (does not throw) so the Feed
-            // stays usable, but the failure is observable to the caller.
-            assertTrue(result.error is IOException)
-        }
-
-    @Test
-    fun `getFeedGenerators failure still yields chips, dropping unhydrated generators non-fatally`() =
-        runTest {
-            coEvery { dataSource.getSavedFeedItems() } returns
-                listOf(
-                    savedFeed("1", "timeline", "following", pinned = true),
-                    savedFeed("2", "feed", "at://a", pinned = true),
-                )
-            coEvery { dataSource.getFeedGenerators(any()) } throws IOException("net down")
-
-            val result = repo().loadPinnedFeeds()
-
-            // Following still renders; the un-hydratable generator is dropped
-            // rather than crashing the whole load.
-            assertEquals(listOf(PinnedFeedsRepository.FOLLOWING_FEED_URI), result.feeds.map { it.uri })
-            assertFalse(result.usedFallback)
-            assertTrue(result.error is IOException)
-        }
+    // -------------------------------------------------------------------------
+    // validateSelectedFeedUri — unchanged
+    // -------------------------------------------------------------------------
 
     @Test
     fun `validateSelectedFeedUri keeps a still-pinned uri`() {

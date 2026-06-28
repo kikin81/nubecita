@@ -25,7 +25,7 @@ import org.junit.jupiter.api.extension.RegisterExtension
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class FeedHostViewModelTest {
     // Share the test dispatcher between Dispatchers.Main (set by the
-    // extension) and runTest so the VM's init { load() } coroutine —
+    // extension) and runTest so the VM's init { observeAndRefresh() } coroutine —
     // launched on viewModelScope (Main) — is driven by the same scheduler
     // advanceUntilIdle() controls. Mirrors FeedViewModelTest's harness.
     @JvmField
@@ -66,9 +66,12 @@ internal class FeedHostViewModelTest {
         )
 
     /**
-     * Builds a VM with mocked repos. [PinnedFeedsRepository.validateSelectedFeedUri]
-     * is stubbed to mirror the real validation: return the persisted URI if
-     * it is in the pinned set, else the Following sentinel.
+     * Builds a VM with mocked repos.
+     *
+     * [pinnedFeedsRepository.observePinnedFeeds] emits a single [PinnedFeedsResult].
+     * [pinnedFeedsRepository.refresh] is a no-op success (the DB is mocked so
+     * no new emissions come from the DAO).
+     * [pinnedFeedsRepository.validateSelectedFeedUri] mirrors the real validation.
      */
     private fun buildVm(
         feeds: List<PinnedFeedUi>,
@@ -76,8 +79,9 @@ internal class FeedHostViewModelTest {
         persisted: String? = null,
     ): Triple<FeedHostViewModel, PinnedFeedsRepository, UserPreferencesRepository> {
         val pinnedRepo = mockk<PinnedFeedsRepository>()
-        coEvery { pinnedRepo.loadPinnedFeeds() } returns
-            PinnedFeedsResult(feeds = feeds.toImmutableList(), usedFallback = usedFallback)
+        every { pinnedRepo.observePinnedFeeds() } returns
+            flowOf(PinnedFeedsResult(feeds = feeds.toImmutableList(), usedFallback = usedFallback))
+        coEvery { pinnedRepo.refresh() } returns Result.success(Unit)
         every { pinnedRepo.validateSelectedFeedUri(any(), any()) } answers {
             val candidate = firstArg<String?>()
             val pinned = secondArg<List<PinnedFeedUi>>()
@@ -191,5 +195,22 @@ internal class FeedHostViewModelTest {
 
             assertEquals(FOLLOWING_FEED_URI, vm.uiState.value.selectedFeedUri)
             coVerify(exactly = 0) { prefs.setLastSelectedFeedUri(any()) }
+        }
+
+    @Test
+    fun `Retry triggers a new refresh without resetting selected feed`() =
+        runTest(mainDispatcher.dispatcher) {
+            val (vm, pinnedRepo, _) = buildVm(feeds = listOf(following, art), persisted = art.uri)
+            advanceUntilIdle()
+
+            assertEquals(art.uri, vm.uiState.value.selectedFeedUri)
+
+            vm.handleEvent(FeedHostEvent.Retry)
+            advanceUntilIdle()
+
+            // refresh() is called a second time on Retry.
+            coVerify(atLeast = 2) { pinnedRepo.refresh() }
+            // Selection is preserved.
+            assertEquals(art.uri, vm.uiState.value.selectedFeedUri)
         }
 }
