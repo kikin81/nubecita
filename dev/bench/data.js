@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782547963427,
+  "lastUpdate": 1782634934304,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1611,6 +1611,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 972.143,
             "range": "+/- 18.7%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "79597d5487f59e2a1a05666e35a8fb6641b0435f",
+          "message": "chore(testing): consolidate RecordingAnalyticsClient into :core:testing (#618)\n\nIntroduce the shared public `RecordingAnalyticsClient` in `:core:testing`\n(with `api(project(\":core:analytics\"))` so consumers don't re-declare\nanalytics types) and replace all 9 local copies — 3 standalone files in\n`:feature:profile:impl`, `:feature:postdetail:impl`, `:feature:search:impl`;\n4 inline private classes in `:core:posting`, `:feature:feed:impl`,\n`:feature:paywall:impl`, `:feature:login:impl`; and 2 in `:app` (one in\n`ProAnalyticsCoordinatorTest`, one inner class in `TrackScreenViewsTest`).\n\nAlso adds `androidTestImplementation(project(\":core:testing\"))` to\n`:app/build.gradle.kts` for the androidTest copy.\n\nRefs: nubecita-049f.7",
+          "timestamp": "2026-06-28T06:05:27Z",
+          "url": "https://github.com/kikin81/nubecita/commit/79597d5487f59e2a1a05666e35a8fb6641b0435f"
+        },
+        "date": 1782634932475,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 36,
+            "range": "+/- 13%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1275.8,
+            "range": "+/- 9.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1164.537,
+            "range": "+/- 13.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 992.565,
+            "range": "+/- 33.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1038.428,
+            "range": "+/- 32.2%",
             "unit": "ms"
           }
         ]
