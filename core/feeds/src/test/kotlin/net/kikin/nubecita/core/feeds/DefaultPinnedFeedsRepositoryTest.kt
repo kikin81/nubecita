@@ -614,6 +614,27 @@ internal class DefaultPinnedFeedsRepositoryTest {
             }
         }
 
+    @Test
+    fun `pinFeed new item rollback calls deleteByUri not setPinned so no ghost row remains`() =
+        runTest {
+            // The URI has never been seen — it is absent from saved prefs entirely.
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(items = emptyList())
+            coEvery { dataSource.putPreferences(any()) } throws IOException("network error")
+
+            val result = repo().pinFeed("at://never-seen")
+
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is IOException)
+            // Optimistic upsert then rollback via deleteByUri (not setPinned), in order.
+            coVerify(Ordering.ORDERED) {
+                dao.upsert(any())
+                dao.deleteByUri("at://never-seen")
+            }
+            // setPinned must NOT be called for a brand-new item rollback.
+            coVerify(exactly = 0) { dao.setPinned(any(), any()) }
+        }
+
     // -------------------------------------------------------------------------
     // unpinFeed() — write path
     // -------------------------------------------------------------------------

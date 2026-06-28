@@ -52,6 +52,10 @@ interface SavedFeedDao {
     @Query("DELETE FROM saved_feeds WHERE uri NOT IN (:keepUris)")
     suspend fun deleteUrisNotIn(keepUris: List<String>)
 
+    /** Removes the single row with [uri], used to roll back a failed new-item pin without leaving a ghost row. */
+    @Query("DELETE FROM saved_feeds WHERE uri = :uri")
+    suspend fun deleteByUri(uri: String)
+
     /** Removes every cached saved feed — the safe path when a refresh resolves to zero feeds. */
     @Query("DELETE FROM saved_feeds")
     suspend fun clear()

@@ -312,9 +312,14 @@ internal class DefaultPinnedFeedsRepository
                             dataSource.putPreferences(mergeSavedFeedsPrefs(fullPrefs, newItems))
                         } catch (t: Throwable) {
                             // Rollback: restore Room to the state before the optimistic write.
-                            // For new items this leaves a ghost row with pinned=false that is
-                            // invisible to observePinnedFeeds() and pruned on the next refresh().
-                            dao.setPinned(uri, priorPinned)
+                            // For NEW items, delete the row entirely — setPinned(uri, false) would
+                            // leave a phantom row (pinned=false) in the cache until the next refresh().
+                            // For EXISTING items, flip the flag back to its prior value.
+                            if (isNew) {
+                                dao.deleteByUri(uri)
+                            } else {
+                                dao.setPinned(uri, priorPinned)
+                            }
                             throw t
                         }
                     }
