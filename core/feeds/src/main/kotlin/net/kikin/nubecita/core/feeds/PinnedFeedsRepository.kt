@@ -4,6 +4,7 @@ import io.github.kikin81.atproto.app.bsky.actor.SavedFeed
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -124,6 +125,7 @@ internal class DefaultPinnedFeedsRepository
         override suspend fun refresh(): Result<Unit> =
             withContext(dispatcher) {
                 runCatching { doRefresh() }
+                    .onFailure { if (it is CancellationException) throw it }
             }
 
         private suspend fun doRefresh() {
@@ -171,22 +173,50 @@ internal class DefaultPinnedFeedsRepository
                     }
                 }
 
-            // Build display-ready entities. Unhydrated generators (not present
-            // in the server's getFeedGenerators response) are dropped via mapNotNull;
-            // this is a normal partial-result case and is NOT an error.
-            val entities =
-                deduped.mapIndexedNotNull { index, item ->
-                    item.toEntity(position = index, generatorsByUri = generatorsByUri)
+            // Read existing cached rows once so we can fall back to their metadata
+            // when getFeedGenerators returns a partial response (some feeds not returned).
+            // Only needed when there are generator feeds to hydrate.
+            val existingRows: Map<String, SavedFeedEntity> =
+                if (generatorUris.isEmpty()) {
+                    emptyMap()
+                } else {
+                    dao.getAllOnce().associateBy { it.uri }
                 }
 
+            // Build display-ready entities. For unresolved generators (not in the
+            // server's getFeedGenerators response), fall back to the existing cached
+            // row's metadata, or the URI string as last resort. A feed that IS in
+            // saved prefs is NEVER dropped here — the prefs list is canonical.
+            val entities =
+                deduped.mapIndexedNotNull { index, item ->
+                    item.toEntity(
+                        position = index,
+                        generatorsByUri = generatorsByUri,
+                        existingRows = existingRows,
+                    )
+                }
+
+            // Canonical URI set from saved prefs: used as the prune key so that
+            // only feeds removed from the user's preferences are deleted from Room.
+            // Unknown types (future extensions) are excluded as they were never written.
+            val prefUris =
+                deduped
+                    .mapNotNull { item ->
+                        when (item.type) {
+                            TYPE_TIMELINE -> PinnedFeedsRepository.FOLLOWING_FEED_URI
+                            TYPE_FEED, TYPE_LIST -> item.value
+                            else -> null
+                        }
+                    }.distinct()
+
             // Cache-safe write-through:
-            // • When 0 entities resolve, use clear() — deleteUrisNotIn([]) crashes Room.
-            // • Otherwise upsert resolved rows first, then prune stale entries.
-            if (entities.isEmpty()) {
+            // • When 0 pref URIs, use clear() — deleteUrisNotIn([]) crashes Room.
+            // • Otherwise upsert resolved rows first, then prune by the prefs set.
+            if (prefUris.isEmpty()) {
                 dao.clear()
             } else {
                 dao.upsert(entities)
-                dao.deleteUrisNotIn(entities.map { it.uri })
+                dao.deleteUrisNotIn(prefUris)
             }
         }
 
@@ -230,13 +260,18 @@ internal class DefaultPinnedFeedsRepository
          * Converts one wire-level [SavedFeed] to a [SavedFeedEntity] at the
          * given position in the user's saved-feed list.
          *
-         * Returns `null` for unrecognised types and for generator entries whose
-         * metadata was not returned by `getFeedGenerators` (a partial server
-         * response is treated as "this entry is gone" rather than an error).
+         * For generator entries whose metadata was not returned by `getFeedGenerators`
+         * (a partial server response), the method merges in the best available
+         * metadata: fresh server data > existing cached row > URI string fallback.
+         * A generator that IS in the user's saved prefs is NEVER dropped — only
+         * truly unrecognised future types are returned as `null`.
+         *
+         * Returns `null` only for unrecognised types.
          */
         private fun SavedFeed.toEntity(
             position: Int,
             generatorsByUri: Map<String, GeneratorMeta>,
+            existingRows: Map<String, SavedFeedEntity>,
         ): SavedFeedEntity? =
             when (type) {
                 TYPE_TIMELINE ->
@@ -250,13 +285,14 @@ internal class DefaultPinnedFeedsRepository
                     )
 
                 TYPE_FEED -> {
-                    // Drop unhydrated generators silently (server didn't return them).
-                    val meta = generatorsByUri[value] ?: return null
+                    val meta = generatorsByUri[value]
+                    val existing = existingRows[value]
                     SavedFeedEntity(
                         uri = value,
-                        displayName = meta.displayName,
+                        // Prefer fresh metadata; fall back to cached row; last resort = URI.
+                        displayName = meta?.displayName ?: existing?.displayName ?: value,
                         creatorHandle = null,
-                        avatarUrl = meta.avatarUrl,
+                        avatarUrl = meta?.avatarUrl ?: existing?.avatarUrl,
                         pinned = pinned,
                         position = position,
                     )

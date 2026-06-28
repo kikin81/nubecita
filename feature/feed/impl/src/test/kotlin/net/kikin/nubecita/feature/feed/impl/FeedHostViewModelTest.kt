@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class FeedHostViewModelTest {
@@ -69,19 +70,19 @@ internal class FeedHostViewModelTest {
      * Builds a VM with mocked repos.
      *
      * [pinnedFeedsRepository.observePinnedFeeds] emits a single [PinnedFeedsResult].
-     * [pinnedFeedsRepository.refresh] is a no-op success (the DB is mocked so
-     * no new emissions come from the DAO).
+     * [pinnedFeedsRepository.refresh] returns [refreshResult] (default: success).
      * [pinnedFeedsRepository.validateSelectedFeedUri] mirrors the real validation.
      */
     private fun buildVm(
         feeds: List<PinnedFeedUi>,
         usedFallback: Boolean = false,
         persisted: String? = null,
+        refreshResult: Result<Unit> = Result.success(Unit),
     ): Triple<FeedHostViewModel, PinnedFeedsRepository, UserPreferencesRepository> {
         val pinnedRepo = mockk<PinnedFeedsRepository>()
         every { pinnedRepo.observePinnedFeeds() } returns
             flowOf(PinnedFeedsResult(feeds = feeds.toImmutableList(), usedFallback = usedFallback))
-        coEvery { pinnedRepo.refresh() } returns Result.success(Unit)
+        coEvery { pinnedRepo.refresh() } returns refreshResult
         every { pinnedRepo.validateSelectedFeedUri(any(), any()) } answers {
             val candidate = firstArg<String?>()
             val pinned = secondArg<List<PinnedFeedUi>>()
@@ -106,14 +107,36 @@ internal class FeedHostViewModelTest {
         }
 
     @Test
-    fun `load fallback reaches ErrorFallback and emits ShowError but keeps chips`() =
+    fun `load fallback reaches ErrorFallback but does not emit ShowError`() =
         runTest(mainDispatcher.dispatcher) {
+            // usedFallback=true is the normal new-install / empty-cache state, not an error.
+            // ShowError must NOT fire; only a failed refresh() triggers that toast.
             val (vm, _, _) =
                 buildVm(feeds = listOf(following, discover), usedFallback = true)
             advanceUntilIdle()
 
             assertTrue(vm.uiState.value.status is FeedHostStatus.ErrorFallback)
             assertEquals(listOf(following, discover), vm.uiState.value.feedChips)
+
+            vm.effects.test {
+                expectNoEvents()
+                cancelAndConsumeRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `failed refresh emits ShowError even when cache is usable`() =
+        runTest(mainDispatcher.dispatcher) {
+            // observePinnedFeeds() succeeds (Ready), but refresh() fails → ShowError.
+            val (vm, _, _) =
+                buildVm(
+                    feeds = listOf(following, discover),
+                    usedFallback = false,
+                    refreshResult = Result.failure(IOException("network error")),
+                )
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.status is FeedHostStatus.Ready)
 
             vm.effects.test {
                 assertTrue(awaitItem() is FeedHostEffect.ShowError)

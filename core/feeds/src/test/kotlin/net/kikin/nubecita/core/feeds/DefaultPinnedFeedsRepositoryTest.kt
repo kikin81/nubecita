@@ -373,7 +373,7 @@ internal class DefaultPinnedFeedsRepositoryTest {
         }
 
     @Test
-    fun `refresh drops unhydrated generator (mapNotNull) from write-through`() =
+    fun `refresh partial getFeedGenerators keeps unresolved-but-saved generator with URI fallback`() =
         runTest {
             // Two pinned generators, server returns metadata only for feed A.
             coEvery { dataSource.getSavedFeedItems() } returns
@@ -381,9 +381,54 @@ internal class DefaultPinnedFeedsRepositoryTest {
                     savedFeed("1", "feed", "at://a", pinned = true),
                     savedFeed("2", "feed", "at://b", pinned = true),
                 )
-            // Server returns only "at://a" — "at://b" is not in the response.
+            // Server returns only "at://a" — "at://b" is NOT in the response (partial result).
             coEvery { dataSource.getFeedGenerators(any()) } returns
                 listOf(generator("at://a", "Feed A", null))
+            // No existing cached row for at://b; URI is used as display name fallback.
+
+            val upsertSlot = slot<List<SavedFeedEntity>>()
+            val pruneSlot = slot<List<String>>()
+            coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
+            coEvery { dao.deleteUrisNotIn(capture(pruneSlot)) } returns Unit
+
+            val result = repo().refresh()
+
+            // Should succeed — partial server response is not an error.
+            assertTrue(result.isSuccess)
+            // Both feeds are written (at://b is retained with URI as display name).
+            val entities = upsertSlot.captured
+            assertEquals(2, entities.size)
+            val feedA = entities.single { it.uri == "at://a" }
+            assertEquals("Feed A", feedA.displayName)
+            val feedB = entities.single { it.uri == "at://b" }
+            assertEquals("at://b", feedB.displayName) // URI as last-resort display name
+            assertNull(feedB.avatarUrl)
+            // Prune key is the saved-prefs set — both feeds are kept.
+            assertEquals(listOf("at://a", "at://b"), pruneSlot.captured)
+        }
+
+    @Test
+    fun `refresh partial getFeedGenerators retains existing cached metadata for unresolved generator`() =
+        runTest {
+            // Two pinned generators, server returns metadata only for feed A.
+            coEvery { dataSource.getSavedFeedItems() } returns
+                listOf(
+                    savedFeed("1", "feed", "at://a", pinned = true),
+                    savedFeed("2", "feed", "at://b", pinned = true),
+                )
+            coEvery { dataSource.getFeedGenerators(any()) } returns
+                listOf(generator("at://a", "Feed A", null))
+            // at://b has a stale but valid cached row from a previous refresh.
+            coEvery { dao.getAllOnce() } returns
+                listOf(
+                    entity(
+                        uri = "at://b",
+                        displayName = "Cool Feed B",
+                        avatarUrl = "https://cdn/b.jpg",
+                        pinned = true,
+                        position = 0,
+                    ),
+                )
 
             val upsertSlot = slot<List<SavedFeedEntity>>()
             coEvery { dao.upsert(capture(upsertSlot)) } returns Unit
@@ -391,12 +436,32 @@ internal class DefaultPinnedFeedsRepositoryTest {
 
             val result = repo().refresh()
 
-            // Should succeed (partial server response is not an error).
             assertTrue(result.isSuccess)
-            // Only feed A is written; feed B (unhydrated) is dropped.
             val entities = upsertSlot.captured
-            assertEquals(1, entities.size)
-            assertEquals("at://a", entities.single().uri)
+            assertEquals(2, entities.size)
+            val feedB = entities.single { it.uri == "at://b" }
+            // Retained from the existing cache, not replaced with URI fallback.
+            assertEquals("Cool Feed B", feedB.displayName)
+            assertEquals("https://cdn/b.jpg", feedB.avatarUrl)
+        }
+
+    @Test
+    fun `refresh prune set is keyed on saved prefs so removed feeds are pruned but partial-response feeds are not`() =
+        runTest {
+            // Prefs: at://a (saved). at://b is NOT in prefs (was there before, now gone).
+            coEvery { dataSource.getSavedFeedItems() } returns
+                listOf(savedFeed("1", "feed", "at://a", pinned = true))
+            coEvery { dataSource.getFeedGenerators(any()) } returns
+                listOf(generator("at://a", "Feed A", null))
+
+            val pruneSlot = slot<List<String>>()
+            coEvery { dao.upsert(any()) } returns Unit
+            coEvery { dao.deleteUrisNotIn(capture(pruneSlot)) } returns Unit
+
+            repo().refresh()
+
+            // Prune set = prefs URIs only; at://b (not in prefs) will be deleted by Room.
+            assertEquals(listOf("at://a"), pruneSlot.captured)
         }
 
     // -------------------------------------------------------------------------

@@ -68,8 +68,12 @@ class FeedHostViewModel
 
                 // Fire the first network refresh concurrently. The DB update it
                 // produces will drive a new emission from observePinnedFeeds().
-                // Failure is non-fatal — the cache (or fallback) keeps the Feed usable.
-                launch { pinnedFeedsRepository.refresh() }
+                // On failure emit ShowError — the cache (or fallback) keeps the Feed usable.
+                launch {
+                    pinnedFeedsRepository
+                        .refresh()
+                        .onFailure { sendEffect(FeedHostEffect.ShowError) }
+                }
 
                 pinnedFeedsRepository
                     .observePinnedFeeds()
@@ -86,7 +90,11 @@ class FeedHostViewModel
 
         /** Kicks off a background refresh without blocking the UI. */
         private fun triggerRefresh() {
-            viewModelScope.launch { pinnedFeedsRepository.refresh() }
+            viewModelScope.launch {
+                pinnedFeedsRepository
+                    .refresh()
+                    .onFailure { sendEffect(FeedHostEffect.ShowError) }
+            }
         }
 
         private fun applyResult(
@@ -115,7 +123,8 @@ class FeedHostViewModel
                     selectedFeedUri = validated,
                 )
             }
-            if (result.usedFallback) sendEffect(FeedHostEffect.ShowError)
+            // Do NOT emit ShowError here — usedFallback is the normal new-install / empty-cache
+            // state, not a failure. ShowError fires only when refresh() returns Result.failure.
         }
 
         private fun applyUnexpectedFailure() {

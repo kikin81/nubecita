@@ -14,6 +14,10 @@ import net.kikin.nubecita.core.database.model.SavedFeedEntity
  * ordered by [SavedFeedEntity.position] ascending — matching the server's
  * canonical ordering.
  *
+ * [getAllOnce] is a one-shot snapshot of the same query — used during refresh
+ * to read existing cached metadata so partially-resolved feeds can retain their
+ * display name / avatar rather than being dropped.
+ *
  * [upsert] is a full-row overwrite: on conflict with an existing [SavedFeedEntity.uri]
  * every column is replaced with the supplied values. Callers must always provide
  * a complete [SavedFeedEntity] — partial updates are not supported (use
@@ -30,6 +34,10 @@ import net.kikin.nubecita.core.database.model.SavedFeedEntity
 interface SavedFeedDao {
     @Query("SELECT * FROM saved_feeds ORDER BY position ASC")
     fun observeSavedFeeds(): Flow<List<SavedFeedEntity>>
+
+    /** One-shot snapshot of all cached feeds, used during refresh for metadata fallback. */
+    @Query("SELECT * FROM saved_feeds ORDER BY position ASC")
+    suspend fun getAllOnce(): List<SavedFeedEntity>
 
     @Upsert
     suspend fun upsert(feeds: List<SavedFeedEntity>)
