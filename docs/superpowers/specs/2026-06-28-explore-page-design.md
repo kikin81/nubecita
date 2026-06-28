@@ -52,8 +52,8 @@ A second timeline screen — needed the moment any custom feed is tapped, hence 
 **Data:** new `SuggestionsRepository` (`search/.../data`) wrapping `ActorService.getSuggestions` + `FeedService.getSuggestedFeeds`, mapped to UI models (reuse `AuthorUi`; `FeedGeneratorUi` already exists in search). Suggested feeds cross-reference Component A's saved set to seed each feed's `isPinned`.
 
 **State** — `SearchPhase.Discover` gains, alongside `recentSearches`:
-- `suggestedAccounts: ImmutableList<SuggestedAccountUi>` (did, handle, name, avatar, `isFollowing`, `followUri`)
-- `suggestedFeeds: ImmutableList<SuggestedFeedUi>` (uri, name, creator, avatar, `isPinned`)
+- `suggestedAccounts: ImmutableList<SuggestedAccountUi>` (did, handle, name, avatar, `isFollowing`, `followUri`, optional `mutuals` from `viewer.knownFollowers`); dismissed accounts are filtered out session-locally
+- `suggestedFeeds: ImmutableList<SuggestedFeedUi>` (uri, name, creator, avatar, `isPinned`, plus `preview: ImmutableList<PostPreviewUi>?` and a per-card `previewStatus` — idle/loading/loaded/error — populated lazily)
 - a per-section load status; **each section loads independently and is hidden on empty/error** (one failing section never blanks the page).
 
 **Behavior:**
@@ -62,12 +62,14 @@ A second timeline screen — needed the moment any custom feed is tapped, hence 
 - **Inline Pin** → optimistic `isPinned` flip + `PinnedFeedsRepository.pinFeed/unpinFeed` (write-through to Room); tap row → `NavigateTo(FeedView(uri, name))`.
 - Both optimistic flips use the **targeted flag-flip rollback** (flip back on current state inside `setState`, no snapshot clobber); failures → snackbar via `SearchEffect`.
 
-**Layout (approved):** vertically stacked sections —
-1. Recent searches (chips, existing)
-2. Suggested accounts — a horizontal `LazyRow` of compact **account cards** (avatar, name, @handle, inline Follow button)
-3. Discover feeds — a horizontal `LazyRow` of richer **Google News-style feed cards** (thumbnail/avatar, feed name, creator, inline Pin button)
+**Layout (approved):** vertically stacked sections, each a horizontal `LazyRow` of cards:
+1. **Recent searches** (chips, existing)
+2. **Suggested accounts** — Threads-style **account cards**: elevated rounded surface, large centered avatar (+ verified badge), display name, **"N mutuals"** with small overlapping mutual avatars (from `viewer.knownFollowers` when present; omitted otherwise), and a full-width **Follow** button. Optional **dismiss `×`** (session-local hide; no stable "not interested" endpoint exists). Card tap → `Profile(did)`.
+3. **Discover feeds** — Google News-style **rich feed-preview cards**: a header (feed avatar + name + creator + a **Pin** toggle), then a preview of the feed's **2–3 most-recent posts** (lightweight: author handle/avatar + text snippet + optional thumbnail). Card tap → `FeedView(uri, name)`.
 
-Section headers; ~10 items capped per section; **no "see more" in v1** (show the first page). Each card taps through (account → `Profile`, feed → `FeedView`); the inline Follow/Pin buttons live on the card and don't trigger the card tap.
+Section headers; ~10 items capped per section; **no "see more" in v1**. Inline Follow/Pin/dismiss buttons live on the card and don't trigger the card tap.
+
+**Battery-safe lazy previews (feed cards):** `getSuggestedFeeds` returns metadata only — the 2–3 sample posts need a `getFeed(feed=uri, limit=3)` per feed. To honor "battery is top priority", **only fetch previews for cards actually on-screen** (drive off the `LazyRow`'s visible items via `snapshotFlow` on `LazyListState`, with a small prefetch buffer), **cache each fetched preview** so re-scroll never refetches, and never fetch the full ~10 up front. A card with no preview yet shows a small shimmer/placeholder where the posts will land.
 
 ## Error / empty handling
 
@@ -79,11 +81,12 @@ Section headers; ~10 items capped per section; **no "see more" in v1** (show the
 
 - **A:** `SavedFeedDao` (in-memory Room) — upsert/replaceAll/observe/setPinned; `@AutoMigration` schema test; `PinnedFeedsRepository` — offline-first (emit-from-Room, refresh write-through), pin/unpin read-modify-write + write-through + rollback, idempotency, mutex serialization.
 - **B:** `FeedViewViewModel` pagination (initial / append / error / refresh) + a screenshot test of the feed-view screen.
-- **C:** `SuggestionsRepository` mapping; `SearchViewModel` Discover tests (independent section load, empty/error hide, optimistic follow/pin + rollback); screenshot tests (Discover populated, empty).
+- **C:** `SuggestionsRepository` mapping; `SearchViewModel` Discover tests (independent section load, empty/error hide, optimistic follow/pin + rollback, session-local account dismiss); **feed-card preview lazy-load** (visible-item-triggered fetch, cached/no-refetch, never all-up-front, per-card placeholder→loaded→error); screenshot tests (Discover populated, feed card with preview, empty).
 
 ## Out of scope (explicit)
 
 - **Trending topics** (unspecced endpoint) and **interest chips** — deferred; revisit if/when a trending/topic surface is built.
+- **A "Following / Suggested for you" source toggle** (the Google News segmented control) — v1 shows suggestions only; pinned feeds live elsewhere.
 - **"See more" pagination** for Discover sections — v1 shows the first page only.
 - **Cache-first profile loading** (me-tab fast open) — separate epic **nubecita-dwmf** (shares the Room-cache pattern; designed later).
 - **Full offline support** — A lays the foundation for the user's own feeds; broader offline is future.
