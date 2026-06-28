@@ -27,7 +27,10 @@ class NubecitaApplication :
     Application(),
     SingletonImageLoader.Factory,
     Configuration.Provider {
-    @Inject lateinit var imageLoader: ImageLoader
+    // Lazy: Coil constructs the loader on its first `newImageLoader` call (first
+    // image), which is after the first frame — no need to build it during onCreate
+    // field injection (nubecita-z04l).
+    @Inject lateinit var imageLoader: Lazy<ImageLoader>
 
     @Inject lateinit var notificationChannelInstaller: NotificationChannelInstaller
 
@@ -39,14 +42,18 @@ class NubecitaApplication :
      * configuration is the one WorkManager uses (on-demand init on first
      * `WorkManager.getInstance(context)`). Inert until a worker is enqueued —
      * an empty factory map is valid, including in the bench flavor.
+     *
+     * Lazy: WorkManager reads [workManagerConfiguration] on first
+     * `WorkManager.getInstance(context)` (on-demand), so the factory needn't be
+     * built during onCreate field injection (nubecita-z04l).
      */
-    @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var workerFactory: Lazy<HiltWorkerFactory>
 
     override val workManagerConfiguration: Configuration
         get() =
             Configuration
                 .Builder()
-                .setWorkerFactory(workerFactory)
+                .setWorkerFactory(workerFactory.get())
                 .build()
 
     /**
@@ -122,5 +129,5 @@ class NubecitaApplication :
         }
     }
 
-    override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader
+    override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader.get()
 }
