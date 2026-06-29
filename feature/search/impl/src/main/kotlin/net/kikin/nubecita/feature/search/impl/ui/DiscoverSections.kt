@@ -24,7 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.search.impl.DiscoverEvent
 import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
@@ -131,22 +131,26 @@ private fun FeedsSection(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    val currentFeeds by rememberUpdatedState(feeds)
     val currentOnEvent by rememberUpdatedState(onEvent)
 
-    // Scroll-settled lazy preview: when scrolling stops, fire OnFeedCardVisible
-    // for every currently visible feed so the VM can initiate a one-shot preview
-    // fetch. Also fires on initial composition (isScrollInProgress = false at
-    // first snapshot), which loads previews for the initially visible cards.
-    // The VM guards IdempotentId on FeedPreviewStatus, so repeat calls are no-ops.
+    // Scroll-settled lazy preview: fire OnFeedCardVisible for every currently
+    // visible feed once the carousel is settled, so the VM can initiate a
+    // one-shot preview fetch (it caches per uri, so repeat calls are no-ops).
+    // The snapshotFlow observes the visible item keys directly (not just
+    // isScrollInProgress): it emits an empty list while scrolling (no fling
+    // spam) and re-emits the visible uris once the FIRST layout pass populates
+    // them — so the initially-visible cards load even though isScrollInProgress
+    // never changes from its initial false.
     LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }
-            .filter { !it } // settled: not scrolling
-            .collect {
-                listState.layoutInfo.visibleItemsInfo.forEach { itemInfo ->
-                    val uri = itemInfo.key as? String ?: return@forEach
-                    currentOnEvent(DiscoverEvent.OnFeedCardVisible(uri))
-                }
+        snapshotFlow {
+            if (listState.isScrollInProgress) {
+                emptyList()
+            } else {
+                listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String }
+            }
+        }.distinctUntilChanged()
+            .collect { uris ->
+                uris.forEach { currentOnEvent(DiscoverEvent.OnFeedCardVisible(it)) }
             }
     }
 
