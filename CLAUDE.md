@@ -185,13 +185,14 @@ Screens that host post cards (like, repost, share, overflow menu) MAY have their
 
 The exception is bounded:
 
-- The VM's `init` block MUST call `handler.bind(surface, viewModelScope)` and install two long-lived coroutines: one to mirror `handler.tapMarkers` into `UiState`, and one to forward each `InteractionEffect` as the matching `UiEffect` sub-type. This ensures the single-consumer `Channel`-backed `interactionEffects` flow is drained by the VM before any Compose `LaunchedEffect` starts — tests assert on `vm.effects`, not on the handler's channel.
+- The VM's `init` block calls `handler.bind(surface, viewModelScope)`. No forwarding coroutines are installed — the VM does NOT mirror `handler.tapMarkers` into `UiState` and does NOT forward `InteractionEffect` onto its own effect channel. The delegated `by handler` wiring is the complete `init` obligation.
+- Interaction side-effects are observed DIRECTLY by the shared `rememberPostInteractions(handler, …)` Composable helper in `:core:post-interactions-ui`, which collects `handler.interactionEffects` (share sheet, clipboard, error / coming-soon snackbars, composer / report / block navigation). The VM's own `UiEffect` channel is reserved exclusively for screen-specific concerns (navigation to post detail, author profile, media viewer, etc.).
 - The VM MUST override `onOverflowAction` for any actions it handles locally (e.g. `MuteAuthor`/`UnmuteAuthor` with optimistic remove + rollback); all other overflow actions delegate to `handler.onOverflowAction`.
 - `onReply` / `onQuote` in screens that handle those natively (e.g. Feed's inline composer entry points) bypass the handler entirely — the screen's `PostCallbacks` routes them directly without calling `viewModel.onReply`/`viewModel.onQuote`.
 - `PostInteractionHandler` is unscoped in Hilt — each ViewModel injection gets a fresh `DefaultPostInteractionHandler` instance.
-- Test doubles implement `FakePostInteractionHandler` in the feature's `src/test` set; they share a `FakePostInteractionsCache` with the VM to preserve cache-level assertions.
+- Tests assert interaction effects on `vm.interactionEffects` (the delegated handler channel) — NOT on `vm.effects` (the VM's own `UiEffect` channel). Integration-level handler behaviour is covered by `DefaultPostInteractionHandlerTest`.
 
-Reference implementations: `:feature:feed:impl/FeedViewModel`, `:feature:postdetail:impl/PostDetailViewModel`, `:feature:profile:impl/ProfileViewModel`.
+Reference implementation: `:feature:feed:impl/FeedViewModel` (PR1 of epic nubecita-58dy — post-detail and profile migrate in later PRs of the same epic).
 
 ### Tab re-tap / scroll-to-top convention
 

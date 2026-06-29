@@ -144,11 +144,18 @@ internal fun rememberFeedInteractions(
     // (share sheet, clipboard, error/coming-soon snackbars, composer/report/block
     // navigation) so the VM no longer needs to forward those onto its own
     // effects channel.
+    //
+    // onInteractionError restores the deliberate "toggle-was-rejected" haptic
+    // cue that previously fired inside the FeedEffect.ShowError arm. Like /
+    // repost failures route through InteractionEffect.ShowError (not FeedEffect),
+    // so without this hook the reject haptic would be silently lost for the
+    // most common failure path.
     val interactions =
         rememberPostInteractions(
             handler = viewModel,
             snackbarHostState = snackbarHostState,
             strings = interactionStrings,
+            onInteractionError = { haptics.rejected() },
         )
 
     // Merge the shared interaction callbacks with feed-local overrides:

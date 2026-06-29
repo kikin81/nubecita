@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
@@ -111,15 +112,26 @@ data class PostInteractions(
  * @param strings All snackbar / clipboard strings pre-resolved via
  *   `stringResource(...)` by the caller so locale changes participate in
  *   recomposition.
+ * @param onInteractionError Optional hook invoked at the start of the
+ *   [InteractionEffect.ShowError] arm, before the snackbar is shown. Callers
+ *   may pass `{ haptics.rejected() }` here to restore the deliberate
+ *   "toggle-was-rejected" haptic cue without coupling this helper to
+ *   [net.kikin.nubecita.core.common.haptic.PostHaptics] directly.
  */
 @Composable
 fun rememberPostInteractions(
     handler: PostInteractionHandler,
     snackbarHostState: SnackbarHostState,
     strings: InteractionStrings,
+    onInteractionError: () -> Unit = {},
 ): PostInteractions {
     val context = LocalContext.current
     val navState = LocalMainShellNavState.current
+
+    // Stable wrapper so the long-lived LaunchedEffect below always calls the
+    // most recent lambda the caller passed without restarting the collector
+    // on every recomposition (compose:lambda-param-in-effect).
+    val currentOnInteractionError by rememberUpdatedState(onInteractionError)
 
     val callbacks =
         remember(handler) {
@@ -151,6 +163,13 @@ fun rememberPostInteractions(
                             InteractionError.Unauthenticated -> strings.errorUnauthenticated
                             InteractionError.Unknown -> strings.errorUnknown
                         }
+                    // Fire the caller-supplied error hook (e.g. haptics.rejected())
+                    // before the snackbar so the tactile cue is synchronous with
+                    // the visual one. Default is a no-op. Routed through
+                    // currentOnInteractionError (rememberUpdatedState) so
+                    // the latest lambda is always called without restarting
+                    // the effect collector.
+                    currentOnInteractionError()
                     // Replace, don't stack — successive errors during a flapping
                     // network spell would otherwise queue snackbars indefinitely.
                     snackbarHostState.currentSnackbarData?.dismiss()
