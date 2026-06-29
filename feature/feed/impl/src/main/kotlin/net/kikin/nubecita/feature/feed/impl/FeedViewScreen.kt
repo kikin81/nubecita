@@ -1,12 +1,6 @@
 package net.kikin.nubecita.feature.feed.impl
 
-import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.res.Configuration
-import android.media.AudioManager
-import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,15 +22,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,12 +35,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.flow.collectLatest
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
-import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.time.LocalClock
-import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
@@ -61,17 +48,15 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
-import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
 import net.kikin.nubecita.feature.feed.impl.ui.PostFeedList
+import net.kikin.nubecita.feature.feed.impl.ui.rememberFeedInteractions
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
-import net.kikin.nubecita.feature.feed.impl.video.createFeedVideoPlayerCoordinator
 import kotlin.time.Clock
 import kotlin.time.Instant
-import android.net.Uri as AndroidUri
 
 private const val SHIMMER_PREVIEW_COUNT = 6
 
@@ -128,189 +113,22 @@ internal fun FeedViewScreen(
     val viewState = remember(state) { state.toViewState() }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val pinState by pinViewModel.uiState.collectAsStateWithLifecycle()
-
-    val context = LocalContext.current
-
-    val currentOnReplyClick by rememberUpdatedState(onReplyClick)
-    val currentOnQuoteClick by rememberUpdatedState(onQuoteClick)
     val haptics = rememberPostHaptics()
+    val interactions =
+        rememberFeedInteractions(
+            viewModel = viewModel,
+            snackbarHostState = snackbarHostState,
+            haptics = haptics,
+            onReplyClick = onReplyClick,
+            onQuoteClick = onQuoteClick,
+            onNavigateToPost = onNavigateToPost,
+            onNavigateToAuthor = onNavigateToAuthor,
+            onNavigateToMediaViewer = onNavigateToMediaViewer,
+            onNavigateToVideoPlayer = onNavigateToVideoPlayer,
+            onNavigateTo = onNavigateTo,
+        )
 
-    val callbacks =
-        remember(viewModel, context, haptics) {
-            PostCallbacks(
-                onTap = { viewModel.handleEvent(FeedEvent.OnPostTapped(it)) },
-                onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
-                onLike = { post ->
-                    if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
-                    viewModel.handleEvent(FeedEvent.OnLikeClicked(post))
-                },
-                onRepost = { post ->
-                    if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
-                    viewModel.handleEvent(FeedEvent.OnRepostClicked(post))
-                },
-                onReply = { post ->
-                    haptics.lightTap()
-                    currentOnReplyClick(post.id)
-                },
-                onQuote = { post ->
-                    haptics.lightTap()
-                    currentOnQuoteClick(post.id)
-                },
-                onShare = { post ->
-                    haptics.lightTap()
-                    viewModel.handleEvent(FeedEvent.OnShareClicked(post))
-                },
-                onShareLongPress = { viewModel.handleEvent(FeedEvent.OnShareLongPressed(it)) },
-                onExternalEmbedTap = { uri ->
-                    try {
-                        CustomTabsIntent
-                            .Builder()
-                            .setShowTitle(true)
-                            .build()
-                            .launchUrl(context, AndroidUri.parse(uri))
-                    } catch (_: ActivityNotFoundException) {
-                        // No browser available — silent no-op.
-                    }
-                },
-                onQuotedPostTap = { quoted ->
-                    viewModel.handleEvent(FeedEvent.OnQuotedPostTapped(quoted.uri))
-                },
-                onOverflowAction = { post, action ->
-                    viewModel.handleEvent(FeedEvent.OnOverflowAction(post, action))
-                },
-            )
-        }
-
-    val networkErrorMessage = stringResource(R.string.feed_snackbar_error_network)
-    val unauthErrorMessage = stringResource(R.string.feed_snackbar_error_unauthenticated)
-    val unknownErrorMessage = stringResource(R.string.feed_snackbar_error_unknown)
-    val linkCopiedMessage = stringResource(R.string.feed_snackbar_link_copied)
-    val clipLabel = stringResource(R.string.feed_clipboard_label_post_link)
-    val postPublishedMessage = stringResource(R.string.feed_snackbar_post_published)
-    val replyPublishedMessage = stringResource(R.string.feed_snackbar_reply_published)
-    val overflowReportComingSoon = stringResource(R.string.feed_snackbar_overflow_report_coming_soon)
-    val overflowMuteComingSoon = stringResource(R.string.feed_snackbar_overflow_mute_coming_soon)
-    val overflowUnmuteComingSoon = stringResource(R.string.feed_snackbar_overflow_unmute_coming_soon)
-    val overflowBlockComingSoon = stringResource(R.string.feed_snackbar_overflow_block_coming_soon)
-    val overflowUnblockComingSoon = stringResource(R.string.feed_snackbar_overflow_unblock_coming_soon)
-    val overflowMuteThreadComingSoon =
-        stringResource(R.string.feed_snackbar_overflow_mute_thread_coming_soon)
-    val overflowUnmuteThreadComingSoon =
-        stringResource(R.string.feed_snackbar_overflow_unmute_thread_coming_soon)
-    val overflowCopyTextComingSoon =
-        stringResource(R.string.feed_snackbar_overflow_copy_text_coming_soon)
     val pinErrorMessage = stringResource(R.string.feed_view_snackbar_pin_error)
-
-    val clipboardManager =
-        remember(context) {
-            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        }
-
-    val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
-    val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
-    val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
-    val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
-    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
-
-    val onImageTap =
-        remember(viewModel) {
-            { post: PostUi, index: Int -> viewModel.handleEvent(FeedEvent.OnImageTapped(post, index)) }
-        }
-    val onVideoTap =
-        remember(viewModel) {
-            { postUri: String -> viewModel.handleEvent(FeedEvent.OnVideoTapped(postUri)) }
-        }
-    val onRefresh = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Refresh) } }
-    val onRetry = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Retry) } }
-    val onLoadMore = remember(viewModel) { { viewModel.handleEvent(FeedEvent.LoadMore) } }
-
-    val inInspection = LocalInspectionMode.current
-    val appContext = context.applicationContext
-    val audioManager =
-        remember(context) {
-            context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        }
-    val coordinator: FeedVideoPlayerCoordinator? =
-        remember(viewModel) {
-            if (inInspection) {
-                null
-            } else {
-                createFeedVideoPlayerCoordinator(
-                    context = appContext,
-                    audioManager = audioManager,
-                    sharedVideoPlayer = viewModel.sharedVideoPlayer,
-                )
-            }
-        }
-    // Unconditional DisposableEffect — avoids calling an effect inside an
-    // `if` block (a Compose anti-pattern where effect presence depends on a
-    // runtime condition). coordinator is null only in LocalInspectionMode,
-    // so the null-safe release is a no-op in previews/screenshot tests.
-    DisposableEffect(viewModel, coordinator) {
-        onDispose { coordinator?.release() }
-    }
-
-    // Composer submit-success bus — same wiring as FeedScreen.
-    val composerSubmitEvents = LocalComposerSubmitEvents.current
-    LaunchedEffect(composerSubmitEvents, viewModel, snackbarHostState) {
-        composerSubmitEvents.collectLatest { event ->
-            event.replyToUri?.let { parentUri ->
-                viewModel.handleEvent(FeedEvent.OnReplySubmittedToParent(parentUri))
-            }
-            val message =
-                if (event.replyToUri != null) replyPublishedMessage else postPublishedMessage
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(message = message)
-        }
-    }
-
-    // FeedViewModel effects — mirrored exactly from FeedScreen.
-    LaunchedEffect(Unit) {
-        viewModel.effects.collect { effect ->
-            when (effect) {
-                is FeedEffect.ShowError -> {
-                    val message =
-                        when (effect.error) {
-                            FeedError.Network -> networkErrorMessage
-                            FeedError.Unauthenticated -> unauthErrorMessage
-                            is FeedError.Unknown -> unknownErrorMessage
-                        }
-                    haptics.rejected()
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
-                }
-                is FeedEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
-                is FeedEffect.NavigateToAuthor -> currentOnNavigateToAuthor(effect.authorDid)
-                is FeedEffect.NavigateToMediaViewer ->
-                    currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
-                is FeedEffect.NavigateToVideoPlayer -> currentOnNavigateToVideoPlayer(effect.postUri)
-                is FeedEffect.SharePost -> context.launchPostShare(effect.intent)
-                is FeedEffect.CopyPermalink -> {
-                    clipboardManager.setPrimaryClip(
-                        ClipData.newPlainText(clipLabel, effect.permalink),
-                    )
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = linkCopiedMessage)
-                }
-                is FeedEffect.ShowComingSoon -> {
-                    val message =
-                        when (effect.action) {
-                            PostOverflowAction.ReportPost -> overflowReportComingSoon
-                            PostOverflowAction.MuteAuthor -> overflowMuteComingSoon
-                            PostOverflowAction.UnmuteAuthor -> overflowUnmuteComingSoon
-                            PostOverflowAction.BlockAuthor -> overflowBlockComingSoon
-                            PostOverflowAction.UnblockAuthor -> overflowUnblockComingSoon
-                            PostOverflowAction.MuteThread -> overflowMuteThreadComingSoon
-                            PostOverflowAction.UnmuteThread -> overflowUnmuteThreadComingSoon
-                            PostOverflowAction.CopyPostText -> overflowCopyTextComingSoon
-                        }
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
-                }
-                is FeedEffect.NavigateTo -> currentOnNavigateTo(effect.key)
-            }
-        }
-    }
 
     // FeedPinViewModel effects — show error snackbar on pin/unpin failure.
     LaunchedEffect(pinViewModel, snackbarHostState) {
@@ -328,17 +146,17 @@ internal fun FeedViewScreen(
         viewState = viewState,
         listState = listState,
         snackbarHostState = snackbarHostState,
-        callbacks = callbacks,
-        onRefresh = onRefresh,
-        onRetry = onRetry,
-        onLoadMore = onLoadMore,
+        callbacks = interactions.callbacks,
+        onRefresh = interactions.onRefresh,
+        onRetry = interactions.onRetry,
+        onLoadMore = interactions.onLoadMore,
         displayName = displayName,
         isPinned = pinState.isPinned,
         onPinToggle = { pinViewModel.handleEvent(FeedPinEvent.TogglePin) },
         onBack = onBack,
-        onImageTap = onImageTap,
-        onVideoTap = onVideoTap,
-        coordinator = coordinator,
+        onImageTap = interactions.onImageTap,
+        onVideoTap = interactions.onVideoTap,
+        coordinator = interactions.coordinator,
     )
 }
 
