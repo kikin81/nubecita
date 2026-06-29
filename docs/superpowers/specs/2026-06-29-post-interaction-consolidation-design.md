@@ -67,9 +67,9 @@ class SearchPostsViewModel @Inject constructor(
 ```
 
 - **3 injected deps** (cache, `MuteRepository`, `AnalyticsClient`); the per-VM `surface` + `viewModelScope` arrive via `bind()` in the VM's `init` (a constructor param can't be `by`-delegated *and* carry per-VM assisted values, so the two-phase `bind` resolves that). The handler is **unscoped** (each VM injection gets its own instance) while the cache it writes to is the app singleton, so cross-screen propagation is unchanged. Block/report/composer NavKeys are **not** constructed here (keeps `:core:post-interactions` free of `:feature:*:api` deps) — they are emitted as *data* effects and the UI module builds the NavKey (see §3). Share is `post.toShareIntent()` (already in `:core:post-interactions/sharing`).
-- `onLike/onRepost` → `scope.launch { cache.toggleLike/Repost(id, cid) }` + `analytics.log(InteractPost(action, surface))` + update `tapMarkers`. The cache owns the optimistic flip / rollback / single-flight (unchanged); a failure surfaces as `InteractionEffect.ShowError`.
+- `onLike/onRepost` → **guard against rapid repeat taps by tracking the active coroutine `Job` per post URI and ignoring a new trigger while one is in flight** (the same `activeJobs[uri]?.isActive` guard already used in `DiscoverViewModel`/`FeedPinViewModel`), then `scope.launch { cache.toggleLike/Repost(id, cid) }` + `analytics.log(InteractPost(action, surface))` + update `tapMarkers`. The cache already single-flights the *network*, but the guard also prevents duplicate `InteractPost` analytics on a double-tap. The cache owns the optimistic flip / rollback (unchanged); a failure surfaces as `InteractionEffect.ShowError`. (Note: today's feed lacks this guard, so PR1 is byte-identical on the screenshot/test oracle and *strictly better* on rapid-tap analytics — single-tap behavior, which the tests assert, is unchanged.)
 - `onOverflowAction` → `MuteAuthor/UnmuteAuthor` call `muteRepository` (real, with the optimistic-removal contract preserved by the host VM's list — see §4); `ReportPost`/`BlockAuthor` → emit `InteractionEffect.NavigateToReport(post)` / `NavigateToBlock(did, handle)`; the still-unbuilt actions → `InteractionEffect.ShowComingSoon(action)`.
-- Constructed per host VM via an `@AssistedFactory` (so each VM passes its own `surface` + `viewModelScope`). The cache it writes to is the app-wide singleton, so cross-screen propagation is unchanged.
+- The handler is a plain `@Inject` constructor param of each VM (so it can be `by`-delegated); the per-VM `surface` + `viewModelScope` are supplied via `bind()` in the VM's `init` (see above), **not** an `@AssistedFactory`. The cache it writes to is the app-wide singleton, so cross-screen propagation is unchanged.
 
 ### 2. `InteractionEffect` (sealed) — `:core:post-interactions`
 
@@ -81,7 +81,7 @@ A thin Compose module (depends on `:core:post-interactions`, `:designsystem` for
 
 ```kotlin
 @Composable
-internal fun rememberPostInteractions(
+fun rememberPostInteractions(   // public — consumed across module boundaries by the feature impls
     handler: PostInteractionHandler,
     snackbarHostState: SnackbarHostState,
     comingSoonStrings: … ,                 // pre-resolved via stringResource at composition
