@@ -6,26 +6,29 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.session.SessionClearable
-import net.kikin.nubecita.core.postinteractions.FollowRepository
-import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
-import net.kikin.nubecita.core.postinteractions.internal.DefaultFollowRepository
-import net.kikin.nubecita.core.postinteractions.internal.DefaultLikeRepostRepository
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
 import javax.inject.Singleton
 
 /**
- * Hilt bindings for [PostInteractionsCache] and [LikeRepostRepository].
+ * Hilt bindings for [PostInteractionsCache], [SessionClearable], and
+ * [PostInteractionHandler]. These bindings are flavor-independent and live in
+ * `src/main`.
+ *
+ * The [LikeRepostRepository] and [FollowRepository] write bindings have been
+ * moved to the flavored `PostInteractionsWriteModule` (same FQN in
+ * `src/production/` and `src/bench/`), so that the bench build can swap in
+ * offline no-op fakes without touching this module. AGP source-set selection
+ * picks exactly one write module per variant.
  *
  * The cache is `@Singleton`-scoped (matches the class-level annotation on
  * [DefaultPostInteractionsCache]) so all VMs across the app share one
- * canonical state map. The repository is also `@Singleton` to avoid
- * re-wrapping the atproto service per injection point.
+ * canonical state map.
  *
- * The class is publicly addressable (not `internal`) so future test
- * modules in any feature module can replace it via
+ * The class is publicly addressable (not `internal`) so future test modules in
+ * any feature module can replace it via
  * `@TestInstallIn(replaces = [PostInteractionsModule::class])`.
  */
 @Module
@@ -36,18 +39,6 @@ abstract class PostInteractionsModule {
     internal abstract fun bindPostInteractionsCache(
         impl: DefaultPostInteractionsCache,
     ): PostInteractionsCache
-
-    @Binds
-    @Singleton
-    internal abstract fun bindLikeRepostRepository(
-        impl: DefaultLikeRepostRepository,
-    ): LikeRepostRepository
-
-    @Binds
-    @Singleton
-    internal abstract fun bindFollowRepository(
-        impl: DefaultFollowRepository,
-    ): FollowRepository
 
     @Binds
     @IntoSet
