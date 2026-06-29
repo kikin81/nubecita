@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -78,14 +77,29 @@ internal class DiscoverViewModel
          * Latest set of pinned feed URIs from [PinnedFeedsRepository.observePinnedFeeds].
          * Used in [loadFeeds] to seed [DiscoverFeedUi.feed.isPinned] at load time
          * without needing the flow to re-emit after the feed list lands.
+         *
+         * Plain var (not StateFlow) — only written in the observer collector and read
+         * in [loadFeeds]; never collected as a flow.
          */
-        private val currentPinnedUris = MutableStateFlow<Set<String>>(emptySet())
+        private var currentPinnedUris: Set<String> = emptySet()
 
         /** In-flight follow/unfollow jobs keyed by DID — drops rapid concurrent taps. */
         private val activeFollowJobs = mutableMapOf<String, Job>()
 
         /** In-flight pin/unpin jobs keyed by feed URI — drops rapid concurrent taps. */
         private val activePinJobs = mutableMapOf<String, Job>()
+
+        /**
+         * In-flight preview fetch jobs keyed by feed URI — synchronous guard against
+         * duplicate fetches when the carousel's snapshotFlow re-emits on layout changes.
+         */
+        private val activePreviewJobs = mutableMapOf<String, Job>()
+
+        /** Tracks the most-recently-launched accounts load (for cancel-and-restart on refresh). */
+        private var accountsLoadJob: Job? = null
+
+        /** Tracks the most-recently-launched feeds load (for cancel-and-restart on refresh). */
+        private var feedsLoadJob: Job? = null
 
         /** DIDs dismissed this session — persists for the ViewModel lifetime. */
         private val dismissedDids = mutableSetOf<String>()
@@ -97,7 +111,7 @@ internal class DiscoverViewModel
                 .observePinnedFeeds()
                 .map { result -> result.feeds.map { it.uri }.toSet() }
                 .onEach { uris ->
-                    currentPinnedUris.value = uris
+                    currentPinnedUris = uris
                     setState {
                         copy(
                             feeds =
@@ -137,16 +151,20 @@ internal class DiscoverViewModel
         private fun onAppear() {
             val state = uiState.value
             if (state.accountsStatus.needsLoad()) {
-                viewModelScope.launch { loadAccounts() }
+                accountsLoadJob?.cancel()
+                accountsLoadJob = viewModelScope.launch { loadAccounts() }
             }
             if (state.feedsStatus.needsLoad()) {
-                viewModelScope.launch { loadFeeds() }
+                feedsLoadJob?.cancel()
+                feedsLoadJob = viewModelScope.launch { loadFeeds() }
             }
         }
 
         private fun onRefresh() {
-            viewModelScope.launch { loadAccounts() }
-            viewModelScope.launch { loadFeeds() }
+            accountsLoadJob?.cancel()
+            accountsLoadJob = viewModelScope.launch { loadAccounts() }
+            feedsLoadJob?.cancel()
+            feedsLoadJob = viewModelScope.launch { loadFeeds() }
         }
 
         private suspend fun loadAccounts() {
@@ -181,7 +199,7 @@ internal class DiscoverViewModel
                         // Seed isPinned from the latest pinned-feeds observer value so
                         // the UI shows the correct pin state immediately on first render,
                         // even before the observer has a chance to re-emit.
-                        val pinnedUris = currentPinnedUris.value
+                        val pinnedUris = currentPinnedUris
                         setState {
                             // Preserve any already-loaded preview data so a pull-to-refresh
                             // does not discard previews for feeds that haven't changed URIs.
@@ -343,6 +361,10 @@ internal class DiscoverViewModel
         // -------------------------------------------------------------------------
 
         private fun onFeedCardVisible(uri: String) {
+            // Synchronous in-flight guard: drops rapid duplicate visibility events (e.g. carousel
+            // snapshotFlow re-emitting on layout changes) before setState has a chance to flip
+            // previewStatus away from Idle.
+            if (activePreviewJobs[uri]?.isActive == true) return
             val feedUi = uiState.value.feeds.find { it.feed.uri == uri } ?: return
             // Idle is the only state that triggers a fetch.
             if (feedUi.previewStatus != FeedPreviewStatus.Idle) return
@@ -356,37 +378,38 @@ internal class DiscoverViewModel
                 )
             }
 
-            viewModelScope.launch {
-                suggestionsRepository
-                    .getFeedPreview(uri)
-                    .onSuccess { posts ->
-                        setState {
-                            copy(
-                                feeds =
-                                    feeds
-                                        .map {
-                                            if (it.feed.uri == uri) {
-                                                it.copy(
-                                                    preview = posts.toImmutableList(),
-                                                    previewStatus = FeedPreviewStatus.Loaded,
-                                                )
-                                            } else {
-                                                it
-                                            }
-                                        }.toImmutableList(),
-                            )
+            activePreviewJobs[uri] =
+                viewModelScope.launch {
+                    suggestionsRepository
+                        .getFeedPreview(uri)
+                        .onSuccess { posts ->
+                            setState {
+                                copy(
+                                    feeds =
+                                        feeds
+                                            .map {
+                                                if (it.feed.uri == uri) {
+                                                    it.copy(
+                                                        preview = posts.toImmutableList(),
+                                                        previewStatus = FeedPreviewStatus.Loaded,
+                                                    )
+                                                } else {
+                                                    it
+                                                }
+                                            }.toImmutableList(),
+                                )
+                            }
+                        }.onFailure {
+                            setState {
+                                copy(
+                                    feeds =
+                                        feeds
+                                            .map { if (it.feed.uri == uri) it.copy(previewStatus = FeedPreviewStatus.Error) else it }
+                                            .toImmutableList(),
+                                )
+                            }
                         }
-                    }.onFailure {
-                        setState {
-                            copy(
-                                feeds =
-                                    feeds
-                                        .map { if (it.feed.uri == uri) it.copy(previewStatus = FeedPreviewStatus.Error) else it }
-                                        .toImmutableList(),
-                            )
-                        }
-                    }
-            }
+                }
         }
 
         // -------------------------------------------------------------------------

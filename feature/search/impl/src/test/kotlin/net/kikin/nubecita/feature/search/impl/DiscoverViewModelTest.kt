@@ -687,6 +687,60 @@ internal class DiscoverViewModelTest {
             assertEquals(callsAfterError, suggestionsRepo.previewCallUris.size)
         }
 
+    @Test
+    fun `feedCardVisible concurrent calls for same uri before fetch completes fetches only once`() =
+        runTest(mainDispatcher.dispatcher) {
+            val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
+            val suggestionsRepo =
+                FakeSuggestionsRepository(
+                    accountsResult = Result.success(emptyList()),
+                    feedsResult = Result.success(listOf(feedFixture(uri = uri))),
+                    previewResult = Result.success(listOf(FeedPreviewPostUi("a.bsky.social", null, "post", null))),
+                )
+            val vm = buildVm(suggestionsRepo = suggestionsRepo)
+
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+
+            // Fire twice synchronously before the fetch coroutine executes — activePreviewJobs guard
+            // must drop the second call (mirrors the rapid-pin-tap dedup pattern).
+            vm.handleEvent(DiscoverEvent.OnFeedCardVisible(uri))
+            vm.handleEvent(DiscoverEvent.OnFeedCardVisible(uri))
+            advanceUntilIdle()
+
+            assertEquals(1, suggestionsRepo.previewCallUris.size, "getFeedPreview must be called exactly once")
+            assertEquals(
+                FeedPreviewStatus.Loaded,
+                vm.uiState.value.feeds
+                    .find { it.feed.uri == uri }
+                    ?.previewStatus,
+            )
+        }
+
+    @Test
+    fun `onRefresh cancels in-flight section load and does not issue concurrent redundant requests`() =
+        runTest(mainDispatcher.dispatcher) {
+            val suggestionsRepo =
+                FakeSuggestionsRepository(
+                    accountsResult = Result.success(listOf(accountFixture())),
+                    feedsResult = Result.success(listOf(feedFixture())),
+                )
+            val vm = buildVm(suggestionsRepo = suggestionsRepo)
+
+            // Schedule onAppear load but do NOT advance — coroutines are queued, not yet executing.
+            vm.handleEvent(DiscoverEvent.OnAppear)
+
+            // onRefresh cancels the queued-but-unstarted onAppear jobs and starts new ones.
+            vm.handleEvent(DiscoverEvent.OnRefresh)
+            advanceUntilIdle()
+
+            // Only the refresh jobs ran; the appear jobs were cancelled before they could execute.
+            assertEquals(1, suggestionsRepo.accountCallCount, "getSuggestedAccounts must be called exactly once")
+            assertEquals(1, suggestionsRepo.feedCallCount, "getSuggestedFeeds must be called exactly once")
+            assertEquals(DiscoverSectionStatus.Loaded, vm.uiState.value.accountsStatus)
+            assertEquals(DiscoverSectionStatus.Loaded, vm.uiState.value.feedsStatus)
+        }
+
     // -------------------------------------------------------------------------
     // Account dismissal
     // -------------------------------------------------------------------------
