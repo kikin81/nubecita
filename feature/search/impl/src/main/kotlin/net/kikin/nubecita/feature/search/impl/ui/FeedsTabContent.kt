@@ -58,6 +58,7 @@ internal fun FeedsTabContent(
                 isAppending = status.isAppending,
                 listState = listState,
                 onEvent = onEvent,
+                onFeedClick = { feed -> onEvent(SearchFeedsEvent.FeedTapped(feed.uri, feed.displayName)) },
                 modifier = modifier,
             )
             LaunchedEffect(listState, status.items.size, status.endReached) {
@@ -94,11 +95,12 @@ private fun LoadedBody(
     isAppending: Boolean,
     listState: LazyListState,
     onEvent: (SearchFeedsEvent) -> Unit,
+    onFeedClick: (FeedGeneratorUi) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier = modifier.fillMaxSize().testTag("search_feeds_list"), state = listState) {
         items(items = items, key = { it.uri }) { feed ->
-            FeedRow(feed = feed)
+            FeedRow(feed = feed, onClick = { onFeedClick(feed) })
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         if (isAppending) {
