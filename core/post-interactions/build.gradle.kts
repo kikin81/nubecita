@@ -10,8 +10,11 @@ android {
 dependencies {
     api(project(":data:models"))
 
+    implementation(project(":core:actors"))
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    implementation(project(":designsystem"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)

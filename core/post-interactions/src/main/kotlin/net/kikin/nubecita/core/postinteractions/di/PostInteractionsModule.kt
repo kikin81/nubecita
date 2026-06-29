@@ -8,9 +8,11 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.session.SessionClearable
 import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.internal.DefaultFollowRepository
 import net.kikin.nubecita.core.postinteractions.internal.DefaultLikeRepostRepository
+import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
 import javax.inject.Singleton
 
@@ -52,4 +54,18 @@ abstract class PostInteractionsModule {
     internal abstract fun bindPostInteractionsCacheAsSessionClearable(
         impl: DefaultPostInteractionsCache,
     ): SessionClearable
+
+    /**
+     * Binds [DefaultPostInteractionHandler] → [PostInteractionHandler].
+     *
+     * **Intentionally unscoped** (no `@Singleton`, no `@ActivityRetainedScoped`).
+     * Each ViewModel that injects [PostInteractionHandler] receives its own
+     * instance via `bind(surface, viewModelScope)`. Scoping the handler to the
+     * singleton component would let one VM's surface bleed into another's
+     * analytics attribution at runtime.
+     */
+    @Binds
+    internal abstract fun bindPostInteractionHandler(
+        impl: DefaultPostInteractionHandler,
+    ): PostInteractionHandler
 }
