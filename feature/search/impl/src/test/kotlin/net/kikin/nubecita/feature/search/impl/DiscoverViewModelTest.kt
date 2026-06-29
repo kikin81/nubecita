@@ -607,6 +607,56 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
+    fun `onRefresh preserves loaded preview and previewStatus for matching uris`() =
+        runTest(mainDispatcher.dispatcher) {
+            val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
+            val previewPost =
+                FeedPreviewPostUi(
+                    authorHandle = "author.bsky.social",
+                    authorAvatarUrl = null,
+                    text = "Preview post",
+                    thumbnailUrl = null,
+                )
+            val suggestionsRepo =
+                FakeSuggestionsRepository(
+                    accountsResult = Result.success(emptyList()),
+                    feedsResult = Result.success(listOf(feedFixture(uri = uri))),
+                    previewResult = Result.success(listOf(previewPost)),
+                )
+            val vm = buildVm(suggestionsRepo = suggestionsRepo)
+
+            // Initial load + preview fetch
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+            vm.handleEvent(DiscoverEvent.OnFeedCardVisible(uri))
+            advanceUntilIdle()
+
+            val afterPreview =
+                vm.uiState.value.feeds
+                    .find { it.feed.uri == uri }
+            assertEquals(FeedPreviewStatus.Loaded, afterPreview?.previewStatus)
+            assertEquals(listOf(previewPost), afterPreview?.preview?.toList())
+
+            // Refresh — same feed URIs returned by the repo
+            vm.handleEvent(DiscoverEvent.OnRefresh)
+            advanceUntilIdle()
+
+            val afterRefresh =
+                vm.uiState.value.feeds
+                    .find { it.feed.uri == uri }
+            assertEquals(
+                FeedPreviewStatus.Loaded,
+                afterRefresh?.previewStatus,
+                "refresh must not reset previewStatus to Idle for known URIs",
+            )
+            assertEquals(
+                listOf(previewPost),
+                afterRefresh?.preview?.toList(),
+                "refresh must preserve previously-loaded preview posts",
+            )
+        }
+
+    @Test
     fun `feedCardVisible failure sets previewStatus to Error and subsequent call is no-op`() =
         runTest(mainDispatcher.dispatcher) {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"

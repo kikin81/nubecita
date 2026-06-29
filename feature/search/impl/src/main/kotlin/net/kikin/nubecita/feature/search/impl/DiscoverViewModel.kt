@@ -183,12 +183,19 @@ internal class DiscoverViewModel
                         // even before the observer has a chance to re-emit.
                         val pinnedUris = currentPinnedUris.value
                         setState {
+                            // Preserve any already-loaded preview data so a pull-to-refresh
+                            // does not discard previews for feeds that haven't changed URIs.
+                            // New URIs (not in the prior list) start at Idle as normal.
+                            val priorByUri = feeds.associateBy { it.feed.uri }
                             copy(
                                 feeds =
                                     list
                                         .map { feedUi ->
+                                            val prior = priorByUri[feedUi.uri]
                                             DiscoverFeedUi(
                                                 feed = feedUi.copy(isPinned = feedUi.uri in pinnedUris),
+                                                preview = prior?.preview,
+                                                previewStatus = prior?.previewStatus ?: FeedPreviewStatus.Idle,
                                             )
                                         }.toImmutableList(),
                                 feedsStatus = DiscoverSectionStatus.Loaded,

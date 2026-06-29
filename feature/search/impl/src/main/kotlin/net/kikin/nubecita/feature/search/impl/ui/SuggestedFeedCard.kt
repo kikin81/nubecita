@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -217,6 +216,16 @@ private fun FeedPreviewRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        if (post.thumbnailUrl != null) {
+            NubecitaAsyncImage(
+                model = post.thumbnailUrl,
+                contentDescription = null,
+                modifier =
+                    Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+            )
+        }
     }
 }
 
@@ -328,7 +337,8 @@ private val SAMPLE_PREVIEW_POSTS =
             authorHandle = "scientist.bsky.social",
             authorAvatarUrl = null,
             text = "Fascinating new results from the Webb telescope — thread 🧵",
-            thumbnailUrl = null,
+            // Non-null to exercise thumbnail rendering in screenshots (shows placeholder tile).
+            thumbnailUrl = "https://example.com/thumb.jpg",
         ),
         FeedPreviewPostUi(
             authorHandle = "labnotes.bsky.social",
@@ -373,19 +383,3 @@ internal val SAMPLE_FEED_LOADING =
         preview = null,
         previewStatus = FeedPreviewStatus.Loading,
     )
-
-// Expose width constant for carousel layout calculations.
-internal val SUGGESTED_FEED_CARD_WIDTH = CARD_WIDTH
-
-// Expose a no-op spacer for carousels that want equal-height shimmer placeholder.
-@Composable
-internal fun SuggestedFeedCardPlaceholder(modifier: Modifier = Modifier) {
-    Box(
-        modifier =
-            modifier
-                .width(CARD_WIDTH)
-                .height(220.dp),
-    ) {
-        Spacer(modifier = Modifier.fillMaxWidth())
-    }
-}
