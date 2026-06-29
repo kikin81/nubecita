@@ -165,7 +165,7 @@ internal fun rememberFeedInteractions(
     //  - onTap / onAuthorTap / onExternalEmbedTap / onQuotedPostTap — feed
     //    screen-nav slots not present in the shared helper.
     val callbacks =
-        remember(viewModel, context, haptics) {
+        remember(viewModel, context, haptics, interactions.callbacks) {
             interactions.callbacks.copy(
                 onLike = { post ->
                     if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()

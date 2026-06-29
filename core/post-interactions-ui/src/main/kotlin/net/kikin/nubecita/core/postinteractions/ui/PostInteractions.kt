@@ -157,6 +157,13 @@ fun rememberPostInteractions(
             context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         }
 
+    // Wrap the composition-scoped captures the long-lived collector reads so a
+    // config/context change (or a re-provided nav state) is reflected without
+    // restarting the collector — same rationale as currentStrings above.
+    val currentNavState by rememberUpdatedState(navState)
+    val currentContext by rememberUpdatedState(context)
+    val currentClipboardManager by rememberUpdatedState(clipboardManager)
+
     LaunchedEffect(handler, snackbarHostState) {
         handler.interactionEffects.collect { effect ->
             when (effect) {
@@ -180,10 +187,10 @@ fun rememberPostInteractions(
                     snackbarHostState.showSnackbar(message = message)
                 }
 
-                is InteractionEffect.SharePost -> context.launchPostShare(effect.intent)
+                is InteractionEffect.SharePost -> currentContext.launchPostShare(effect.intent)
 
                 is InteractionEffect.CopyPermalink -> {
-                    clipboardManager.setPrimaryClip(
+                    currentClipboardManager.setPrimaryClip(
                         ClipData.newPlainText(currentStrings.clipLabel, effect.permalink),
                     )
                     // Replace any pending error snackbar — a fresh "link
@@ -210,7 +217,7 @@ fun rememberPostInteractions(
                 }
 
                 is InteractionEffect.NavigateToComposer ->
-                    navState.add(
+                    currentNavState.add(
                         ComposerRoute(
                             replyToUri = effect.replyToUri,
                             quotePostUri = effect.quoteUri,
@@ -218,10 +225,10 @@ fun rememberPostInteractions(
                     )
 
                 is InteractionEffect.NavigateToReport ->
-                    navState.add(Report.forPost(effect.post))
+                    currentNavState.add(Report.forPost(effect.post))
 
                 is InteractionEffect.NavigateToBlock ->
-                    navState.add(Block.forAccount(did = effect.did, handle = effect.handle))
+                    currentNavState.add(Block.forAccount(did = effect.did, handle = effect.handle))
             }
         }
     }
