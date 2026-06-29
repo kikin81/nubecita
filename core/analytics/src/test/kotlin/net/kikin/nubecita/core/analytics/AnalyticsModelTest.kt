@@ -176,6 +176,36 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `interact_feed carries feed_action and source_surface`() {
+        val pinFeedView = InteractFeed(action = FeedAction.Pin, surface = PostSurface.FeedView)
+        assertEquals("interact_feed", pinFeedView.name)
+        assertEquals(
+            mapOf(
+                "feed_action" to Str("pin"),
+                "source_surface" to Str("feed_view"),
+            ),
+            pinFeedView.params,
+        )
+
+        val unpinExplore = InteractFeed(action = FeedAction.Unpin, surface = PostSurface.Explore)
+        assertEquals("interact_feed", unpinExplore.name)
+        assertEquals(
+            mapOf(
+                "feed_action" to Str("unpin"),
+                "source_surface" to Str("explore"),
+            ),
+            unpinExplore.params,
+        )
+
+        assertEquals("pin", FeedAction.Pin.wire)
+        assertEquals("unpin", FeedAction.Unpin.wire)
+        assertEquals("feed_view", PostSurface.FeedView.wire)
+        assertEquals("explore", PostSurface.Explore.wire)
+        AnalyticsValidator.requireValid(pinFeedView)
+        AnalyticsValidator.requireValid(unpinExplore)
+    }
+
+    @Test
     fun `every screen exposes a snake_case route name`() {
         val snakeCase = Regex("^[a-z][a-z0-9_]*$")
         AnalyticsScreen.entries.forEach { screen ->

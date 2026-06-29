@@ -15,3 +15,22 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data object Feed : NavKey
+
+/**
+ * Navigation 3 destination key for a single custom/generator feed screen.
+ *
+ * Pushed when the user opens a specific feed from the tab bar or the
+ * Explore/Discover surface. [feedUri] is the AT-URI of the generator or
+ * list feed (`at://…`). [displayName] is the feed's display name as of the
+ * moment of navigation; the screen refreshes the canonical name from the
+ * network and should not persist the nav-time value.
+ *
+ * The URI is intentionally opaque to `:feature:feed:api` — it is never
+ * inspected or parsed here. Consumer screens in `:feature:feed:impl` pass it
+ * through to the repository layer verbatim.
+ */
+@Serializable
+data class FeedView(
+    val feedUri: String,
+    val displayName: String? = null,
+) : NavKey
