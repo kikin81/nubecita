@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.feed.impl.di
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,7 +18,11 @@ import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.api.Feed
+import net.kikin.nubecita.feature.feed.api.FeedView
 import net.kikin.nubecita.feature.feed.impl.FeedHost
+import net.kikin.nubecita.feature.feed.impl.FeedPinViewModel
+import net.kikin.nubecita.feature.feed.impl.FeedViewModel
+import net.kikin.nubecita.feature.feed.impl.FeedViewScreen
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -99,6 +104,54 @@ internal object FeedNavigationModule {
                     // "Quote post" from a PostCard's repost menu — pushes the
                     // composer with the quoted post attached (quote mode).
                     onQuoteClick = { uri -> navState.add(ComposerRoute(quotePostUri = uri)) },
+                )
+            }
+        }
+
+    /**
+     * [FeedView] — a full-screen custom / generator feed screen.
+     *
+     * Plain full-screen, NOT wrapped in `adaptiveDialog()`: mirrors
+     * PostDetail / Profile where the content is a paginated list that
+     * belongs full-screen at every width class.
+     *
+     * Nav-callback wiring follows the same pattern as [provideFeedEntries]:
+     * `LocalMainShellNavState` for inner back-stack pushes, `LocalAppNavigator`
+     * for outer-shell routes (MediaViewer / VideoPlayer) that must escape the
+     * NavigationSuiteScaffold chrome.
+     */
+    @Provides
+    @IntoSet
+    @MainShell
+    fun provideFeedViewEntries(): EntryProviderInstaller =
+        {
+            entry<FeedView> { route ->
+                val navState = LocalMainShellNavState.current
+                val appNavigator = LocalAppNavigator.current
+                FeedViewScreen(
+                    feedUri = route.feedUri,
+                    displayName = route.displayName,
+                    onBack = { navState.removeLast() },
+                    onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
+                    onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
+                    onNavigateToMediaViewer = { uri, idx ->
+                        appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = idx))
+                    },
+                    onNavigateToVideoPlayer = { uri ->
+                        appNavigator.goTo(VideoPlayerRoute(postUri = uri))
+                    },
+                    onNavigateTo = { key -> navState.add(key) },
+                    onReplyClick = { uri -> navState.add(ComposerRoute(replyToUri = uri)) },
+                    onQuoteClick = { uri -> navState.add(ComposerRoute(quotePostUri = uri)) },
+                    // Per-NavEntry VMs: hiltViewModel() scopes each to the
+                    // FeedView back-stack entry via rememberViewModelStoreNavEntryDecorator.
+                    // FeedPinViewModel uses the assisted factory so the feedUri
+                    // flows into its constructor without a SavedStateHandle decode.
+                    viewModel = hiltViewModel<FeedViewModel>(),
+                    pinViewModel =
+                        hiltViewModel<FeedPinViewModel, FeedPinViewModel.Factory>(
+                            creationCallback = { factory -> factory.create(route.feedUri) },
+                        ),
                 )
             }
         }

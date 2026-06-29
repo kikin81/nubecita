@@ -367,6 +367,48 @@ class SearchFeedsViewModelTest {
         }
 
     @Test
+    fun feedTapped_emitsNavigateToFeedEffect() =
+        runTest {
+            val vm = SearchFeedsViewModel(repo, analytics)
+            vm.effects.test {
+                vm.handleEvent(
+                    SearchFeedsEvent.FeedTapped(
+                        uri = "at://did:plc:fake/app.bsky.feed.generator/discover",
+                        displayName = "Discover",
+                    ),
+                )
+                runCurrent()
+
+                val effect = awaitItem()
+                assertTrue(effect is SearchFeedsEffect.NavigateToFeed)
+                effect as SearchFeedsEffect.NavigateToFeed
+                assertEquals("at://did:plc:fake/app.bsky.feed.generator/discover", effect.uri)
+                assertEquals("Discover", effect.displayName)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun feedTapped_nullDisplayName_emitsNavigateToFeedWithNullDisplayName() =
+        runTest {
+            val vm = SearchFeedsViewModel(repo, analytics)
+            vm.effects.test {
+                vm.handleEvent(
+                    SearchFeedsEvent.FeedTapped(
+                        uri = "at://did:plc:fake/app.bsky.feed.generator/discover",
+                        displayName = null,
+                    ),
+                )
+                runCurrent()
+
+                val effect = awaitItem()
+                assertTrue(effect is SearchFeedsEffect.NavigateToFeed)
+                assertEquals(null, (effect as SearchFeedsEffect.NavigateToFeed).displayName)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun setQuery_becomesBlankAfterLoaded_resetsToIdle() =
         runTest {
             val vm = SearchFeedsViewModel(repo, analytics)

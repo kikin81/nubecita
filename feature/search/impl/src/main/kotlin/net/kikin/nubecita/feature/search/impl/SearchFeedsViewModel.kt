@@ -35,13 +35,6 @@ import javax.inject.Inject
  * Does NOT inject the parent [SearchViewModel] — Hilt-injecting
  * ViewModels into each other is a smell. The screen Composable is the
  * orchestration seam.
- *
- * No tap-through event in V1: `FeedRow` ships without a `clickable`
- * modifier until `:feature:feeddetail:api` exists. When the route
- * lands, add a `FeedTapped(uri)` event + a
- * `SearchFeedsEffect.NavigateToFeed(uri)` emission here, and the
- * screen Composable collects it the same way the Posts and People tabs
- * handle their nav effects.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -88,6 +81,8 @@ internal class SearchFeedsViewModel
                     fetchKey.update { it.copy(incarnation = it.incarnation + 1) }
                 SearchFeedsEvent.ClearQueryClicked ->
                     sendEffect(SearchFeedsEffect.NavigateToClearQuery)
+                is SearchFeedsEvent.FeedTapped ->
+                    sendEffect(SearchFeedsEffect.NavigateToFeed(event.uri, event.displayName))
             }
         }
 

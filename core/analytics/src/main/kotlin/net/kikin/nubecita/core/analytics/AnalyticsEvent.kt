@@ -135,6 +135,8 @@ enum class PostSurface(
     PostDetail("post_detail"),
     Profile("profile"),
     Search("search"),
+    FeedView("feed_view"),
+    Explore("explore"),
 }
 
 /** Fired at like/repost/quote/reply call sites. */
@@ -193,6 +195,32 @@ data class Share(
         mapOf(
             "method" to Str(method.wire),
             "content_type" to Str("post"),
+            "source_surface" to Str(surface.wire),
+        )
+}
+
+/** The action taken on a feed (pin/unpin to the tab bar). */
+enum class FeedAction(
+    val wire: String,
+) {
+    Pin("pin"),
+    Unpin("unpin"),
+}
+
+/**
+ * Fired when the user pins or unpins a feed. [surface] distinguishes the
+ * originating screen: [PostSurface.FeedView] when acting from the feed's own
+ * tab (Component B), [PostSurface.Explore] when acting from the Discover
+ * surface (Component C).
+ */
+data class InteractFeed(
+    val action: FeedAction,
+    val surface: PostSurface,
+) : AnalyticsEvent {
+    override val name: String = "interact_feed"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "feed_action" to Str(action.wire),
             "source_surface" to Str(surface.wire),
         )
 }

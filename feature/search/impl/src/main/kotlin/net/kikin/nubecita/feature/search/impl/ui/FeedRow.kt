@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.search.impl.ui
 
 import android.content.res.Configuration
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,13 +38,8 @@ import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
  * description, capped at 2 lines. Trailing meta line: localized
  * "%d like(s)".
  *
- * **Non-interactive in V1.** There is intentionally no `clickable`
- * modifier here. `:feature:feeddetail:api` doesn't exist yet, so a
- * tap target would be a phantom affordance — visible ripple plus an
- * accessibility "Activate" action that does nothing. When the route
- * lands, add a `clickable` modifier (and the matching `onClick`
- * parameter) in the same commit that ships the
- * `SearchFeedsEffect.NavigateToFeed` emission.
+ * [onClick] opens the feed's [net.kikin.nubecita.feature.feed.api.FeedView]
+ * screen. The tap target covers the full row width.
  *
  * No query-substring highlighting — the Feeds tab doesn't do it (see
  * [net.kikin.nubecita.feature.search.impl.SearchFeedsContract]'s KDoc).
@@ -51,12 +47,14 @@ import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
 @Composable
 internal fun FeedRow(
     feed: FeedGeneratorUi,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
+                .clickable(onClick = onClick)
                 .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
@@ -123,7 +121,7 @@ internal fun FeedRow(
 @Composable
 private fun FeedRowLightPreview() {
     NubecitaTheme {
-        FeedRow(feed = SAMPLE_FEED)
+        FeedRow(feed = SAMPLE_FEED, onClick = {})
     }
 }
 
@@ -131,7 +129,7 @@ private fun FeedRowLightPreview() {
 @Composable
 private fun FeedRowDarkPreview() {
     NubecitaTheme {
-        FeedRow(feed = SAMPLE_FEED)
+        FeedRow(feed = SAMPLE_FEED, onClick = {})
     }
 }
 
@@ -139,7 +137,7 @@ private fun FeedRowDarkPreview() {
 @Composable
 private fun FeedRowNoCreatorDisplayNamePreview() {
     NubecitaTheme {
-        FeedRow(feed = SAMPLE_FEED.copy(creatorDisplayName = null, description = null))
+        FeedRow(feed = SAMPLE_FEED.copy(creatorDisplayName = null, description = null), onClick = {})
     }
 }
 

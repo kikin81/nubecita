@@ -66,11 +66,11 @@ internal sealed interface SearchFeedsEvent : UiEvent {
     /** Empty-state "Clear search" button. Parent VM clears the field via effect. */
     data object ClearQueryClicked : SearchFeedsEvent
 
-    // Tap on a feed row intentionally has no event in V1 — `FeedRow`
-    // ships without a `clickable` modifier until `:feature:feeddetail:api`
-    // exists. When the route lands, add the event + a
-    // `SearchFeedsEffect.NavigateToFeed` and wire the screen Composable's
-    // LaunchedEffect alongside the new `clickable` on `FeedRow`.
+    /** Tap on a feed row — emits [SearchFeedsEffect.NavigateToFeed]. */
+    data class FeedTapped(
+        val uri: String,
+        val displayName: String?,
+    ) : SearchFeedsEvent
 }
 
 internal sealed interface SearchFeedsEffect : UiEffect {
@@ -84,4 +84,10 @@ internal sealed interface SearchFeedsEffect : UiEffect {
      * (via the host screen) which owns the canonical `TextFieldState`.
      */
     data object NavigateToClearQuery : SearchFeedsEffect
+
+    /** Push [net.kikin.nubecita.feature.feed.api.FeedView] onto the MainShell nav stack. */
+    data class NavigateToFeed(
+        val uri: String,
+        val displayName: String?,
+    ) : SearchFeedsEffect
 }

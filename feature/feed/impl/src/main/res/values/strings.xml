@@ -75,4 +75,11 @@
     <string name="feed_lists_chip_selected">List: %1$s</string>
     <string name="feed_lists_sheet_title">Pinned lists</string>
     <string name="feed_add_feeds_button_content_description">Manage feeds</string>
+
+    <!-- FeedViewScreen — custom / generator feed detail -->
+    <string name="feed_view_title_generic">Feed</string>
+    <string name="feed_view_back_content_description">Navigate back</string>
+    <string name="feed_view_pin_content_description">Pin feed to tab bar</string>
+    <string name="feed_view_unpin_content_description">Unpin feed from tab bar</string>
+    <string name="feed_view_snackbar_pin_error">Couldn\'t update pin — try again</string>
 </resources>
