@@ -19,8 +19,6 @@ import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
-import net.kikin.nubecita.core.postinteractions.InteractionEffect
-import net.kikin.nubecita.core.postinteractions.InteractionError
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -31,14 +29,11 @@ import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
-import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import net.kikin.nubecita.feature.feed.impl.data.linksToWire
-import net.kikin.nubecita.feature.moderation.api.Block
-import net.kikin.nubecita.feature.moderation.api.Report
 import java.io.IOException
 import javax.inject.Inject
 
@@ -92,42 +87,6 @@ class FeedViewModel
                             lastLikeTapPostUri = markers.lastLikeTapPostUri,
                             lastRepostTapPostUri = markers.lastRepostTapPostUri,
                         )
-                    }
-                }
-            }
-
-            // Forward handler effects → FeedEffect. The handler's interactionEffects
-            // channel is single-consumer; this collector must be the only one so that
-            // rememberPostInteractions' LaunchedEffect (started later from the screen)
-            // receives nothing and all effects stay in the VM's own effects channel.
-            viewModelScope.launch {
-                handler.interactionEffects.collect { effect ->
-                    when (effect) {
-                        is InteractionEffect.ShowError ->
-                            sendEffect(FeedEffect.ShowError(effect.error.toFeedError()))
-                        is InteractionEffect.SharePost ->
-                            sendEffect(FeedEffect.SharePost(effect.intent))
-                        is InteractionEffect.CopyPermalink ->
-                            sendEffect(FeedEffect.CopyPermalink(effect.permalink))
-                        is InteractionEffect.ShowComingSoon ->
-                            sendEffect(FeedEffect.ShowComingSoon(effect.action))
-                        is InteractionEffect.NavigateToReport ->
-                            sendEffect(FeedEffect.NavigateTo(Report.forPost(effect.post)))
-                        is InteractionEffect.NavigateToBlock ->
-                            sendEffect(
-                                FeedEffect.NavigateTo(
-                                    Block.forAccount(did = effect.did, handle = effect.handle),
-                                ),
-                            )
-                        is InteractionEffect.NavigateToComposer ->
-                            sendEffect(
-                                FeedEffect.NavigateTo(
-                                    ComposerRoute(
-                                        replyToUri = effect.replyToUri,
-                                        quotePostUri = effect.quoteUri,
-                                    ),
-                                ),
-                            )
                     }
                 }
             }
@@ -480,14 +439,6 @@ class FeedViewModel
                 is NoSessionException -> FeedError.Unauthenticated
                 is IOException -> FeedError.Network
                 else -> FeedError.Unknown(cause = message)
-            }
-
-        /** Maps an [InteractionError] (from the shared handler) to a [FeedError]. */
-        private fun InteractionError.toFeedError(): FeedError =
-            when (this) {
-                InteractionError.Network -> FeedError.Network
-                InteractionError.Unauthenticated -> FeedError.Unauthenticated
-                InteractionError.Unknown -> FeedError.Unknown(cause = null)
             }
     }
 

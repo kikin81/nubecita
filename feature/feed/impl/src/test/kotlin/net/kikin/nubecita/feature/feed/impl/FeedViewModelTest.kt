@@ -15,6 +15,7 @@ import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
@@ -786,12 +787,14 @@ internal class FeedViewModelTest {
             val vm = FeedViewModel(FakeFeedRepository(), cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache))
             advanceUntilIdle()
 
-            vm.effects.test {
+            // interactionEffects (not vm.effects) — the VM no longer forwards
+            // handler effects; rememberPostInteractions observes them directly.
+            vm.interactionEffects.test {
                 vm.onLike(samplePost(id = "at://post-x", cid = "bafyX"))
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is FeedEffect.ShowError, "MUST emit ShowError on cache failure")
+                assertTrue(effect is InteractionEffect.ShowError, "MUST emit ShowError on cache failure")
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -951,12 +954,14 @@ internal class FeedViewModelTest {
             val vm = FeedViewModel(FakeFeedRepository(), cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache))
             advanceUntilIdle()
 
-            vm.effects.test {
+            // interactionEffects (not vm.effects) — the VM no longer forwards
+            // handler effects; rememberPostInteractions observes them directly.
+            vm.interactionEffects.test {
                 vm.onRepost(samplePost(id = "at://post-y", cid = "bafyY"))
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is FeedEffect.ShowError, "MUST emit ShowError on cache failure")
+                assertTrue(effect is InteractionEffect.ShowError, "MUST emit ShowError on cache failure")
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -1177,12 +1182,14 @@ internal class FeedViewModelTest {
                     id = "at://did:plc:fake/app.bsky.feed.post/3krkey1",
                 )
 
-            vm.effects.test {
+            // interactionEffects (not vm.effects) — the VM no longer forwards
+            // handler effects; rememberPostInteractions observes them directly.
+            vm.interactionEffects.test {
                 vm.onShare(post)
 
                 val effect = awaitItem()
-                assertTrue(effect is FeedEffect.SharePost, "expected SharePost, got $effect")
-                val intent = (effect as FeedEffect.SharePost).intent
+                assertTrue(effect is InteractionEffect.SharePost, "expected SharePost, got $effect")
+                val intent = (effect as InteractionEffect.SharePost).intent
                 assertEquals(
                     "https://bsky.app/profile/fake.bsky.social/post/3krkey1",
                     intent.permalink,
@@ -1204,14 +1211,16 @@ internal class FeedViewModelTest {
                     id = "at://did:plc:fake/app.bsky.feed.post/3krkey9",
                 )
 
-            vm.effects.test {
+            // interactionEffects (not vm.effects) — the VM no longer forwards
+            // handler effects; rememberPostInteractions observes them directly.
+            vm.interactionEffects.test {
                 vm.onShareLongPress(post)
 
                 val effect = awaitItem()
-                assertTrue(effect is FeedEffect.CopyPermalink, "expected CopyPermalink, got $effect")
+                assertTrue(effect is InteractionEffect.CopyPermalink, "expected CopyPermalink, got $effect")
                 assertEquals(
                     "https://bsky.app/profile/fake.bsky.social/post/3krkey9",
-                    (effect as FeedEffect.CopyPermalink).permalink,
+                    (effect as InteractionEffect.CopyPermalink).permalink,
                 )
             }
         }
@@ -1298,8 +1307,8 @@ internal class FeedViewModelTest {
 
             // The remaining stubbed overflow variants still pass through
             // as ShowComingSoon. ReportPost (oftc.3) and BlockAuthor
-            // (oftc.16) have graduated to NavigateTo; MuteAuthor /
-            // UnmuteAuthor (oftc.5) have graduated to real mute logic.
+            // (oftc.16) have graduated to NavigateToReport/NavigateToBlock;
+            // MuteAuthor / UnmuteAuthor (oftc.5) have graduated to real mute logic.
             val variants =
                 listOf(
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
@@ -1308,29 +1317,28 @@ internal class FeedViewModelTest {
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
                 )
 
-            vm.effects.test {
+            // interactionEffects (not vm.effects) — the VM no longer forwards
+            // handler effects; rememberPostInteractions observes them directly.
+            vm.interactionEffects.test {
                 for (action in variants) {
                     vm.handleEvent(FeedEvent.OnOverflowAction(post = post, action = action))
                     val effect = awaitItem()
                     assertTrue(
-                        effect is FeedEffect.ShowComingSoon,
+                        effect is InteractionEffect.ShowComingSoon,
                         "expected ShowComingSoon, got $effect (variant=$action)",
                     )
-                    assertEquals(action, (effect as FeedEffect.ShowComingSoon).action)
+                    assertEquals(action, (effect as InteractionEffect.ShowComingSoon).action)
                 }
             }
         }
 
     @Test
-    fun `OnOverflowAction(ReportPost) emits NavigateTo with a Report Post NavKey`() =
+    fun `OnOverflowAction(ReportPost) emits NavigateToReport with matching post uri + cid`() =
         // Pin: oftc.3 graduates the Report overflow row out of the
-        // ShowComingSoon stub. The VM emits exactly one
-        // FeedEffect.NavigateTo carrying a Report(ReportSubject.Post(...))
-        // whose uri + cid match the tapped post — the screen-side
-        // collector pushes the NavKey onto LocalMainShellNavState. No
-        // state field changes (the post list, cursor, and load status
-        // are untouched), and no ShowComingSoon / ShowError races into
-        // the channel.
+        // ShowComingSoon stub. The handler emits InteractionEffect.NavigateToReport
+        // (not forwarded through FeedEffect.NavigateTo anymore —
+        // rememberPostInteractions observes interactionEffects directly).
+        // No state field changes, no ShowComingSoon / ShowError races.
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
             val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
@@ -1342,7 +1350,9 @@ internal class FeedViewModelTest {
                 )
 
             val stateBefore = vm.uiState.value
-            vm.effects.test {
+            // interactionEffects (not vm.effects) — the VM no longer forwards
+            // handler effects; rememberPostInteractions observes them directly.
+            vm.interactionEffects.test {
                 vm.handleEvent(
                     FeedEvent.OnOverflowAction(
                         post = post,
@@ -1352,24 +1362,12 @@ internal class FeedViewModelTest {
 
                 val effect = awaitItem()
                 assertTrue(
-                    effect is FeedEffect.NavigateTo,
-                    "expected NavigateTo, got $effect",
+                    effect is InteractionEffect.NavigateToReport,
+                    "expected NavigateToReport, got $effect",
                 )
-                val key = (effect as FeedEffect.NavigateTo).key
-                assertTrue(
-                    key is net.kikin.nubecita.feature.moderation.api.Report,
-                    "expected Report NavKey, got $key",
-                )
-                val subject = (key as net.kikin.nubecita.feature.moderation.api.Report).subject
-                assertTrue(
-                    subject is net.kikin.nubecita.feature.moderation.api.ReportSubject.Post,
-                    "expected ReportSubject.Post, got $subject",
-                )
-                assertEquals(
-                    post.id,
-                    (subject as net.kikin.nubecita.feature.moderation.api.ReportSubject.Post).uri,
-                )
-                assertEquals(post.cid, subject.cid)
+                val reportPost = (effect as InteractionEffect.NavigateToReport).post
+                assertEquals(post.id, reportPost.id)
+                assertEquals(post.cid, reportPost.cid)
             }
             // Sticky state must not have moved — no spurious feedItems /
             // cursor / loadStatus mutation as a side effect.
@@ -1377,11 +1375,11 @@ internal class FeedViewModelTest {
         }
 
     @Test
-    fun `OnOverflowAction(BlockAuthor) emits NavigateTo with a Block NavKey for the author`() =
-        // Pin: oftc.16 graduates the Block overflow row to NavigateTo —
-        // the VM emits FeedEffect.NavigateTo(Block.forAccount(did, handle))
-        // for the tapped post's author; the screen collector pushes it onto
-        // the nav stack where ModerationNavigationModule resolves the dialog.
+    fun `OnOverflowAction(BlockAuthor) emits NavigateToBlock with the author did + handle`() =
+        // Pin: oftc.16 graduates the Block overflow row to NavigateToBlock —
+        // the handler emits InteractionEffect.NavigateToBlock(did, handle)
+        // (not forwarded through FeedEffect.NavigateTo anymore —
+        // rememberPostInteractions observes interactionEffects directly).
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
             val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
@@ -1389,7 +1387,9 @@ internal class FeedViewModelTest {
             val post = samplePost("at://did:plc:fake/app.bsky.feed.post/blk1")
 
             val stateBefore = vm.uiState.value
-            vm.effects.test {
+            // interactionEffects (not vm.effects) — the VM no longer forwards
+            // handler effects; rememberPostInteractions observes them directly.
+            vm.interactionEffects.test {
                 vm.handleEvent(
                     FeedEvent.OnOverflowAction(
                         post = post,
@@ -1397,15 +1397,10 @@ internal class FeedViewModelTest {
                     ),
                 )
                 val effect = awaitItem()
-                assertTrue(effect is FeedEffect.NavigateTo, "expected NavigateTo, got $effect")
-                val key = (effect as FeedEffect.NavigateTo).key
-                assertTrue(
-                    key is net.kikin.nubecita.feature.moderation.api.Block,
-                    "expected Block NavKey, got $key",
-                )
-                key as net.kikin.nubecita.feature.moderation.api.Block
-                assertEquals(post.author.did, key.did)
-                assertEquals(post.author.handle, key.handle)
+                assertTrue(effect is InteractionEffect.NavigateToBlock, "expected NavigateToBlock, got $effect")
+                val block = effect as InteractionEffect.NavigateToBlock
+                assertEquals(post.author.did, block.did)
+                assertEquals(post.author.handle, block.handle)
             }
             assertSame(stateBefore, vm.uiState.value)
         }
