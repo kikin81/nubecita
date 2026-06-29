@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
@@ -131,6 +132,14 @@ sealed interface FeedEvent : UiEvent {
     data class Bind(
         val feedUri: String,
         val kind: FeedKind,
+        /**
+         * The analytics surface this binding represents — drives the
+         * `source_surface` on post-interaction events (like/repost/share).
+         * Defaults to [PostSurface.Feed] (the home feed); [FeedViewScreen]
+         * binds with [PostSurface.FeedView] so its post interactions are
+         * attributed distinctly even though it reuses this same VM.
+         */
+        val surface: PostSurface = PostSurface.Feed,
     ) : FeedEvent
 
     /** First load on screen entry. Idempotent — repeated `Load` while loading is a no-op. */

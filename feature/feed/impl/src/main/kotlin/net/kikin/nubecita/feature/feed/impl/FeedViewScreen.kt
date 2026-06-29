@@ -46,6 +46,7 @@ import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.collectLatest
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.time.LocalClock
@@ -117,7 +118,9 @@ internal fun FeedViewScreen(
     // concurrent coroutines whose ordering is non-deterministic; worst-case
     // Load fires first and is immediately cancelled when Bind resets the VM).
     LaunchedEffect(feedUri) {
-        viewModel.handleEvent(FeedEvent.Bind(feedUri, FeedKind.Generator))
+        viewModel.handleEvent(
+            FeedEvent.Bind(feedUri, FeedKind.Generator, surface = PostSurface.FeedView),
+        )
         viewModel.handleEvent(FeedEvent.Load)
     }
 
