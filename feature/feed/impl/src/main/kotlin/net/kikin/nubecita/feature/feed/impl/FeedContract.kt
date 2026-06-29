@@ -201,23 +201,6 @@ sealed interface FeedEvent : UiEvent {
         val postUri: String,
     ) : FeedEvent
 
-    data class OnLikeClicked(
-        val post: PostUi,
-    ) : FeedEvent
-
-    data class OnRepostClicked(
-        val post: PostUi,
-    ) : FeedEvent
-
-    data class OnShareClicked(
-        val post: PostUi,
-    ) : FeedEvent
-
-    /** Long-press on the share button — copy the post permalink to the clipboard. */
-    data class OnShareLongPressed(
-        val post: PostUi,
-    ) : FeedEvent
-
     /**
      * The user just submitted a reply with parent post URI [parentUri]
      * — emitted from `LocalComposerSubmitEvents` after the composer

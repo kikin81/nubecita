@@ -14,25 +14,24 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.FeedType
-import net.kikin.nubecita.core.analytics.InteractPost
-import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
-import net.kikin.nubecita.core.analytics.Share
-import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.postinteractions.InteractionEffect
+import net.kikin.nubecita.core.postinteractions.InteractionError
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
-import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
@@ -52,7 +51,9 @@ class FeedViewModel
         val sharedVideoPlayer: SharedVideoPlayer,
         private val analytics: AnalyticsClient,
         private val muteRepository: MuteRepository,
-    ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()) {
+        private val handler: PostInteractionHandler,
+    ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()),
+        PostInteractionHandler by handler {
         /**
          * The feed this VM renders, bound once via [FeedEvent.Bind]
          * before the first load. Defaults to the Following timeline so a
@@ -63,14 +64,6 @@ class FeedViewModel
          */
         private var boundFeedUri: String = ""
         private var boundKind: FeedKind = FeedKind.Following
-
-        /**
-         * The analytics surface of the current binding — set by [bind] from
-         * [FeedEvent.Bind.surface]. Drives `source_surface` on post-interaction
-         * events so the same reused VM reports `feed` for the home feed and
-         * `feed_view` for [FeedViewScreen]. Defaults to [PostSurface.Feed].
-         */
-        private var boundSurface: PostSurface = PostSurface.Feed
 
         /**
          * The currently in-flight page fetch launched by [load] /
@@ -87,6 +80,58 @@ class FeedViewModel
         private var loadJob: Job? = null
 
         init {
+            // Bind the handler to Feed surface and this VM's scope first.
+            handler.bind(PostSurface.Feed, viewModelScope)
+
+            // Mirror handler tap-markers into FeedState so FeedScreenContent
+            // can animate the ±1 count transition before the network resolves.
+            viewModelScope.launch {
+                handler.tapMarkers.collect { markers ->
+                    setState {
+                        copy(
+                            lastLikeTapPostUri = markers.lastLikeTapPostUri,
+                            lastRepostTapPostUri = markers.lastRepostTapPostUri,
+                        )
+                    }
+                }
+            }
+
+            // Forward handler effects → FeedEffect. The handler's interactionEffects
+            // channel is single-consumer; this collector must be the only one so that
+            // rememberPostInteractions' LaunchedEffect (started later from the screen)
+            // receives nothing and all effects stay in the VM's own effects channel.
+            viewModelScope.launch {
+                handler.interactionEffects.collect { effect ->
+                    when (effect) {
+                        is InteractionEffect.ShowError ->
+                            sendEffect(FeedEffect.ShowError(effect.error.toFeedError()))
+                        is InteractionEffect.SharePost ->
+                            sendEffect(FeedEffect.SharePost(effect.intent))
+                        is InteractionEffect.CopyPermalink ->
+                            sendEffect(FeedEffect.CopyPermalink(effect.permalink))
+                        is InteractionEffect.ShowComingSoon ->
+                            sendEffect(FeedEffect.ShowComingSoon(effect.action))
+                        is InteractionEffect.NavigateToReport ->
+                            sendEffect(FeedEffect.NavigateTo(Report.forPost(effect.post)))
+                        is InteractionEffect.NavigateToBlock ->
+                            sendEffect(
+                                FeedEffect.NavigateTo(
+                                    Block.forAccount(did = effect.did, handle = effect.handle),
+                                ),
+                            )
+                        is InteractionEffect.NavigateToComposer ->
+                            sendEffect(
+                                FeedEffect.NavigateTo(
+                                    ComposerRoute(
+                                        replyToUri = effect.replyToUri,
+                                        quotePostUri = effect.quoteUri,
+                                    ),
+                                ),
+                            )
+                    }
+                }
+            }
+
             viewModelScope.launch {
                 postInteractionsCache.state
                     .map { snapshot -> uiState.value.feedItems.applyInteractions(snapshot) }
@@ -109,108 +154,63 @@ class FeedViewModel
                     sendEffect(FeedEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
                 is FeedEvent.OnQuotedPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.quotedPostUri))
                 is FeedEvent.OnVideoTapped -> sendEffect(FeedEffect.NavigateToVideoPlayer(event.postUri))
-                is FeedEvent.OnLikeClicked -> {
-                    // Fire-and-forget analytics at the like call site. The
-                    // action direction is read from the pre-tap viewer state:
-                    // a currently-liked post is being unliked. No PII — only
-                    // the action enum + the originating surface go on the wire.
-                    analytics.log(
-                        InteractPost(
-                            action = if (event.post.viewer.isLikedByViewer) PostAction.Unlike else PostAction.Like,
-                            surface = boundSurface,
-                        ),
-                    )
-                    // Mark the latest user-tapped post so the screen can
-                    // animate the count's ±1 transition. Sticky — sees
-                    // through the optimistic flip in the cache that
-                    // arrives on the next merged emission.
-                    setState { copy(lastLikeTapPostUri = event.post.id) }
-                    viewModelScope.launch {
-                        postInteractionsCache
-                            .toggleLike(event.post.id, event.post.cid)
-                            .onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
-                    }
-                }
-                is FeedEvent.OnRepostClicked -> {
-                    analytics.log(
-                        InteractPost(
-                            action = if (event.post.viewer.isRepostedByViewer) PostAction.Unrepost else PostAction.Repost,
-                            surface = boundSurface,
-                        ),
-                    )
-                    setState { copy(lastRepostTapPostUri = event.post.id) }
-                    viewModelScope.launch {
-                        postInteractionsCache
-                            .toggleRepost(event.post.id, event.post.cid)
-                            .onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
-                    }
-                }
-                is FeedEvent.OnShareClicked -> {
-                    analytics.log(Share(ShareMethod.ShareSheet, boundSurface))
-                    sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
-                }
-                is FeedEvent.OnShareLongPressed -> {
-                    analytics.log(Share(ShareMethod.CopyLink, boundSurface))
-                    sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))
-                }
                 is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
-                is FeedEvent.OnOverflowAction ->
-                    when (event.action) {
-                        PostOverflowAction.ReportPost ->
-                            sendEffect(FeedEffect.NavigateTo(Report.forPost(event.post)))
-                        PostOverflowAction.BlockAuthor ->
-                            sendEffect(
-                                FeedEffect.NavigateTo(
-                                    Block.forAccount(did = event.post.author.did, handle = event.post.author.handle),
-                                ),
-                            )
-                        PostOverflowAction.MuteAuthor -> {
-                            val authorDid = event.post.author.did
-                            val previousItems = uiState.value.feedItems
-                            setState { copy(feedItems = feedItems.removeItemsByAuthor(authorDid)) }
-                            viewModelScope.launch {
-                                muteRepository
-                                    .muteActor(authorDid)
-                                    .onFailure {
-                                        setState { copy(feedItems = previousItems) }
-                                        sendEffect(FeedEffect.ShowError(it.toFeedError()))
-                                    }
+                is FeedEvent.OnOverflowAction -> onOverflowAction(event.post, event.action)
+            }
+        }
+
+        /**
+         * Feed-specific override: MuteAuthor / UnmuteAuthor carry optimistic
+         * feedItems mutations and a rollback on failure, which must stay in this
+         * VM rather than in the shared [PostInteractionHandler]. All other
+         * overflow actions are forwarded to the injected [handler] which emits the
+         * appropriate [InteractionEffect] onto the channel consumed by [init].
+         */
+        override fun onOverflowAction(
+            post: PostUi,
+            action: PostOverflowAction,
+        ) {
+            when (action) {
+                PostOverflowAction.MuteAuthor -> {
+                    val authorDid = post.author.did
+                    val previousItems = uiState.value.feedItems
+                    setState { copy(feedItems = feedItems.removeItemsByAuthor(authorDid)) }
+                    viewModelScope.launch {
+                        muteRepository
+                            .muteActor(authorDid)
+                            .onFailure {
+                                setState { copy(feedItems = previousItems) }
+                                sendEffect(FeedEffect.ShowError(it.toFeedError()))
                             }
-                        }
-                        PostOverflowAction.UnmuteAuthor -> {
-                            val authorDid = event.post.author.did
-                            setState {
-                                copy(
-                                    feedItems =
-                                        feedItems.updateViewerStateByAuthor(authorDid) {
-                                            it.copy(isAuthorMutedByViewer = false)
-                                        },
-                                )
-                            }
-                            viewModelScope.launch {
-                                muteRepository
-                                    .unmuteActor(authorDid)
-                                    .onFailure {
-                                        setState {
-                                            copy(
-                                                feedItems =
-                                                    feedItems.updateViewerStateByAuthor(authorDid) {
-                                                        it.copy(isAuthorMutedByViewer = true)
-                                                    },
-                                            )
-                                        }
-                                        sendEffect(FeedEffect.ShowError(it.toFeedError()))
-                                    }
-                            }
-                        }
-                        // Unblock has no primitive yet (block is one-way for now); keep it
-                        // "coming soon" until the moderation epic adds unblock.
-                        PostOverflowAction.UnblockAuthor,
-                        PostOverflowAction.MuteThread,
-                        PostOverflowAction.UnmuteThread,
-                        PostOverflowAction.CopyPostText,
-                        -> sendEffect(FeedEffect.ShowComingSoon(event.action))
                     }
+                }
+                PostOverflowAction.UnmuteAuthor -> {
+                    val authorDid = post.author.did
+                    setState {
+                        copy(
+                            feedItems =
+                                feedItems.updateViewerStateByAuthor(authorDid) {
+                                    it.copy(isAuthorMutedByViewer = false)
+                                },
+                        )
+                    }
+                    viewModelScope.launch {
+                        muteRepository
+                            .unmuteActor(authorDid)
+                            .onFailure {
+                                setState {
+                                    copy(
+                                        feedItems =
+                                            feedItems.updateViewerStateByAuthor(authorDid) {
+                                                it.copy(isAuthorMutedByViewer = true)
+                                            },
+                                    )
+                                }
+                                sendEffect(FeedEffect.ShowError(it.toFeedError()))
+                            }
+                    }
+                }
+                else -> handler.onOverflowAction(post, action)
             }
         }
 
@@ -263,8 +263,9 @@ class FeedViewModel
             surface: PostSurface,
         ) {
             // surface always tracks the latest binding (cheap) even when the
-            // feedUri/kind pair is unchanged.
-            boundSurface = surface
+            // feedUri/kind pair is unchanged — re-binding drives analytics surface
+            // attribution for like/repost/share events via the handler.
+            handler.bind(surface, viewModelScope)
             if (boundFeedUri == feedUri && boundKind == kind) return
             boundFeedUri = feedUri
             boundKind = kind
@@ -479,6 +480,14 @@ class FeedViewModel
                 is NoSessionException -> FeedError.Unauthenticated
                 is IOException -> FeedError.Network
                 else -> FeedError.Unknown(cause = message)
+            }
+
+        /** Maps an [InteractionError] (from the shared handler) to a [FeedError]. */
+        private fun InteractionError.toFeedError(): FeedError =
+            when (this) {
+                InteractionError.Network -> FeedError.Network
+                InteractionError.Unauthenticated -> FeedError.Unauthenticated
+                InteractionError.Unknown -> FeedError.Unknown(cause = null)
             }
     }
 

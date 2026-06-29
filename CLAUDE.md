@@ -179,6 +179,20 @@ The exception is bounded:
 
 Reference implementation: `:feature:composer:impl/ComposerViewModel`. Rationale: `openspec/changes/add-composer-mention-typeahead/design.md` (decisions §1 and §2).
 
+#### Sanctioned MVI exception: post-interaction screens delegate via `PostInteractionHandler by handler`
+
+Screens that host post cards (like, repost, share, overflow menu) MAY have their ViewModel implement `PostInteractionHandler` via Kotlin `by` delegation — `class FooViewModel : MviViewModel<…>(…), PostInteractionHandler by handler` — where `handler: PostInteractionHandler` is an injected constructor parameter backed by `DefaultPostInteractionHandler`. The screen Composable calls `viewModel.onLike(post)` / `viewModel.onRepost(post)` / etc. directly (not via `handleEvent`) since those methods are delegation-forwarded.
+
+The exception is bounded:
+
+- The VM's `init` block MUST call `handler.bind(surface, viewModelScope)` and install two long-lived coroutines: one to mirror `handler.tapMarkers` into `UiState`, and one to forward each `InteractionEffect` as the matching `UiEffect` sub-type. This ensures the single-consumer `Channel`-backed `interactionEffects` flow is drained by the VM before any Compose `LaunchedEffect` starts — tests assert on `vm.effects`, not on the handler's channel.
+- The VM MUST override `onOverflowAction` for any actions it handles locally (e.g. `MuteAuthor`/`UnmuteAuthor` with optimistic remove + rollback); all other overflow actions delegate to `handler.onOverflowAction`.
+- `onReply` / `onQuote` in screens that handle those natively (e.g. Feed's inline composer entry points) bypass the handler entirely — the screen's `PostCallbacks` routes them directly without calling `viewModel.onReply`/`viewModel.onQuote`.
+- `PostInteractionHandler` is unscoped in Hilt — each ViewModel injection gets a fresh `DefaultPostInteractionHandler` instance.
+- Test doubles implement `FakePostInteractionHandler` in the feature's `src/test` set; they share a `FakePostInteractionsCache` with the VM to preserve cache-level assertions.
+
+Reference implementations: `:feature:feed:impl/FeedViewModel`, `:feature:postdetail:impl/PostDetailViewModel`, `:feature:profile:impl/ProfileViewModel`.
+
 ### Tab re-tap / scroll-to-top convention
 
 `MainShell` provides `LocalTabReTapSignal` — a `CompositionLocal<SharedFlow<Unit>>`. Any feature screen that wants to respond to a tab re-tap (scroll to top, etc.) reads this local and launches a `collectLatest` in a `LaunchedEffect`. **ViewModels do not observe this signal** — it terminates at the screen Composable only, because scroll state is a Compose runtime concern, not a VM state field.

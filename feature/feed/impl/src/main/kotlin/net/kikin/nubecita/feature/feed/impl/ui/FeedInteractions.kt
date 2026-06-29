@@ -102,11 +102,11 @@ internal fun rememberFeedInteractions(
                 onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
                 onLike = { post ->
                     if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
-                    viewModel.handleEvent(FeedEvent.OnLikeClicked(post))
+                    viewModel.onLike(post)
                 },
                 onRepost = { post ->
                     if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
-                    viewModel.handleEvent(FeedEvent.OnRepostClicked(post))
+                    viewModel.onRepost(post)
                 },
                 onReply = { post ->
                     haptics.lightTap()
@@ -118,11 +118,11 @@ internal fun rememberFeedInteractions(
                 },
                 onShare = { post ->
                     haptics.lightTap()
-                    viewModel.handleEvent(FeedEvent.OnShareClicked(post))
+                    viewModel.onShare(post)
                 },
                 // Long-press already fires the system long-press haptic via
                 // combinedClickable — don't double-tap the motor.
-                onShareLongPress = { viewModel.handleEvent(FeedEvent.OnShareLongPressed(it)) },
+                onShareLongPress = { viewModel.onShareLongPress(it) },
                 onExternalEmbedTap = { uri ->
                     // Narrowed catch: silent no-op only for the documented
                     // "no CCT-capable browser installed" case (per
@@ -144,7 +144,7 @@ internal fun rememberFeedInteractions(
                     viewModel.handleEvent(FeedEvent.OnQuotedPostTapped(quoted.uri))
                 },
                 onOverflowAction = { post, action ->
-                    viewModel.handleEvent(FeedEvent.OnOverflowAction(post, action))
+                    viewModel.onOverflowAction(post, action)
                 },
             )
         }
