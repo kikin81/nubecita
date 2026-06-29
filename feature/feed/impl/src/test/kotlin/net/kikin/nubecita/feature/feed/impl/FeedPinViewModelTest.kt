@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.feed.impl
 import app.cash.turbine.test
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -174,6 +175,41 @@ internal class FeedPinViewModelTest {
             // No analytics logged on failure.
             assertTrue(analytics.events.isEmpty())
         }
+
+    // -------------------------------------------------------------------------
+    // Rapid-tap guard — second in-flight tap is dropped
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `rapid double togglePin results in a single repo call and single analytics event`() =
+        runTest(mainDispatcher.dispatcher) {
+            // pinDelayMs keeps the first coroutine suspended so the second tap
+            // arrives while the job is still active — proving the Job guard fires.
+            val repo =
+                FakePinnedFeedsRepositoryForPin(
+                    pinned = false,
+                    pinDelayMs = 100,
+                )
+            val vm = FeedPinViewModel(feedUri = FEED_URI, pinnedFeedsRepository = repo, analytics = analytics)
+
+            advanceUntilIdle()
+
+            // First tap — launches the coroutine which suspends at delay(100).
+            vm.handleEvent(FeedPinEvent.TogglePin)
+            // Second tap arrives immediately while the coroutine is still in flight.
+            vm.handleEvent(FeedPinEvent.TogglePin)
+
+            // Let the first coroutine finish (delay elapses + analytics logged).
+            advanceUntilIdle()
+
+            assertEquals(1, repo.pinCalls)
+            assertEquals(0, repo.unpinCalls)
+            assertEquals(1, analytics.events.size)
+            assertEquals(
+                listOf(InteractFeed(FeedAction.Pin, PostSurface.FeedView)),
+                analytics.events,
+            )
+        }
 }
 
 /**
@@ -182,11 +218,15 @@ internal class FeedPinViewModelTest {
  * [pinned] controls the initial [observePinnedFeeds] emission. Call
  * [setPinned] to push a new value mid-test. [pinResult] / [unpinResult]
  * let individual tests inject failures without Mockito/MockK.
+ * [pinDelayMs] introduces a virtual-time delay inside [pinFeed] so the
+ * rapid-tap test can verify that the in-flight Job guard fires before the
+ * coroutine completes (requires [delay] to be a real suspension point).
  */
 private class FakePinnedFeedsRepositoryForPin(
     pinned: Boolean,
     private val pinResult: Result<Unit> = Result.success(Unit),
     private val unpinResult: Result<Unit> = Result.success(Unit),
+    private val pinDelayMs: Long = 0,
 ) : PinnedFeedsRepository {
     var pinCalls = 0
     var unpinCalls = 0
@@ -243,6 +283,7 @@ private class FakePinnedFeedsRepositoryForPin(
     ): String = uri ?: PinnedFeedsRepository.FOLLOWING_FEED_URI
 
     override suspend fun pinFeed(uri: String): Result<Unit> {
+        if (pinDelayMs > 0) delay(pinDelayMs)
         pinCalls++
         return pinResult
     }

@@ -5,6 +5,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
@@ -60,27 +61,35 @@ internal class FeedPinViewModel
             }
         }
 
+        // Tracks the in-flight pin/unpin coroutine so rapid consecutive taps
+        // are dropped. The repo is idempotent + mutex-serialized, so there is
+        // no data-corruption risk — but duplicate in-flight calls would log
+        // duplicate InteractFeed analytics events and issue redundant RPCs.
+        private var toggleJob: Job? = null
+
         private fun togglePin() {
+            if (toggleJob?.isActive == true) return
             val wasPinned = uiState.value.isPinned
-            viewModelScope.launch {
-                val result =
-                    if (wasPinned) {
-                        pinnedFeedsRepository.unpinFeed(feedUri)
-                    } else {
-                        pinnedFeedsRepository.pinFeed(feedUri)
-                    }
-                result
-                    .onSuccess {
-                        analytics.log(
-                            InteractFeed(
-                                action = if (wasPinned) FeedAction.Unpin else FeedAction.Pin,
-                                surface = PostSurface.FeedView,
-                            ),
-                        )
-                    }.onFailure {
-                        sendEffect(FeedPinEffect.ShowError)
-                    }
-            }
+            toggleJob =
+                viewModelScope.launch {
+                    val result =
+                        if (wasPinned) {
+                            pinnedFeedsRepository.unpinFeed(feedUri)
+                        } else {
+                            pinnedFeedsRepository.pinFeed(feedUri)
+                        }
+                    result
+                        .onSuccess {
+                            analytics.log(
+                                InteractFeed(
+                                    action = if (wasPinned) FeedAction.Unpin else FeedAction.Pin,
+                                    surface = PostSurface.FeedView,
+                                ),
+                            )
+                        }.onFailure {
+                            sendEffect(FeedPinEffect.ShowError)
+                        }
+                }
         }
     }
 

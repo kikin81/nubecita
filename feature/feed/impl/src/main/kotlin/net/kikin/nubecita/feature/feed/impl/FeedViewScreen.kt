@@ -111,13 +111,13 @@ internal fun FeedViewScreen(
             creationCallback = { factory -> factory.create(feedUri) },
         ),
 ) {
-    // Bind the VM to this feed's URI once per navigation entry. Idempotent —
-    // re-entry (tab switch back, back-stack pop) is a no-op inside the VM
-    // when the same (feedUri, kind) pair is re-submitted.
+    // Bind the VM to this feed's URI once per navigation entry, then
+    // immediately trigger the initial load. Both are sequential in a single
+    // effect so Bind always precedes Load (two separate LaunchedEffects are
+    // concurrent coroutines whose ordering is non-deterministic; worst-case
+    // Load fires first and is immediately cancelled when Bind resets the VM).
     LaunchedEffect(feedUri) {
         viewModel.handleEvent(FeedEvent.Bind(feedUri, FeedKind.Generator))
-    }
-    LaunchedEffect(Unit) {
         viewModel.handleEvent(FeedEvent.Load)
     }
 
@@ -239,10 +239,12 @@ internal fun FeedViewScreen(
                 )
             }
         }
-    if (coordinator != null) {
-        DisposableEffect(viewModel) {
-            onDispose { coordinator.release() }
-        }
+    // Unconditional DisposableEffect — avoids calling an effect inside an
+    // `if` block (a Compose anti-pattern where effect presence depends on a
+    // runtime condition). coordinator is null only in LocalInspectionMode,
+    // so the null-safe release is a no-op in previews/screenshot tests.
+    DisposableEffect(viewModel, coordinator) {
+        onDispose { coordinator?.release() }
     }
 
     // Composer submit-success bus — same wiring as FeedScreen.
