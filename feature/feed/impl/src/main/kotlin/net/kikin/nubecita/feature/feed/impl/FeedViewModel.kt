@@ -65,6 +65,14 @@ class FeedViewModel
         private var boundKind: FeedKind = FeedKind.Following
 
         /**
+         * The analytics surface of the current binding — set by [bind] from
+         * [FeedEvent.Bind.surface]. Drives `source_surface` on post-interaction
+         * events so the same reused VM reports `feed` for the home feed and
+         * `feed_view` for [FeedViewScreen]. Defaults to [PostSurface.Feed].
+         */
+        private var boundSurface: PostSurface = PostSurface.Feed
+
+        /**
          * The currently in-flight page fetch launched by [load] /
          * [refresh] / [loadMore], or `null` when no fetch is running. A
          * re-[bind] to a different feed cancels this before resetting the
@@ -89,7 +97,7 @@ class FeedViewModel
 
         override fun handleEvent(event: FeedEvent) {
             when (event) {
-                is FeedEvent.Bind -> bind(event.feedUri, event.kind)
+                is FeedEvent.Bind -> bind(event.feedUri, event.kind, event.surface)
                 FeedEvent.Load -> load()
                 FeedEvent.Refresh -> refresh()
                 FeedEvent.LoadMore -> loadMore()
@@ -109,7 +117,7 @@ class FeedViewModel
                     analytics.log(
                         InteractPost(
                             action = if (event.post.viewer.isLikedByViewer) PostAction.Unlike else PostAction.Like,
-                            surface = PostSurface.Feed,
+                            surface = boundSurface,
                         ),
                     )
                     // Mark the latest user-tapped post so the screen can
@@ -127,7 +135,7 @@ class FeedViewModel
                     analytics.log(
                         InteractPost(
                             action = if (event.post.viewer.isRepostedByViewer) PostAction.Unrepost else PostAction.Repost,
-                            surface = PostSurface.Feed,
+                            surface = boundSurface,
                         ),
                     )
                     setState { copy(lastRepostTapPostUri = event.post.id) }
@@ -138,11 +146,11 @@ class FeedViewModel
                     }
                 }
                 is FeedEvent.OnShareClicked -> {
-                    analytics.log(Share(ShareMethod.ShareSheet, PostSurface.Feed))
+                    analytics.log(Share(ShareMethod.ShareSheet, boundSurface))
                     sendEffect(FeedEffect.SharePost(event.post.toShareIntent()))
                 }
                 is FeedEvent.OnShareLongPressed -> {
-                    analytics.log(Share(ShareMethod.CopyLink, PostSurface.Feed))
+                    analytics.log(Share(ShareMethod.CopyLink, boundSurface))
                     sendEffect(FeedEffect.CopyPermalink(event.post.toShareIntent().permalink))
                 }
                 is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
@@ -252,7 +260,11 @@ class FeedViewModel
         private fun bind(
             feedUri: String,
             kind: FeedKind,
+            surface: PostSurface,
         ) {
+            // surface always tracks the latest binding (cheap) even when the
+            // feedUri/kind pair is unchanged.
+            boundSurface = surface
             if (boundFeedUri == feedUri && boundKind == kind) return
             boundFeedUri = feedUri
             boundKind = kind

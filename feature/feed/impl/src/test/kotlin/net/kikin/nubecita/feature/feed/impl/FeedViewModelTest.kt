@@ -1118,6 +1118,66 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `OnLikeClicked after binding the FeedView surface emits interact_post(like, feed_view)`() =
+        runTest(mainDispatcher.dispatcher) {
+            // bind() drives the initial fetch itself, so seed a success page; the
+            // resulting ViewFeed(Custom) is logged ahead of the interaction.
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo)
+            vm.handleEvent(
+                FeedEvent.Bind(
+                    feedUri = "at://did:plc:x/app.bsky.feed.generator/custom",
+                    kind = FeedKind.Generator,
+                    surface = PostSurface.FeedView,
+                ),
+            )
+            advanceUntilIdle()
+            val post = samplePost(id = "at://post-a", viewer = ViewerStateUi(isLikedByViewer = false))
+
+            vm.handleEvent(FeedEvent.OnLikeClicked(post))
+            advanceUntilIdle()
+
+            assertEquals(
+                InteractPost(action = PostAction.Like, surface = PostSurface.FeedView),
+                analytics.events.last(),
+            )
+        }
+
+    @Test
+    fun `share after binding the FeedView surface logs share events with FeedView surface`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo)
+            vm.handleEvent(
+                FeedEvent.Bind(
+                    feedUri = "at://did:plc:x/app.bsky.feed.generator/custom",
+                    kind = FeedKind.Generator,
+                    surface = PostSurface.FeedView,
+                ),
+            )
+            advanceUntilIdle()
+            val post = samplePost(id = "at://post-a")
+
+            vm.handleEvent(FeedEvent.OnShareClicked(post))
+            vm.handleEvent(FeedEvent.OnShareLongPressed(post))
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    Share(ShareMethod.ShareSheet, PostSurface.FeedView),
+                    Share(ShareMethod.CopyLink, PostSurface.FeedView),
+                ),
+                analytics.events.takeLast(2),
+            )
+        }
+
+    @Test
     fun `OnLikeClicked on an already-liked post emits interact_post(unlike, feed)`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = FeedViewModel(FakeFeedRepository(), FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo)
