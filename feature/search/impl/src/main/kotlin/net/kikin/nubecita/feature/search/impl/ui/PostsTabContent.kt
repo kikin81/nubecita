@@ -13,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,6 +26,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
+import net.kikin.nubecita.core.postinteractions.PostTapMarkers
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostCallbacks
@@ -57,6 +57,8 @@ internal fun PostsTabContent(
     state: SearchPostsState,
     onEvent: (SearchPostsEvent) -> Unit,
     modifier: Modifier = Modifier,
+    callbacks: PostCallbacks = PostCallbacks.None,
+    tapMarkers: PostTapMarkers = PostTapMarkers(),
 ) {
     val listState = rememberLazyListState()
     val currentOnEvent by rememberUpdatedState(onEvent)
@@ -73,6 +75,8 @@ internal fun PostsTabContent(
                 currentQuery = state.currentQuery,
                 currentSort = state.sort,
                 listState = listState,
+                callbacks = callbacks,
+                tapMarkers = tapMarkers,
                 onEvent = onEvent,
                 modifier = modifier,
             )
@@ -127,18 +131,11 @@ private fun LoadedBody(
     currentQuery: String,
     currentSort: SearchPostsSort,
     listState: LazyListState,
+    callbacks: PostCallbacks,
+    tapMarkers: PostTapMarkers,
     onEvent: (SearchPostsEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val callbacks =
-        remember(onEvent) {
-            PostCallbacks(
-                onTap = { post -> onEvent(SearchPostsEvent.PostTapped(post.id)) },
-                onOverflowAction = { post, action ->
-                    onEvent(SearchPostsEvent.OnOverflowAction(post, action))
-                },
-            )
-        }
     // Per-list reveal state for covered (NSFW-labelled) media — same shape as the
     // feed: a @Stable PersistentSet, rememberSaveable via an explicit listSaver.
     var revealedMedia by rememberSaveable(
@@ -161,6 +158,8 @@ private fun LoadedBody(
                 callbacks = callbacks,
                 isMediaRevealed = item.post.id in revealedMedia,
                 onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                animateLikeTap = item.post.id == tapMarkers.lastLikeTapPostUri,
+                animateRepostTap = item.post.id == tapMarkers.lastRepostTapPostUri,
             )
         }
         if (isAppending) {

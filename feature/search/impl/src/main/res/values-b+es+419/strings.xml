@@ -71,6 +71,11 @@
     <string name="search_typeahead_search_for_cta">Buscar \"%1$s\"</string>
     <string name="search_typeahead_top_match_label">Mejor coincidencia</string>
     <string name="search_typeahead_people_label">Personas</string>
+    <string name="search_snackbar_error_network">Error de red. Inténtalo de nuevo.</string>
+    <string name="search_snackbar_error_unauthenticated">Sesión caducada. Inicia sesión de nuevo.</string>
+    <string name="search_snackbar_error_unknown">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="search_snackbar_link_copied">Enlace copiado al portapapeles</string>
+    <string name="search_clipboard_label">Enlace de publicación de Bluesky</string>
     <string name="search_snackbar_overflow_report_coming_soon">Denunciar: muy pronto</string>
     <string name="search_snackbar_overflow_mute_coming_soon">Silenciar: muy pronto</string>
     <string name="search_snackbar_overflow_unmute_coming_soon">Dejar de silenciar: muy pronto</string>

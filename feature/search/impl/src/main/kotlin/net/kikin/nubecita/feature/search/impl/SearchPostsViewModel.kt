@@ -2,18 +2,28 @@ package net.kikin.nubecita.feature.search.impl
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import javax.inject.Inject
@@ -55,7 +65,10 @@ internal class SearchPostsViewModel
     constructor(
         private val repository: SearchPostsRepository,
         private val analytics: AnalyticsClient,
-    ) : MviViewModel<SearchPostsState, SearchPostsEvent, SearchPostsEffect>(SearchPostsState()) {
+        private val cache: PostInteractionsCache,
+        private val handler: PostInteractionHandler,
+    ) : MviViewModel<SearchPostsState, SearchPostsEvent, SearchPostsEffect>(SearchPostsState()),
+        PostInteractionHandler by handler {
         private data class FetchKey(
             val query: String,
             val sort: SearchPostsSort,
@@ -69,6 +82,23 @@ internal class SearchPostsViewModel
             MutableStateFlow(FetchKey(query = "", sort = SearchPostsSort.TOP, incarnation = 0, fromRecent = false))
 
         init {
+            // Bind the handler to the Search surface and this VM's scope.
+            handler.bind(PostSurface.Search, viewModelScope)
+
+            // Mirror cache state into status.items so a like/repost from
+            // another surface (feed, post-detail) reflects on the rendered
+            // search results without a re-fetch.
+            viewModelScope.launch {
+                cache.state
+                    .mapNotNull { snapshot ->
+                        val status =
+                            uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded
+                                ?: return@mapNotNull null
+                        status.copy(items = status.items.applyInteractions(snapshot))
+                    }.distinctUntilChanged()
+                    .collect { merged -> setState { copy(loadStatus = merged) } }
+            }
+
             fetchKey
                 .onEach { key ->
                     setState { copy(currentQuery = key.query, sort = key.sort) }
@@ -105,8 +135,8 @@ internal class SearchPostsViewModel
                     fetchKey.update { it.copy(sort = event.sort, incarnation = it.incarnation + 1) }
                 is SearchPostsEvent.PostTapped ->
                     sendEffect(SearchPostsEffect.NavigateToPost(event.uri))
-                is SearchPostsEvent.OnOverflowAction ->
-                    sendEffect(SearchPostsEffect.ShowComingSoon(event.action))
+                is SearchPostsEvent.OnAuthorTapped ->
+                    sendEffect(SearchPostsEffect.NavigateToProfile(event.handle))
             }
         }
 
@@ -124,6 +154,7 @@ internal class SearchPostsViewModel
                             fromRecent = key.fromRecent,
                         ),
                     )
+                    cache.seed(page.items.map { it.post })
                     val nextStatus =
                         if (page.items.isEmpty()) {
                             SearchPostsLoadStatus.Empty
@@ -161,6 +192,7 @@ internal class SearchPostsViewModel
                         // splice old-sort results onto a new-sort list.
                         if (fetchKey.value != capturedKey) return@onSuccess
                         val current = uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded ?: return@onSuccess
+                        cache.seed(page.items.map { it.post })
                         val appended = (current.items + page.items).toImmutableList()
                         setState {
                             copy(
@@ -185,3 +217,21 @@ internal class SearchPostsViewModel
             }
         }
     }
+
+/**
+ * Project a [PostInteractionsCache][net.kikin.nubecita.core.postinteractions.PostInteractionsCache]
+ * snapshot onto the search-result item list. Replaces interaction fields
+ * (like / repost counts and viewer flags) on every [FeedItemUi.Single]
+ * whose post id appears in [interactionMap].
+ *
+ * Returns the same instance for any item whose post is absent from the
+ * map, preserving reference equality so LazyColumn can skip recomposition
+ * for unchanged items.
+ */
+private fun ImmutableList<FeedItemUi.Single>.applyInteractions(
+    interactionMap: PersistentMap<String, PostInteractionState>,
+): ImmutableList<FeedItemUi.Single> =
+    map { item ->
+        val state = interactionMap[item.post.id] ?: return@map item
+        item.copy(post = item.post.mergeInteractionState(state))
+    }.toImmutableList()

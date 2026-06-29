@@ -50,6 +50,7 @@ dependencies {
     implementation(project(":core:moderation"))
     // FollowRepository: follow/unfollow write surface for the Discover tab.
     implementation(project(":core:post-interactions"))
+    implementation(project(":core:post-interactions-ui"))
     // Tap-to-open a feed row pushes FeedView onto the MainShell back stack.
     // The api module ships just the NavKey — :feature:search:impl never
     // depends on :impl, matching the Chats / Profile / Postdetail pattern.

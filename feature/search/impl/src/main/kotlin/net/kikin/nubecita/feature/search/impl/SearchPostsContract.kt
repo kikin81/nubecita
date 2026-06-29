@@ -6,8 +6,6 @@ import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.FeedItemUi
-import net.kikin.nubecita.data.models.PostUi
-import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 
 /**
@@ -89,14 +87,12 @@ internal sealed interface SearchPostsEvent : UiEvent {
     ) : SearchPostsEvent
 
     /**
-     * User selected an overflow-menu entry on a PostCard in the search
-     * results. Wired in oftc.2 to surface a coming-soon snackbar via
-     * [SearchPostsEffect.ShowComingSoon]; oftc.3 / .4 / .5 swap each
-     * variant for its real moderation RPC.
+     * Tap on a post author avatar / display name. Emits
+     * [SearchPostsEffect.NavigateToProfile] so the screen can push
+     * the Profile route onto the MainShell nav stack.
      */
-    data class OnOverflowAction(
-        val post: PostUi,
-        val action: PostOverflowAction,
+    data class OnAuthorTapped(
+        val handle: String,
     ) : SearchPostsEvent
 }
 
@@ -120,11 +116,10 @@ internal sealed interface SearchPostsEffect : UiEffect {
     data object NavigateToClearQuery : SearchPostsEffect
 
     /**
-     * Surface a "coming soon" snackbar for a PostCard overflow-menu
-     * action (oftc.2). oftc.3 / .4 / .5 swap each variant for its real
-     * RPC call.
+     * Push the Profile route for [handle] onto the MainShell nav stack.
+     * Emitted by [SearchPostsEvent.OnAuthorTapped].
      */
-    data class ShowComingSoon(
-        val action: PostOverflowAction,
+    data class NavigateToProfile(
+        val handle: String,
     ) : SearchPostsEffect
 }
