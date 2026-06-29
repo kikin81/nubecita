@@ -79,4 +79,25 @@
     <string name="search_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
     <string name="search_snackbar_overflow_unmute_thread_coming_soon">Reativar thread — em breve</string>
     <string name="search_snackbar_overflow_copy_text_coming_soon">Copiar texto do post — em breve</string>
+
+    <!-- trpn: Discover tab — suggested accounts section -->
+    <string name="discover_accounts_section_title">Contas sugeridas</string>
+    <string name="discover_follow_button">Seguir</string>
+    <string name="discover_following_button">Seguindo</string>
+    <string name="discover_dismiss_content_desc">Dispensar sugestão</string>
+    <string name="discover_account_card_content_desc">Conta sugerida: %1$s</string>
+    <plurals name="discover_mutuals_count">
+        <item quantity="one">%1$d mútuo</item>
+        <item quantity="other">%1$d mútuos</item>
+    </plurals>
+
+    <!-- trpn: Discover tab — suggested feeds section -->
+    <string name="discover_feeds_section_title">Descobrir feeds</string>
+    <string name="discover_pin_content_desc">Fixar feed</string>
+    <string name="discover_pinned_content_desc">Desafixar feed</string>
+    <string name="discover_feed_card_content_desc">Feed sugerido: %1$s</string>
+    <string name="discover_feed_preview_author_handle">@%1$s</string>
+
+    <!-- trpn: Discover tab — empty state -->
+    <string name="discover_empty_hint">Puxe para atualizar e descobrir conteúdo</string>
 </resources>
