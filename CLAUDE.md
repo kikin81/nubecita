@@ -179,6 +179,22 @@ The exception is bounded:
 
 Reference implementation: `:feature:composer:impl/ComposerViewModel`. Rationale: `openspec/changes/add-composer-mention-typeahead/design.md` (decisions §1 and §2).
 
+#### Sanctioned MVI exception: post-interaction screens delegate via `PostInteractionHandler by handler`
+
+Screens that host post cards (like, repost, share, overflow menu) MAY have their ViewModel implement `PostInteractionHandler` via Kotlin `by` delegation — `class FooViewModel : MviViewModel<…>(…), PostInteractionHandler by handler` — where `handler: PostInteractionHandler` is an injected constructor parameter backed by `DefaultPostInteractionHandler`. The screen Composable calls `viewModel.onLike(post)` / `viewModel.onRepost(post)` / etc. directly (not via `handleEvent`) since those methods are delegation-forwarded.
+
+The exception is bounded:
+
+- The VM's `init` calls `handler.bind(surface, viewModelScope)` and does NOT forward `InteractionEffect` onto its own effect channel (the helper observes the channel directly — see the next bullet). `bind` is additive: the VM still installs its own screen-specific collectors (e.g. the `cache.state → list` merge).
+- The handler's `tapMarkers` (the like/repost count-animation cue) are returned by `rememberPostInteractions`. A surface MAY also mirror `handler.tapMarkers` into its `UiState` when its stateless `*Content` reads the markers from state — the Feed does this to keep its committed screenshot baselines byte-identical during migration; new surfaces can instead consume the helper's returned `tapMarkers` directly and skip the mirror.
+- Interaction side-effects are observed DIRECTLY by the shared `rememberPostInteractions(handler, …)` Composable helper in `:core:post-interactions-ui`, which collects `handler.interactionEffects` (share sheet, clipboard, error / coming-soon snackbars, composer / report / block navigation). The VM's own `UiEffect` channel is reserved exclusively for screen-specific concerns (navigation to post detail, author profile, media viewer, etc.).
+- The VM MUST override `onOverflowAction` for any actions it handles locally (e.g. `MuteAuthor`/`UnmuteAuthor` with optimistic remove + rollback); all other overflow actions delegate to `handler.onOverflowAction`.
+- `onReply` / `onQuote` in screens that handle those natively (e.g. Feed's inline composer entry points) bypass the handler entirely — the screen's `PostCallbacks` routes them directly without calling `viewModel.onReply`/`viewModel.onQuote`.
+- `PostInteractionHandler` is unscoped in Hilt — each ViewModel injection gets a fresh `DefaultPostInteractionHandler` instance.
+- Tests assert interaction effects on `vm.interactionEffects` (the delegated handler channel) — NOT on `vm.effects` (the VM's own `UiEffect` channel). Integration-level handler behaviour is covered by `DefaultPostInteractionHandlerTest`.
+
+Reference implementation: `:feature:feed:impl/FeedViewModel` (PR1 of epic nubecita-58dy — post-detail and profile migrate in later PRs of the same epic).
+
 ### Tab re-tap / scroll-to-top convention
 
 `MainShell` provides `LocalTabReTapSignal` — a `CompositionLocal<SharedFlow<Unit>>`. Any feature screen that wants to respond to a tab re-tap (scroll to top, etc.) reads this local and launches a `collectLatest` in a `LaunchedEffect`. **ViewModels do not observe this signal** — it terminates at the screen Composable only, because scroll state is a Compose runtime concern, not a VM state field.

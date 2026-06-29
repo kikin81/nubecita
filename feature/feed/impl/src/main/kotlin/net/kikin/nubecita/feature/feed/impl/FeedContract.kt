@@ -1,14 +1,12 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import androidx.compose.runtime.Immutable
-import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
-import net.kikin.nubecita.core.postinteractions.sharing.PostShareIntent
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PostUi
@@ -201,23 +199,6 @@ sealed interface FeedEvent : UiEvent {
         val postUri: String,
     ) : FeedEvent
 
-    data class OnLikeClicked(
-        val post: PostUi,
-    ) : FeedEvent
-
-    data class OnRepostClicked(
-        val post: PostUi,
-    ) : FeedEvent
-
-    data class OnShareClicked(
-        val post: PostUi,
-    ) : FeedEvent
-
-    /** Long-press on the share button — copy the post permalink to the clipboard. */
-    data class OnShareLongPressed(
-        val post: PostUi,
-    ) : FeedEvent
-
     /**
      * The user just submitted a reply with parent post URI [parentUri]
      * — emitted from `LocalComposerSubmitEvents` after the composer
@@ -294,52 +275,5 @@ sealed interface FeedEffect : UiEffect {
     @Immutable
     data class NavigateToVideoPlayer(
         val postUri: String,
-    ) : FeedEffect
-
-    /**
-     * Hand a pre-computed share payload to the screen so it can fire
-     * `Intent.ACTION_SEND` via the system share sheet. The VM produces
-     * the payload (so unit tests can assert it) and the screen owns
-     * the platform Intent dispatch.
-     */
-    @Immutable
-    data class SharePost(
-        val intent: PostShareIntent,
-    ) : FeedEffect
-
-    /**
-     * Copy a post permalink to the system clipboard. Fired on long-press
-     * of the share button (Threads-style). The screen handles the
-     * platform `ClipboardManager` write and surfaces a confirmation
-     * snackbar.
-     */
-    @Immutable
-    data class CopyPermalink(
-        val permalink: String,
-    ) : FeedEffect
-
-    /**
-     * Surface a "coming soon" snackbar for an overflow-menu action.
-     * Lives on the effect surface (not state) so it doesn't stick — the
-     * acknowledgement is transient. Each variant of [PostOverflowAction]
-     * maps to its own piece of copy at the screen.
-     */
-    @Immutable
-    data class ShowComingSoon(
-        val action: PostOverflowAction,
-    ) : FeedEffect
-
-    /**
-     * Push a sub-route NavKey onto `MainShell`'s inner back stack via
-     * `LocalMainShellNavState`. The screen collector resolves the
-     * `CompositionLocal` (which the ViewModel can't see) and calls
-     * `add(key)`. Currently emitted only for the Report-dialog sub-route
-     * (`Report` NavKey from `:feature:moderation:api`); future moderation
-     * children (Block / Mute confirmation sub-routes) will travel the
-     * same effect.
-     */
-    @Immutable
-    data class NavigateTo(
-        val key: NavKey,
     ) : FeedEffect
 }

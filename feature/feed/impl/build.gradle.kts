@@ -59,6 +59,7 @@ dependencies {
     // drop/cover NSFW-labelled posts as the timeline maps.
     implementation(project(":core:moderation"))
     implementation(project(":core:post-interactions"))
+    implementation(project(":core:post-interactions-ui"))
     implementation(project(":core:preferences"))
     implementation(project(":core:video"))
     implementation(project(":data:models"))

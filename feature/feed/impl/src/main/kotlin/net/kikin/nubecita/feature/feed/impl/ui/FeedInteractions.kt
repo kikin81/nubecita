@@ -1,8 +1,6 @@
 package net.kikin.nubecita.feature.feed.impl.ui
 
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.media.AudioManager
 import androidx.browser.customtabs.CustomTabsIntent
@@ -16,14 +14,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
-import androidx.navigation3.runtime.NavKey
 import kotlinx.coroutines.flow.collectLatest
 import net.kikin.nubecita.core.common.haptic.PostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
-import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
+import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
+import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
-import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.feed.impl.FeedEffect
 import net.kikin.nubecita.feature.feed.impl.FeedError
 import net.kikin.nubecita.feature.feed.impl.FeedEvent
@@ -38,8 +35,8 @@ import android.net.Uri as AndroidUri
  *
  * Holds all items that are produced identically by both [net.kikin.nubecita.feature.feed.impl.FeedScreen]
  * and [net.kikin.nubecita.feature.feed.impl.FeedViewScreen]: the [PostCallbacks] block, derived
- * dispatch lambdas, the [FeedVideoPlayerCoordinator], and the two shared [LaunchedEffect]s
- * (composer-submit bus + feed-effects collector).
+ * dispatch lambdas, the [FeedVideoPlayerCoordinator], and the shared [LaunchedEffect]s
+ * (composer-submit bus + screen-nav effects collector).
  *
  * Returned by [rememberFeedInteractions]; callers unpack the fields they
  * need and pass them to the stateless content composable.
@@ -57,20 +54,22 @@ internal data class FeedInteractions(
 /**
  * Builds the shared post callbacks + derived dispatch lambdas + video
  * coordinator for a [FeedViewModel]-backed screen, AND wires the
- * composer-submit and feed-effect collectors (snackbars + nav).
+ * composer-submit and screen-nav-effect collectors.
  *
- * Used by both [net.kikin.nubecita.feature.feed.impl.FeedScreen] and
- * [net.kikin.nubecita.feature.feed.impl.FeedViewScreen] so the
- * [PostCallbacks]/effect cluster lives in one place — the snackbar
- * string-resource block in particular was the one drift point the
- * compiler's exhaustive `when`s did NOT guard.
+ * Post-interaction effects (share sheet, clipboard, snackbars for errors /
+ * coming-soon / link-copied, composer / report / block navigation) are
+ * handled by the shared [rememberPostInteractions] helper which observes
+ * [net.kikin.nubecita.core.postinteractions.PostInteractionHandler.interactionEffects]
+ * directly. The VM no longer forwards those to [FeedEffect].
  *
  * The [LaunchedEffect] keying is preserved exactly as in the original
  * per-screen implementations:
  * - Composer bus: `(composerSubmitEvents, viewModel, snackbarHostState)`.
- * - Effects collector: `Unit` (one collector for the screen's lifetime).
- * - [DisposableEffect] on coordinator: `(viewModel, coordinator)` (unconditional,
- *   null-safe release, avoiding the Compose anti-pattern of an effect inside an `if`).
+ * - Screen-nav effects collector: `(viewModel, snackbarHostState)` — only
+ *   [FeedEffect.ShowError] (mute/refresh/append failures) and the four
+ *   nav effects remain here; interaction effects are owned by
+ *   [rememberPostInteractions].
+ * - [DisposableEffect] on coordinator: `(viewModel, coordinator)`.
  *
  * Screen-specific triggers ([FeedEvent.Load] / [FeedEvent.Bind]) are
  * deliberately NOT here — each screen wires its own binding [LaunchedEffect].
@@ -86,68 +85,16 @@ internal fun rememberFeedInteractions(
     onNavigateToAuthor: (String) -> Unit,
     onNavigateToMediaViewer: (String, Int) -> Unit,
     onNavigateToVideoPlayer: (String) -> Unit,
-    onNavigateTo: (NavKey) -> Unit,
 ): FeedInteractions {
     val context = LocalContext.current
+
     // Reply / quote taps are screen-level (per unified-composer spec step 10).
     // Stable references via rememberUpdatedState so the long-lived PostCallbacks
     // block below always calls the most recent host-supplied lambda. Declared
     // before `callbacks` because the lambdas inside PostCallbacks close over them.
     val currentOnReplyClick by rememberUpdatedState(onReplyClick)
     val currentOnQuoteClick by rememberUpdatedState(onQuoteClick)
-    val callbacks =
-        remember(viewModel, context, haptics) {
-            PostCallbacks(
-                onTap = { viewModel.handleEvent(FeedEvent.OnPostTapped(it)) },
-                onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
-                onLike = { post ->
-                    if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
-                    viewModel.handleEvent(FeedEvent.OnLikeClicked(post))
-                },
-                onRepost = { post ->
-                    if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
-                    viewModel.handleEvent(FeedEvent.OnRepostClicked(post))
-                },
-                onReply = { post ->
-                    haptics.lightTap()
-                    currentOnReplyClick(post.id)
-                },
-                onQuote = { post ->
-                    haptics.lightTap()
-                    currentOnQuoteClick(post.id)
-                },
-                onShare = { post ->
-                    haptics.lightTap()
-                    viewModel.handleEvent(FeedEvent.OnShareClicked(post))
-                },
-                // Long-press already fires the system long-press haptic via
-                // combinedClickable — don't double-tap the motor.
-                onShareLongPress = { viewModel.handleEvent(FeedEvent.OnShareLongPressed(it)) },
-                onExternalEmbedTap = { uri ->
-                    // Narrowed catch: silent no-op only for the documented
-                    // "no CCT-capable browser installed" case (per
-                    // nubecita-aku scope). Other launch failures (rare
-                    // SecurityException / RuntimeException from the
-                    // browser lib) propagate so genuine bugs surface in
-                    // logcat instead of being hidden by a blanket catch.
-                    try {
-                        CustomTabsIntent
-                            .Builder()
-                            .setShowTitle(true)
-                            .build()
-                            .launchUrl(context, AndroidUri.parse(uri))
-                    } catch (_: ActivityNotFoundException) {
-                        // No browser available — silent no-op.
-                    }
-                },
-                onQuotedPostTap = { quoted ->
-                    viewModel.handleEvent(FeedEvent.OnQuotedPostTapped(quoted.uri))
-                },
-                onOverflowAction = { post, action ->
-                    viewModel.handleEvent(FeedEvent.OnOverflowAction(post, action))
-                },
-            )
-        }
+
     // Pre-resolve snackbar copy via stringResource() at composition time
     // so locale + dark-mode changes participate in recomposition. Reading
     // them via context.getString(...) inside the LaunchedEffect would
@@ -173,20 +120,112 @@ internal fun rememberFeedInteractions(
         stringResource(R.string.feed_snackbar_overflow_unmute_thread_coming_soon)
     val overflowCopyTextComingSoon =
         stringResource(R.string.feed_snackbar_overflow_copy_text_coming_soon)
-    val clipboardManager =
-        remember(context) {
-            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
+    // Build the shared InteractionStrings from the feed's existing string
+    // resources so snackbar text stays byte-identical across the migration.
+    val interactionStrings =
+        InteractionStrings(
+            errorNetwork = networkErrorMessage,
+            errorUnauthenticated = unauthErrorMessage,
+            errorUnknown = unknownErrorMessage,
+            linkCopied = linkCopiedMessage,
+            clipLabel = clipLabel,
+            reportComingSoon = overflowReportComingSoon,
+            muteComingSoon = overflowMuteComingSoon,
+            unmuteComingSoon = overflowUnmuteComingSoon,
+            blockComingSoon = overflowBlockComingSoon,
+            unblockComingSoon = overflowUnblockComingSoon,
+            muteThreadComingSoon = overflowMuteThreadComingSoon,
+            unmuteThreadComingSoon = overflowUnmuteThreadComingSoon,
+            copyTextComingSoon = overflowCopyTextComingSoon,
+        )
+
+    // Wire the shared helper — it collects handler.interactionEffects directly
+    // (share sheet, clipboard, error/coming-soon snackbars, composer/report/block
+    // navigation) so the VM no longer needs to forward those onto its own
+    // effects channel.
+    //
+    // onInteractionError restores the deliberate "toggle-was-rejected" haptic
+    // cue that previously fired inside the FeedEffect.ShowError arm. Like /
+    // repost failures route through InteractionEffect.ShowError (not FeedEffect),
+    // so without this hook the reject haptic would be silently lost for the
+    // most common failure path.
+    val interactions =
+        rememberPostInteractions(
+            handler = viewModel,
+            snackbarHostState = snackbarHostState,
+            strings = interactionStrings,
+            onInteractionError = { haptics.rejected() },
+        )
+
+    // Merge the shared interaction callbacks with feed-local overrides:
+    //  - onLike / onRepost / onShare — add haptics then delegate to the VM.
+    //  - onReply / onQuote — haptics + screen-level callback routing.
+    //  - onShareLongPress / onOverflowAction — delegate directly to the VM.
+    //  - onTap / onAuthorTap / onExternalEmbedTap / onQuotedPostTap — feed
+    //    screen-nav slots not present in the shared helper.
+    val callbacks =
+        remember(viewModel, context, haptics, interactions.callbacks) {
+            interactions.callbacks.copy(
+                onLike = { post ->
+                    if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
+                    viewModel.onLike(post)
+                },
+                onRepost = { post ->
+                    if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
+                    viewModel.onRepost(post)
+                },
+                onReply = { post ->
+                    haptics.lightTap()
+                    currentOnReplyClick(post.id)
+                },
+                onQuote = { post ->
+                    haptics.lightTap()
+                    currentOnQuoteClick(post.id)
+                },
+                onShare = { post ->
+                    haptics.lightTap()
+                    viewModel.onShare(post)
+                },
+                // Long-press already fires the system long-press haptic via
+                // combinedClickable — don't double-tap the motor.
+                onShareLongPress = { viewModel.onShareLongPress(it) },
+                onTap = { viewModel.handleEvent(FeedEvent.OnPostTapped(it)) },
+                onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
+                onExternalEmbedTap = { uri ->
+                    // Narrowed catch: silent no-op only for the documented
+                    // "no CCT-capable browser installed" case (per
+                    // nubecita-aku scope). Other launch failures (rare
+                    // SecurityException / RuntimeException from the
+                    // browser lib) propagate so genuine bugs surface in
+                    // logcat instead of being hidden by a blanket catch.
+                    try {
+                        CustomTabsIntent
+                            .Builder()
+                            .setShowTitle(true)
+                            .build()
+                            .launchUrl(context, AndroidUri.parse(uri))
+                    } catch (_: ActivityNotFoundException) {
+                        // No browser available — silent no-op.
+                    }
+                },
+                onQuotedPostTap = { quoted ->
+                    viewModel.handleEvent(FeedEvent.OnQuotedPostTapped(quoted.uri))
+                },
+                onOverflowAction = { post, action ->
+                    viewModel.onOverflowAction(post, action)
+                },
+            )
         }
+
     // Wrap nav callbacks so the long-lived effect collector below keys
-    // on `Unit` (one collector for the screen's lifetime) but always
-    // calls the most recent lambda the host supplied. Without these,
-    // ktlint's compose:lambda-param-in-effect flags the references and
-    // a stale lambda would survive recomposition.
+    // on `(viewModel, snackbarHostState)` (one collector for the screen's
+    // lifetime) but always calls the most recent lambda the host supplied.
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
-    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
+
     // Per-PostCard image tap dispatcher. The PostCard.onImageClick slot
     // is `(Int) -> Unit` (index only); we close over each PostCard's
     // own `post` at the call site to form a `(PostUi, Int) -> Unit`
@@ -271,9 +310,11 @@ internal fun rememberFeedInteractions(
         }
     }
 
-    // Keyed on viewModel + snackbarHostState (not Unit) so this reusable
-    // helper restarts the collector on fresh references rather than leaking
-    // a stale viewModel/snackbar — matches the composer collector above.
+    // Screen-nav + mute/refresh/append failure effects. Interaction
+    // effects (share, clipboard, error snackbars, composer/report/block
+    // navigation) are now handled by rememberPostInteractions above —
+    // only the five screen-nav variants and ShowError (from
+    // mute / unmute / refresh / append failures) remain here.
     LaunchedEffect(viewModel, snackbarHostState) {
         viewModel.effects.collect { effect ->
             when (effect) {
@@ -284,11 +325,6 @@ internal fun rememberFeedInteractions(
                             FeedError.Unauthenticated -> unauthErrorMessage
                             is FeedError.Unknown -> unknownErrorMessage
                         }
-                    // FeedEffect.ShowError is only emitted from the
-                    // like/repost toggle failure paths today (the initial-
-                    // load error path goes through sticky FeedLoadStatus.
-                    // InitialError instead). Reject haptic here is the
-                    // toggle-was-rejected cue the bd requested.
                     haptics.rejected()
                     // Replace, don't stack — successive errors during a flapping
                     // network spell would otherwise queue snackbars indefinitely.
@@ -300,33 +336,6 @@ internal fun rememberFeedInteractions(
                 is FeedEffect.NavigateToMediaViewer ->
                     currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
                 is FeedEffect.NavigateToVideoPlayer -> currentOnNavigateToVideoPlayer(effect.postUri)
-                is FeedEffect.SharePost -> context.launchPostShare(effect.intent)
-                is FeedEffect.CopyPermalink -> {
-                    clipboardManager.setPrimaryClip(
-                        ClipData.newPlainText(clipLabel, effect.permalink),
-                    )
-                    // Replace any pending error snackbar — a fresh "link
-                    // copied" confirmation outranks a stale network error
-                    // for the moment the user just took action.
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = linkCopiedMessage)
-                }
-                is FeedEffect.ShowComingSoon -> {
-                    val message =
-                        when (effect.action) {
-                            PostOverflowAction.ReportPost -> overflowReportComingSoon
-                            PostOverflowAction.MuteAuthor -> overflowMuteComingSoon
-                            PostOverflowAction.UnmuteAuthor -> overflowUnmuteComingSoon
-                            PostOverflowAction.BlockAuthor -> overflowBlockComingSoon
-                            PostOverflowAction.UnblockAuthor -> overflowUnblockComingSoon
-                            PostOverflowAction.MuteThread -> overflowMuteThreadComingSoon
-                            PostOverflowAction.UnmuteThread -> overflowUnmuteThreadComingSoon
-                            PostOverflowAction.CopyPostText -> overflowCopyTextComingSoon
-                        }
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
-                }
-                is FeedEffect.NavigateTo -> currentOnNavigateTo(effect.key)
             }
         }
     }
