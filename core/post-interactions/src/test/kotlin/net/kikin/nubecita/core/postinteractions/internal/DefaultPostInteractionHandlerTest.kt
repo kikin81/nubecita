@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -162,6 +163,24 @@ internal class DefaultPostInteractionHandlerTest {
                 assert(effect is InteractionEffect.ShowError) {
                     "expected ShowError but got $effect"
                 }
+            }
+        }
+
+    @Test
+    fun `onLike with CancellationException does not emit ShowError effect`() =
+        runTest(mainDispatcher.dispatcher) {
+            // CancellationException must be rethrown (cooperative cancellation),
+            // not mapped to InteractionError. No ShowError should reach the
+            // collector when the coroutine is cancelled mid-flight.
+            fakeCache.nextToggleLikeResult = Result.failure(CancellationException("cancelled"))
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.interactionEffects.test {
+                handler.onLike(unlikedPost())
+                advanceUntilIdle()
+
+                expectNoEvents()
             }
         }
 

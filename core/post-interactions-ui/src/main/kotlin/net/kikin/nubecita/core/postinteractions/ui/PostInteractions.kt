@@ -132,6 +132,10 @@ fun rememberPostInteractions(
     // most recent lambda the caller passed without restarting the collector
     // on every recomposition (compose:lambda-param-in-effect).
     val currentOnInteractionError by rememberUpdatedState(onInteractionError)
+    // Wrap strings the same way: locale/config changes recompose with new
+    // InteractionStrings, but the running collector keeps using the latest
+    // copy without restarting (which would drop in-flight effects).
+    val currentStrings by rememberUpdatedState(strings)
 
     val callbacks =
         remember(handler) {
@@ -159,9 +163,9 @@ fun rememberPostInteractions(
                 is InteractionEffect.ShowError -> {
                     val message =
                         when (effect.error) {
-                            InteractionError.Network -> strings.errorNetwork
-                            InteractionError.Unauthenticated -> strings.errorUnauthenticated
-                            InteractionError.Unknown -> strings.errorUnknown
+                            InteractionError.Network -> currentStrings.errorNetwork
+                            InteractionError.Unauthenticated -> currentStrings.errorUnauthenticated
+                            InteractionError.Unknown -> currentStrings.errorUnknown
                         }
                     // Fire the caller-supplied error hook (e.g. haptics.rejected())
                     // before the snackbar so the tactile cue is synchronous with
@@ -180,26 +184,26 @@ fun rememberPostInteractions(
 
                 is InteractionEffect.CopyPermalink -> {
                     clipboardManager.setPrimaryClip(
-                        ClipData.newPlainText(strings.clipLabel, effect.permalink),
+                        ClipData.newPlainText(currentStrings.clipLabel, effect.permalink),
                     )
                     // Replace any pending error snackbar — a fresh "link
                     // copied" confirmation outranks a stale error message
                     // for the moment the user just took action.
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = strings.linkCopied)
+                    snackbarHostState.showSnackbar(message = currentStrings.linkCopied)
                 }
 
                 is InteractionEffect.ShowComingSoon -> {
                     val message =
                         when (effect.action) {
-                            PostOverflowAction.ReportPost -> strings.reportComingSoon
-                            PostOverflowAction.MuteAuthor -> strings.muteComingSoon
-                            PostOverflowAction.UnmuteAuthor -> strings.unmuteComingSoon
-                            PostOverflowAction.BlockAuthor -> strings.blockComingSoon
-                            PostOverflowAction.UnblockAuthor -> strings.unblockComingSoon
-                            PostOverflowAction.MuteThread -> strings.muteThreadComingSoon
-                            PostOverflowAction.UnmuteThread -> strings.unmuteThreadComingSoon
-                            PostOverflowAction.CopyPostText -> strings.copyTextComingSoon
+                            PostOverflowAction.ReportPost -> currentStrings.reportComingSoon
+                            PostOverflowAction.MuteAuthor -> currentStrings.muteComingSoon
+                            PostOverflowAction.UnmuteAuthor -> currentStrings.unmuteComingSoon
+                            PostOverflowAction.BlockAuthor -> currentStrings.blockComingSoon
+                            PostOverflowAction.UnblockAuthor -> currentStrings.unblockComingSoon
+                            PostOverflowAction.MuteThread -> currentStrings.muteThreadComingSoon
+                            PostOverflowAction.UnmuteThread -> currentStrings.unmuteThreadComingSoon
+                            PostOverflowAction.CopyPostText -> currentStrings.copyTextComingSoon
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)

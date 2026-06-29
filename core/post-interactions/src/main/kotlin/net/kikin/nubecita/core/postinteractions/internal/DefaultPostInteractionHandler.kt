@@ -28,6 +28,7 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Default implementation of [PostInteractionHandler].
@@ -122,7 +123,7 @@ internal class DefaultPostInteractionHandler
                         .onFailure { emitError(it) }
                 }
             activeLikeJobs[post.id] = job
-            job.invokeOnCompletion { activeLikeJobs.remove(post.id) }
+            job.invokeOnCompletion { activeLikeJobs.remove(post.id, job) }
         }
 
         override fun onRepost(post: PostUi) {
@@ -139,7 +140,7 @@ internal class DefaultPostInteractionHandler
                         .onFailure { emitError(it) }
                 }
             activeRepostJobs[post.id] = job
-            job.invokeOnCompletion { activeRepostJobs.remove(post.id) }
+            job.invokeOnCompletion { activeRepostJobs.remove(post.id, job) }
         }
 
         override fun onReply(post: PostUi) {
@@ -229,8 +230,13 @@ internal class DefaultPostInteractionHandler
         /**
          * Map a raw [Throwable] to an [InteractionError] variant and emit a
          * [InteractionEffect.ShowError]. Mirrors `FeedViewModel.toFeedError()`.
+         *
+         * [CancellationException] is rethrown without mapping so cooperative
+         * cancellation is preserved and the VM-cleared / screen-disposed path
+         * does not surface a spurious error snackbar.
          */
         private fun emitError(throwable: Throwable) {
+            if (throwable is CancellationException) throw throwable
             val error =
                 when (throwable) {
                     is NoSessionException -> InteractionError.Unauthenticated
