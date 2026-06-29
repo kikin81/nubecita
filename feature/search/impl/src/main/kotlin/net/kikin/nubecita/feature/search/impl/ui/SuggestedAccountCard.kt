@@ -313,7 +313,12 @@ internal val SAMPLE_ACCOUNT_WITH_MUTUALS =
         isFollowing = false,
         followUri = null,
         mutualsCount = 42,
-        mutualAvatarUrls = persistentListOf(),
+        mutualAvatarUrls =
+            persistentListOf(
+                "https://cdn.bsky.app/img/avatar/plain/did:plc:mutual1/bafkrei@jpeg",
+                "https://cdn.bsky.app/img/avatar/plain/did:plc:mutual2/bafkrei@jpeg",
+                "https://cdn.bsky.app/img/avatar/plain/did:plc:mutual3/bafkrei@jpeg",
+            ),
     )
 
 internal val SAMPLE_ACCOUNT_FOLLOWING =

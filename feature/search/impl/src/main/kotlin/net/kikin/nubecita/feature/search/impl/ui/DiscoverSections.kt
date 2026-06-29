@@ -144,10 +144,8 @@ private fun FeedsSection(
             .filter { !it } // settled: not scrolling
             .collect {
                 listState.layoutInfo.visibleItemsInfo.forEach { itemInfo ->
-                    val feed = currentFeeds.getOrNull(itemInfo.index)
-                    if (feed != null) {
-                        currentOnEvent(DiscoverEvent.OnFeedCardVisible(feed.feed.uri))
-                    }
+                    val uri = itemInfo.key as? String ?: return@forEach
+                    currentOnEvent(DiscoverEvent.OnFeedCardVisible(uri))
                 }
             }
     }

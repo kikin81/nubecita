@@ -355,8 +355,14 @@ internal fun SearchScreenContent(
                     }
 
                     val showEmptyHint =
-                        discoverState.accountsStatus !is DiscoverSectionStatus.Loaded &&
-                            discoverState.feedsStatus !is DiscoverSectionStatus.Loaded &&
+                        (
+                            discoverState.accountsStatus is DiscoverSectionStatus.Empty ||
+                                discoverState.accountsStatus is DiscoverSectionStatus.Error
+                        ) &&
+                            (
+                                discoverState.feedsStatus is DiscoverSectionStatus.Empty ||
+                                    discoverState.feedsStatus is DiscoverSectionStatus.Error
+                            ) &&
                             recentSearches.isEmpty()
 
                     NubecitaPullToRefreshBox(
