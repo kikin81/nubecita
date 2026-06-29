@@ -144,4 +144,25 @@
     <string name="search_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="search_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
     <string name="search_snackbar_overflow_copy_text_coming_soon">Copy post text — coming soon</string>
+
+    <!-- trpn: Discover tab — suggested accounts section -->
+    <string name="discover_accounts_section_title">Suggested accounts</string>
+    <string name="discover_follow_button">Follow</string>
+    <string name="discover_following_button">Following</string>
+    <string name="discover_dismiss_content_desc">Dismiss suggestion</string>
+    <string name="discover_account_card_content_desc">Suggested account: %1$s</string>
+    <plurals name="discover_mutuals_count">
+        <item quantity="one">%1$d mutual</item>
+        <item quantity="other">%1$d mutuals</item>
+    </plurals>
+
+    <!-- trpn: Discover tab — suggested feeds section -->
+    <string name="discover_feeds_section_title">Discover feeds</string>
+    <string name="discover_pin_content_desc">Pin feed</string>
+    <string name="discover_pinned_content_desc">Unpin feed</string>
+    <string name="discover_feed_card_content_desc">Suggested feed: %1$s</string>
+    <string name="discover_feed_preview_author_handle">@%1$s</string>
+
+    <!-- trpn: Discover tab — empty state -->
+    <string name="discover_empty_hint">Pull to refresh to discover content</string>
 </resources>

@@ -1,10 +1,12 @@
 package net.kikin.nubecita.feature.search.impl
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.input.TextFieldState
@@ -23,10 +25,16 @@ import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -34,27 +42,25 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
+import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.feature.feed.api.FeedView
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.impl.ui.DiscoverSections
 import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 
 /**
- * Stateful Search tab home. Hoists [SearchViewModel] and forwards
- * its state + a small set of stable lambdas down to
- * [SearchScreenContent]. The per-tab Screens (Posts / People) are
- * mounted inside the stateless body's [HorizontalPager] gated on
- * `!isQueryBlank`.
+ * Stateful Search tab home. Hoists [SearchViewModel] and [DiscoverViewModel]
+ * and forwards their state down to [SearchScreenContent]. The per-tab Screens
+ * (Posts / People / Feeds) are mounted inside the stateless body's
+ * [HorizontalPager] gated on `!isQueryBlank`.
  *
- * `onClearQueryRequest` mutates [SearchViewModel.textFieldState]
- * directly via the editor-VM exception (CLAUDE.md). Routing this
- * through a `SearchEvent` would add a hop for no benefit — the
- * canonical clear path is the same `textFieldState.clearText()`
- * that [SearchInputRow]'s trailing X already calls.
- *
- * Suppresses VM-forwarding lints — see ComposerScreen / ProfileScreen
- * for the full rationale (slack compose-lints 1.5.0+ tightened
- * ComposeViewModelForwarding's data-flow analysis; conflicts with
- * ComposeViewModelInjection on stateful screens that hoist state).
+ * [DiscoverViewModel] effects are collected here (the stateful boundary) so
+ * nav actions reach [LocalMainShellNavState] directly and snackbar errors
+ * surface in the shared [SnackbarHostState] (hoisted from
+ * [SearchScreenContent] so both VMs can emit to it). Suppresses
+ * VM-forwarding lints — see ComposerScreen / ProfileScreen for the full
+ * rationale.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
@@ -62,36 +68,51 @@ import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 internal fun SearchScreen(
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
+    discoverViewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // Remembered bound-method reference so SearchScreenContent's onEvent
-    // parameter stays stable across recompositions. Mirrors the
-    // `:feature:chats:impl` pattern (`onEvent = viewModel::handleEvent` via
-    // a remembered reference).
+    val discoverState by discoverViewModel.uiState.collectAsStateWithLifecycle()
+
     val onEvent = remember(viewModel) { viewModel::handleEvent }
+    val onDiscoverEvent = remember(discoverViewModel) { discoverViewModel::handleEvent }
     val onClearQueryRequest =
         remember(viewModel) {
             { viewModel.textFieldState.clearText() }
         }
-    // Width class drives the expanded-search container (full-screen vs docked).
-    // Computed here at the stateful boundary so the stateless body and its
-    // screenshot tests stay width-independent (they use the `false` default).
+
     val isAtLeastMedium =
         currentWindowAdaptiveInfoV2()
             .windowSizeClass
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
-    // Navigation is owned here at the stateful boundary, not in the body:
-    // tapping a person in the typeahead pushes their Profile. Reading
-    // `LocalMainShellNavState` here (rather than inside `SearchBarSection`,
-    // which is always composed) keeps the stateless body — and its
-    // screenshot previews — free of the nav CompositionLocal, the same way
-    // `isAtLeastMedium` is computed here so the body stays width-independent.
-    // The collapse-before-navigate sequencing still lives in
-    // `SearchBarSection`'s scope (nubecita-m4jc); this only supplies the
-    // terminal `navState.add(Profile(...))`.
+
     val navState = LocalMainShellNavState.current
     val onNavigateToActor =
         remember(navState) { { handle: String -> navState.add(Profile(handle = handle)) } }
+
+    // Snackbar state hoisted to this level so both SearchScreenContent's per-tab
+    // error handlers AND the discover-effect ShowError can share a single host.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackScope = rememberCoroutineScope()
+
+    // Collect Discover VM effects: nav → MainShellNavState, error → snackbar.
+    LaunchedEffect(Unit) {
+        discoverViewModel.effects.collect { effect ->
+            when (effect) {
+                is DiscoverEffect.NavigateToProfile ->
+                    navState.add(Profile(handle = effect.handle))
+                is DiscoverEffect.NavigateToFeed ->
+                    navState.add(
+                        FeedView(feedUri = effect.uri, displayName = effect.displayName),
+                    )
+                is DiscoverEffect.ShowError ->
+                    snackScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(effect.message)
+                    }
+            }
+        }
+    }
+
     SearchScreenContent(
         textFieldState = viewModel.textFieldState,
         isQueryBlank = state.isQueryBlank,
@@ -102,33 +123,37 @@ internal fun SearchScreen(
         onClearQueryRequest = onClearQueryRequest,
         isAtLeastMedium = isAtLeastMedium,
         onNavigateToActor = onNavigateToActor,
+        discoverState = discoverState,
+        onDiscoverEvent = onDiscoverEvent,
+        snackbarHostState = snackbarHostState,
         modifier = modifier,
     )
 }
 
 /**
- * Stateless screen body. Extracted so preview / screenshot-test
- * composables can drive the layout without a Hilt-graph dependency
- * on [SearchViewModel]. The single [onEvent] callback is the stable
- * dispatch seam; per-component callbacks are derived once via
- * `remember` so the leaf composables ([SearchInputRow],
- * [RecentSearchChipStrip]) keep their narrow contracts without paying
- * for unstable lambda allocations.
+ * Stateless screen body. Extracted so preview / screenshot-test composables
+ * can drive the layout without a Hilt-graph dependency on [SearchViewModel]
+ * or [DiscoverViewModel]. The single [onEvent] / [onDiscoverEvent] callbacks
+ * are the stable dispatch seams.
  *
- * Layout: a [Scaffold] hosts a [SnackbarHost] for per-tab append
- * errors. Inside the Scaffold a [Column] renders the [SearchBarSection]
- * (the collapsed pill + the expanded typing overlay) followed by a body
- * branched on [phase]:
- *  - [SearchPhase.Discover]: [RecentSearchChipStrip] when there are
- *    recents, otherwise nothing.
- *  - [SearchPhase.Results]: [SecondaryTabRow] + [HorizontalPager]
- *    hosting [SearchPostsScreen] (page 0), [SearchActorsScreen]
- *    (page 1), and [SearchFeedsScreen] (page 2).
- *    `beyondViewportPageCount = 1` keeps adjacent per-tab VMs alive
- *    across tab switches so results are preserved.
+ * Layout: a [Scaffold] hosts a [SnackbarHost] for per-tab append errors and
+ * discover-action errors. Inside the Scaffold a [Column] renders the
+ * [SearchBarSection] (the collapsed pill + the expanded typing overlay)
+ * followed by a body branched on [phase]:
  *
- * The mid-query typeahead surface ([SearchTypeaheadScreen]) is no longer
- * a body phase — it renders inside [SearchBarSection]'s expanded overlay.
+ *  - [SearchPhase.Discover]: a [NubecitaPullToRefreshBox] wrapping a
+ *    [LazyColumn] with:
+ *    — [RecentSearchChipStrip] when there are recents,
+ *    — [DiscoverSections] (accounts carousel + feeds carousel) when
+ *      the respective sections are [DiscoverSectionStatus.Loaded],
+ *    — an empty-state hint when all sections are empty/error and no recents.
+ *  - [SearchPhase.Results]: [SecondaryTabRow] + [HorizontalPager] hosting
+ *    [SearchPostsScreen] / [SearchActorsScreen] / [SearchFeedsScreen].
+ *
+ * [snackbarHostState] defaults to a fresh remembered state so existing
+ * screenshot tests that call [SearchScreenContent] without it continue to
+ * compile and run. [discoverState] and [onDiscoverEvent] similarly default to
+ * empty values so pre-Task-3 fixtures need no changes.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -142,33 +167,28 @@ internal fun SearchScreenContent(
     onClearQueryRequest: () -> Unit,
     modifier: Modifier = Modifier,
     isAtLeastMedium: Boolean = false,
-    // Defaults to a no-op so preview / screenshot-test composables drive the
-    // layout without supplying a navigator — mirrors `isAtLeastMedium`. The
-    // stateful [SearchScreen] passes the real `navState.add(Profile(...))`.
     onNavigateToActor: (handle: String) -> Unit = {},
+    discoverState: DiscoverState = DiscoverState(),
+    onDiscoverEvent: (DiscoverEvent) -> Unit = {},
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val onSubmit = remember(onEvent) { { onEvent(SearchEvent.SubmitClicked) } }
     val onChipTap = remember(onEvent) { { query: String -> onEvent(SearchEvent.RecentChipTapped(query)) } }
     val onChipRemove = remember(onEvent) { { query: String -> onEvent(SearchEvent.RecentChipRemoved(query)) } }
     val onClearAll = remember(onEvent) { { onEvent(SearchEvent.ClearAllRecentsClicked) } }
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    // Capture onDiscoverEvent in rememberUpdatedState so the LaunchedEffect(phase)
+    // below always dispatches to the current callback without restarting.
+    val currentOnDiscoverEvent by rememberUpdatedState(onDiscoverEvent)
+
     val snackScope = rememberCoroutineScope()
 
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
     val tabScope = rememberCoroutineScope()
 
-    // The expand/collapse state of the search bar. Owned here (not the VM):
-    // it is Compose-runtime animation state, like scroll position. Defaults
-    // to Collapsed.
     val searchBarState = rememberSearchBarState()
     val searchBarScope = rememberCoroutineScope()
 
-    // Search-tab re-tap: expand the search bar (which focuses the field and
-    // pops the soft keyboard). MainShell emits on `LocalTabReTapSignal`
-    // whenever the user taps the active bottom-nav item; the default empty
-    // signal (no provider in previews / screenshot tests) never emits so
-    // this is a runtime no-op in those contexts. Issue #267 / nubecita-vrba.13.
     val tabReTapSignal = LocalTabReTapSignal.current
     LaunchedEffect(tabReTapSignal, searchBarState) {
         tabReTapSignal.collect {
@@ -178,10 +198,7 @@ internal fun SearchScreenContent(
 
     // Pre-resolve all nine append-error strings via stringResource() so
     // the snackbar lambdas can pick by variant without calling
-    // Context.getString() at fire time. The Compose lint rule
-    // `LocalContextGetResourceValueCall` flags any in-Composable
-    // Context.getString call (even when captured in a deferred
-    // lambda — the static analyzer doesn't track invocation timing).
+    // Context.getString() at fire time.
     val postsNetworkMsg = stringResource(R.string.search_posts_append_error_network)
     val postsRateLimitedMsg = stringResource(R.string.search_posts_append_error_rate_limited)
     val postsUnknownMsg = stringResource(R.string.search_posts_append_error_unknown)
@@ -191,7 +208,6 @@ internal fun SearchScreenContent(
     val feedsNetworkMsg = stringResource(R.string.search_feeds_append_error_network)
     val feedsRateLimitedMsg = stringResource(R.string.search_feeds_append_error_rate_limited)
     val feedsUnknownMsg = stringResource(R.string.search_feeds_append_error_unknown)
-    // PostCard overflow-menu coming-soon snackbars (oftc.2).
     val overflowReportComingSoon =
         stringResource(R.string.search_snackbar_overflow_report_coming_soon)
     val overflowMuteComingSoon =
@@ -209,12 +225,6 @@ internal fun SearchScreenContent(
     val overflowCopyTextComingSoon =
         stringResource(R.string.search_snackbar_overflow_copy_text_coming_soon)
 
-    // Dismiss-then-show on each snackbar emission rather than queueing,
-    // matching the convention established in :feature:feed:impl/FeedScreen
-    // and :feature:postdetail:impl/PostDetailScreen. Repeated transient
-    // failures on a flapping connection (`onPagerSwipe` typically fires
-    // bursts) shouldn't pile up an unread queue — the latest error is the
-    // most useful one to surface.
     val onPostsAppendError =
         remember(snackScope, snackbarHostState, postsNetworkMsg, postsRateLimitedMsg, postsUnknownMsg) {
             { error: SearchPostsError ->
@@ -263,8 +273,6 @@ internal fun SearchScreenContent(
                 Unit
             }
         }
-    // Surface PostCard overflow-menu coming-soon snackbars on the search
-    // screen's SnackbarHostState (same surface as the append-error path).
     val onPostsOverflowComingSoon =
         remember(
             snackScope,
@@ -298,6 +306,20 @@ internal fun SearchScreenContent(
             }
         }
 
+    // Tracks whether a user-initiated pull-to-refresh is in progress for the
+    // Discover section. Starts on user pull, resets when both sections finish
+    // loading. This guards the PR indicator from showing during the initial
+    // load (before any content exists) — initial loads use the existing
+    // section-status Idle → Loading → Loaded lifecycle without showing a spinner.
+    var isDiscoverRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(discoverState.accountsStatus, discoverState.feedsStatus) {
+        if (discoverState.accountsStatus != DiscoverSectionStatus.Loading &&
+            discoverState.feedsStatus != DiscoverSectionStatus.Loading
+        ) {
+            isDiscoverRefreshing = false
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
@@ -315,9 +337,6 @@ internal fun SearchScreenContent(
                 isQueryBlank = isQueryBlank,
                 currentQuery = currentQuery,
                 recentSearches = recentSearches,
-                // Reverting an unsubmitted edit on collapse targets the last
-                // submitted query (Results) or blank (Discover), so the pill
-                // text and the body stay in sync.
                 revertTarget = revertTargetFor(phase),
                 onSubmit = onSubmit,
                 onChipTap = onChipTap,
@@ -327,22 +346,73 @@ internal fun SearchScreenContent(
                 onNavigateToActor = onNavigateToActor,
             )
             when (phase) {
-                SearchPhase.Discover ->
-                    if (recentSearches.isNotEmpty()) {
-                        RecentSearchChipStrip(
-                            items = recentSearches,
-                            onChipTap = onChipTap,
-                            onChipRemove = onChipRemove,
-                            onClearAll = onClearAll,
-                        )
+                SearchPhase.Discover -> {
+                    // Fire OnAppear whenever the Discover phase becomes active.
+                    // Gated inside a LaunchedEffect keyed on the phase so it
+                    // re-fires if the user navigates away and back.
+                    LaunchedEffect(phase) {
+                        currentOnDiscoverEvent(DiscoverEvent.OnAppear)
                     }
+
+                    val showEmptyHint =
+                        (
+                            discoverState.accountsStatus is DiscoverSectionStatus.Empty ||
+                                discoverState.accountsStatus is DiscoverSectionStatus.Error
+                        ) &&
+                            (
+                                discoverState.feedsStatus is DiscoverSectionStatus.Empty ||
+                                    discoverState.feedsStatus is DiscoverSectionStatus.Error
+                            ) &&
+                            recentSearches.isEmpty()
+
+                    NubecitaPullToRefreshBox(
+                        isRefreshing = isDiscoverRefreshing,
+                        onRefresh = {
+                            isDiscoverRefreshing = true
+                            currentOnDiscoverEvent(DiscoverEvent.OnRefresh)
+                        },
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            if (recentSearches.isNotEmpty()) {
+                                item(key = "recents") {
+                                    RecentSearchChipStrip(
+                                        items = recentSearches,
+                                        onChipTap = onChipTap,
+                                        onChipRemove = onChipRemove,
+                                        onClearAll = onClearAll,
+                                    )
+                                }
+                            }
+                            if (discoverState.accountsStatus == DiscoverSectionStatus.Loaded ||
+                                discoverState.feedsStatus == DiscoverSectionStatus.Loaded
+                            ) {
+                                item(key = "discover_sections") {
+                                    DiscoverSections(
+                                        state = discoverState,
+                                        onEvent = onDiscoverEvent,
+                                    )
+                                }
+                            }
+                            if (showEmptyHint) {
+                                item(key = "empty_hint") {
+                                    DiscoverEmptyHint(
+                                        modifier =
+                                            Modifier
+                                                .fillParentMaxSize()
+                                                .padding(horizontal = 32.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 is SearchPhase.Results -> {
-                    // The result tabs query the *submitted* query, never the live
-                    // text. Editing in the expanded overlay updates `currentQuery`
-                    // (for the overlay typeahead) while these tabs stay composed
-                    // underneath — feeding them `currentQuery` would re-run the
-                    // search for unsubmitted text. `phase.query` is the last
-                    // submitted query.
                     val submittedQuery = phase.query
                     val fromRecent = phase.fromRecent
                     SearchResultsTabBar(
@@ -385,6 +455,25 @@ internal fun SearchScreenContent(
                 }
             }
         }
+    }
+}
+
+/**
+ * Empty-state hint shown when the Discover body has no accounts, no feeds,
+ * and no recent searches. Prompts the user to pull to refresh.
+ */
+@Composable
+private fun DiscoverEmptyHint(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.discover_empty_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
