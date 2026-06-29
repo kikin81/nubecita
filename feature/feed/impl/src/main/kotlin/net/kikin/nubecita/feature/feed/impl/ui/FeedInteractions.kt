@@ -271,7 +271,10 @@ internal fun rememberFeedInteractions(
         }
     }
 
-    LaunchedEffect(Unit) {
+    // Keyed on viewModel + snackbarHostState (not Unit) so this reusable
+    // helper restarts the collector on fresh references rather than leaking
+    // a stale viewModel/snackbar — matches the composer collector above.
+    LaunchedEffect(viewModel, snackbarHostState) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 is FeedEffect.ShowError -> {
