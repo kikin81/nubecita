@@ -156,12 +156,23 @@ internal class SearchPostsViewModel
                         ),
                     )
                     cache.seed(page.items.map { it.post })
+                    // Dedupe by post id (the AT-URI the Posts-tab LazyColumn keys on):
+                    // a single searchPosts response can contain the same post twice,
+                    // and duplicate LazyColumn keys crash Compose. Defensive mirror of
+                    // the append-path dedupe in loadMore(). applyInteractions projects
+                    // the live cache so a post liked/reposted on another surface shows
+                    // its optimistic state immediately, not on the next cache emission.
+                    val deduped =
+                        page.items
+                            .distinctBy { it.post.id }
+                            .toImmutableList()
+                            .applyInteractions(cache.state.value)
                     val nextStatus =
-                        if (page.items.isEmpty()) {
+                        if (deduped.isEmpty()) {
                             SearchPostsLoadStatus.Empty
                         } else {
                             SearchPostsLoadStatus.Loaded(
-                                items = page.items,
+                                items = deduped,
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                             )
@@ -192,10 +203,22 @@ internal class SearchPostsViewModel
                         // mapLatest pipeline has already moved the state on. Don't
                         // splice old-sort results onto a new-sort list.
                         if (fetchKey.value != capturedKey) return@onSuccess
-                        val current = uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded ?: return@onSuccess
                         cache.seed(page.items.map { it.post })
-                        val appended = (current.items + page.items).toImmutableList()
                         setState {
+                            val current = loadStatus as? SearchPostsLoadStatus.Loaded ?: return@setState this
+                            // Read + append INSIDE setState so a concurrent cache merge
+                            // can't be clobbered by a value computed from a stale read.
+                            // Dedupe by post id (the AT-URI the Posts-tab LazyColumn keys
+                            // on) — AT Proto searchPosts cursor pages overlap / re-include
+                            // posts, and a duplicate key crashes the LazyColumn
+                            // (Crashlytics 159e25351be7042db517f3af684684db). Existing items
+                            // win so order stays stable; applyInteractions projects the live
+                            // cache onto the newly appended posts immediately.
+                            val appended =
+                                (current.items + page.items)
+                                    .distinctBy { it.post.id }
+                                    .toImmutableList()
+                                    .applyInteractions(cache.state.value)
                             copy(
                                 loadStatus =
                                     current.copy(
