@@ -1,9 +1,6 @@
 package net.kikin.nubecita.feature.postdetail.impl
 
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.res.Configuration
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Box
@@ -55,7 +52,8 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.time.LocalClock
-import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
+import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
+import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -72,7 +70,6 @@ import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
-import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.designsystem.component.VideoPosterEmbed
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -136,19 +133,77 @@ internal fun PostDetailScreen(
     val currentOnQuoteClick by rememberUpdatedState(onQuoteClick)
 
     val haptics = rememberPostHaptics()
+
+    // Per-action strings for the shared rememberPostInteractions helper.
+    // Each field is resolved from this module's existing R.string values so
+    // snackbar text stays byte-identical. Several fields are placeholder values
+    // only — the corresponding InteractionEffect variants are never emitted by
+    // the post-detail handler: the VM intercepts mute/unmute actions and updates
+    // state directly, while report/block delegate to the handler which navigates
+    // for real (NavigateToReport / NavigateToBlock). The coming-soon strings for
+    // unblock/mute-thread/unmute-thread/copy-text ARE shown by the shared
+    // rememberPostInteractions helper for those delegated actions.
+    val interactionStrings =
+        InteractionStrings(
+            errorNetwork = stringResource(R.string.postdetail_snackbar_error_network),
+            errorUnauthenticated = stringResource(R.string.postdetail_snackbar_error_unauthenticated),
+            errorUnknown = stringResource(R.string.postdetail_snackbar_error_unknown),
+            linkCopied = stringResource(R.string.postdetail_snackbar_link_copied),
+            clipLabel = stringResource(R.string.postdetail_clipboard_label_post_link),
+            // ReportPost → NavigateToReport via handler; this string is never shown.
+            reportComingSoon =
+                stringResource(R.string.postdetail_snackbar_overflow_report_coming_soon),
+            // MuteAuthor/UnmuteAuthor are intercepted by the VM override; never shown.
+            muteComingSoon =
+                stringResource(R.string.postdetail_snackbar_overflow_mute_coming_soon),
+            unmuteComingSoon =
+                stringResource(R.string.postdetail_snackbar_overflow_unmute_coming_soon),
+            // BlockAuthor → NavigateToBlock via handler (block→real in PR4);
+            // this string is never shown. Pointing to the unblock string because
+            // the dedicated block coming-soon string was removed when block→real.
+            blockComingSoon =
+                stringResource(R.string.postdetail_snackbar_overflow_unblock_coming_soon),
+            unblockComingSoon =
+                stringResource(R.string.postdetail_snackbar_overflow_unblock_coming_soon),
+            muteThreadComingSoon =
+                stringResource(R.string.postdetail_snackbar_overflow_mute_thread_coming_soon),
+            unmuteThreadComingSoon =
+                stringResource(R.string.postdetail_snackbar_overflow_unmute_thread_coming_soon),
+            copyTextComingSoon =
+                stringResource(R.string.postdetail_snackbar_overflow_copy_text_coming_soon),
+        )
+
+    // Wire the shared post-interaction helper. Handles share sheet, clipboard,
+    // coming-soon snackbars, and navigation to Composer / Report / Block via
+    // handler.interactionEffects. Returns base PostCallbacks + tapMarkers.
+    val interactions =
+        rememberPostInteractions(
+            handler = viewModel,
+            snackbarHostState = snackbarHostState,
+            strings = interactionStrings,
+            onInteractionError = { haptics.rejected() },
+        )
+
+    // Screen-specific overrides layered on top of the shared base callbacks.
+    // Like/repost add haptics and call viewModel.on*() directly (delegation
+    // to the injected PostInteractionHandler via `by handler`).
+    // Reply / quote bypass the handler entirely — the host wires those to the
+    // width-conditional composer launcher so the screen stays host-agnostic.
     val callbacks =
-        remember(viewModel, haptics, context) {
-            PostCallbacks(
+        remember(viewModel, haptics, context, interactions.callbacks) {
+            interactions.callbacks.copy(
                 onTap = { viewModel.handleEvent(PostDetailEvent.OnPostTapped(it.id)) },
                 onAuthorTap = { viewModel.handleEvent(PostDetailEvent.OnAuthorTapped(it.did)) },
                 onLike = { post ->
                     if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
-                    viewModel.handleEvent(PostDetailEvent.OnLikeClicked(post))
+                    viewModel.onLike(post)
                 },
                 onRepost = { post ->
                     if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
-                    viewModel.handleEvent(PostDetailEvent.OnRepostClicked(post))
+                    viewModel.onRepost(post)
                 },
+                // Reply/quote bypass the handler — host wires these to the
+                // width-conditional composer launcher (same shape as FeedScreen).
                 onReply = { post ->
                     haptics.lightTap()
                     currentOnReplyClick(post.id)
@@ -159,11 +214,11 @@ internal fun PostDetailScreen(
                 },
                 onShare = { post ->
                     haptics.lightTap()
-                    viewModel.handleEvent(PostDetailEvent.OnShareClicked(post))
+                    viewModel.onShare(post)
                 },
                 // Long-press already fires the system long-press haptic via
                 // combinedClickable — don't double-tap the motor.
-                onShareLongPress = { viewModel.handleEvent(PostDetailEvent.OnShareLongPressed(it)) },
+                onShareLongPress = { viewModel.onShareLongPress(it) },
                 onExternalEmbedTap = { uri ->
                     // Opening a URL is a stateless platform action, so do it
                     // inline (no VM round-trip) exactly like FeedScreen. Narrowed
@@ -209,39 +264,21 @@ internal fun PostDetailScreen(
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
     val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
 
-    // Pre-resolve snackbar copy at composition time so locale changes
-    // participate in recomposition (lint: LocalContextGetResourceValueCall).
-    // The four resolutions always run; cost is a cached resource lookup.
-    // Don't push these into the LaunchedEffect's `when` branch — that
-    // re-trips the lint, and the effect collector doesn't see Configuration
-    // changes the way composition does.
+    // Pre-resolve snackbar copy for the VM's own effects (ShowError on load /
+    // refresh / mute failure). The interaction-level strings (share, clipboard,
+    // coming-soon, error on like/repost) are passed inside interactionStrings
+    // above and consumed by rememberPostInteractions.
     val networkErrorMessage = stringResource(R.string.postdetail_snackbar_error_network)
     val unauthErrorMessage = stringResource(R.string.postdetail_snackbar_error_unauthenticated)
     val notFoundErrorMessage = stringResource(R.string.postdetail_snackbar_error_notfound)
     val unknownErrorMessage = stringResource(R.string.postdetail_snackbar_error_unknown)
-    val linkCopiedMessage = stringResource(R.string.postdetail_snackbar_link_copied)
-    val clipLabel = stringResource(R.string.postdetail_clipboard_label_post_link)
-    // Pre-resolve PostCard overflow-menu coming-soon snackbars at composition time.
-    val overflowReportComingSoon =
-        stringResource(R.string.postdetail_snackbar_overflow_report_coming_soon)
-    val overflowMuteComingSoon =
-        stringResource(R.string.postdetail_snackbar_overflow_mute_coming_soon)
-    val overflowUnmuteComingSoon =
-        stringResource(R.string.postdetail_snackbar_overflow_unmute_coming_soon)
-    val overflowBlockComingSoon =
-        stringResource(R.string.postdetail_snackbar_overflow_block_coming_soon)
-    val overflowUnblockComingSoon =
-        stringResource(R.string.postdetail_snackbar_overflow_unblock_coming_soon)
-    val overflowMuteThreadComingSoon =
-        stringResource(R.string.postdetail_snackbar_overflow_mute_thread_coming_soon)
-    val overflowUnmuteThreadComingSoon =
-        stringResource(R.string.postdetail_snackbar_overflow_unmute_thread_coming_soon)
-    val overflowCopyTextComingSoon =
-        stringResource(R.string.postdetail_snackbar_overflow_copy_text_coming_soon)
-    val clipboardManager =
-        remember(context) {
-            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        }
+    // Wrap snackbar copy for the same reason as the nav callbacks above: the
+    // Unit-keyed effect never restarts, so a locale/config change mid-pending-
+    // snackbar would show stale text without rememberUpdatedState.
+    val currentNetworkErrorMessage by rememberUpdatedState(networkErrorMessage)
+    val currentUnauthErrorMessage by rememberUpdatedState(unauthErrorMessage)
+    val currentNotFoundErrorMessage by rememberUpdatedState(notFoundErrorMessage)
+    val currentUnknownErrorMessage by rememberUpdatedState(unknownErrorMessage)
 
     LaunchedEffect(Unit) { viewModel.handleEvent(PostDetailEvent.Load) }
 
@@ -251,10 +288,10 @@ internal fun PostDetailScreen(
                 is PostDetailEffect.ShowError -> {
                     val message =
                         when (effect.error) {
-                            PostDetailError.Network -> networkErrorMessage
-                            PostDetailError.Unauthenticated -> unauthErrorMessage
-                            PostDetailError.NotFound -> notFoundErrorMessage
-                            is PostDetailError.Unknown -> unknownErrorMessage
+                            PostDetailError.Network -> currentNetworkErrorMessage
+                            PostDetailError.Unauthenticated -> currentUnauthErrorMessage
+                            PostDetailError.NotFound -> currentNotFoundErrorMessage
+                            is PostDetailError.Unknown -> currentUnknownErrorMessage
                         }
                     // Reject haptic — primarily a toggle-rejected cue (like /
                     // repost failed). Over-fires on the refresh-failure path
@@ -274,38 +311,6 @@ internal fun PostDetailScreen(
                     currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
                 is PostDetailEffect.NavigateToVideoPlayer ->
                     currentOnNavigateToVideoPlayer(effect.postUri)
-                is PostDetailEffect.ShowComingSoon -> {
-                    val message =
-                        when (effect.action) {
-                            // ReportPost graduated out of the coming-soon stub in
-                            // oftc.3.1; it now flows through NavigateTo(Report(...)).
-                            // The VM never emits ShowComingSoon for ReportPost, so
-                            // this branch should be unreachable — but exhaustive
-                            // `when` over a sealed enum needs the case. Surface the
-                            // generic copy as a defensive fallback rather than
-                            // crashing if something dispatches ReportPost here.
-                            PostOverflowAction.ReportPost -> overflowReportComingSoon
-                            PostOverflowAction.MuteAuthor -> overflowMuteComingSoon
-                            PostOverflowAction.UnmuteAuthor -> overflowUnmuteComingSoon
-                            PostOverflowAction.BlockAuthor -> overflowBlockComingSoon
-                            PostOverflowAction.UnblockAuthor -> overflowUnblockComingSoon
-                            PostOverflowAction.MuteThread -> overflowMuteThreadComingSoon
-                            PostOverflowAction.UnmuteThread -> overflowUnmuteThreadComingSoon
-                            PostOverflowAction.CopyPostText -> overflowCopyTextComingSoon
-                        }
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
-                }
-                is PostDetailEffect.SharePost -> context.launchPostShare(effect.intent)
-                is PostDetailEffect.CopyPermalink -> {
-                    clipboardManager.setPrimaryClip(
-                        ClipData.newPlainText(clipLabel, effect.permalink),
-                    )
-                    // Replace any pending snackbar — fresh "link copied"
-                    // confirmation outranks a stale error message.
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = linkCopiedMessage)
-                }
                 is PostDetailEffect.NavigateTo -> currentOnNavigateTo(effect.key)
             }
         }

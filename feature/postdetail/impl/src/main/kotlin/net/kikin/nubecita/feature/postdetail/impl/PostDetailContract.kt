@@ -7,7 +7,6 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
-import net.kikin.nubecita.core.postinteractions.sharing.PostShareIntent
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -176,35 +175,6 @@ internal sealed interface PostDetailEvent : UiEvent {
         val quotedPostUri: String,
     ) : PostDetailEvent
 
-    /** User tapped like on the focused post or a thread reply. */
-    data class OnLikeClicked(
-        val post: PostUi,
-    ) : PostDetailEvent
-
-    /** User tapped repost on the focused post or a thread reply. */
-    data class OnRepostClicked(
-        val post: PostUi,
-    ) : PostDetailEvent
-
-    /**
-     * User tapped the share action on a thread post (focus / ancestor /
-     * reply). Routed through the VM so the share-intent construction
-     * stays unit-testable; the screen consumes [PostDetailEffect.SharePost]
-     * and fires the system share sheet from a Context extension.
-     */
-    data class OnShareClicked(
-        val post: PostUi,
-    ) : PostDetailEvent
-
-    /**
-     * Long-press on the share action — copy the post's permalink to the
-     * clipboard (Threads-style). Same intent shape as [OnShareClicked],
-     * different effect.
-     */
-    data class OnShareLongPressed(
-        val post: PostUi,
-    ) : PostDetailEvent
-
     /**
      * Tap on a video embed rendered inside a thread PostCard (ancestor,
      * focus, or reply). Routes to the fullscreen video player on the
@@ -221,10 +191,9 @@ internal sealed interface PostDetailEvent : UiEvent {
     /**
      * User selected an overflow-menu entry on a PostCard inside the
      * post-detail thread (focus, ancestor, or reply). Routed through the
-     * VM so it can decide the appropriate effect — oftc.2 wires every
-     * action to a coming-soon snackbar via
-     * [PostDetailEffect.ShowComingSoon]; oftc.3 / .4 / .5 swap each
-     * variant for its real moderation RPC.
+     * VM's [PostDetailViewModel.onOverflowAction] override which handles
+     * MuteAuthor / UnmuteAuthor locally (optimistic flip + rollback) and
+     * delegates all other actions to the injected [PostInteractionHandler].
      */
     data class OnOverflowAction(
         val post: PostUi,
@@ -292,43 +261,15 @@ internal sealed interface PostDetailEffect : UiEffect {
     ) : PostDetailEffect
 
     /**
-     * Surface a "coming soon" snackbar for a PostCard overflow-menu
-     * action (oftc.2). Routed through the same SnackbarHostState as
-     * [ShowError] / [NavigateToComposer]'s acknowledgement copy.
-     */
-    @Immutable
-    data class ShowComingSoon(
-        val action: PostOverflowAction,
-    ) : PostDetailEffect
-
-    /**
-     * Fire the system share sheet with the pre-computed permalink
-     * payload. The screen collects this and calls `Context.launchPostShare`.
-     */
-    @Immutable
-    data class SharePost(
-        val intent: PostShareIntent,
-    ) : PostDetailEffect
-
-    /**
-     * Copy the post's permalink to the clipboard. The screen collects
-     * this, writes via `ClipboardManager.setPrimaryClip`, and surfaces
-     * a "link copied" snackbar.
-     */
-    @Immutable
-    data class CopyPermalink(
-        val permalink: String,
-    ) : PostDetailEffect
-
-    /**
      * Push a sub-route NavKey onto `MainShell`'s inner back stack via
      * the screen's `onNavigateTo` callback (which the host wires to
      * `LocalMainShellNavState.current.add(key)`). The VM never reads
      * the navigation state holder — that lives in `CompositionLocal`,
-     * which is unreachable from a ViewModel. Currently emitted only
-     * for the Report dialog sub-route (`Report` NavKey from
-     * `:feature:moderation:api`); future moderation children
-     * (Block / Mute confirmation sub-routes) travel the same effect.
+     * which is unreachable from a ViewModel. Report / Block now travel
+     * via [net.kikin.nubecita.core.postinteractions.InteractionEffect]
+     * emitted on [PostInteractionHandler.interactionEffects] and consumed
+     * by [net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions];
+     * this effect remains for any future screen-specific sub-route pushes.
      */
     @Immutable
     data class NavigateTo(

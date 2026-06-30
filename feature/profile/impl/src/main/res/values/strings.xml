@@ -23,15 +23,10 @@
     <string name="profile_snackbar_edit_coming_soon">Edit profile — coming soon</string>
     <string name="profile_snackbar_block_coming_soon">Block — coming soon</string>
 
-    <!-- PostCard overflow-menu "coming soon" snackbars (oftc.2). Distinct
-         from the profile-level Block stub above — these fire
-         from PostCard's per-post overflow menu in the tab bodies.
-         oftc.4 swaps each remaining variant for its real RPC. ReportPost
-         graduated in oftc.3.1 and now flows through
-         ProfileEffect.NavigateTo(Report.forPost(...)); MuteAuthor /
-         UnmuteAuthor graduated in oftc.5 — all three coming-soon
-         strings were removed at the same time. -->
-    <string name="profile_snackbar_post_overflow_block_coming_soon">Block — coming soon</string>
+    <!-- PostCard overflow-menu "coming soon" snackbars. ReportPost graduated in
+         oftc.3.1 (NavigateTo(Report.forPost(...))); MuteAuthor/UnmuteAuthor graduated
+         in oftc.5; BlockAuthor graduated in PR4 nubecita-tgqv (block→real via
+         NavigateToBlock). Remaining variants will swap in future PRs. -->
     <string name="profile_snackbar_post_overflow_unblock_coming_soon">Unblock — coming soon</string>
     <string name="profile_snackbar_post_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="profile_snackbar_post_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>

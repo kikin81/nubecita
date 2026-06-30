@@ -13,6 +13,10 @@ dependencies {
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:post-interactions"))
+    // rememberPostInteractions + InteractionStrings — share/clipboard/coming-soon
+    // snackbars and navigation for like / repost / report / block from PostCards
+    // inside the thread. Mirrors `:feature:profile:impl`'s dependency (PR4).
+    implementation(project(":core:post-interactions-ui"))
     // Thread read surface (PostThreadRepository → ThreadItem); lifted here
     // from this module (nubecita-6rdb.3).
     implementation(project(":core:posts"))

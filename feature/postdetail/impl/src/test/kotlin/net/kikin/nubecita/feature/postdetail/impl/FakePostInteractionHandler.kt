@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.profile.impl
+package net.kikin.nubecita.feature.postdetail.impl
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -18,14 +18,14 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
 /**
- * Test double for [PostInteractionHandler] used in [ProfileViewModelTest].
+ * Test double for [PostInteractionHandler] used in [PostDetailViewModelTest].
  *
  * Routes like / repost through the supplied [cache] so tests that share a
  * [FakePostInteractionsCache] instance between the VM and the handler can
  * still assert on [FakePostInteractionsCache.toggleLikeCalls] etc.
  *
  * [onOverflowAction] throws for [PostOverflowAction.MuteAuthor] and
- * [PostOverflowAction.UnmuteAuthor] — the VM's [ProfileViewModel.onOverflowAction]
+ * [PostOverflowAction.UnmuteAuthor] — the VM's [PostDetailViewModel.onOverflowAction]
  * override intercepts those before delegation reaches this handler.
  * [PostOverflowAction.BlockAuthor] is NOT intercepted — it delegates to this
  * handler, which emits [InteractionEffect.NavigateToBlock] (block→real, PR4).
@@ -109,7 +109,7 @@ internal class FakePostInteractionHandler(
                 // wiring bug.
                 error(
                     "FakePostInteractionHandler: $action must be intercepted by " +
-                        "ProfileViewModel.onOverflowAction before delegation",
+                        "PostDetailViewModel.onOverflowAction before delegation",
                 )
             else ->
                 emit(InteractionEffect.ShowComingSoon(action))

@@ -20,7 +20,6 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
-import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import android.net.Uri as AndroidUri
 
 /**
@@ -93,13 +92,6 @@ internal fun ProfileScreen(
     val errorUnknownMsg = stringResource(R.string.profile_snackbar_error_unknown)
     val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
     val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
-    // BlockAuthor still routes through ProfileEffect.ShowPostOverflowComingSoon
-    // (PR3 — block→real lands in PR4 nubecita-tgqv). The remaining overflow
-    // coming-soon strings (unblock/mute-thread/unmute-thread/copy-text) now
-    // live inside InteractionStrings and are shown via rememberPostInteractions.
-    val postOverflowBlock =
-        stringResource(R.string.profile_snackbar_post_overflow_block_coming_soon)
-
     // Per-action strings for the shared rememberPostInteractions helper.
     // Each field is resolved from the module's existing R.string values so
     // snackbar text stays byte-identical. Several fields are placeholder
@@ -122,9 +114,11 @@ internal fun ProfileScreen(
                 stringResource(R.string.profile_snackbar_post_overflow_mute_thread_coming_soon),
             unmuteComingSoon =
                 stringResource(R.string.profile_snackbar_post_overflow_unmute_thread_coming_soon),
-            // BlockAuthor is intercepted by the VM override (coming-soon via ProfileEffect);
-            // this field is never shown via the handler path.
-            blockComingSoon = postOverflowBlock,
+            // BlockAuthor → NavigateToBlock via handler (block→real in PR4 nubecita-tgqv);
+            // this field is never shown via the handler path. Pointing to the unblock
+            // string because the dedicated block coming-soon string was removed.
+            blockComingSoon =
+                stringResource(R.string.profile_snackbar_post_overflow_unblock_coming_soon),
             unblockComingSoon =
                 stringResource(R.string.profile_snackbar_post_overflow_unblock_coming_soon),
             muteThreadComingSoon =
@@ -222,7 +216,6 @@ internal fun ProfileScreen(
     val currentErrorUnknownMsg by rememberUpdatedState(errorUnknownMsg)
     val currentComingSoonEdit by rememberUpdatedState(comingSoonEdit)
     val currentComingSoonBlock by rememberUpdatedState(comingSoonBlock)
-    val currentPostOverflowBlock by rememberUpdatedState(postOverflowBlock)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -250,17 +243,6 @@ internal fun ProfileScreen(
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = msg)
-                }
-                is ProfileEffect.ShowPostOverflowComingSoon -> {
-                    // Only BlockAuthor still routes through this VM effect (PR3).
-                    // UnblockAuthor/MuteThread/UnmuteThread/CopyPostText are now
-                    // delegated to the handler and shown via rememberPostInteractions.
-                    // ReportPost/MuteAuthor/UnmuteAuthor are intercepted by the VM's
-                    // onOverflowAction override and never reach ShowPostOverflowComingSoon.
-                    if (effect.action == PostOverflowAction.BlockAuthor) {
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(message = currentPostOverflowBlock)
-                    }
                 }
                 is ProfileEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is ProfileEffect.NavigateToProfile -> currentOnNavigateToProfile(effect.handle)

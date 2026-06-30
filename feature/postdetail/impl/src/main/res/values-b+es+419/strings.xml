@@ -22,7 +22,6 @@
     <string name="postdetail_snackbar_overflow_report_coming_soon">Denunciar — próximamente</string>
     <string name="postdetail_snackbar_overflow_mute_coming_soon">Silenciar — próximamente</string>
     <string name="postdetail_snackbar_overflow_unmute_coming_soon">Dejar de silenciar — próximamente</string>
-    <string name="postdetail_snackbar_overflow_block_coming_soon">Bloquear — próximamente</string>
     <string name="postdetail_snackbar_overflow_unblock_coming_soon">Desbloquear — próximamente</string>
     <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Silenciar hilo — próximamente</string>
     <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Dejar de silenciar hilo — próximamente</string>

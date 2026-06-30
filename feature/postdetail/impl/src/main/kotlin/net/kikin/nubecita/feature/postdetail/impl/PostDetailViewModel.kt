@@ -9,26 +9,19 @@ import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
-import net.kikin.nubecita.core.analytics.AnalyticsClient
-import net.kikin.nubecita.core.analytics.InteractPost
-import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
-import net.kikin.nubecita.core.analytics.Share
-import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
-import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.core.posts.PostThreadRepository
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
-import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import java.io.IOException
 
@@ -42,6 +35,13 @@ import java.io.IOException
  * recipe — `hiltViewModel<VM, Factory>(creationCallback = { it.create(key) })`
  * — preserves a per-NavEntry VM instance via the
  * `rememberViewModelStoreNavEntryDecorator` already wired in `MainShell`.
+ *
+ * Implements [PostInteractionHandler] via Kotlin `by` delegation onto
+ * the injected [handler] (a [net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionHandler]
+ * bound by Hilt). Like / repost / share calls from the screen Composable
+ * reach the handler directly; [onOverflowAction] is overridden locally
+ * to intercept MuteAuthor / UnmuteAuthor (optimistic flag-flip + rollback
+ * on the thread items) before delegating all other actions to [handler].
  */
 @HiltViewModel(assistedFactory = PostDetailViewModel.Factory::class)
 internal class PostDetailViewModel
@@ -50,22 +50,41 @@ internal class PostDetailViewModel
         @Assisted private val route: PostDetailRoute,
         private val postThreadRepository: PostThreadRepository,
         private val postInteractionsCache: PostInteractionsCache,
-        private val analytics: AnalyticsClient,
         private val muteRepository: MuteRepository,
-    ) : MviViewModel<PostDetailState, PostDetailEvent, PostDetailEffect>(PostDetailState()) {
+        private val handler: PostInteractionHandler,
+    ) : MviViewModel<PostDetailState, PostDetailEvent, PostDetailEffect>(PostDetailState()),
+        PostInteractionHandler by handler {
         @AssistedFactory
         interface Factory {
             fun create(route: PostDetailRoute): PostDetailViewModel
         }
 
         init {
-            // Subscribe to the cache BEFORE the initial thread load so the
-            // first emission from seed() is captured rather than dropped.
+            handler.bind(PostSurface.PostDetail, viewModelScope)
+
+            // Mirror handler tap-markers into PostDetailState so PostDetailScreenContent
+            // can animate the ±1 count transition before the network resolves.
             viewModelScope.launch {
-                postInteractionsCache.state
-                    .map { interactionMap -> uiState.value.applyInteractions(interactionMap) }
-                    .distinctUntilChanged()
-                    .collect { merged -> setState { merged } }
+                handler.tapMarkers.collect { markers ->
+                    setState {
+                        copy(
+                            lastLikeTapPostUri = markers.lastLikeTapPostUri,
+                            lastRepostTapPostUri = markers.lastRepostTapPostUri,
+                        )
+                    }
+                }
+            }
+
+            // Atomic merge: reads + applies the interaction snapshot INSIDE setState
+            // so a concurrent load or refresh cannot clobber the cache update between
+            // the read and the write. Mirrors ProfileViewModel's identical pattern.
+            // The handler owns the cache WRITES (toggleLike/toggleRepost + tapMarkers);
+            // this VM-side collector owns the READ-merge so liked-state and counts
+            // propagate to the thread items after the network resolves.
+            viewModelScope.launch {
+                postInteractionsCache.state.collect { snapshot ->
+                    setState { copy(items = items.applyInteractions(snapshot)) }
+                }
             }
         }
 
@@ -110,82 +129,52 @@ internal class PostDetailViewModel
                             imageIndex = event.imageIndex,
                         ),
                     )
-                is PostDetailEvent.OnLikeClicked -> {
-                    // Fire-and-forget analytics; action direction from the pre-tap
-                    // viewer state. No PII — only the action enum + surface. Mirrors
-                    // FeedViewModel's InteractPost call site.
-                    analytics.log(
-                        InteractPost(
-                            action = if (event.post.viewer.isLikedByViewer) PostAction.Unlike else PostAction.Like,
-                            surface = PostSurface.PostDetail,
-                        ),
-                    )
-                    setState { copy(lastLikeTapPostUri = event.post.id) }
-                    viewModelScope.launch {
-                        postInteractionsCache
-                            .toggleLike(event.post.id, event.post.cid)
-                            .onFailure { sendEffect(PostDetailEffect.ShowError(it.toPostDetailError())) }
-                    }
-                }
-                is PostDetailEvent.OnRepostClicked -> {
-                    analytics.log(
-                        InteractPost(
-                            action = if (event.post.viewer.isRepostedByViewer) PostAction.Unrepost else PostAction.Repost,
-                            surface = PostSurface.PostDetail,
-                        ),
-                    )
-                    setState { copy(lastRepostTapPostUri = event.post.id) }
-                    viewModelScope.launch {
-                        postInteractionsCache
-                            .toggleRepost(event.post.id, event.post.cid)
-                            .onFailure { sendEffect(PostDetailEffect.ShowError(it.toPostDetailError())) }
-                    }
-                }
                 is PostDetailEvent.OnVideoTapped ->
                     sendEffect(PostDetailEffect.NavigateToVideoPlayer(event.postUri))
-                is PostDetailEvent.OnOverflowAction ->
-                    when (event.action) {
-                        PostOverflowAction.ReportPost ->
-                            sendEffect(PostDetailEffect.NavigateTo(Report.forPost(event.post)))
-                        PostOverflowAction.MuteAuthor -> {
-                            val authorDid = event.post.author.did
-                            setState { copy(items = items.updateMutedByAuthor(authorDid, muted = true)) }
-                            viewModelScope.launch {
-                                muteRepository
-                                    .muteActor(authorDid)
-                                    .onFailure {
-                                        setState { copy(items = items.updateMutedByAuthor(authorDid, muted = false)) }
-                                        sendEffect(PostDetailEffect.ShowError(it.toPostDetailError()))
-                                    }
+                is PostDetailEvent.OnOverflowAction -> onOverflowAction(event.post, event.action)
+            }
+        }
+
+        /**
+         * Post-detail–specific override: [PostOverflowAction.MuteAuthor] /
+         * [PostOverflowAction.UnmuteAuthor] carry optimistic flag-flip mutations
+         * across all thread items authored by the same DID, with rollback on failure.
+         * Unlike the feed / profile surfaces, posts in the thread are NOT removed —
+         * the thread view keeps the muted author's posts visible but marked muted.
+         * All other overflow actions are forwarded to [handler] which emits the
+         * appropriate [net.kikin.nubecita.core.postinteractions.InteractionEffect]
+         * onto the channel consumed by [net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions].
+         */
+        override fun onOverflowAction(
+            post: PostUi,
+            action: PostOverflowAction,
+        ) {
+            when (action) {
+                PostOverflowAction.MuteAuthor -> {
+                    val authorDid = post.author.did
+                    setState { copy(items = items.updateMutedByAuthor(authorDid, muted = true)) }
+                    viewModelScope.launch {
+                        muteRepository
+                            .muteActor(authorDid)
+                            .onFailure {
+                                setState { copy(items = items.updateMutedByAuthor(authorDid, muted = false)) }
+                                sendEffect(PostDetailEffect.ShowError(it.toPostDetailError()))
                             }
-                        }
-                        PostOverflowAction.UnmuteAuthor -> {
-                            val authorDid = event.post.author.did
-                            setState { copy(items = items.updateMutedByAuthor(authorDid, muted = false)) }
-                            viewModelScope.launch {
-                                muteRepository
-                                    .unmuteActor(authorDid)
-                                    .onFailure {
-                                        setState { copy(items = items.updateMutedByAuthor(authorDid, muted = true)) }
-                                        sendEffect(PostDetailEffect.ShowError(it.toPostDetailError()))
-                                    }
-                            }
-                        }
-                        PostOverflowAction.BlockAuthor,
-                        PostOverflowAction.UnblockAuthor,
-                        PostOverflowAction.MuteThread,
-                        PostOverflowAction.UnmuteThread,
-                        PostOverflowAction.CopyPostText,
-                        -> sendEffect(PostDetailEffect.ShowComingSoon(event.action))
                     }
-                is PostDetailEvent.OnShareClicked -> {
-                    analytics.log(Share(ShareMethod.ShareSheet, PostSurface.PostDetail))
-                    sendEffect(PostDetailEffect.SharePost(event.post.toShareIntent()))
                 }
-                is PostDetailEvent.OnShareLongPressed -> {
-                    analytics.log(Share(ShareMethod.CopyLink, PostSurface.PostDetail))
-                    sendEffect(PostDetailEffect.CopyPermalink(event.post.toShareIntent().permalink))
+                PostOverflowAction.UnmuteAuthor -> {
+                    val authorDid = post.author.did
+                    setState { copy(items = items.updateMutedByAuthor(authorDid, muted = false)) }
+                    viewModelScope.launch {
+                        muteRepository
+                            .unmuteActor(authorDid)
+                            .onFailure {
+                                setState { copy(items = items.updateMutedByAuthor(authorDid, muted = true)) }
+                                sendEffect(PostDetailEffect.ShowError(it.toPostDetailError()))
+                            }
+                    }
                 }
+                else -> handler.onOverflowAction(post, action)
             }
         }
 
@@ -211,24 +200,14 @@ internal class PostDetailViewModel
                                 copy(loadStatus = PostDetailLoadStatus.InitialError(PostDetailError.NotFound))
                             }
                         } else {
-                            // Seed the cache after the thread load resolves so
-                            // any in-flight optimistic writes are preserved
-                            // against appview eventual-consistency lag.
-                            val postsToSeed =
+                            postInteractionsCache.seed(
                                 items.mapNotNull { item ->
-                                    when (item) {
-                                        is ThreadItem.Ancestor -> item.post
-                                        is ThreadItem.Focus -> item.post
-                                        is ThreadItem.Reply -> item.post
-                                        is ThreadItem.Blocked,
-                                        is ThreadItem.NotFound,
-                                        is ThreadItem.Fold,
-                                        -> null
-                                    }
-                                }
-                            postInteractionsCache.seed(postsToSeed)
-                            val mergedItems = items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
-                            setState { copy(items = mergedItems, loadStatus = PostDetailLoadStatus.Idle) }
+                                    (item as? ThreadItem.Ancestor)?.post
+                                        ?: (item as? ThreadItem.Focus)?.post
+                                        ?: (item as? ThreadItem.Reply)?.post
+                                },
+                            )
+                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
                         }
                     }.onFailure { throwable ->
                         setState {
@@ -256,21 +235,14 @@ internal class PostDetailViewModel
                         if (items.isEmpty()) {
                             setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
                         } else {
-                            val postsToSeed =
+                            postInteractionsCache.seed(
                                 items.mapNotNull { item ->
-                                    when (item) {
-                                        is ThreadItem.Ancestor -> item.post
-                                        is ThreadItem.Focus -> item.post
-                                        is ThreadItem.Reply -> item.post
-                                        is ThreadItem.Blocked,
-                                        is ThreadItem.NotFound,
-                                        is ThreadItem.Fold,
-                                        -> null
-                                    }
-                                }
-                            postInteractionsCache.seed(postsToSeed)
-                            val mergedItems = items.map { it.applyInteraction(postInteractionsCache.state.value) }.toImmutableList()
-                            setState { copy(items = mergedItems, loadStatus = PostDetailLoadStatus.Idle) }
+                                    (item as? ThreadItem.Ancestor)?.post
+                                        ?: (item as? ThreadItem.Focus)?.post
+                                        ?: (item as? ThreadItem.Reply)?.post
+                                },
+                            )
+                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
                         }
                     }.onFailure { throwable ->
                         // Preserve items on refresh failure; surface as a snackbar.
@@ -302,38 +274,6 @@ internal class PostDetailViewModel
         private companion object {
             const val HTTP_NOT_FOUND = 404
         }
-    }
-
-// ---------- state-projection helpers ---------------------------------------
-
-private fun PostDetailState.applyInteractions(
-    map: PersistentMap<String, PostInteractionState>,
-): PostDetailState =
-    copy(
-        items = items.map { item -> item.applyInteraction(map) }.toImmutableList(),
-    )
-
-private fun ThreadItem.applyInteraction(
-    map: PersistentMap<String, PostInteractionState>,
-): ThreadItem =
-    when (this) {
-        is ThreadItem.Ancestor -> {
-            val state = map[post.id] ?: return this
-            copy(post = post.mergeInteractionState(state))
-        }
-        is ThreadItem.Focus -> {
-            val state = map[post.id] ?: return this
-            copy(post = post.mergeInteractionState(state))
-        }
-        is ThreadItem.Reply -> {
-            val state = map[post.id] ?: return this
-            copy(post = post.mergeInteractionState(state))
-        }
-        // Blocked, NotFound, Fold carry no PostUi — pass through.
-        is ThreadItem.Blocked,
-        is ThreadItem.NotFound,
-        is ThreadItem.Fold,
-        -> this
     }
 
 /**
@@ -376,3 +316,38 @@ private fun ImmutableList<ThreadItem>.updateMutedByAuthor(
             -> item
         }
     }.toImmutableList()
+
+/**
+ * Project a [PostInteractionsCache] snapshot onto every post-carrying item in
+ * the thread. Items without a [PostUi] (Blocked, NotFound, Fold) are passed
+ * through unchanged. Mirrors [ProfileViewModel]'s per-tab `applyInteractions`
+ * pattern — the read+merge is called INSIDE [MviViewModel.setState] so a
+ * concurrent load or mute-rollback cannot clobber the cache snapshot between
+ * the read and the write.
+ */
+private fun ImmutableList<ThreadItem>.applyInteractions(
+    snapshot: PersistentMap<String, PostInteractionState>,
+): ImmutableList<ThreadItem> = map { it.applyInteraction(snapshot) }.toImmutableList()
+
+private fun ThreadItem.applyInteraction(
+    snapshot: PersistentMap<String, PostInteractionState>,
+): ThreadItem =
+    when (this) {
+        is ThreadItem.Ancestor -> {
+            val state = snapshot[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        is ThreadItem.Focus -> {
+            val state = snapshot[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        is ThreadItem.Reply -> {
+            val state = snapshot[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        // Blocked, NotFound, Fold carry no PostUi — pass through.
+        is ThreadItem.Blocked,
+        is ThreadItem.NotFound,
+        is ThreadItem.Fold,
+        -> this
+    }

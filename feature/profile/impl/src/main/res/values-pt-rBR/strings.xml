@@ -18,7 +18,6 @@
     <string name="profile_snackbar_edit_coming_soon">Editar perfil — em breve</string>
     <string name="profile_snackbar_block_coming_soon">Bloquear — em breve</string>
 
-    <string name="profile_snackbar_post_overflow_block_coming_soon">Bloquear — em breve</string>
     <string name="profile_snackbar_post_overflow_unblock_coming_soon">Desbloquear — em breve</string>
     <string name="profile_snackbar_post_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
     <string name="profile_snackbar_post_overflow_unmute_thread_coming_soon">Reativar som da thread — em breve</string>
