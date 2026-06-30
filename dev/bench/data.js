@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782723241569,
+  "lastUpdate": 1782808025910,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1715,6 +1715,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1070.005,
             "range": "+/- 11.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "f1cc0205d7bddd6747f8c3e5aaa6027cea0c2193",
+          "message": "ci(release): 1.262.1\n\n## [1.262.1](https://github.com/kikin81/nubecita/compare/v1.262.0...v1.262.1) (2026-06-30)\n\n### Bug Fixes\n\n* **search:** dedupe Posts-tab results to prevent duplicate-key LazyColumn crash ([#636](https://github.com/kikin81/nubecita/issues/636)) ([705c62c](https://github.com/kikin81/nubecita/commit/705c62c257b51bb284209e4aa944ad9f7950252b))\n\n### Code Refactoring\n\n* **profile:** migrate post interactions to shared handler (PR3) ([#634](https://github.com/kikin81/nubecita/issues/634)) ([a3bc94b](https://github.com/kikin81/nubecita/commit/a3bc94b275d0c0c17ced1c1f1d04e3c3b00e3aa7))\n* **postdetail:** migrate post-detail + close block parity (PR4, closes epic) ([#635](https://github.com/kikin81/nubecita/issues/635)) ([88a0edc](https://github.com/kikin81/nubecita/commit/88a0edc5ae306020b757c2b6302012e9d2a0a9e5))",
+          "timestamp": "2026-06-30T05:37:11Z",
+          "url": "https://github.com/kikin81/nubecita/commit/f1cc0205d7bddd6747f8c3e5aaa6027cea0c2193"
+        },
+        "date": 1782808023337,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 7.5%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1318.539,
+            "range": "+/- 6.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1230.769,
+            "range": "+/- 6.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1154.931,
+            "range": "+/- 10.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1097.744,
+            "range": "+/- 8.1%",
             "unit": "ms"
           }
         ]
