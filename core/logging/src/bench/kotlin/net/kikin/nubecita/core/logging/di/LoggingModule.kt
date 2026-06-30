@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.logging.CrashReporter
 import net.kikin.nubecita.core.logging.NoOpCrashReporter
+import javax.inject.Singleton
 
 /**
  * Bench-flavor parallel of `:core:logging`'s production [LoggingModule].
@@ -24,5 +25,6 @@ import net.kikin.nubecita.core.logging.NoOpCrashReporter
 @InstallIn(SingletonComponent::class)
 abstract class LoggingModule {
     @Binds
+    @Singleton
     internal abstract fun bindCrashReporter(impl: NoOpCrashReporter): CrashReporter
 }
