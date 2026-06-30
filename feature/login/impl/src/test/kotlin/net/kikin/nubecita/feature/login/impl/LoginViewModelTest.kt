@@ -259,6 +259,38 @@ internal class LoginViewModelTest {
         }
 
     @Test
+    fun `OAuthDiscoveryException 'returned' with a 4-digit number does not match as a 3-digit status`() =
+        runTest(mainDispatcher.dispatcher) {
+            // The \b word-boundary must reject a partial match on a longer number:
+            // " returned 5020" is not an HTTP status and should NOT be reclassified
+            // as Network off its leading "502".
+            val wrapped =
+                OAuthDiscoveryException("DID document fetch for 'did:plc:x' returned 5020 widgets")
+            val vm =
+                newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Generic, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `OAuthDiscoveryException reachability match is case-insensitive`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Guards against an upstream casing change in atproto-kotlin: a
+            // lowercased "failed to fetch" must still classify as Network.
+            val wrapped = OAuthDiscoveryException("failed to fetch DID document for did:plc:x")
+            val vm =
+                newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
+        }
+
+    @Test
     fun `OAuthDiscoveryException with a 'missing endpoint' config message stays Generic`() =
         runTest(mainDispatcher.dispatcher) {
             // Negative test — protects against accidentally widening the

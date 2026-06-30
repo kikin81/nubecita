@@ -185,14 +185,14 @@ class LoginViewModel
 // neutral "Generic" message, while analytics keeps them apart for the funnel.
 private enum class LoginFailureKind { HandleNotFound, Network, OauthConfig, Unexpected }
 
-private fun Throwable.classifyLoginFailure(): LoginFailureKind =
-    when {
-        this is OAuthDiscoveryException && isHandleNotFoundDiscoveryMessage() -> LoginFailureKind.HandleNotFound
-        isNetworkError() -> LoginFailureKind.Network
-        this is OAuthDiscoveryException && isReachabilityDiscoveryMessage() -> LoginFailureKind.Network
-        this is OAuthDiscoveryException -> LoginFailureKind.OauthConfig
-        else -> LoginFailureKind.Unexpected
+private fun Throwable.classifyLoginFailure(): LoginFailureKind {
+    if (this is OAuthDiscoveryException) {
+        if (isHandleNotFoundDiscoveryMessage()) return LoginFailureKind.HandleNotFound
+        if (isNetworkError() || isReachabilityDiscoveryMessage()) return LoginFailureKind.Network
+        return LoginFailureKind.OauthConfig
     }
+    return if (isNetworkError()) LoginFailureKind.Network else LoginFailureKind.Unexpected
+}
 
 private fun LoginFailureKind.toLoginError(handle: String): LoginError =
     when (this) {
@@ -211,7 +211,7 @@ private fun LoginFailureKind.toAnalyticsReason(): LoginErrorReason =
         LoginFailureKind.Unexpected -> LoginErrorReason.Unexpected
     }
 
-private fun OAuthDiscoveryException.isHandleNotFoundDiscoveryMessage(): Boolean = message?.startsWith("Failed to resolve handle") == true
+private fun OAuthDiscoveryException.isHandleNotFoundDiscoveryMessage(): Boolean = message?.startsWith("Failed to resolve handle", ignoreCase = true) == true
 
 /**
  * Recognizes [OAuthDiscoveryException] messages that indicate a reachability /
@@ -236,16 +236,18 @@ private fun OAuthDiscoveryException.isHandleNotFoundDiscoveryMessage(): Boolean 
  */
 private fun OAuthDiscoveryException.isReachabilityDiscoveryMessage(): Boolean {
     val m = message ?: return false
-    return m.startsWith("Failed to fetch") ||
-        m.startsWith("Failed to parse") ||
+    return m.startsWith("Failed to fetch", ignoreCase = true) ||
+        m.startsWith("Failed to parse", ignoreCase = true) ||
         REACHABILITY_STATUS_REGEX.containsMatchIn(m)
 }
 
 // "DID document fetch for '…' returned 502 Bad Gateway" / "Auth server metadata
 // at https://… returned 503 Service Unavailable" / etc. Pin to a 3-digit HTTP
 // status after " returned " so unrelated messages with the word "returned"
-// don't get reclassified.
-private val REACHABILITY_STATUS_REGEX = Regex(""" returned \d{3}""")
+// don't get reclassified. The \b after the 3 digits rejects partial matches on
+// longer numbers (e.g. " returned 5020" must not match as "502"); IGNORE_CASE
+// guards against upstream casing changes in the word "returned".
+private val REACHABILITY_STATUS_REGEX = Regex(""" returned \b\d{3}\b""", RegexOption.IGNORE_CASE)
 
 private fun Throwable.isNetworkError(): Boolean {
     var t: Throwable? = this
