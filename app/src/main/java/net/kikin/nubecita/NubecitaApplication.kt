@@ -16,9 +16,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.bootstrap.AppInitializer
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.logging.CrashReporter
+import net.kikin.nubecita.core.logging.CrashlyticsTree
 import net.kikin.nubecita.core.push.NotificationChannelInstaller
 import net.kikin.nubecita.firebase.appCheckFactory
-import net.kikin.nubecita.logging.CrashlyticsTree
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -69,6 +70,11 @@ class NubecitaApplication :
     @Inject @ApplicationScope
     lateinit var applicationScope: CoroutineScope
 
+    // Production binds FirebaseCrashReporter; bench binds NoOpCrashReporter
+    // (so the field resolves in every flavor even though the tree is only
+    // planted in production below). See `:core:logging`.
+    @Inject lateinit var crashReporter: CrashReporter
+
     override fun onCreate() {
         super.onCreate()
 
@@ -89,7 +95,7 @@ class NubecitaApplication :
         //                        Macrobench APK stays silent.
         when {
             BuildConfig.DEBUG -> Timber.plant(Timber.DebugTree())
-            BuildConfig.FLAVOR == "production" -> Timber.plant(CrashlyticsTree())
+            BuildConfig.FLAVOR == "production" -> Timber.plant(CrashlyticsTree(crashReporter))
         }
 
         // Push-related startup wiring — channel installation is direct
