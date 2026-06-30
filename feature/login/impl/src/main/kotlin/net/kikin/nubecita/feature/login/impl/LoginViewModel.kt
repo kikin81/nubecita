@@ -61,8 +61,9 @@ class LoginViewModel
                             )
                         }.onFailure { failure ->
                             val handle = uiState.value.handle.trim()
-                            val error = failure.toLoginError(handle)
-                            logLoginFailure(stage = LoginStage.Complete, error = error, cause = failure)
+                            val kind = failure.classifyLoginFailure()
+                            val error = kind.toLoginError(handle)
+                            logLoginFailure(stage = LoginStage.Complete, kind = kind, error = error, cause = failure)
                             setState { copy(isLoading = false, errorMessage = error) }
                         }
                 }
@@ -125,8 +126,9 @@ class LoginViewModel
                         setState { copy(isLoading = false) }
                         sendEffect(LoginEffect.LaunchCustomTab(url))
                     }.onFailure { failure ->
-                        val error = failure.toLoginError(handle)
-                        logLoginFailure(stage = LoginStage.Begin, error = error, cause = failure)
+                        val kind = failure.classifyLoginFailure()
+                        val error = kind.toLoginError(handle)
+                        logLoginFailure(stage = LoginStage.Begin, kind = kind, error = error, cause = failure)
                         setState { copy(isLoading = false, errorMessage = error) }
                     }
             }
@@ -136,26 +138,29 @@ class LoginViewModel
          * Record a login failure to analytics and logs.
          *
          * Analytics: emit the PII-free `login_error` event (reason + stage) for
-         * funnel failure-rate reporting — skipped for [LoginError.BlankHandle],
-         * which is client-side validation, not a real attempt (and never reaches
-         * this path anyway).
+         * funnel failure-rate reporting. [LoginError.BlankHandle] is client-side
+         * validation, not a real attempt, and never reaches this path — so every
+         * failure here logs a concrete [LoginErrorReason].
          *
          * Logs: route by level so non-fatals stay high-signal. [LoginError.Network]
          * (offline) and [LoginError.HandleNotFound] (typo) are expected → `w`
-         * (breadcrumb only). Only the unclassified [LoginError.Generic] is a
-         * genuinely-unexpected failure worth a non-fatal → `e`. The error's class
-         * name is logged, never the handle (PII).
+         * (breadcrumb only). The coarse [LoginError.Generic] bucket — both
+         * `oauth_config` (upstream server misconfig) and `unexpected` (genuine
+         * unknown) — is worth a non-fatal → `e`; the finer [reason] disambiguates
+         * the two. The error's class name is logged, never the handle (PII).
          */
         private fun logLoginFailure(
             stage: LoginStage,
+            kind: LoginFailureKind,
             error: LoginError,
             cause: Throwable,
         ) {
-            error.toAnalyticsReason()?.let { reason ->
-                analytics.log(LoginFailed(reason = reason, stage = stage))
-            }
+            val reason = kind.toAnalyticsReason()
+            analytics.log(LoginFailed(reason = reason, stage = stage))
             if (error is LoginError.Generic) {
-                Timber.tag(TAG).e(cause, "login failed (unexpected, stage=%s)", stage.wire)
+                // Generic = the coarse UI message for both oauth-config and truly
+                // unexpected throws; the finer `reason` disambiguates them in logs.
+                Timber.tag(TAG).e(cause, "login failed (stage=%s, reason=%s)", stage.wire, reason.wire)
             } else {
                 // Pass cause for the local logcat stack trace; the CrashlyticsTree
                 // breadcrumb uses only the message (no handle), and WARN never records
@@ -172,25 +177,77 @@ class LoginViewModel
     }
 
 // Prefix-match against the upstream OAuthDiscoveryException message is brittle by
-// design — when atproto-kotlin grows a typed HandleNotFoundException, replace the
-// check here and drop the unit test that pins the literal string.
-// Map the UI error to the bucketed analytics reason. BlankHandle returns null
-// (not reported — it's client-side validation and never reaches the failure path).
-private fun LoginError.toAnalyticsReason(): LoginErrorReason? =
+// design — when atproto-kotlin grows typed exceptions (HandleNotFound, NetworkReach,
+// etc.), replace the checks here and drop the unit tests that pin the literal strings.
+// Single failure taxonomy behind BOTH the coarse UI [LoginError] and the finer
+// analytics [LoginErrorReason]. One classifier keeps the two mappings from
+// drifting: the UI deliberately collapses OauthConfig + Unexpected into one
+// neutral "Generic" message, while analytics keeps them apart for the funnel.
+private enum class LoginFailureKind { HandleNotFound, Network, OauthConfig, Unexpected }
+
+private fun Throwable.classifyLoginFailure(): LoginFailureKind {
+    if (this is OAuthDiscoveryException) {
+        if (isHandleNotFoundDiscoveryMessage()) return LoginFailureKind.HandleNotFound
+        if (isNetworkError() || isReachabilityDiscoveryMessage()) return LoginFailureKind.Network
+        return LoginFailureKind.OauthConfig
+    }
+    return if (isNetworkError()) LoginFailureKind.Network else LoginFailureKind.Unexpected
+}
+
+private fun LoginFailureKind.toLoginError(handle: String): LoginError =
     when (this) {
-        LoginError.Network -> LoginErrorReason.Network
-        is LoginError.HandleNotFound -> LoginErrorReason.HandleNotFound
-        LoginError.Generic -> LoginErrorReason.Unexpected
-        LoginError.BlankHandle -> null
+        LoginFailureKind.HandleNotFound -> LoginError.HandleNotFound(handle)
+        LoginFailureKind.Network -> LoginError.Network
+        // The UI shows one neutral message for both — the throwable detail never
+        // reaches the user. Analytics tells them apart below.
+        LoginFailureKind.OauthConfig, LoginFailureKind.Unexpected -> LoginError.Generic
     }
 
-private fun Throwable.toLoginError(handle: String): LoginError =
-    when {
-        this is OAuthDiscoveryException &&
-            message?.startsWith("Failed to resolve handle") == true -> LoginError.HandleNotFound(handle)
-        isNetworkError() -> LoginError.Network
-        else -> LoginError.Generic
+private fun LoginFailureKind.toAnalyticsReason(): LoginErrorReason =
+    when (this) {
+        LoginFailureKind.HandleNotFound -> LoginErrorReason.HandleNotFound
+        LoginFailureKind.Network -> LoginErrorReason.Network
+        LoginFailureKind.OauthConfig -> LoginErrorReason.OauthConfig
+        LoginFailureKind.Unexpected -> LoginErrorReason.Unexpected
     }
+
+private fun OAuthDiscoveryException.isHandleNotFoundDiscoveryMessage(): Boolean = message?.startsWith("Failed to resolve handle", ignoreCase = true) == true
+
+/**
+ * Recognizes [OAuthDiscoveryException] messages that indicate a reachability /
+ * protocol-level failure (captive-portal hijacking, slow network forcing a
+ * timeout that the underlying Ktor exception doesn't surface as an
+ * `IOException` cause, upstream returning a non-2xx status, malformed JSON
+ * from a middlebox returning HTML instead of metadata). These should surface
+ * to the user as `LoginError.Network` ("Trouble connecting, try again") not
+ * `LoginError.Generic` ("Could not start sign-in"), because:
+ *
+ *  - The user can fix it by switching networks / waiting / retrying
+ *  - Telling them it's a config problem when it's actually their WiFi sends
+ *    them down the wrong debugging path (and clutters Crashlytics / support
+ *    with would-be-bug reports)
+ *
+ * Negative cases that stay [LoginError.Generic] (upstream config problems
+ * that retrying won't fix):
+ *  - `authorization_endpoint missing` / `token_endpoint missing` etc.
+ *  - `Unsupported DID method: …`
+ *  - `DID document … has no #atproto_pds service`
+ *  - `Resource server metadata … has empty authorization_servers array`
+ */
+private fun OAuthDiscoveryException.isReachabilityDiscoveryMessage(): Boolean {
+    val m = message ?: return false
+    return m.startsWith("Failed to fetch", ignoreCase = true) ||
+        m.startsWith("Failed to parse", ignoreCase = true) ||
+        REACHABILITY_STATUS_REGEX.containsMatchIn(m)
+}
+
+// "DID document fetch for '…' returned 502 Bad Gateway" / "Auth server metadata
+// at https://… returned 503 Service Unavailable" / etc. Pin to a 3-digit HTTP
+// status after " returned " so unrelated messages with the word "returned"
+// don't get reclassified. The \b after the 3 digits rejects partial matches on
+// longer numbers (e.g. " returned 5020" must not match as "502"); IGNORE_CASE
+// guards against upstream casing changes in the word "returned".
+private val REACHABILITY_STATUS_REGEX = Regex(""" returned \b\d{3}\b""", RegexOption.IGNORE_CASE)
 
 private fun Throwable.isNetworkError(): Boolean {
     var t: Throwable? = this

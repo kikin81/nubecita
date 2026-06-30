@@ -46,10 +46,19 @@ enum class LoginErrorReason(
     /** The submitted handle didn't resolve to a DID (typo / wrong server). */
     HandleNotFound("handle_not_found"),
 
-    /** Offline / DNS / socket timeout during the flow. */
+    /** Offline / DNS / socket timeout / upstream reachability during the flow. */
     Network("network"),
 
-    /** Any unclassified failure (server config, malformed metadata, unexpected throw). */
+    /**
+     * The PDS / auth-server OAuth metadata is malformed or incomplete (missing
+     * endpoint, unsupported DID method, empty `authorization_servers`) — an
+     * upstream server-config problem retrying won't fix. Split out from
+     * [Unexpected] so funnel reports separate "their server is misconfigured"
+     * from "something genuinely unexpected threw".
+     */
+    OauthConfig("oauth_config"),
+
+    /** Any other unclassified failure (unexpected throw). */
     Unexpected("unexpected"),
 }
 
