@@ -156,12 +156,17 @@ internal class SearchPostsViewModel
                         ),
                     )
                     cache.seed(page.items.map { it.post })
+                    // Dedupe by post id (the AT-URI the Posts-tab LazyColumn keys on):
+                    // a single searchPosts response can contain the same post twice,
+                    // and duplicate LazyColumn keys crash Compose. Defensive mirror of
+                    // the append-path dedupe in loadMore().
+                    val deduped = page.items.distinctBy { it.post.id }.toImmutableList()
                     val nextStatus =
-                        if (page.items.isEmpty()) {
+                        if (deduped.isEmpty()) {
                             SearchPostsLoadStatus.Empty
                         } else {
                             SearchPostsLoadStatus.Loaded(
-                                items = page.items,
+                                items = deduped,
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                             )
@@ -194,7 +199,13 @@ internal class SearchPostsViewModel
                         if (fetchKey.value != capturedKey) return@onSuccess
                         val current = uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded ?: return@onSuccess
                         cache.seed(page.items.map { it.post })
-                        val appended = (current.items + page.items).toImmutableList()
+                        // Dedupe by post id (the AT-URI the Posts-tab LazyColumn keys
+                        // on). AT Proto searchPosts cursor pages overlap / re-include
+                        // posts, and a duplicate key crashes the LazyColumn
+                        // (Crashlytics 159e25351be7042db517f3af684684db). Existing items
+                        // win so order stays stable.
+                        val appended =
+                            (current.items + page.items).distinctBy { it.post.id }.toImmutableList()
                         setState {
                             copy(
                                 loadStatus =

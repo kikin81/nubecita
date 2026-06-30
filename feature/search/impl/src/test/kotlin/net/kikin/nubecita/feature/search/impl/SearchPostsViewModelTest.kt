@@ -435,6 +435,62 @@ class SearchPostsViewModelTest {
         }
 
     @Test
+    fun loadMore_overlappingPage_dedupesByPostId() =
+        runTest {
+            // AT Proto searchPosts cursor pages can overlap / re-include a post
+            // (the backend does not guarantee uniqueness). The Posts-tab LazyColumn
+            // keys on post.id, so an appended duplicate AT-URI crashes Compose with
+            // "Key ... was already used" (Crashlytics 159e25351be7042db517f3af684684db).
+            val vm = buildVm()
+            val page1 = listOf(searchPostFixture("at://p1", "p1"), searchPostFixture("at://p2", "p2"))
+            // page 2 re-includes at://p2 (overlap) plus a genuinely new at://p3.
+            val page2 = listOf(searchPostFixture("at://p2", "p2"), searchPostFixture("at://p3", "p3"))
+            repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP, items = page1, nextCursor = "c2")
+            repo.respond(query = "kotlin", cursor = "c2", sort = SearchPostsSort.TOP, items = page2, nextCursor = null)
+
+            vm.setQuery("kotlin")
+            runCurrent()
+            vm.handleEvent(SearchPostsEvent.LoadMore)
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is SearchPostsLoadStatus.Loaded)
+            status as SearchPostsLoadStatus.Loaded
+            // The duplicate at://p2 appears once (existing item wins, order stable).
+            assertEquals(listOf("at://p1", "at://p2", "at://p3"), status.items.map { it.post.id })
+            // No duplicate keys can reach the LazyColumn.
+            assertEquals(
+                status.items.size,
+                status.items
+                    .map { it.post.id }
+                    .distinct()
+                    .size,
+            )
+        }
+
+    @Test
+    fun firstPage_duplicateItems_dedupesByPostId() =
+        runTest {
+            // Defensive: a single searchPosts response can itself contain a dup.
+            val vm = buildVm()
+            val page =
+                listOf(
+                    searchPostFixture("at://p1", "p1"),
+                    searchPostFixture("at://p1", "p1"),
+                    searchPostFixture("at://p2", "p2"),
+                )
+            repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP, items = page, nextCursor = null)
+
+            vm.setQuery("kotlin")
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is SearchPostsLoadStatus.Loaded)
+            status as SearchPostsLoadStatus.Loaded
+            assertEquals(listOf("at://p1", "at://p2"), status.items.map { it.post.id })
+        }
+
+    @Test
     fun loadMore_endReached_isNoOp() =
         runTest {
             val vm = buildVm()
