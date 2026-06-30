@@ -59,4 +59,32 @@ class OAuthRedirectIntentTest {
     fun rejectsNullScheme() {
         assertFalse(isOAuthRedirect(scheme = null, host = "nubecita.app", path = "/oauth-redirect"))
     }
+
+    // isMalformedOAuthRedirect — the redirect-path-but-failed-validation gap that
+    // MainActivity surfaces as a non-fatal instead of dropping at debug level.
+
+    @Test
+    fun malformedRedirect_redirectPathWithWrongHost() {
+        // An https App Link on the redirect path but a host isOAuthRedirect rejects
+        // → a real OAuth callback we'd otherwise silently drop.
+        assertTrue(isMalformedOAuthRedirect(scheme = "https", host = "evil.example", path = "/oauth-redirect"))
+    }
+
+    @Test
+    fun malformedRedirect_redirectPathWithForeignScheme() {
+        assertTrue(isMalformedOAuthRedirect(scheme = "io.github.kikin81", host = null, path = "/oauth-redirect"))
+    }
+
+    @Test
+    fun notMalformed_validRedirectIsNotFlagged() {
+        // A URI that passes isOAuthRedirect is handled normally, never flagged.
+        assertFalse(isMalformedOAuthRedirect(scheme = "https", host = "nubecita.app", path = "/oauth-redirect"))
+        assertFalse(isMalformedOAuthRedirect(scheme = "app.nubecita", host = null, path = "/oauth-redirect"))
+    }
+
+    @Test
+    fun notMalformed_unrelatedDeepLinkPathIsNotFlagged() {
+        // A non-redirect path is an ordinary deep link, not a malformed callback.
+        assertFalse(isMalformedOAuthRedirect(scheme = "https", host = "nubecita.app", path = "/profile/alice"))
+    }
 }

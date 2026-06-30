@@ -13,6 +13,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.logging.NoOpCrashReporter
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
 import net.kikin.nubecita.core.push.NotificationsPromptShownStore
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
@@ -189,6 +190,7 @@ private fun newViewModel(
         authRepository = authRepository,
         notificationsPromptDecider = decider,
         analytics = NoOpAnalyticsClient(),
+        crashReporter = NoOpCrashReporter(),
         broker = broker,
     )
 

@@ -305,6 +305,19 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        // A URI carrying the OAuth redirect path that fails validation (wrong
+        // scheme/host — configuration drift between the manifest filter and
+        // [isOAuthRedirect]) would otherwise fall through to the deep-link branch
+        // and be logged at debug level (invisible to Crashlytics). Surface it as a
+        // non-fatal — Timber.e routes through the planted CrashlyticsTree in
+        // production. The URI is redacted (DID truncation, no query/userinfo) so
+        // no auth code or PII is logged.
+        if (isMalformedOAuthRedirect(scheme = uri.scheme, host = uri.host, path = uri.path)) {
+            Timber.e("OAuth redirect failed validation (scheme/host mismatch): ${uri.redactForLog()}")
+            intent.data = null
+            return
+        }
+
         // Deep-link branch: matchers are sorted by `patternSpecificity`
         // descending (path-segment count from the URI pattern) so the
         // first non-null match in the scan is deterministically the

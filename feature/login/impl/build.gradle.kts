@@ -18,6 +18,7 @@ dependencies {
 
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
+    implementation(project(":core:logging"))
     implementation(project(":core:push"))
     implementation(libs.androidx.browser)
     implementation(libs.timber)
