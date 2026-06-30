@@ -10,31 +10,25 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.ActorAction
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractActor
-import net.kikin.nubecita.core.analytics.InteractPost
-import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
-import net.kikin.nubecita.core.analytics.Share
-import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
-import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
-import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -71,12 +65,14 @@ internal class ProfileViewModel
         private val entitlementRepository: EntitlementRepository,
         private val analytics: AnalyticsClient,
         private val muteRepository: MuteRepository,
+        private val handler: PostInteractionHandler,
     ) : MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>(
             ProfileScreenViewState(
                 handle = route.handle,
                 ownProfile = route.handle == null,
             ),
-        ) {
+        ),
+        PostInteractionHandler by handler {
         @AssistedFactory
         interface Factory {
             fun create(route: Profile): ProfileViewModel
@@ -104,17 +100,38 @@ internal class ProfileViewModel
         private val activeInitialLoadJobs = mutableMapOf<ProfileTab, Job>()
 
         init {
+            // Bind the handler to Profile surface and this VM's scope first.
+            handler.bind(PostSurface.Profile, viewModelScope)
+
+            // Mirror handler tap-markers into ProfileScreenViewState so
+            // ProfileScreenContent can animate the ±1 count transition before the
+            // network resolves. Keeps lastLikeTapPostUri / lastRepostTapPostUri
+            // on ProfileScreenViewState byte-identical for screenshot baseline parity.
+            viewModelScope.launch {
+                handler.tapMarkers.collect { markers ->
+                    setState {
+                        copy(
+                            lastLikeTapPostUri = markers.lastLikeTapPostUri,
+                            lastRepostTapPostUri = markers.lastRepostTapPostUri,
+                        )
+                    }
+                }
+            }
+
             val actor = resolveActor()
             if (actor == null) {
                 sendEffect(ProfileEffect.ShowError(ProfileError.Unknown(NOT_SIGNED_IN_REASON)))
             } else {
                 launchInitialLoads(actor)
             }
+            // Atomic merge: read + apply INSIDE setState to eliminate the outside-read
+            // race where a .map { uiState.value.applyInteractions(it) } outside
+            // setState could clobber a concurrent mutation. Same fix as nubecita-w4o9
+            // that was already applied to the feed in PR2.
             viewModelScope.launch {
-                postInteractionsCache.state
-                    .map { interactionMap -> uiState.value.applyInteractions(interactionMap) }
-                    .distinctUntilChanged()
-                    .collect { merged -> setState { merged } }
+                postInteractionsCache.state.collect { snapshot ->
+                    setState { applyInteractions(snapshot) }
+                }
             }
             // Mirror the viewer's Pro entitlement into flat state. isPro is a
             // hot StateFlow (starts false, never throws), so no .catch — we
@@ -180,83 +197,55 @@ internal class ProfileViewModel
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))
                 ProfileEvent.OnReportAccountRequested -> onReportAccountRequested()
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
-                is ProfileEvent.OnLikeClicked -> {
-                    // Fire-and-forget analytics; action direction from the pre-tap
-                    // viewer state. Mirrors FeedViewModel's InteractPost call site.
-                    analytics.log(
-                        InteractPost(
-                            action = if (event.post.viewer.isLikedByViewer) PostAction.Unlike else PostAction.Like,
-                            surface = PostSurface.Profile,
-                        ),
-                    )
-                    setState { copy(lastLikeTapPostUri = event.post.id) }
+                is ProfileEvent.OnPostOverflowAction -> onOverflowAction(event.post, event.action)
+            }
+        }
+
+        /**
+         * Profile-specific override: [PostOverflowAction.MuteAuthor] /
+         * [PostOverflowAction.UnmuteAuthor] carry optimistic flag-flip mutations
+         * across all three tab statuses and rollback on failure — identical to the
+         * hero-mute path in [onHeroMuteTapped] but operating on per-post author DIDs.
+         * [PostOverflowAction.BlockAuthor] stays coming-soon in PR3 (block→real lands
+         * in PR4 `nubecita-tgqv`). All other overflow actions are forwarded to the
+         * injected [handler] which emits the appropriate [net.kikin.nubecita.core.postinteractions.InteractionEffect]
+         * onto the channel consumed by [net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions].
+         */
+        override fun onOverflowAction(
+            post: PostUi,
+            action: PostOverflowAction,
+        ) {
+            when (action) {
+                PostOverflowAction.MuteAuthor -> {
+                    val authorDid = post.author.did
+                    setState { updateMutedByAuthor(authorDid, muted = true) }
                     viewModelScope.launch {
-                        postInteractionsCache
-                            .toggleLike(event.post.id, event.post.cid)
-                            .onFailure { sendEffect(ProfileEffect.ShowError(it.toProfileError())) }
+                        muteRepository
+                            .muteActor(authorDid)
+                            .onFailure {
+                                setState { updateMutedByAuthor(authorDid, muted = false) }
+                                sendEffect(ProfileEffect.ShowError(it.toProfileError()))
+                            }
                     }
                 }
-                is ProfileEvent.OnRepostClicked -> {
-                    analytics.log(
-                        InteractPost(
-                            action = if (event.post.viewer.isRepostedByViewer) PostAction.Unrepost else PostAction.Repost,
-                            surface = PostSurface.Profile,
-                        ),
-                    )
-                    setState { copy(lastRepostTapPostUri = event.post.id) }
+                PostOverflowAction.UnmuteAuthor -> {
+                    val authorDid = post.author.did
+                    setState { updateMutedByAuthor(authorDid, muted = false) }
                     viewModelScope.launch {
-                        postInteractionsCache
-                            .toggleRepost(event.post.id, event.post.cid)
-                            .onFailure { sendEffect(ProfileEffect.ShowError(it.toProfileError())) }
+                        muteRepository
+                            .unmuteActor(authorDid)
+                            .onFailure {
+                                setState { updateMutedByAuthor(authorDid, muted = true) }
+                                sendEffect(ProfileEffect.ShowError(it.toProfileError()))
+                            }
                     }
                 }
-                is ProfileEvent.OnReplyClicked ->
-                    sendEffect(ProfileEffect.NavigateTo(ComposerRoute(replyToUri = event.post.id)))
-                is ProfileEvent.OnQuoteClicked ->
-                    sendEffect(ProfileEffect.NavigateTo(ComposerRoute(quotePostUri = event.post.id)))
-                is ProfileEvent.OnShareClicked -> {
-                    analytics.log(Share(ShareMethod.ShareSheet, PostSurface.Profile))
-                    sendEffect(ProfileEffect.SharePost(event.post.toShareIntent()))
-                }
-                is ProfileEvent.OnShareLongPressed -> {
-                    analytics.log(Share(ShareMethod.CopyLink, PostSurface.Profile))
-                    sendEffect(ProfileEffect.CopyPermalink(event.post.toShareIntent().permalink))
-                }
-                is ProfileEvent.OnPostOverflowAction ->
-                    when (event.action) {
-                        PostOverflowAction.ReportPost ->
-                            sendEffect(ProfileEffect.NavigateTo(Report.forPost(event.post)))
-                        PostOverflowAction.MuteAuthor -> {
-                            val authorDid = event.post.author.did
-                            setState { updateMutedByAuthor(authorDid, muted = true) }
-                            viewModelScope.launch {
-                                muteRepository
-                                    .muteActor(authorDid)
-                                    .onFailure {
-                                        setState { updateMutedByAuthor(authorDid, muted = false) }
-                                        sendEffect(ProfileEffect.ShowError(it.toProfileError()))
-                                    }
-                            }
-                        }
-                        PostOverflowAction.UnmuteAuthor -> {
-                            val authorDid = event.post.author.did
-                            setState { updateMutedByAuthor(authorDid, muted = false) }
-                            viewModelScope.launch {
-                                muteRepository
-                                    .unmuteActor(authorDid)
-                                    .onFailure {
-                                        setState { updateMutedByAuthor(authorDid, muted = true) }
-                                        sendEffect(ProfileEffect.ShowError(it.toProfileError()))
-                                    }
-                            }
-                        }
-                        PostOverflowAction.BlockAuthor,
-                        PostOverflowAction.UnblockAuthor,
-                        PostOverflowAction.MuteThread,
-                        PostOverflowAction.UnmuteThread,
-                        PostOverflowAction.CopyPostText,
-                        -> sendEffect(ProfileEffect.ShowPostOverflowComingSoon(event.action))
-                    }
+                PostOverflowAction.BlockAuthor ->
+                    // Block→real is PR4 (nubecita-tgqv). Keep coming-soon here so PR3
+                    // is byte-identical with respect to block behavior — no user-visible
+                    // change, screenshots stay unchanged.
+                    sendEffect(ProfileEffect.ShowPostOverflowComingSoon(PostOverflowAction.BlockAuthor))
+                else -> handler.onOverflowAction(post, action)
             }
         }
 

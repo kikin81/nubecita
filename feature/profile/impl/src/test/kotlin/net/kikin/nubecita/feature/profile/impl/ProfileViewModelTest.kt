@@ -14,17 +14,14 @@ import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.ActorAction
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractActor
-import net.kikin.nubecita.core.analytics.InteractPost
-import net.kikin.nubecita.core.analytics.PostAction
 import net.kikin.nubecita.core.analytics.PostSurface
-import net.kikin.nubecita.core.analytics.Share
-import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
+import net.kikin.nubecita.core.postinteractions.InteractionEffect
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
-import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.AuthorUi
@@ -32,7 +29,6 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
@@ -905,7 +901,13 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `OnPostOverflowAction emits ShowPostOverflowComingSoon carrying the action verbatim`() =
+    fun `OnPostOverflowAction BlockAuthor emits ShowPostOverflowComingSoon on vm_effects`() =
+        // BlockAuthor stays coming-soon in PR3 (block→real is PR4 nubecita-tgqv).
+        // The VM's onOverflowAction override intercepts it before delegation so it
+        // lands on vm.effects (ProfileEffect channel), NOT on vm.interactionEffects.
+        // All other formerly-stubbed variants (UnblockAuthor/MuteThread/UnmuteThread/
+        // CopyPostText) are now delegated to the handler and show up on interactionEffects
+        // (verified in the delegation test below).
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
@@ -917,24 +919,53 @@ internal class ProfileViewModelTest {
             advanceUntilIdle()
 
             val post = samplePostUi("at://did:plc:fake/app.bsky.feed.post/x")
-            // ReportPost graduated in oftc.3.1 — covered separately below.
-            // MuteAuthor/UnmuteAuthor graduated in oftc.5 — those now do real
-            // work in the VM (see HeroMuteTapped + OnPostOverflowAction mute
-            // tests above). The remaining five variants still surface
-            // ShowPostOverflowComingSoon.
-            val stubbedVariants =
+            vm.effects.test {
+                vm.handleEvent(
+                    ProfileEvent.OnPostOverflowAction(
+                        post = post,
+                        action = net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                    ),
+                )
+                assertEquals(
+                    ProfileEffect.ShowPostOverflowComingSoon(
+                        net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `OnPostOverflowAction delegated variants emit ShowComingSoon on interactionEffects`() =
+        // UnblockAuthor/MuteThread/UnmuteThread/CopyPostText are now forwarded to the
+        // injected PostInteractionHandler (via the onOverflowAction else branch).
+        // The FakePostInteractionHandler emits InteractionEffect.ShowComingSoon onto
+        // handler.interactionEffects. Callers assert on vm.interactionEffects — the
+        // delegated property from PostInteractionHandler by handler.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            val post = samplePostUi("at://did:plc:fake/app.bsky.feed.post/x")
+            val delegatedVariants =
                 listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
                 )
-            vm.effects.test {
-                for (action in stubbedVariants) {
+            vm.interactionEffects.test {
+                for (action in delegatedVariants) {
                     vm.handleEvent(ProfileEvent.OnPostOverflowAction(post = post, action = action))
                     assertEquals(
-                        ProfileEffect.ShowPostOverflowComingSoon(action),
+                        InteractionEffect.ShowComingSoon(action),
                         awaitItem(),
                     )
                 }
@@ -943,13 +974,15 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `OnPostOverflowAction(ReportPost) emits NavigateTo with a Report Post NavKey`() =
-        // Pin: oftc.3.1 graduates the PostCard overflow Report row on the
-        // Profile Posts / Replies tab out of ShowPostOverflowComingSoon.
-        // VM now emits ProfileEffect.NavigateTo(Report.forPost(post)) —
-        // the screen's effect collector pushes it via onNavigateTo onto
-        // LocalMainShellNavState. URI + CID match the tapped post; no
-        // ShowPostOverflowComingSoon for this variant; no state mutation.
+    fun `OnPostOverflowAction(ReportPost) delegates to handler interactionEffects as NavigateToReport`() =
+        // Pin: oftc.3.1 graduated ReportPost out of ShowPostOverflowComingSoon.
+        // In PR3, ReportPost is forwarded to the injected PostInteractionHandler
+        // via the onOverflowAction else branch. The FakePostInteractionHandler
+        // emits InteractionEffect.NavigateToReport onto interactionEffects; the
+        // real rememberPostInteractions composable handles that by calling
+        // LocalMainShellNavState.add(Report.forPost(post)).
+        // Tests assert on vm.interactionEffects (the delegated handler channel),
+        // NOT vm.effects — the VM's own UiEffect channel no longer emits this.
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
@@ -961,7 +994,7 @@ internal class ProfileViewModelTest {
             advanceUntilIdle()
 
             val post = samplePostUi(id = "at://did:plc:author/app.bsky.feed.post/rprt1", cid = "bafyreitestreportcid")
-            vm.effects.test {
+            vm.interactionEffects.test {
                 vm.handleEvent(
                     ProfileEvent.OnPostOverflowAction(
                         post = post,
@@ -970,24 +1003,10 @@ internal class ProfileViewModelTest {
                 )
                 val effect = awaitItem()
                 assertTrue(
-                    effect is ProfileEffect.NavigateTo,
-                    "expected NavigateTo, got $effect",
+                    effect is InteractionEffect.NavigateToReport,
+                    "expected NavigateToReport, got $effect",
                 )
-                val key = (effect as ProfileEffect.NavigateTo).key
-                assertTrue(
-                    key is net.kikin.nubecita.feature.moderation.api.Report,
-                    "expected Report NavKey, got $key",
-                )
-                val subject = (key as net.kikin.nubecita.feature.moderation.api.Report).subject
-                assertTrue(
-                    subject is net.kikin.nubecita.feature.moderation.api.ReportSubject.Post,
-                    "expected ReportSubject.Post, got $subject",
-                )
-                assertEquals(
-                    post.id,
-                    (subject as net.kikin.nubecita.feature.moderation.api.ReportSubject.Post).uri,
-                )
-                assertEquals(post.cid, subject.cid)
+                assertEquals(post, (effect as InteractionEffect.NavigateToReport).post)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -1117,56 +1136,6 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `OnLikeClicked dispatches cache toggleLike with post id and cid`() =
-        runTest(mainDispatcher.dispatcher) {
-            val cache = FakePostInteractionsCache()
-            val repo =
-                FakeProfileRepository(
-                    headerWithViewerResult =
-                        Result.success(
-                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
-                        ),
-                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
-                )
-            val vm = newVm(repo = repo, postInteractionsCache = cache)
-            advanceUntilIdle()
-            val post = samplePostUi(id = "at://post-p", cid = "bafyP")
-
-            vm.handleEvent(ProfileEvent.OnLikeClicked(post))
-            advanceUntilIdle()
-
-            assertEquals(1, cache.toggleLikeCalls.get())
-            assertEquals("at://post-p" to "bafyP", cache.lastToggleLikeArgs.last())
-        }
-
-    @Test
-    fun `like and repost log InteractPost with the Profile surface`() =
-        runTest(mainDispatcher.dispatcher) {
-            val analytics = RecordingAnalyticsClient()
-            val repo =
-                FakeProfileRepository(
-                    headerWithViewerResult =
-                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
-                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
-                )
-            val vm = newVm(repo = repo, analytics = analytics)
-            advanceUntilIdle()
-            val post = samplePostUi(id = "at://post-p", cid = "bafyP") // not liked/reposted by default
-
-            vm.handleEvent(ProfileEvent.OnLikeClicked(post))
-            vm.handleEvent(ProfileEvent.OnRepostClicked(post))
-            advanceUntilIdle()
-
-            assertEquals(
-                listOf(
-                    InteractPost(PostAction.Like, PostSurface.Profile),
-                    InteractPost(PostAction.Repost, PostSurface.Profile),
-                ),
-                analytics.events,
-            )
-        }
-
-    @Test
     fun `FollowTapped from NotFollowing logs InteractActor follow`() =
         runTest(mainDispatcher.dispatcher) {
             val analytics = RecordingAnalyticsClient()
@@ -1248,146 +1217,6 @@ internal class ProfileViewModelTest {
                 analytics.events.isEmpty(),
                 "FollowTapped on Self MUST fire zero analytics events; got: ${analytics.events}",
             )
-        }
-
-    @Test
-    fun `OnLikeClicked failure surfaces ProfileEffect_ShowError`() =
-        runTest(mainDispatcher.dispatcher) {
-            val cache =
-                FakePostInteractionsCache().apply {
-                    nextToggleLikeResult = Result.failure(java.io.IOException("net down"))
-                }
-            val repo =
-                FakeProfileRepository(
-                    headerWithViewerResult =
-                        Result.success(
-                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
-                        ),
-                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
-                )
-            val vm = newVm(repo = repo, postInteractionsCache = cache)
-            advanceUntilIdle()
-
-            vm.effects.test {
-                vm.handleEvent(ProfileEvent.OnLikeClicked(samplePostUi(id = "at://x", cid = "bafyX")))
-                advanceUntilIdle()
-                assertTrue(awaitItem() is ProfileEffect.ShowError)
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `OnShareClicked emits SharePost with the post's share intent`() =
-        runTest(mainDispatcher.dispatcher) {
-            val repo =
-                FakeProfileRepository(
-                    headerWithViewerResult =
-                        Result.success(
-                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
-                        ),
-                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
-                )
-            val vm = newVm(repo = repo)
-            advanceUntilIdle()
-            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
-
-            vm.effects.test {
-                vm.handleEvent(ProfileEvent.OnShareClicked(post))
-                assertEquals(ProfileEffect.SharePost(post.toShareIntent()), awaitItem())
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `OnShareLongPressed emits CopyPermalink with the post permalink`() =
-        runTest(mainDispatcher.dispatcher) {
-            val repo =
-                FakeProfileRepository(
-                    headerWithViewerResult =
-                        Result.success(
-                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
-                        ),
-                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
-                )
-            val vm = newVm(repo = repo)
-            advanceUntilIdle()
-            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
-
-            vm.effects.test {
-                vm.handleEvent(ProfileEvent.OnShareLongPressed(post))
-                assertEquals(
-                    ProfileEffect.CopyPermalink(post.toShareIntent().permalink),
-                    awaitItem(),
-                )
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `share click and long-press log share events with Profile surface`() =
-        runTest(mainDispatcher.dispatcher) {
-            val analytics = RecordingAnalyticsClient()
-            val vm = newVm(repo = FakeProfileRepository(), analytics = analytics)
-            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
-            vm.handleEvent(ProfileEvent.OnShareClicked(post))
-            vm.handleEvent(ProfileEvent.OnShareLongPressed(post))
-            assertEquals(
-                listOf(
-                    Share(ShareMethod.ShareSheet, PostSurface.Profile),
-                    Share(ShareMethod.CopyLink, PostSurface.Profile),
-                ),
-                analytics.events,
-            )
-        }
-
-    @Test
-    fun `OnReplyClicked navigates to the composer in reply mode`() =
-        runTest(mainDispatcher.dispatcher) {
-            val repo =
-                FakeProfileRepository(
-                    headerWithViewerResult =
-                        Result.success(
-                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
-                        ),
-                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
-                )
-            val vm = newVm(repo = repo)
-            advanceUntilIdle()
-            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
-
-            vm.effects.test {
-                vm.handleEvent(ProfileEvent.OnReplyClicked(post))
-                assertEquals(
-                    ProfileEffect.NavigateTo(ComposerRoute(replyToUri = post.id)),
-                    awaitItem(),
-                )
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `OnQuoteClicked navigates to the composer in quote mode`() =
-        runTest(mainDispatcher.dispatcher) {
-            val repo =
-                FakeProfileRepository(
-                    headerWithViewerResult =
-                        Result.success(
-                            ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None),
-                        ),
-                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
-                )
-            val vm = newVm(repo = repo)
-            advanceUntilIdle()
-            val post = samplePostUi(id = "at://did:plc:fake/app.bsky.feed.post/abc123", cid = "bafyA")
-
-            vm.effects.test {
-                vm.handleEvent(ProfileEvent.OnQuoteClicked(post))
-                assertEquals(
-                    ProfileEffect.NavigateTo(ComposerRoute(quotePostUri = post.id)),
-                    awaitItem(),
-                )
-                cancelAndIgnoreRemainingEvents()
-            }
         }
 
     @Test
@@ -2101,6 +1930,7 @@ internal class ProfileViewModelTest {
         isPro: Boolean = false,
         analytics: AnalyticsClient = RecordingAnalyticsClient(),
         muteRepository: MuteRepository = FakeMuteRepository(),
+        handler: PostInteractionHandler = FakePostInteractionHandler(),
     ): ProfileViewModel {
         val sessionProvider =
             mockk<SessionStateProvider>(relaxed = true).also {
@@ -2118,6 +1948,7 @@ internal class ProfileViewModelTest {
             entitlementRepository = entitlementRepository,
             analytics = analytics,
             muteRepository = muteRepository,
+            handler = handler,
         )
     }
 

@@ -1,8 +1,6 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipboardManager
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.SnackbarHostState
@@ -20,8 +18,8 @@ import androidx.navigation3.runtime.NavKey
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
-import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
-import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
+import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import android.net.Uri as AndroidUri
 
@@ -87,38 +85,102 @@ internal fun ProfileScreen(
 
     val context = LocalContext.current
     val haptics = rememberPostHaptics()
+
+    // Pre-resolve snackbar copy via stringResource() so locale changes
+    // recompose. Reading via context.getString() inside the LaunchedEffect
+    // would bypass Compose's resource tracking (LocalContextGetResourceValueCall).
+    val errorNetworkMsg = stringResource(R.string.profile_snackbar_error_network)
+    val errorUnknownMsg = stringResource(R.string.profile_snackbar_error_unknown)
+    val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
+    val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
+    // BlockAuthor still routes through ProfileEffect.ShowPostOverflowComingSoon
+    // (PR3 — block→real lands in PR4 nubecita-tgqv). The remaining overflow
+    // coming-soon strings (unblock/mute-thread/unmute-thread/copy-text) now
+    // live inside InteractionStrings and are shown via rememberPostInteractions.
+    val postOverflowBlock =
+        stringResource(R.string.profile_snackbar_post_overflow_block_coming_soon)
+
+    // Per-action strings for the shared rememberPostInteractions helper.
+    // Each field is resolved from the module's existing R.string values so
+    // snackbar text stays byte-identical. Several fields are placeholder
+    // values only — the corresponding InteractionEffect variants are never
+    // emitted by the profile handler because the VM intercepts those actions
+    // before they reach the handler (see ProfileViewModel.onOverflowAction).
+    val interactionStrings =
+        InteractionStrings(
+            errorNetwork = errorNetworkMsg,
+            // No profile-specific auth error string; fall back to the generic unknown copy.
+            errorUnauthenticated = errorUnknownMsg,
+            errorUnknown = errorUnknownMsg,
+            linkCopied = stringResource(R.string.profile_snackbar_link_copied),
+            clipLabel = stringResource(R.string.profile_clipboard_label_post_link),
+            // ReportPost → NavigateToReport via handler; this string is never shown.
+            reportComingSoon =
+                stringResource(R.string.profile_snackbar_post_overflow_unblock_coming_soon),
+            // MuteAuthor/UnmuteAuthor are intercepted by the VM override; never shown.
+            muteComingSoon =
+                stringResource(R.string.profile_snackbar_post_overflow_mute_thread_coming_soon),
+            unmuteComingSoon =
+                stringResource(R.string.profile_snackbar_post_overflow_unmute_thread_coming_soon),
+            // BlockAuthor is intercepted by the VM override (coming-soon via ProfileEffect);
+            // this field is never shown via the handler path.
+            blockComingSoon = postOverflowBlock,
+            unblockComingSoon =
+                stringResource(R.string.profile_snackbar_post_overflow_unblock_coming_soon),
+            muteThreadComingSoon =
+                stringResource(R.string.profile_snackbar_post_overflow_mute_thread_coming_soon),
+            unmuteThreadComingSoon =
+                stringResource(R.string.profile_snackbar_post_overflow_unmute_thread_coming_soon),
+            copyTextComingSoon =
+                stringResource(R.string.profile_snackbar_post_overflow_copy_text_coming_soon),
+        )
+
+    // Wire the shared post-interaction helper. Handles share sheet, clipboard,
+    // coming-soon snackbars, and navigation to Composer / Report / Block via
+    // handler.interactionEffects. Returns base PostCallbacks + tapMarkers.
+    val interactions =
+        rememberPostInteractions(
+            handler = viewModel,
+            snackbarHostState = snackbarHostState,
+            strings = interactionStrings,
+            onInteractionError = { haptics.rejected() },
+        )
+
+    // Screen-specific overrides layered on top of the shared base callbacks.
+    // Tap/author/embed/quoted-post routing is profile-local (these go through
+    // ProfileEvent/ProfileEffect, not InteractionEffect). Like/repost/reply/
+    // quote/share add haptic feedback and call viewModel.on*() directly
+    // (delegation to the injected PostInteractionHandler via `by handler`).
     val callbacks =
-        remember(viewModel, context, haptics) {
-            PostCallbacks(
+        remember(viewModel, context, haptics, interactions.callbacks) {
+            interactions.callbacks.copy(
                 onTap = { post -> viewModel.handleEvent(ProfileEvent.PostTapped(post.id)) },
                 onAuthorTap = { author ->
                     viewModel.handleEvent(ProfileEvent.HandleTapped(author.handle))
                 },
                 onLike = { post ->
                     if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
-                    viewModel.handleEvent(ProfileEvent.OnLikeClicked(post))
+                    viewModel.onLike(post)
                 },
                 onRepost = { post ->
                     if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
-                    viewModel.handleEvent(ProfileEvent.OnRepostClicked(post))
+                    viewModel.onRepost(post)
                 },
                 onReply = { post ->
                     haptics.lightTap()
-                    viewModel.handleEvent(ProfileEvent.OnReplyClicked(post))
+                    viewModel.onReply(post)
                 },
                 onQuote = { post ->
                     haptics.lightTap()
-                    viewModel.handleEvent(ProfileEvent.OnQuoteClicked(post))
+                    viewModel.onQuote(post)
                 },
                 onShare = { post ->
                     haptics.lightTap()
-                    viewModel.handleEvent(ProfileEvent.OnShareClicked(post))
+                    viewModel.onShare(post)
                 },
                 // Long-press fires the system long-press haptic via
                 // combinedClickable — don't double-tap the motor.
-                onShareLongPress = { post ->
-                    viewModel.handleEvent(ProfileEvent.OnShareLongPressed(post))
-                },
+                onShareLongPress = { post -> viewModel.onShareLongPress(post) },
                 onExternalEmbedTap = { uri ->
                     // Narrowed catch: silent no-op only for the "no CCT-capable
                     // browser installed" case. Other launch failures propagate
@@ -141,35 +203,6 @@ internal fun ProfileScreen(
                 },
             )
         }
-
-    // Pre-resolve snackbar copy via stringResource() so locale changes
-    // recompose. Reading via context.getString() inside the LaunchedEffect
-    // would bypass Compose's resource tracking (LocalContextGetResourceValueCall).
-    val errorNetworkMsg = stringResource(R.string.profile_snackbar_error_network)
-    val errorUnknownMsg = stringResource(R.string.profile_snackbar_error_unknown)
-    val linkCopiedMsg = stringResource(R.string.profile_snackbar_link_copied)
-    val clipLabel = stringResource(R.string.profile_clipboard_label_post_link)
-    val clipboardManager =
-        remember(context) {
-            context.getSystemService(ClipboardManager::class.java)
-        }
-    val comingSoonEdit = stringResource(R.string.profile_snackbar_edit_coming_soon)
-    val comingSoonBlock = stringResource(R.string.profile_snackbar_block_coming_soon)
-    // PostCard overflow-menu "coming soon" copy (oftc.2). Pre-resolved
-    // via stringResource() at composition time so locale changes
-    // participate in recomposition. ReportPost graduated in oftc.3.1
-    // and no longer flows through this effect. MuteAuthor/UnmuteAuthor
-    // graduated in oftc.5 and now do real work in the VM.
-    val postOverflowBlock =
-        stringResource(R.string.profile_snackbar_post_overflow_block_coming_soon)
-    val postOverflowUnblock =
-        stringResource(R.string.profile_snackbar_post_overflow_unblock_coming_soon)
-    val postOverflowMuteThread =
-        stringResource(R.string.profile_snackbar_post_overflow_mute_thread_coming_soon)
-    val postOverflowUnmuteThread =
-        stringResource(R.string.profile_snackbar_post_overflow_unmute_thread_coming_soon)
-    val postOverflowCopyText =
-        stringResource(R.string.profile_snackbar_post_overflow_copy_text_coming_soon)
 
     // Wrap nav callbacks so the long-lived effect collector keys on Unit
     // (one collector for the screen's lifetime) but always calls the most
@@ -210,27 +243,14 @@ internal fun ProfileScreen(
                     snackbarHostState.showSnackbar(message = msg)
                 }
                 is ProfileEffect.ShowPostOverflowComingSoon -> {
-                    // ReportPost graduated out of this effect in oftc.3.1;
-                    // MuteAuthor/UnmuteAuthor graduated in oftc.5 — those
-                    // variants now do real work in the VM and no longer reach
-                    // this effect. The `null` branch is unreachable in
-                    // production; if it ever fires (a SavedStateHandle replay
-                    // or test-synthesized event), skip the snackbar rather
-                    // than crash the collector.
-                    val msg: String? =
-                        when (effect.action) {
-                            PostOverflowAction.ReportPost -> null
-                            PostOverflowAction.MuteAuthor -> null
-                            PostOverflowAction.UnmuteAuthor -> null
-                            PostOverflowAction.BlockAuthor -> postOverflowBlock
-                            PostOverflowAction.UnblockAuthor -> postOverflowUnblock
-                            PostOverflowAction.MuteThread -> postOverflowMuteThread
-                            PostOverflowAction.UnmuteThread -> postOverflowUnmuteThread
-                            PostOverflowAction.CopyPostText -> postOverflowCopyText
-                        }
-                    if (msg != null) {
+                    // Only BlockAuthor still routes through this VM effect (PR3).
+                    // UnblockAuthor/MuteThread/UnmuteThread/CopyPostText are now
+                    // delegated to the handler and shown via rememberPostInteractions.
+                    // ReportPost/MuteAuthor/UnmuteAuthor are intercepted by the VM's
+                    // onOverflowAction override and never reach ShowPostOverflowComingSoon.
+                    if (effect.action == PostOverflowAction.BlockAuthor) {
                         snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(message = msg)
+                        snackbarHostState.showSnackbar(message = postOverflowBlock)
                     }
                 }
                 is ProfileEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
@@ -243,20 +263,6 @@ internal fun ProfileScreen(
                 is ProfileEffect.NavigateToVideoPlayer ->
                     currentOnNavigateToVideoPlayer(effect.postUri)
                 is ProfileEffect.NavigateTo -> currentOnNavigateTo(effect.key)
-                is ProfileEffect.SharePost -> context.launchPostShare(effect.intent)
-                is ProfileEffect.CopyPermalink -> {
-                    clipboardManager?.setPrimaryClip(
-                        ClipData.newPlainText(clipLabel, effect.permalink),
-                    )
-                    // Always confirm in-app. Android 13+ also shows a system
-                    // clipboard *preview chip* (a privacy-transparency feature,
-                    // not a confirmation snackbar) — it's subtle and easy to miss,
-                    // so gating our snackbar off on API 33+ would leave the copy
-                    // feeling like it did nothing. The two serve different
-                    // purposes and coexisting is fine (matches FeedScreen).
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = linkCopiedMsg)
-                }
             }
         }
     }
