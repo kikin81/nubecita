@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -11,6 +12,8 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostThreadRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
@@ -577,6 +580,65 @@ internal class PostDetailViewModelTest {
             }
         }
 
+    // ---------- cache merge test ----------
+
+    @Test
+    fun `cache emission projects onto Focus and Reply thread items`() =
+        // Pin: after a thread loads, emitting a cache snapshot updates the liked-state
+        // and counts on Ancestor / Focus / Reply items atomically. This tests the VM's
+        // own cache.state → items merge (NOT covered by DefaultPostInteractionHandlerTest,
+        // which only tests the write side). Blocked / NotFound / Fold pass through unchanged.
+        runTest(mainDispatcher.dispatcher) {
+            val ancestorPost = samplePost("at://ancestor", cid = "cidAncestor")
+            val focusPost = samplePost("at://focus", cid = "cidFocus")
+            val replyPost = samplePost("at://reply", cid = "cidReply")
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Ancestor(ancestorPost),
+                    ThreadItem.Focus(focusPost),
+                    ThreadItem.Reply(replyPost, depth = 1),
+                )
+            val cache = FakePostInteractionsCache()
+            val repo = FakeRepo(results = listOf(Result.success(items)))
+            val vm = newVm(repo, postInteractionsCache = cache)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            // Emit a cache snapshot: reply post is liked (count 5), focus post is reposted (count 10).
+            cache.emit(
+                persistentMapOf(
+                    "at://reply" to
+                        PostInteractionState(
+                            viewerLikeUri = "at://did:plc:viewer/app.bsky.feed.like/1",
+                            likeCount = 5,
+                        ),
+                    "at://focus" to
+                        PostInteractionState(
+                            viewerRepostUri = "at://did:plc:viewer/app.bsky.feed.repost/1",
+                            repostCount = 10,
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            val ancestor = state.items.filterIsInstance<ThreadItem.Ancestor>().first()
+            val focus = state.items.filterIsInstance<ThreadItem.Focus>().first()
+            val reply = state.items.filterIsInstance<ThreadItem.Reply>().first()
+
+            // Ancestor is not in the cache snapshot — its state should be unchanged.
+            assertFalse(ancestor.post.viewer.isLikedByViewer, "ancestor post should be unchanged")
+
+            // Reply is liked per the cache snapshot.
+            assertTrue(reply.post.viewer.isLikedByViewer, "reply post should show as liked after cache emission")
+            assertEquals(5, reply.post.stats.likeCount, "reply like count should reflect cache value")
+
+            // Focus is reposted per the cache snapshot.
+            assertTrue(focus.post.viewer.isRepostedByViewer, "focus post should show as reposted after cache emission")
+            assertEquals(10, focus.post.stats.repostCount, "focus repost count should reflect cache value")
+        }
+
     // ---------- tap-marker mirror test ----------
 
     @Test
@@ -775,10 +837,12 @@ internal class PostDetailViewModelTest {
         focusUri: String = "at://focus",
         handler: FakePostInteractionHandler = FakePostInteractionHandler(),
         muteRepository: MuteRepository = FakeMuteRepository(),
+        postInteractionsCache: PostInteractionsCache = FakePostInteractionsCache(),
     ): PostDetailViewModel =
         PostDetailViewModel(
             route = PostDetailRoute(postUri = focusUri),
             postThreadRepository = repo,
+            postInteractionsCache = postInteractionsCache,
             handler = handler,
             muteRepository = muteRepository,
         )

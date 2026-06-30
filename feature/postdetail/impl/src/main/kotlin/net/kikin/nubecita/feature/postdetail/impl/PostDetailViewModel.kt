@@ -7,6 +7,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
@@ -14,6 +15,9 @@ import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.posts.PostThreadRepository
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
@@ -45,6 +49,7 @@ internal class PostDetailViewModel
     constructor(
         @Assisted private val route: PostDetailRoute,
         private val postThreadRepository: PostThreadRepository,
+        private val postInteractionsCache: PostInteractionsCache,
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
     ) : MviViewModel<PostDetailState, PostDetailEvent, PostDetailEffect>(PostDetailState()),
@@ -67,6 +72,18 @@ internal class PostDetailViewModel
                             lastRepostTapPostUri = markers.lastRepostTapPostUri,
                         )
                     }
+                }
+            }
+
+            // Atomic merge: reads + applies the interaction snapshot INSIDE setState
+            // so a concurrent load or refresh cannot clobber the cache update between
+            // the read and the write. Mirrors ProfileViewModel's identical pattern.
+            // The handler owns the cache WRITES (toggleLike/toggleRepost + tapMarkers);
+            // this VM-side collector owns the READ-merge so liked-state and counts
+            // propagate to the thread items after the network resolves.
+            viewModelScope.launch {
+                postInteractionsCache.state.collect { snapshot ->
+                    setState { copy(items = items.applyInteractions(snapshot)) }
                 }
             }
         }
@@ -183,7 +200,14 @@ internal class PostDetailViewModel
                                 copy(loadStatus = PostDetailLoadStatus.InitialError(PostDetailError.NotFound))
                             }
                         } else {
-                            setState { copy(items = items.toImmutableList(), loadStatus = PostDetailLoadStatus.Idle) }
+                            postInteractionsCache.seed(
+                                items.mapNotNull { item ->
+                                    (item as? ThreadItem.Ancestor)?.post
+                                        ?: (item as? ThreadItem.Focus)?.post
+                                        ?: (item as? ThreadItem.Reply)?.post
+                                },
+                            )
+                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
                         }
                     }.onFailure { throwable ->
                         setState {
@@ -211,7 +235,14 @@ internal class PostDetailViewModel
                         if (items.isEmpty()) {
                             setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
                         } else {
-                            setState { copy(items = items.toImmutableList(), loadStatus = PostDetailLoadStatus.Idle) }
+                            postInteractionsCache.seed(
+                                items.mapNotNull { item ->
+                                    (item as? ThreadItem.Ancestor)?.post
+                                        ?: (item as? ThreadItem.Focus)?.post
+                                        ?: (item as? ThreadItem.Reply)?.post
+                                },
+                            )
+                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
                         }
                     }.onFailure { throwable ->
                         // Preserve items on refresh failure; surface as a snackbar.
@@ -285,3 +316,38 @@ private fun ImmutableList<ThreadItem>.updateMutedByAuthor(
             -> item
         }
     }.toImmutableList()
+
+/**
+ * Project a [PostInteractionsCache] snapshot onto every post-carrying item in
+ * the thread. Items without a [PostUi] (Blocked, NotFound, Fold) are passed
+ * through unchanged. Mirrors [ProfileViewModel]'s per-tab `applyInteractions`
+ * pattern — the read+merge is called INSIDE [MviViewModel.setState] so a
+ * concurrent load or mute-rollback cannot clobber the cache snapshot between
+ * the read and the write.
+ */
+private fun ImmutableList<ThreadItem>.applyInteractions(
+    snapshot: PersistentMap<String, PostInteractionState>,
+): ImmutableList<ThreadItem> = map { it.applyInteraction(snapshot) }.toImmutableList()
+
+private fun ThreadItem.applyInteraction(
+    snapshot: PersistentMap<String, PostInteractionState>,
+): ThreadItem =
+    when (this) {
+        is ThreadItem.Ancestor -> {
+            val state = snapshot[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        is ThreadItem.Focus -> {
+            val state = snapshot[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        is ThreadItem.Reply -> {
+            val state = snapshot[post.id] ?: return this
+            copy(post = post.mergeInteractionState(state))
+        }
+        // Blocked, NotFound, Fold carry no PostUi — pass through.
+        is ThreadItem.Blocked,
+        is ThreadItem.NotFound,
+        is ThreadItem.Fold,
+        -> this
+    }
