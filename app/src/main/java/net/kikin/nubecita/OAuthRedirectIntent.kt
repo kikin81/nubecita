@@ -25,6 +25,23 @@ internal fun isOAuthRedirect(
     }
 }
 
+/**
+ * True when an inbound URI carries the sanctioned OAuth redirect *path* but
+ * fails [isOAuthRedirect] (wrong scheme / host). The OS only delivers URIs that
+ * matched a manifest intent filter, so this fires on configuration drift — a
+ * filter shape that [isOAuthRedirect] doesn't accept — where a real OAuth
+ * callback would otherwise fall through to the deep-link branch and be logged at
+ * `debug` level (invisible to Crashlytics). Catching it lets [MainActivity]
+ * surface the callback as a non-fatal instead of silently dropping it.
+ *
+ * Pure predicate over String inputs so it's JVM-unit-testable without Robolectric.
+ */
+internal fun isMalformedOAuthRedirect(
+    scheme: String?,
+    host: String?,
+    path: String?,
+): Boolean = path == OAUTH_REDIRECT_PATH && !isOAuthRedirect(scheme = scheme, host = host, path = path)
+
 internal const val OAUTH_REDIRECT_PATH: String = "/oauth-redirect"
 
 /** Legacy custom-scheme redirect — reversed FQDN of the OAuth client_id host. */

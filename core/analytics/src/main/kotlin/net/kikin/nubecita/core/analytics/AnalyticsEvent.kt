@@ -91,6 +91,43 @@ data class LoginFailed(
         )
 }
 
+/** Which redirect transport an OAuth callback arrives on. */
+enum class OAuthRedirectKind(
+    val wire: String,
+) {
+    /** Verified Android App Link (`https://nubecita.app/oauth-redirect`). */
+    AppLink("applink"),
+
+    /** Legacy custom scheme (`app.nubecita:/oauth-redirect`). */
+    CustomScheme("custom_scheme"),
+}
+
+/**
+ * Fired when the OAuth authorization URL is handed to the Custom Tab from the
+ * sign-in path (`LoginViewModel.submitLogin`) — NOT the "create account" link,
+ * which opens a generic page. Together with [LoginRedirectReturned] this makes
+ * the begin → launched → returned → success/error funnel measurable, so the
+ * silent drop between launching the browser and a redirect coming back (the
+ * App Link / custom-scheme return failing) is finally visible.
+ */
+data object LoginRedirectLaunched : AnalyticsEvent {
+    override val name: String = "login_redirect_launched"
+    override val params: Map<String, AnalyticsValue> = emptyMap()
+}
+
+/**
+ * Fired when an OAuth redirect returns to the app (before token exchange).
+ * [redirect] distinguishes the verified App Link from the legacy custom scheme,
+ * so return-rate by transport is comparable — directly informs the App Link
+ * redirect migration.
+ */
+data class LoginRedirectReturned(
+    val redirect: OAuthRedirectKind,
+) : AnalyticsEvent {
+    override val name: String = "login_redirect_returned"
+    override val params: Map<String, AnalyticsValue> = mapOf("redirect_kind" to Str(redirect.wire))
+}
+
 /**
  * Which *kind* of feed was opened — never which feed.
  *

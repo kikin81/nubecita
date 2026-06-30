@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.login.impl
 
 import io.github.kikin81.atproto.oauth.OAuthDiscoveryException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -14,10 +15,14 @@ import net.kikin.nubecita.core.analytics.AnalyticsEvent
 import net.kikin.nubecita.core.analytics.Login
 import net.kikin.nubecita.core.analytics.LoginErrorReason
 import net.kikin.nubecita.core.analytics.LoginFailed
+import net.kikin.nubecita.core.analytics.LoginRedirectLaunched
+import net.kikin.nubecita.core.analytics.LoginRedirectReturned
 import net.kikin.nubecita.core.analytics.LoginStage
 import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
+import net.kikin.nubecita.core.analytics.OAuthRedirectKind
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.logging.CrashReporter
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
 import net.kikin.nubecita.core.push.NotificationsPromptShownStore
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
@@ -409,7 +414,12 @@ internal class LoginViewModelTest {
             broker.emit("net.kikin.nubecita:/oauth-redirect?code=abc")
             advanceUntilIdle()
 
-            assertEquals(listOf(Login()), analytics.events)
+            // The redirect-returned funnel event precedes the success event; the
+            // custom scheme (not https) tags it CustomScheme.
+            assertEquals(
+                listOf(LoginRedirectReturned(OAuthRedirectKind.CustomScheme), Login()),
+                analytics.events,
+            )
         }
 
     @Test
@@ -425,7 +435,10 @@ internal class LoginViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                listOf(LoginFailed(reason = LoginErrorReason.Network, stage = LoginStage.Complete)),
+                listOf(
+                    LoginRedirectReturned(OAuthRedirectKind.CustomScheme),
+                    LoginFailed(reason = LoginErrorReason.Network, stage = LoginStage.Complete),
+                ),
                 analytics.events,
             )
         }
@@ -543,6 +556,150 @@ internal class LoginViewModelTest {
 
             assertEquals(LoginError.Network, vm.uiState.value.errorMessage)
         }
+
+    @Test
+    fun `generic completeLogin failure records a structured non-fatal with custom keys`() =
+        runTest(mainDispatcher.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginResult = Result.failure(IllegalStateException("boom")))
+            val crash = RecordingCrashReporter()
+            newViewModel(authRepository = auth, broker = broker, crashReporter = crash)
+            advanceUntilIdle()
+
+            broker.emit("https://nubecita.app/oauth-redirect?code=bad")
+            advanceUntilIdle()
+
+            // One grouped non-fatal, carrying the original cause.
+            val recorded = crash.recorded.single()
+            assertEquals("boom", recorded.cause?.message)
+            // PII-free diagnostic keys attached to the same report.
+            assertEquals("complete", crash.keys["login_stage"])
+            assertEquals("unexpected", crash.keys["login_reason"])
+            assertEquals("IllegalStateException", crash.keys["login_exception"])
+            assertEquals("applink", crash.keys["oauth_redirect_kind"])
+        }
+
+    @Test
+    fun `network completeLogin failure records no non-fatal`() =
+        runTest(mainDispatcher.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginResult = Result.failure(IOException("offline")))
+            val crash = RecordingCrashReporter()
+            newViewModel(authRepository = auth, broker = broker, crashReporter = crash)
+            advanceUntilIdle()
+
+            broker.emit("https://nubecita.app/oauth-redirect?code=bad")
+            advanceUntilIdle()
+
+            assertTrue(crash.recorded.isEmpty(), "Network failures are breadcrumb-only, not non-fatals")
+        }
+
+    @Test
+    fun `custom-scheme redirect failure tags oauth_redirect_kind as custom_scheme`() =
+        runTest(mainDispatcher.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginResult = Result.failure(IllegalStateException("x")))
+            val crash = RecordingCrashReporter()
+            newViewModel(authRepository = auth, broker = broker, crashReporter = crash)
+            advanceUntilIdle()
+
+            broker.emit("app.nubecita:/oauth-redirect?code=bad")
+            advanceUntilIdle()
+
+            assertEquals("custom_scheme", crash.keys["oauth_redirect_kind"])
+        }
+
+    @Test
+    fun `successful beginLogin emits login_redirect_launched`() =
+        runTest(mainDispatcher.dispatcher) {
+            val auth = FakeAuthRepository(beginLoginResult = Result.success("https://pds.example/authorize"))
+            val analytics = RecordingAnalyticsClient()
+            val vm = newViewModel(authRepository = auth, analytics = analytics)
+
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(listOf(LoginRedirectLaunched), analytics.events)
+        }
+
+    @Test
+    fun `redirect arrival emits login_redirect_returned then login on success`() =
+        runTest(mainDispatcher.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginResult = Result.success(Unit))
+            val analytics = RecordingAnalyticsClient()
+            newViewModel(authRepository = auth, broker = broker, analytics = analytics)
+            advanceUntilIdle()
+
+            broker.emit("https://nubecita.app/oauth-redirect?code=ok")
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(LoginRedirectReturned(OAuthRedirectKind.AppLink), Login()),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `begin-stage non-fatal tags oauth_redirect_kind none (no stale Complete value bleeds)`() =
+        runTest(mainDispatcher.dispatcher) {
+            val auth = FakeAuthRepository(beginLoginResult = Result.failure(IllegalStateException("boom")))
+            val crash = RecordingCrashReporter()
+            val vm = newViewModel(authRepository = auth, crashReporter = crash)
+
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            // Begin stage has no redirect; the key is still written ("none") so a
+            // prior Complete-stage value can't bleed onto this report.
+            assertEquals("none", crash.keys["oauth_redirect_kind"])
+        }
+
+    @Test
+    fun `completeLogin keeps isLoading true while the token exchange is in flight`() =
+        runTest(mainDispatcher.dispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginGate = gate)
+            val vm = newViewModel(authRepository = auth, broker = broker)
+            advanceUntilIdle()
+
+            broker.emit("https://nubecita.app/oauth-redirect?code=ok")
+            advanceUntilIdle() // parks inside completeLogin at the gate
+
+            assertTrue(vm.uiState.value.isLoading, "screen should show progress during token exchange")
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.isLoading)
+        }
+
+    @Test
+    fun `double submit while a login is in flight is ignored`() =
+        runTest(mainDispatcher.dispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val auth =
+                FakeAuthRepository(
+                    beginLoginResult = Result.success("https://pds.example/authorize"),
+                    beginLoginGate = gate,
+                )
+            val analytics = RecordingAnalyticsClient()
+            val vm = newViewModel(authRepository = auth, analytics = analytics)
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+
+            vm.handleEvent(LoginEvent.SubmitLogin) // starts; parks at the gate (isLoading = true)
+            vm.handleEvent(LoginEvent.SubmitLogin) // ignored by the in-flight guard
+            advanceUntilIdle()
+
+            assertEquals(1, auth.beginLoginInvocations)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            // Exactly one launch event despite the double tap.
+            assertEquals(listOf(LoginRedirectLaunched), analytics.events)
+        }
 }
 
 private fun newViewModel(
@@ -551,13 +708,37 @@ private fun newViewModel(
     notificationsPromptDecider: NotificationsPromptDecider =
         NotificationsPromptDecider(NoopPromptStore, sdkInt = 0),
     analytics: AnalyticsClient = NoOpAnalyticsClient(),
+    crashReporter: CrashReporter = RecordingCrashReporter(),
 ): LoginViewModel =
     LoginViewModel(
         authRepository = authRepository,
         notificationsPromptDecider = notificationsPromptDecider,
         analytics = analytics,
+        crashReporter = crashReporter,
         broker = broker,
     )
+
+/** Records crash-seam calls so tests can assert structured non-fatals + keys. */
+internal class RecordingCrashReporter : CrashReporter {
+    val breadcrumbs = mutableListOf<String>()
+    val recorded = mutableListOf<Throwable>()
+    val keys = mutableMapOf<String, String>()
+
+    override fun log(message: String) {
+        breadcrumbs += message
+    }
+
+    override fun recordException(throwable: Throwable) {
+        recorded += throwable
+    }
+
+    override fun setCustomKey(
+        key: String,
+        value: String,
+    ) {
+        keys[key] = value
+    }
+}
 
 // The base LoginViewModel tests don't exercise the POST_NOTIFICATIONS prompt
 // gating — the dedicated [LoginPostNotificationsPromptTest] covers that. Use
@@ -573,6 +754,10 @@ private object NoopPromptStore : NotificationsPromptShownStore {
 private class FakeAuthRepository(
     private val beginLoginResult: Result<String> = Result.success("ignored"),
     private val completeLoginResult: Result<Unit> = Result.success(Unit),
+    // Optional gates: when set, the call suspends until completed, letting tests
+    // observe in-flight state (loading, double-submit guard) deterministically.
+    private val beginLoginGate: CompletableDeferred<Unit>? = null,
+    private val completeLoginGate: CompletableDeferred<Unit>? = null,
 ) : AuthRepository {
     var beginLoginInvocations: Int = 0
         private set
@@ -581,11 +766,13 @@ private class FakeAuthRepository(
 
     override suspend fun beginLogin(handle: String): Result<String> {
         beginLoginInvocations++
+        beginLoginGate?.await()
         return beginLoginResult
     }
 
     override suspend fun completeLogin(redirectUri: String): Result<Unit> {
         completeLoginInvocations++
+        completeLoginGate?.await()
         return completeLoginResult
     }
 

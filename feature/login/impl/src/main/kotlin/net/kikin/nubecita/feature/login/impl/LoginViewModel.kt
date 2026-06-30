@@ -9,10 +9,14 @@ import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.Login
 import net.kikin.nubecita.core.analytics.LoginErrorReason
 import net.kikin.nubecita.core.analytics.LoginFailed
+import net.kikin.nubecita.core.analytics.LoginRedirectLaunched
+import net.kikin.nubecita.core.analytics.LoginRedirectReturned
 import net.kikin.nubecita.core.analytics.LoginStage
+import net.kikin.nubecita.core.analytics.OAuthRedirectKind
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.logging.CrashReporter
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
 import timber.log.Timber
 import java.io.IOException
@@ -34,6 +38,7 @@ class LoginViewModel
         private val authRepository: AuthRepository,
         private val notificationsPromptDecider: NotificationsPromptDecider,
         private val analytics: AnalyticsClient,
+        private val crashReporter: CrashReporter,
         broker: OAuthRedirectBroker,
     ) : MviViewModel<LoginState, LoginEvent, LoginEffect>(LoginState()) {
         init {
@@ -43,6 +48,16 @@ class LoginViewModel
             // POST_NOTIFICATIONS prompt decision; failure → state errorMessage.
             viewModelScope.launch {
                 broker.redirects.collect { redirectUri ->
+                    val redirectKind = redirectKindOf(redirectUri)
+                    // Funnel: the browser handed a redirect back to the app. Pairs
+                    // with LoginRedirectLaunched to expose the silent drop between
+                    // launching the auth page and a callback actually returning.
+                    analytics.log(LoginRedirectReturned(redirectKind))
+                    // Show progress during the token exchange: once the Custom Tab
+                    // closes the login form is interactive again, so a spinner here
+                    // both signals work-in-flight and (with the submitLogin guard)
+                    // blocks a double-submit while completeLogin runs.
+                    setState { copy(isLoading = true, errorMessage = null) }
                     authRepository
                         .completeLogin(redirectUri)
                         .onSuccess {
@@ -63,7 +78,13 @@ class LoginViewModel
                             val handle = uiState.value.handle.trim()
                             val kind = failure.classifyLoginFailure()
                             val error = kind.toLoginError(handle)
-                            logLoginFailure(stage = LoginStage.Complete, kind = kind, error = error, cause = failure)
+                            logLoginFailure(
+                                stage = LoginStage.Complete,
+                                kind = kind,
+                                error = error,
+                                cause = failure,
+                                redirectKind = redirectKind,
+                            )
                             setState { copy(isLoading = false, errorMessage = error) }
                         }
                 }
@@ -113,6 +134,10 @@ class LoginViewModel
             }
 
         private fun submitLogin() {
+            // Ignore re-taps while a login is in flight (beginLogin, or the
+            // post-redirect token exchange which also sets isLoading) — prevents
+            // concurrent beginLogin calls and duplicate LoginRedirectLaunched events.
+            if (uiState.value.isLoading) return
             val handle = uiState.value.handle.trim()
             if (handle.isBlank()) {
                 setState { copy(errorMessage = LoginError.BlankHandle) }
@@ -124,6 +149,10 @@ class LoginViewModel
                     .beginLogin(handle)
                     .onSuccess { url ->
                         setState { copy(isLoading = false) }
+                        // Funnel: the OAuth authorization URL is going to the Custom
+                        // Tab. Only the sign-in path emits this — OpenSignup opens a
+                        // generic page and is not part of the auth funnel.
+                        analytics.log(LoginRedirectLaunched)
                         sendEffect(LoginEffect.LaunchCustomTab(url))
                     }.onFailure { failure ->
                         val kind = failure.classifyLoginFailure()
@@ -135,46 +164,86 @@ class LoginViewModel
         }
 
         /**
-         * Record a login failure to analytics and logs.
+         * Record a login failure to analytics, Crashlytics, and logcat.
          *
          * Analytics: emit the PII-free `login_error` event (reason + stage) for
          * funnel failure-rate reporting. [LoginError.BlankHandle] is client-side
          * validation, not a real attempt, and never reaches this path — so every
          * failure here logs a concrete [LoginErrorReason].
          *
-         * Logs: route by level so non-fatals stay high-signal. [LoginError.Network]
-         * (offline) and [LoginError.HandleNotFound] (typo) are expected → `w`
-         * (breadcrumb only). The coarse [LoginError.Generic] bucket — both
-         * `oauth_config` (upstream server misconfig) and `unexpected` (genuine
-         * unknown) — is worth a non-fatal → `e`; the finer [reason] disambiguates
-         * the two. The error's class name is logged, never the handle (PII).
+         * Crashlytics: the coarse [LoginError.Generic] bucket — both `oauth_config`
+         * (upstream server misconfig) and `unexpected` (genuine unknown) — records
+         * ONE grouped [LoginFailureException] non-fatal with diagnostic custom keys
+         * (stage, reason, exception class, redirect transport) attached. The
+         * non-fatal is recorded directly via [crashReporter] (not `Timber.e` → the
+         * planted tree) so the keys land on the same report and we don't
+         * double-record. Expected failures ([LoginError.Network] offline,
+         * [LoginError.HandleNotFound] typo) are breadcrumb-only — no non-fatal.
+         *
+         * PII-free: only the exception class name + bucketed reason/stage/redirect
+         * kind are attached, never the handle, token, or redirect URI.
          */
         private fun logLoginFailure(
             stage: LoginStage,
             kind: LoginFailureKind,
             error: LoginError,
             cause: Throwable,
+            redirectKind: OAuthRedirectKind? = null,
         ) {
             val reason = kind.toAnalyticsReason()
             analytics.log(LoginFailed(reason = reason, stage = stage))
             if (error is LoginError.Generic) {
-                // Generic = the coarse UI message for both oauth-config and truly
-                // unexpected throws; the finer `reason` disambiguates them in logs.
-                Timber.tag(TAG).e(cause, "login failed (stage=%s, reason=%s)", stage.wire, reason.wire)
+                // Keys are set immediately before the recordException they annotate
+                // (Crashlytics keys are sticky) so they can't bleed onto an unrelated
+                // later crash from the breadcrumb-only path.
+                crashReporter.setCustomKey(KEY_STAGE, stage.wire)
+                crashReporter.setCustomKey(KEY_REASON, reason.wire)
+                crashReporter.setCustomKey(KEY_EXCEPTION, cause::class.simpleName ?: "Unknown")
+                // Always overwrite — Crashlytics keys are sticky, so a stale
+                // Complete-stage value must not bleed onto a later Begin-stage
+                // report (where redirectKind is null).
+                crashReporter.setCustomKey(KEY_REDIRECT_KIND, redirectKind?.wire ?: "none")
+                crashReporter.recordException(LoginFailureException(reason, cause))
+                Timber.tag(TAG).w(cause, "login failed (stage=%s, reason=%s)", stage.wire, reason.wire)
             } else {
-                // Pass cause for the local logcat stack trace; the CrashlyticsTree
-                // breadcrumb uses only the message (no handle), and WARN never records
-                // a non-fatal, so the throwable's message can't reach Crashlytics.
                 Timber.tag(TAG).w(cause, "login failed (stage=%s, error=%s)", stage.wire, error::class.simpleName)
             }
         }
+
+        private fun redirectKindOf(redirectUri: String): OAuthRedirectKind =
+            // Only two registered redirect shapes: the verified App Link
+            // (https://nubecita.app/oauth-redirect) and the legacy custom scheme
+            // (app.nubecita:/oauth-redirect). Scheme alone disambiguates them.
+            if (redirectUri.startsWith("https://", ignoreCase = true)) {
+                OAuthRedirectKind.AppLink
+            } else {
+                OAuthRedirectKind.CustomScheme
+            }
 
         private companion object {
             // Logcat tag stays under the 23-char Android Log ceiling so it
             // shows up unmangled in `adb logcat -s LoginViewModel`.
             const val TAG = "LoginViewModel"
+
+            // Crashlytics custom-key names (≤40 chars; PII-free dimensions).
+            const val KEY_STAGE = "login_stage"
+            const val KEY_REASON = "login_reason"
+            const val KEY_EXCEPTION = "login_exception"
+            const val KEY_REDIRECT_KIND = "oauth_redirect_kind"
         }
     }
+
+/**
+ * Wrapper recorded for every actionable login non-fatal so Crashlytics clusters
+ * them under one issue (grouped by this constructor's frame in `logLoginFailure`)
+ * rather than scattering by the underlying [cause] type. The original throwable
+ * is preserved as the cause; the message carries only the bucketed reason wire
+ * value (no PII).
+ */
+private class LoginFailureException(
+    reason: LoginErrorReason,
+    cause: Throwable,
+) : Exception("login failed: ${reason.wire}", cause)
 
 // Prefix-match against the upstream OAuthDiscoveryException message is brittle by
 // design — when atproto-kotlin grows typed exceptions (HandleNotFound, NetworkReach,
