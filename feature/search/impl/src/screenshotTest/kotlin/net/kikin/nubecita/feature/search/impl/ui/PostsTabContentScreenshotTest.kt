@@ -13,6 +13,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.feature.search.impl.SearchPostsError
 import net.kikin.nubecita.feature.search.impl.SearchPostsLoadStatus
 import net.kikin.nubecita.feature.search.impl.SearchPostsState
@@ -78,6 +79,20 @@ private fun PostsTabContentLoadedScreenshot() {
                                 endReached = false,
                             ),
                     ),
+                callbacks =
+                    PostCallbacks(
+                        onTap = {},
+                        onAuthorTap = {},
+                        onLike = {},
+                        onRepost = {},
+                        onQuote = {},
+                        onReply = {},
+                        onShare = {},
+                        onShareLongPress = {},
+                        onExternalEmbedTap = {},
+                        onQuotedPostTap = {},
+                        onOverflowAction = { _, _ -> },
+                    ),
                 onEvent = {},
             )
         }
@@ -105,6 +120,20 @@ private fun PostsTabContentLoadedAppendingScreenshot() {
                                 endReached = false,
                                 isAppending = true,
                             ),
+                    ),
+                callbacks =
+                    PostCallbacks(
+                        onTap = {},
+                        onAuthorTap = {},
+                        onLike = {},
+                        onRepost = {},
+                        onQuote = {},
+                        onReply = {},
+                        onShare = {},
+                        onShareLongPress = {},
+                        onExternalEmbedTap = {},
+                        onQuotedPostTap = {},
+                        onOverflowAction = { _, _ -> },
                     ),
                 onEvent = {},
             )

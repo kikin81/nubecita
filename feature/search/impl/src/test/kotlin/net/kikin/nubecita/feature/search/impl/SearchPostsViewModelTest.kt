@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.search.impl
 
 import app.cash.turbine.test
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -11,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsPage
@@ -35,12 +37,18 @@ import java.io.IOException
  *
  * Repository fake is the hand-written [FakeSearchPostsRepository]; mockk
  * is not in this module's testImplementation.
+ *
+ * [FakePostInteractionsCache] and [FakePostInteractionHandler] are shared
+ * between all tests at class level. Each test that needs fresh state
+ * creates its own VM instance (which re-creates the handler binding).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchPostsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val repo = FakeSearchPostsRepository()
     private val analytics = RecordingAnalyticsClient()
+    private val cache = FakePostInteractionsCache()
+    private val handler = FakePostInteractionHandler(cache)
 
     @BeforeEach
     fun setUp() {
@@ -52,10 +60,12 @@ class SearchPostsViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun buildVm() = SearchPostsViewModel(repo, analytics, cache, handler)
+
     @Test
     fun setQuery_blank_stateStaysIdle() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             runCurrent()
 
             assertEquals(SearchPostsLoadStatus.Idle, vm.uiState.value.loadStatus)
@@ -66,7 +76,7 @@ class SearchPostsViewModelTest {
     @Test
     fun search_logsSearchPerform_scopeTracksSort() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP, items = emptyList(), nextCursor = null)
             repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.LATEST, items = emptyList(), nextCursor = null)
 
@@ -89,7 +99,7 @@ class SearchPostsViewModelTest {
     @Test
     fun setQuery_nonBlank_fetchesFirstPage_emitsLoaded() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             val hit = searchPostFixture(uri = "at://did:plc:fake/p1", text = "kotlin")
             repo.respond(
                 query = "kotlin",
@@ -113,9 +123,195 @@ class SearchPostsViewModelTest {
         }
 
     @Test
+    fun setQuery_success_seedsCache() =
+        runTest {
+            val vm = buildVm()
+            val hit = searchPostFixture(uri = "at://did:plc:fake/p1", text = "kotlin")
+            repo.respond(
+                query = "kotlin",
+                cursor = null,
+                sort = SearchPostsSort.TOP,
+                items = listOf(hit),
+                nextCursor = null,
+            )
+
+            vm.setQuery("kotlin")
+            runCurrent()
+
+            assertEquals(1, cache.seedCalls.get(), "cache.seed() must be called on first-page success")
+            assertEquals(listOf(hit.post), cache.lastSeedPosts.first())
+        }
+
+    @Test
+    fun loadMore_success_seedsCache() =
+        runTest {
+            val vm = buildVm()
+            val page1 = listOf(searchPostFixture("at://p1", "p1"))
+            val page2 = listOf(searchPostFixture("at://p2", "p2"))
+            repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP, items = page1, nextCursor = "c2")
+            repo.respond(query = "kotlin", cursor = "c2", sort = SearchPostsSort.TOP, items = page2, nextCursor = null)
+
+            vm.setQuery("kotlin")
+            runCurrent()
+            val seedsAfterPage1 = cache.seedCalls.get()
+
+            vm.handleEvent(SearchPostsEvent.LoadMore)
+            runCurrent()
+
+            assertTrue(cache.seedCalls.get() > seedsAfterPage1, "cache.seed() must also be called on append-page success")
+            // Last seed call contains page-2 items only (each call seeds the page's items).
+            assertEquals(listOf(page2.map { it.post }, page1.map { it.post }), cache.lastSeedPosts.takeLast(2).reversed())
+        }
+
+    @Test
+    fun cacheState_mergesIntoStatusItems() =
+        runTest {
+            val vm = buildVm()
+            val hit = searchPostFixture(uri = "at://p1", text = "text")
+            repo.respond(
+                query = "q",
+                cursor = null,
+                sort = SearchPostsSort.TOP,
+                items = listOf(hit),
+                nextCursor = null,
+            )
+
+            vm.setQuery("q")
+            runCurrent()
+
+            // Emit a synthetic like into the cache (simulates a like from another surface).
+            val newState =
+                persistentMapOf(
+                    hit.post.id to
+                        PostInteractionState(
+                            likeCount = 7,
+                            viewerLikeUri = "at://like/1",
+                        ),
+                )
+            cache.emit(newState)
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded
+            checkNotNull(status) { "expected Loaded after cache merge" }
+            assertEquals(
+                7,
+                status.items
+                    .first()
+                    .post.stats.likeCount,
+            )
+            assertEquals(
+                true,
+                status.items
+                    .first()
+                    .post.viewer.isLikedByViewer,
+            )
+        }
+
+    @Test
+    fun cacheState_mergesIntoCurrentLoadStatus_afterLoadMoreAppend() =
+        runTest {
+            // Regression for the atomicity race: the pre-fix code read
+            // uiState.value.loadStatus OUTSIDE setState, computed the merged
+            // status, then applied it — a concurrent loadMore append that
+            // landed between the read and the apply would be silently
+            // overwritten. Verify that a cache emission after a loadMore
+            // preserves the appended items.
+            val vm = buildVm()
+            val page1 = listOf(searchPostFixture("at://p1", "p1"))
+            val page2 = listOf(searchPostFixture("at://p2", "p2"))
+            repo.respond(
+                query = "q",
+                cursor = null,
+                sort = SearchPostsSort.TOP,
+                items = page1,
+                nextCursor = "c2",
+            )
+            repo.respond(
+                query = "q",
+                cursor = "c2",
+                sort = SearchPostsSort.TOP,
+                items = page2,
+                nextCursor = null,
+            )
+
+            vm.setQuery("q")
+            runCurrent()
+            vm.handleEvent(SearchPostsEvent.LoadMore)
+            runCurrent()
+
+            // Both pages are present after the append.
+            val afterAppend = vm.uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded
+            checkNotNull(afterAppend) { "expected Loaded after loadMore" }
+            assertEquals(listOf("at://p1", "at://p2"), afterAppend.items.map { it.post.id })
+
+            // Now emit a like on p1 from the cache (simulates a cross-surface like).
+            val interactionSnapshot =
+                persistentMapOf(
+                    page1.first().post.id to
+                        PostInteractionState(
+                            likeCount = 3,
+                            viewerLikeUri = "at://like/x",
+                        ),
+                )
+            cache.emit(interactionSnapshot)
+            runCurrent()
+
+            // The merge must apply to the CURRENT (appended) loadStatus — p2 must still be present.
+            val afterMerge = vm.uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded
+            checkNotNull(afterMerge) { "expected Loaded after cache merge" }
+            assertEquals(
+                listOf("at://p1", "at://p2"),
+                afterMerge.items.map { it.post.id },
+                "loadMore-appended p2 must survive a cache-merge emission",
+            )
+            assertEquals(
+                3,
+                afterMerge.items
+                    .first()
+                    .post.stats.likeCount,
+            )
+            assertEquals(
+                true,
+                afterMerge.items
+                    .first()
+                    .post.viewer.isLikedByViewer,
+            )
+        }
+
+    @Test
+    fun onLike_delegatesToHandler() =
+        runTest {
+            val vm = buildVm()
+            val hit = searchPostFixture("at://p1", "test")
+            repo.respond(query = "q", cursor = null, sort = SearchPostsSort.TOP, items = listOf(hit), nextCursor = null)
+            vm.setQuery("q")
+            runCurrent()
+
+            vm.onLike(hit.post)
+            runCurrent()
+
+            assertEquals(1, cache.toggleLikeCalls.get(), "onLike must reach the shared handler → cache.toggleLike")
+        }
+
+    @Test
+    fun onAuthorTapped_emitsNavigateToProfile() =
+        runTest {
+            val vm = buildVm()
+            vm.effects.test {
+                vm.handleEvent(SearchPostsEvent.OnAuthorTapped("alice.bsky.social"))
+                runCurrent()
+
+                val effect = awaitItem()
+                assertTrue(effect is SearchPostsEffect.NavigateToProfile)
+                assertEquals("alice.bsky.social", (effect as SearchPostsEffect.NavigateToProfile).handle)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun setQuery_emptyResponse_emitsEmpty() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             repo.respond(
                 query = "no-matches",
                 cursor = null,
@@ -133,7 +329,7 @@ class SearchPostsViewModelTest {
     @Test
     fun setQuery_failure_emitsInitialError_withMappedError() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             repo.fail(
                 query = "kotlin",
                 cursor = null,
@@ -155,7 +351,7 @@ class SearchPostsViewModelTest {
     @Test
     fun setQuery_rapidChange_cancelsPrior_viaMapLatest() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             // Gate the "ali" fetch so it never completes — mapLatest must
             // cancel it when "alic" arrives.
             val aliGate =
@@ -204,7 +400,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_loaded_appendsNextPage_andClearsIsAppending() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             val page1 = listOf(searchPostFixture("at://p1", "p1"))
             val page2 = listOf(searchPostFixture("at://p2", "p2"), searchPostFixture("at://p3", "p3"))
             repo.respond(
@@ -241,7 +437,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_endReached_isNoOp() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -263,7 +459,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_alreadyAppending_isNoOp_singleFlight() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -297,7 +493,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_failure_emitsShowAppendError_keepsExistingItems() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -337,7 +533,7 @@ class SearchPostsViewModelTest {
     @Test
     fun loadMore_inFlight_whenSortChanges_doesNotClobberNewSortItems() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             // Page 1 TOP: one item + nextCursor=c2 so loadMore is valid.
             repo.respond(
                 query = "kotlin",
@@ -415,7 +611,7 @@ class SearchPostsViewModelTest {
     @Test
     fun sortClicked_resetsPaginationAndFetches_freshFirstPage() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -459,7 +655,7 @@ class SearchPostsViewModelTest {
     @Test
     fun retry_initialError_retriggersFirstPage_viaIncarnationBump() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             // First call fails.
             repo.fail(
                 query = "kotlin",
@@ -494,7 +690,7 @@ class SearchPostsViewModelTest {
     @Test
     fun postTapped_emitsNavigateToPostEffect() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             vm.effects.test {
                 vm.handleEvent(SearchPostsEvent.PostTapped("at://did:plc:fake/p1"))
                 runCurrent()
@@ -507,60 +703,9 @@ class SearchPostsViewModelTest {
         }
 
     @Test
-    fun onOverflowAction_emitsShowComingSoonEffect_for_every_variant() =
-        // oftc.2: VM is a pass-through for every PostOverflowAction
-        // variant. Locks the contract so oftc.3 / .4 / .5 can swap each
-        // variant individually for real RPC dispatch.
-        runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
-            val post =
-                net.kikin.nubecita.data.models.PostUi(
-                    id = "at://did:plc:fake/app.bsky.feed.post/over",
-                    cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
-                    author =
-                        net.kikin.nubecita.data.models.AuthorUi(
-                            did = "did:plc:fake",
-                            handle = "fake.bsky.social",
-                            displayName = "Fake",
-                            avatarUrl = null,
-                        ),
-                    createdAt = kotlin.time.Instant.parse("2025-10-15T12:00:00Z"),
-                    text = "x",
-                    facets = persistentListOf(),
-                    embed = net.kikin.nubecita.data.models.EmbedUi.Empty,
-                    stats =
-                        net.kikin.nubecita.data.models
-                            .PostStatsUi(),
-                    viewer =
-                        net.kikin.nubecita.data.models
-                            .ViewerStateUi(),
-                    repostedBy = null,
-                )
-            val variants =
-                listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
-                )
-            vm.effects.test {
-                for (action in variants) {
-                    vm.handleEvent(SearchPostsEvent.OnOverflowAction(post = post, action = action))
-                    runCurrent()
-                    assertEquals(SearchPostsEffect.ShowComingSoon(action), awaitItem())
-                }
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
     fun clearQueryClicked_emitsNavigateToClearQueryEffect() =
         runTest {
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             vm.effects.test {
                 vm.handleEvent(SearchPostsEvent.ClearQueryClicked)
                 runCurrent()
@@ -577,7 +722,7 @@ class SearchPostsViewModelTest {
             // vrba.7): the prior `.filter { isNotBlank() }` shape silently
             // kept the stale Loaded state visible after the user cleared
             // the field.
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             repo.respond(
                 query = "kotlin",
                 cursor = null,
@@ -604,7 +749,7 @@ class SearchPostsViewModelTest {
             // mapLatest, a blank emission would NOT cancel an in-flight
             // runFirstPage — so the prior fetch could resolve late and
             // overwrite the Idle reset with a stale Loaded.
-            val vm = SearchPostsViewModel(repo, analytics)
+            val vm = buildVm()
             val kotlinGate = repo.gate(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP)
 
             vm.setQuery("kotlin")

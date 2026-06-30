@@ -43,7 +43,6 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
-import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.feed.api.FeedView
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.impl.ui.DiscoverSections
@@ -208,23 +207,6 @@ internal fun SearchScreenContent(
     val feedsNetworkMsg = stringResource(R.string.search_feeds_append_error_network)
     val feedsRateLimitedMsg = stringResource(R.string.search_feeds_append_error_rate_limited)
     val feedsUnknownMsg = stringResource(R.string.search_feeds_append_error_unknown)
-    val overflowReportComingSoon =
-        stringResource(R.string.search_snackbar_overflow_report_coming_soon)
-    val overflowMuteComingSoon =
-        stringResource(R.string.search_snackbar_overflow_mute_coming_soon)
-    val overflowUnmuteComingSoon =
-        stringResource(R.string.search_snackbar_overflow_unmute_coming_soon)
-    val overflowBlockComingSoon =
-        stringResource(R.string.search_snackbar_overflow_block_coming_soon)
-    val overflowUnblockComingSoon =
-        stringResource(R.string.search_snackbar_overflow_unblock_coming_soon)
-    val overflowMuteThreadComingSoon =
-        stringResource(R.string.search_snackbar_overflow_mute_thread_coming_soon)
-    val overflowUnmuteThreadComingSoon =
-        stringResource(R.string.search_snackbar_overflow_unmute_thread_coming_soon)
-    val overflowCopyTextComingSoon =
-        stringResource(R.string.search_snackbar_overflow_copy_text_coming_soon)
-
     val onPostsAppendError =
         remember(snackScope, snackbarHostState, postsNetworkMsg, postsRateLimitedMsg, postsUnknownMsg) {
             { error: SearchPostsError ->
@@ -273,39 +255,6 @@ internal fun SearchScreenContent(
                 Unit
             }
         }
-    val onPostsOverflowComingSoon =
-        remember(
-            snackScope,
-            snackbarHostState,
-            overflowReportComingSoon,
-            overflowMuteComingSoon,
-            overflowUnmuteComingSoon,
-            overflowBlockComingSoon,
-            overflowUnblockComingSoon,
-            overflowMuteThreadComingSoon,
-            overflowUnmuteThreadComingSoon,
-            overflowCopyTextComingSoon,
-        ) {
-            { action: PostOverflowAction ->
-                val message =
-                    when (action) {
-                        PostOverflowAction.ReportPost -> overflowReportComingSoon
-                        PostOverflowAction.MuteAuthor -> overflowMuteComingSoon
-                        PostOverflowAction.UnmuteAuthor -> overflowUnmuteComingSoon
-                        PostOverflowAction.BlockAuthor -> overflowBlockComingSoon
-                        PostOverflowAction.UnblockAuthor -> overflowUnblockComingSoon
-                        PostOverflowAction.MuteThread -> overflowMuteThreadComingSoon
-                        PostOverflowAction.UnmuteThread -> overflowUnmuteThreadComingSoon
-                        PostOverflowAction.CopyPostText -> overflowCopyTextComingSoon
-                    }
-                snackScope.launch {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message)
-                }
-                Unit
-            }
-        }
-
     // Tracks whether a user-initiated pull-to-refresh is in progress for the
     // Discover section. Starts on user pull, resets when both sections finish
     // loading. This guards the PR indicator from showing during the initial
@@ -434,7 +383,7 @@ internal fun SearchScreenContent(
                                     fromRecent = fromRecent,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onPostsAppendError,
-                                    onShowOverflowComingSoon = onPostsOverflowComingSoon,
+                                    snackbarHostState = snackbarHostState,
                                 )
                             1 ->
                                 SearchActorsScreen(

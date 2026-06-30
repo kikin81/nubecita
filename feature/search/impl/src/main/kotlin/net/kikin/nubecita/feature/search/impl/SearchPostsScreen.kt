@@ -1,24 +1,37 @@
 package net.kikin.nubecita.feature.search.impl
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
-import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
+import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.ui.PostsTabContent
 
 /**
  * Stateful entry for the Posts tab. Hoists [SearchPostsViewModel],
  * wires the parent's debounced query via [LaunchedEffect], and routes
- * [SearchPostsEffect.NavigateToPost] to [LocalMainShellNavState] —
+ * [SearchPostsEffect] to [LocalMainShellNavState] —
  * mirroring `:feature:chats:impl/ChatScreen`'s effect-collection
  * pattern.
+ *
+ * Post-interaction effects (share sheet, clipboard, snackbars for errors /
+ * coming-soon / link-copied, composer / report / block navigation) are
+ * handled by the shared [rememberPostInteractions] helper which observes
+ * [SearchPostsViewModel.interactionEffects] directly. The snackbars land in
+ * [snackbarHostState], which callers pass in from the parent
+ * [SearchScreenContent] so a single [SnackbarHost] services the whole
+ * search screen.
  *
  * Two effects propagate via callback up to the (future) vrba.8
  * search-results screen:
@@ -28,6 +41,7 @@ import net.kikin.nubecita.feature.search.impl.ui.PostsTabContent
  *    in the host's SnackbarHostState, which lives at the search-
  *    screen level (not inside the per-tab content).
  */
+@Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun SearchPostsScreen(
     currentQuery: String,
@@ -36,14 +50,62 @@ internal fun SearchPostsScreen(
     onShowAppendError: (SearchPostsError) -> Unit,
     modifier: Modifier = Modifier,
     initialSort: SearchPostsSort = SearchPostsSort.TOP,
-    onShowOverflowComingSoon: (PostOverflowAction) -> Unit = {},
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: SearchPostsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val navState = LocalMainShellNavState.current
+    val currentNavState by rememberUpdatedState(navState)
     val currentOnClearQuery by rememberUpdatedState(onClearQuery)
     val currentOnShowAppendError by rememberUpdatedState(onShowAppendError)
-    val currentOnShowOverflowComingSoon by rememberUpdatedState(onShowOverflowComingSoon)
+
+    // Pre-resolve InteractionStrings at composition time so locale / dark-mode
+    // changes participate in recomposition (lint: LocalContextGetResourceValueCall).
+    val interactionStrings =
+        InteractionStrings(
+            errorNetwork = stringResource(R.string.search_snackbar_error_network),
+            errorUnauthenticated = stringResource(R.string.search_snackbar_error_unauthenticated),
+            errorUnknown = stringResource(R.string.search_snackbar_error_unknown),
+            linkCopied = stringResource(R.string.search_snackbar_link_copied),
+            clipLabel = stringResource(R.string.search_clipboard_label),
+            reportComingSoon = stringResource(R.string.search_snackbar_overflow_report_coming_soon),
+            muteComingSoon = stringResource(R.string.search_snackbar_overflow_mute_coming_soon),
+            unmuteComingSoon = stringResource(R.string.search_snackbar_overflow_unmute_coming_soon),
+            blockComingSoon = stringResource(R.string.search_snackbar_overflow_block_coming_soon),
+            unblockComingSoon = stringResource(R.string.search_snackbar_overflow_unblock_coming_soon),
+            muteThreadComingSoon =
+                stringResource(R.string.search_snackbar_overflow_mute_thread_coming_soon),
+            unmuteThreadComingSoon =
+                stringResource(R.string.search_snackbar_overflow_unmute_thread_coming_soon),
+            copyTextComingSoon =
+                stringResource(R.string.search_snackbar_overflow_copy_text_coming_soon),
+        )
+
+    // Wire the shared interaction helper — it collects viewModel.interactionEffects
+    // directly (share sheet, clipboard, error/coming-soon snackbars, composer /
+    // report / block navigation). Search has NO haptics layer, so onInteractionError
+    // is left at the default no-op.
+    val interactions =
+        rememberPostInteractions(
+            handler = viewModel,
+            snackbarHostState = snackbarHostState,
+            strings = interactionStrings,
+        )
+
+    // Merge the shared callbacks with search-local overrides:
+    //  - onTap  → PostTapped MVI event
+    //  - onAuthorTap → OnAuthorTapped MVI event (→ NavigateToProfile effect)
+    // Do NOT re-wrap onLike / onRepost — search has no haptics and the
+    // shared handler slots are correct as-is.
+    val callbacks =
+        remember(viewModel, interactions.callbacks) {
+            interactions.callbacks.copy(
+                onTap = { post -> viewModel.handleEvent(SearchPostsEvent.PostTapped(post.id)) },
+                onAuthorTap = { author ->
+                    viewModel.handleEvent(SearchPostsEvent.OnAuthorTapped(author.handle))
+                },
+            )
+        }
 
     // Push the latest debounced query down to the VM. The VM
     // dedupes via StateFlow operator fusion on the FetchKey.
@@ -70,19 +132,21 @@ internal fun SearchPostsScreen(
                     // replaceTop (not add): on Medium/Expanded the tapped post
                     // swaps the detail pane and system back returns to the
                     // results list; on Compact it degrades to a normal push.
-                    navState.replaceTop(PostDetailRoute(postUri = effect.uri))
+                    currentNavState.replaceTop(PostDetailRoute(postUri = effect.uri))
                 is SearchPostsEffect.ShowAppendError ->
                     currentOnShowAppendError(effect.error)
                 SearchPostsEffect.NavigateToClearQuery ->
                     currentOnClearQuery()
-                is SearchPostsEffect.ShowComingSoon ->
-                    currentOnShowOverflowComingSoon(effect.action)
+                is SearchPostsEffect.NavigateToProfile ->
+                    currentNavState.add(Profile(handle = effect.handle))
             }
         }
     }
 
     PostsTabContent(
         state = state,
+        callbacks = callbacks,
+        tapMarkers = interactions.tapMarkers,
         onEvent = viewModel::handleEvent,
         modifier = modifier,
     )

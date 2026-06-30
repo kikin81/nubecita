@@ -134,6 +134,15 @@
     <!-- Section heading above the remaining actor suggestions. -->
     <string name="search_typeahead_people_label">People</string>
 
+    <!-- nubecita-76gd: post-interaction snackbar strings (error / link-copied / clipboard label).
+         Resolved via stringResource() in SearchPostsScreen and passed into rememberPostInteractions
+         as InteractionStrings — keeps :core:post-interactions-ui resource-free. -->
+    <string name="search_snackbar_error_network">Network error. Try again.</string>
+    <string name="search_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
+    <string name="search_snackbar_error_unknown">Something went wrong. Try again.</string>
+    <string name="search_snackbar_link_copied">Link copied to clipboard</string>
+    <string name="search_clipboard_label">Bluesky post link</string>
+
     <!-- PostCard overflow-menu "coming soon" snackbars (oftc.2). oftc.3 / .4 / .5 swap each
          variant for its real moderation RPC. -->
     <string name="search_snackbar_overflow_report_coming_soon">Report — coming soon</string>
