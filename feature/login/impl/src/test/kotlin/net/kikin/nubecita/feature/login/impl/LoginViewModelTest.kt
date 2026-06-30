@@ -416,6 +416,55 @@ internal class LoginViewModelTest {
         }
 
     @Test
+    fun `OAuthDiscoveryException config bug logs login_error with the oauth_config reason`() =
+        runTest(mainDispatcher.dispatcher) {
+            // A genuine upstream server-config problem (missing endpoint) is neither
+            // a network issue nor a user typo. It surfaces in analytics as its own
+            // bucket — split out from the catch-all `unexpected` — while the UI still
+            // shows the coarse, PII-free Generic message.
+            val wrapped =
+                OAuthDiscoveryException(
+                    "authorization_endpoint missing from auth server metadata at https://example.com",
+                )
+            val analytics = RecordingAnalyticsClient()
+            val vm =
+                newViewModel(
+                    authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)),
+                    analytics = analytics,
+                )
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(LoginFailed(reason = LoginErrorReason.OauthConfig, stage = LoginStage.Begin)),
+                analytics.events,
+            )
+            // UI stays coarse: oauth_config and unexpected both show Generic.
+            assertEquals(LoginError.Generic, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `unknown Throwable logs login_error with the unexpected reason`() =
+        runTest(mainDispatcher.dispatcher) {
+            val analytics = RecordingAnalyticsClient()
+            val vm =
+                newViewModel(
+                    authRepository =
+                        FakeAuthRepository(beginLoginResult = Result.failure(IllegalStateException("boom"))),
+                    analytics = analytics,
+                )
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(LoginFailed(reason = LoginErrorReason.Unexpected, stage = LoginStage.Begin)),
+                analytics.events,
+            )
+        }
+
+    @Test
     fun `blank handle submit logs no analytics event`() =
         runTest(mainDispatcher.dispatcher) {
             val analytics = RecordingAnalyticsClient()
