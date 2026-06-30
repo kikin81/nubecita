@@ -1,4 +1,4 @@
-package net.kikin.nubecita.logging
+package net.kikin.nubecita.core.logging
 
 import android.util.Log
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -75,13 +75,14 @@ class CrashlyticsTreeTest {
                 .first()
                 .className
         assertFalse(top.startsWith("timber."), "Timber frames should be stripped, got $top")
-        assertNotEquals("net.kikin.nubecita.logging.CrashlyticsTree", top, "tree frame should be stripped")
-        assertTrue(top.startsWith("net.kikin.nubecita.logging.CrashlyticsTreeTest"))
+        assertNotEquals("net.kikin.nubecita.core.logging.CrashlyticsTree", top, "tree frame should be stripped")
+        assertTrue(top.startsWith("net.kikin.nubecita.core.logging.CrashlyticsTreeTest"))
     }
 
     private class RecordingReporter : CrashReporter {
         val logged = mutableListOf<String>()
         val recorded = mutableListOf<Throwable>()
+        val keys = mutableMapOf<String, String>()
 
         override fun log(message: String) {
             logged += message
@@ -89,6 +90,13 @@ class CrashlyticsTreeTest {
 
         override fun recordException(throwable: Throwable) {
             recorded += throwable
+        }
+
+        override fun setCustomKey(
+            key: String,
+            value: String,
+        ) {
+            keys[key] = value
         }
     }
 }

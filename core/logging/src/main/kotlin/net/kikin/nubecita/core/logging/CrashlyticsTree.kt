@@ -1,7 +1,6 @@
-package net.kikin.nubecita.logging
+package net.kikin.nubecita.core.logging
 
 import android.util.Log
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 import timber.log.Timber
 
 /**
@@ -27,8 +26,8 @@ import timber.log.Timber
  * The Crashlytics calls go through [CrashReporter] so the priority filter and
  * synthetic-exception path are unit-testable without the Firebase SDK.
  */
-internal class CrashlyticsTree(
-    private val reporter: CrashReporter = FirebaseCrashReporter(),
+class CrashlyticsTree(
+    private val reporter: CrashReporter,
 ) : Timber.Tree() {
     public override fun isLoggable(
         tag: String?,
@@ -76,30 +75,7 @@ internal class CrashlyticsTree(
         }
 
         private companion object {
-            const val TREE_CLASS = "net.kikin.nubecita.logging.CrashlyticsTree"
+            const val TREE_CLASS = "net.kikin.nubecita.core.logging.CrashlyticsTree"
         }
-    }
-}
-
-/**
- * Thin seam over the Crashlytics non-fatal API. Exists so [CrashlyticsTree] can
- * be exercised in JVM unit tests with a fake instead of the Firebase singleton.
- */
-internal interface CrashReporter {
-    fun log(message: String)
-
-    fun recordException(throwable: Throwable)
-}
-
-/** Production [CrashReporter] backed by the Firebase Crashlytics singleton. */
-internal class FirebaseCrashReporter : CrashReporter {
-    private val crashlytics by lazy { FirebaseCrashlytics.getInstance() }
-
-    override fun log(message: String) {
-        crashlytics.log(message)
-    }
-
-    override fun recordException(throwable: Throwable) {
-        crashlytics.recordException(throwable)
     }
 }

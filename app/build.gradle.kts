@@ -274,6 +274,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:billing"))
     implementation(project(":core:common"))
+    implementation(project(":core:logging"))
     // ModerationPreferencesCoordinator — the production bootstrap wires its
     // start() into the AppInitializer set so content-filter prefs refresh once
     // the session is signed in.
