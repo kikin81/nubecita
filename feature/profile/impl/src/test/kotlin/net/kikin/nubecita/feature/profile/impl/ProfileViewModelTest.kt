@@ -902,13 +902,11 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `OnPostOverflowAction BlockAuthor emits ShowPostOverflowComingSoon on vm_effects`() =
-        // BlockAuthor stays coming-soon in PR3 (block→real is PR4 nubecita-tgqv).
-        // The VM's onOverflowAction override intercepts it before delegation so it
-        // lands on vm.effects (ProfileEffect channel), NOT on vm.interactionEffects.
-        // All other formerly-stubbed variants (UnblockAuthor/MuteThread/UnmuteThread/
-        // CopyPostText) are now delegated to the handler and show up on interactionEffects
-        // (verified in the delegation test below).
+    fun `OnPostOverflowAction BlockAuthor emits NavigateToBlock on interactionEffects`() =
+        // Block→real in PR4 (nubecita-tgqv): BlockAuthor now delegates to the injected
+        // PostInteractionHandler which emits InteractionEffect.NavigateToBlock — the real
+        // Block dialog, NOT a coming-soon snackbar. The effect lands on vm.interactionEffects
+        // (the delegated PostInteractionHandler channel), NOT on vm.effects (ProfileEffect).
         runTest(mainDispatcher.dispatcher) {
             val repo =
                 FakeProfileRepository(
@@ -919,8 +917,10 @@ internal class ProfileViewModelTest {
             val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
             advanceUntilIdle()
 
-            val post = samplePostUi("at://did:plc:fake/app.bsky.feed.post/x")
-            vm.effects.test {
+            val authorDid = "did:plc:blockme"
+            val authorHandle = "blockme.bsky.social"
+            val post = samplePostUi("at://did:plc:fake/app.bsky.feed.post/x", authorDid = authorDid, handle = authorHandle)
+            vm.interactionEffects.test {
                 vm.handleEvent(
                     ProfileEvent.OnPostOverflowAction(
                         post = post,
@@ -928,9 +928,7 @@ internal class ProfileViewModelTest {
                     ),
                 )
                 assertEquals(
-                    ProfileEffect.ShowPostOverflowComingSoon(
-                        PostOverflowAction.BlockAuthor,
-                    ),
+                    InteractionEffect.NavigateToBlock(did = authorDid, handle = authorHandle),
                     awaitItem(),
                 )
                 cancelAndIgnoreRemainingEvents()
@@ -1910,14 +1908,16 @@ internal class ProfileViewModelTest {
     private fun samplePostUi(
         id: String,
         cid: String = "bafyreifakefakefakefakefakefakefakefakefakefake",
+        authorDid: String = "did:plc:fake",
+        handle: String = "fake.bsky.social",
     ): PostUi =
         PostUi(
             id = id,
             cid = cid,
             author =
                 AuthorUi(
-                    did = "did:plc:fake",
-                    handle = "fake.bsky.social",
+                    did = authorDid,
+                    handle = handle,
                     displayName = "Fake",
                     avatarUrl = null,
                 ),

@@ -207,9 +207,9 @@ internal class ProfileViewModel
          * [PostOverflowAction.UnmuteAuthor] carry optimistic flag-flip mutations
          * across all three tab statuses and rollback on failure — identical to the
          * hero-mute path in [onHeroMuteTapped] but operating on per-post author DIDs.
-         * [PostOverflowAction.BlockAuthor] stays coming-soon in PR3 (block→real lands
-         * in PR4 `nubecita-tgqv`). All other overflow actions are forwarded to the
-         * injected [handler] which emits the appropriate [net.kikin.nubecita.core.postinteractions.InteractionEffect]
+         * All other overflow actions — including [PostOverflowAction.BlockAuthor]
+         * (block→real in PR4 `nubecita-tgqv`) — are forwarded to the injected [handler]
+         * which emits the appropriate [net.kikin.nubecita.core.postinteractions.InteractionEffect]
          * onto the channel consumed by [net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions].
          */
         override fun onOverflowAction(
@@ -241,11 +241,6 @@ internal class ProfileViewModel
                             }
                     }
                 }
-                PostOverflowAction.BlockAuthor ->
-                    // Block→real is PR4 (nubecita-tgqv). Keep coming-soon here so PR3
-                    // is byte-identical with respect to block behavior — no user-visible
-                    // change, screenshots stay unchanged.
-                    sendEffect(ProfileEffect.ShowPostOverflowComingSoon(PostOverflowAction.BlockAuthor))
                 else -> handler.onOverflowAction(post, action)
             }
         }

@@ -536,17 +536,6 @@ sealed interface ProfileEffect : UiEffect {
     ) : ProfileEffect
 
     /**
-     * Surface a "coming soon" snackbar for a PostCard overflow-menu
-     * action (oftc.2). Distinct from [ShowComingSoon] which fires for
-     * profile-level Edit / Block / Mute stubs — that event tracks
-     * per-author stubs; this one tracks per-post moderation. The two
-     * stay separate so neither's copy depends on the other.
-     */
-    data class ShowPostOverflowComingSoon(
-        val action: PostOverflowAction,
-    ) : ProfileEffect
-
-    /**
      * Push a sub-route NavKey onto `MainShell`'s inner back stack via
      * the screen's `onNavigateTo` callback (which the host wires to
      * `LocalMainShellNavState.current.add(key)`). The VM never reads

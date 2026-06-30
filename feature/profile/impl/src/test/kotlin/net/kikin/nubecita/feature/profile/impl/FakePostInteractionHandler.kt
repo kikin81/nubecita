@@ -24,10 +24,11 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
  * [FakePostInteractionsCache] instance between the VM and the handler can
  * still assert on [FakePostInteractionsCache.toggleLikeCalls] etc.
  *
- * [onOverflowAction] throws for [PostOverflowAction.MuteAuthor],
- * [PostOverflowAction.UnmuteAuthor], and [PostOverflowAction.BlockAuthor] —
- * the VM's [ProfileViewModel.onOverflowAction] override intercepts those before
- * delegation reaches this handler.
+ * [onOverflowAction] throws for [PostOverflowAction.MuteAuthor] and
+ * [PostOverflowAction.UnmuteAuthor] — the VM's [ProfileViewModel.onOverflowAction]
+ * override intercepts those before delegation reaches this handler.
+ * [PostOverflowAction.BlockAuthor] is NOT intercepted — it delegates to this
+ * handler, which emits [InteractionEffect.NavigateToBlock] (block→real, PR4).
  */
 internal class FakePostInteractionHandler(
     private val cache: FakePostInteractionsCache = FakePostInteractionsCache(),
@@ -91,9 +92,17 @@ internal class FakePostInteractionHandler(
         when (action) {
             PostOverflowAction.ReportPost ->
                 emit(InteractionEffect.NavigateToReport(post))
+            PostOverflowAction.BlockAuthor ->
+                // block→real in PR4: emit NavigateToBlock so the Block dialog
+                // opens (real) rather than a coming-soon snackbar.
+                emit(
+                    InteractionEffect.NavigateToBlock(
+                        did = post.author.did,
+                        handle = post.author.handle,
+                    ),
+                )
             PostOverflowAction.MuteAuthor,
             PostOverflowAction.UnmuteAuthor,
-            PostOverflowAction.BlockAuthor,
             ->
                 // The VM's onOverflowAction override intercepts these before
                 // delegation can reach this handler — reaching here is a test
