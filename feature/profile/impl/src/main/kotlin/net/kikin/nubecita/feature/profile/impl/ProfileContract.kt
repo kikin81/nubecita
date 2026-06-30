@@ -7,7 +7,6 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
-import net.kikin.nubecita.core.postinteractions.sharing.PostShareIntent
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
@@ -450,39 +449,6 @@ sealed interface ProfileEvent : UiEvent {
     /** User tapped an overflow-menu entry that pushes the Settings sub-route. */
     data object SettingsTapped : ProfileEvent
 
-    /** User tapped the like icon on a PostCard rendered inside one of the tab bodies. */
-    data class OnLikeClicked(
-        val post: PostUi,
-    ) : ProfileEvent
-
-    /** User tapped the repost icon on a PostCard rendered inside one of the tab bodies. */
-    data class OnRepostClicked(
-        val post: PostUi,
-    ) : ProfileEvent
-
-    /** User tapped the reply icon on a PostCard inside one of the tab bodies. */
-    data class OnReplyClicked(
-        val post: PostUi,
-    ) : ProfileEvent
-
-    /** User chose "Quote post" from a PostCard's repost menu inside a tab body. */
-    data class OnQuoteClicked(
-        val post: PostUi,
-    ) : ProfileEvent
-
-    /** User tapped the share icon on a PostCard inside one of the tab bodies. */
-    data class OnShareClicked(
-        val post: PostUi,
-    ) : ProfileEvent
-
-    /**
-     * User long-pressed the share icon on a PostCard inside one of the tab
-     * bodies — copies the post permalink to the clipboard (mirrors Feed).
-     */
-    data class OnShareLongPressed(
-        val post: PostUi,
-    ) : ProfileEvent
-
     /**
      * User selected an overflow-menu entry on a PostCard inside one of
      * the tab bodies (Posts / Replies / Media). Distinct from the
@@ -592,24 +558,6 @@ sealed interface ProfileEffect : UiEffect {
      */
     data class NavigateTo(
         val key: NavKey,
-    ) : ProfileEffect
-
-    /**
-     * Hand a built share intent to the system share sheet. Mirrors
-     * `FeedEffect.SharePost`; the screen turns it into an Android chooser
-     * via `Context.launchPostShare`.
-     */
-    data class SharePost(
-        val intent: PostShareIntent,
-    ) : ProfileEffect
-
-    /**
-     * Copy a post permalink to the clipboard (share long-press). The screen
-     * writes it via the system clipboard and shows a confirmation snackbar.
-     * Mirrors `FeedEffect.CopyPermalink`.
-     */
-    data class CopyPermalink(
-        val permalink: String,
     ) : ProfileEffect
 }
 

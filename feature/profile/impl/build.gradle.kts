@@ -40,6 +40,7 @@ dependencies {
     // across the Posts/Replies/Media profile tabs.
     implementation(project(":core:moderation"))
     implementation(project(":core:post-interactions"))
+    implementation(project(":core:post-interactions-ui"))
     implementation(project(":core:profile"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
