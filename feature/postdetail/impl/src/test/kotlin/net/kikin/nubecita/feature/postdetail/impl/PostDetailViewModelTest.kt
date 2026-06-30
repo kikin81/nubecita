@@ -4,24 +4,15 @@ import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.actors.MuteRepository
-import net.kikin.nubecita.core.analytics.AnalyticsClient
-import net.kikin.nubecita.core.analytics.InteractPost
-import net.kikin.nubecita.core.analytics.PostAction
-import net.kikin.nubecita.core.analytics.PostSurface
-import net.kikin.nubecita.core.analytics.Share
-import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
-import net.kikin.nubecita.core.postinteractions.PostInteractionState
-import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.posts.PostThreadRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
-import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -31,6 +22,7 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -494,30 +486,32 @@ internal class PostDetailViewModelTest {
             }
         }
 
-    // ---------- oftc.2 overflow-menu tests ----------
+    // ---------- overflow-menu delegation tests ----------
 
     @Test
-    fun `OnOverflowAction emits ShowComingSoon for every action except ReportPost, MuteAuthor, UnmuteAuthor`() =
+    fun `OnOverflowAction emits ShowComingSoon on interactionEffects for stubbed variants`() =
+        // Block graduated to real in PR4 (block→real). The four remaining coming-soon
+        // variants (UnblockAuthor/MuteThread/UnmuteThread/CopyPostText) delegate to the
+        // handler which emits InteractionEffect.ShowComingSoon on interactionEffects.
+        // ReportPost/BlockAuthor now emit navigate effects (covered by separate tests).
+        // MuteAuthor/UnmuteAuthor are intercepted by the VM's onOverflowAction override.
         runTest(mainDispatcher.dispatcher) {
-            val vm = newVm(FakeRepo())
+            val handler = FakePostInteractionHandler()
+            val vm = newVm(FakeRepo(), handler = handler)
             val post = samplePost("at://post-overflow")
-            // ReportPost graduated in oftc.3.1; MuteAuthor/UnmuteAuthor graduated
-            // in oftc.5 — covered by their own tests below.
-            // The five remaining variants still pass through as ShowComingSoon.
             val stubbedVariants =
                 listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
                     net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
                 )
 
-            vm.effects.test {
+            vm.interactionEffects.test {
                 for (action in stubbedVariants) {
                     vm.handleEvent(PostDetailEvent.OnOverflowAction(post = post, action = action))
                     assertEquals(
-                        PostDetailEffect.ShowComingSoon(action),
+                        InteractionEffect.ShowComingSoon(action),
                         awaitItem(),
                     )
                 }
@@ -525,22 +519,46 @@ internal class PostDetailViewModelTest {
         }
 
     @Test
-    fun `OnOverflowAction(ReportPost) emits NavigateTo with a Report Post NavKey`() =
-        // Pin: oftc.3.1 graduates the PostCard overflow Report row on the
-        // PostDetail thread out of ShowComingSoon. The VM now emits
-        // PostDetailEffect.NavigateTo carrying Report.forPost(post) — the
-        // screen's effect collector pushes the NavKey via onNavigateTo
-        // onto MainShell's inner back stack. URI + CID match the tapped
-        // post; no ShowComingSoon for this variant; no state mutation.
+    fun `OnOverflowAction(BlockAuthor) emits NavigateToBlock on interactionEffects`() =
+        // Block→real in PR4: BlockAuthor delegates to the handler which emits
+        // NavigateToBlock (real Block dialog), not ShowComingSoon.
         runTest(mainDispatcher.dispatcher) {
-            val vm = newVm(FakeRepo())
+            val handler = FakePostInteractionHandler()
+            val vm = newVm(FakeRepo(), handler = handler)
+            val authorDid = "did:plc:blockme"
+            val authorHandle = "blockme.bsky.social"
+            val post = samplePost("at://did:plc:fake/app.bsky.feed.post/blk1", authorDid = authorDid, handle = authorHandle)
+
+            vm.interactionEffects.test {
+                vm.handleEvent(
+                    PostDetailEvent.OnOverflowAction(
+                        post = post,
+                        action = net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                    ),
+                )
+                val effect = awaitItem()
+                assertEquals(
+                    InteractionEffect.NavigateToBlock(did = authorDid, handle = authorHandle),
+                    effect,
+                )
+            }
+        }
+
+    @Test
+    fun `OnOverflowAction(ReportPost) emits NavigateToReport on interactionEffects`() =
+        // ReportPost delegates to the handler → InteractionEffect.NavigateToReport on
+        // vm.interactionEffects. The screen's rememberPostInteractions then constructs
+        // Report.forPost(post) and pushes it onto MainShell's inner back stack.
+        runTest(mainDispatcher.dispatcher) {
+            val handler = FakePostInteractionHandler()
+            val vm = newVm(FakeRepo(), handler = handler)
             val post =
                 samplePost(
                     id = "at://did:plc:author/app.bsky.feed.post/rprt1",
                     cid = "bafyreitestreportcid",
                 )
 
-            vm.effects.test {
+            vm.interactionEffects.test {
                 vm.handleEvent(
                     PostDetailEvent.OnOverflowAction(
                         post = post,
@@ -549,25 +567,51 @@ internal class PostDetailViewModelTest {
                 )
                 val effect = awaitItem()
                 assertTrue(
-                    effect is PostDetailEffect.NavigateTo,
-                    "expected NavigateTo, got $effect",
-                )
-                val key = (effect as PostDetailEffect.NavigateTo).key
-                assertTrue(
-                    key is net.kikin.nubecita.feature.moderation.api.Report,
-                    "expected Report NavKey, got $key",
-                )
-                val subject = (key as net.kikin.nubecita.feature.moderation.api.Report).subject
-                assertTrue(
-                    subject is net.kikin.nubecita.feature.moderation.api.ReportSubject.Post,
-                    "expected ReportSubject.Post, got $subject",
+                    effect is InteractionEffect.NavigateToReport,
+                    "expected NavigateToReport, got $effect",
                 )
                 assertEquals(
-                    post.id,
-                    (subject as net.kikin.nubecita.feature.moderation.api.ReportSubject.Post).uri,
+                    post,
+                    (effect as InteractionEffect.NavigateToReport).post,
                 )
-                assertEquals(post.cid, subject.cid)
             }
+        }
+
+    // ---------- tap-marker mirror test ----------
+
+    @Test
+    fun `handler tapMarkers are mirrored into PostDetailState`() =
+        // Pin: when onLike/onRepost is called (delegated to the handler), the handler
+        // updates tapMarkers synchronously; the VM's tapMarkers collector mirrors those
+        // into lastLikeTapPostUri / lastRepostTapPostUri for the count ±1 animation.
+        runTest(mainDispatcher.dispatcher) {
+            val handler = FakePostInteractionHandler()
+            val vm = newVm(FakeRepo(), handler = handler)
+            val likePost = samplePost("at://like-me")
+            val repostPost = samplePost("at://repost-me")
+
+            assertNull(vm.uiState.value.lastLikeTapPostUri, "initially null")
+            assertNull(vm.uiState.value.lastRepostTapPostUri, "initially null")
+
+            vm.onLike(likePost)
+            advanceUntilIdle()
+            assertEquals("at://like-me", vm.uiState.value.lastLikeTapPostUri)
+
+            vm.onRepost(repostPost)
+            advanceUntilIdle()
+            assertEquals("at://repost-me", vm.uiState.value.lastRepostTapPostUri)
+        }
+
+    @Test
+    fun `handler bind is called with PostDetail surface on init`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handler = FakePostInteractionHandler()
+            newVm(FakeRepo(), handler = handler)
+            advanceUntilIdle()
+            assertEquals(
+                net.kikin.nubecita.core.analytics.PostSurface.PostDetail,
+                handler.boundSurface,
+            )
         }
 
     // ---------- oftc.5 mute/unmute tests ----------
@@ -724,171 +768,18 @@ internal class PostDetailViewModelTest {
             assertTrue(focusItem.post.viewer.isAuthorMutedByViewer, "flag should be rolled back to true on unmute failure")
         }
 
-    // ---------- share tests ----------
-
-    @Test
-    fun `OnShareClicked emits SharePost with bsky_app permalink derived from author handle and rkey`() =
-        runTest(mainDispatcher.dispatcher) {
-            val vm = newVm(FakeRepo())
-            val post =
-                samplePost(
-                    id = "at://did:plc:fake/app.bsky.feed.post/3kabc123",
-                    handle = "alice.bsky.social",
-                )
-
-            vm.effects.test {
-                vm.handleEvent(PostDetailEvent.OnShareClicked(post))
-                val effect = awaitItem()
-                assertTrue(effect is PostDetailEffect.SharePost)
-                val intent = (effect as PostDetailEffect.SharePost).intent
-                assertEquals("https://bsky.app/profile/alice.bsky.social/post/3kabc123", intent.permalink)
-                assertEquals(intent.permalink, intent.text)
-            }
-        }
-
-    @Test
-    fun `OnShareLongPressed emits CopyPermalink with the same permalink shape`() =
-        runTest(mainDispatcher.dispatcher) {
-            val vm = newVm(FakeRepo())
-            val post =
-                samplePost(
-                    id = "at://did:plc:fake/app.bsky.feed.post/3kxyz789",
-                    handle = "bob.bsky.social",
-                )
-
-            vm.effects.test {
-                vm.handleEvent(PostDetailEvent.OnShareLongPressed(post))
-                val effect = awaitItem()
-                assertTrue(effect is PostDetailEffect.CopyPermalink)
-                assertEquals(
-                    "https://bsky.app/profile/bob.bsky.social/post/3kxyz789",
-                    (effect as PostDetailEffect.CopyPermalink).permalink,
-                )
-            }
-        }
-
-    @Test
-    fun `share click and long-press log share events with PostDetail surface`() =
-        runTest(mainDispatcher.dispatcher) {
-            val analytics = RecordingAnalyticsClient()
-            val vm = newVm(FakeRepo(), analytics = analytics)
-            val post = samplePost("at://did:plc:fake/app.bsky.feed.post/3kabc123")
-            vm.handleEvent(PostDetailEvent.OnShareClicked(post))
-            vm.handleEvent(PostDetailEvent.OnShareLongPressed(post))
-            assertEquals(
-                listOf(
-                    Share(ShareMethod.ShareSheet, PostSurface.PostDetail),
-                    Share(ShareMethod.CopyLink, PostSurface.PostDetail),
-                ),
-                analytics.events,
-            )
-        }
-
-    // ---------- cache interaction tests ----------
-
-    @Test
-    fun `OnLikeClicked dispatches cache toggleLike with focused post id and cid`() =
-        runTest(mainDispatcher.dispatcher) {
-            val cache = FakePostInteractionsCache()
-            val vm = newVm(FakeRepo(), cache = cache)
-            val post = samplePost("at://x", cid = "bafyX")
-
-            vm.handleEvent(PostDetailEvent.OnLikeClicked(post))
-            advanceUntilIdle()
-
-            assertEquals(1, cache.toggleLikeCalls.get())
-            assertEquals("at://x" to "bafyX", cache.lastToggleLikeArgs.last())
-        }
-
-    @Test
-    fun `OnLikeClicked failure surfaces PostDetailEffect_ShowError`() =
-        runTest(mainDispatcher.dispatcher) {
-            val cache = FakePostInteractionsCache()
-            cache.nextToggleLikeResult = Result.failure(IOException("like failed"))
-            val vm = newVm(FakeRepo(), cache = cache)
-            val post = samplePost("at://x")
-
-            vm.effects.test {
-                vm.handleEvent(PostDetailEvent.OnLikeClicked(post))
-                advanceUntilIdle()
-                val effect = awaitItem()
-                assertTrue(effect is PostDetailEffect.ShowError)
-                assertEquals(PostDetailError.Network, (effect as PostDetailEffect.ShowError).error)
-            }
-        }
-
-    @Test
-    fun `cache emission projects onto Focus and Reply thread items`() =
-        runTest(mainDispatcher.dispatcher) {
-            val cache = FakePostInteractionsCache()
-            val focusPost = samplePost("at://focus")
-            val replyPost = samplePost("at://reply")
-            val items =
-                persistentListOf<ThreadItem>(
-                    ThreadItem.Focus(focusPost),
-                    ThreadItem.Reply(replyPost, depth = 1),
-                )
-            val repo = FakeRepo(results = listOf(Result.success(items)))
-            val vm = newVm(repo, cache = cache)
-
-            vm.handleEvent(PostDetailEvent.Load)
-            advanceUntilIdle()
-
-            // Emit a cache state with updated interaction for both posts.
-            val focusState = PostInteractionState(viewerLikeUri = "at://likeuri-focus", likeCount = 5L)
-            val replyState = PostInteractionState(viewerLikeUri = "at://likeuri-reply", likeCount = 3L)
-            cache.emit(
-                persistentMapOf(
-                    "at://focus" to focusState,
-                    "at://reply" to replyState,
-                ),
-            )
-            advanceUntilIdle()
-
-            val state = vm.uiState.value
-            val focusItem = state.items.filterIsInstance<ThreadItem.Focus>().first()
-            val replyItem = state.items.filterIsInstance<ThreadItem.Reply>().first()
-
-            assertTrue(focusItem.post.viewer.isLikedByViewer)
-            assertEquals(5, focusItem.post.stats.likeCount)
-            assertTrue(replyItem.post.viewer.isLikedByViewer)
-            assertEquals(3, replyItem.post.stats.likeCount)
-        }
-
-    @Test
-    fun `like and repost log InteractPost with the PostDetail surface`() =
-        runTest(mainDispatcher.dispatcher) {
-            val analytics = RecordingAnalyticsClient()
-            val vm = newVm(FakeRepo(), analytics = analytics)
-            val post = samplePost("at://x", cid = "bafyX") // not liked/reposted by default
-
-            vm.handleEvent(PostDetailEvent.OnLikeClicked(post))
-            vm.handleEvent(PostDetailEvent.OnRepostClicked(post))
-            advanceUntilIdle()
-
-            assertEquals(
-                listOf(
-                    InteractPost(PostAction.Like, PostSurface.PostDetail),
-                    InteractPost(PostAction.Repost, PostSurface.PostDetail),
-                ),
-                analytics.events,
-            )
-        }
-
     // ---------- helpers ----------
 
     private fun newVm(
         repo: PostThreadRepository,
         focusUri: String = "at://focus",
-        cache: PostInteractionsCache = FakePostInteractionsCache(),
-        analytics: AnalyticsClient = RecordingAnalyticsClient(),
+        handler: FakePostInteractionHandler = FakePostInteractionHandler(),
         muteRepository: MuteRepository = FakeMuteRepository(),
     ): PostDetailViewModel =
         PostDetailViewModel(
             route = PostDetailRoute(postUri = focusUri),
             postThreadRepository = repo,
-            postInteractionsCache = cache,
-            analytics = analytics,
+            handler = handler,
             muteRepository = muteRepository,
         )
 

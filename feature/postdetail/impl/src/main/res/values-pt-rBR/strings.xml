@@ -22,7 +22,6 @@
     <string name="postdetail_snackbar_overflow_report_coming_soon">Denunciar — em breve</string>
     <string name="postdetail_snackbar_overflow_mute_coming_soon">Silenciar — em breve</string>
     <string name="postdetail_snackbar_overflow_unmute_coming_soon">Reativar som — em breve</string>
-    <string name="postdetail_snackbar_overflow_block_coming_soon">Bloquear — em breve</string>
     <string name="postdetail_snackbar_overflow_unblock_coming_soon">Desbloquear — em breve</string>
     <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
     <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Reativar som da thread — em breve</string>

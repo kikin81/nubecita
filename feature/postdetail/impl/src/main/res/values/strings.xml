@@ -24,12 +24,11 @@
     <string name="postdetail_clipboard_label_post_link">Post link</string>
     <string name="postdetail_snackbar_link_copied">Link copied</string>
 
-    <!-- PostCard overflow-menu "coming soon" snackbars (oftc.2). oftc.3 / .4 / .5 swap each
-         variant for its real moderation RPC. -->
+    <!-- PostCard overflow-menu "coming soon" snackbars. Block graduated to real in PR4
+         (nubecita-tgqv); the remaining variants will swap out in future PRs. -->
     <string name="postdetail_snackbar_overflow_report_coming_soon">Report — coming soon</string>
     <string name="postdetail_snackbar_overflow_mute_coming_soon">Mute — coming soon</string>
     <string name="postdetail_snackbar_overflow_unmute_coming_soon">Unmute — coming soon</string>
-    <string name="postdetail_snackbar_overflow_block_coming_soon">Block — coming soon</string>
     <string name="postdetail_snackbar_overflow_unblock_coming_soon">Unblock — coming soon</string>
     <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
