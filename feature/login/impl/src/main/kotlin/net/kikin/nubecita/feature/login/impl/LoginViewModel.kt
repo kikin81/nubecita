@@ -138,15 +138,16 @@ class LoginViewModel
          * Record a login failure to analytics and logs.
          *
          * Analytics: emit the PII-free `login_error` event (reason + stage) for
-         * funnel failure-rate reporting — skipped for [LoginError.BlankHandle],
-         * which is client-side validation, not a real attempt (and never reaches
-         * this path anyway).
+         * funnel failure-rate reporting. [LoginError.BlankHandle] is client-side
+         * validation, not a real attempt, and never reaches this path — so every
+         * failure here logs a concrete [LoginErrorReason].
          *
          * Logs: route by level so non-fatals stay high-signal. [LoginError.Network]
          * (offline) and [LoginError.HandleNotFound] (typo) are expected → `w`
-         * (breadcrumb only). Only the unclassified [LoginError.Generic] is a
-         * genuinely-unexpected failure worth a non-fatal → `e`. The error's class
-         * name is logged, never the handle (PII).
+         * (breadcrumb only). The coarse [LoginError.Generic] bucket — both
+         * `oauth_config` (upstream server misconfig) and `unexpected` (genuine
+         * unknown) — is worth a non-fatal → `e`; the finer [reason] disambiguates
+         * the two. The error's class name is logged, never the handle (PII).
          */
         private fun logLoginFailure(
             stage: LoginStage,
