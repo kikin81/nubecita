@@ -208,6 +208,45 @@ class SearchPostsViewModelTest {
         }
 
     @Test
+    fun firstPage_appliesExistingCacheState() =
+        runTest {
+            val vm = buildVm()
+            // A like already exists in the cache (e.g. the post was liked on the feed)
+            // BEFORE this search runs. The loaded item must reflect it immediately.
+            cache.emit(
+                persistentMapOf(
+                    "at://p1" to PostInteractionState(likeCount = 9, viewerLikeUri = "at://like/1"),
+                ),
+            )
+            repo.respond(
+                query = "kotlin",
+                cursor = null,
+                sort = SearchPostsSort.TOP,
+                items = listOf(searchPostFixture("at://p1", "p1")),
+                nextCursor = null,
+            )
+
+            vm.setQuery("kotlin")
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is SearchPostsLoadStatus.Loaded)
+            status as SearchPostsLoadStatus.Loaded
+            assertEquals(
+                9,
+                status.items
+                    .first()
+                    .post.stats.likeCount,
+            )
+            assertEquals(
+                true,
+                status.items
+                    .first()
+                    .post.viewer.isLikedByViewer,
+            )
+        }
+
+    @Test
     fun cacheState_mergesIntoCurrentLoadStatus_afterLoadMoreAppend() =
         runTest {
             // Regression for the atomicity race: the pre-fix code read
