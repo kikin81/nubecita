@@ -7,10 +7,8 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -88,15 +86,18 @@ internal class SearchPostsViewModel
             // Mirror cache state into status.items so a like/repost from
             // another surface (feed, post-detail) reflects on the rendered
             // search results without a re-fetch.
+            //
+            // Read + merge happen atomically inside setState so a concurrent
+            // loadMore/sort-change that lands between the snapshot read and
+            // the state write can never be clobbered. StateFlow deduplication
+            // makes the distinctUntilChanged wrapper unnecessary.
             viewModelScope.launch {
-                cache.state
-                    .mapNotNull { snapshot ->
-                        val status =
-                            uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded
-                                ?: return@mapNotNull null
-                        status.copy(items = status.items.applyInteractions(snapshot))
-                    }.distinctUntilChanged()
-                    .collect { merged -> setState { copy(loadStatus = merged) } }
+                cache.state.collect { snapshot ->
+                    setState {
+                        val status = loadStatus as? SearchPostsLoadStatus.Loaded ?: return@setState this
+                        copy(loadStatus = status.copy(items = status.items.applyInteractions(snapshot)))
+                    }
+                }
             }
 
             fetchKey

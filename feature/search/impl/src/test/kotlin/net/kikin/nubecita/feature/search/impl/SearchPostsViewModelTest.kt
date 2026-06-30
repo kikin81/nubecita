@@ -208,6 +208,77 @@ class SearchPostsViewModelTest {
         }
 
     @Test
+    fun cacheState_mergesIntoCurrentLoadStatus_afterLoadMoreAppend() =
+        runTest {
+            // Regression for the atomicity race: the pre-fix code read
+            // uiState.value.loadStatus OUTSIDE setState, computed the merged
+            // status, then applied it — a concurrent loadMore append that
+            // landed between the read and the apply would be silently
+            // overwritten. Verify that a cache emission after a loadMore
+            // preserves the appended items.
+            val vm = buildVm()
+            val page1 = listOf(searchPostFixture("at://p1", "p1"))
+            val page2 = listOf(searchPostFixture("at://p2", "p2"))
+            repo.respond(
+                query = "q",
+                cursor = null,
+                sort = SearchPostsSort.TOP,
+                items = page1,
+                nextCursor = "c2",
+            )
+            repo.respond(
+                query = "q",
+                cursor = "c2",
+                sort = SearchPostsSort.TOP,
+                items = page2,
+                nextCursor = null,
+            )
+
+            vm.setQuery("q")
+            runCurrent()
+            vm.handleEvent(SearchPostsEvent.LoadMore)
+            runCurrent()
+
+            // Both pages are present after the append.
+            val afterAppend = vm.uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded
+            checkNotNull(afterAppend) { "expected Loaded after loadMore" }
+            assertEquals(listOf("at://p1", "at://p2"), afterAppend.items.map { it.post.id })
+
+            // Now emit a like on p1 from the cache (simulates a cross-surface like).
+            val interactionSnapshot =
+                persistentMapOf(
+                    page1.first().post.id to
+                        PostInteractionState(
+                            likeCount = 3,
+                            viewerLikeUri = "at://like/x",
+                        ),
+                )
+            cache.emit(interactionSnapshot)
+            runCurrent()
+
+            // The merge must apply to the CURRENT (appended) loadStatus — p2 must still be present.
+            val afterMerge = vm.uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded
+            checkNotNull(afterMerge) { "expected Loaded after cache merge" }
+            assertEquals(
+                listOf("at://p1", "at://p2"),
+                afterMerge.items.map { it.post.id },
+                "loadMore-appended p2 must survive a cache-merge emission",
+            )
+            assertEquals(
+                3,
+                afterMerge.items
+                    .first()
+                    .post.stats.likeCount,
+            )
+            assertEquals(
+                true,
+                afterMerge.items
+                    .first()
+                    .post.viewer.isLikedByViewer,
+            )
+        }
+
+    @Test
     fun onLike_delegatesToHandler() =
         runTest {
             val vm = buildVm()

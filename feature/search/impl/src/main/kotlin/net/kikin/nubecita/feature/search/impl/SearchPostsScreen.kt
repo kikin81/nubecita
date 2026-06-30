@@ -55,6 +55,7 @@ internal fun SearchPostsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val navState = LocalMainShellNavState.current
+    val currentNavState by rememberUpdatedState(navState)
     val currentOnClearQuery by rememberUpdatedState(onClearQuery)
     val currentOnShowAppendError by rememberUpdatedState(onShowAppendError)
 
@@ -131,13 +132,13 @@ internal fun SearchPostsScreen(
                     // replaceTop (not add): on Medium/Expanded the tapped post
                     // swaps the detail pane and system back returns to the
                     // results list; on Compact it degrades to a normal push.
-                    navState.replaceTop(PostDetailRoute(postUri = effect.uri))
+                    currentNavState.replaceTop(PostDetailRoute(postUri = effect.uri))
                 is SearchPostsEffect.ShowAppendError ->
                     currentOnShowAppendError(effect.error)
                 SearchPostsEffect.NavigateToClearQuery ->
                     currentOnClearQuery()
                 is SearchPostsEffect.NavigateToProfile ->
-                    navState.add(Profile(handle = effect.handle))
+                    currentNavState.add(Profile(handle = effect.handle))
             }
         }
     }
