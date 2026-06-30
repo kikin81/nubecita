@@ -124,10 +124,11 @@ internal class ProfileViewModel
             } else {
                 launchInitialLoads(actor)
             }
-            // Atomic merge: read + apply INSIDE setState to eliminate the outside-read
-            // race where a .map { uiState.value.applyInteractions(it) } outside
-            // setState could clobber a concurrent mutation. Same fix as nubecita-w4o9
-            // that was already applied to the feed in PR2.
+            // Atomic merge: reads + applies INSIDE setState so a concurrent
+            // tab-append or refresh cannot clobber the cache snapshot between
+            // the read and the write. The feed currently reads
+            // postInteractionsCache.state.value OUTSIDE setState; nubecita-w4o9
+            // will bring it up to this same atomic-reducer pattern.
             viewModelScope.launch {
                 postInteractionsCache.state.collect { snapshot ->
                     setState { applyInteractions(snapshot) }

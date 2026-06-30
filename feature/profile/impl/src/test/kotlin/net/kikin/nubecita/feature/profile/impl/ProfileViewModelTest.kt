@@ -1896,6 +1896,14 @@ internal class ProfileViewModelTest {
             )
         }
 
+    @Test
+    fun `construction binds handler to PostSurface Profile`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fakeHandler = FakePostInteractionHandler()
+            newVm(repo = FakeProfileRepository(), handler = fakeHandler)
+            assertEquals(PostSurface.Profile, fakeHandler.boundSurface)
+        }
+
     // -- Test helpers ----------------------------------------------------------
 
     private fun samplePostUi(

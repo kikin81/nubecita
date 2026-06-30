@@ -214,6 +214,15 @@ internal fun ProfileScreen(
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
     val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
+    // Wrap snackbar copy for the same reason: the Unit-keyed effect never
+    // restarts, so a locale/config change mid-pending-snackbar would show
+    // stale text without rememberUpdatedState. The stringResource() resolution
+    // above stays as-is (used outside the effect for interactionStrings).
+    val currentErrorNetworkMsg by rememberUpdatedState(errorNetworkMsg)
+    val currentErrorUnknownMsg by rememberUpdatedState(errorUnknownMsg)
+    val currentComingSoonEdit by rememberUpdatedState(comingSoonEdit)
+    val currentComingSoonBlock by rememberUpdatedState(comingSoonBlock)
+    val currentPostOverflowBlock by rememberUpdatedState(postOverflowBlock)
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -221,8 +230,8 @@ internal fun ProfileScreen(
                 is ProfileEffect.ShowError -> {
                     val msg =
                         when (effect.error) {
-                            ProfileError.Network -> errorNetworkMsg
-                            is ProfileError.Unknown -> errorUnknownMsg
+                            ProfileError.Network -> currentErrorNetworkMsg
+                            is ProfileError.Unknown -> currentErrorUnknownMsg
                         }
                     // ProfileEffect.ShowError is most often a toggle / follow
                     // failure (user-tap rejected). Over-fires slightly on
@@ -236,8 +245,8 @@ internal fun ProfileScreen(
                 is ProfileEffect.ShowComingSoon -> {
                     val msg =
                         when (effect.action) {
-                            StubbedAction.Edit -> comingSoonEdit
-                            StubbedAction.Block -> comingSoonBlock
+                            StubbedAction.Edit -> currentComingSoonEdit
+                            StubbedAction.Block -> currentComingSoonBlock
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = msg)
@@ -250,7 +259,7 @@ internal fun ProfileScreen(
                     // onOverflowAction override and never reach ShowPostOverflowComingSoon.
                     if (effect.action == PostOverflowAction.BlockAuthor) {
                         snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(message = postOverflowBlock)
+                        snackbarHostState.showSnackbar(message = currentPostOverflowBlock)
                     }
                 }
                 is ProfileEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)

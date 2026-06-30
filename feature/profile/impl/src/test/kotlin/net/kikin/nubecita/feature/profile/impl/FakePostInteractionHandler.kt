@@ -38,14 +38,15 @@ internal class FakePostInteractionHandler(
     private val _interactionEffects = Channel<InteractionEffect>(Channel.UNLIMITED)
     override val interactionEffects: Flow<InteractionEffect> = _interactionEffects.receiveAsFlow()
 
-    private var surface: PostSurface = PostSurface.Profile
+    /** Records the [PostSurface] passed to [bind]; null until [bind] is called. */
+    var boundSurface: PostSurface? = null
     private var scope: CoroutineScope? = null
 
     override fun bind(
         surface: PostSurface,
         scope: CoroutineScope,
     ) {
-        this.surface = surface
+        boundSurface = surface
         this.scope = scope
     }
 
