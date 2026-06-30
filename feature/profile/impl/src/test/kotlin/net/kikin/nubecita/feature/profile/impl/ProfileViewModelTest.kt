@@ -29,6 +29,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
@@ -923,12 +924,12 @@ internal class ProfileViewModelTest {
                 vm.handleEvent(
                     ProfileEvent.OnPostOverflowAction(
                         post = post,
-                        action = net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                        action = PostOverflowAction.BlockAuthor,
                     ),
                 )
                 assertEquals(
                     ProfileEffect.ShowPostOverflowComingSoon(
-                        net.kikin.nubecita.designsystem.component.PostOverflowAction.BlockAuthor,
+                        PostOverflowAction.BlockAuthor,
                     ),
                     awaitItem(),
                 )
@@ -956,10 +957,10 @@ internal class ProfileViewModelTest {
             val post = samplePostUi("at://did:plc:fake/app.bsky.feed.post/x")
             val delegatedVariants =
                 listOf(
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread,
-                    net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText,
+                    PostOverflowAction.UnblockAuthor,
+                    PostOverflowAction.MuteThread,
+                    PostOverflowAction.UnmuteThread,
+                    PostOverflowAction.CopyPostText,
                 )
             vm.interactionEffects.test {
                 for (action in delegatedVariants) {
@@ -998,7 +999,7 @@ internal class ProfileViewModelTest {
                 vm.handleEvent(
                     ProfileEvent.OnPostOverflowAction(
                         post = post,
-                        action = net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost,
+                        action = PostOverflowAction.ReportPost,
                     ),
                 )
                 val effect = awaitItem()
@@ -1462,7 +1463,7 @@ internal class ProfileViewModelTest {
             val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
             advanceUntilIdle()
 
-            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, PostOverflowAction.MuteAuthor))
             advanceUntilIdle()
 
             val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
@@ -1504,7 +1505,7 @@ internal class ProfileViewModelTest {
             advanceUntilIdle()
 
             vm.effects.test {
-                vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+                vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, PostOverflowAction.MuteAuthor))
                 advanceUntilIdle()
                 assertTrue(awaitItem() is ProfileEffect.ShowError, "MuteAuthor failure MUST surface ShowError")
                 cancelAndIgnoreRemainingEvents()
@@ -1549,7 +1550,7 @@ internal class ProfileViewModelTest {
             val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
             advanceUntilIdle()
 
-            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, PostOverflowAction.UnmuteAuthor))
             advanceUntilIdle()
 
             val loaded = vm.uiState.value.postsStatus as TabLoadStatus.Loaded
@@ -1595,7 +1596,7 @@ internal class ProfileViewModelTest {
             advanceUntilIdle()
 
             vm.effects.test {
-                vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+                vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, PostOverflowAction.UnmuteAuthor))
                 advanceUntilIdle()
                 assertTrue(awaitItem() is ProfileEffect.ShowError, "UnmuteAuthor failure MUST surface ShowError")
                 cancelAndIgnoreRemainingEvents()
@@ -1651,7 +1652,7 @@ internal class ProfileViewModelTest {
             val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
             advanceUntilIdle()
 
-            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, PostOverflowAction.MuteAuthor))
             advanceUntilIdle()
 
             val repliesLoaded = vm.uiState.value.repliesStatus as TabLoadStatus.Loaded
@@ -1718,7 +1719,7 @@ internal class ProfileViewModelTest {
             val vm = newVm(repo = repo, muteRepository = fakeMuteRepo)
             advanceUntilIdle()
 
-            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, PostOverflowAction.UnmuteAuthor))
             advanceUntilIdle()
 
             val repliesLoaded = vm.uiState.value.repliesStatus as TabLoadStatus.Loaded
@@ -1783,7 +1784,7 @@ internal class ProfileViewModelTest {
 
             // Gate muteActor so we can inject a concurrent state change mid-flight.
             fakeMuteRepo.gateMute = true
-            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor))
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, PostOverflowAction.MuteAuthor))
             // With UnconfinedTestDispatcher the coroutine runs eagerly until the
             // first suspension point (gate.await). The optimistic flip has happened.
             assertTrue(
@@ -1861,7 +1862,7 @@ internal class ProfileViewModelTest {
             assertEquals(ProfileTab.Posts, vm.uiState.value.selectedTab)
 
             fakeMuteRepo.gateUnmute = true
-            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor))
+            vm.handleEvent(ProfileEvent.OnPostOverflowAction(targetPost, PostOverflowAction.UnmuteAuthor))
             assertFalse(
                 (vm.uiState.value.postsStatus as TabLoadStatus.Loaded)
                     .items
