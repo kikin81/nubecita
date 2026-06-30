@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.login.impl
 
 import io.github.kikin81.atproto.oauth.OAuthDiscoveryException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -639,6 +640,66 @@ internal class LoginViewModelTest {
                 analytics.events,
             )
         }
+
+    @Test
+    fun `begin-stage non-fatal tags oauth_redirect_kind none (no stale Complete value bleeds)`() =
+        runTest(mainDispatcher.dispatcher) {
+            val auth = FakeAuthRepository(beginLoginResult = Result.failure(IllegalStateException("boom")))
+            val crash = RecordingCrashReporter()
+            val vm = newViewModel(authRepository = auth, crashReporter = crash)
+
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            // Begin stage has no redirect; the key is still written ("none") so a
+            // prior Complete-stage value can't bleed onto this report.
+            assertEquals("none", crash.keys["oauth_redirect_kind"])
+        }
+
+    @Test
+    fun `completeLogin keeps isLoading true while the token exchange is in flight`() =
+        runTest(mainDispatcher.dispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val broker = FakeOAuthRedirectBroker()
+            val auth = FakeAuthRepository(completeLoginGate = gate)
+            val vm = newViewModel(authRepository = auth, broker = broker)
+            advanceUntilIdle()
+
+            broker.emit("https://nubecita.app/oauth-redirect?code=ok")
+            advanceUntilIdle() // parks inside completeLogin at the gate
+
+            assertTrue(vm.uiState.value.isLoading, "screen should show progress during token exchange")
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.isLoading)
+        }
+
+    @Test
+    fun `double submit while a login is in flight is ignored`() =
+        runTest(mainDispatcher.dispatcher) {
+            val gate = CompletableDeferred<Unit>()
+            val auth =
+                FakeAuthRepository(
+                    beginLoginResult = Result.success("https://pds.example/authorize"),
+                    beginLoginGate = gate,
+                )
+            val analytics = RecordingAnalyticsClient()
+            val vm = newViewModel(authRepository = auth, analytics = analytics)
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+
+            vm.handleEvent(LoginEvent.SubmitLogin) // starts; parks at the gate (isLoading = true)
+            vm.handleEvent(LoginEvent.SubmitLogin) // ignored by the in-flight guard
+            advanceUntilIdle()
+
+            assertEquals(1, auth.beginLoginInvocations)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            // Exactly one launch event despite the double tap.
+            assertEquals(listOf(LoginRedirectLaunched), analytics.events)
+        }
 }
 
 private fun newViewModel(
@@ -693,6 +754,10 @@ private object NoopPromptStore : NotificationsPromptShownStore {
 private class FakeAuthRepository(
     private val beginLoginResult: Result<String> = Result.success("ignored"),
     private val completeLoginResult: Result<Unit> = Result.success(Unit),
+    // Optional gates: when set, the call suspends until completed, letting tests
+    // observe in-flight state (loading, double-submit guard) deterministically.
+    private val beginLoginGate: CompletableDeferred<Unit>? = null,
+    private val completeLoginGate: CompletableDeferred<Unit>? = null,
 ) : AuthRepository {
     var beginLoginInvocations: Int = 0
         private set
@@ -701,11 +766,13 @@ private class FakeAuthRepository(
 
     override suspend fun beginLogin(handle: String): Result<String> {
         beginLoginInvocations++
+        beginLoginGate?.await()
         return beginLoginResult
     }
 
     override suspend fun completeLogin(redirectUri: String): Result<Unit> {
         completeLoginInvocations++
+        completeLoginGate?.await()
         return completeLoginResult
     }
 

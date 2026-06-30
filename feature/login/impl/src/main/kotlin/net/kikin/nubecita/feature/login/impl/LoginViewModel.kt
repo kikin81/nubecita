@@ -53,6 +53,11 @@ class LoginViewModel
                     // with LoginRedirectLaunched to expose the silent drop between
                     // launching the auth page and a callback actually returning.
                     analytics.log(LoginRedirectReturned(redirectKind))
+                    // Show progress during the token exchange: once the Custom Tab
+                    // closes the login form is interactive again, so a spinner here
+                    // both signals work-in-flight and (with the submitLogin guard)
+                    // blocks a double-submit while completeLogin runs.
+                    setState { copy(isLoading = true, errorMessage = null) }
                     authRepository
                         .completeLogin(redirectUri)
                         .onSuccess {
@@ -129,6 +134,10 @@ class LoginViewModel
             }
 
         private fun submitLogin() {
+            // Ignore re-taps while a login is in flight (beginLogin, or the
+            // post-redirect token exchange which also sets isLoading) — prevents
+            // concurrent beginLogin calls and duplicate LoginRedirectLaunched events.
+            if (uiState.value.isLoading) return
             val handle = uiState.value.handle.trim()
             if (handle.isBlank()) {
                 setState { copy(errorMessage = LoginError.BlankHandle) }
@@ -190,7 +199,10 @@ class LoginViewModel
                 crashReporter.setCustomKey(KEY_STAGE, stage.wire)
                 crashReporter.setCustomKey(KEY_REASON, reason.wire)
                 crashReporter.setCustomKey(KEY_EXCEPTION, cause::class.simpleName ?: "Unknown")
-                redirectKind?.let { crashReporter.setCustomKey(KEY_REDIRECT_KIND, it.wire) }
+                // Always overwrite — Crashlytics keys are sticky, so a stale
+                // Complete-stage value must not bleed onto a later Begin-stage
+                // report (where redirectKind is null).
+                crashReporter.setCustomKey(KEY_REDIRECT_KIND, redirectKind?.wire ?: "none")
                 crashReporter.recordException(LoginFailureException(reason, cause))
                 Timber.tag(TAG).w(cause, "login failed (stage=%s, reason=%s)", stage.wire, reason.wire)
             } else {
