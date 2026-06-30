@@ -138,9 +138,11 @@ internal fun PostDetailScreen(
     // Each field is resolved from this module's existing R.string values so
     // snackbar text stays byte-identical. Several fields are placeholder values
     // only — the corresponding InteractionEffect variants are never emitted by
-    // the post-detail handler because the VM intercepts (mute/unmute) or the
-    // handler navigates for real (report/block) before falling through to
-    // ShowComingSoon.
+    // the post-detail handler: the VM intercepts mute/unmute actions and updates
+    // state directly, while report/block delegate to the handler which navigates
+    // for real (NavigateToReport / NavigateToBlock). The coming-soon strings for
+    // unblock/mute-thread/unmute-thread/copy-text ARE shown by the shared
+    // rememberPostInteractions helper for those delegated actions.
     val interactionStrings =
         InteractionStrings(
             errorNetwork = stringResource(R.string.postdetail_snackbar_error_network),
@@ -270,6 +272,13 @@ internal fun PostDetailScreen(
     val unauthErrorMessage = stringResource(R.string.postdetail_snackbar_error_unauthenticated)
     val notFoundErrorMessage = stringResource(R.string.postdetail_snackbar_error_notfound)
     val unknownErrorMessage = stringResource(R.string.postdetail_snackbar_error_unknown)
+    // Wrap snackbar copy for the same reason as the nav callbacks above: the
+    // Unit-keyed effect never restarts, so a locale/config change mid-pending-
+    // snackbar would show stale text without rememberUpdatedState.
+    val currentNetworkErrorMessage by rememberUpdatedState(networkErrorMessage)
+    val currentUnauthErrorMessage by rememberUpdatedState(unauthErrorMessage)
+    val currentNotFoundErrorMessage by rememberUpdatedState(notFoundErrorMessage)
+    val currentUnknownErrorMessage by rememberUpdatedState(unknownErrorMessage)
 
     LaunchedEffect(Unit) { viewModel.handleEvent(PostDetailEvent.Load) }
 
@@ -279,10 +288,10 @@ internal fun PostDetailScreen(
                 is PostDetailEffect.ShowError -> {
                     val message =
                         when (effect.error) {
-                            PostDetailError.Network -> networkErrorMessage
-                            PostDetailError.Unauthenticated -> unauthErrorMessage
-                            PostDetailError.NotFound -> notFoundErrorMessage
-                            is PostDetailError.Unknown -> unknownErrorMessage
+                            PostDetailError.Network -> currentNetworkErrorMessage
+                            PostDetailError.Unauthenticated -> currentUnauthErrorMessage
+                            PostDetailError.NotFound -> currentNotFoundErrorMessage
+                            is PostDetailError.Unknown -> currentUnknownErrorMessage
                         }
                     // Reject haptic — primarily a toggle-rejected cue (like /
                     // repost failed). Over-fires on the refresh-failure path

@@ -974,12 +974,12 @@ internal class ProfileViewModelTest {
 
     @Test
     fun `OnPostOverflowAction(ReportPost) delegates to handler interactionEffects as NavigateToReport`() =
-        // Pin: oftc.3.1 graduated ReportPost out of ShowPostOverflowComingSoon.
-        // In PR3, ReportPost is forwarded to the injected PostInteractionHandler
-        // via the onOverflowAction else branch. The FakePostInteractionHandler
-        // emits InteractionEffect.NavigateToReport onto interactionEffects; the
-        // real rememberPostInteractions composable handles that by calling
-        // LocalMainShellNavState.add(Report.forPost(post)).
+        // Pin: ReportPost delegates to the injected PostInteractionHandler via
+        // the onOverflowAction else branch (block now delegates to the handler
+        // → NavigateToBlock the same way; was a coming-soon effect before PR4).
+        // The FakePostInteractionHandler emits InteractionEffect.NavigateToReport
+        // onto interactionEffects; the real rememberPostInteractions composable
+        // handles that by calling LocalMainShellNavState.add(Report.forPost(post)).
         // Tests assert on vm.interactionEffects (the delegated handler channel),
         // NOT vm.effects — the VM's own UiEffect channel no longer emits this.
         runTest(mainDispatcher.dispatcher) {
