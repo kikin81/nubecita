@@ -200,13 +200,14 @@ private fun MessageBubbleBody(
  * Stacks [body] with a [reactions] row that overlaps up onto the body's bottom edge
  * by [ReactionOverlap] (matching the official app).
  *
- * Unlike `Modifier.offset`, this reports the true, overlap-reduced height
- * (`body + reactions + overlap`, overlap negative) so the parent Column reserves no
- * empty space below the chips. Both children are placed at positive, in-bounds
- * coordinates — the body at the top, the reactions at `body.height + overlap` — so
- * nothing is drawn outside the node and the screenshot host renders it correctly
- * (a negative placement gets clipped there). Horizontal placement follows the
- * sender side via [isOutgoing].
+ * Unlike `Modifier.offset`, this reports the true, overlap-reduced height so the
+ * parent Column reserves no empty space below the chips. The reactions ride up to
+ * `body.height + overlap` (overlap negative), clamped to `>= 0` so a body shorter
+ * than the overlap never forces a negative — out-of-bounds — placement (which the
+ * Layoutlib screenshot host would clip). The final size is coerced back into the
+ * incoming constraints, and horizontal placement uses that coerced width so
+ * outgoing chips stay pinned to the true right edge even under a min-width parent.
+ * Each slot is wrapped in a `Box` so it is always exactly one measurable.
  */
 @Composable
 private fun ReactionOverlapLayout(
@@ -218,25 +219,28 @@ private fun ReactionOverlapLayout(
     Layout(
         modifier = modifier,
         content = {
-            body()
-            reactions()
+            Box { body() }
+            Box { reactions() }
         },
     ) { measurables, constraints ->
         val childConstraints = constraints.copy(minWidth = 0, minHeight = 0)
         val bodyPlaceable = measurables[0].measure(childConstraints)
         val reactionsPlaceable = measurables[1].measure(childConstraints)
         val overlapPx = ReactionOverlap.roundToPx() // negative → pulls the row up
-        val width = maxOf(bodyPlaceable.width, reactionsPlaceable.width)
-        // Reactions bottom = body.height + overlap + reactions.height. Never let the
-        // container collapse below the body if the row is shorter than the overlap.
+        // Never negative: a body shorter than the overlap would otherwise place the
+        // row out of bounds and get clipped by the screenshot host.
+        val reactionsY = (bodyPlaceable.height + overlapPx).coerceAtLeast(0)
+        val width =
+            maxOf(bodyPlaceable.width, reactionsPlaceable.width)
+                .coerceIn(constraints.minWidth, constraints.maxWidth)
         val height =
-            (bodyPlaceable.height + reactionsPlaceable.height + overlapPx)
-                .coerceAtLeast(bodyPlaceable.height)
+            maxOf(bodyPlaceable.height, reactionsY + reactionsPlaceable.height)
+                .coerceIn(constraints.minHeight, constraints.maxHeight)
         layout(width, height) {
             val bodyX = if (isOutgoing) width - bodyPlaceable.width else 0
             val reactionsX = if (isOutgoing) width - reactionsPlaceable.width else 0
             bodyPlaceable.place(bodyX, 0)
-            reactionsPlaceable.place(reactionsX, bodyPlaceable.height + overlapPx)
+            reactionsPlaceable.place(reactionsX, reactionsY)
         }
     }
 }
