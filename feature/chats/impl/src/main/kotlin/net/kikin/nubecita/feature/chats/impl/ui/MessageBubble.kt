@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.Dp
@@ -37,6 +38,12 @@ import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.ReactionUi
+
+// How far the reaction chips ride up over the message body's bottom edge (matching
+// the official app) instead of floating in a gap beneath it. Negative — see
+// [ReactionOverlapLayout], which folds this into the container's measured height so
+// no dead space is reserved below the chips.
+private val ReactionOverlap = (-20).dp
 
 /**
  * Asymmetric M3 Expressive bubble shape for a message at [index] in a run of
@@ -97,6 +104,7 @@ fun messageBubbleShape(
  * inline retry affordance ([onRetrySend], keyed on the row's temp id).
  * Incoming and `Sent` rows render no footer.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun MessageBubble(
     message: MessageUi,
@@ -108,10 +116,70 @@ internal fun MessageBubble(
     onRetrySend: (tempId: String) -> Unit = {},
     onReactionToggle: (emoji: String) -> Unit = {},
 ) {
+    Column(
+        modifier = modifier.widthIn(max = maxWidth),
+        horizontalAlignment = if (message.isOutgoing) Alignment.End else Alignment.Start,
+    ) {
+        // Reactions overlap the body's bottom edge via a custom layout (see
+        // [ReactionOverlapLayout]); without them the body renders on its own.
+        if (message.reactions.isNotEmpty()) {
+            ReactionOverlapLayout(
+                isOutgoing = message.isOutgoing,
+                body = {
+                    MessageBubbleBody(
+                        message = message,
+                        runIndex = runIndex,
+                        runCount = runCount,
+                        onQuotedPostTap = onQuotedPostTap,
+                    )
+                },
+                reactions = {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        message.reactions.forEach { reaction ->
+                            ReactionChip(reaction = reaction, onClick = { onReactionToggle(reaction.emoji) })
+                        }
+                    }
+                },
+            )
+        } else {
+            MessageBubbleBody(
+                message = message,
+                runIndex = runIndex,
+                runCount = runCount,
+                onQuotedPostTap = onQuotedPostTap,
+            )
+        }
+        // Send-status footer for outgoing rows only; server-fetched + reconciled
+        // messages are Sent and render nothing.
+        if (message.isOutgoing) {
+            when (message.sendStatus) {
+                MessageSendStatus.Sending -> SendingFooter()
+                MessageSendStatus.Failed -> FailedFooter(onRetry = { onRetrySend(message.id) })
+                MessageSendStatus.Sent -> Unit
+            }
+        }
+    }
+}
+
+/**
+ * The message's visual body: the text bubble and/or the embed card, stacked and
+ * aligned to the sender side. Reactions (when present) ride up onto this unit's
+ * bottom edge via [ReactionOverlapLayout]. Emits a single layout node (the wrapping
+ * Column) so the overlap layout can treat it as one measurable.
+ */
+@Composable
+private fun MessageBubbleBody(
+    message: MessageUi,
+    runIndex: Int,
+    runCount: Int,
+    onQuotedPostTap: (quotedPostUri: String) -> Unit,
+) {
     val embed = message.embed
     val showTextBubble = message.isDeleted || message.text.isNotEmpty() || embed == null
     Column(
-        modifier = modifier.widthIn(max = maxWidth),
         horizontalAlignment = if (message.isOutgoing) Alignment.End else Alignment.Start,
     ) {
         if (showTextBubble) {
@@ -125,26 +193,58 @@ internal fun MessageBubble(
             if (showTextBubble) Spacer(Modifier.height(4.dp))
             MessageEmbedCard(embed = embed, onQuotedPostTap = onQuotedPostTap)
         }
-        @OptIn(ExperimentalLayoutApi::class)
-        if (message.reactions.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 4.dp),
-            ) {
-                message.reactions.forEach { reaction ->
-                    ReactionChip(reaction = reaction, onClick = { onReactionToggle(reaction.emoji) })
-                }
-            }
-        }
-        // Send-status footer for outgoing rows only; server-fetched + reconciled
-        // messages are Sent and render nothing.
-        if (message.isOutgoing) {
-            when (message.sendStatus) {
-                MessageSendStatus.Sending -> SendingFooter()
-                MessageSendStatus.Failed -> FailedFooter(onRetry = { onRetrySend(message.id) })
-                MessageSendStatus.Sent -> Unit
-            }
+    }
+}
+
+/**
+ * Stacks [body] with a [reactions] row that overlaps up onto the body's bottom edge
+ * by [ReactionOverlap] (matching the official app).
+ *
+ * Unlike `Modifier.offset`, this reports the true, overlap-reduced height so the
+ * parent Column reserves no empty space below the chips. The reactions ride up to
+ * `body.height + overlap` (overlap negative), clamped to `>= 0` so a body shorter
+ * than the overlap never forces a negative — out-of-bounds — placement (which the
+ * Layoutlib screenshot host would clip). The final size is coerced back into the
+ * incoming constraints, and horizontal placement uses that coerced width (via
+ * `placeRelative`, so it mirrors under RTL) — outgoing content pinned to the end
+ * edge, incoming to the start — even under a min-width parent. Each slot is wrapped
+ * in a `Box` so it is always exactly one measurable.
+ */
+@Composable
+private fun ReactionOverlapLayout(
+    isOutgoing: Boolean,
+    body: @Composable () -> Unit,
+    reactions: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Layout(
+        modifier = modifier,
+        content = {
+            Box { body() }
+            Box { reactions() }
+        },
+    ) { measurables, constraints ->
+        val childConstraints = constraints.copy(minWidth = 0, minHeight = 0)
+        val bodyPlaceable = measurables[0].measure(childConstraints)
+        val reactionsPlaceable = measurables[1].measure(childConstraints)
+        val overlapPx = ReactionOverlap.roundToPx() // negative → pulls the row up
+        // Never negative: a body shorter than the overlap would otherwise place the
+        // row out of bounds and get clipped by the screenshot host.
+        val reactionsY = (bodyPlaceable.height + overlapPx).coerceAtLeast(0)
+        val width =
+            maxOf(bodyPlaceable.width, reactionsPlaceable.width)
+                .coerceIn(constraints.minWidth, constraints.maxWidth)
+        val height =
+            maxOf(bodyPlaceable.height, reactionsY + reactionsPlaceable.height)
+                .coerceIn(constraints.minHeight, constraints.maxHeight)
+        layout(width, height) {
+            // Offsets are expressed from the start edge (0 = start, width - childWidth
+            // = end); placeRelative mirrors them under RTL. isOutgoing → align to the
+            // end edge, incoming → start.
+            val bodyX = if (isOutgoing) width - bodyPlaceable.width else 0
+            val reactionsX = if (isOutgoing) width - reactionsPlaceable.width else 0
+            bodyPlaceable.placeRelative(bodyX, 0)
+            reactionsPlaceable.placeRelative(reactionsX, reactionsY)
         }
     }
 }
