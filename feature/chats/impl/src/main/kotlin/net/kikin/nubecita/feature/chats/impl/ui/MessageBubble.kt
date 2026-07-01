@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -37,6 +38,10 @@ import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.ReactionUi
+
+// Negative Y so the reaction chips ride up over the message bubble's bottom edge
+// (matching the official app) instead of floating in a gap beneath it.
+private val ReactionOverlap = (-20).dp
 
 /**
  * Asymmetric M3 Expressive bubble shape for a message at [index] in a run of
@@ -130,7 +135,11 @@ internal fun MessageBubble(
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 4.dp),
+                // Overlap the chips slightly onto the bubble's bottom edge (like the
+                // official app) rather than sitting in a gap below it. offset (not a
+                // negative padding, which is disallowed) shifts them up visually; the
+                // chip pill's own padding keeps it clear of the message text.
+                modifier = Modifier.offset(y = ReactionOverlap),
             ) {
                 message.reactions.forEach { reaction ->
                     ReactionChip(reaction = reaction, onClick = { onReactionToggle(reaction.emoji) })
