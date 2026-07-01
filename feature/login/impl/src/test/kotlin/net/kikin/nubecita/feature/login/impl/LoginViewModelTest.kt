@@ -373,6 +373,16 @@ internal class LoginViewModelTest {
         }
 
     @Test
+    fun `CustomTabLaunchFailed surfaces BrowserUnavailable and clears loading`() {
+        val vm = newViewModel()
+
+        vm.handleEvent(LoginEvent.CustomTabLaunchFailed)
+
+        assertEquals(LoginError.BrowserUnavailable, vm.uiState.value.errorMessage)
+        assertEquals(false, vm.uiState.value.isLoading)
+    }
+
+    @Test
     fun `ClearError nulls errorMessage`() {
         val vm = newViewModel()
         vm.handleEvent(LoginEvent.SubmitLogin)

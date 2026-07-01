@@ -97,6 +97,10 @@ class LoginViewModel
                 LoginEvent.ClearError -> setState { copy(errorMessage = null) }
                 LoginEvent.SubmitLogin -> submitLogin()
                 LoginEvent.OpenSignup -> sendEffect(LoginEffect.LaunchCustomTab(BLUESKY_SIGNUP_URL))
+                // No browser handled the VIEW intent — surface a recoverable error
+                // instead of letting ActivityNotFoundException crash the app.
+                LoginEvent.CustomTabLaunchFailed ->
+                    setState { copy(isLoading = false, errorMessage = LoginError.BrowserUnavailable) }
             }
         }
 

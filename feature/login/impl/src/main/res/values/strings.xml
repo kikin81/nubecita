@@ -9,6 +9,7 @@
     <string name="login_error_handle_not_found">We couldn\'t find an account for <xliff:g id="handle" example="alice.bsky.social">%1$s</xliff:g>. Check the spelling, or create a new Bluesky account below.</string>
     <string name="login_error_network">Can\'t reach Bluesky right now. Check your connection and try again.</string>
     <string name="login_error_generic_failure">Something went wrong. Try again.</string>
+    <string name="login_error_no_browser">No browser available to sign in. Install or enable a browser and try again.</string>
     <string name="login_signup_cta_supporting">Don\'t have an account?</string>
     <string name="login_signup_cta_label">Create one on Bluesky</string>
 </resources>

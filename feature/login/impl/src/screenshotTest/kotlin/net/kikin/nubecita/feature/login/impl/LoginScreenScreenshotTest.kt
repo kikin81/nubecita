@@ -123,3 +123,16 @@ private fun LoginScreenGenericErrorScreenshot() {
         )
     }
 }
+
+@PreviewTest
+@Preview(name = "no-browser-error-light", showBackground = true)
+@Preview(name = "no-browser-error-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LoginScreenBrowserUnavailableErrorScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        LoginScreen(
+            state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.BrowserUnavailable),
+            onEvent = {},
+        )
+    }
+}

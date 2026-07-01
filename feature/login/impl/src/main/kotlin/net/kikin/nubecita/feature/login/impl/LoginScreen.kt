@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.login.impl
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
@@ -28,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
 import net.kikin.nubecita.designsystem.spacing
+import timber.log.Timber
 
 @Composable
 fun LoginScreen(
@@ -51,7 +54,12 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    // rememberUpdatedState so the long-lived, viewModel-keyed LaunchedEffect below
+    // always reads the current context without restarting the effect. (In practice
+    // the Activity context is stable for the composition's lifetime — a config
+    // change recreates the Activity and this effect — so this is defensive/idiomatic
+    // rather than a live-bug fix.)
+    val context by rememberUpdatedState(LocalContext.current)
 
     // The result is intentionally ignored: the prompt-shown gate is flipped
     // by the VM before the launcher fires, so denial doesn't loop the prompt,
@@ -64,10 +72,18 @@ fun LoginScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is LoginEffect.LaunchCustomTab ->
-                    CustomTabsIntent
-                        .Builder()
-                        .build()
-                        .launchUrl(context, effect.url.toUri())
+                    try {
+                        CustomTabsIntent
+                            .Builder()
+                            .build()
+                            .launchUrl(context, effect.url.toUri())
+                    } catch (notFound: ActivityNotFoundException) {
+                        // No Activity handles the VIEW intent — no browser / Custom Tabs
+                        // provider installed or enabled. Surface a recoverable error via
+                        // the VM instead of crashing the app (nubecita-ywme).
+                        Timber.tag("LoginScreen").w(notFound, "No browser to launch OAuth/signup URL")
+                        viewModel.handleEvent(LoginEvent.CustomTabLaunchFailed)
+                    }
                 // Post-login routing is owned by MainActivity's reactive observer of
                 // SessionStateProvider.state — once completeLogin succeeds and the state
                 // transitions to SignedIn, MainActivity calls navigator.replaceTo(Main).
@@ -220,6 +236,7 @@ private fun displayStringFor(error: LoginError): String =
             stringResource(R.string.login_error_handle_not_found, error.handle)
         LoginError.Network -> stringResource(R.string.login_error_network)
         LoginError.Generic -> stringResource(R.string.login_error_generic_failure)
+        LoginError.BrowserUnavailable -> stringResource(R.string.login_error_no_browser)
     }
 
 @Preview(name = "Empty", showBackground = true)
