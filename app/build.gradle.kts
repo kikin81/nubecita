@@ -143,9 +143,15 @@ android {
         val oauthClientMetadataUrl =
             providers.gradleProperty("oauthClientMetadataUrl").orNull
                 ?: "https://nubecita.app/oauth/client-metadata.json"
+        // Trailing slash is load-bearing: GitHub Pages serves /oauth-redirect as a
+        // directory and 301s the no-slash form to /oauth-redirect/, which corrupted
+        // the verified App Link handoff and dropped the OAuth `code`. Requesting the
+        // slash canonical makes bsky redirect straight there with no 301 so the code
+        // arrives intact (nubecita-o4rv.1). Must be an allowed redirect_uri in the
+        // hosted client-metadata.json (added in nubecita-web#22).
         val oauthRedirectUri =
             providers.gradleProperty("oauthRedirectUri").orNull
-                ?: "https://nubecita.app/oauth-redirect"
+                ?: "https://nubecita.app/oauth-redirect/"
         buildConfigField(
             type = "String",
             name = "OAUTH_CLIENT_METADATA_URL",

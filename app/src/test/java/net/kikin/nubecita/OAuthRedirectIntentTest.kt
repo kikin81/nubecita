@@ -87,4 +87,37 @@ class OAuthRedirectIntentTest {
         // A non-redirect path is an ordinary deep link, not a malformed callback.
         assertFalse(isMalformedOAuthRedirect(scheme = "https", host = "nubecita.app", path = "/profile/alice"))
     }
+
+    // Trailing-slash acceptance (nubecita-o4rv.1): the verified App Link now lands
+    // on the /oauth-redirect/ canonical (no 301), while the custom-scheme fallback
+    // still uses the no-slash path. Both must be accepted.
+
+    @Test
+    fun verifiedAppLinkHttpsUriWithTrailingSlashIsAccepted() {
+        assertTrue(isOAuthRedirect(scheme = "https", host = "nubecita.app", path = "/oauth-redirect/"))
+    }
+
+    @Test
+    fun legacyCustomSchemeWithTrailingSlashIsAccepted() {
+        // The JS handoff page forwards without a slash, but accepting the slash too
+        // keeps the predicate robust to either shape.
+        assertTrue(isOAuthRedirect(scheme = "app.nubecita", host = null, path = "/oauth-redirect/"))
+    }
+
+    @Test
+    fun rejectsTrailingSlashOnWrongHost() {
+        assertFalse(isOAuthRedirect(scheme = "https", host = "evil.example", path = "/oauth-redirect/"))
+    }
+
+    @Test
+    fun malformedRedirect_trailingSlashPathWithWrongHost() {
+        // A /oauth-redirect/ callback that fails validation is still surfaced, not dropped.
+        assertTrue(isMalformedOAuthRedirect(scheme = "https", host = "evil.example", path = "/oauth-redirect/"))
+    }
+
+    @Test
+    fun rejectsDoubleSlashOrDeeperPath() {
+        // Only exactly /oauth-redirect or /oauth-redirect/ — not a deeper path.
+        assertFalse(isOAuthRedirect(scheme = "https", host = "nubecita.app", path = "/oauth-redirect/extra"))
+    }
 }
