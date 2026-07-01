@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -53,7 +54,12 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    // rememberUpdatedState so the long-lived, viewModel-keyed LaunchedEffect below
+    // always reads the current context without restarting the effect. (In practice
+    // the Activity context is stable for the composition's lifetime — a config
+    // change recreates the Activity and this effect — so this is defensive/idiomatic
+    // rather than a live-bug fix.)
+    val context by rememberUpdatedState(LocalContext.current)
 
     // The result is intentionally ignored: the prompt-shown gate is flipped
     // by the VM before the launcher fires, so denial doesn't loop the prompt,
