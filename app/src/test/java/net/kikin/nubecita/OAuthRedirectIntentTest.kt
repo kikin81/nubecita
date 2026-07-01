@@ -117,7 +117,9 @@ class OAuthRedirectIntentTest {
 
     @Test
     fun rejectsDoubleSlashOrDeeperPath() {
-        // Only exactly /oauth-redirect or /oauth-redirect/ — not a deeper path.
+        // Only exactly /oauth-redirect or /oauth-redirect/ — not a deeper path and
+        // not a double slash (removeSuffix strips a single "/", so "//" stays unequal).
         assertFalse(isOAuthRedirect(scheme = "https", host = "nubecita.app", path = "/oauth-redirect/extra"))
+        assertFalse(isOAuthRedirect(scheme = "https", host = "nubecita.app", path = "/oauth-redirect//"))
     }
 }

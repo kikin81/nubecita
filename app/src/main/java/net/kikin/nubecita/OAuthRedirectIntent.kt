@@ -34,7 +34,7 @@ internal fun isOAuthRedirect(
  * custom-scheme fallback still forwards `app.nubecita:/oauth-redirect` with no
  * slash, so both shapes must be accepted.
  */
-private fun isRedirectPath(path: String?): Boolean = path == OAUTH_REDIRECT_PATH || path == "$OAUTH_REDIRECT_PATH/"
+private fun isRedirectPath(path: String?): Boolean = path?.removeSuffix("/") == OAUTH_REDIRECT_PATH
 
 /**
  * True when an inbound URI carries the sanctioned OAuth redirect *path* but
