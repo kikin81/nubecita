@@ -54,6 +54,16 @@ sealed interface LoginError {
      */
     @Immutable
     data object Generic : LoginError
+
+    /**
+     * The OAuth authorization page / sign-up link could not be opened because
+     * the device has no Activity able to handle the `VIEW` intent — no browser
+     * or Custom Tabs provider is installed or enabled. Set when the screen's
+     * effect collector catches `ActivityNotFoundException` from `launchUrl`, so
+     * the app surfaces a recoverable message instead of crashing (nubecita-ywme).
+     */
+    @Immutable
+    data object BrowserUnavailable : LoginError
 }
 
 sealed interface LoginEvent : UiEvent {
@@ -71,6 +81,16 @@ sealed interface LoginEvent : UiEvent {
      * Bluesky web sign-up flow without mutating state.
      */
     data object OpenSignup : LoginEvent
+
+    /**
+     * The screen failed to launch the Custom Tab / browser for a
+     * `LaunchCustomTab` effect (no Activity handles the `VIEW` intent —
+     * `ActivityNotFoundException`). The VM responds by surfacing
+     * [LoginError.BrowserUnavailable] so the failure is recoverable instead of
+     * a crash. Reported from the Composable because the launch is an
+     * Activity/Compose concern the VM never touches (nubecita-ywme).
+     */
+    data object CustomTabLaunchFailed : LoginEvent
 }
 
 sealed interface LoginEffect : UiEffect {

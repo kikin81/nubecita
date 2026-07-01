@@ -9,6 +9,7 @@
     <string name="login_error_handle_not_found">No encontramos una cuenta para <xliff:g id="handle" example="alice.bsky.social">%1$s</xliff:g>. Revisa la ortografía o crea una cuenta nueva de Bluesky abajo.</string>
     <string name="login_error_network">No se puede conectar con Bluesky ahora. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="login_error_generic_failure">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="login_error_no_browser">No hay un navegador disponible para iniciar sesión. Instala o activa un navegador e inténtalo de nuevo.</string>
     <string name="login_signup_cta_supporting">¿No tienes una cuenta?</string>
     <string name="login_signup_cta_label">Crea una en Bluesky</string>
 </resources>

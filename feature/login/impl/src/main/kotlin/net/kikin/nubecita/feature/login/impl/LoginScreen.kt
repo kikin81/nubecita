@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.login.impl
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
 import net.kikin.nubecita.designsystem.spacing
+import timber.log.Timber
 
 @Composable
 fun LoginScreen(
@@ -64,10 +66,18 @@ fun LoginScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is LoginEffect.LaunchCustomTab ->
-                    CustomTabsIntent
-                        .Builder()
-                        .build()
-                        .launchUrl(context, effect.url.toUri())
+                    try {
+                        CustomTabsIntent
+                            .Builder()
+                            .build()
+                            .launchUrl(context, effect.url.toUri())
+                    } catch (notFound: ActivityNotFoundException) {
+                        // No Activity handles the VIEW intent — no browser / Custom Tabs
+                        // provider installed or enabled. Surface a recoverable error via
+                        // the VM instead of crashing the app (nubecita-ywme).
+                        Timber.tag("LoginScreen").w(notFound, "No browser to launch OAuth/signup URL")
+                        viewModel.handleEvent(LoginEvent.CustomTabLaunchFailed)
+                    }
                 // Post-login routing is owned by MainActivity's reactive observer of
                 // SessionStateProvider.state — once completeLogin succeeds and the state
                 // transitions to SignedIn, MainActivity calls navigator.replaceTo(Main).
@@ -220,6 +230,7 @@ private fun displayStringFor(error: LoginError): String =
             stringResource(R.string.login_error_handle_not_found, error.handle)
         LoginError.Network -> stringResource(R.string.login_error_network)
         LoginError.Generic -> stringResource(R.string.login_error_generic_failure)
+        LoginError.BrowserUnavailable -> stringResource(R.string.login_error_no_browser)
     }
 
 @Preview(name = "Empty", showBackground = true)
