@@ -205,9 +205,10 @@ private fun MessageBubbleBody(
  * `body.height + overlap` (overlap negative), clamped to `>= 0` so a body shorter
  * than the overlap never forces a negative — out-of-bounds — placement (which the
  * Layoutlib screenshot host would clip). The final size is coerced back into the
- * incoming constraints, and horizontal placement uses that coerced width so
- * outgoing chips stay pinned to the true right edge even under a min-width parent.
- * Each slot is wrapped in a `Box` so it is always exactly one measurable.
+ * incoming constraints, and horizontal placement uses that coerced width (via
+ * `placeRelative`, so it mirrors under RTL) — outgoing content pinned to the end
+ * edge, incoming to the start — even under a min-width parent. Each slot is wrapped
+ * in a `Box` so it is always exactly one measurable.
  */
 @Composable
 private fun ReactionOverlapLayout(
@@ -237,10 +238,13 @@ private fun ReactionOverlapLayout(
             maxOf(bodyPlaceable.height, reactionsY + reactionsPlaceable.height)
                 .coerceIn(constraints.minHeight, constraints.maxHeight)
         layout(width, height) {
+            // Offsets are expressed from the start edge (0 = start, width - childWidth
+            // = end); placeRelative mirrors them under RTL. isOutgoing → align to the
+            // end edge, incoming → start.
             val bodyX = if (isOutgoing) width - bodyPlaceable.width else 0
             val reactionsX = if (isOutgoing) width - reactionsPlaceable.width else 0
-            bodyPlaceable.place(bodyX, 0)
-            reactionsPlaceable.place(reactionsX, reactionsY)
+            bodyPlaceable.placeRelative(bodyX, 0)
+            reactionsPlaceable.placeRelative(reactionsX, reactionsY)
         }
     }
 }
