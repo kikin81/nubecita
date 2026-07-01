@@ -18,12 +18,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -189,8 +191,18 @@ private fun ProfileHeroLoaded(
 
             if (header.bio != null) {
                 Spacer(Modifier.height(8.dp))
+                val context = LocalContext.current
+                val linkColor = MaterialTheme.colorScheme.primary
+                // getProfile has no bio facets, so auto-detect URLs and route taps
+                // to an in-app Custom Tab (like the external-embed cards).
+                val bioText =
+                    remember(header.bio, linkColor) {
+                        buildBioAnnotatedString(bio = header.bio, linkColor = linkColor) { url ->
+                            openBioLinkInCustomTab(context, url)
+                        }
+                    }
                 Text(
-                    text = header.bio,
+                    text = bioText,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
