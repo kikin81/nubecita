@@ -97,3 +97,20 @@ private fun ProfileHeroMutedScreenshot() {
         }
     }
 }
+
+@PreviewTest
+@Preview(name = "hero-with-bio-link-light", showBackground = true)
+@Preview(name = "hero-with-bio-link-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileHeroWithBioLinkScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ProfileHero(
+                header = SAMPLE_HEADER.copy(bio = "Designer · portfolio at https://alice.design ✦ she/her"),
+                headerError = null,
+                showSupporterBadge = false,
+                onRetryHeader = {},
+            )
+        }
+    }
+}

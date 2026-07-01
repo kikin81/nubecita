@@ -9,6 +9,7 @@ import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.common.text.LinkPatterns
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -98,8 +99,8 @@ internal class DefaultFacetExtractor
                     ),
                 )
             }
-            for (match in LINK_REGEX.findAll(text)) {
-                val urlGroup = match.groups[LINK_URL_GROUP] ?: continue
+            for (match in LinkPatterns.URL_REGEX.findAll(text)) {
+                val urlGroup = match.groups[LinkPatterns.URL_GROUP] ?: continue
                 collected.add(
                     Facet(
                         index =
@@ -142,18 +143,8 @@ internal class DefaultFacetExtractor
                 )
             private const val MENTION_HANDLE_GROUP = 1
 
-            /**
-             * URL regex. Same boundary-anchored shape as MENTION_REGEX.
-             * Group 1 captures the URL itself (without the leading
-             * boundary char). Mirrors the docs' recommended pattern,
-             * tightened against trailing punctuation that the original
-             * recommendation lets in.
-             */
-            private val LINK_REGEX =
-                Regex(
-                    """(?:^|[^\w@])(https?://(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*[-a-zA-Z0-9@%_+~#/=])?)""",
-                )
-            private const val LINK_URL_GROUP = 1
+            // URL detection lives in :core:common LinkPatterns (shared with
+            // profile-bio linkification) so the two can't drift.
         }
     }
 

@@ -18,12 +18,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -189,8 +193,23 @@ private fun ProfileHeroLoaded(
 
             if (header.bio != null) {
                 Spacer(Modifier.height(8.dp))
+                // rememberUpdatedState so the click listener captured in the
+                // remembered AnnotatedString always launches with the latest context
+                // (defensive: in this app the Activity context is stable for the
+                // composition's lifetime, but this keeps the retained callback fresh
+                // if LocalContext is ever re-provided without bio/linkColor changing).
+                val context by rememberUpdatedState(LocalContext.current)
+                val linkColor = MaterialTheme.colorScheme.primary
+                // getProfile has no bio facets, so auto-detect URLs and route taps
+                // to an in-app Custom Tab (like the external-embed cards).
+                val bioText =
+                    remember(header.bio, linkColor) {
+                        buildBioAnnotatedString(bio = header.bio, linkColor = linkColor) { url ->
+                            openBioLinkInCustomTab(context, url)
+                        }
+                    }
                 Text(
-                    text = header.bio,
+                    text = bioText,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
