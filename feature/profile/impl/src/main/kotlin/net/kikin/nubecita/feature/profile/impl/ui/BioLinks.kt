@@ -9,16 +9,12 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import net.kikin.nubecita.core.common.text.LinkPatterns
 
 // Bluesky's app.bsky.actor.getProfile returns the bio/description as plain text
 // with NO richtext facets (unlike posts), so we detect bare URLs ourselves to
-// make them tappable. Mirrors the composer's link facet regex
-// (:core:posting FacetExtractor.LINK_REGEX): the leading `(?:^|[^\w@])` avoids
-// matching inside emails / @handles, and the URL is capture group 1.
-private val BIO_LINK_REGEX =
-    Regex(
-        """(?:^|[^\w@])(https?://(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*[-a-zA-Z0-9@%_+~#/=])?)""",
-    )
+// make them tappable, reusing the shared LinkPatterns.URL_REGEX so bio + post
+// link detection stay in lockstep.
 
 /**
  * Detects `http(s)://` URLs in [text], returning each URL's UTF-16 char range
@@ -27,10 +23,10 @@ private val BIO_LINK_REGEX =
  * [AnnotatedString] directly from char ranges.
  */
 internal fun detectLinkRanges(text: String): List<Pair<IntRange, String>> =
-    BIO_LINK_REGEX
+    LinkPatterns.URL_REGEX
         .findAll(text)
         .mapNotNull { match ->
-            val url = match.groups[1] ?: return@mapNotNull null
+            val url = match.groups[LinkPatterns.URL_GROUP] ?: return@mapNotNull null
             url.range to url.value
         }.toList()
 
