@@ -85,6 +85,38 @@ class KlipyMediaMapperTest {
         assertNull(webpOnly.toUiOrNull())
     }
 
+    @Test
+    fun `preview rendition with a null url falls back to the embed gif for url and dimensions`() {
+        // sm.webp exists but its url is null → must not be picked (would keep 999x111
+        // dims while sourcing the image from the embed gif, distorting the cell).
+        val payload =
+            """
+            {
+              "data": { "has_next": false, "data": [
+                {
+                  "type": "gif", "slug": "nullurl",
+                  "file": {
+                    "hd": { "gif": { "url": "https://static.klipy.com/ii/hd/nullurl.gif", "width": 400, "height": 300 } },
+                    "sm": { "webp": { "url": null, "width": 999, "height": 111 } }
+                  }
+                }
+              ] }
+            }
+            """.trimIndent()
+
+        val ui =
+            decode(payload)
+                .data
+                ?.data
+                .orEmpty()
+                .mapNotNull { it.toUiOrNull() }
+                .single()
+
+        assertEquals("https://static.klipy.com/ii/hd/nullurl.gif", ui.previewUrl)
+        assertEquals(400, ui.previewWidth)
+        assertEquals(300, ui.previewHeight)
+    }
+
     private fun decode(payload: String): KlipyMediaResponseDto = json.decodeFromString(KlipyMediaResponseDto.serializer(), payload)
 
     private companion object {

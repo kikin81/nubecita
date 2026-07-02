@@ -9,8 +9,10 @@ import net.kikin.nubecita.data.models.KlipyMediaType
  * Ktor client, DTOs, and the path-embedded API key never leak past this module
  * (mirrors the `:core:billing` boundary).
  *
- * Fetches return [Result] so the picker can surface a retry without exceptions
- * crossing the boundary. Tracking calls ([trackView]/[trackShare]) are
+ * Fetches return [Result] so callers surface failures (retry, error state)
+ * without a `try`/`catch` at every call site — the failing [Throwable] rides
+ * inside [Result.failure] rather than being thrown across the boundary.
+ * Tracking calls ([trackView]/[trackShare]) are
  * fire-and-forget — they return `Unit` and run on an application-scoped
  * coroutine in the implementation, so finishing the composer (which cancels the
  * screen scope) can't cancel a share report mid-flight.

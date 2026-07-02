@@ -24,17 +24,23 @@ internal class KlipyCustomerIdStore
     ) {
         /**
          * Returns the customer id, generating and persisting a fresh UUID on first
-         * call. The [edit] block is atomic, so concurrent callers converge on a
-         * single first-write-wins value.
+         * call and reusing it thereafter.
+         *
+         * Reads first so the common path (id already present) does no disk write.
+         * Only the first call falls through to [edit], whose block is atomic — so
+         * concurrent first-callers converge on a single first-write-wins value.
+         * The edit guarantees [KEY] is set, so the post-edit read never generates
+         * an ephemeral, unpersisted id.
          */
         suspend fun get(): String {
-            val prefs =
+            dataStore.data.first()[KEY]?.let { return it }
+            val persisted =
                 dataStore.edit { mutable ->
                     if (mutable[KEY] == null) {
                         mutable[KEY] = UUID.randomUUID().toString()
                     }
                 }
-            return prefs[KEY] ?: dataStore.data.first()[KEY] ?: UUID.randomUUID().toString()
+            return persisted[KEY] ?: error("klipy_customer_id must be set after edit")
         }
 
         private companion object {

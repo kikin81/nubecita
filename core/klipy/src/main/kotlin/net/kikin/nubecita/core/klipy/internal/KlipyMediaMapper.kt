@@ -28,8 +28,13 @@ internal fun KlipyMediaItemDto.toUiOrNull(): KlipyMediaUi? {
     val embedWidth = embedGif.width ?: return null
     val embedHeight = embedGif.height ?: return null
 
+    // Only take a preview rendition that actually has a URL — otherwise we'd keep
+    // its dimensions while sourcing the image from embedGif, distorting the grid cell.
     val previewTypes = file.sm ?: file.xs ?: file.md ?: embedTypes
-    val preview = previewTypes.webp ?: previewTypes.gif ?: embedGif
+    val preview =
+        previewTypes.webp?.takeIf { !it.url.isNullOrEmpty() }
+            ?: previewTypes.gif?.takeIf { !it.url.isNullOrEmpty() }
+            ?: embedGif
 
     return KlipyMediaUi(
         slug = slug,
