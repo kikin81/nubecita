@@ -49,6 +49,9 @@ data class ChatScreenViewState(
     val canPost: Boolean = true,
     val status: ChatLoadStatus = ChatLoadStatus.Loading,
     val isSendEnabled: Boolean = false,
+    // The message the composer is currently replying to (from a long-press "Reply"),
+    // or null when composing a fresh message. Drives the composer's reply banner.
+    val replyingTo: RepliedMessageUi? = null,
 ) : UiState
 
 sealed interface ChatLoadStatus {
@@ -174,6 +177,27 @@ data class MessageUi(
     val embed: EmbedUi.RecordOrUnavailable? = null,
     val reactions: ImmutableList<ReactionUi> = persistentListOf(),
     val sendStatus: MessageSendStatus = MessageSendStatus.Sent,
+    val replyTo: RepliedMessageUi? = null,
+)
+
+/**
+ * Compact snapshot of the message a [MessageUi] replies to, for the in-thread
+ * reply-preview card and the composer's "replying to" banner. Mapped from the wire
+ * `MessageView.replyTo` (a `MessageViewReplyToUnion`): the `MessageView` /
+ * `DeletedMessageView` members carry content; the `MessageBeforeUserJoinedGroupView`
+ * marker (and unknown forward-compat members) map to `null` — nothing to preview.
+ *
+ * [isFromViewer] lets the UI label the quote ("You" vs the sender) without a second
+ * DID→profile lookup. [text] is empty for a [isDeleted] target (rendered as the
+ * deleted placeholder).
+ */
+@Immutable
+data class RepliedMessageUi(
+    val id: String,
+    val senderDid: String,
+    val text: String,
+    val isDeleted: Boolean = false,
+    val isFromViewer: Boolean = false,
 )
 
 /** A message reaction aggregated by emoji: how many reacted, and whether the viewer did. */
@@ -235,6 +259,18 @@ sealed interface ChatEvent : UiEvent {
         val messageId: String,
         val emoji: String,
     ) : ChatEvent
+
+    /**
+     * User picked "Reply" from a message's long-press menu. The VM captures the
+     * target as [ChatScreenViewState.replyingTo] so the composer shows the reply
+     * banner and the next [Send] carries the reply reference.
+     */
+    data class ReplyTo(
+        val messageId: String,
+    ) : ChatEvent
+
+    /** User dismissed the composer reply banner (the ✕); clears [ChatScreenViewState.replyingTo]. */
+    data object CancelReply : ChatEvent
 }
 
 sealed interface ChatEffect : UiEffect {

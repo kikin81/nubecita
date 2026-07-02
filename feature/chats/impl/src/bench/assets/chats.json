@@ -96,7 +96,12 @@
           "id": "msg_alice_3",
           "senderDid": "did:plc:alice000000000000000000",
           "text": "Awesome. Let me know when the PR is ready to review!",
-          "sentAt": "2026-05-27T16:55:00Z"
+          "sentAt": "2026-05-27T16:55:00Z",
+          "replyTo": {
+            "id": "msg_alice_2",
+            "senderDid": "did:plc:benchnubecita0000000000000",
+            "text": "Yeah, just finished reviewing. They look super solid."
+          }
         },
         {
           "id": "msg_alice_2",

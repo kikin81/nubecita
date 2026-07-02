@@ -29,6 +29,7 @@ import net.kikin.nubecita.feature.chats.impl.JoinResult
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
+import net.kikin.nubecita.feature.chats.impl.RepliedMessageUi
 import timber.log.Timber
 import java.io.FileNotFoundException
 import java.util.concurrent.ConcurrentHashMap
@@ -236,10 +237,26 @@ internal class BenchFakeChatRepository
         override suspend fun sendMessage(
             convoId: String,
             text: String,
+            replyToMessageId: String?,
         ): Result<MessageUi> {
             ensureLoaded()
             val viewerDid = currentViewerDid()
             val now = Clock.System.now()
+            val currentMsgs = messagesCache[convoId] ?: emptyList()
+            // Build the reply preview from the target already in the cache so a bench
+            // reply renders its quote card immediately (mirrors the real send path).
+            val replyTo =
+                replyToMessageId?.let { id ->
+                    currentMsgs.firstOrNull { it.id == id }?.let { target ->
+                        RepliedMessageUi(
+                            id = target.id,
+                            senderDid = target.senderDid,
+                            text = target.text,
+                            isDeleted = target.isDeleted,
+                            isFromViewer = target.isOutgoing,
+                        )
+                    }
+                }
             val newMsg =
                 MessageUi(
                     id = "msg_${now.toEpochMilliseconds()}",
@@ -250,9 +267,9 @@ internal class BenchFakeChatRepository
                     sentAt = now,
                     embed = null,
                     sendStatus = MessageSendStatus.Sent,
+                    replyTo = replyTo,
                 )
 
-            val currentMsgs = messagesCache[convoId] ?: emptyList()
             messagesCache[convoId] = listOf(newMsg) + currentMsgs
 
             val convo = convosCache[convoId]

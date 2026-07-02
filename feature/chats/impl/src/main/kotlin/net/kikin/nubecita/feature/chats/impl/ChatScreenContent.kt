@@ -205,18 +205,30 @@ internal fun ChatScreenContent(
             // open → full IME (which already subsumes the nav-bar area).
             if (state.status is ChatLoadStatus.Loaded) {
                 if (state.canPost) {
-                    ChatComposerRow(
-                        textFieldState = textFieldState,
-                        isSendEnabled = state.isSendEnabled,
-                        onSend = { onEvent(ChatEvent.Send) },
-                        // Anchor to newest (index 0 under reverseLayout) when the
-                        // composer gains focus, so the IME never hides the latest run.
-                        onFocus = { scope.launch { listState.animateScrollToItem(0) } },
+                    // Banner + composer share one inset owner (this Column carries the
+                    // nav-bar + IME padding) so there's still exactly one IME layer.
+                    Column(
                         modifier =
                             Modifier
                                 .navigationBarsPadding()
                                 .imePadding(),
-                    )
+                    ) {
+                        state.replyingTo?.let { reply ->
+                            ChatReplyBanner(
+                                reply = reply,
+                                header = state.header,
+                                onCancel = { onEvent(ChatEvent.CancelReply) },
+                            )
+                        }
+                        ChatComposerRow(
+                            textFieldState = textFieldState,
+                            isSendEnabled = state.isSendEnabled,
+                            onSend = { onEvent(ChatEvent.Send) },
+                            // Anchor to newest (index 0 under reverseLayout) when the
+                            // composer gains focus, so the IME never hides the latest run.
+                            onFocus = { scope.launch { listState.animateScrollToItem(0) } },
+                        )
+                    }
                 } else {
                     CannotPostNotice(
                         modifier =
@@ -250,6 +262,7 @@ internal fun ChatScreenContent(
                             onReactionToggle = { messageId, emoji ->
                                 onEvent(ChatEvent.ToggleReaction(messageId, emoji))
                             },
+                            onReply = { messageId -> onEvent(ChatEvent.ReplyTo(messageId)) },
                         )
                     }
                 is ChatLoadStatus.InitialError ->
@@ -324,6 +337,92 @@ private fun ChatComposerRow(
         }
     }
 }
+
+/**
+ * Banner shown directly above the composer while a reply is in progress. Names the
+ * quoted author ("You" for the viewer, else the resolved display name from the
+ * [header]) with a one-line snippet, and a ✕ to cancel. Same `surfaceContainerHigh`
+ * as the composer so the two read as one attached unit.
+ */
+@Composable
+private fun ChatReplyBanner(
+    reply: RepliedMessageUi,
+    header: ChatHeader?,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val name =
+        if (reply.isFromViewer) {
+            stringResource(R.string.chat_reply_you)
+        } else {
+            replyAuthorName(header, reply.senderDid)
+        }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            NubecitaIcon(
+                name = NubecitaIconName.Reply,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.chat_reply_banner, name),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text =
+                        if (reply.isDeleted) {
+                            stringResource(R.string.chats_row_deleted_placeholder)
+                        } else {
+                            reply.text
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(onClick = onCancel) {
+                NubecitaIcon(
+                    name = NubecitaIconName.Close,
+                    contentDescription = stringResource(R.string.chat_reply_cancel_content_description),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Best-effort display name for the DID being replied to: the direct peer's name,
+ * or the matching group member's name; empty when unresolvable (the banner still
+ * reads sensibly as "Replying to").
+ */
+private fun replyAuthorName(
+    header: ChatHeader?,
+    senderDid: String,
+): String =
+    when (header) {
+        is ChatHeader.Direct -> header.displayName ?: header.handle
+        is ChatHeader.Group ->
+            header.members
+                .firstOrNull { it.did == senderDid }
+                ?.let { it.displayName ?: it.handle }
+                .orEmpty()
+        null -> ""
+    }
 
 /**
  * Shown in the composer slot when [ChatScreenViewState.canPost] is false (e.g. a
@@ -410,6 +509,7 @@ private fun LoadedBody(
     onQuotedPostTap: (quotedPostUri: String) -> Unit,
     onRetrySend: (tempId: String) -> Unit,
     onReactionToggle: (messageId: String, emoji: String) -> Unit,
+    onReply: (messageId: String) -> Unit,
 ) {
     // Tracks which message (by id) currently shows the long-press quick-react menu.
     var reactionMenuFor by remember { mutableStateOf<String?>(null) }
@@ -512,6 +612,10 @@ private fun LoadedBody(
                                             pickerFor = message.id
                                             reactionMenuFor = null
                                         },
+                                        onReply = {
+                                            onReply(message.id)
+                                            reactionMenuFor = null
+                                        },
                                         onDismiss = { reactionMenuFor = null },
                                     )
                                 }
@@ -560,6 +664,10 @@ private fun LoadedBody(
                                     },
                                     onMore = {
                                         pickerFor = message.id
+                                        reactionMenuFor = null
+                                    },
+                                    onReply = {
+                                        onReply(message.id)
                                         reactionMenuFor = null
                                     },
                                     onDismiss = { reactionMenuFor = null },

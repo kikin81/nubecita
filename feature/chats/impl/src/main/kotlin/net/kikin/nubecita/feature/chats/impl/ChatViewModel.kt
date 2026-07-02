@@ -134,6 +134,30 @@ class ChatViewModel
                     sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
                 ChatEvent.GroupDetailsTapped -> onGroupDetailsTapped()
                 is ChatEvent.ToggleReaction -> onToggleReaction(event.messageId, event.emoji)
+                is ChatEvent.ReplyTo -> onReplyTo(event.messageId)
+                ChatEvent.CancelReply -> setState { copy(replyingTo = null) }
+            }
+        }
+
+        /**
+         * Capture [messageId] as the composer's reply target so the reply banner
+         * shows and the next send carries a reply reference. No-op on a missing,
+         * unsent, or deleted message (you can't meaningfully reply to those).
+         */
+        private fun onReplyTo(messageId: String) {
+            val target = messages.firstOrNull { it.id == messageId } ?: return
+            if (target.sendStatus != MessageSendStatus.Sent || target.isDeleted) return
+            setState {
+                copy(
+                    replyingTo =
+                        RepliedMessageUi(
+                            id = target.id,
+                            senderDid = target.senderDid,
+                            text = target.text,
+                            isDeleted = target.isDeleted,
+                            isFromViewer = target.isOutgoing,
+                        ),
+                )
             }
         }
 
@@ -217,6 +241,11 @@ class ChatViewModel
             val text = textFieldState.text.toString()
             if (text.isBlank()) return
             textFieldState.clearText()
+            // Snapshot + clear the reply target: the optimistic row carries it (so the
+            // preview shows immediately) and the send request references it; the banner
+            // dismisses the moment the message leaves the composer.
+            val replyTarget = uiState.value.replyingTo
+            if (replyTarget != null) setState { copy(replyingTo = null) }
             val tempId = "local:${sendCounter++}"
             // Group the optimistic row with the viewer's prior outgoing run; the
             // empty fallback (first send in a fresh convo) is a lone run, so the
@@ -231,6 +260,7 @@ class ChatViewModel
                     isDeleted = false,
                     sentAt = Clock.System.now(),
                     sendStatus = MessageSendStatus.Sending,
+                    replyTo = replyTarget,
                 )
             messages = listOf(optimistic) + messages
             commitMessages()
@@ -270,8 +300,16 @@ class ChatViewModel
         ) {
             viewModelScope.launch {
                 repository
-                    .sendMessage(convoId, optimistic.text)
-                    .onSuccess { server ->
+                    .sendMessage(convoId, optimistic.text, replyToMessageId = optimistic.replyTo?.id)
+                    .onSuccess { rawServer ->
+                        // Preserve the reply target if the sendMessage response omits it,
+                        // so the preview doesn't blink away after the optimistic reconcile.
+                        val server =
+                            if (rawServer.replyTo == null && optimistic.replyTo != null) {
+                                rawServer.copy(replyTo = optimistic.replyTo)
+                            } else {
+                                rawServer
+                            }
                         messages =
                             when {
                                 messages.any { it.id == tempId } -> messages.map { if (it.id == tempId) server else it }

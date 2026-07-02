@@ -914,6 +914,87 @@ internal class ChatViewModelTest {
             assertEquals(1, repo.addReactionCalls.size, "second toggle dropped while the first is in-flight")
         }
 
+    @Test
+    fun `ReplyTo captures the target as the composer reply banner`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(MessagePage(messages = persistentListOf(incoming("m1", otherUserDid)))),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ChatEvent.ReplyTo("m1"))
+
+            val replying = vm.uiState.value.replyingTo
+            assertEquals("m1", replying?.id)
+            assertEquals(false, replying?.isFromViewer, "an incoming target is not from the viewer")
+        }
+
+    @Test
+    fun `ReplyTo is a no-op for an unknown message`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(MessagePage(messages = persistentListOf(incoming("m1", otherUserDid)))),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ChatEvent.ReplyTo("does-not-exist"))
+
+            assertTrue(vm.uiState.value.replyingTo == null)
+        }
+
+    @Test
+    fun `Send with a reply target forwards the reply id and clears the banner`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(MessagePage(messages = persistentListOf(incoming("m1", otherUserDid)))),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ChatEvent.ReplyTo("m1"))
+            setComposerText(vm, "sure")
+            vm.handleEvent(ChatEvent.Send)
+            advanceUntilIdle()
+
+            assertEquals("m1", repo.lastSendReplyToMessageId, "the reply reference is forwarded to the repository")
+            assertTrue(vm.uiState.value.replyingTo == null, "the banner clears once the reply is sent")
+            assertEquals(
+                "m1",
+                vm.uiState.value
+                    .outgoingMessages()
+                    .single()
+                    .replyTo
+                    ?.id,
+                "the sent row carries the reply preview",
+            )
+        }
+
+    @Test
+    fun `CancelReply clears the reply target`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeChatRepository(
+                    nextMessagesResult =
+                        Result.success(MessagePage(messages = persistentListOf(incoming("m1", otherUserDid)))),
+                )
+            val vm = chatViewModel(repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ChatEvent.ReplyTo("m1"))
+            assertTrue(vm.uiState.value.replyingTo != null)
+
+            vm.handleEvent(ChatEvent.CancelReply)
+            assertTrue(vm.uiState.value.replyingTo == null)
+        }
+
     /**
      * Mutates the VM's [ChatViewModel.textFieldState] and drives the Compose
      * snapshot system so the change reaches the VM's `snapshotFlow` collector.

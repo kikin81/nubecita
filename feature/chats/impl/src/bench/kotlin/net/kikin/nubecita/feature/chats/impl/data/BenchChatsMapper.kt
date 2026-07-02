@@ -6,6 +6,7 @@ import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.ReactionUi
+import net.kikin.nubecita.feature.chats.impl.RepliedMessageUi
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -60,6 +61,16 @@ internal object BenchChatsMapper {
                 dto.reactions
                     .map { ReactionUi(emoji = it.emoji, count = it.count, reactedByViewer = it.reactedByViewer) }
                     .toImmutableList(),
+            replyTo =
+                dto.replyTo?.let { r ->
+                    RepliedMessageUi(
+                        id = r.id,
+                        senderDid = r.senderDid,
+                        text = r.text,
+                        isDeleted = r.isDeleted,
+                        isFromViewer = r.senderDid == viewerDid,
+                    )
+                },
         )
 
     private fun parseInstantOrNow(raw: String): Instant =

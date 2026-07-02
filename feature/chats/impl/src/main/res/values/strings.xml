@@ -84,6 +84,10 @@
     <string name="chat_reaction_error">Couldn\'t update your reaction. Try again.</string>
     <string name="chat_react_more">More emoji</string>
     <string name="chat_react_long_press">React</string>
+    <string name="chat_reply_action">Reply</string>
+    <string name="chat_reply_you">You</string>
+    <string name="chat_reply_banner">Replying to %1$s</string>
+    <string name="chat_reply_cancel_content_description">Cancel reply</string>
 
     <!-- New-chat recipient picker (b6uv.5) -->
     <string name="new_chat_title">New message</string>

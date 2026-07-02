@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +30,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.EmbedUi
@@ -38,6 +42,7 @@ import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.ReactionUi
+import net.kikin.nubecita.feature.chats.impl.RepliedMessageUi
 
 // How far the reaction chips ride up over the message body's bottom edge (matching
 // the official app) instead of floating in a gap beneath it. Negative — see
@@ -182,6 +187,11 @@ private fun MessageBubbleBody(
     Column(
         horizontalAlignment = if (message.isOutgoing) Alignment.End else Alignment.Start,
     ) {
+        val replyTo = message.replyTo
+        if (replyTo != null) {
+            RepliedMessagePreview(reply = replyTo)
+            Spacer(Modifier.height(2.dp))
+        }
         if (showTextBubble) {
             MessageTextBubble(
                 message = message,
@@ -192,6 +202,63 @@ private fun MessageBubbleBody(
         if (embed != null) {
             if (showTextBubble) Spacer(Modifier.height(4.dp))
             MessageEmbedCard(embed = embed, onQuotedPostTap = onQuotedPostTap)
+        }
+    }
+}
+
+/**
+ * Compact quote of the message being replied to, shown stacked just above the
+ * message bubble (like the official app). A leading accent bar + a recessed
+ * `surfaceContainerLow` inset (per the surface-roles contract) with a one-line
+ * snippet; a `isFromViewer` quote is labelled "You". A deleted target shows the
+ * italic deleted placeholder instead of body text.
+ */
+@Composable
+private fun RepliedMessagePreview(
+    reply: RepliedMessageUi,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .height(IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.primary),
+        )
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            if (reply.isFromViewer) {
+                Text(
+                    text = stringResource(R.string.chat_reply_you),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
+            }
+            if (reply.isDeleted) {
+                Text(
+                    text = stringResource(R.string.chats_row_deleted_placeholder),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            } else {
+                Text(
+                    text = reply.text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
