@@ -29,6 +29,17 @@ android {
     }
 
     buildFeatures.buildConfig = true
+
+    // Mirrors `:core:preferences`'s split: the `environment` dimension swaps the
+    // production KlipyBindingsModule (binds DefaultKlipyRepository) for a bench
+    // parallel that binds BenchFakeKlipyRepository, so the picker is exercisable
+    // offline with no key/network. Consumers without the dimension pick up
+    // `production` via the library convention plugin's missingDimensionStrategy.
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") { dimension = "environment" }
+        create("bench") { dimension = "environment" }
+    }
 }
 
 dependencies {
