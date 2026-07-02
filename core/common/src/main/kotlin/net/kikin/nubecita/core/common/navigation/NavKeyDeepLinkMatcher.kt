@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.deeplink.DeepLinkMatcher
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
 import androidx.navigation3.runtime.deeplink.UriDeepLinkMatcher
+import androidx.navigation3.runtime.deeplink.actionFilter
 import kotlinx.serialization.KSerializer
 
 /**
@@ -94,7 +95,7 @@ class NavKeyDeepLinkMatcher
 fun <T : NavKey> uriDeepLinkMatcher(
     uriPattern: String,
     serializer: KSerializer<T>,
-    filters: List<DeepLinkMatcher.Filter<Any>> = emptyList(),
+    filters: List<DeepLinkMatcher.Filter> = emptyList(),
     accept: (T) -> Boolean = { true },
 ): NavKeyDeepLinkMatcher {
     val parsedPattern = uriPattern.toUri()
@@ -127,7 +128,5 @@ fun <T : NavKey> uriDeepLinkMatcher(
  * ```
  */
 class IntentActionFilter(
-    private val expectedAction: String,
-) : DeepLinkMatcher.Filter<Any>(expectedAction) {
-    override fun filterRequest(request: DeepLinkRequest): Boolean = request.action == expectedAction
-}
+    expectedAction: String,
+) : DeepLinkMatcher.Filter by DeepLinkMatcher.actionFilter(expectedAction)

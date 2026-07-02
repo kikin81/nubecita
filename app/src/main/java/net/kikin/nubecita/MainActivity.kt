@@ -21,7 +21,7 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
-import androidx.navigation3.runtime.deeplink.fromIntent
+import androidx.navigation3.runtime.deeplink.invoke
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -330,7 +330,7 @@ class MainActivity : ComponentActivity() {
         // via `@Provides @IntoSet`. Plumbing ships here so those
         // children only need to register matchers. See decision
         // nubecita-kf6k.4 for the rationale and the source citations.
-        val request = DeepLinkRequest.fromIntent(intent)
+        val request = DeepLinkRequest(intent)
         val matched =
             deepLinkMatchers
                 .sortedByDescending { it.patternSpecificity }
@@ -409,7 +409,7 @@ class MainActivity : ComponentActivity() {
             Intent(Intent.ACTION_VIEW, android.net.Uri.parse(deepLink)).apply {
                 setPackage(packageName)
             }
-        val request = DeepLinkRequest.fromIntent(synthetic)
+        val request = DeepLinkRequest(synthetic)
         val matched =
             deepLinkMatchers
                 .sortedByDescending { it.patternSpecificity }
