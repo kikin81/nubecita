@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782895229735,
+  "lastUpdate": 1782980202669,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1819,6 +1819,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1201.597,
             "range": "+/- 10.5%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "8cd4739a0ff0fa51a1878bf7646f83bdab6813af",
+          "message": "ci(release): 1.266.0\n\n## [1.266.0](https://github.com/kikin81/nubecita/compare/v1.265.1...v1.266.0) (2026-07-02)\n\n### Features\n\n* **chats:** reply to a DM message ([#647](https://github.com/kikin81/nubecita/issues/647)) ([e975771](https://github.com/kikin81/nubecita/commit/e975771486122794ef0f12745c897eda467477df)), closes [kikin81/atproto-kotlin#158](https://github.com/kikin81/atproto-kotlin/issues/158) [atproto-kotlin#158](https://github.com/kikin81/atproto-kotlin/issues/158)",
+          "timestamp": "2026-07-02T03:27:37Z",
+          "url": "https://github.com/kikin81/nubecita/commit/8cd4739a0ff0fa51a1878bf7646f83bdab6813af"
+        },
+        "date": 1782980200359,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 11.1%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1211.747,
+            "range": "+/- 4.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 981.608,
+            "range": "+/- 6.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 823.96,
+            "range": "+/- 23.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 976.89,
+            "range": "+/- 25.1%",
             "unit": "ms"
           }
         ]
