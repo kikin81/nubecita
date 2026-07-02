@@ -216,7 +216,6 @@ internal fun ChatScreenContent(
                         state.replyingTo?.let { reply ->
                             ChatReplyBanner(
                                 reply = reply,
-                                header = state.header,
                                 onCancel = { onEvent(ChatEvent.CancelReply) },
                             )
                         }
@@ -347,15 +346,18 @@ private fun ChatComposerRow(
 @Composable
 private fun ChatReplyBanner(
     reply: RepliedMessageUi,
-    header: ChatHeader?,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val name =
-        if (reply.isFromViewer) {
-            stringResource(R.string.chat_reply_you)
+    // "You" for the viewer's own message, else the name the VM resolved once. When
+    // the name is unknown (unresolvable group DID), fall back to a bare "Replying"
+    // rather than a trailing "Replying to ".
+    val name = if (reply.isFromViewer) stringResource(R.string.chat_reply_you) else reply.senderName
+    val label =
+        if (name.isNullOrBlank()) {
+            stringResource(R.string.chat_reply_banner_no_name)
         } else {
-            replyAuthorName(header, reply.senderDid)
+            stringResource(R.string.chat_reply_banner, name)
         }
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -376,7 +378,7 @@ private fun ChatReplyBanner(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.chat_reply_banner, name),
+                    text = label,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
@@ -404,25 +406,6 @@ private fun ChatReplyBanner(
         }
     }
 }
-
-/**
- * Best-effort display name for the DID being replied to: the direct peer's name,
- * or the matching group member's name; empty when unresolvable (the banner still
- * reads sensibly as "Replying to").
- */
-private fun replyAuthorName(
-    header: ChatHeader?,
-    senderDid: String,
-): String =
-    when (header) {
-        is ChatHeader.Direct -> header.displayName ?: header.handle
-        is ChatHeader.Group ->
-            header.members
-                .firstOrNull { it.did == senderDid }
-                ?.let { it.displayName ?: it.handle }
-                .orEmpty()
-        null -> ""
-    }
 
 /**
  * Shown in the composer slot when [ChatScreenViewState.canPost] is false (e.g. a

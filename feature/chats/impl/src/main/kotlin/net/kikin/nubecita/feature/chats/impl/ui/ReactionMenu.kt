@@ -3,9 +3,11 @@ package net.kikin.nubecita.feature.chats.impl.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -47,7 +49,10 @@ internal fun ReactionMenu(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 3.dp,
         ) {
-            Column {
+            // Constrain to the reaction row's intrinsic width so the reply Row's
+            // fillMaxWidth() fills the menu — not the whole screen (Popup content is
+            // measured with unbounded width).
+            Column(modifier = Modifier.width(IntrinsicSize.Max)) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),

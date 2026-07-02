@@ -65,6 +65,7 @@
     <string name="chat_reply_action">Responder</string>
     <string name="chat_reply_you">Tú</string>
     <string name="chat_reply_banner">Respondiendo a %1$s</string>
+    <string name="chat_reply_banner_no_name">Respondiendo</string>
     <string name="chat_reply_cancel_content_description">Cancelar respuesta</string>
     <string name="new_chat_title">Mensaje nuevo</string>
     <string name="new_chat_search_placeholder">Buscar a alguien</string>

@@ -6,15 +6,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.stringResource
@@ -49,6 +48,9 @@ import net.kikin.nubecita.feature.chats.impl.RepliedMessageUi
 // [ReactionOverlapLayout], which folds this into the container's measured height so
 // no dead space is reserved below the chips.
 private val ReactionOverlap = (-20).dp
+
+// Width of the reply-preview's leading accent stripe (drawn via drawBehind).
+private val ReplyAccentWidth = 3.dp
 
 /**
  * Asymmetric M3 Expressive bubble shape for a message at [index] in a run of
@@ -218,47 +220,50 @@ private fun RepliedMessagePreview(
     reply: RepliedMessageUi,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    val accent = MaterialTheme.colorScheme.primary
+    // The leading accent stripe is drawn (drawBehind) rather than laid out as a
+    // fillMaxHeight sibling under IntrinsicSize.Min — intrinsics force extra
+    // measurement passes, which add up in a scrolling thread. drawBehind keeps this
+    // a single measure pass; start padding clears the stripe.
+    Column(
         modifier =
             modifier
                 .clip(RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                .height(IntrinsicSize.Min),
-        verticalAlignment = Alignment.CenterVertically,
+                .drawBehind { drawRect(color = accent, size = Size(ReplyAccentWidth.toPx(), size.height)) }
+                .padding(start = ReplyAccentWidth + 8.dp, top = 4.dp, bottom = 4.dp, end = 8.dp),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .width(3.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.primary),
-        )
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-            if (reply.isFromViewer) {
-                Text(
-                    text = stringResource(R.string.chat_reply_you),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                )
+        val label =
+            when {
+                reply.isFromViewer -> stringResource(R.string.chat_reply_you)
+                !reply.senderName.isNullOrBlank() -> reply.senderName
+                else -> null
             }
-            if (reply.isDeleted) {
-                Text(
-                    text = stringResource(R.string.chats_row_deleted_placeholder),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontStyle = FontStyle.Italic,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            } else {
-                Text(
-                    text = reply.text,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+        if (label != null) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (reply.isDeleted) {
+            Text(
+                text = stringResource(R.string.chats_row_deleted_placeholder),
+                style = MaterialTheme.typography.bodySmall,
+                fontStyle = FontStyle.Italic,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        } else {
+            Text(
+                text = reply.text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

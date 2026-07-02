@@ -132,6 +132,7 @@ private fun ReplyOutgoing() {
                                 senderDid = "did:plc:alice",
                                 text = "Did you check out the new design token mappings?",
                                 isFromViewer = false,
+                                senderName = "Alice Chen",
                             ),
                     ),
                     runIndex = 0,

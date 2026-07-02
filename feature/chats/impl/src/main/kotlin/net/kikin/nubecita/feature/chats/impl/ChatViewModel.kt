@@ -156,10 +156,29 @@ class ChatViewModel
                             text = target.text,
                             isDeleted = target.isDeleted,
                             isFromViewer = target.isOutgoing,
+                            // Resolve the quoted author's name once, here, from the loaded
+                            // header — the reply banner reads it directly instead of doing a
+                            // per-recomposition DID→profile lookup. Null for the viewer's own
+                            // message (labelled "You") or an unresolvable group DID.
+                            senderName = if (target.isOutgoing) null else resolveSenderName(target.senderDid),
                         ),
                 )
             }
         }
+
+        /**
+         * Display name for [senderDid] from the loaded [ChatHeader]: the peer's name
+         * for a direct chat, or the matching member's name for a group. Null when the
+         * header hasn't loaded or a group member is no longer in the roster (e.g. they
+         * left) — the banner then falls back to a bare "Replying".
+         */
+        private fun resolveSenderName(senderDid: String): String? =
+            when (val header = uiState.value.header) {
+                is ChatHeader.Direct -> header.displayName ?: header.handle
+                is ChatHeader.Group ->
+                    header.members.firstOrNull { it.did == senderDid }?.let { it.displayName ?: it.handle }
+                null -> null
+            }
 
         /**
          * Push the group-details screen for the open group convo. Guarded on the

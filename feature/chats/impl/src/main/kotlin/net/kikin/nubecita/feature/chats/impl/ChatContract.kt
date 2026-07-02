@@ -188,8 +188,13 @@ data class MessageUi(
  * marker (and unknown forward-compat members) map to `null` — nothing to preview.
  *
  * [isFromViewer] lets the UI label the quote ("You" vs the sender) without a second
- * DID→profile lookup. [text] is empty for a [isDeleted] target (rendered as the
- * deleted placeholder).
+ * DID→profile lookup. [senderName] is the quoted author's resolved display name,
+ * filled once by the ViewModel when the reply target is captured (from the loaded
+ * header / member roster) so the UI never re-derives it per recomposition; it is
+ * `null` when unresolvable (e.g. an in-list preview mapped from the wire, whose
+ * nested `MessageView.sender` carries only a DID) or when [isFromViewer] makes it
+ * unnecessary. [text] is empty for a [isDeleted] target (rendered as the deleted
+ * placeholder).
  */
 @Immutable
 data class RepliedMessageUi(
@@ -198,6 +203,7 @@ data class RepliedMessageUi(
     val text: String,
     val isDeleted: Boolean = false,
     val isFromViewer: Boolean = false,
+    val senderName: String? = null,
 )
 
 /** A message reaction aggregated by emoji: how many reacted, and whether the viewer did. */

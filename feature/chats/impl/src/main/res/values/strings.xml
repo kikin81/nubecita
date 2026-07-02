@@ -87,6 +87,7 @@
     <string name="chat_reply_action">Reply</string>
     <string name="chat_reply_you">You</string>
     <string name="chat_reply_banner">Replying to %1$s</string>
+    <string name="chat_reply_banner_no_name">Replying</string>
     <string name="chat_reply_cancel_content_description">Cancel reply</string>
 
     <!-- New-chat recipient picker (b6uv.5) -->
