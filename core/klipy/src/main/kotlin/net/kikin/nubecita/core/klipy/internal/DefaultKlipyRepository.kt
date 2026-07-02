@@ -81,5 +81,5 @@ internal class DefaultKlipyRepository
             slug: String,
         ): Result<Unit> = notYetImplemented()
 
-        private fun <T> notYetImplemented(): Result<T> = Result.failure(NotImplementedError("KLIPY endpoints land in nubecita-ubzz / nubecita-3hu9"))
+        private fun <T> notYetImplemented(): Result<T> = Result.failure(UnsupportedOperationException("KLIPY endpoints land in nubecita-ubzz / nubecita-3hu9"))
     }
