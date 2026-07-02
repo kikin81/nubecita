@@ -42,6 +42,10 @@ internal object KlipyNetworkModule {
     fun provideKlipyHttpClient(): HttpClient {
         val apiKey = BuildConfig.KLIPY_API_KEY
         return HttpClient(OkHttp.create()) {
+            // Non-2xx responses throw (caught by the repository's guarded {} → Result.failure),
+            // so endpoints that don't decode a body (report / hideFromRecents) can't silently
+            // succeed on a 4xx/5xx.
+            expectSuccess = true
             install(HttpTimeout) {
                 requestTimeoutMillis = 30_000
                 connectTimeoutMillis = 10_000

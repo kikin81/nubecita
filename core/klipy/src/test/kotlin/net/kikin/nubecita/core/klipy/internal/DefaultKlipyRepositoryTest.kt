@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.respondError
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.url
@@ -42,6 +43,7 @@ class DefaultKlipyRepositoryTest {
                     handler(request)
                 },
             ) {
+                expectSuccess = true
                 install(DefaultRequest) { url("https://api.klipy.com/api/v1/TESTKEY/") }
             }
         val store = mockk<KlipyCustomerIdStore> { coEvery { get() } returns "cid-1" }
@@ -130,6 +132,18 @@ class DefaultKlipyRepositoryTest {
             val request = recorded.single()
             assertTrue(request.url.encodedPath.endsWith("/gifs/report/cat"))
             assertTrue((request.body as TextContent).text.contains("spam"))
+        }
+
+    @Test
+    fun `report surfaces a non-2xx status as a failure`() =
+        runTest {
+            // report decodes no body, so it relies on the client's expectSuccess to
+            // turn a 5xx into a thrown response the repository maps to Result.failure.
+            val (repo, _) = buildRepo { respondError(HttpStatusCode.InternalServerError) }
+
+            val result = repo.report(KlipyMediaType.GIF, slug = "cat", reason = KlipyReportReason.SPAM)
+
+            assertTrue(result.isFailure)
         }
 
     @Test
