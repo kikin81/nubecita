@@ -15,7 +15,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 META="$(cd "$HERE/../metadata/android" && pwd)"
-FONT="$HERE/Arial-Bold.ttf"
+FONT="$HERE/fraunces.ttf"
 LOCALE="${1:-en-US}"
 TEN="$META/$LOCALE/images/tenInchScreenshots"
 TITLES="$META/$LOCALE/images/phoneScreenshots/title.strings"
@@ -41,10 +41,12 @@ for f in "$TEN"/[0-9]*.png; do
   magick -size "${W}x${H}" xc:none -draw "roundrectangle 0,0,$((W - 1)),$((H - 1)),36,36" "$WORK/mask.png"
   magick "$f" "$WORK/mask.png" -alpha set -compose DstIn -composite "$WORK/rounded.png"
   magick "$WORK/rounded.png" -resize 2200x "$WORK/scaled.png"
-  # Backdrop gradient (matches the phone Framefile background), screenshot
-  # centered below a top title band. 2560x2080 keeps the ratio under Play's 2:1.
+  # Backdrop (matches the phone Framefile navy background: a Sky-blue radial
+  # glow fading to near-black — keeps the white title legible up top and lets
+  # the dark-themed screenshot separate from the backdrop), screenshot centered
+  # below a top title band. 2560x2080 keeps the ratio under Play's 2:1.
   # Render to a lossless composite first, then JPG-encode below.
-  magick -size 2560x2080 gradient:'#4A7DFF'-'#1B2A6B' \
+  magick -size 2560x2080 radial-gradient:'#0A4E8C'-'#000D1F' \
     "$WORK/scaled.png" -gravity north -geometry +0+560 -composite \
     -gravity north -font "$FONT" -pointsize 104 -fill white -annotate +0+180 "$title" \
     "$WORK/composite.png"

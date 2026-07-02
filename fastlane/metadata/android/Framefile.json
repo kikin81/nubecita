@@ -2,14 +2,14 @@
   "device_frame_version": "1772014847",
   "default": {
     "background": "./../../frameit_assets/background.png",
-    "padding": 100,
+    "padding": 25,
     "title": {
-      "font": "./../../frameit_assets/Arial-Bold.ttf",
+      "font": "./../../frameit_assets/fraunces.ttf",
       "color": "#FFFFFF"
     },
     "title_below_image": false,
     "show_complete_frame": true,
-    "font_scale_factor": 0.08
+    "font_scale_factor": 0.09
   },
   "data": [
     {
