@@ -36,24 +36,24 @@ SDK-agnostic boundary, mirroring `:core:billing`: no KLIPY/Ktor/DTO type leaks p
   - `search(type, query, page)`, `trending(type, page)`, `categories(type)`, `recents(type, page)`
   - `trackView(type, slug)`, `trackShare(type, slug)`, `report(type, slug, reason)`, `hideRecent(type, slug)`
   - `type ∈ { Gif, Sticker }` (Clip deferred). Note: `type` here selects the **endpoint prefix** (`gifs/` vs `stickers/`, which share an identical request/response shape); it is distinct from the per-item `type` field in the response that discriminates a normal item from an injected `ad`.
-- **Networking:** a dedicated **Ktor `HttpClient`** instance (JSON content negotiation via kotlinx.serialization) — *not* the OAuth/DPoP-configured client from `:core:auth`. Base URL `https://api.klipy.com/api/v1/{key}/`. **The key is a path segment, so the entire base URL is a secret** — never logged.
+- **Networking:** a dedicated **Ktor `HttpClient`** instance (JSON content negotiation via kotlinx.serialization) — *not* the OAuth/DPoP-configured client from `:core:auth`. Base URL `https://api.klipy.com/api/v1/{key}/`. **The key is a path segment, so the entire base URL is a secret** — never logged. This requires **explicit Ktor logging sanitization** (strip/omit the URL path, or disable network logging for this client): Ktor's `Logging` plugin logs the full path by default, and standard sanitizers only strip query params, so the key would otherwise leak into logcat/build logs/APM.
 - **DTOs:** `@Serializable`, with a **custom polymorphic deserializer keyed on the `type` field** (general / ad; clip ignored in v1) — the kotlinx equivalent of the demo's Gson deserializer. Envelope: `{ result, data: { data: [...], has_next, meta: { item_min_width } } }`. Each item: `{ slug, title, blur_preview, file: { hd, md, sm, xs } }`, each size bucket → `{ gif, webp, mp4 }` each `{ url, width, height, size }`.
 - **Mapper → `KlipyMediaUi`** (new `:data:models` type, `@Immutable`). Retains:
   - grid rendition: light `xs`/`sm` **webp** (or gif) URL for the scroll grid;
   - preview rendition: `md`;
   - **embed source** (critical): the `static.klipy.com/ii/…gif` URL + `width`/`height` + the `mp4` (and `webp`) slugs, plus the `blur_preview` and preview URL — everything the composer needs to build the compliant embed + thumb.
 - **`customer_id`:** a stable per-install (or per-account) GUID persisted in a tiny DataStore; sent on fetches + tracking bodies.
-- **Tracking:** `trackView`/`trackShare` fire-and-forget on IO, failures swallowed (telemetry, not user-facing).
+- **Tracking:** `trackView`/`trackShare` fire-and-forget on an **application-scoped coroutine** (injected `@ApplicationScope`, on IO) — NOT `viewModelScope`, which would cancel the request mid-flight when the composer finishes right after a send. Failures swallowed (telemetry, not user-facing).
 - **Paging:** a `KlipyPagingSource` (Paging 3) — infinite scroll with reset-on-query/tab/category change.
 - **Bench fake:** `BenchFakeKlipyRepository` with canned offline data, so the whole picker is exercisable on the bench flavor with no key/network.
-- **Config:** KLIPY key via a Gradle secret → `BuildConfig`. Bench flavor uses the fake (no key). Test key = 100 req/hr — the search debounce + light caching keep dev under it.
+- **Config:** KLIPY key via a Gradle secret → `BuildConfig`. Bench flavor uses the fake (no key). Test key = 100 req/hr — the ~300ms debounce + Paging caching keep dev under it; the production key has higher limits.
 
 ### Picker UI (`:feature:composer:impl`)
 
 Kept in the composer feature for now (extractable to a shared module if DMs ever want it — YAGNI until then). Its own `KlipyPickerViewModel : MviViewModel<S,E,F>`.
 
 - **Presentation, form-factor aware, reusing the composer's existing overlay pattern:** `ModalBottomSheet` on compact; `Popup`-over-`Surface` on medium/expanded (because the composer is itself a centered dialog on tablet — exactly what `AudiencePicker`/`LanguagePicker` already do). Local `showGifPicker` state + `BackHandler` dismissal like the other pickers.
-- **Structure:** a **"Search KLIPY"**-placeholder search bar (1s debounce); **GIF / Sticker** tabs; a categories row (Recents + Trending prepended); a **`LazyVerticalStaggeredGrid`** (~2 cols) whose cells play the light webp/gif via a **single shared Coil `ImageLoader`** (never a per-cell ExoPlayer — protects 120hz scroll); `blur_preview` placeholders; Paging 3 infinite scroll.
+- **Structure:** a **"Search KLIPY"**-placeholder search bar (~300ms debounce — snappy; the test-key rate limit is a dev-only concern, and Paging caching absorbs load); **GIF / Sticker** tabs; a categories row (Recents + Trending prepended); a **`LazyVerticalStaggeredGrid`** (~2 cols) whose cells play the light webp/gif via a **single shared Coil `ImageLoader`** (never a per-cell ExoPlayer — protects 120hz scroll); `blur_preview` placeholders; Paging 3 infinite scroll.
 - **Long-press preview** → `trackView(slug)`, bigger rendition, with a **Report** action (predefined reasons → `report(slug, reason)`).
 - A persistent **"Powered by KLIPY"** mark (KLIPY brand-kit asset).
 
