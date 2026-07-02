@@ -16,6 +16,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.ListConvosRequest
 import io.github.kikin81.atproto.chat.bsky.convo.MessageInput
 import io.github.kikin81.atproto.chat.bsky.convo.MuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.RemoveReactionRequest
+import io.github.kikin81.atproto.chat.bsky.convo.ReplyRef
 import io.github.kikin81.atproto.chat.bsky.convo.SendMessageRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UnmuteConvoRequest
 import io.github.kikin81.atproto.chat.bsky.convo.UpdateReadRequest
@@ -265,6 +266,7 @@ internal class DefaultChatRepository
         override suspend fun sendMessage(
             convoId: String,
             text: String,
+            replyToMessageId: String?,
         ): Result<MessageUi> =
             withContext(dispatcher) {
                 runCatching {
@@ -274,7 +276,14 @@ internal class DefaultChatRepository
                         ConvoService(client).sendMessage(
                             SendMessageRequest(
                                 convoId = convoId,
-                                message = MessageInput(text = text),
+                                message =
+                                    MessageInput(
+                                        text = text,
+                                        replyTo =
+                                            replyToMessageId
+                                                ?.let { present(ReplyRef(messageId = it)) }
+                                                ?: AtField.Missing,
+                                    ),
                             ),
                         )
                     response.toMessageUi(viewerDid = viewerDid).also { patchConvoOnSend(convoId, it) }

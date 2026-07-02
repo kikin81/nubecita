@@ -18,6 +18,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.chats.impl.MessageSendStatus
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.ReactionUi
+import net.kikin.nubecita.feature.chats.impl.RepliedMessageUi
 import kotlin.time.Instant
 
 private fun mu(
@@ -27,6 +28,7 @@ private fun mu(
     isDeleted: Boolean = false,
     sendStatus: MessageSendStatus = MessageSendStatus.Sent,
     reactions: ImmutableList<ReactionUi> = persistentListOf(),
+    replyTo: RepliedMessageUi? = null,
 ): MessageUi =
     MessageUi(
         id = id,
@@ -37,6 +39,7 @@ private fun mu(
         sentAt = Instant.parse("2026-05-14T12:00:00Z"),
         sendStatus = sendStatus,
         reactions = reactions,
+        replyTo = replyTo,
     )
 
 @PreviewTest
@@ -69,6 +72,72 @@ private fun OutgoingSingle() {
                 horizontalAlignment = Alignment.End,
             ) {
                 MessageBubble(mu(isOutgoing = true), runIndex = 0, runCount = 1)
+            }
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "bubble-reply-incoming-light", showBackground = true)
+@Preview(name = "bubble-reply-incoming-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ReplyIncoming() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                // Incoming reply quoting the viewer's own message → "You" label on the preview.
+                MessageBubble(
+                    mu(
+                        isOutgoing = false,
+                        text = "On it — I'll ping you tomorrow.",
+                        replyTo =
+                            RepliedMessageUi(
+                                id = "r1",
+                                senderDid = "did:plc:me",
+                                text = "Let me know when the PR is ready to review!",
+                                isFromViewer = true,
+                            ),
+                    ),
+                    runIndex = 0,
+                    runCount = 1,
+                )
+            }
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "bubble-reply-outgoing-light", showBackground = true)
+@Preview(name = "bubble-reply-outgoing-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ReplyOutgoing() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                // Outgoing reply quoting the peer's message → no "You" label, just the quote.
+                MessageBubble(
+                    mu(
+                        isOutgoing = true,
+                        text = "Sure, will do.",
+                        replyTo =
+                            RepliedMessageUi(
+                                id = "r2",
+                                senderDid = "did:plc:alice",
+                                text = "Did you check out the new design token mappings?",
+                                isFromViewer = false,
+                                senderName = "Alice Chen",
+                            ),
+                    ),
+                    runIndex = 0,
+                    runCount = 1,
+                )
             }
         }
     }

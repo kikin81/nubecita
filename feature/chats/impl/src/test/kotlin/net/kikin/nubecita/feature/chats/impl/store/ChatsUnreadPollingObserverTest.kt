@@ -324,6 +324,7 @@ class ChatsUnreadPollingObserverTest {
         override suspend fun sendMessage(
             convoId: String,
             text: String,
+            replyToMessageId: String?,
         ): Result<MessageUi> = error("not used")
 
         override suspend fun markConvoRead(convoId: String): Result<Unit> = error("not used")

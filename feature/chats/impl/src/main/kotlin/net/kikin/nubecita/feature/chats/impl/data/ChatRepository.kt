@@ -135,6 +135,7 @@ interface ChatRepository {
     suspend fun sendMessage(
         convoId: String,
         text: String,
+        replyToMessageId: String? = null,
     ): Result<MessageUi>
 
     /**

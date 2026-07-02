@@ -62,6 +62,7 @@ internal class FakeChatRepository(
     var lastMessagesCursor: String? = null
     var lastSendConvoId: String? = null
     var lastSendText: String? = null
+    var lastSendReplyToMessageId: String? = null
     var lastMarkReadConvoId: String? = null
     var nextMarkReadResult: Result<Unit> = Result.success(Unit)
     val getLogCalls = AtomicInteger(0)
@@ -181,10 +182,12 @@ internal class FakeChatRepository(
     override suspend fun sendMessage(
         convoId: String,
         text: String,
+        replyToMessageId: String?,
     ): Result<MessageUi> {
         sendCalls.incrementAndGet()
         lastSendConvoId = convoId
         lastSendText = text
+        lastSendReplyToMessageId = replyToMessageId
         sendGate?.await()
         return nextSendResult
     }

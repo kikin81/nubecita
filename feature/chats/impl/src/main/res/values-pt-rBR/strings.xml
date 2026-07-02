@@ -62,6 +62,11 @@
     <string name="chat_reaction_error">Não foi possível atualizar sua reação. Tente de novo.</string>
     <string name="chat_react_more">Mais emojis</string>
     <string name="chat_react_long_press">Reagir</string>
+    <string name="chat_reply_action">Responder</string>
+    <string name="chat_reply_you">Você</string>
+    <string name="chat_reply_banner">Respondendo a %1$s</string>
+    <string name="chat_reply_banner_no_name">Respondendo</string>
+    <string name="chat_reply_cancel_content_description">Cancelar resposta</string>
     <string name="new_chat_title">Nova mensagem</string>
     <string name="new_chat_search_placeholder">Buscar alguém</string>
     <string name="new_chat_recent_header">Recentes</string>

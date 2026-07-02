@@ -141,6 +141,7 @@ internal class FakeChatRepository(
     override suspend fun sendMessage(
         convoId: String,
         text: String,
+        replyToMessageId: String?,
     ): Result<MessageUi> {
         sendCalls.incrementAndGet()
         lastSendConvoId = convoId

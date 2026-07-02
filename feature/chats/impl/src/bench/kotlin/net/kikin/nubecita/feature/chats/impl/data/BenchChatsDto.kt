@@ -43,6 +43,16 @@ internal data class BenchMessageDto(
     val isDeleted: Boolean = false,
     val sentAt: String,
     val reactions: List<BenchReactionDto> = emptyList(),
+    val replyTo: BenchRepliedDto? = null,
+)
+
+/** The message a [BenchMessageDto] replies to, inlined for the bench reply-preview fixture. */
+@Serializable
+internal data class BenchRepliedDto(
+    val id: String,
+    val senderDid: String,
+    val text: String,
+    val isDeleted: Boolean = false,
 )
 
 @Serializable

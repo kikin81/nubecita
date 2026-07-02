@@ -5,6 +5,7 @@ import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesResponseMessagesUnion
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
 import io.github.kikin81.atproto.chat.bsky.convo.MessageViewEmbedUnion
+import io.github.kikin81.atproto.chat.bsky.convo.MessageViewReplyToUnion
 import io.github.kikin81.atproto.chat.bsky.convo.ReactionView
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -13,6 +14,7 @@ import net.kikin.nubecita.core.feedmapping.toRecordOrUnavailable
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.ReactionUi
+import net.kikin.nubecita.feature.chats.impl.RepliedMessageUi
 import kotlin.time.Instant
 
 /**
@@ -64,7 +66,37 @@ fun MessageView.toMessageUi(viewerDid: String): MessageUi =
         sentAt = Instant.parse(sentAt.raw),
         embed = embed.toMessageEmbedUi(),
         reactions = reactions.toReactionUis(viewerDid = viewerDid),
+        replyTo = replyTo.toRepliedMessageUi(viewerDid = viewerDid),
     )
+
+/**
+ * Maps `MessageView.replyTo` ([MessageViewReplyToUnion]) to [RepliedMessageUi] for
+ * the reply-preview. `MessageView` / `DeletedMessageView` members carry previewable
+ * content; the `MessageBeforeUserJoinedGroupView` marker and any unknown forward-
+ * compat member map to `null` (nothing to show).
+ */
+private fun MessageViewReplyToUnion?.toRepliedMessageUi(viewerDid: String): RepliedMessageUi? =
+    when (this) {
+        null -> null
+        is MessageView ->
+            RepliedMessageUi(
+                id = id,
+                senderDid = sender.did.raw,
+                text = text,
+                isDeleted = false,
+                isFromViewer = sender.did.raw == viewerDid,
+            )
+        is DeletedMessageView ->
+            RepliedMessageUi(
+                id = id,
+                senderDid = sender.did.raw,
+                text = "",
+                isDeleted = true,
+                isFromViewer = sender.did.raw == viewerDid,
+            )
+        // MessageBeforeUserJoinedGroupView marker + forward-compat Unknown: no preview.
+        else -> null
+    }
 
 /**
  * Aggregate wire reactions into per-emoji [ReactionUi]: count + whether the viewer
