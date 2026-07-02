@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.profile.impl
 
 import android.content.Intent
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
+import androidx.navigation3.runtime.deeplink.actionExtra
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.profile.impl.di.ProfileDeepLinkModule
@@ -30,7 +31,7 @@ class PostDeepLinkMatcherTest {
     private val httpsMatcher = ProfileDeepLinkModule.provideHttpsPostDeepLinkMatcher()
     private val nubecitaMatcher = ProfileDeepLinkModule.provideNubecitaPostDeepLinkMatcher()
 
-    private fun viewRequest(uri: String): DeepLinkRequest = DeepLinkRequest.fromUriString(uri, null, Intent.ACTION_VIEW)
+    private fun viewRequest(uri: String): DeepLinkRequest = DeepLinkRequest(uri, DeepLinkRequest.actionExtra(Intent.ACTION_VIEW))
 
     // -- HTTPS verified App Link (nubecita.app) — accept cases ------------
 
@@ -172,10 +173,9 @@ class PostDeepLinkMatcherTest {
     @Test
     fun nonViewAction_isRejectedByIntentActionFilter() {
         val request =
-            DeepLinkRequest.fromUriString(
+            DeepLinkRequest(
                 "https://bsky.app/profile/alice.bsky.social/post/3lkbabcdefghi",
-                null,
-                Intent.ACTION_SEND,
+                DeepLinkRequest.actionExtra(Intent.ACTION_SEND),
             )
         assertNull(httpsMatcher.match(request))
     }

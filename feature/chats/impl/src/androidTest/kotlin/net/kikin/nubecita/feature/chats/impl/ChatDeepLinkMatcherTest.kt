@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.chats.impl
 
 import android.content.Intent
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
+import androidx.navigation3.runtime.deeplink.actionExtra
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.impl.di.ChatDeepLinkModule
@@ -20,7 +21,7 @@ import org.junit.runner.RunWith
 class ChatDeepLinkMatcherTest {
     private val matcher = ChatDeepLinkModule.provideChatDeepLinkMatcher()
 
-    private fun viewRequest(uri: String): DeepLinkRequest = DeepLinkRequest.fromUriString(uri, null, Intent.ACTION_VIEW)
+    private fun viewRequest(uri: String): DeepLinkRequest = DeepLinkRequest(uri, DeepLinkRequest.actionExtra(Intent.ACTION_VIEW))
 
     @Test
     fun nubecitaChatDid_matchesChatWithOtherUserDid() {
@@ -43,10 +44,9 @@ class ChatDeepLinkMatcherTest {
     @Test
     fun nonViewAction_isRejectedByIntentActionFilter() {
         val request =
-            DeepLinkRequest.fromUriString(
+            DeepLinkRequest(
                 "nubecita://chat/did:plc:abcdefghijklmnopqrstuvwx",
-                null,
-                Intent.ACTION_SEND,
+                DeepLinkRequest.actionExtra(Intent.ACTION_SEND),
             )
         assertNull(matcher.match(request))
     }

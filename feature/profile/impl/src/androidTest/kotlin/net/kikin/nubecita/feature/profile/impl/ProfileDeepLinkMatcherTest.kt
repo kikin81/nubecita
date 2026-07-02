@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.profile.impl
 
 import android.content.Intent
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
+import androidx.navigation3.runtime.deeplink.actionExtra
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.di.ProfileDeepLinkModule
@@ -30,7 +31,7 @@ class ProfileDeepLinkMatcherTest {
     private val httpsMatcher = ProfileDeepLinkModule.provideHttpsProfileDeepLinkMatcher()
     private val nubecitaMatcher = ProfileDeepLinkModule.provideNubecitaProfileDeepLinkMatcher()
 
-    private fun viewRequest(uri: String): DeepLinkRequest = DeepLinkRequest.fromUriString(uri, null, Intent.ACTION_VIEW)
+    private fun viewRequest(uri: String): DeepLinkRequest = DeepLinkRequest(uri, DeepLinkRequest.actionExtra(Intent.ACTION_VIEW))
 
     // -- HTTPS verified App Link (nubecita.app) — accept cases ------------
 
@@ -119,10 +120,9 @@ class ProfileDeepLinkMatcherTest {
         // ACTION_SEND at the same URI must not match — the
         // IntentActionFilter constrains to ACTION_VIEW.
         val request =
-            DeepLinkRequest.fromUriString(
+            DeepLinkRequest(
                 "https://bsky.app/profile/alice.bsky.social",
-                null,
-                Intent.ACTION_SEND,
+                DeepLinkRequest.actionExtra(Intent.ACTION_SEND),
             )
         assertNull(httpsMatcher.match(request))
     }
