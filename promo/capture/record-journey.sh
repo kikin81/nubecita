@@ -14,6 +14,13 @@ tap() { SH input tap "$1" "$2"; }
 fling() { SH input swipe "$1" "$2" "$3" "$4" "${5:-220}"; }
 pause() { sleep "$1"; }
 
+# On any exit (success, error, Ctrl-C): stop a dangling screenrecord + leave demo mode.
+cleanup() {
+  SH pkill -INT screenrecord >/dev/null 2>&1 || true
+  SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true
+}
+trap cleanup EXIT
+
 # Bottom-nav tab x-centers (5 tabs across 1280) at y≈2713
 Y_NAV=2713
 X_FEED=128; X_SEARCH=384; X_NOTIF=640; X_CHATS=896; X_PROFILE=1152
@@ -58,9 +65,6 @@ SH pkill -INT screenrecord >/dev/null 2>&1 || true
 wait "$REC_PID" 2>/dev/null || true
 pause 1.0
 
-echo "[demo] restore"
-SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true
-
-echo "[pull] $OUT_LOCAL"
+echo "[pull] $OUT_LOCAL"                          # demo mode restored by the EXIT trap
 A pull "$OUT_DEVICE" "$OUT_LOCAL" >/dev/null
 echo "done: $OUT_LOCAL"

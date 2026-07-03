@@ -10,6 +10,8 @@ A(){ adb -s "$SERIAL" "$@"; }; SH(){ A shell "$@"; }
 tap(){ SH input tap "$1" "$2"; }
 drag(){ SH input swipe "$1" "$2" "$3" "$4" "${5:-600}"; }
 pause(){ sleep "$1"; }
+cleanup(){ SH pkill -INT screenrecord >/dev/null 2>&1 || true; SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true; }
+trap cleanup EXIT
 
 echo "[demo] clean status bar"
 SH settings put global sysui_demo_allowed 1 || true
@@ -46,6 +48,5 @@ drag 640 2050 640 1250 600; pause 1.4
 echo "[record] stop"
 SH pkill -INT screenrecord >/dev/null 2>&1 || true
 wait "$REC_PID" 2>/dev/null || true; pause 1.0
-SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true
-A pull "$OUT_DEVICE" "$OUT_LOCAL" >/dev/null
+A pull "$OUT_DEVICE" "$OUT_LOCAL" >/dev/null    # demo mode restored by the EXIT trap
 echo "done: $OUT_LOCAL"

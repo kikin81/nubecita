@@ -28,10 +28,9 @@ export type AssetSpec = {
 const DeviceFrame: React.FC<{
   w: number;
   h: number;
-  aspect: number;
   cornerFactor: number;
   src: string;
-}> = ({ w, h, aspect, cornerFactor, src }) => {
+}> = ({ w, h, cornerFactor, src }) => {
   const bezel = w * 0.022;
   const radius = w * cornerFactor;
   return (
@@ -81,7 +80,7 @@ export const Asset: React.FC<AssetSpec> = ({
     return (
       <AbsoluteFill style={{ background: bg, flexDirection: "row", alignItems: "center" }}>
         <div style={{ marginLeft: width * 0.04 }}>
-          <DeviceFrame w={dw} h={dh} aspect={TABLET_ASPECT} cornerFactor={0.045} src={src} />
+          <DeviceFrame w={dw} h={dh} cornerFactor={0.045} src={src} />
         </div>
         <div
           style={{
@@ -108,7 +107,7 @@ export const Asset: React.FC<AssetSpec> = ({
   return (
     <AbsoluteFill style={{ background: bg, alignItems: "center" }}>
       <div style={{ marginTop: height * 0.03 }}>
-        <DeviceFrame w={dw} h={dh} aspect={PHONE_ASPECT} cornerFactor={0.14} src={src} />
+        <DeviceFrame w={dw} h={dh} cornerFactor={0.14} src={src} />
       </div>
       <div
         style={{

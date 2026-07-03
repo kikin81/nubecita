@@ -16,6 +16,14 @@ tap() { SH input tap "$1" "$2"; }
 grab() { A exec-out screencap -p > "$DEST/$1"; echo "  → $1"; }
 relaunch() { SH am force-stop "$PKG"; sleep 0.5; SH am start -n "$PKG/.MainActivity" >/dev/null; sleep 5; }
 
+# Always restore the display + demo mode, even on error / Ctrl-C.
+cleanup() {
+  SH wm size reset >/dev/null 2>&1 || true
+  SH wm density reset >/dev/null 2>&1 || true
+  SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true
+}
+trap cleanup EXIT
+
 Y_NAV=2713; X_FEED=128; X_SEARCH=384; X_PROFILE=1152
 
 echo "[demo] clean status bar"
@@ -40,7 +48,4 @@ relaunch
 grab tablet_feed.png
 tap 640 900; sleep 2.0; grab tablet_detail.png     # list-detail: opens the right pane
 
-echo "[tablet] restore"
-SH wm size reset; SH wm density reset
-SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true
-echo "done → $DEST"
+echo "done → $DEST"   # display + demo mode restored by the EXIT trap

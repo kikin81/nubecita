@@ -1,3 +1,4 @@
+import React from "react";
 import { Composition } from "remotion";
 import { Promo, Journey, Layout } from "./Promo";
 import { Asset, ASSET_SPECS } from "./Assets";

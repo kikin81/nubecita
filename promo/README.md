@@ -81,7 +81,7 @@ the fake at real, loadable GIFs, then revert:
 ```bash
 # 1. Capture the video journey (feed like → 120hz scroll → tab tour)
 promo/capture/record-journey.sh                 # → promo_raw.mp4 (640×1428, 60fps)
-cp promo_raw.mp4 promo/remotion/public/promo.mp4
+cp -f promo_raw.mp4 promo/remotion/public/promo.mp4
 
 # 2. Capture the still screenshots for the image assets
 promo/capture/capture-screens.sh                # → remotion/public/{feed,search,profile,post,tablet_*}.png

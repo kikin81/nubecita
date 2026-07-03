@@ -11,7 +11,12 @@ tap(){ SH input tap "$1" "$2"; }
 drag(){ SH input swipe "$1" "$2" "$3" "$4" "${5:-600}"; }
 pause(){ sleep "$1"; }
 
-cleanup(){ SH wm size reset >/dev/null 2>&1 || true; SH wm density reset >/dev/null 2>&1 || true; }
+cleanup(){
+  SH pkill -INT screenrecord >/dev/null 2>&1 || true
+  SH wm size reset >/dev/null 2>&1 || true
+  SH wm density reset >/dev/null 2>&1 || true
+  SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true
+}
 trap cleanup EXIT
 
 echo "[tablet] resize display to 2560x1600"
@@ -50,6 +55,5 @@ SH input keyevent KEYCODE_BACK; pause 1.2      # close lightbox
 echo "[record] stop"
 SH pkill -INT screenrecord >/dev/null 2>&1 || true
 wait "$REC_PID" 2>/dev/null || true; pause 1.0
-SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true
-A pull "$OUT_DEVICE" "$OUT_LOCAL" >/dev/null
+A pull "$OUT_DEVICE" "$OUT_LOCAL" >/dev/null    # display + demo mode restored by the EXIT trap
 echo "done: $OUT_LOCAL"
