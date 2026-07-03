@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782980202669,
+  "lastUpdate": 1783066615915,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1871,6 +1871,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 976.89,
             "range": "+/- 25.1%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0679370a371fc80464191b91a116d0f2c5f6aef3",
+          "message": "chore(promo): add reproducible marketing video + asset pipeline (#658)\n\n* chore(promo): add reproducible marketing video + asset pipeline\n\nCode-driven Google App campaign assets, capturable from the bench flavor\n(fake/apolitical data). Includes:\n- capture/ adb scripts (video journey + still screenshots)\n- remotion/ project: 3 promo videos (9:16/1:1/16:9) + 7 image stills\n- README documenting the full regenerate flow + Play badge guidelines\n\nGenerated .mp4s and captured screenshots are git-ignored; only the\nofficial Google Play badge is committed (used unmodified).\n\n* chore(promo): add four feature-story journeys + journey-driven remotion\n\nRefactor the Remotion project to a JOURNEYS registry (Promo.tsx is now\ndata-driven: device/clip/captions per journey, rendered at each aspect\nratio). Add four new capture scripts + their videos:\n- composer: compose + KLIPY GIF picker (\"Say it with a GIF\")\n- threads:  thread + media viewer zoom/swipe (\"Tap any photo to zoom\")\n- search:   suggested accounts + typeahead + results (\"Posts, people, and feeds\")\n- tablet:   list-detail two-pane, independent panes (\"Two panes, more context\")\n\nREADME documents each journey + the composer real-GIF capture caveat.\nGenerated .mp4s stay git-ignored.\n\n* chore(promo): address review comments\n\n- capture scripts: EXIT trap restores device state (wm size/density,\n  demo mode) + stops dangling screenrecord on error/Ctrl-C, dropping the\n  now-redundant manual restores (gemini + copilot)\n- Root.tsx: import React (React.FC namespace) (copilot)\n- Assets.tsx: drop unused `aspect` prop from DeviceFrame (gemini)\n- README: cp -f for deterministic overwrite (copilot)\n\nThe Promo.tsx nits (redundant caption ternary, hardcoded outro offset,\ndurationInFrames no-op) were already resolved by the journey-driven\nrefactor.\n\n* chore(promo): fix stale composition IDs + drop redundant cast\n\nPost-refactor cleanup from Copilot re-review:\n- package.json render scripts referenced removed IDs (PromoVertical/…);\n  point them at Hero-9x16/1x1/16x9 + add render:features for the 4 journeys\n- README troubleshooting + render:all note use the new <Id>-<tag> IDs\n- Root.tsx: drop unnecessary `as Journey` (JourneySpec extends Journey)",
+          "timestamp": "2026-07-03T07:05:43Z",
+          "url": "https://github.com/kikin81/nubecita/commit/0679370a371fc80464191b91a116d0f2c5f6aef3"
+        },
+        "date": 1783066614301,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 30,
+            "range": "+/- 11%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1360.89,
+            "range": "+/- 4.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1281.279,
+            "range": "+/- 3.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1082.897,
+            "range": "+/- 15.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1169.885,
+            "range": "+/- 8.6%",
             "unit": "ms"
           }
         ]
