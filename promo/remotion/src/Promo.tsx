@@ -22,71 +22,119 @@ const NAVY_2 = "#111731";
 const ACCENT = "#8FA6FF";
 const WHITE = "#F5F7FF";
 
-const PHONE_ASPECT = 640 / 1428; // width / height of the source recording
+export type Layout = "vertical" | "square" | "wide";
+export type DeviceKind = "phone" | "tablet";
 
-type Layout = "vertical" | "square" | "wide";
+export type Caption = { at: number; dur: number; lead: string; accent: string };
 
-const geometry = (layout: Layout, w: number, h: number) => {
-  if (layout === "vertical") {
-    const phoneH = Math.min(h * 0.76, 1460);
+export type Journey = {
+  id: string;
+  device: DeviceKind;
+  videoSrc: string; // file in public/
+  sourceAspect: number; // width / height of the capture
+  outroStartSec: number; // when the CTA outro fades in
+  captions: Caption[];
+};
+
+type Geo = {
+  devW: number;
+  devH: number;
+  devX: number;
+  devY: number;
+  capX: number;
+  capY: number;
+  capW: number;
+  capAlign: "center" | "left";
+  capSize: number;
+};
+
+const geometry = (layout: Layout, device: DeviceKind, aspect: number, w: number, h: number): Geo => {
+  if (device === "tablet") {
+    // Landscape device centered; caption in a bottom band.
+    const maxW = w * 0.9;
+    const maxH = h * 0.68;
+    let devW = maxW;
+    let devH = devW / aspect;
+    if (devH > maxH) {
+      devH = maxH;
+      devW = devH * aspect;
+    }
     return {
-      phoneH,
-      phoneW: phoneH * PHONE_ASPECT,
-      phoneX: w / 2,
-      phoneY: h * 0.42,
+      devW,
+      devH,
+      devX: w / 2,
+      devY: h * 0.42,
+      capX: w / 2,
+      capY: layout === "wide" ? h * 0.86 : h * 0.82,
+      capW: w * 0.88,
+      capAlign: "center",
+      capSize: layout === "wide" ? 68 : 60,
+    };
+  }
+
+  // phone (portrait source)
+  if (layout === "vertical") {
+    const devH = Math.min(h * 0.76, 1460);
+    return {
+      devH,
+      devW: devH * aspect,
+      devX: w / 2,
+      devY: h * 0.42,
       capX: w / 2,
       capY: h * 0.9,
       capW: w * 0.86,
-      capAlign: "center" as const,
+      capAlign: "center",
       capSize: 72,
     };
   }
   if (layout === "square") {
-    const phoneH = h * 0.86;
+    const devH = h * 0.86;
     return {
-      phoneH,
-      phoneW: phoneH * PHONE_ASPECT,
-      phoneX: w * 0.31,
-      phoneY: h / 2,
+      devH,
+      devW: devH * aspect,
+      devX: w * 0.31,
+      devY: h / 2,
       capX: w * 0.64,
       capY: h * 0.5,
       capW: w * 0.4,
-      capAlign: "left" as const,
+      capAlign: "left",
       capSize: 66,
     };
   }
   // wide
-  const phoneH = h * 0.84;
+  const devH = h * 0.84;
   return {
-    phoneH,
-    phoneW: phoneH * PHONE_ASPECT,
-    phoneX: w * 0.28,
-    phoneY: h / 2,
+    devH,
+    devW: devH * aspect,
+    devX: w * 0.28,
+    devY: h / 2,
     capX: w * 0.62,
     capY: h * 0.5,
     capW: w * 0.42,
-    capAlign: "left" as const,
+    capAlign: "left",
     capSize: 88,
   };
 };
 
-const Phone: React.FC<{ g: ReturnType<typeof geometry>; frame: number; fps: number }> = ({
-  g,
-  frame,
-  fps,
-}) => {
+const DeviceFrame: React.FC<{
+  g: Geo;
+  device: DeviceKind;
+  src: string;
+  frame: number;
+  fps: number;
+}> = ({ g, device, src, frame, fps }) => {
   const enter = spring({ frame, fps, config: { damping: 200 }, durationInFrames: 24 });
   const scale = interpolate(enter, [0, 1], [0.94, 1]);
-  const bezel = g.phoneW * 0.026;
-  const radius = g.phoneW * 0.15;
+  const bezel = g.devW * (device === "tablet" ? 0.02 : 0.026);
+  const radius = g.devW * (device === "tablet" ? 0.045 : 0.15);
   return (
     <div
       style={{
         position: "absolute",
-        left: g.phoneX - g.phoneW / 2,
-        top: g.phoneY - g.phoneH / 2,
-        width: g.phoneW,
-        height: g.phoneH,
+        left: g.devX - g.devW / 2,
+        top: g.devY - g.devH / 2,
+        width: g.devW,
+        height: g.devH,
         transform: `scale(${scale})`,
         borderRadius: radius,
         background: "#05070d",
@@ -104,7 +152,7 @@ const Phone: React.FC<{ g: ReturnType<typeof geometry>; frame: number; fps: numb
         }}
       >
         <OffthreadVideo
-          src={staticFile("promo.mp4")}
+          src={staticFile(src)}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       </div>
@@ -112,12 +160,12 @@ const Phone: React.FC<{ g: ReturnType<typeof geometry>; frame: number; fps: numb
   );
 };
 
-const Caption: React.FC<{
-  g: ReturnType<typeof geometry>;
-  lead: string;
-  accent: string;
-  fps: number;
-}> = ({ g, lead, accent, fps }) => {
+const CaptionView: React.FC<{ g: Geo; lead: string; accent: string; fps: number }> = ({
+  g,
+  lead,
+  accent,
+  fps,
+}) => {
   const frame = useCurrentFrame();
   const inP = spring({ frame, fps, config: { damping: 200 }, durationInFrames: 18 });
   const y = interpolate(inP, [0, 1], [28, 0]);
@@ -125,7 +173,7 @@ const Caption: React.FC<{
     <div
       style={{
         position: "absolute",
-        left: g.capAlign === "center" ? g.capX - g.capW / 2 : g.capX - g.capW / 2,
+        left: g.capX - g.capW / 2,
         top: g.capY,
         width: g.capW,
         transform: `translateY(${y}px)`,
@@ -144,13 +192,12 @@ const Caption: React.FC<{
   );
 };
 
-export const Promo: React.FC<{ layout: Layout }> = ({ layout }) => {
+export const Promo: React.FC<{ layout: Layout; journey: Journey }> = ({ layout, journey }) => {
   const frame = useCurrentFrame();
-  const { width, height, fps, durationInFrames } = useVideoConfig();
-  const g = geometry(layout, width, height);
+  const { width, height, fps } = useVideoConfig();
+  const g = geometry(layout, journey.device, journey.sourceAspect, width, height);
 
-  // CTA outro fades in over the last stretch.
-  const outroStart = 16.2 * fps;
+  const outroStart = journey.outroStartSec * fps;
   const outro = interpolate(frame, [outroStart, outroStart + 0.5 * fps], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -158,22 +205,15 @@ export const Promo: React.FC<{ layout: Layout }> = ({ layout }) => {
 
   return (
     <AbsoluteFill
-      style={{
-        background: `radial-gradient(120% 90% at 50% 12%, ${NAVY_2} 0%, ${NAVY} 62%)`,
-      }}
+      style={{ background: `radial-gradient(120% 90% at 50% 12%, ${NAVY_2} 0%, ${NAVY} 62%)` }}
     >
-      <Phone g={g} frame={frame} fps={fps} />
+      <DeviceFrame g={g} device={journey.device} src={journey.videoSrc} frame={frame} fps={fps} />
 
-      {/* Beat-synced captions */}
-      <Sequence from={Math.round(0.4 * fps)} durationInFrames={Math.round(3.6 * fps)}>
-        <Caption g={g} lead="One tap to" accent="like." fps={fps} />
-      </Sequence>
-      <Sequence from={Math.round(4.3 * fps)} durationInFrames={Math.round(4.9 * fps)}>
-        <Caption g={g} lead="120 fps." accent="Zero jank." fps={fps} />
-      </Sequence>
-      <Sequence from={Math.round(9.5 * fps)} durationInFrames={Math.round(5.7 * fps)}>
-        <Caption g={g} lead="Feed · Search · Chats ·" accent="You." fps={fps} />
-      </Sequence>
+      {journey.captions.map((c, i) => (
+        <Sequence key={i} from={Math.round(c.at * fps)} durationInFrames={Math.round(c.dur * fps)}>
+          <CaptionView g={g} lead={c.lead} accent={c.accent} fps={fps} />
+        </Sequence>
+      ))}
 
       {/* CTA outro */}
       <AbsoluteFill
@@ -215,9 +255,6 @@ export const Promo: React.FC<{ layout: Layout }> = ({ layout }) => {
           style={{ height: layout === "wide" ? 112 : 100, width: "auto", marginTop: 16 }}
         />
       </AbsoluteFill>
-
-      {/* keep durationInFrames referenced for clarity */}
-      {frame > durationInFrames ? null : null}
     </AbsoluteFill>
   );
 };

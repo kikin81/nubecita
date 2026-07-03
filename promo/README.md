@@ -24,13 +24,49 @@ promo/
   capture/
     record-journey.sh    # adb: drives the bench app + screenrecord → promo_raw.mp4 (the video)
     capture-screens.sh   # adb: still screenshots → remotion/public/*.png (the image assets)
+  capture/journeys/      # one script per feature-story video (see below)
   remotion/
-    src/Root.tsx         # composition registry: 3 videos + 7 image stills
-    src/Promo.tsx        # the video comp (device frame + captions + CTA outro + Play badge)
+    src/Root.tsx         # JOURNEYS registry (5 videos × aspect ratios) + 7 image stills
+    src/Promo.tsx        # journey-driven video comp (device frame + captions + CTA outro + Play badge)
     src/Assets.tsx       # the image-asset comp + ASSET_SPECS matrix
     public/gp_badge.png  # official Google Play badge (committed; used unmodified)
     public/*.png,*.mp4   # captured inputs (git-ignored — regenerate via capture/)
 ```
+
+## Journeys (one video each)
+
+`Root.tsx` renders a `JOURNEYS` array; each entry pairs a captured clip
+(`public/<id>.mp4`) with beat-synced captions, and is registered at each aspect
+ratio as `<Id>-<tag>` (e.g. `Composer-9x16`, `Tablet-16x9`). Add a video =
+capture a clip + add a `JOURNEYS` entry — no new component.
+
+| Journey | Capture script | Clip | Hook |
+|---|---|---|---|
+| hero | `capture/record-journey.sh` | `promo.mp4` | like → 120hz scroll → tab tour |
+| composer | `capture/journeys/composer.sh` | `composer.mp4` | "Say it with a GIF" |
+| threads | `capture/journeys/threads.sh` | `threads.mp4` | "Tap any photo to zoom" |
+| search | `capture/journeys/search.sh` | `search.mp4` | "Posts, people, and feeds" |
+| tablet | `capture/journeys/tablet.sh` | `tablet.mp4` | "Two panes, more context" |
+
+The journey scripts drive the **bench** build with `adb` and depend on two
+bench traits: tapping any post opens one **canned thread** (Jessica Elena's
+4-image gallery — used by `threads` and `tablet`), and the feed/search fakes are
+deterministic. `tablet.sh` temporarily resizes the display to 2560×1600 and
+restores it on exit.
+
+### Composer journey needs real GIFs
+
+The bench KLIPY fake serves *synthetic* URLs (`static.klipy.com/…/<slug>.webp`),
+so the picker grid is empty offline. To capture `composer.sh`, temporarily point
+the fake at real, loadable GIFs, then revert:
+
+1. Drop a few public-domain GIFs in `app/src/bench/assets/promo_gifs/` (e.g.
+   Wikimedia Commons via `https://commons.wikimedia.org/wiki/Special:FilePath/<file>.gif`).
+2. In `core/klipy/src/bench/…/BenchFakeKlipyRepository.kt`, return a list of
+   `KlipyMediaUi` whose `previewUrl`/`embedUrl` are
+   `file:///android_asset/promo_gifs/<file>.gif` (Coil loads asset URIs offline).
+3. `./gradlew :app:installBenchDebug`, run `composer.sh`, then **revert** the
+   fake + delete the assets (this override is intentionally not committed).
 
 ## Prerequisites
 
