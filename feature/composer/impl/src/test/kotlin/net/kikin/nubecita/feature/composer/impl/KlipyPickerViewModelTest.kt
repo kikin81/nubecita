@@ -89,13 +89,13 @@ class KlipyPickerViewModelTest {
         }
 
     @Test
-    fun `selecting an item fires a share and emits GifSelected`() =
+    fun `selecting an item fires a share and emits MediaSelected`() =
         runTest {
             val vm = KlipyPickerViewModel(repository)
 
             vm.effects.test {
                 vm.handleEvent(KlipyPickerEvent.ItemSelected(media))
-                assertEquals(KlipyPickerEffect.GifSelected(media), awaitItem())
+                assertEquals(KlipyPickerEffect.MediaSelected(media), awaitItem())
             }
             verify { repository.trackShare(KlipyMediaType.GIF, "cat") }
         }

@@ -63,6 +63,8 @@
     <!-- KLIPY GIF/sticker picker -->
     <string name="klipy_search_placeholder">Buscar en KLIPY</string>
     <string name="klipy_tab_gifs">GIF</string>
+    <string name="klipy_category_recents">Recientes</string>
+    <string name="klipy_category_trending">Tendencias</string>
     <string name="klipy_tab_stickers">Stickers</string>
     <string name="klipy_powered_by">Con tecnología de KLIPY</string>
     <string name="klipy_empty">Sin resultados</string>

@@ -36,14 +36,14 @@ import net.kikin.nubecita.feature.composer.impl.state.KlipyPickerEvent
  * composer is itself a Compose `Dialog`.
  *
  * Stateful entry point: owns [KlipyPickerViewModel], collects its paging feed
- * and effects. [onSelectGif] is invoked (then [onDismiss]) when the user picks
+ * and effects. [onSelectMedia] is invoked (then [onDismiss]) when the user picks
  * an item; [onReportResult] reports whether a submitted report succeeded (for a
  * host snackbar). The stateless grid lives in [KlipyPickerContent].
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 internal fun KlipyPicker(
-    onSelectGif: (KlipyMediaUi) -> Unit,
+    onSelectMedia: (KlipyMediaUi) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     onReportResult: (succeeded: Boolean) -> Unit = {},
@@ -55,15 +55,15 @@ internal fun KlipyPicker(
     // The effect keys on `viewModel` (stable), so capture the latest host
     // callbacks via rememberUpdatedState rather than referencing the params
     // directly inside the restarting collector.
-    val currentOnSelectGif by rememberUpdatedState(onSelectGif)
+    val currentOnSelectMedia by rememberUpdatedState(onSelectMedia)
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentOnReportResult by rememberUpdatedState(onReportResult)
 
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                is KlipyPickerEffect.GifSelected -> {
-                    currentOnSelectGif(effect.media)
+                is KlipyPickerEffect.MediaSelected -> {
+                    currentOnSelectMedia(effect.media)
                     currentOnDismiss()
                 }
                 is KlipyPickerEffect.ReportCompleted -> currentOnReportResult(effect.succeeded)

@@ -141,6 +141,8 @@
     <!-- Search field placeholder. "KLIPY" is a required brand mention. -->
     <string name="klipy_search_placeholder">Search KLIPY</string>
     <string name="klipy_tab_gifs">GIFs</string>
+    <string name="klipy_category_recents">Recents</string>
+    <string name="klipy_category_trending">Trending</string>
     <string name="klipy_tab_stickers">Stickers</string>
     <!-- Required KLIPY attribution shown under the picker grid. -->
     <string name="klipy_powered_by">Powered by KLIPY</string>

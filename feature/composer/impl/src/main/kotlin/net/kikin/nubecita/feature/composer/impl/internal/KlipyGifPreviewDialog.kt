@@ -65,7 +65,7 @@ internal fun KlipyGifPreviewDialog(
         text = {
             NubecitaAsyncImage(
                 model = media.embedUrl,
-                contentDescription = media.title,
+                contentDescription = media.title ?: stringResource(R.string.klipy_gif_description),
                 contentScale = ContentScale.Fit,
                 modifier =
                     Modifier

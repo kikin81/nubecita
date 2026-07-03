@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -43,7 +44,7 @@ import javax.inject.Inject
  * (~300ms) so a keystroke doesn't fire a request per character; tab/category
  * changes are immediate.
  *
- * Selection emits [KlipyPickerEffect.GifSelected] (the host attaches + closes);
+ * Selection emits [KlipyPickerEffect.MediaSelected] (the host attaches + closes);
  * the fire-and-forget `trackView`/`trackShare` run on an application scope in
  * the repository, so they survive the composer closing.
  */
@@ -75,13 +76,21 @@ internal class KlipyPickerViewModel
                     }.flow
                 }.cachedIn(viewModelScope)
 
+        private var loadCategoriesJob: Job? = null
+
         init {
             loadCategories(KlipyMediaType.GIF)
             searchInput
                 .debounce(SEARCH_DEBOUNCE_MS)
                 .distinctUntilChanged()
-                .onEach { query -> queryKey.update { it.copy(query = query, recents = false) } }
-                .launchIn(viewModelScope)
+                .onEach { query ->
+                    // Drop a stale debounced emission if the user has since switched
+                    // tab/category (both reset query) — otherwise the feed would show
+                    // the old search under the new tab while the field reads empty.
+                    if (query == uiState.value.query) {
+                        queryKey.update { it.copy(query = query, recents = false) }
+                    }
+                }.launchIn(viewModelScope)
         }
 
         override fun handleEvent(event: KlipyPickerEvent) {
@@ -96,7 +105,7 @@ internal class KlipyPickerViewModel
                 KlipyPickerEvent.PreviewDismissed -> setState { copy(preview = null) }
                 is KlipyPickerEvent.ItemSelected -> {
                     klipyRepository.trackShare(uiState.value.tab, event.media.slug)
-                    sendEffect(KlipyPickerEffect.GifSelected(event.media))
+                    sendEffect(KlipyPickerEffect.MediaSelected(event.media))
                 }
                 is KlipyPickerEvent.ItemReported -> onReport(event.media, event.reason)
             }
@@ -137,16 +146,20 @@ internal class KlipyPickerViewModel
         }
 
         private fun loadCategories(type: KlipyMediaType) {
-            viewModelScope.launch {
-                klipyRepository.categories(type).onSuccess { categories ->
-                    setState {
-                        copy(
-                            categories = categories,
-                            selectedCategory = categories.firstOrNull { it == TRENDING } ?: categories.firstOrNull(),
-                        )
+            // Cancel an in-flight load so a slow older tab's categories can't land
+            // after a rapid tab switch and overwrite the newer tab's.
+            loadCategoriesJob?.cancel()
+            loadCategoriesJob =
+                viewModelScope.launch {
+                    klipyRepository.categories(type).onSuccess { categories ->
+                        setState {
+                            copy(
+                                categories = categories,
+                                selectedCategory = categories.firstOrNull { it == TRENDING } ?: categories.firstOrNull(),
+                            )
+                        }
                     }
                 }
-            }
         }
 
         private suspend fun QueryKey.fetch(page: Int): Result<KlipyMediaPage> = if (recents) klipyRepository.recents(type, page) else klipyRepository.search(type, query, page)

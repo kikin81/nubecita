@@ -5,7 +5,7 @@ import net.kikin.nubecita.data.models.KlipyMediaUi
 
 internal sealed interface KlipyPickerEffect : UiEffect {
     /** An item was chosen — the host attaches it to the post and closes the picker. */
-    data class GifSelected(
+    data class MediaSelected(
         val media: KlipyMediaUi,
     ) : KlipyPickerEffect
 

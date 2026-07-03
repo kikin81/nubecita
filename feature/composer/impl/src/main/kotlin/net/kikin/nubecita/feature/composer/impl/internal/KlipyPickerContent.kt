@@ -43,6 +43,7 @@ import net.kikin.nubecita.data.models.KlipyMediaUi
 import net.kikin.nubecita.data.models.previewAspectRatio
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
+import net.kikin.nubecita.feature.composer.impl.KlipyPickerViewModel
 import net.kikin.nubecita.feature.composer.impl.R
 
 internal const val KLIPY_SEARCH_FIELD_TEST_TAG = "klipy_search_field"
@@ -82,7 +83,9 @@ internal fun KlipyPickerContent(
             value = query,
             onValueChange = onQueryChange,
             singleLine = true,
-            placeholder = { Text(stringResource(R.string.klipy_search_placeholder)) },
+            // A real label (not just a placeholder) so screen readers get a stable,
+            // localized description — and it satisfies the "Search KLIPY" branding.
+            label = { Text(stringResource(R.string.klipy_search_placeholder)) },
             modifier = Modifier.fillMaxWidth().testTag(KLIPY_SEARCH_FIELD_TEST_TAG),
         )
 
@@ -107,7 +110,7 @@ internal fun KlipyPickerContent(
                     FilterChip(
                         selected = category == selectedCategory,
                         onClick = { onSelectCategory(category) },
-                        label = { Text(category) },
+                        label = { Text(categoryLabel(category)) },
                     )
                 }
             }
@@ -205,4 +208,17 @@ private fun KlipyMediaType.tabLabelRes(): Int =
     when (this) {
         KlipyMediaType.GIF -> R.string.klipy_tab_gifs
         KlipyMediaType.STICKER -> R.string.klipy_tab_stickers
+    }
+
+/**
+ * The two leading categories arrive from the repository as English ids
+ * ("Recents"/"Trending") that also key selection; localize only their display
+ * here, leaving server categories as-is.
+ */
+@Composable
+private fun categoryLabel(category: String): String =
+    when (category) {
+        KlipyPickerViewModel.RECENTS -> stringResource(R.string.klipy_category_recents)
+        KlipyPickerViewModel.TRENDING -> stringResource(R.string.klipy_category_trending)
+        else -> category
     }
