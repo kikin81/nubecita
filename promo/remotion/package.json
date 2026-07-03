@@ -1,0 +1,23 @@
+{
+  "name": "nubecita-promo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "remotion studio",
+    "render:vertical": "remotion render PromoVertical out/promo-9x16.mp4",
+    "render:square": "remotion render PromoSquare out/promo-1x1.mp4",
+    "render:wide": "remotion render PromoWide out/promo-16x9.mp4",
+    "render:all": "npm run render:vertical && npm run render:square && npm run render:wide"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.400",
+    "@remotion/google-fonts": "4.0.400",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.400"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.0",
+    "typescript": "5.9.3"
+  }
+}
