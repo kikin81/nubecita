@@ -211,6 +211,17 @@ jobs:
         # lands), so keep CI building only the production variant.
         run: ./gradlew assembleProductionDebug
 
+      - name: Compile instrumented (androidTest) sources
+        # The `instrumented` job only runs `:app`'s connected tests (and only on
+        # main / labelled PRs), so a feature/core module's androidTest can rot
+        # invisibly — a constructor change breaks its instrumentation test and no
+        # PR ever compiles it. Compiling every module's androidTest sources here
+        # (Kotlin + KSP/Hilt, no emulator, no dexing) catches those breaks —
+        # both plain compile errors AND Hilt-graph `MissingBinding` failures —
+        # on every PR. `*AndroidTestSources` is the AGP anchor that runs the
+        # annotation processors without packaging a test APK.
+        run: ./gradlew compileProductionDebugAndroidTestSources compileDebugAndroidTestSources
+
   screenshot:
     name: Screenshot tests
     runs-on: ubuntu-latest

@@ -7,9 +7,12 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.test.platform.app.InstrumentationRegistry
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -17,6 +20,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
@@ -39,6 +43,7 @@ import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import kotlin.time.Instant
@@ -69,9 +74,18 @@ import net.kikin.nubecita.designsystem.R as DesignsystemR
  * need a Hilt harness. The fake's `fetchTab` returns a single PostUi so
  * the Posts tab renders a PostCard with an overflow affordance.
  */
+@HiltAndroidTest
 class ProfileScreenPostsTabOverflowReportInstrumentationTest {
-    @get:Rule
+    @get:Rule(order = 0)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
+
+    @Before
+    fun setup() {
+        hiltRule.inject()
+    }
 
     @Test
     fun postsTabPostCardOverflow_reportRow_pushesReportNavKeyOntoActiveTabStack() {
@@ -176,6 +190,9 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
                 sessionStateProvider = sessionProvider,
                 postInteractionsCache = cache,
                 entitlementRepository = entitlementRepository,
+                analytics = NoOpAnalyticsClient(),
+                muteRepository = mockk(relaxed = true),
+                handler = FakePostInteractionHandler(),
             )
 
         val profileRoot: NavKey = Profile(handle = header.handle)
@@ -225,6 +242,13 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
         // because the icon button's semantics are nested under the
         // action row's merged tree; without it the matcher returns
         // nothing. Mirrors FeedScreenOverflowReportInstrumentationTest.
+        // Bring the target post fully on-screen first — unlike the header
+        // overflow (test 1), a post card can sit partially off-screen, and
+        // Compose rejects touch injection on a clipped node. Scroll the MERGED
+        // post node (it carries the LazyColumn scroll semantics; the unmerged
+        // overflow icon doesn't), then tap its overflow button.
+        composeTestRule.onAllNodes(hasText(postText, substring = true))[0].performScrollTo()
+        composeTestRule.waitForIdle()
         composeTestRule
             .onAllNodes(hasContentDescription(moreOptionsCd), useUnmergedTree = true)[0]
             .performClick()

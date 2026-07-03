@@ -10,12 +10,15 @@ import androidx.compose.ui.test.performClick
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.test.platform.app.InstrumentationRegistry
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
@@ -33,6 +36,7 @@ import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -71,9 +75,18 @@ import org.junit.Test
  * (ProfileScreenInstrumentationTest), so picking the lighter setup here
  * matches the established mix.
  */
+@HiltAndroidTest
 class ProfileScreenOverflowReportInstrumentationTest {
-    @get:Rule
+    @get:Rule(order = 0)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
+
+    @Before
+    fun setup() {
+        hiltRule.inject()
+    }
 
     @Test
     fun overflowMenu_reportAccountRow_pushesReportNavKeyOntoActiveTabStack() {
@@ -145,6 +158,9 @@ class ProfileScreenOverflowReportInstrumentationTest {
                 sessionStateProvider = sessionProvider,
                 postInteractionsCache = cache,
                 entitlementRepository = entitlementRepository,
+                analytics = NoOpAnalyticsClient(),
+                muteRepository = mockk(relaxed = true),
+                handler = FakePostInteractionHandler(),
             )
 
         // MainShellNavState's primary constructor accepts a startRoute,
