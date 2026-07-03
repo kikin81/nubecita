@@ -81,7 +81,9 @@ internal fun PaywallScreen(
 ) {
     // Log the paywall view once, attributed to the entry surface (the VM has no
     // route arg, so the screen — which knows the route's source — drives it).
-    LaunchedEffect(Unit) { viewModel.onPresented(source) }
+    // rememberUpdatedState keeps the Unit-keyed effect reading the current source.
+    val currentSource by rememberUpdatedState(source)
+    LaunchedEffect(Unit) { viewModel.onPresented(currentSource) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current

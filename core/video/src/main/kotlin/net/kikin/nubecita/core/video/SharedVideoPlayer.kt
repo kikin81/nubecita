@@ -567,10 +567,13 @@ class SharedVideoPlayer
 fun createSharedVideoPlayer(
     context: android.content.Context,
     scope: CoroutineScope,
-    analytics: AnalyticsClient = NoOpAnalyticsClient(),
     idleReleaseMs: Long = DEFAULT_IDLE_RELEASE_MS,
     lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
     isInPip: () -> Boolean = { false },
+    // Last (with a safe default) so existing positional callers / baseline-profile
+    // method descriptors for createSharedVideoPlayer(Context, CoroutineScope, Long…)
+    // stay stable.
+    analytics: AnalyticsClient = NoOpAnalyticsClient(),
 ): SharedVideoPlayer {
     val appContext = context.applicationContext
     return SharedVideoPlayer(

@@ -146,7 +146,7 @@ class MainShellRouteCoverageTest {
                 AboutLicenses,
                 PostDetailRoute(postUri = "at://did:plc:test/app.bsky.feed.post/test"),
                 ComposerRoute(),
-                PaywallRoute,
+                PaywallRoute(),
                 PaywallSuccessRoute,
                 Report.forAccount(did = "did:plc:test"),
                 Block.forAccount(did = "did:plc:test", handle = "test.bsky.social"),
