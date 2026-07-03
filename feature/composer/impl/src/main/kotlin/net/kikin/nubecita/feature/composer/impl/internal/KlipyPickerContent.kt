@@ -29,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -168,6 +170,7 @@ private fun KlipyStaggeredGrid(
     onItemClick: (KlipyMediaUi) -> Unit,
     onItemLongPress: (KlipyMediaUi) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -189,7 +192,10 @@ private fun KlipyStaggeredGrid(
                         .aspectRatio(item.previewAspectRatio)
                         .clip(RoundedCornerShape(8.dp))
                         .combinedClickable(
-                            onClick = { onItemClick(item) },
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                                onItemClick(item)
+                            },
                             onLongClick = { onItemLongPress(item) },
                         ),
             )
