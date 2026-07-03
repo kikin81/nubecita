@@ -693,6 +693,9 @@ internal class ComposerViewModel
          * images can't coexist; the add-image affordance is disabled meanwhile.
          */
         private fun handleGifPicked(media: KlipyMediaUi) {
+            // GIF XOR images — the UI disables the GIF chip while photos exist;
+            // this is the defensive backstop, symmetric with handleAddAttachments.
+            if (uiState.value.attachments.isNotEmpty()) return
             externalFetchJob?.cancel()
             cardedLinkText = null
             setState { copy(pickedGif = media, externalLink = ExternalLinkStatus.Idle) }

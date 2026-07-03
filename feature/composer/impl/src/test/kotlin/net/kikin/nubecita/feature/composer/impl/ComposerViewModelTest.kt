@@ -1182,6 +1182,19 @@ class ComposerViewModelTest {
         }
 
     @Test
+    fun gifPicked_isIgnored_whenPhotosAlreadyAttached() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att())))
+
+            vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pickedGif)
+            assertEquals(1, vm.uiState.value.attachments.size)
+        }
+
+    @Test
     fun removeGif_clearsPickedGif() =
         runTest {
             val vm = newVm()

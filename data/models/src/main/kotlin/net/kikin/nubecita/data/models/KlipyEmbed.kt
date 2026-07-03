@@ -25,5 +25,9 @@ public fun KlipyMediaUi.toExternalEmbedUri(): String {
     return embedUrl + separator + params.joinToString("&")
 }
 
-/** `https://static.klipy.com/ii/a/b/cat.mp4` → `cat`; null if empty. */
-private fun String.klipyFileSlug(): String? = substringAfterLast('/').substringBeforeLast('.').ifBlank { null }
+/** `https://static.klipy.com/ii/a/b/cat.mp4?v=1.0` → `cat`; null if empty. */
+private fun String.klipyFileSlug(): String? =
+    substringBefore('?')
+        .substringAfterLast('/')
+        .substringBeforeLast('.')
+        .ifBlank { null }

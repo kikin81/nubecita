@@ -27,4 +27,14 @@ class KlipyEmbedContractTest {
 
         assertEquals(480f / 360f, gifAspectRatioOrNull(uri))
     }
+
+    @Test
+    fun `the mp4 slug strips query params from the mp4 url`() {
+        val uri =
+            KlipyMediaUiFixtures
+                .media(mp4Url = "https://static.klipy.com/ii/a/b/cat.mp4?v=1.0")
+                .toExternalEmbedUri()
+
+        assertTrue(uri.contains("mp4=cat"), "expected mp4=cat, got: $uri")
+    }
 }
