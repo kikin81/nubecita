@@ -6,6 +6,7 @@ mandated view/share/report engagement tracking, behind an SDK-agnostic `:core:kl
 repository that returns `:data:models` types. It underpins the composer's GIF/sticker
 picker (see `feature-composer`) while keeping the KLIPY API key, Ktor client, and wire
 DTOs internal to the module — no KLIPY SDK type crosses the boundary.
+
 ## Requirements
 ### Requirement: Search KLIPY media
 The system SHALL fetch KLIPY media (GIFs and stickers) for a text query through an SDK-agnostic `:core:klipy` repository that returns `:data:models` types, with paged results.
@@ -28,6 +29,10 @@ The system SHALL expose trending, category, and per-user recents browsing for ea
 ### Requirement: Interaction tracking
 The system SHALL report a view when a user previews an item and a share when a user selects an item to send, per KLIPY's engagement contract.
 
+#### Scenario: Previewing an item reports a view
+- **WHEN** a user previews a KLIPY item
+- **THEN** the repository reports a view for that item's slug
+
 #### Scenario: Selecting an item reports a share
 - **WHEN** a user selects a KLIPY item to attach to a post
 - **THEN** the repository reports a share for that item's slug, and the item appears in the user's Recents
@@ -42,6 +47,10 @@ The system SHALL let a user report an item with a predefined reason and remove a
 #### Scenario: Reporting an item
 - **WHEN** a user reports an item with a reason
 - **THEN** the repository submits the report for that item's slug
+
+#### Scenario: Removing an item from Recents
+- **WHEN** a user removes an item from their Recents
+- **THEN** the repository hides the item from the user's Recents list
 
 ### Requirement: Stable customer identifier
 The system SHALL send a stable per-user identifier on fetch and tracking calls, persisted across launches.
