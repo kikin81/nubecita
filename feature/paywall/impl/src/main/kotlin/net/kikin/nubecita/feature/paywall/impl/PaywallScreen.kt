@@ -49,6 +49,7 @@ import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.spacing
+import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import net.kikin.nubecita.feature.paywall.impl.ui.PaywallPerkRow
 import net.kikin.nubecita.feature.paywall.impl.ui.PaywallPlanPicker
 
@@ -75,8 +76,12 @@ internal fun PaywallScreen(
     onDismiss: () -> Unit,
     onPurchaseSuccess: () -> Unit,
     modifier: Modifier = Modifier,
+    source: PaywallSource = PaywallSource.Other,
     viewModel: PaywallViewModel = hiltViewModel(),
 ) {
+    // Log the paywall view once, attributed to the entry surface (the VM has no
+    // route arg, so the screen — which knows the route's source — drives it).
+    LaunchedEffect(Unit) { viewModel.onPresented(source) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current

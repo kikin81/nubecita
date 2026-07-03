@@ -20,8 +20,10 @@ import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.data.models.SubscriptionPlan
 import net.kikin.nubecita.data.models.SubscriptionPlanId
+import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import timber.log.Timber
 import javax.inject.Inject
+import net.kikin.nubecita.core.analytics.PaywallSource as AnalyticsPaywallSource
 
 /**
  * Presenter for the Nubecita Pro paywall. Owns:
@@ -54,9 +56,21 @@ internal class PaywallViewModel
         private val analytics: AnalyticsClient,
     ) : MviViewModel<PaywallState, PaywallEvent, PaywallEffect>(PaywallState()) {
         init {
-            // Fired once when the paywall is presented (top of the funnel).
-            analytics.log(PaywallViewed)
             loadPlans()
+        }
+
+        /** Guards the one-shot view log against a config-change re-presentation. */
+        private var loggedView = false
+
+        /**
+         * Log the paywall view once (top of the funnel), tagged with the entry
+         * [source]. Driven from the screen — which alone knows the route's
+         * source — via a one-shot `LaunchedEffect`, since the VM has no route arg.
+         */
+        fun onPresented(source: PaywallSource) {
+            if (loggedView) return
+            loggedView = true
+            analytics.log(PaywallViewed(source.toAnalyticsSource()))
         }
 
         override fun handleEvent(event: PaywallEvent) {
@@ -210,4 +224,12 @@ private fun SubscriptionPlanId.toAnalyticsPlan(): PaywallPlan =
     when (this) {
         SubscriptionPlanId.Monthly -> PaywallPlan.Monthly
         SubscriptionPlanId.Annual -> PaywallPlan.Annual
+    }
+
+private fun PaywallSource.toAnalyticsSource(): AnalyticsPaywallSource =
+    when (this) {
+        PaywallSource.Pip -> AnalyticsPaywallSource.Pip
+        PaywallSource.Settings -> AnalyticsPaywallSource.Settings
+        PaywallSource.SupporterBadge -> AnalyticsPaywallSource.SupporterBadge
+        PaywallSource.Other -> AnalyticsPaywallSource.Other
     }

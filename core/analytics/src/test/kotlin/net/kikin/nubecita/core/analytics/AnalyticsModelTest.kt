@@ -106,8 +106,10 @@ class AnalyticsModelTest {
 
     @Test
     fun `paywall funnel events map to their wire names and params`() {
-        assertEquals("paywall_viewed", PaywallViewed.name)
-        assertEquals(emptyMap<String, AnalyticsValue>(), PaywallViewed.params)
+        assertEquals("paywall_viewed", PaywallViewed(PaywallSource.Pip).name)
+        assertEquals(mapOf("source_surface" to Str("pip")), PaywallViewed(PaywallSource.Pip).params)
+        assertEquals("settings", PaywallSource.Settings.wire)
+        assertEquals("supporter_badge", PaywallSource.SupporterBadge.wire)
 
         assertEquals("paywall_plan_selected", PaywallPlanSelected(PaywallPlan.Annual).name)
         assertEquals(mapOf("plan" to Str("annual")), PaywallPlanSelected(PaywallPlan.Annual).params)
@@ -125,6 +127,27 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `video_play carries surface and autoplay but never the clip`() {
+        val event = VideoPlay(surface = VideoSurface.Feed, autoplay = true)
+        assertEquals("video_play", event.name)
+        assertEquals(
+            mapOf(
+                "source_surface" to Str("feed"),
+                "autoplay" to BoolVal(true),
+            ),
+            event.params,
+        )
+        assertEquals("video_player", VideoSurface.VideoPlayer.wire)
+    }
+
+    @Test
+    fun `pip_attempt carries the entered vs upsell outcome`() {
+        assertEquals("pip_attempt", PipAttempt(PipOutcome.Entered).name)
+        assertEquals(mapOf("pip_outcome" to Str("entered")), PipAttempt(PipOutcome.Entered).params)
+        assertEquals(mapOf("pip_outcome" to Str("upsell")), PipAttempt(PipOutcome.Upsell).params)
+    }
+
+    @Test
     fun `is_pro user property is a bare boolean`() {
         assertEquals("is_pro", IsPro(true).name)
         assertEquals("true", IsPro(true).value)
@@ -135,12 +158,14 @@ class AnalyticsModelTest {
     fun `all paywall events and the is_pro property pass GA4 validation`() {
         val events =
             listOf(
-                PaywallViewed,
+                PaywallViewed(PaywallSource.Pip),
                 PaywallPlanSelected(PaywallPlan.Annual),
                 PaywallCheckoutStarted(PaywallPlan.Annual),
                 PaywallPurchaseCancelled,
                 PaywallPurchaseError,
                 PaywallRestore(RestoreOutcome.Restored),
+                VideoPlay(VideoSurface.Feed, autoplay = true),
+                PipAttempt(PipOutcome.Upsell),
             )
         events.forEach { AnalyticsValidator.requireValid(it) }
         AnalyticsValidator.requireValid(IsPro(true))

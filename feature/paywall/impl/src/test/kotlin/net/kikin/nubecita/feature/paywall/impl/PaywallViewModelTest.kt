@@ -25,6 +25,7 @@ import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.SubscriptionOfferingFixtures
 import net.kikin.nubecita.data.models.SubscriptionPlanId
+import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import java.io.IOException
+import net.kikin.nubecita.core.analytics.PaywallSource as AnalyticsPaywallSource
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class PaywallViewModelTest {
@@ -363,13 +365,14 @@ internal class PaywallViewModelTest {
     // -- Analytics (q5ge.13) -----------------------------------------------
 
     @Test
-    fun `init logs PaywallViewed`() =
+    fun `onPresented logs PaywallViewed tagged with the entry source`() =
         runTest(mainDispatcher.dispatcher) {
             val analytics = RecordingAnalyticsClient()
-            createVm(analytics = analytics)
+            val vm = createVm(analytics = analytics)
+            vm.onPresented(PaywallSource.Pip)
             advanceUntilIdle()
 
-            assertTrue(analytics.events.contains(PaywallViewed))
+            assertTrue(analytics.events.contains(PaywallViewed(AnalyticsPaywallSource.Pip)))
         }
 
     @Test
