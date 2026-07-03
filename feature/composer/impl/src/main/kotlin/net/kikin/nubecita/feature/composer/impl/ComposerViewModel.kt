@@ -849,7 +849,9 @@ internal class ComposerViewModel
             LinkPreview(
                 uri = toExternalEmbedUri(),
                 title = title ?: GIF_EMBED_TITLE,
-                description = title.orEmpty(),
+                // No description — a GIF embed has no distinct copy, and repeating
+                // the title renders as duplicated text in link-card fallback views.
+                description = "",
                 imageUrl = previewUrl,
             )
 
