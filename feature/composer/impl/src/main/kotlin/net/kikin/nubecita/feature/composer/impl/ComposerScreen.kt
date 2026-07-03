@@ -67,6 +67,8 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounte
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCloseAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDialogAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDiscardDialog
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerGifCard
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerGifChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerLanguageChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerLinkCard
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerOptionsChipRow
@@ -74,6 +76,7 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerQuoteSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
+import net.kikin.nubecita.feature.composer.impl.internal.KlipyPicker
 import net.kikin.nubecita.feature.composer.impl.internal.LanguagePicker
 import net.kikin.nubecita.feature.composer.impl.internal.composerCloseAttempt
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
@@ -229,6 +232,10 @@ internal fun ComposerScreen(
         remember(viewModel) {
             { viewModel.handleEvent(ComposerEvent.RemoveExternalLink) }
         }
+    val onRemoveGif =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.RemoveGif) }
+        }
 
     // Discard-confirmation gate. The composer is a transient, in-progress
     // surface — leaving it (back-press or toolbar X) while the draft has
@@ -258,6 +265,8 @@ internal fun ComposerScreen(
     // Audience-picker visibility — same shape as showPicker; the draft lives
     // inside AudiencePicker via its own rememberSaveable.
     var showAudiencePicker by rememberSaveable { mutableStateOf(false) }
+    // KLIPY GIF-picker visibility — same shape; KlipyPicker owns its own VM.
+    var showGifPicker by rememberSaveable { mutableStateOf(false) }
     val hasContent by remember(viewModel.textFieldState, state.attachments) {
         derivedStateOf {
             viewModel.textFieldState.text.isNotBlank() || state.attachments.isNotEmpty()
@@ -287,6 +296,7 @@ internal fun ComposerScreen(
         when {
             showAudiencePicker -> showAudiencePicker = false
             showPicker -> showPicker = false
+            showGifPicker -> showGifPicker = false
             showDiscardDialog -> showDiscardDialog = false
             else -> attemptClose()
         }
@@ -363,8 +373,10 @@ internal fun ComposerScreen(
         onRetryQuoteLoad = onRetryQuoteLoad,
         onRemoveQuote = onRemoveQuote,
         onRemoveExternalLink = onRemoveExternalLink,
+        onRemoveGif = onRemoveGif,
         onLanguageChipClick = { showPicker = true },
         onAudienceChipClick = { showAudiencePicker = true },
+        onGifChipClick = { showGifPicker = true },
         modifier = modifier,
     )
 
@@ -413,6 +425,19 @@ internal fun ComposerScreen(
         )
     }
 
+    if (showGifPicker) {
+        // KlipyPicker owns its own KlipyPickerViewModel and closes itself on
+        // selection (onSelectMedia then onDismiss). We just route the pick into
+        // the composer VM and flip the flag.
+        KlipyPicker(
+            onSelectMedia = { media ->
+                viewModel.handleEvent(ComposerEvent.GifPicked(media))
+                showGifPicker = false
+            },
+            onDismiss = { showGifPicker = false },
+        )
+    }
+
     if (showDiscardDialog) {
         ComposerDiscardDialog(
             actions =
@@ -458,6 +483,7 @@ internal fun ComposerScreenContent(
     onLanguageChipClick: () -> Unit,
     onAudienceChipClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onGifChipClick: () -> Unit = {},
     // Optional (defaulted) so static previews / screenshot fixtures need not
     // thread them — they never reorder or edit alt. The live screen passes the
     // real VM callbacks. Placed after `modifier` per the Compose param-order rule.
@@ -466,6 +492,7 @@ internal fun ComposerScreenContent(
     onCloseAltEditor: () -> Unit = {},
     onSetAltText: (Int, String) -> Unit = { _, _ -> },
     onRemoveExternalLink: () -> Unit = {},
+    onRemoveGif: () -> Unit = {},
 ) {
     // Alt editor is a layer within the composer's own surface: when a photo is
     // being described, it replaces the composer body (full-screen on phone, or
@@ -625,6 +652,12 @@ internal fun ComposerScreenContent(
                         onClick = onAudienceChipClick,
                     )
                 }
+                // GIF chip — disabled while photos are attached (a GIF and images
+                // are mutually exclusive, sharing the single embed slot).
+                ComposerGifChip(
+                    onClick = onGifChipClick,
+                    enabled = state.attachments.isEmpty(),
+                )
             }
             // Composer attachment action row. Hosts the leading
             // "Add image" affordance and a horizontally-scrolling
@@ -635,6 +668,9 @@ internal fun ComposerScreenContent(
             ComposerAttachmentRow(
                 attachments = state.attachments,
                 isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting,
+                // GIF XOR images: hide the add-image affordance while a GIF is
+                // attached (the GIF chip is likewise disabled while photos exist).
+                blockAdd = state.pickedGif != null,
                 onAddImageClick = onAddImageClick,
                 onRemoveAttachment = onRemoveAttachment,
                 onMoveAttachment = onMoveAttachment,
@@ -659,6 +695,16 @@ internal fun ComposerScreenContent(
                 onRemove = onRemoveExternalLink,
                 modifier = Modifier.padding(top = 8.dp),
             )
+            // Picked-GIF preview — mutually exclusive with images + the link card
+            // (the scanner is suppressed while a GIF is set), so at most one of
+            // these two cards renders.
+            state.pickedGif?.let { gif ->
+                ComposerGifCard(
+                    gif = gif,
+                    onRemove = onRemoveGif,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
             // Quote-mode section — renders nothing when not quoting
             // (quotePostLoad == null). Sits at the bottom (below text +
             // attachments), matching the reader's stacked layout: reply
@@ -699,10 +745,11 @@ private fun ComposerAttachmentRow(
     onMoveAttachment: (Int, Int) -> Unit,
     onChipClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    blockAdd: Boolean = false,
 ) {
     val attachmentCount = attachments.size
     val isAtCap = attachmentCount >= ComposerViewModel.MAX_ATTACHMENTS
-    val canAddImage = !isSubmitting && !isAtCap
+    val canAddImage = !isSubmitting && !isAtCap && !blockAdd
     // The "Add image" button lives OUTSIDE the LazyRow, so LazyRow item
     // indices map 1:1 to attachment indices — onMove can forward them as-is.
     val listState = rememberLazyListState()
@@ -784,7 +831,13 @@ private fun canPost(
     // A loaded quote counts as content — an empty-text quote post is valid
     // (the embed is the content), mirroring the VM's canSubmit.
     val hasQuote = state.quotePostLoad is QuoteLoadStatus.Loaded
-    if (textFieldState.text.isBlank() && state.attachments.isEmpty() && !hasQuote) return false
+    if (textFieldState.text.isBlank() &&
+        state.attachments.isEmpty() &&
+        state.pickedGif == null &&
+        !hasQuote
+    ) {
+        return false
+    }
     if (state.isOverLimit) return false
     // Gallery (>4 images) requires alt on every photo — mirrors the VM gate.
     if (state.isGalleryMissingAlt) return false

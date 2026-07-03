@@ -4,6 +4,7 @@ import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.KlipyMediaUi
 
 /**
  * Inbound UI intents the composer screen dispatches into the VM.
@@ -103,6 +104,19 @@ internal sealed interface ComposerEvent : UiEvent {
      * non-memoizing clear when images are added).
      */
     data object RemoveExternalLink : ComposerEvent
+
+    /**
+     * The KLIPY picker returned a chosen GIF/sticker. Reducer sets
+     * [net.kikin.nubecita.feature.composer.impl.state.ComposerState.pickedGif]
+     * and clears any auto-detected link card (the GIF takes the external slot).
+     * Guarded so it can't coexist with image attachments.
+     */
+    data class GifPicked(
+        val media: KlipyMediaUi,
+    ) : ComposerEvent
+
+    /** The user tapped the dismiss (✕) on the picked-GIF preview card. */
+    data object RemoveGif : ComposerEvent
 
     /**
      * The user tapped a row in the `@`-mention typeahead dropdown.

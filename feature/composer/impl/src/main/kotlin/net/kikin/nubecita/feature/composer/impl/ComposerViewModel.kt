@@ -26,12 +26,15 @@ import net.kikin.nubecita.core.common.text.GraphemeCounter
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultRepository
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
+import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.KlipyMediaUi
+import net.kikin.nubecita.data.models.toExternalEmbedUri
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
@@ -228,7 +231,9 @@ internal class ComposerViewModel
                     ExternalLinkDetector.detect(text, exclude)?.let { TextLinkScanner.Match(it.matchedText, it.matchedText) }
                 },
                 alreadyHandled = {
-                    uiState.value.attachments.isNotEmpty() || uiState.value.externalLink != ExternalLinkStatus.Idle
+                    uiState.value.attachments.isNotEmpty() ||
+                        uiState.value.externalLink != ExternalLinkStatus.Idle ||
+                        uiState.value.pickedGif != null
                 },
                 onDetected = { _, url -> launchExternalFetch(url) },
             )
@@ -352,6 +357,8 @@ internal class ComposerViewModel
                 ComposerEvent.RetryQuoteLoad -> if (!submitInFlight) handleRetryQuoteLoad()
                 ComposerEvent.RemoveQuote -> if (!submitInFlight) handleRemoveQuote()
                 ComposerEvent.RemoveExternalLink -> if (!submitInFlight) handleRemoveExternalLink()
+                is ComposerEvent.GifPicked -> if (!submitInFlight) handleGifPicked(event.media)
+                ComposerEvent.RemoveGif -> if (!submitInFlight) setState { copy(pickedGif = null) }
                 is ComposerEvent.TypeaheadResultClicked ->
                     if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
                 is ComposerEvent.LanguageSelectionConfirmed ->
@@ -362,6 +369,9 @@ internal class ComposerViewModel
         }
 
         private fun handleAddAttachments(incoming: List<net.kikin.nubecita.core.posting.ComposerAttachment>) {
+            // GIF XOR images — the UI disables the add-image affordance while a GIF
+            // is attached; this is the defensive backstop.
+            if (uiState.value.pickedGif != null) return
             Timber.tag(TAG).d(
                 "handleAddAttachments() — incoming=%d, currentAttachments=%d",
                 incoming.size,
@@ -566,6 +576,12 @@ internal class ComposerViewModel
                     ReplyRefs(parent = it.parentRef, root = it.rootRef)
                 }
             val quote = (current.quotePostLoad as? QuoteLoadStatus.Loaded)?.post?.ref
+            // A picked GIF is posted through the external-embed slot (a KLIPY GIF
+            // *is* an app.bsky.embed.external), taking precedence over any
+            // auto-detected link card. It's mutually exclusive with attachments.
+            val external =
+                current.pickedGif?.toLinkPreview()
+                    ?: (current.externalLink as? ExternalLinkStatus.Loaded)?.preview
 
             setState { copy(submitStatus = ComposerSubmitStatus.Submitting) }
 
@@ -578,7 +594,7 @@ internal class ComposerViewModel
                         langs = current.selectedLangs,
                         audience = current.audience,
                         quote = quote,
-                        external = (current.externalLink as? ExternalLinkStatus.Loaded)?.preview,
+                        external = external,
                     )
                 result.fold(
                     onSuccess = { uri ->
@@ -668,6 +684,18 @@ internal class ComposerViewModel
             // Note: not forgetting the URL from the scanner — a manual dismiss
             // should stay dismissed while the URL remains in the text.
             setState { copy(externalLink = ExternalLinkStatus.Idle) }
+        }
+
+        /**
+         * A KLIPY GIF was picked. It takes the single external-embed slot, so
+         * clear any auto-detected link card + its in-flight fetch (the scanner is
+         * also suppressed while [ComposerState.pickedGif] is set). A GIF and
+         * images can't coexist; the add-image affordance is disabled meanwhile.
+         */
+        private fun handleGifPicked(media: KlipyMediaUi) {
+            externalFetchJob?.cancel()
+            cardedLinkText = null
+            setState { copy(pickedGif = media, externalLink = ExternalLinkStatus.Idle) }
         }
 
         /**
@@ -775,6 +803,7 @@ internal class ComposerViewModel
             val hasContent =
                 text.isNotBlank() ||
                     state.attachments.isNotEmpty() ||
+                    state.pickedGif != null ||
                     state.quotePostLoad is QuoteLoadStatus.Loaded
             if (!hasContent) return false
             if (state.isOverLimit) return false
@@ -801,8 +830,18 @@ internal class ComposerViewModel
             return true
         }
 
+        /** Build the `app.bsky.embed.external` inputs for a picked KLIPY GIF. */
+        private fun KlipyMediaUi.toLinkPreview(): LinkPreview =
+            LinkPreview(
+                uri = toExternalEmbedUri(),
+                title = title ?: GIF_EMBED_TITLE,
+                description = title.orEmpty(),
+                imageUrl = previewUrl,
+            )
+
         companion object {
             private const val TAG = "ComposerVM"
+            private const val GIF_EMBED_TITLE = "GIF"
 
             /** AT Protocol post-text limit per `app.bsky.richtext.facet.MAX_GRAPHEMES`. */
             const val MAX_GRAPHEMES = 300

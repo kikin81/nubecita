@@ -5,6 +5,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.PostAudience
+import net.kikin.nubecita.data.models.KlipyMediaUi
 
 /**
  * Flat, UI-ready state for the unified composer screen.
@@ -123,6 +124,15 @@ internal data class ComposerState(
      * with a quote. Never blocks submit.
      */
     val externalLink: ExternalLinkStatus = ExternalLinkStatus.Idle,
+    /**
+     * A KLIPY GIF/sticker the user picked, or `null`. A GIF occupies the single
+     * external-embed slot: it's **mutually exclusive with [attachments]** (the
+     * add-image affordance and the GIF chip disable each other) and suppresses
+     * the auto-detected [externalLink] card. At submit it's built into an
+     * `app.bsky.embed.external` via [KlipyMediaUi.toExternalEmbedUri]. Cleared by
+     * `RemoveGif`.
+     */
+    val pickedGif: KlipyMediaUi? = null,
 ) : UiState
 
 /**

@@ -60,6 +60,9 @@
     <string name="composer_alt_required_hint">Agrega texto alternativo a cada foto</string>
     <string name="composer_remove_link_action">Quitar tarjeta de enlace</string>
 
+    <string name="composer_gif_chip">GIF</string>
+    <string name="composer_remove_gif_action">Quitar GIF</string>
+
     <!-- KLIPY GIF/sticker picker -->
     <string name="klipy_search_placeholder">Buscar en KLIPY</string>
     <string name="klipy_tab_gifs">GIF</string>
