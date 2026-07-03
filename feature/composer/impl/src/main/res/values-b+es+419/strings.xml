@@ -59,4 +59,19 @@
     <string name="composer_alt_editor_position">%1$d de %2$d</string>
     <string name="composer_alt_required_hint">Agrega texto alternativo a cada foto</string>
     <string name="composer_remove_link_action">Quitar tarjeta de enlace</string>
+
+    <!-- KLIPY GIF/sticker picker -->
+    <string name="klipy_search_placeholder">Buscar en KLIPY</string>
+    <string name="klipy_tab_gifs">GIF</string>
+    <string name="klipy_tab_stickers">Stickers</string>
+    <string name="klipy_powered_by">Con tecnología de KLIPY</string>
+    <string name="klipy_empty">Sin resultados</string>
+    <string name="klipy_load_error_retry">No se pudo cargar; toca para reintentar</string>
+    <string name="klipy_gif_description">GIF</string>
+    <string name="klipy_preview_close">Cerrar</string>
+    <string name="klipy_report">Denunciar</string>
+    <string name="klipy_report_spam">Spam</string>
+    <string name="klipy_report_nudity">Desnudez</string>
+    <string name="klipy_report_violence">Violencia</string>
+    <string name="klipy_report_other">Otro</string>
 </resources>
