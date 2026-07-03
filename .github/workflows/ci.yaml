@@ -381,12 +381,15 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          # `:app` ships two product flavors (`production` + `bench`) since
-          # nubecita-crmi.6, so `connectedDebugAndroidTest` is ambiguous and
-          # must name the flavor. The instrumented suite runs against the
-          # production flavor; the `bench` flavor (fake-network DI) is
-          # exclusive to :benchmark Macrobench in the scheduled bench job.
-          script: ./gradlew :app:connectedProductionDebugAndroidTest
+          # Run every module's connected tests, not just :app's — feature/core
+          # module androidTest had been rotting unseen because only :app ran here
+          # (nubecita-bknu). `connectedProductionDebugAndroidTest` covers the
+          # flavored modules (:app + features, all on the `production` flavor;
+          # the `bench` fake-network flavor stays exclusive to :benchmark's
+          # scheduled Macrobench); `connectedDebugAndroidTest` covers any
+          # non-flavored module. `--continue` so one module's failure still
+          # reports the rest.
+          script: ./gradlew connectedProductionDebugAndroidTest connectedDebugAndroidTest --continue
 
       - name: Upload androidTest reports on failure
         if: failure()
