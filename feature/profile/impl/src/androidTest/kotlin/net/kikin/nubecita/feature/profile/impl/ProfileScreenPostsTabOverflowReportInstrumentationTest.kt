@@ -2,7 +2,9 @@ package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -43,7 +45,6 @@ import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import kotlin.time.Instant
@@ -88,18 +89,6 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
         hiltRule.inject()
     }
 
-    @Ignore(
-        "nubecita-bknu: NOT an emulator/gesture issue (the earlier @Ignore reason " +
-            "was a misdiagnosis — 'Failed to inject touch input' is just Compose's " +
-            "generic label for a failed node fetch). Verified root cause: this uses " +
-            "the exact interaction of the passing FeedScreenOverflowReportInstrumentationTest " +
-            "(tap post overflow → tap 'Report post'), the overflow click DOES open the " +
-            "menu popup, but 'Report post' is never found (fetchOneOrThrow: 0 nodes) when " +
-            "the PostCard is rendered inside ProfileScreen's Posts tab — so the post-card " +
-            "overflow menu differs between the feed and profile-posts-tab render paths. " +
-            "Needs that discrepancy investigated; the ReportPost→NavigateToReport contract " +
-            "is meanwhile covered by ProfileScreenOverflowReportInstrumentationTest.",
-    )
     @Test
     fun postsTabPostCardOverflow_reportRow_pushesReportNavKeyOntoActiveTabStack() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -251,16 +240,19 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
         // Sanity: stack starts at just the Profile tab home.
         assertEquals(listOf<NavKey>(profileRoot), navState.backStack.toList())
 
-        // Tap the PostCard's overflow affordance. `useUnmergedTree`
-        // because the icon button's semantics are nested under the
-        // action row's merged tree; without it the matcher returns
-        // nothing. Mirrors FeedScreenOverflowReportInstrumentationTest.
+        // Tap the PostCard's overflow affordance. `PostStat` exposes its
+        // action verb via `onClickLabel` (NOT `contentDescription`) for
+        // non-toggleable cells — see PostStat's kdoc — so match on the
+        // OnClick action label, not `hasContentDescription`. This also
+        // disambiguates the post overflow from the ProfileHero's account
+        // overflow, whose `IconButton` uses a real `contentDescription`
+        // that resolves to the SAME "More options" string.
         composeTestRule
-            .onAllNodes(hasContentDescription(moreOptionsCd), useUnmergedTree = true)[0]
+            .onAllNodes(hasClickLabel(moreOptionsCd), useUnmergedTree = true)[0]
             .performClick()
+        composeTestRule.waitForIdle()
 
-        // DropdownMenu is now open — tap "Report post" (identical to the passing
-        // FeedScreenOverflowReportInstrumentationTest).
+        // DropdownMenu is now open — tap "Report post".
         composeTestRule.onNodeWithText(reportPostLabel).performClick()
 
         composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) {
@@ -285,5 +277,17 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
 
     private companion object {
         const val WAIT_TIMEOUT_MILLIS = 5_000L
+
+        /**
+         * Matches a node whose `OnClick` action carries [label] as its
+         * accessibility label. `PostStat` labels its non-toggleable action
+         * cells (reply / repost / share / overflow) via `onClickLabel`, not
+         * `contentDescription`, so this is the correct selector for the
+         * PostCard overflow affordance.
+         */
+        fun hasClickLabel(label: String) =
+            SemanticsMatcher("OnClick action label == '$label'") { node ->
+                node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+            }
     }
 }
