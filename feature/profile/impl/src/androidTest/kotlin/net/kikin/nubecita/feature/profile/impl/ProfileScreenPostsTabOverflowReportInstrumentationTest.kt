@@ -2,14 +2,11 @@ package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.test.platform.app.InstrumentationRegistry
@@ -92,13 +89,16 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
     }
 
     @Ignore(
-        "nubecita-bknu: reaching the post's overflow needs a scroll (it sits " +
-            "below the collapsing hero). Uses the programmatic performScrollToNode " +
-            "(no injected swipe), but the local dev emulator has a broad " +
-            "gesture/touch-injection failure — it fails multiple profile tests, " +
-            "incl. untouched ones like ProfileScreenInstrumentationTest, with " +
-            "'Failed to inject touch input', while CI's emulator runs them clean. " +
-            "Re-enable once feature-module instrumented tests run on CI (sharded).",
+        "nubecita-bknu: NOT an emulator/gesture issue (the earlier @Ignore reason " +
+            "was a misdiagnosis — 'Failed to inject touch input' is just Compose's " +
+            "generic label for a failed node fetch). Verified root cause: this uses " +
+            "the exact interaction of the passing FeedScreenOverflowReportInstrumentationTest " +
+            "(tap post overflow → tap 'Report post'), the overflow click DOES open the " +
+            "menu popup, but 'Report post' is never found (fetchOneOrThrow: 0 nodes) when " +
+            "the PostCard is rendered inside ProfileScreen's Posts tab — so the post-card " +
+            "overflow menu differs between the feed and profile-posts-tab render paths. " +
+            "Needs that discrepancy investigated; the ReportPost→NavigateToReport contract " +
+            "is meanwhile covered by ProfileScreenOverflowReportInstrumentationTest.",
     )
     @Test
     fun postsTabPostCardOverflow_reportRow_pushesReportNavKeyOntoActiveTabStack() {
@@ -255,23 +255,12 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
         // because the icon button's semantics are nested under the
         // action row's merged tree; without it the matcher returns
         // nothing. Mirrors FeedScreenOverflowReportInstrumentationTest.
-        // The post's overflow sits below the collapsing hero. Scroll to it
-        // PROGRAMMATICALLY (via the list's ScrollToNode semantics, not an
-        // injected swipe) — this avoids the "Failed to inject touch input"
-        // gesture flake. Target the vertical posts list (the scrollable that
-        // actually contains the overflow) to disambiguate from the tab pager.
-        composeTestRule
-            .onNode(
-                hasScrollToNodeAction() and hasAnyDescendant(hasContentDescription(moreOptionsCd)),
-                useUnmergedTree = true,
-            ).performScrollToNode(hasContentDescription(moreOptionsCd))
-        composeTestRule.waitForIdle()
         composeTestRule
             .onAllNodes(hasContentDescription(moreOptionsCd), useUnmergedTree = true)[0]
             .performClick()
-        composeTestRule.waitForIdle()
 
-        // DropdownMenu is now open — tap "Report post".
+        // DropdownMenu is now open — tap "Report post" (identical to the passing
+        // FeedScreenOverflowReportInstrumentationTest).
         composeTestRule.onNodeWithText(reportPostLabel).performClick()
 
         composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) {
