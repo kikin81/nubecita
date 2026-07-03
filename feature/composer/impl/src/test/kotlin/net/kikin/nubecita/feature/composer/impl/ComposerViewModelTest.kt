@@ -1166,9 +1166,12 @@ class ComposerViewModelTest {
         }
 
     @Test
-    fun gifPicked_setsPickedGif_andSuppressesLinkCard() =
+    fun gifPicked_setsPickedGif_andClearsALoadedLinkCard() =
         runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
             val vm = newVm()
+            setComposerText(vm, "look at $EXTERNAL_URL")
+            assertTrue(vm.uiState.value.externalLink is ExternalLinkStatus.Loaded)
 
             vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
             advanceUntilIdle()
@@ -1179,6 +1182,23 @@ class ComposerViewModelTest {
                     ?.slug,
             )
             assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+        }
+
+    @Test
+    fun removeGif_reScansTextAndRestoresTheLinkCard() =
+        runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+            val vm = newVm()
+            setComposerText(vm, "look at $EXTERNAL_URL")
+            vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
+            advanceUntilIdle()
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+
+            vm.handleEvent(ComposerEvent.RemoveGif)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pickedGif)
+            assertTrue(vm.uiState.value.externalLink is ExternalLinkStatus.Loaded)
         }
 
     @Test

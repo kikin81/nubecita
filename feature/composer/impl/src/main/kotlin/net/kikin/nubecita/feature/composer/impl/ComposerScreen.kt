@@ -267,9 +267,11 @@ internal fun ComposerScreen(
     var showAudiencePicker by rememberSaveable { mutableStateOf(false) }
     // KLIPY GIF-picker visibility — same shape; KlipyPicker owns its own VM.
     var showGifPicker by rememberSaveable { mutableStateOf(false) }
-    val hasContent by remember(viewModel.textFieldState, state.attachments) {
+    val hasContent by remember(viewModel.textFieldState, state.attachments, state.pickedGif) {
         derivedStateOf {
-            viewModel.textFieldState.text.isNotBlank() || state.attachments.isNotEmpty()
+            viewModel.textFieldState.text.isNotBlank() ||
+                state.attachments.isNotEmpty() ||
+                state.pickedGif != null
         }
     }
     val isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting

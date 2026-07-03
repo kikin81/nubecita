@@ -358,7 +358,7 @@ internal class ComposerViewModel
                 ComposerEvent.RemoveQuote -> if (!submitInFlight) handleRemoveQuote()
                 ComposerEvent.RemoveExternalLink -> if (!submitInFlight) handleRemoveExternalLink()
                 is ComposerEvent.GifPicked -> if (!submitInFlight) handleGifPicked(event.media)
-                ComposerEvent.RemoveGif -> if (!submitInFlight) setState { copy(pickedGif = null) }
+                ComposerEvent.RemoveGif -> if (!submitInFlight) handleRemoveGif()
                 is ComposerEvent.TypeaheadResultClicked ->
                     if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
                 is ComposerEvent.LanguageSelectionConfirmed ->
@@ -697,8 +697,19 @@ internal class ComposerViewModel
             // this is the defensive backstop, symmetric with handleAddAttachments.
             if (uiState.value.attachments.isNotEmpty()) return
             externalFetchJob?.cancel()
+            // Forget the carded URL (non-memoizing, like the images-XOR clear) so
+            // removing the GIF later re-detects and restores the card.
+            cardedLinkText?.let { externalLinkScanner.forget(it) }
             cardedLinkText = null
             setState { copy(pickedGif = media, externalLink = ExternalLinkStatus.Idle) }
+        }
+
+        private fun handleRemoveGif() {
+            setState { copy(pickedGif = null) }
+            // A URL still in the text can re-detect its card now that the GIF is
+            // gone; removal doesn't change text, so re-scan explicitly (mirrors
+            // handleRemoveAttachment).
+            externalLinkScanner.scan(textFieldState.text.toString())
         }
 
         /**
