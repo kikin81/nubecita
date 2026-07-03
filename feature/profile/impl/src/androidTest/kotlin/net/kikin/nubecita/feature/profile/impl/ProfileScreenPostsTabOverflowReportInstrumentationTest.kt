@@ -2,14 +2,14 @@ package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.test.platform.app.InstrumentationRegistry
@@ -72,10 +72,11 @@ import net.kikin.nubecita.designsystem.R as DesignsystemR
  * pins the per-post (PostCard overflow in the Posts tab body) Report.
  *
  * Construction mirrors `ProfileScreenOverflowReportInstrumentationTest`:
- * the VM's three collaborators are built directly (mockk for cache +
- * session, hand-rolled fake for ProfileRepository) so this test doesn't
- * need a Hilt harness. The fake's `fetchTab` returns a single PostUi so
- * the Posts tab renders a PostCard with an overflow affordance.
+ * the VM's collaborators are built directly (mockk for cache + session,
+ * hand-rolled fake for ProfileRepository), but the test still uses the Hilt
+ * harness (`@HiltAndroidTest` + `HiltAndroidRule`) to launch `HiltTestActivity`.
+ * The fake's `fetchTab` returns a single PostUi so the Posts tab renders a
+ * PostCard with an overflow affordance.
  */
 @HiltAndroidTest
 class ProfileScreenPostsTabOverflowReportInstrumentationTest {
@@ -91,14 +92,13 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
     }
 
     @Ignore(
-        "nubecita-bknu: the post-card overflow sits below the fold behind the " +
-            "profile's collapsing hero + tab pager, so reaching it needs a scroll. " +
-            "Swipe/drag gesture injection fails on the API-35 emulator for this " +
-            "window (taps work — the sibling account-overflow test passes; both " +
-            "performScrollTo and a root swipeUp fail with 'Failed to inject touch " +
-            "input'). The ReportPost→NavigateToReport contract is already covered " +
-            "by ProfileScreenOverflowReportInstrumentationTest; re-enable once the " +
-            "test can reach the post without a gesture-injected scroll.",
+        "nubecita-bknu: reaching the post's overflow needs a scroll (it sits " +
+            "below the collapsing hero). Uses the programmatic performScrollToNode " +
+            "(no injected swipe), but the local dev emulator has a broad " +
+            "gesture/touch-injection failure — it fails multiple profile tests, " +
+            "incl. untouched ones like ProfileScreenInstrumentationTest, with " +
+            "'Failed to inject touch input', while CI's emulator runs them clean. " +
+            "Re-enable once feature-module instrumented tests run on CI (sharded).",
     )
     @Test
     fun postsTabPostCardOverflow_reportRow_pushesReportNavKeyOntoActiveTabStack() {
@@ -255,13 +255,16 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
         // because the icon button's semantics are nested under the
         // action row's merged tree; without it the matcher returns
         // nothing. Mirrors FeedScreenOverflowReportInstrumentationTest.
-        // Bring the target post fully on-screen first — unlike the header
-        // overflow (test 1), the profile's collapsing hero + tabs push the
-        // single post's overflow below the fold, and Compose rejects touch
-        // injection on an off-screen node. `performScrollTo` can't traverse the
-        // pager / nested-scroll layers to the lazy item, so scroll the content
-        // up with a full-screen swipe (collapses the hero + scrolls the list).
-        composeTestRule.onRoot().performTouchInput { swipeUp() }
+        // The post's overflow sits below the collapsing hero. Scroll to it
+        // PROGRAMMATICALLY (via the list's ScrollToNode semantics, not an
+        // injected swipe) — this avoids the "Failed to inject touch input"
+        // gesture flake. Target the vertical posts list (the scrollable that
+        // actually contains the overflow) to disambiguate from the tab pager.
+        composeTestRule
+            .onNode(
+                hasScrollToNodeAction() and hasAnyDescendant(hasContentDescription(moreOptionsCd)),
+                useUnmergedTree = true,
+            ).performScrollToNode(hasContentDescription(moreOptionsCd))
         composeTestRule.waitForIdle()
         composeTestRule
             .onAllNodes(hasContentDescription(moreOptionsCd), useUnmergedTree = true)[0]

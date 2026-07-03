@@ -68,12 +68,12 @@ import org.junit.Test
  * NavDisplay + Hilt-injected EntryProviderInstaller multibinding harness
  * for no incremental contract gain.
  *
- * The VM's three collaborators are built directly (mockk-relaxed for the
- * cache + session, hand-rolled fake for ProfileRepository) so this test
- * doesn't need a Hilt harness — Profile's instrumentation tests cover
- * both Hilt-driven flows (Settings sign-out) and Hilt-free flows
- * (ProfileScreenInstrumentationTest), so picking the lighter setup here
- * matches the established mix.
+ * The VM's collaborators are built directly (mockk-relaxed for the cache +
+ * session, hand-rolled fake for ProfileRepository), so the VM under test is
+ * hand-constructed rather than Hilt-injected. The test still uses the Hilt
+ * harness (`@HiltAndroidTest` + `HiltAndroidRule`) because it renders into
+ * `HiltTestActivity`, whose `@AndroidEntryPoint` requires the test component to
+ * be created first (without the rule the activity crashes at launch).
  */
 @HiltAndroidTest
 class ProfileScreenOverflowReportInstrumentationTest {

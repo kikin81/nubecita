@@ -22,7 +22,7 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object TestOAuthConfigModule {
+internal object TestOAuthConfigModule {
     @Provides
     @Singleton
     @OAuthClientMetadataUrl

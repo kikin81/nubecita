@@ -381,15 +381,20 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          # Run every module's connected tests, not just :app's — feature/core
-          # module androidTest had been rotting unseen because only :app ran here
-          # (nubecita-bknu). `connectedProductionDebugAndroidTest` covers the
-          # flavored modules (:app + features, all on the `production` flavor;
-          # the `bench` fake-network flavor stays exclusive to :benchmark's
-          # scheduled Macrobench); `connectedDebugAndroidTest` covers any
-          # non-flavored module. `--continue` so one module's failure still
-          # reports the rest.
-          script: ./gradlew connectedProductionDebugAndroidTest connectedDebugAndroidTest --continue
+          # `:app` ships two product flavors (`production` + `bench`) since
+          # nubecita-crmi.6, so `connectedDebugAndroidTest` is ambiguous and
+          # must name the flavor. The instrumented suite runs against the
+          # production flavor; the `bench` flavor (fake-network DI) is
+          # exclusive to :benchmark Macrobench in the scheduled bench job.
+          #
+          # NOTE (nubecita-bknu): running *every* module's connected tests on a
+          # single emulator here is not viable — it crashes the emulator
+          # (`Failed to start Emulator console` → `Process crashed` cascading
+          # across modules). Feature/core module androidTest compile-rot is now
+          # caught by the `Compile instrumented (androidTest) sources` step in
+          # the build job; actually *running* them needs a sharded matrix (one
+          # emulator per module group) — tracked separately.
+          script: ./gradlew :app:connectedProductionDebugAndroidTest
 
       - name: Upload androidTest reports on failure
         if: failure()
