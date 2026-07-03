@@ -137,6 +137,9 @@
     <!-- a11y label for the dismiss control on the external link-preview card. -->
     <string name="composer_remove_link_action">Remove link card</string>
 
+    <string name="composer_gif_chip">GIF</string>
+    <string name="composer_remove_gif_action">Remove GIF</string>
+
     <!-- KLIPY GIF/sticker picker -->
     <!-- Search field placeholder. "KLIPY" is a required brand mention. -->
     <string name="klipy_search_placeholder">Search KLIPY</string>

@@ -32,6 +32,7 @@ import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyAudience
 import net.kikin.nubecita.core.posting.ReplyRefs
+import net.kikin.nubecita.data.models.KlipyMediaUiFixtures
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
@@ -1162,6 +1163,112 @@ class ComposerViewModelTest {
             advanceUntilIdle()
 
             assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+        }
+
+    @Test
+    fun gifPicked_setsPickedGif_andClearsALoadedLinkCard() =
+        runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+            val vm = newVm()
+            setComposerText(vm, "look at $EXTERNAL_URL")
+            assertTrue(vm.uiState.value.externalLink is ExternalLinkStatus.Loaded)
+
+            vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
+            advanceUntilIdle()
+
+            assertEquals(
+                "cat",
+                vm.uiState.value.pickedGif
+                    ?.slug,
+            )
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+        }
+
+    @Test
+    fun removeGif_reScansTextAndRestoresTheLinkCard() =
+        runTest {
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+            val vm = newVm()
+            setComposerText(vm, "look at $EXTERNAL_URL")
+            vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
+            advanceUntilIdle()
+            assertEquals(ExternalLinkStatus.Idle, vm.uiState.value.externalLink)
+
+            vm.handleEvent(ComposerEvent.RemoveGif)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pickedGif)
+            assertTrue(vm.uiState.value.externalLink is ExternalLinkStatus.Loaded)
+        }
+
+    @Test
+    fun gifPicked_isIgnored_whenPhotosAlreadyAttached() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att())))
+
+            vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pickedGif)
+            assertEquals(1, vm.uiState.value.attachments.size)
+        }
+
+    @Test
+    fun removeGif_clearsPickedGif() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
+
+            vm.handleEvent(ComposerEvent.RemoveGif)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pickedGif)
+        }
+
+    @Test
+    fun addAttachments_whileGifPicked_isIgnored() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
+
+            vm.handleEvent(ComposerEvent.AddAttachments(listOf(att())))
+            advanceUntilIdle()
+
+            assertEquals(0, vm.uiState.value.attachments.size)
+        }
+
+    @Test
+    fun submit_withPickedGif_postsStaticKlipyExternalEmbed() =
+        runTest {
+            val captured = mutableListOf<LinkPreview?>()
+            coEvery {
+                postingRepository.createPost(
+                    text = any(),
+                    attachments = any(),
+                    replyTo = any(),
+                    langs = any(),
+                    audience = any(),
+                    quote = any(),
+                    external = captureNullable(captured),
+                )
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/gif"))
+
+            val vm = newVm()
+            vm.handleEvent(
+                ComposerEvent.GifPicked(
+                    KlipyMediaUiFixtures.media(slug = "cat", embedWidth = 480, embedHeight = 360),
+                ),
+            )
+            vm.handleEvent(ComposerEvent.Submit)
+            advanceUntilIdle()
+
+            assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
+            val external = captured.last() ?: error("createPost external was null")
+            assertTrue(external.uri.startsWith("https://static.klipy.com/ii/"))
+            assertTrue(external.uri.contains("ww=480"))
+            assertTrue(external.uri.contains("hh=360"))
+            assertEquals("https://static.klipy.com/ii/preview/cat.webp", external.imageUrl)
         }
 
     private fun aLinkPreview(): LinkPreview =
