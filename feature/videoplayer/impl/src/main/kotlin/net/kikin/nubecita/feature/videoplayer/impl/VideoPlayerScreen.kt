@@ -13,6 +13,7 @@ import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
+import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
 
 /**
@@ -76,8 +77,14 @@ internal fun VideoPlayerScreen(
             {
                 resolvePopOut(
                     pipEnabled = pipEnabled,
-                    enterPip = pipBridge::enterPip,
-                    navigateToPaywall = { navigator.goTo(PaywallRoute) },
+                    enterPip = {
+                        viewModel.onPipReach(entered = true)
+                        pipBridge.enterPip()
+                    },
+                    navigateToPaywall = {
+                        viewModel.onPipReach(entered = false)
+                        navigator.goTo(PaywallRoute(PaywallSource.Pip))
+                    },
                 )
             }
         } else {

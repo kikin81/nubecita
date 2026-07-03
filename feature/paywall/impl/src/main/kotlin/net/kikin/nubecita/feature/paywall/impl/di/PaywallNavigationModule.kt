@@ -19,7 +19,7 @@ import net.kikin.nubecita.feature.paywall.impl.PaywallSuccessScreen
  * `@MainShell` provider for the [PaywallRoute] sub-route. Pushed onto the
  * inner back stack from non-Pro upsell surfaces (the fullscreen-video
  * pop-out button — nubecita-q5ge.8 — and the Settings Pro row —
- * nubecita-q5ge.10) via `navState.add(PaywallRoute)`; the close affordance
+ * nubecita-q5ge.10) via `navState.add(PaywallRoute(source))`; the close affordance
  * and a Pro-granting purchase/restore pop the same inner stack via
  * [net.kikin.nubecita.core.common.navigation.MainShellNavState.removeLast].
  */
@@ -31,13 +31,14 @@ internal object PaywallNavigationModule {
     @MainShell
     fun providePaywallEntries(): EntryProviderInstaller =
         {
-            entry<PaywallRoute> {
+            entry<PaywallRoute> { route ->
                 val navState = LocalMainShellNavState.current
                 PaywallScreen(
                     onDismiss = { navState.removeLast() },
                     // Fresh purchase: replace the paywall with the thank-you
                     // screen so Continue/Back both pop once to the prior surface.
                     onPurchaseSuccess = { navState.replaceTop(PaywallSuccessRoute) },
+                    source = route.source,
                 )
             }
             entry<PaywallSuccessRoute> {
@@ -65,7 +66,7 @@ internal object PaywallNavigationModule {
     @OuterShell
     fun provideOuterPaywallEntries(): EntryProviderInstaller =
         {
-            entry<PaywallRoute> {
+            entry<PaywallRoute> { route ->
                 val navigator = LocalAppNavigator.current
                 PaywallScreen(
                     onDismiss = { navigator.goBack() },
@@ -76,6 +77,7 @@ internal object PaywallNavigationModule {
                         navigator.goBack()
                         navigator.goTo(PaywallSuccessRoute)
                     },
+                    source = route.source,
                 )
             }
             entry<PaywallSuccessRoute> {

@@ -19,6 +19,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
+import net.kikin.nubecita.core.analytics.VideoPlay
+import net.kikin.nubecita.core.analytics.VideoSurface
 
 /**
  * Process-scoped owner of *the* `ExoPlayer` instance.
@@ -61,6 +65,10 @@ class SharedVideoPlayer
         // `PipController.isInPip` (design D6). Read as a lambda, not a captured
         // boolean, because the PiP state changes after this holder is built.
         private val isInPip: () -> Boolean = { false },
+        // Analytics sink for `video_play`. Defaults to a no-op so unit tests that
+        // construct the holder directly stay analytics-free; production always
+        // wires the real client through [createSharedVideoPlayer].
+        private val analytics: AnalyticsClient = NoOpAnalyticsClient(),
     ) {
         // Pause playback when the whole app goes to the background so audio
         // doesn't keep playing. Pause-only: returning to the foreground leaves
@@ -95,6 +103,12 @@ class SharedVideoPlayer
 
         private val _isPlaying = MutableStateFlow(false)
         val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
+        // The clip we've already logged a `video_play` for, so play/pause toggles
+        // and the feed→fullscreen mode flip on the SAME clip don't re-log. Reset
+        // on a new bind and on release. Touched only on the application thread
+        // (bind / release / the ExoPlayer listener), so it needs no locking.
+        private var loggedPlayForUrl: String? = null
 
         // positionMs / durationMs are declared on the contract here in zak.1
         // so consumers can compile against the final shape. The polling
@@ -207,7 +221,12 @@ class SharedVideoPlayer
             object : androidx.media3.common.Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     _isPlaying.value = isPlaying
-                    if (isPlaying) startPositionPolling() else stopPositionPolling()
+                    if (isPlaying) {
+                        logFirstPlay()
+                        startPositionPolling()
+                    } else {
+                        stopPositionPolling()
+                    }
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -386,6 +405,26 @@ class SharedVideoPlayer
                 .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build()
 
+        /**
+         * Log `video_play` the first time playback starts for the bound clip.
+         * Deduped per URL (so play/pause and the feed→fullscreen mode flip don't
+         * re-log); the surface/autoplay split is derived from [mode]
+         * ([PlaybackMode.FeedPreview] = silent in-feed autoplay, else a deliberate
+         * fullscreen play). PII-free — no clip URI leaves the process.
+         */
+        private fun logFirstPlay() {
+            val url = _boundPlaylistUrl.value ?: return
+            if (url == loggedPlayForUrl) return
+            loggedPlayForUrl = url
+            val autoplay = _mode.value == PlaybackMode.FeedPreview
+            analytics.log(
+                VideoPlay(
+                    surface = if (autoplay) VideoSurface.Feed else VideoSurface.VideoPlayer,
+                    autoplay = autoplay,
+                ),
+            )
+        }
+
         /** Resume playback. Volume + audio-focus state come from the current [mode]. */
         fun play() {
             requirePlayer().play()
@@ -434,6 +473,7 @@ class SharedVideoPlayer
             _player.value = null
             _mode.value = PlaybackMode.FeedPreview
             _boundPlaylistUrl.value = null
+            loggedPlayForUrl = null
             _isPlaying.value = false
             _positionMs.value = 0L
             _durationMs.value = 0L
@@ -480,6 +520,8 @@ class SharedVideoPlayer
             )
             p.prepare()
             _boundPlaylistUrl.value = playlistUrl
+            // New clip — arm a fresh `video_play` for its first play.
+            loggedPlayForUrl = null
         }
 
         /**
@@ -528,6 +570,10 @@ fun createSharedVideoPlayer(
     idleReleaseMs: Long = DEFAULT_IDLE_RELEASE_MS,
     lifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
     isInPip: () -> Boolean = { false },
+    // Last (with a safe default) so existing positional callers / baseline-profile
+    // method descriptors for createSharedVideoPlayer(Context, CoroutineScope, Long…)
+    // stay stable.
+    analytics: AnalyticsClient = NoOpAnalyticsClient(),
 ): SharedVideoPlayer {
     val appContext = context.applicationContext
     return SharedVideoPlayer(
@@ -565,6 +611,7 @@ fun createSharedVideoPlayer(
         // the hop synchronous when callers are already on Main, avoiding
         // an unnecessary post-back to the looper for every player access.
         mainDispatcher = Dispatchers.Main.immediate,
+        analytics = analytics,
         idleReleaseMs = idleReleaseMs,
     )
 }

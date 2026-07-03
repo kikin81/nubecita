@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.PipAttempt
+import net.kikin.nubecita.core.analytics.PipOutcome
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.PlaybackMode
@@ -65,6 +68,7 @@ internal class VideoPlayerViewModel
         @Assisted private val route: VideoPlayerRoute,
         val sharedVideoPlayer: SharedVideoPlayer,
         private val postRepository: PostRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<VideoPlayerState, VideoPlayerEvent, VideoPlayerEffect>(VideoPlayerState()) {
         @AssistedFactory
         interface Factory {
@@ -146,6 +150,15 @@ internal class VideoPlayerViewModel
                     }
                 }
             }.launchIn(viewModelScope)
+        }
+
+        /**
+         * Record a picture-in-picture reach from the fullscreen player. The
+         * enter-vs-upsell *decision* stays in the Compose layer (design D5); this
+         * only logs the outcome so the PiP → paywall funnel is measurable.
+         */
+        fun onPipReach(entered: Boolean) {
+            analytics.log(PipAttempt(if (entered) PipOutcome.Entered else PipOutcome.Upsell))
         }
 
         override fun handleEvent(event: VideoPlayerEvent) {

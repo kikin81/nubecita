@@ -9,6 +9,7 @@ android {
 dependencies {
     api(project(":feature:videoplayer:api"))
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:common"))
     // Single-post read surface (full PostUi: video embed + author/stats/viewer);
     // replaces the module-local getPosts resolver (nubecita-6rdb.2).

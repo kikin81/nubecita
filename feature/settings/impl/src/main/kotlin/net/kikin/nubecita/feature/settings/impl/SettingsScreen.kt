@@ -60,6 +60,7 @@ import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
+import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.settings.api.About
 import net.kikin.nubecita.feature.settings.api.Moderation
@@ -169,7 +170,7 @@ internal fun SettingsScreen(
                     // Nav is a screen concern: push PaywallRoute onto MainShell's
                     // inner back stack via the host-wired callback. The VM never
                     // touches LocalMainShellNavState (same as profile sub-routes).
-                    currentOnNavigateTo(PaywallRoute)
+                    currentOnNavigateTo(PaywallRoute(PaywallSource.Settings))
                 SettingsEffect.NavigateToDeveloperProfile ->
                     // Push the developer's profile onto MainShell's inner back
                     // stack. The DID is a screen-owned constant (the VM stays

@@ -7,6 +7,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
+import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
@@ -29,10 +30,12 @@ internal object VideoPlayerModule {
         @ApplicationContext context: Context,
         @ApplicationScope appScope: CoroutineScope,
         pipController: PipController,
+        analytics: AnalyticsClient,
     ): SharedVideoPlayer =
         createSharedVideoPlayer(
             context = context,
             scope = appScope,
+            analytics = analytics,
             // Gate the background auto-pause on PiP state (design D6): while the
             // app is in PiP, ON_STOP must NOT pause playback. PipController has no
             // dependency on SharedVideoPlayer, so this introduces no Hilt cycle.

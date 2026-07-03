@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
@@ -563,6 +564,7 @@ internal class VideoPlayerViewModelTest {
             route = VideoPlayerRoute(postUri = AT_URI),
             sharedVideoPlayer = holder,
             postRepository = postRepository,
+            analytics = NoOpAnalyticsClient(),
         )
 
     private companion object {

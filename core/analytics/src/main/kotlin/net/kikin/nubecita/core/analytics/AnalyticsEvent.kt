@@ -360,10 +360,33 @@ enum class RestoreOutcome(
  * double-counted. All params are bucketed enums; no price, sku, or account id.
  */
 
-/** Fired once when the paywall is presented (`PaywallViewModel.init`). */
-data object PaywallViewed : AnalyticsEvent {
+/**
+ * Which upsell surface presented the paywall — the entry point, not the plan.
+ * Lets funnel reports separate the PiP pop-out upsell (the primary monetization
+ * path — a non-Pro tap on the fullscreen-video PiP button) from the Settings
+ * "Nubecita Pro" row and the Supporter badge. [Other] is the forward-safe
+ * default for any future caller that hasn't been tagged yet.
+ */
+enum class PaywallSource(
+    val wire: String,
+) {
+    Pip("pip"),
+    Settings("settings"),
+    SupporterBadge("supporter_badge"),
+    Other("other"),
+}
+
+/**
+ * Fired once when the paywall is presented (top of the funnel). [source]
+ * attributes the view to its entry point via `source_surface`, so PiP-driven
+ * paywall views are separable from Settings / Supporter-badge ones — the join
+ * that makes the PiP → paywall → checkout funnel measurable end-to-end.
+ */
+data class PaywallViewed(
+    val source: PaywallSource,
+) : AnalyticsEvent {
     override val name: String = "paywall_viewed"
-    override val params: Map<String, AnalyticsValue> = emptyMap()
+    override val params: Map<String, AnalyticsValue> = mapOf("source_surface" to Str(source.wire))
 }
 
 /** Fired when the user actively switches the selected plan. */
@@ -400,4 +423,61 @@ data class PaywallRestore(
 ) : AnalyticsEvent {
     override val name: String = "paywall_restore"
     override val params: Map<String, AnalyticsValue> = mapOf("outcome" to Str(outcome.wire))
+}
+
+/**
+ * The surface a video started playing on — a category, never the clip URI.
+ * Derived from the shared player's `PlaybackMode` at the single play choke-point
+ * ([FeedPreview] silent autoplay → [Feed]; fullscreen → [VideoPlayer]).
+ * [MediaViewer]/[PostDetail] are reserved for future per-surface fire sites.
+ */
+enum class VideoSurface(
+    val wire: String,
+) {
+    Feed("feed"),
+    VideoPlayer("video_player"),
+    MediaViewer("media_viewer"),
+    PostDetail("post_detail"),
+}
+
+/**
+ * Fired the first time playback starts for a bound clip (deduped per media item,
+ * not per play/pause). [autoplay] separates silent in-feed autoplay from a
+ * deliberate open, so "did anyone actually choose to watch" is measurable rather
+ * than drowned by autoplay. PII-free: no clip URI, no duration.
+ */
+data class VideoPlay(
+    val surface: VideoSurface,
+    val autoplay: Boolean,
+) : AnalyticsEvent {
+    override val name: String = "video_play"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "source_surface" to Str(surface.wire),
+            "autoplay" to BoolVal(autoplay),
+        )
+}
+
+/** What happened when the user reached for picture-in-picture. */
+enum class PipOutcome(
+    val wire: String,
+) {
+    /** Pro (and device-capable): entered PiP. */
+    Entered("entered"),
+
+    /** Non-Pro: routed to the paywall instead — the PiP upsell. */
+    Upsell("upsell"),
+}
+
+/**
+ * Fired on every tap of the fullscreen-video PiP button (`VideoPlayerScreen`).
+ * PiP is the primary paywall entry point, so this is the top of the monetization
+ * funnel: [PipOutcome.Upsell] counts non-Pro users sent to the paywall, making
+ * "reach for PiP → fall off" visible for the first time.
+ */
+data class PipAttempt(
+    val outcome: PipOutcome,
+) : AnalyticsEvent {
+    override val name: String = "pip_attempt"
+    override val params: Map<String, AnalyticsValue> = mapOf("pip_outcome" to Str(outcome.wire))
 }
