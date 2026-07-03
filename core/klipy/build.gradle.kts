@@ -47,6 +47,7 @@ dependencies {
 
     implementation(project(":core:common"))
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.paging.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
