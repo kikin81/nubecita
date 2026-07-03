@@ -2,7 +2,6 @@
 
 ## Purpose
 The unified post composer (`:feature:composer:api` + `:impl`) for new posts and replies: an MVI `ComposerViewModel` over `TextFieldState`, flat UI-ready `ComposerState`, and sealed status sums for the submit / parent-fetch / typeahead / external-link lifecycles. Covers text entry with a 300-grapheme limit, image attachments via the system picker, `@`-mention typeahead, per-post language + audience, quoted posts, **paste-a-link external preview cards** (CardyB), adaptive full-screen/dialog hosting, and parallel blob upload on submit. Renders as an `@MainShell` Nav3 entry.
-
 ## Requirements
 ### Requirement: `:feature:composer:api` exposes exactly one `NavKey`
 
@@ -825,3 +824,51 @@ When the preview fetch returns no usable data (CardyB error, blank fields, netwo
 
 - **WHEN** the preview fetch fails for a pasted URL
 - **THEN** no card is shown, no error message is surfaced, and the URL is not re-fetched while it remains in the text
+
+### Requirement: Attach a KLIPY GIF or sticker
+The composer SHALL let a user pick a KLIPY GIF or sticker and attach it to the post as a single previewed embed.
+
+#### Scenario: Pick a GIF or sticker from the picker
+- **WHEN** a user opens the KLIPY picker from the composer and selects an item
+- **THEN** the picker closes and the composer shows an animated preview of the selected item with a remove affordance
+
+#### Scenario: Remove the attached item
+- **WHEN** a user removes the attached KLIPY item from the composer
+- **THEN** the post no longer carries the KLIPY embed and the picker can be reopened
+
+### Requirement: One embed per post
+A post carries exactly one media embed, so the composer SHALL treat a picked KLIPY item (GIF or sticker) as mutually exclusive with photo attachments, SHALL have it replace an auto-detected link-card embed (they share the single external-embed slot), and MAY combine it with a quote (published as `app.bsky.embed.recordWithMedia`).
+
+#### Scenario: Photos block the KLIPY entry point
+- **WHEN** the composer already has photo attachments
+- **THEN** the KLIPY picker entry point is disabled
+
+#### Scenario: An attached KLIPY item blocks adding photos
+- **WHEN** the composer already has a KLIPY item attached
+- **THEN** adding photos is blocked
+
+#### Scenario: A picked KLIPY item replaces an auto-detected link card
+- **WHEN** a link-card embed is showing and the user picks a KLIPY item
+- **THEN** the link card is cleared and the KLIPY item takes the external-embed slot
+
+#### Scenario: A KLIPY item may coexist with a quote
+- **WHEN** the composer has a quote attached and the user picks a KLIPY item
+- **THEN** both are kept, and the post is published as record-with-media
+
+### Requirement: Publish a KLIPY item as a recognizable external embed
+When a post with an attached KLIPY item (GIF or sticker) is published, the composer SHALL write it as an `app.bsky.embed.external` whose URI is the KLIPY CDN media URL carrying pixel-dimension parameters, with an uploaded thumbnail, so that GIF-aware clients render it inline-animated.
+
+#### Scenario: Posting a KLIPY item produces the recognized embed shape
+- **WHEN** a user posts with an attached KLIPY item
+- **THEN** the created record's external embed URI has host `static.klipy.com`, a path beginning `/ii/`, and positive `hh`/`ww` parameters, and carries an uploaded thumbnail blob
+
+### Requirement: KLIPY branding and reporting in the picker
+The picker SHALL present the KLIPY-required branding and a content-report affordance.
+
+#### Scenario: Branding is visible
+- **WHEN** the picker is shown
+- **THEN** the search field shows the required "Search KLIPY" prompt and a "Powered by KLIPY" mark is visible
+
+#### Scenario: Report from preview
+- **WHEN** a user opens an item's preview and reports it with a reason
+- **THEN** the report is submitted for that item
