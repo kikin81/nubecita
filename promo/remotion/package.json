@@ -4,10 +4,9 @@
   "private": true,
   "scripts": {
     "start": "remotion studio",
-    "render:vertical": "remotion render PromoVertical out/promo-9x16.mp4",
-    "render:square": "remotion render PromoSquare out/promo-1x1.mp4",
-    "render:wide": "remotion render PromoWide out/promo-16x9.mp4",
-    "render:all": "npm run render:vertical && npm run render:square && npm run render:wide"
+    "render:hero": "remotion render Hero-9x16 out/hero-9x16.mp4 && remotion render Hero-1x1 out/hero-1x1.mp4 && remotion render Hero-16x9 out/hero-16x9.mp4",
+    "render:features": "remotion render Composer-9x16 out/composer-9x16.mp4 && remotion render Threads-9x16 out/threads-9x16.mp4 && remotion render Search-9x16 out/search-9x16.mp4 && remotion render Tablet-16x9 out/tablet-16x9.mp4",
+    "render:all": "npm run render:hero && npm run render:features"
   },
   "dependencies": {
     "@remotion/cli": "4.0.400",

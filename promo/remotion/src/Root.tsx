@@ -108,7 +108,7 @@ export const RemotionRoot: React.FC = () => {
               fps={FPS}
               width={d.w}
               height={d.h}
-              defaultProps={{ layout, journey: j as Journey }}
+              defaultProps={{ layout, journey: j }}
             />
           );
         }),

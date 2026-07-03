@@ -89,7 +89,8 @@ promo/capture/capture-screens.sh                # → remotion/public/{feed,sear
 # 3. Render
 cd promo/remotion
 npm install
-npm run render:all                              # → out/promo-9x16.mp4, promo-1x1.mp4, promo-16x9.mp4
+npm run render:all                              # hero (3 aspect ratios) + the 4 feature journeys
+# …or a single composition by id: npx remotion render Composer-9x16 out/composer-9x16.mp4
 
 # image assets (one still per ASSET_SPECS entry):
 npx remotion still phone-feed-45   out/phone-feed-45.png
@@ -107,7 +108,7 @@ manually and pass the binary explicitly:
 ```bash
 BIN=node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell
 chmod +x "$BIN"
-npx remotion render PromoVertical out/promo-9x16.mp4 --browser-executable="$BIN"
+npx remotion render Hero-9x16 out/hero-9x16.mp4 --browser-executable="$BIN"
 ```
 
 ## Google Play badge
