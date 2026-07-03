@@ -268,6 +268,10 @@ jobs:
           # FAD internal-tester build can configure RevenueCat (Pro works for
           # the q5ge.12 sandbox smoke). Without it the build is keyless/inert.
           REVENUECAT_API_KEY: ${{ secrets.REVENUECAT_API_KEY }}
+          # KLIPY GIF API key → BuildConfig.KLIPY_API_KEY (:core:klipy). Without
+          # it the composer's GIF picker returns no results — graceful, not a
+          # crash. Lives in the `release` environment alongside the keys above.
+          KLIPY_API_KEY: ${{ secrets.KLIPY_API_KEY }}
 
       - name: Upload debug APK to Firebase App Distribution
         # FIREBASE_APP_ID lives as an environment variable on the
@@ -455,6 +459,10 @@ jobs:
           # keyless and Pro stays permanently inert. Must live in the `release`
           # environment (same as the keystore secrets above).
           REVENUECAT_API_KEY: ${{ secrets.REVENUECAT_API_KEY }}
+          # KLIPY GIF API key → BuildConfig.KLIPY_API_KEY for the production AAB.
+          # Without it the GIF picker returns no results (graceful, no crash).
+          # Must live in the `release` environment (same as the keys above).
+          KLIPY_API_KEY: ${{ secrets.KLIPY_API_KEY }}
           # Empty on the automatic push path (inputs only exist for workflow_dispatch),
           # so the internal lane omits it → Play default priority 0.
           IN_APP_UPDATE_PRIORITY: ${{ inputs.in_app_update_priority }}
