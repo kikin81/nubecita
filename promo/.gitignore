@@ -1,0 +1,12 @@
+# Node / Remotion build output
+remotion/node_modules/
+remotion/out/
+
+# Captured inputs — regenerate with the capture/ scripts (see README).
+# The Google Play badge is the one committed asset (needed for render).
+remotion/public/*.mp4
+remotion/public/*.png
+!remotion/public/gp_badge.png
+
+# Raw adb captures
+capture/*.mp4
