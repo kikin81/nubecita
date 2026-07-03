@@ -136,4 +136,24 @@
 
     <!-- a11y label for the dismiss control on the external link-preview card. -->
     <string name="composer_remove_link_action">Remove link card</string>
+
+    <!-- KLIPY GIF/sticker picker -->
+    <!-- Search field placeholder. "KLIPY" is a required brand mention. -->
+    <string name="klipy_search_placeholder">Search KLIPY</string>
+    <string name="klipy_tab_gifs">GIFs</string>
+    <string name="klipy_category_recents">Recents</string>
+    <string name="klipy_category_trending">Trending</string>
+    <string name="klipy_tab_stickers">Stickers</string>
+    <!-- Required KLIPY attribution shown under the picker grid. -->
+    <string name="klipy_powered_by">Powered by KLIPY</string>
+    <string name="klipy_empty">No results</string>
+    <string name="klipy_load_error_retry">Couldn\'t load — tap to retry</string>
+    <!-- a11y description for a GIF/sticker cell that has no title. -->
+    <string name="klipy_gif_description">GIF</string>
+    <string name="klipy_preview_close">Close</string>
+    <string name="klipy_report">Report</string>
+    <string name="klipy_report_spam">Spam</string>
+    <string name="klipy_report_nudity">Nudity</string>
+    <string name="klipy_report_violence">Violence</string>
+    <string name="klipy_report_other">Other</string>
 </resources>

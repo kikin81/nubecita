@@ -22,6 +22,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:image"))
+    implementation(project(":core:klipy"))
     // PostAudienceDefaultRepository (the synced post-audience default) lives in
     // :core:moderation alongside the other app.bsky.actor preferences.
     implementation(project(":core:moderation"))
@@ -35,6 +36,7 @@ dependencies {
     // brings both APIs in transitively without pulling in any
     // navigation3 surface that the composer module doesn't need.
     implementation(libs.androidx.compose.material3.adaptive)
+    implementation(libs.androidx.paging.compose)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.reorderable)
@@ -46,6 +48,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(project(":core:testing"))
+    testImplementation(libs.androidx.paging.testing)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
