@@ -207,7 +207,9 @@ class PostCardClickModelTest {
 
         // PostCallbacks.None has onOverflowAction = null → no More-options
         // affordance. assertDoesNotExist() rather than fishing for a click
-        // — the contract is "no node with this contentDescription".
+        // — the contract is "no node whose OnClick action carries this label"
+        // (PostStat exposes the overflow verb via onClickLabel, not
+        // contentDescription).
         composeTestRule
             .onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true)
             .assertDoesNotExist()

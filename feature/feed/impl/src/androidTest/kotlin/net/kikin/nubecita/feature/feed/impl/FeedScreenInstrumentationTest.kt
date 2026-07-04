@@ -132,14 +132,14 @@ class FeedScreenInstrumentationTest {
         // label. useUnmergedTree because the icon button's semantics are nested
         // under the action row's merged tree.
         composeTestRule
-            .onAllNodes(hasClickLabel(REPLY_CD), useUnmergedTree = true)
+            .onAllNodes(hasClickLabel(REPLY_LABEL), useUnmergedTree = true)
             .assertCountEquals(3)
 
         // Tap the first reply icon (post1 = alice) and assert the callback
         // fired with post1's AT URI. The list order is fixed by
         // FakeFeedRepository (alice → bob → carol), so index 0 is alice.
         composeTestRule
-            .onAllNodes(hasClickLabel(REPLY_CD), useUnmergedTree = true)[0]
+            .onAllNodes(hasClickLabel(REPLY_LABEL), useUnmergedTree = true)[0]
             .performClick()
 
         assertEquals(listOf(POST_ALICE_URI), capturedReplyUris)
@@ -167,6 +167,6 @@ class FeedScreenInstrumentationTest {
         // without instrumentation context plumbing, and pinning the
         // literal here makes a string change show up as a test failure
         // instead of a silent semantic drift.
-        const val REPLY_CD = "Reply"
+        const val REPLY_LABEL = "Reply"
     }
 }

@@ -66,7 +66,7 @@ class FeedScreenOverflowBlockInstrumentationTest {
 
     @Test
     fun overflowMenu_blockRow_pushesBlockNavKeyWithAuthorIdentity() {
-        val moreOptionsCd =
+        val moreOptionsLabel =
             composeTestRule.activity.getString(DesignsystemR.string.postcard_action_more)
         // moderation_action_block_author is formatted ("Block @%1$s"); the first
         // post's author is alice, so the visible row reads "Block @alice.bsky.social".
@@ -94,7 +94,7 @@ class FeedScreenOverflowBlockInstrumentationTest {
         assertEquals(listOf<NavKey>(Feed), navState.backStack.toList())
 
         composeTestRule
-            .onAllNodes(hasClickLabel(moreOptionsCd), useUnmergedTree = true)[0]
+            .onAllNodes(hasClickLabel(moreOptionsLabel), useUnmergedTree = true)[0]
             .performClick()
         composeTestRule.waitForIdle()
 
