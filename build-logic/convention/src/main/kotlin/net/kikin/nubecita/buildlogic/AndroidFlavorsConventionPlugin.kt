@@ -37,10 +37,15 @@ class AndroidFlavorsConventionPlugin : Plugin<Project> {
         with(target) {
             pluginManager.withPlugin("com.android.library") {
                 extensions.configure<LibraryExtension> {
-                    flavorDimensions += "environment"
+                    // Idempotent: guard the dimension and use maybeCreate so
+                    // reapplying the plugin (or a module that also declares the
+                    // dimension/flavors itself) can't throw on a duplicate.
+                    if ("environment" !in flavorDimensions) {
+                        flavorDimensions += "environment"
+                    }
                     productFlavors {
-                        create("production") { dimension = "environment" }
-                        create("bench") { dimension = "environment" }
+                        maybeCreate("production").dimension = "environment"
+                        maybeCreate("bench").dimension = "environment"
                     }
                 }
             }
