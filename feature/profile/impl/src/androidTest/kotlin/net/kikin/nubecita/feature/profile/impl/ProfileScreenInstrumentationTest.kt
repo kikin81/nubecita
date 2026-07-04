@@ -92,17 +92,18 @@ class ProfileScreenInstrumentationTest {
     }
 
     /**
-     * Tapping the overflow icon on own-profile opens the DropdownMenu;
-     * tapping the Settings entry emits [ProfileEvent.SettingsTapped]
-     * (real nav — NOT a stub snackbar). The test asserts on the captured
-     * event and explicitly verifies that no "Coming soon" snackbar
-     * appeared, distinguishing this path from the Edit stub path tested
-     * in [editTap_surfacesComingSoonSnackbar].
+     * Tapping the Settings icon button on own-profile emits
+     * [ProfileEvent.SettingsTapped] (real nav — NOT a stub snackbar).
+     * Settings is a direct icon button in the profile top bar
+     * (`contentDescription = profile_action_settings`), not an entry inside a
+     * "More options" overflow menu. The test asserts on the captured event and
+     * explicitly verifies that no "Coming soon" snackbar appeared, distinguishing
+     * this path from the Edit stub path tested in
+     * [editTap_surfacesComingSoonSnackbar].
      */
     @Test
-    fun ownProfile_overflowMenu_settingsEntry_emitsSettingsTapped() {
+    fun ownProfile_settingsButton_emitsSettingsTapped() {
         val context = composeTestRule.activity
-        val overflowDescription = context.getString(R.string.profile_action_overflow)
         val settingsLabel = context.getString(R.string.profile_action_settings)
         // SettingsTapped is real nav, NOT a stub — assert the only "coming soon"
         // snackbar that could plausibly fire from this surface (Edit, the other
@@ -126,9 +127,7 @@ class ProfileScreenInstrumentationTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(overflowDescription).performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText(settingsLabel).performClick()
+        composeTestRule.onNodeWithContentDescription(settingsLabel).performClick()
         composeTestRule.waitForIdle()
 
         assertTrue(

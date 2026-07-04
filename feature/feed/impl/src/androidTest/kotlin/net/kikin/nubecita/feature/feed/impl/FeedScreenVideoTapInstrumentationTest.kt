@@ -1,13 +1,20 @@
 package net.kikin.nubecita.feature.feed.impl
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.testing.FakeFeedRepository
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -49,9 +56,17 @@ class FeedScreenVideoTapInstrumentationTest {
     @Inject
     internal lateinit var feedRepository: net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 
+    private lateinit var navState: MainShellNavState
+
     @Before
     fun setUp() {
         hiltRule.inject()
+        navState =
+            MainShellNavState(
+                startRoute = Feed,
+                topLevelKeyState = mutableStateOf(Feed),
+                backStacks = mapOf<NavKey, NavBackStack<NavKey>>(Feed to NavBackStack(Feed)),
+            )
         // Swap the default three-text-post timeline for one with a
         // single video post so the video card is unambiguous in the
         // semantics tree.
@@ -75,9 +90,11 @@ class FeedScreenVideoTapInstrumentationTest {
 
         composeTestRule.setContent {
             NubecitaTheme {
-                FeedScreen(
-                    onNavigateToVideoPlayer = { uri -> capturedUris += uri },
-                )
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen(
+                        onNavigateToVideoPlayer = { uri -> capturedUris += uri },
+                    )
+                }
             }
         }
 

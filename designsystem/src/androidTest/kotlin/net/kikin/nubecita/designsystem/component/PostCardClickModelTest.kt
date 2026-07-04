@@ -1,9 +1,11 @@
 package net.kikin.nubecita.designsystem.component
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import kotlinx.collections.immutable.persistentListOf
@@ -205,9 +207,11 @@ class PostCardClickModelTest {
 
         // PostCallbacks.None has onOverflowAction = null → no More-options
         // affordance. assertDoesNotExist() rather than fishing for a click
-        // — the contract is "no node with this contentDescription".
+        // — the contract is "no node whose OnClick action carries this label"
+        // (PostStat exposes the overflow verb via onClickLabel, not
+        // contentDescription).
         composeTestRule
-            .onNodeWithContentDescription(moreOptionsLabel)
+            .onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true)
             .assertDoesNotExist()
     }
 
@@ -228,7 +232,7 @@ class PostCardClickModelTest {
         }
 
         composeTestRule
-            .onNodeWithContentDescription(moreOptionsLabel)
+            .onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true)
             .assertIsDisplayed()
     }
 
@@ -247,7 +251,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(reportPostLabel).performClick()
 
         assertEquals(PostOverflowAction.ReportPost, recorded)
@@ -268,7 +272,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule
             .onNodeWithText(muteAuthorLabel())
             .performClick()
@@ -291,7 +295,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule
             .onNodeWithText(unmuteAuthorLabel())
             .performClick()
@@ -314,7 +318,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule
             .onNodeWithText(blockAuthorLabel())
             .performClick()
@@ -337,7 +341,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule
             .onNodeWithText(unblockAuthorLabel())
             .performClick()
@@ -360,7 +364,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(muteThreadLabel).performClick()
 
         assertEquals(PostOverflowAction.MuteThread, recorded)
@@ -381,7 +385,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(copyPostTextLabel).performClick()
 
         assertEquals(PostOverflowAction.CopyPostText, recorded)
@@ -398,7 +402,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         // Mute @handle should NOT exist when the author is already muted —
         // the menu renders Unmute @handle instead. Belt-and-suspenders for
         // the "exactly one of the pair" invariant.
@@ -421,7 +425,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule
             .onNodeWithText(blockAuthorLabel())
             .assertDoesNotExist()
@@ -449,7 +453,7 @@ class PostCardClickModelTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(moreOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(reportPostLabel).performClick()
 
         assertTrue("callback should receive the post it was rendered for", recordedPost === target)
@@ -543,3 +547,15 @@ class PostCardClickModelTest {
             )
     }
 }
+
+/**
+ * Matches a node whose `OnClick` action carries [label] as its accessibility
+ * label. `PostStat` labels its non-toggleable action cells (reply / repost /
+ * share / overflow) via `onClickLabel`, NOT `contentDescription`, so this is the
+ * correct selector for the PostCard overflow affordance — `hasContentDescription`
+ * never matches it.
+ */
+private fun hasClickLabel(label: String) =
+    SemanticsMatcher("OnClick action label == '$label'") { node ->
+        node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+    }
