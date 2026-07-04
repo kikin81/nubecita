@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -13,12 +14,9 @@ android {
     // People results tab have people on the bench build. Consumers resolve
     // the `production` variant by default via the `missingDimensionStrategy`
     // plumbing in `AndroidLibraryConventionPlugin`; the bench app flavor
-    // consumes the matching variant. Mirrors `:core:posts`.
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // consumes the matching variant. Mirrors `:core:posts`. The
+    // `environment` dimension + `production`/`bench` flavors themselves are
+    // declared by the `nubecita.android.flavors` convention plugin.
 }
 
 dependencies {

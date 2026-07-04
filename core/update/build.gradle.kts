@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -9,11 +10,8 @@ android {
     // The `environment` flavor dimension splits the production InAppUpdateController
     // (real Google Play in-app updates) from a bench no-op, so keyless /
     // macrobenchmark builds make zero Play calls and never prompt. Mirrors `:core:review`.
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {

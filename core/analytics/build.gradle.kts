@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -20,11 +21,8 @@ android {
     // `@TestInstallIn(replaces = [AnalyticsModule::class])`. Consumers without
     // the dimension pick up `production` via the missingDimensionStrategy in
     // the library convention plugin. See `bd show nubecita-049f.1`.
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {

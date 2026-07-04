@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -22,11 +23,8 @@ android {
     // everything that imports `:feature:notifications:impl` resolves the
     // production variant by default. Mirrors the split established in
     // `:feature:feed:impl`.
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {

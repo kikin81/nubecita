@@ -6,6 +6,7 @@ plugins {
     // covered by the lex-install pipeline. See
     // github.com/kikin81/atproto-kotlin/issues/108.
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -28,11 +29,8 @@ android {
     // in `AndroidLibraryConventionPlugin`; everything that imports
     // `:feature:search:impl` resolves the production variant by default. Mirrors
     // `:feature:feed:impl`'s split (crmi.6 Section A2, `bd show nubecita-xh99`).
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {

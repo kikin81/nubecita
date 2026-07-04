@@ -66,6 +66,10 @@ gradlePlugin {
             id = "nubecita.android.benchmark"
             implementationClass = "net.kikin.nubecita.buildlogic.AndroidBenchmarkConventionPlugin"
         }
+        register("androidFlavors") {
+            id = "nubecita.android.flavors"
+            implementationClass = "net.kikin.nubecita.buildlogic.AndroidFlavorsConventionPlugin"
+        }
         register("androidRoom") {
             id = "nubecita.android.room"
             implementationClass = "net.kikin.nubecita.buildlogic.AndroidRoomConventionPlugin"

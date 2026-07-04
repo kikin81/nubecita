@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -15,11 +16,8 @@ android {
     // everything that imports `:core:posts` resolves the production variant
     // by default. Mirrors the precedent established in `:feature:feed:impl`
     // (crmi.6 Section A2) and `:core:auth` (Section A1, #330).
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {
