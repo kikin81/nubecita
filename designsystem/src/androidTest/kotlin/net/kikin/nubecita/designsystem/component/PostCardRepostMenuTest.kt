@@ -1,6 +1,9 @@
 package net.kikin.nubecita.designsystem.component
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
@@ -76,7 +79,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
 
         composeTestRule.onNodeWithText(repostLabel).assertIsDisplayed()
         composeTestRule.onNodeWithText(quoteLabel).assertIsDisplayed()
@@ -95,7 +98,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(quoteLabel).performClick()
 
         assertSame("Quote item should pass the rendered post", target, quoted)
@@ -113,7 +116,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(repostLabel).performClick()
 
         assertEquals(1, reposts)
@@ -130,7 +133,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
 
         composeTestRule.onNodeWithText(undoRepostLabel).assertIsDisplayed()
     }
@@ -147,7 +150,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performTouchInput { longClick() }
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performTouchInput { longClick() }
 
         assertEquals("long-press should toggle repost directly", 1, reposts)
     }
@@ -203,3 +206,14 @@ class PostCardRepostMenuTest {
             )
     }
 }
+
+/**
+ * Matches a node whose `OnClick` action carries [label] as its accessibility label.
+ * `PostStat` labels its non-toggleable action cells (incl. the repost affordance when
+ * quoting is wired) via `onClickLabel`, NOT `contentDescription`, so this is the
+ * correct selector — `hasContentDescription` never matches them.
+ */
+private fun hasClickLabel(label: String) =
+    SemanticsMatcher("OnClick action label == '$label'") { node ->
+        node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+    }
