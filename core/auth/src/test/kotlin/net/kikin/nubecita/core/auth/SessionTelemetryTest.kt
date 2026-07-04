@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.analytics.SessionClearReason
 import net.kikin.nubecita.core.analytics.SessionCleared
 import net.kikin.nubecita.core.analytics.SessionReadError
 import net.kikin.nubecita.core.analytics.SessionReadErrorCause
+import net.kikin.nubecita.core.analytics.SessionReadErrorTerminal
 import net.kikin.nubecita.core.logging.CrashReporter
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -155,6 +156,20 @@ class SessionTelemetryTest {
                     .exceptionOrNull()
             assertTrue(thrown is CancellationException, "expected CancellationException, got $thrown")
         }
+
+    @Test
+    fun `terminal read-error exhaustion records a grouped non-fatal and the terminal event`() {
+        val cause = GeneralSecurityException("keystore still unavailable")
+
+        telemetry().onSessionReadErrorTerminal(cause)
+
+        verify {
+            crashReporter.recordException(
+                match { it is SessionReadTerminalException && it.cause === cause },
+            )
+        }
+        verify { analytics.log(SessionReadErrorTerminal(cause = SessionReadErrorCause.Security)) }
+    }
 
     @Test
     fun `keyset regeneration records a grouped non-fatal and the analytics event`() {

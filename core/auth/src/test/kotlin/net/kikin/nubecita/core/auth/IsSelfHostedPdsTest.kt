@@ -1,7 +1,6 @@
 package net.kikin.nubecita.core.auth
 
-import io.github.kikin81.atproto.oauth.OAuthSession
-import io.github.kikin81.atproto.oauth.OAuthSessionStore
+import io.mockk.mockk
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -63,7 +62,7 @@ class IsSelfHostedPdsTest {
     @Test
     fun `isSelfHosted flow is false while signed out`() =
         runTest {
-            val provider = DefaultSessionStateProvider(EmptyStore())
+            val provider = provider { SessionLoadResult.Absent }
             provider.refresh()
             assertFalse(provider.isSelfHosted.first())
         }
@@ -72,7 +71,7 @@ class IsSelfHostedPdsTest {
     fun `isSelfHosted flow is true for a third-party PDS`() =
         runTest {
             val provider =
-                DefaultSessionStateProvider(SeededStore(sampleSession(pdsUrl = "https://pds.example.com")))
+                provider { SessionLoadResult.Loaded(sampleSession(pdsUrl = "https://pds.example.com")) }
             provider.refresh()
             assertTrue(provider.isSelfHosted.first())
         }
@@ -81,9 +80,11 @@ class IsSelfHostedPdsTest {
     fun `isSelfHosted flow is false for a bsky network account`() =
         runTest {
             val provider =
-                DefaultSessionStateProvider(
-                    SeededStore(sampleSession(pdsUrl = "https://hollowfoot.us-west.host.bsky.network")),
-                )
+                provider {
+                    SessionLoadResult.Loaded(
+                        sampleSession(pdsUrl = "https://hollowfoot.us-west.host.bsky.network"),
+                    )
+                }
             provider.refresh()
             assertFalse(provider.isSelfHosted.first())
         }
@@ -91,26 +92,10 @@ class IsSelfHostedPdsTest {
     @Test
     fun `isSelfHosted flow is false when the session has no pds url`() =
         runTest {
-            val provider = DefaultSessionStateProvider(SeededStore(sampleSession(pdsUrl = null)))
+            val provider = provider { SessionLoadResult.Loaded(sampleSession(pdsUrl = null)) }
             provider.refresh()
             assertFalse(provider.isSelfHosted.first())
         }
-}
 
-private class EmptyStore : OAuthSessionStore {
-    override suspend fun load(): OAuthSession? = null
-
-    override suspend fun save(session: OAuthSession) = error("not under test")
-
-    override suspend fun clear() = error("not under test")
-}
-
-private class SeededStore(
-    private val session: OAuthSession,
-) : OAuthSessionStore {
-    override suspend fun load(): OAuthSession = session
-
-    override suspend fun save(session: OAuthSession) = error("not under test")
-
-    override suspend fun clear() = error("not under test")
+    private fun provider(reader: SessionReader) = DefaultSessionStateProvider(reader, mockk(relaxed = true))
 }

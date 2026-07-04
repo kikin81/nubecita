@@ -86,6 +86,63 @@ class EncryptedOAuthSessionStoreTest {
         }
 
     @Test
+    fun `loadResult distinguishes Loaded from Absent`() =
+        runTest {
+            val store = store(FakeDataStore())
+            assertEquals(SessionLoadResult.Absent, store.loadResult())
+
+            val session = sampleSession()
+            store.save(session)
+            assertEquals(SessionLoadResult.Loaded(session), store.loadResult())
+        }
+
+    @Test
+    fun `loadResult surfaces a read failure as ReadError with the original cause, never Absent`() =
+        runTest {
+            val cause = GeneralSecurityException("keystore transiently unavailable")
+            val store = store(ThrowingDataStore(cause))
+
+            val result = store.loadResult()
+
+            assertEquals(SessionLoadResult.ReadError(cause), result)
+            verify(exactly = 1) { telemetry.onSessionReadError(cause) }
+        }
+
+    @Test
+    fun `loadResult surfaces IOException and SerializationException as ReadError`() =
+        runTest {
+            val io = IOException("disk contention")
+            assertEquals(SessionLoadResult.ReadError(io), store(ThrowingDataStore(io)).loadResult())
+
+            val ser = SerializationException("corrupt payload")
+            assertEquals(SessionLoadResult.ReadError(ser), store(ThrowingDataStore(ser)).loadResult())
+        }
+
+    @Test
+    fun `loadResult rethrows cancellation - never a ReadError, never telemetry`() =
+        runTest {
+            val store = store(ThrowingDataStore(kotlinx.coroutines.CancellationException("scope cancelled")))
+
+            val thrown = runCatching { store.loadResult() }.exceptionOrNull()
+
+            assertTrue(
+                thrown is kotlinx.coroutines.CancellationException,
+                "expected CancellationException, got $thrown",
+            )
+            verify(exactly = 0) { telemetry.onSessionReadError(any()) }
+        }
+
+    @Test
+    fun `loadResult propagates unexpected exception types`() =
+        runTest {
+            val store = store(ThrowingDataStore(IllegalStateException("not a storage-layer failure")))
+
+            val thrown = runCatching { store.loadResult() }.exceptionOrNull()
+
+            assertTrue(thrown is IllegalStateException, "expected IllegalStateException, got $thrown")
+        }
+
+    @Test
     fun `load swallows IOException from underlying data store`() =
         runTest {
             val cause = IOException("simulated read failure")

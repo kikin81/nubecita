@@ -3,41 +3,65 @@ package net.kikin.nubecita.core.auth
 import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.SerializationException
 import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.inject.Inject
+import javax.inject.Singleton
 
+// @Singleton on the CLASS, not just the bindings: this impl is bound to two
+// interfaces (OAuthSessionStore + SessionReader). @Binds @Singleton scopes
+// each binding separately, so without class-level scoping Dagger would build
+// one instance per interface.
+@Singleton
 internal class EncryptedOAuthSessionStore
     @Inject
     constructor(
         private val dataStore: DataStore<OAuthSession?>,
         private val telemetry: SessionTelemetry,
-    ) : OAuthSessionStore {
-        // Spec: any failure in the read path — IO, AEAD decrypt, JSON parse, Keystore
-        // invalidation — degrades to `null` so callers see "no session" rather than
-        // a propagated exception. `KeyPermanentlyInvalidatedException` extends
-        // `GeneralSecurityException`, so it is covered by that clause.
-        //
-        // Every degradation is recorded (epic nubecita-09xt): at the routing layer
-        // "read failed" is indistinguishable from "signed out", so these swallows
-        // are the top spurious-logout suspect and must be measurable.
-        override suspend fun load(): OAuthSession? =
-            dataStore.data
-                .catch { cause ->
-                    when (cause) {
-                        is IOException,
-                        is GeneralSecurityException,
-                        is SerializationException,
-                        -> {
-                            telemetry.onSessionReadError(cause)
-                            emit(null)
-                        }
-                        else -> throw cause
+    ) : OAuthSessionStore,
+        SessionReader {
+        /**
+         * App-internal read that distinguishes "no session" from "read failed"
+         * (epic nubecita-09xt). Storage-layer failures — IO, AEAD decrypt, JSON
+         * parse, Keystore invalidation (`KeyPermanentlyInvalidatedException`
+         * extends `GeneralSecurityException`) — become
+         * [SessionLoadResult.ReadError] and are recorded; anything else
+         * propagates.
+         */
+        override suspend fun loadResult(): SessionLoadResult =
+            try {
+                when (val session = dataStore.data.firstOrNull()) {
+                    null -> SessionLoadResult.Absent
+                    else -> SessionLoadResult.Loaded(session)
+                }
+            } catch (cause: CancellationException) {
+                throw cause // cancellation is flow control, never a ReadError
+            } catch (cause: Exception) {
+                when (cause) {
+                    is IOException,
+                    is GeneralSecurityException,
+                    is SerializationException,
+                    -> {
+                        telemetry.onSessionReadError(cause)
+                        SessionLoadResult.ReadError(cause)
                     }
-                }.firstOrNull()
+                    else -> throw cause
+                }
+            }
+
+        // SDK-facing contract: any read failure degrades to `null` so the SDK
+        // sees "no session" rather than a propagated exception. App-side
+        // callers that must not conflate "read failed" with "signed out" use
+        // [loadResult] instead.
+        override suspend fun load(): OAuthSession? =
+            when (val result = loadResult()) {
+                is SessionLoadResult.Loaded -> result.session
+                SessionLoadResult.Absent -> null
+                is SessionLoadResult.ReadError -> null
+            }
 
         override suspend fun save(session: OAuthSession) {
             dataStore.updateData { session }

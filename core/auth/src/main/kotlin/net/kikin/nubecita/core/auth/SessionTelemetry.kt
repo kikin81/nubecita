@@ -8,6 +8,7 @@ import net.kikin.nubecita.core.analytics.SessionClearReason
 import net.kikin.nubecita.core.analytics.SessionCleared
 import net.kikin.nubecita.core.analytics.SessionReadError
 import net.kikin.nubecita.core.analytics.SessionReadErrorCause
+import net.kikin.nubecita.core.analytics.SessionReadErrorTerminal
 import net.kikin.nubecita.core.logging.CrashReporter
 import timber.log.Timber
 import java.io.IOException
@@ -31,6 +32,15 @@ internal class SessionClearedException : RuntimeException("OAuth session cleared
 internal class SessionReadFailedException(
     cause: Throwable,
 ) : RuntimeException("OAuth session read failed (degraded to no-session)", cause)
+
+/**
+ * Wrapper non-fatal for a read failure that survived every bounded retry —
+ * the user was routed to Login with a session still on disk. The
+ * user-impacting subset of [SessionReadFailedException]'s per-attempt count.
+ */
+internal class SessionReadTerminalException(
+    cause: Throwable,
+) : RuntimeException("OAuth session read failed after all retries — routed to Login", cause)
 
 /**
  * Wrapper non-fatal for a destructive Tink keyset regeneration — every fire is
@@ -78,6 +88,15 @@ internal class SessionTelemetry
                 analytics.log(SessionReadError(cause = bucketReadErrorCause(cause)))
             } catch (e: Exception) {
                 Timber.tag(TAG).w(e, "session-read-error telemetry failed")
+            }
+        }
+
+        fun onSessionReadErrorTerminal(cause: Throwable) {
+            try {
+                crashReporter.recordException(SessionReadTerminalException(cause))
+                analytics.log(SessionReadErrorTerminal(cause = bucketReadErrorCause(cause)))
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "terminal session-read-error telemetry failed")
             }
         }
 

@@ -265,6 +265,14 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `session_read_error_terminal carries the bucketed cause class only`() {
+        val event = SessionReadErrorTerminal(cause = SessionReadErrorCause.Security)
+        assertEquals("session_read_error_terminal", event.name)
+        assertEquals(mapOf("cause" to Str("security")), event.params)
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
     fun `auth_keyset_regenerated has no params`() {
         assertEquals("auth_keyset_regenerated", AuthKeysetRegenerated.name)
         assertEquals(emptyMap<String, AnalyticsValue>(), AuthKeysetRegenerated.params)
