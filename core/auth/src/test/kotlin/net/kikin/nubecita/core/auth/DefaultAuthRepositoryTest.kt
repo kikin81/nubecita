@@ -9,7 +9,10 @@ import net.kikin.nubecita.core.common.session.SessionClearable
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Unit tests for [DefaultAuthRepository] focused on the sign-out
@@ -32,7 +35,7 @@ internal class DefaultAuthRepositoryTest {
                 }
             val sessionStateProvider = mockk<SessionStateProvider>(relaxed = true)
             val repo =
-                DefaultAuthRepository(
+                repository(
                     atOAuth = atOAuth,
                     sessionStateProvider = sessionStateProvider,
                     sessionClearables = setOf(clearableA, clearableB),
@@ -69,7 +72,7 @@ internal class DefaultAuthRepositoryTest {
                 }
             val sessionStateProvider = mockk<SessionStateProvider>(relaxed = true)
             val repo =
-                DefaultAuthRepository(
+                repository(
                     atOAuth = atOAuth,
                     sessionStateProvider = sessionStateProvider,
                     sessionClearables = setOf(clearable),
@@ -86,6 +89,83 @@ internal class DefaultAuthRepositoryTest {
                     "the user signaled intent to sign out",
             )
         }
+
+    @Test
+    fun `completeLogin records the login timestamp for session-loss telemetry`() =
+        runTest {
+            val timestamps = RecordingLoginTimestampStore()
+            val repo =
+                repository(
+                    atOAuth = mockk(relaxed = true),
+                    loginTimestamps = timestamps,
+                )
+
+            val result = repo.completeLogin("app.nubecita:/oauth-redirect?code=x")
+
+            assertTrue(result.isSuccess)
+            assertEquals(listOf(NOW_MILLIS), timestamps.recorded)
+        }
+
+    @Test
+    fun `completeLogin failure records no login timestamp`() =
+        runTest {
+            val timestamps = RecordingLoginTimestampStore()
+            val atOAuth =
+                mockk<AtOAuth> {
+                    coEvery { completeLogin(any()) } throws IllegalStateException("exchange failed")
+                }
+            val repo = repository(atOAuth = atOAuth, loginTimestamps = timestamps)
+
+            val result = repo.completeLogin("app.nubecita:/oauth-redirect?code=x")
+
+            assertTrue(result.isFailure)
+            assertTrue(timestamps.recorded.isEmpty())
+        }
+
+    @Test
+    fun `a failing timestamp write must not fail an otherwise successful login`() =
+        runTest {
+            val timestamps =
+                RecordingLoginTimestampStore(onRecord = { throw IOException("disk full") })
+            val repo = repository(atOAuth = mockk(relaxed = true), loginTimestamps = timestamps)
+
+            val result = repo.completeLogin("app.nubecita:/oauth-redirect?code=x")
+
+            assertTrue(result.isSuccess, "telemetry persistence is best-effort — login MUST still succeed")
+        }
+
+    private fun repository(
+        atOAuth: AtOAuth,
+        sessionStateProvider: SessionStateProvider = mockk(relaxed = true),
+        sessionClearables: Set<SessionClearable> = emptySet(),
+        loginTimestamps: LoginTimestampStore = RecordingLoginTimestampStore(),
+    ) = DefaultAuthRepository(
+        atOAuth = atOAuth,
+        sessionStateProvider = sessionStateProvider,
+        sessionClearables = sessionClearables,
+        loginTimestamps = loginTimestamps,
+        clock =
+            object : Clock {
+                override fun now(): Instant = Instant.fromEpochMilliseconds(NOW_MILLIS)
+            },
+    )
+
+    private class RecordingLoginTimestampStore(
+        private val onRecord: () -> Unit = {},
+    ) : LoginTimestampStore {
+        val recorded = mutableListOf<Long>()
+
+        override suspend fun record(epochMillis: Long) {
+            onRecord()
+            recorded += epochMillis
+        }
+
+        override suspend fun lastLoginEpochMillis(): Long? = recorded.lastOrNull()
+    }
+
+    private companion object {
+        const val NOW_MILLIS = 1_720_000_000_000L
+    }
 
     private class CountingClearable : SessionClearable {
         val callCount = AtomicInteger(0)

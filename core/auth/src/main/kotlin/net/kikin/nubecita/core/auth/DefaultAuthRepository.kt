@@ -5,6 +5,7 @@ import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.core.common.session.SessionClearable
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.time.Clock
 
 internal class DefaultAuthRepository
     @Inject
@@ -12,6 +13,8 @@ internal class DefaultAuthRepository
         private val atOAuth: AtOAuth,
         private val sessionStateProvider: SessionStateProvider,
         private val sessionClearables: Set<@JvmSuppressWildcards SessionClearable>,
+        private val loginTimestamps: LoginTimestampStore,
+        private val clock: Clock,
     ) : AuthRepository {
         override suspend fun beginLogin(handle: String): Result<String> =
             runCatching { atOAuth.beginLogin(handle) }
@@ -28,6 +31,7 @@ internal class DefaultAuthRepository
             runCatching {
                 atOAuth.completeLogin(redirectUri)
                 sessionStateProvider.refresh()
+                recordLoginTimestamp()
             }.onFailure {
                 if (it is CancellationException) throw it
                 // Strip the query string before logging — the redirect URI
@@ -50,6 +54,21 @@ internal class DefaultAuthRepository
                 if (it is CancellationException) throw it
                 Timber.tag(TAG).w(it, "signOut() failed")
             }
+
+        /**
+         * Best-effort: the timestamp only feeds session-loss telemetry
+         * (`days_since_login`), so a failed write must never fail the login
+         * that just succeeded.
+         */
+        private suspend fun recordLoginTimestamp() {
+            try {
+                loginTimestamps.record(clock.now().toEpochMilliseconds())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "recording login timestamp failed")
+            }
+        }
 
         private companion object {
             // Logcat tag stays under 23 chars (Android Log API ceiling) so it shows up

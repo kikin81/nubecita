@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.auth
 
 import androidx.datastore.core.DataStoreFactory
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -28,7 +29,7 @@ class AuthModuleGraphTest {
                     serializer = OAuthSessionSerializer,
                     produceFile = { file },
                 )
-            val store = EncryptedOAuthSessionStore(dataStore)
+            val store = EncryptedOAuthSessionStore(dataStore, mockk(relaxed = true))
 
             assertNull(store.load())
 

@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.analytics
 
 import net.kikin.nubecita.core.analytics.AnalyticsValue.BoolVal
+import net.kikin.nubecita.core.analytics.AnalyticsValue.LongVal
 import net.kikin.nubecita.core.analytics.AnalyticsValue.Str
 
 /**
@@ -126,6 +127,79 @@ data class LoginRedirectReturned(
 ) : AnalyticsEvent {
     override val name: String = "login_redirect_returned"
     override val params: Map<String, AnalyticsValue> = mapOf("redirect_kind" to Str(redirect.wire))
+}
+
+/**
+ * Why the persisted OAuth session was cleared. Bucketed from the `clear()`
+ * call stack — never carries tokens, handles, or DIDs.
+ */
+enum class SessionClearReason(
+    val wire: String,
+) {
+    /** The auth server rejected the refresh token (`invalid_grant`) — the SDK wiped the session. */
+    InvalidGrant("invalid_grant"),
+
+    /** The user signed out from Settings. */
+    UserSignOut("user_sign_out"),
+
+    /** Cleared from an unrecognized call site. */
+    Unknown("unknown"),
+}
+
+/**
+ * Fired whenever the persisted OAuth session is cleared (epic nubecita-09xt).
+ * [daysSinceLogin] separates legitimate ~14-day public-client session expiry
+ * from premature, spurious logouts; omitted when no login timestamp exists
+ * (e.g. logins that predate this event).
+ */
+data class SessionCleared(
+    val reason: SessionClearReason,
+    val daysSinceLogin: Long?,
+) : AnalyticsEvent {
+    override val name: String = "session_cleared"
+    override val params: Map<String, AnalyticsValue> =
+        buildMap {
+            put("reason", Str(reason.wire))
+            if (daysSinceLogin != null) put("days_since_login", LongVal(daysSinceLogin))
+        }
+}
+
+/** Which storage layer failed while reading the persisted session. */
+enum class SessionReadErrorCause(
+    val wire: String,
+) {
+    /** Disk / DataStore IO failure. */
+    Io("io"),
+
+    /** Tink / Android Keystore failure (AEAD decrypt, key invalidation, Keystore unavailable). */
+    Security("security"),
+
+    /** The decrypted payload failed to deserialize. */
+    Serialization("serialization"),
+}
+
+/**
+ * Fired when reading the persisted session fails and degrades to "no session"
+ * (epic nubecita-09xt). Today this is indistinguishable from being signed out
+ * at the routing layer, so a transient read failure presents as a spurious
+ * logout — this event measures how often that actually happens in the wild.
+ */
+data class SessionReadError(
+    val cause: SessionReadErrorCause,
+) : AnalyticsEvent {
+    override val name: String = "session_read_error"
+    override val params: Map<String, AnalyticsValue> = mapOf("cause" to Str(cause.wire))
+}
+
+/**
+ * Fired when the Tink keyset backing the encrypted session store failed to
+ * load and was destructively regenerated (epic nubecita-09xt). Regeneration
+ * makes any previously persisted session ciphertext undecryptable, so every
+ * fire is a guaranteed silent logout for a signed-in user.
+ */
+data object AuthKeysetRegenerated : AnalyticsEvent {
+    override val name: String = "auth_keyset_regenerated"
+    override val params: Map<String, AnalyticsValue> = emptyMap()
 }
 
 /**
