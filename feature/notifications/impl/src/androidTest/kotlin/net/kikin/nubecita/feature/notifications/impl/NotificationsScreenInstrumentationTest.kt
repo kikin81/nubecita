@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.notifications.impl
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -100,10 +101,11 @@ internal class NotificationsScreenInstrumentationTest {
             .onNode(hasText(REPLIED_TO_YOUR_POST, substring = true))
             .assertIsDisplayed()
 
-        // Follow row: "Alice Chen and 1 other followed you" (2 actors)
+        // Two follow rows in the faked page: a 2-actor aggregated row
+        // ("Alice Chen and 1 other followed you") and a single-actor follow row.
         composeTestRule
-            .onNode(hasText(FOLLOWED_YOU, substring = true))
-            .assertIsDisplayed()
+            .onAllNodesWithText(FOLLOWED_YOU, substring = true)
+            .assertCountEquals(2)
     }
 
     @Test
