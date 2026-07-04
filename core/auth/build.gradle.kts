@@ -29,6 +29,7 @@ dependencies {
     api(libs.atproto.runtime)
 
     implementation(project(":core:common"))
+    implementation(project(":core:logging"))
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.datastore.tink)
     implementation(libs.kotlinx.serialization.json)
