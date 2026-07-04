@@ -58,6 +58,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # Same preamble as the matrix legs below: the emulator-runner drives sdkmanager
+      # (a Java tool) to install the system image, so pin the JDK + Android SDK rather
+      # than depend on whatever the ubuntu-latest image happens to ship. Checkout is
+      # needed for setup-java's java-version-file.
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
       - name: Verify KVM is available
         run: |
           COUNT=$(grep -Ec '(vmx|svm)' /proc/cpuinfo)
