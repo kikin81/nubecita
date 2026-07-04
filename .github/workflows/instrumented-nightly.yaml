@@ -1,0 +1,160 @@
+# Nightly instrumented (connected androidTest) sweep.
+#
+# WHY THIS EXISTS
+# ---------------
+# The `instrumented` job in ci.yaml only runs `:app:connectedProductionDebugAndroidTest`
+# — running every module's connected tests on one long-lived emulator crashes it
+# (`Failed to start Emulator console` -> `Process crashed` cascading across modules,
+# see the note in ci.yaml). So feature/core module androidTest is compiled on every
+# PR (the "Compile instrumented (androidTest) sources" gate) but never RUN in CI,
+# which is how it silently rots (nubecita-bknu). This workflow runs the full set
+# nightly so runtime rot surfaces within a day instead of at the next manual sweep.
+#
+# STRUCTURE (V1 vs V2)
+# --------------------
+# Each module runs as its own matrix leg -> its own fresh runner + emulator, which
+# is the only crash-safe way to cover many modules (no shared long-lived emulator).
+# - V1 (now): `max-parallel: 1` -> the legs run one-at-a-time (sequential, cheap,
+#   no parallelism). This is the "unsharded" first cut.
+# - V2 (later, nubecita-9tw): raise `max-parallel` to fan the legs out across
+#   runners for wall-clock sharding. That is the ONLY change needed — the matrix
+#   is already the shard unit.
+#
+# It is informational: `fail-fast: false` so one red module doesn't cancel the
+# rest, and it gates nothing (nightly + manual only). The FIRST run is expected to
+# be red for modules whose androidTest has rotted — that surfacing is the point.
+#
+# AVD REUSE: emulator config (api35 / google_apis / pixel_6 / x86_64) and the AVD
+# cache key (`avd-cache-v1-api35-pixel6`) match ci.yaml + macrobench.yaml so the
+# cached snapshot is shared across all three workflows.
+
+name: Nightly instrumented tests
+
+on:
+  # Nightly at 06:00 UTC — offset from Macrobench (07:00) so the two scheduled
+  # emulator workflows don't contend.
+  schedule:
+    - cron: "0 6 * * *"
+  # Manual trigger — run the full sweep on demand without waiting for the cron.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  instrumented-nightly:
+    name: androidTest — ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      # V1: sequential. V2 (nubecita-9tw): raise this to shard in parallel.
+      max-parallel: 1
+      matrix:
+        module:
+          - ":app"
+          - ":core:database"
+          - ":core:push"
+          - ":core:update"
+          - ":core:widget-sync"
+          - ":designsystem"
+          - ":feature:chats:impl"
+          - ":feature:composer:impl"
+          - ":feature:feed:impl"
+          - ":feature:login:impl"
+          - ":feature:moderation:impl"
+          - ":feature:notifications:impl"
+          - ":feature:onboarding:impl"
+          - ":feature:profile:impl"
+          - ":feature:search:impl"
+          - ":feature:settings:impl"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Resolve the correct connected task for this module: flavored modules
+      # (`:app`, feature :impl modules) expose `connectedProductionDebugAndroidTest`;
+      # unflavored library modules only have `connectedDebugAndroidTest`. Detected
+      # via `--dry-run` (builds the task graph, runs nothing) so the workflow
+      # survives future flavor changes without a hand-maintained per-module map.
+      - name: Resolve connected task
+        id: task
+        run: |
+          MOD="${{ matrix.module }}"
+          PROD="${MOD}:connectedProductionDebugAndroidTest"
+          if ./gradlew "${PROD}" --dry-run -q >/dev/null 2>&1; then
+            echo "task=${PROD}" >> "$GITHUB_OUTPUT"
+          else
+            echo "task=${MOD}:connectedDebugAndroidTest" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved task: $(grep task= "$GITHUB_OUTPUT")"
+
+      # KVM is needed for x86_64 emulator hardware acceleration on the
+      # ubuntu-latest runner. Without this, emulator boot time goes from
+      # ~30s to several minutes.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Shared with ci.yaml's `instrumented` job + macrobench.yaml. Bump the key
+      # (e.g. `avd-cache-v2-...`) in all three when the API level / profile changes.
+      - name: AVD cache
+        uses: actions/cache@v6
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-cache-v1-api35-pixel6
+
+      - name: Create AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "AVD created and cached"
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: ./gradlew ${{ steps.task.outputs.task }}
+
+      - name: Upload androidTest reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          # Namespaced per module so a multi-red nightly doesn't collide artifacts.
+          name: androidTest-reports-${{ strategy.job-index }}
+          path: |
+            **/build/reports/androidTests/
+            **/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 14
