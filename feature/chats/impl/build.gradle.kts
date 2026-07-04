@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -15,11 +16,8 @@ android {
         testInstrumentationRunner = "net.kikin.nubecita.core.testing.android.HiltTestRunner"
     }
 
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {

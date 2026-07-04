@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -19,11 +20,8 @@ android {
     // `:app` module's `bench` flavor consumes the matching variant via the
     // missingDimensionStrategy plumbing in AndroidLibraryConventionPlugin — see
     // `bd show nubecita-crmi.6` for the broader scope.
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {

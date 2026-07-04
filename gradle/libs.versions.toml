@@ -205,3 +205,4 @@ nubecita-android-feature = { id = "nubecita.android.feature", version = "unspeci
 nubecita-android-application = { id = "nubecita.android.application", version = "unspecified" }
 nubecita-android-benchmark = { id = "nubecita.android.benchmark", version = "unspecified" }
 nubecita-android-room = { id = "nubecita.android.room", version = "unspecified" }
+nubecita-android-flavors = { id = "nubecita.android.flavors", version = "unspecified" }

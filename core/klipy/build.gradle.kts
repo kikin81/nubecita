@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 // KLIPY API key. The key is a path segment of the base URL, so the whole base
@@ -35,11 +36,8 @@ android {
     // parallel that binds BenchFakeKlipyRepository, so the picker is exercisable
     // offline with no key/network. Consumers without the dimension pick up
     // `production` via the library convention plugin's missingDimensionStrategy.
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {

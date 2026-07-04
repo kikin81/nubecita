@@ -9,6 +9,7 @@ plugins {
     // but without the plugin the codegen never runs and the bench DTOs
     // fail to compile.
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -40,11 +41,8 @@ android {
     // `bd show nubecita-xh99` for the broader scope (crmi.6 Section A2) and
     // `:core:auth/build.gradle.kts` for the precedent established in
     // Section A1 (#330).
-    flavorDimensions += "environment"
-    productFlavors {
-        create("production") { dimension = "environment" }
-        create("bench") { dimension = "environment" }
-    }
+    // The `environment` dimension + `production`/`bench` flavors are declared
+    // by the `nubecita.android.flavors` convention plugin (applied above).
 }
 
 dependencies {
