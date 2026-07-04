@@ -192,6 +192,19 @@ data class SessionReadError(
 }
 
 /**
+ * Fired when every bounded retry of a failed session read is exhausted and the
+ * user is routed to Login with their session still on disk (epic
+ * nubecita-09xt) — the user-impacting subset of [SessionReadError], which
+ * counts raw per-attempt incidence.
+ */
+data class SessionReadErrorTerminal(
+    val cause: SessionReadErrorCause,
+) : AnalyticsEvent {
+    override val name: String = "session_read_error_terminal"
+    override val params: Map<String, AnalyticsValue> = mapOf("cause" to Str(cause.wire))
+}
+
+/**
  * Fired when the Tink keyset backing the encrypted session store failed to
  * load and was destructively regenerated (epic nubecita-09xt). Regeneration
  * makes any previously persisted session ciphertext undecryptable, so every
