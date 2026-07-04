@@ -2,7 +2,9 @@ package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -10,6 +12,8 @@ import androidx.compose.ui.test.performClick
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.test.platform.app.InstrumentationRegistry
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -17,6 +21,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
@@ -39,6 +44,7 @@ import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import kotlin.time.Instant
@@ -64,14 +70,24 @@ import net.kikin.nubecita.designsystem.R as DesignsystemR
  * pins the per-post (PostCard overflow in the Posts tab body) Report.
  *
  * Construction mirrors `ProfileScreenOverflowReportInstrumentationTest`:
- * the VM's three collaborators are built directly (mockk for cache +
- * session, hand-rolled fake for ProfileRepository) so this test doesn't
- * need a Hilt harness. The fake's `fetchTab` returns a single PostUi so
- * the Posts tab renders a PostCard with an overflow affordance.
+ * the VM's collaborators are built directly (mockk for cache + session,
+ * hand-rolled fake for ProfileRepository), but the test still uses the Hilt
+ * harness (`@HiltAndroidTest` + `HiltAndroidRule`) to launch `HiltTestActivity`.
+ * The fake's `fetchTab` returns a single PostUi so the Posts tab renders a
+ * PostCard with an overflow affordance.
  */
+@HiltAndroidTest
 class ProfileScreenPostsTabOverflowReportInstrumentationTest {
-    @get:Rule
+    @get:Rule(order = 0)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
+
+    @Before
+    fun setup() {
+        hiltRule.inject()
+    }
 
     @Test
     fun postsTabPostCardOverflow_reportRow_pushesReportNavKeyOntoActiveTabStack() {
@@ -176,6 +192,9 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
                 sessionStateProvider = sessionProvider,
                 postInteractionsCache = cache,
                 entitlementRepository = entitlementRepository,
+                analytics = NoOpAnalyticsClient(),
+                muteRepository = mockk(relaxed = true),
+                handler = FakePostInteractionHandler(),
             )
 
         val profileRoot: NavKey = Profile(handle = header.handle)
@@ -221,12 +240,15 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
         // Sanity: stack starts at just the Profile tab home.
         assertEquals(listOf<NavKey>(profileRoot), navState.backStack.toList())
 
-        // Tap the PostCard's overflow affordance. `useUnmergedTree`
-        // because the icon button's semantics are nested under the
-        // action row's merged tree; without it the matcher returns
-        // nothing. Mirrors FeedScreenOverflowReportInstrumentationTest.
+        // Tap the PostCard's overflow affordance. `PostStat` exposes its
+        // action verb via `onClickLabel` (NOT `contentDescription`) for
+        // non-toggleable cells — see PostStat's kdoc — so match on the
+        // OnClick action label, not `hasContentDescription`. This also
+        // disambiguates the post overflow from the ProfileHero's account
+        // overflow, whose `IconButton` uses a real `contentDescription`
+        // that resolves to the SAME "More options" string.
         composeTestRule
-            .onAllNodes(hasContentDescription(moreOptionsCd), useUnmergedTree = true)[0]
+            .onAllNodes(hasClickLabel(moreOptionsCd), useUnmergedTree = true)[0]
             .performClick()
         composeTestRule.waitForIdle()
 
@@ -255,5 +277,17 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
 
     private companion object {
         const val WAIT_TIMEOUT_MILLIS = 5_000L
+
+        /**
+         * Matches a node whose `OnClick` action carries [label] as its
+         * accessibility label. `PostStat` labels its non-toggleable action
+         * cells (reply / repost / share / overflow) via `onClickLabel`, not
+         * `contentDescription`, so this is the correct selector for the
+         * PostCard overflow affordance.
+         */
+        fun hasClickLabel(label: String) =
+            SemanticsMatcher("OnClick action label == '$label'") { node ->
+                node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+            }
     }
 }

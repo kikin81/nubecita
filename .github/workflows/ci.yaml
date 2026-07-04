@@ -211,6 +211,17 @@ jobs:
         # lands), so keep CI building only the production variant.
         run: ./gradlew assembleProductionDebug
 
+      - name: Compile instrumented (androidTest) sources
+        # The `instrumented` job only runs `:app`'s connected tests (and only on
+        # main / labelled PRs), so a feature/core module's androidTest can rot
+        # invisibly — a constructor change breaks its instrumentation test and no
+        # PR ever compiles it. Compiling every module's androidTest sources here
+        # (Kotlin + KSP/Hilt, no emulator, no dexing) catches those breaks —
+        # both plain compile errors AND Hilt-graph `MissingBinding` failures —
+        # on every PR. `*AndroidTestSources` is the AGP anchor that runs the
+        # annotation processors without packaging a test APK.
+        run: ./gradlew compileProductionDebugAndroidTestSources compileDebugAndroidTestSources
+
   screenshot:
     name: Screenshot tests
     runs-on: ubuntu-latest
@@ -375,6 +386,14 @@ jobs:
           # must name the flavor. The instrumented suite runs against the
           # production flavor; the `bench` flavor (fake-network DI) is
           # exclusive to :benchmark Macrobench in the scheduled bench job.
+          #
+          # NOTE (nubecita-bknu): running *every* module's connected tests on a
+          # single emulator here is not viable — it crashes the emulator
+          # (`Failed to start Emulator console` → `Process crashed` cascading
+          # across modules). Feature/core module androidTest compile-rot is now
+          # caught by the `Compile instrumented (androidTest) sources` step in
+          # the build job; actually *running* them needs a sharded matrix (one
+          # emulator per module group) — tracked separately.
           script: ./gradlew :app:connectedProductionDebugAndroidTest
 
       - name: Upload androidTest reports on failure

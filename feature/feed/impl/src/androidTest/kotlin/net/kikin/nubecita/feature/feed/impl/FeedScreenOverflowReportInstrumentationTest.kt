@@ -1,7 +1,10 @@
 package net.kikin.nubecita.feature.feed.impl
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -10,6 +13,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -87,17 +91,21 @@ class FeedScreenOverflowReportInstrumentationTest {
             composeTestRule.activity.getString(DesignsystemR.string.moderation_action_report_post)
 
         composeTestRule.setContent {
+            // FeedScreen takes a generic `(NavKey) -> Unit` for tab-internal
+            // sub-routes; the host (FeedNavigationModule) wires it to
+            // `navState.add(key)` in production. The test wires the same shape
+            // — verifies the screen routes the effect to the callback rather
+            // than re-implementing host knowledge.
+            //
+            // `LocalMainShellNavState` MUST be provided: the shared
+            // `rememberPostInteractions` helper reads it unconditionally to
+            // route block/report navigation (compositionLocalOf with an
+            // `error(...)` default), so without this the first composition
+            // crashes before any post renders.
             NubecitaTheme {
-                // FeedScreen takes a generic `(NavKey) -> Unit` for
-                // tab-internal sub-routes; the host (FeedNavigationModule)
-                // wires it to `navState.add(key)` in production. The
-                // test wires the same shape — verifies the screen routes
-                // the effect to the callback rather than re-implementing
-                // host knowledge. No `LocalMainShellNavState` provider
-                // needed (per the Nav3 modular-hilt recipe: screens stay
-                // host-agnostic, only the EntryProviderInstaller knows
-                // the navState).
-                FeedScreen(onNavigateTo = { key -> navState.add(key) })
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen(onNavigateTo = { key -> navState.add(key) })
+                }
             }
         }
 
@@ -114,15 +122,15 @@ class FeedScreenOverflowReportInstrumentationTest {
         // Sanity: stack starts at just the Feed tab home.
         assertEquals(listOf<NavKey>(Feed), navState.backStack.toList())
 
-        // Tap the first PostCard's overflow affordance (contentDescription
-        // resolves to `R.string.postcard_action_more` from `:designsystem`,
-        // the label set on the 5th action-row cell by PostOverflowAffordance).
-        // useUnmergedTree because the icon button's semantics are nested
-        // under the action row's merged tree; without it Compose collapses
-        // the icon-button semantics into the parent row and the matcher
-        // returns nothing.
+        // Tap the first PostCard's overflow affordance. `PostStat` labels
+        // its non-toggleable action cells (reply / repost / share / overflow)
+        // via `onClickLabel` (see PostStat's kdoc), NOT `contentDescription`,
+        // so match on the OnClick action label — `hasContentDescription`
+        // never matches the overflow button. useUnmergedTree because the
+        // icon button's semantics are nested under the action row's merged
+        // tree.
         composeTestRule
-            .onAllNodes(hasContentDescription(moreOptionsCd), useUnmergedTree = true)[0]
+            .onAllNodes(hasClickLabel(moreOptionsCd), useUnmergedTree = true)[0]
             .performClick()
         composeTestRule.waitForIdle()
 
@@ -161,6 +169,18 @@ class FeedScreenOverflowReportInstrumentationTest {
 
     private companion object {
         const val WAIT_TIMEOUT_MILLIS = 5_000L
+
+        /**
+         * Matches a node whose `OnClick` action carries [label] as its
+         * accessibility label. `PostStat` labels its non-toggleable action
+         * cells (reply / repost / share / overflow) via `onClickLabel`, not
+         * `contentDescription`, so this is the correct selector for the
+         * PostCard overflow affordance.
+         */
+        fun hasClickLabel(label: String) =
+            SemanticsMatcher("OnClick action label == '$label'") { node ->
+                node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+            }
 
         // Mirror of FakeFeedRepository.DEFAULT_TIMELINE's first post —
         // duplicated here as constants because the fake's `singlePost`
