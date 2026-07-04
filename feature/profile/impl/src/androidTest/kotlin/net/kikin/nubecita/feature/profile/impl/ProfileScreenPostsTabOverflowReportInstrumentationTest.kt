@@ -2,9 +2,6 @@ package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -277,17 +274,5 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
 
     private companion object {
         const val WAIT_TIMEOUT_MILLIS = 5_000L
-
-        /**
-         * Matches a node whose `OnClick` action carries [label] as its
-         * accessibility label. `PostStat` labels its non-toggleable action
-         * cells (reply / repost / share / overflow) via `onClickLabel`, not
-         * `contentDescription`, so this is the correct selector for the
-         * PostCard overflow affordance.
-         */
-        fun hasClickLabel(label: String) =
-            SemanticsMatcher("OnClick action label == '$label'") { node ->
-                node.config.getOrNull(SemanticsActions.OnClick)?.label == label
-            }
     }
 }

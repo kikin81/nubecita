@@ -76,7 +76,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
 
         composeTestRule.onNodeWithText(repostLabel).assertIsDisplayed()
         composeTestRule.onNodeWithText(quoteLabel).assertIsDisplayed()
@@ -95,7 +95,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(quoteLabel).performClick()
 
         assertSame("Quote item should pass the rendered post", target, quoted)
@@ -113,7 +113,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(repostLabel).performClick()
 
         assertEquals(1, reposts)
@@ -130,7 +130,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performClick()
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
 
         composeTestRule.onNodeWithText(undoRepostLabel).assertIsDisplayed()
     }
@@ -147,7 +147,7 @@ class PostCardRepostMenuTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription(repostOptionsLabel).performTouchInput { longClick() }
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performTouchInput { longClick() }
 
         assertEquals("long-press should toggle repost directly", 1, reposts)
     }
