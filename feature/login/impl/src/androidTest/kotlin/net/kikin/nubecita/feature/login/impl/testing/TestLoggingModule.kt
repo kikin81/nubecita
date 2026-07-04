@@ -7,6 +7,7 @@ import dagger.hilt.testing.TestInstallIn
 import net.kikin.nubecita.core.logging.CrashReporter
 import net.kikin.nubecita.core.logging.NoOpCrashReporter
 import net.kikin.nubecita.core.logging.di.LoggingModule
+import javax.inject.Singleton
 
 /**
  * Swaps `:core:logging`'s production [LoggingModule] (which binds the real
@@ -26,6 +27,8 @@ import net.kikin.nubecita.core.logging.di.LoggingModule
     replaces = [LoggingModule::class],
 )
 internal abstract class TestLoggingModule {
+    // @Singleton to match the production LoggingModule's scoping it replaces.
     @Binds
+    @Singleton
     abstract fun bindCrashReporter(impl: NoOpCrashReporter): CrashReporter
 }

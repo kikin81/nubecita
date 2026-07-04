@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
+import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
@@ -48,15 +49,20 @@ internal object TestLoginGraphCompletionModule {
     @Singleton
     fun provideXrpcClientProvider(): XrpcClientProvider =
         object : XrpcClientProvider {
-            override suspend fun authenticated() = error("XrpcClientProvider.authenticated() must not be called in login-screen tests")
+            // Throw the same typed exception the production provider raises with no
+            // session, so any incidental call behaves like production (not a generic
+            // ISE). No login-screen test path actually calls this.
+            override suspend fun authenticated() = throw NoSessionException()
         }
 
     @Provides
     @Singleton
     fun providePushAppConfig(): PushAppConfig = PushAppConfig(applicationId = "net.kikin.nubecita")
 
+    // A guaranteed-valid framework drawable rather than 0 — if any incidental path
+    // built a NotificationCompat.Builder, setSmallIcon(0) would crash.
     @Provides
     @Singleton
     @PushSmallIconRes
-    fun providePushSmallIconRes(): Int = 0
+    fun providePushSmallIconRes(): Int = android.R.drawable.ic_dialog_info
 }
