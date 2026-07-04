@@ -1,7 +1,9 @@
 package net.kikin.nubecita.core.auth
 
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.analytics.AnalyticsClient
@@ -11,6 +13,7 @@ import net.kikin.nubecita.core.analytics.SessionCleared
 import net.kikin.nubecita.core.analytics.SessionReadError
 import net.kikin.nubecita.core.analytics.SessionReadErrorCause
 import net.kikin.nubecita.core.logging.CrashReporter
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.IOException
 import java.security.GeneralSecurityException
@@ -103,6 +106,57 @@ class SessionTelemetryTest {
     }
 
     @Test
+    fun `a throwing crash reporter never propagates out of any telemetry method`() =
+        runTest {
+            every { crashReporter.recordException(any()) } throws RuntimeException("crashlytics not initialized")
+
+            telemetry().onSessionCleared(markerWithStack("com.example.X", "run"))
+            telemetry().onSessionReadError(IOException("simulated"))
+            telemetry().onKeysetRegenerated(GeneralSecurityException("simulated"))
+        }
+
+    @Test
+    fun `a throwing analytics client never propagates`() =
+        runTest {
+            every { analytics.log(any()) } throws IllegalStateException("analytics backend down")
+
+            telemetry().onSessionCleared(markerWithStack("com.example.X", "run"))
+            telemetry().onSessionReadError(IOException("simulated"))
+            telemetry().onKeysetRegenerated(GeneralSecurityException("simulated"))
+        }
+
+    @Test
+    fun `a throwing login-timestamp read never propagates out of onSessionCleared`() =
+        runTest {
+            val telemetry =
+                SessionTelemetry(
+                    crashReporter = crashReporter,
+                    analytics = analytics,
+                    loginTimestamps = ThrowingLoginTimestampStore,
+                    clock = fixedClock,
+                )
+
+            telemetry.onSessionCleared(markerWithStack("com.example.X", "run"))
+        }
+
+    @Test
+    fun `cancellation propagates out of onSessionCleared untouched`() =
+        runTest {
+            val telemetry =
+                SessionTelemetry(
+                    crashReporter = crashReporter,
+                    analytics = analytics,
+                    loginTimestamps = CancellingLoginTimestampStore,
+                    clock = fixedClock,
+                )
+
+            val thrown =
+                runCatching { telemetry.onSessionCleared(markerWithStack("com.example.X", "run")) }
+                    .exceptionOrNull()
+            assertTrue(thrown is CancellationException, "expected CancellationException, got $thrown")
+        }
+
+    @Test
     fun `keyset regeneration records a grouped non-fatal and the analytics event`() {
         val cause = GeneralSecurityException("corrupted keyset")
 
@@ -136,4 +190,16 @@ private class FakeLoginTimestampStore(
     override suspend fun record(epochMillis: Long) = Unit
 
     override suspend fun lastLoginEpochMillis(): Long? = value
+}
+
+private object ThrowingLoginTimestampStore : LoginTimestampStore {
+    override suspend fun record(epochMillis: Long) = Unit
+
+    override suspend fun lastLoginEpochMillis(): Long? = throw IllegalStateException("prefs unreadable")
+}
+
+private object CancellingLoginTimestampStore : LoginTimestampStore {
+    override suspend fun record(epochMillis: Long) = Unit
+
+    override suspend fun lastLoginEpochMillis(): Long? = throw CancellationException("scope cancelled")
 }

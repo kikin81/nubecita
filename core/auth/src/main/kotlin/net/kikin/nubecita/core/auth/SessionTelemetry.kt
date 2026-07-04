@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.auth
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AuthKeysetRegenerated
@@ -8,6 +9,7 @@ import net.kikin.nubecita.core.analytics.SessionCleared
 import net.kikin.nubecita.core.analytics.SessionReadError
 import net.kikin.nubecita.core.analytics.SessionReadErrorCause
 import net.kikin.nubecita.core.logging.CrashReporter
+import timber.log.Timber
 import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.inject.Inject
@@ -52,21 +54,40 @@ internal class SessionTelemetry
         private val loginTimestamps: LoginTimestampStore,
         private val clock: Clock,
     ) {
+        // Each method is exception-isolated: a broken telemetry backend (or an
+        // unreadable timestamp store) must never disrupt the auth path it
+        // observes — load()'s degrade-to-null guarantee, clear()/sign-out, and
+        // the keyset recovery would all otherwise inherit the throw.
+
         suspend fun onSessionCleared(marker: SessionClearedException) {
-            val reason = bucketClearReason(marker)
-            crashReporter.setCustomKey("session_clear_reason", reason.wire)
-            crashReporter.recordException(marker)
-            analytics.log(SessionCleared(reason = reason, daysSinceLogin = daysSinceLogin()))
+            try {
+                val reason = bucketClearReason(marker)
+                crashReporter.setCustomKey("session_clear_reason", reason.wire)
+                crashReporter.recordException(marker)
+                analytics.log(SessionCleared(reason = reason, daysSinceLogin = daysSinceLogin()))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "session-cleared telemetry failed")
+            }
         }
 
         fun onSessionReadError(cause: Throwable) {
-            crashReporter.recordException(SessionReadFailedException(cause))
-            analytics.log(SessionReadError(cause = bucketReadErrorCause(cause)))
+            try {
+                crashReporter.recordException(SessionReadFailedException(cause))
+                analytics.log(SessionReadError(cause = bucketReadErrorCause(cause)))
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "session-read-error telemetry failed")
+            }
         }
 
         fun onKeysetRegenerated(cause: GeneralSecurityException) {
-            crashReporter.recordException(AuthKeysetRegeneratedException(cause))
-            analytics.log(AuthKeysetRegenerated)
+            try {
+                crashReporter.recordException(AuthKeysetRegeneratedException(cause))
+                analytics.log(AuthKeysetRegenerated)
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "keyset-regenerated telemetry failed")
+            }
         }
 
         private suspend fun daysSinceLogin(): Long? {
@@ -103,5 +124,6 @@ internal class SessionTelemetry
 
         private companion object {
             const val MILLIS_PER_DAY = 24L * 60 * 60 * 1000
+            const val TAG = "SessionTelemetry"
         }
     }

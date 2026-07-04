@@ -35,8 +35,9 @@ internal class DataStoreLoginTimestampStore
             dataStore.edit { it[KEY_LAST_LOGIN_EPOCH_MILLIS] = epochMillis }
         }
 
-        // Telemetry-grade read: a failed read degrades to "unknown" (null) —
-        // it must never break the clear()/sign-out path it decorates.
+        // Telemetry-grade read: a DataStore IO failure degrades to "unknown"
+        // (null). Non-IO failures propagate to SessionTelemetry, whose
+        // per-method isolation keeps them out of the clear()/sign-out path.
         override suspend fun lastLoginEpochMillis(): Long? =
             dataStore.data
                 .catch { cause ->
