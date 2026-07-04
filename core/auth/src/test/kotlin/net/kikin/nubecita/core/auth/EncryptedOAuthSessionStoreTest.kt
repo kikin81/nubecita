@@ -2,6 +2,9 @@ package net.kikin.nubecita.core.auth
 
 import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
+import io.mockk.coVerify
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
@@ -17,10 +20,14 @@ import java.security.GeneralSecurityException
 import javax.crypto.AEADBadTagException
 
 class EncryptedOAuthSessionStoreTest {
+    private val telemetry = mockk<SessionTelemetry>(relaxed = true)
+
+    private fun store(dataStore: DataStore<OAuthSession?>) = EncryptedOAuthSessionStore(dataStore, telemetry)
+
     @Test
     fun `save then load returns the saved session`() =
         runTest {
-            val store = EncryptedOAuthSessionStore(FakeDataStore())
+            val store = store(FakeDataStore())
             val session = sampleSession()
             store.save(session)
             assertEquals(session, store.load())
@@ -29,7 +36,7 @@ class EncryptedOAuthSessionStoreTest {
     @Test
     fun `clear removes persisted session so load returns null`() =
         runTest {
-            val store = EncryptedOAuthSessionStore(FakeDataStore())
+            val store = store(FakeDataStore())
             store.save(sampleSession())
             store.clear()
             assertNull(store.load())
@@ -38,7 +45,7 @@ class EncryptedOAuthSessionStoreTest {
     @Test
     fun `store is reusable after clear`() =
         runTest {
-            val store = EncryptedOAuthSessionStore(FakeDataStore())
+            val store = store(FakeDataStore())
             store.save(sampleSession(accessToken = "first"))
             store.clear()
             val second = sampleSession(accessToken = "second")
@@ -47,10 +54,46 @@ class EncryptedOAuthSessionStoreTest {
         }
 
     @Test
+    fun `clear records session-cleared telemetry after the wipe succeeds`() =
+        runTest {
+            val store = store(FakeDataStore())
+            store.save(sampleSession())
+
+            store.clear()
+
+            coVerify(exactly = 1) { telemetry.onSessionCleared(any()) }
+        }
+
+    @Test
+    fun `clear that fails to write records no telemetry`() =
+        runTest {
+            val store = store(ThrowingDataStore(IOException("simulated write failure")))
+
+            runCatching { store.clear() }
+
+            coVerify(exactly = 0) { telemetry.onSessionCleared(any()) }
+        }
+
+    @Test
+    fun `successful load records no telemetry`() =
+        runTest {
+            val store = store(FakeDataStore())
+            store.save(sampleSession())
+            store.load()
+            assertNull(store(FakeDataStore()).load())
+
+            verify(exactly = 0) { telemetry.onSessionReadError(any()) }
+        }
+
+    @Test
     fun `load swallows IOException from underlying data store`() =
         runTest {
-            val store = EncryptedOAuthSessionStore(ThrowingDataStore(IOException("simulated read failure")))
+            val cause = IOException("simulated read failure")
+            val store = store(ThrowingDataStore(cause))
+
             assertNull(store.load())
+
+            verify(exactly = 1) { telemetry.onSessionReadError(cause) }
         }
 
     @Test
@@ -59,42 +102,45 @@ class EncryptedOAuthSessionStoreTest {
             // KeyPermanentlyInvalidatedException extends GeneralSecurityException; the
             // concrete subtype is an Android runtime class and can't be instantiated on
             // JVM unit tests without Robolectric, so we exercise the parent type here.
-            val store =
-                EncryptedOAuthSessionStore(
-                    ThrowingDataStore(GeneralSecurityException("simulated key invalidation")),
-                )
+            val cause = GeneralSecurityException("simulated key invalidation")
+            val store = store(ThrowingDataStore(cause))
+
             assertNull(store.load())
+
+            verify(exactly = 1) { telemetry.onSessionReadError(cause) }
         }
 
     @Test
     fun `load swallows AEADBadTagException from tampered ciphertext`() =
         runTest {
-            val store =
-                EncryptedOAuthSessionStore(
-                    ThrowingDataStore(AEADBadTagException("simulated tamper")),
-                )
+            val cause = AEADBadTagException("simulated tamper")
+            val store = store(ThrowingDataStore(cause))
+
             assertNull(store.load())
+
+            verify(exactly = 1) { telemetry.onSessionReadError(cause) }
         }
 
     @Test
     fun `load swallows SerializationException from malformed plaintext JSON`() =
         runTest {
-            val store =
-                EncryptedOAuthSessionStore(
-                    ThrowingDataStore(SerializationException("simulated decode failure")),
-                )
+            val cause = SerializationException("simulated decode failure")
+            val store = store(ThrowingDataStore(cause))
+
             assertNull(store.load())
+
+            verify(exactly = 1) { telemetry.onSessionReadError(cause) }
         }
 
     @Test
-    fun `load propagates unexpected exception types`() =
+    fun `load propagates unexpected exception types without telemetry`() =
         runTest {
-            val store =
-                EncryptedOAuthSessionStore(
-                    ThrowingDataStore(IllegalStateException("not a storage-layer failure")),
-                )
+            val store = store(ThrowingDataStore(IllegalStateException("not a storage-layer failure")))
+
             val thrown = runCatching { store.load() }.exceptionOrNull()
+
             assertTrue(thrown is IllegalStateException, "expected IllegalStateException, got $thrown")
+            verify(exactly = 0) { telemetry.onSessionReadError(any()) }
         }
 }
 

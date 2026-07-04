@@ -28,9 +28,11 @@ dependencies {
     api(libs.atproto.oauth)
     api(libs.atproto.runtime)
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:common"))
     implementation(project(":core:logging"))
     implementation(libs.androidx.datastore)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.datastore.tink)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.ktor.client.logging)

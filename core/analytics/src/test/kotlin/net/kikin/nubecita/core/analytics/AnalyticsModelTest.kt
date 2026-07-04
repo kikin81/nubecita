@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.analytics
 
 import net.kikin.nubecita.core.analytics.AnalyticsValue.BoolVal
+import net.kikin.nubecita.core.analytics.AnalyticsValue.LongVal
 import net.kikin.nubecita.core.analytics.AnalyticsValue.Str
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -228,6 +229,46 @@ class AnalyticsModelTest {
         assertEquals("explore", PostSurface.Explore.wire)
         AnalyticsValidator.requireValid(pinFeedView)
         AnalyticsValidator.requireValid(unpinExplore)
+    }
+
+    @Test
+    fun `session_cleared carries bucketed reason and days_since_login`() {
+        val event = SessionCleared(reason = SessionClearReason.InvalidGrant, daysSinceLogin = 3)
+        assertEquals("session_cleared", event.name)
+        assertEquals(
+            mapOf(
+                "reason" to Str("invalid_grant"),
+                "days_since_login" to LongVal(3),
+            ),
+            event.params,
+        )
+        assertEquals("user_sign_out", SessionClearReason.UserSignOut.wire)
+        assertEquals("unknown", SessionClearReason.Unknown.wire)
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `session_cleared omits days_since_login when no login timestamp exists`() {
+        val event = SessionCleared(reason = SessionClearReason.Unknown, daysSinceLogin = null)
+        assertEquals(mapOf("reason" to Str("unknown")), event.params)
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `session_read_error carries the bucketed cause class only`() {
+        val event = SessionReadError(cause = SessionReadErrorCause.Security)
+        assertEquals("session_read_error", event.name)
+        assertEquals(mapOf("cause" to Str("security")), event.params)
+        assertEquals("io", SessionReadErrorCause.Io.wire)
+        assertEquals("serialization", SessionReadErrorCause.Serialization.wire)
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `auth_keyset_regenerated has no params`() {
+        assertEquals("auth_keyset_regenerated", AuthKeysetRegenerated.name)
+        assertEquals(emptyMap<String, AnalyticsValue>(), AuthKeysetRegenerated.params)
+        AnalyticsValidator.requireValid(AuthKeysetRegenerated)
     }
 
     @Test

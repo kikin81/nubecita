@@ -17,7 +17,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.kikin81.atproto.oauth.OAuthSession
 import net.kikin.nubecita.core.auth.OAuthSessionSerializer
-import java.security.GeneralSecurityException
+import net.kikin.nubecita.core.auth.SessionTelemetry
 import javax.inject.Singleton
 
 @Module
@@ -33,22 +33,22 @@ internal object AuthDataStoreModule {
     @Singleton
     fun provideOAuthSessionDataStore(
         @ApplicationContext context: Context,
+        telemetry: SessionTelemetry,
     ): DataStore<OAuthSession?> {
         AeadConfig.register()
         // Recoverable crypto failures at construction time — most commonly
         // KeyPermanentlyInvalidatedException (biometric reset / factory-wipe of user data),
         // but also any GeneralSecurityException from a corrupted keyset payload — are
-        // treated as "discard the old keyset and regenerate." The retry is bounded: a
-        // second failure means the Keystore environment is unrecoverable in a way we
-        // cannot paper over, and propagating the exception is preferable to silently
-        // losing future writes.
+        // treated as "discard the old keyset and regenerate." The retry is bounded (see
+        // KeysetRecovery). Regeneration makes any previously persisted session
+        // ciphertext undecryptable — a guaranteed silent logout — so every fire is
+        // reported (epic nubecita-09xt).
         val keysetHandle =
-            try {
-                buildKeysetHandle(context)
-            } catch (_: GeneralSecurityException) {
-                context.deleteSharedPreferences(SESSION_KEYSET_PREF_FILE)
-                buildKeysetHandle(context)
-            }
+            KeysetRecovery.buildWithRecovery(
+                build = { buildKeysetHandle(context) },
+                reset = { context.deleteSharedPreferences(SESSION_KEYSET_PREF_FILE) },
+                onRegenerated = telemetry::onKeysetRegenerated,
+            )
         val aead = keysetHandle.getPrimitive(RegistryConfiguration.get(), com.google.crypto.tink.Aead::class.java)
         val encryptedSerializer =
             AeadSerializer(
