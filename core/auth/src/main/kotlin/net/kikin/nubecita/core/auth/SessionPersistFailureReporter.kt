@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.auth
 
+import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.core.logging.CrashReporter
 import timber.log.Timber
 import javax.inject.Inject
@@ -18,9 +19,9 @@ internal class SessionPersistFailedException(
 
 /**
  * Bridges the SDK's `AtOAuth(onSessionPersistFailure = …)` callback to
- * Crashlytics. Exception-isolated: the callback fires inside the SDK's
- * refresh path, so a broken telemetry backend must never propagate back
- * into it and fail a refresh that succeeded server-side.
+ * Crashlytics. The callback fires inside the SDK's refresh path, so a failing
+ * telemetry backend (any [Exception]; JVM [Error]s still propagate) must never
+ * bubble back into it and fail a refresh that succeeded server-side.
  */
 internal class SessionPersistFailureReporter
     @Inject
@@ -28,6 +29,11 @@ internal class SessionPersistFailureReporter
         private val crashReporter: CrashReporter,
     ) {
         fun report(cause: Throwable) {
+            // The SDK rethrows cooperative cancellation before invoking the
+            // callback, but guard anyway: a cancelled save is flow control,
+            // not a persistence failure — recording it would pollute the
+            // signal this non-fatal exists to measure.
+            if (cause is CancellationException) return
             try {
                 crashReporter.recordException(SessionPersistFailedException(cause))
             } catch (e: Exception) {
