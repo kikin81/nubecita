@@ -2,9 +2,6 @@ package net.kikin.nubecita.feature.feed.impl
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -116,13 +113,6 @@ class FeedScreenOverflowBlockInstrumentationTest {
 
     private companion object {
         const val WAIT_TIMEOUT_MILLIS = 5_000L
-
-        // PostStat labels non-toggleable action cells (incl. the overflow) via
-        // onClickLabel, NOT contentDescription — so match the OnClick action label.
-        fun hasClickLabel(label: String) =
-            SemanticsMatcher("OnClick action label == '$label'") { node ->
-                node.config.getOrNull(SemanticsActions.OnClick)?.label == label
-            }
 
         // Mirror of FakeFeedRepository.DEFAULT_TIMELINE's first post (alice).
         // singlePost derives the author DID from the post id's authority segment

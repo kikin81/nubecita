@@ -1,9 +1,6 @@
 package net.kikin.nubecita.designsystem.component
 
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -547,15 +544,3 @@ class PostCardClickModelTest {
             )
     }
 }
-
-/**
- * Matches a node whose `OnClick` action carries [label] as its accessibility
- * label. `PostStat` labels its non-toggleable action cells (reply / repost /
- * share / overflow) via `onClickLabel`, NOT `contentDescription`, so this is the
- * correct selector for the PostCard overflow affordance — `hasContentDescription`
- * never matches it.
- */
-private fun hasClickLabel(label: String) =
-    SemanticsMatcher("OnClick action label == '$label'") { node ->
-        node.config.getOrNull(SemanticsActions.OnClick)?.label == label
-    }
