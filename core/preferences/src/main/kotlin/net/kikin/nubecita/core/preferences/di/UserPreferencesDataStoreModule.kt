@@ -23,10 +23,16 @@ import javax.inject.Singleton
  * `UserPreferencesBindingsModule` binds a fake repository that doesn't
  * consume this DataStore, so the provider is dead-code-eliminated by
  * Hilt's lazy-initialization in that variant.
+ *
+ * Public (like `UserPreferencesBindingsModule`) so instrumentation graphs in other
+ * modules can `@TestInstallIn(replaces = [UserPreferencesDataStoreModule::class])`
+ * to swap the fixed-file DataStore for a unique-file test one — DataStore allows one
+ * active instance per file per process, which the per-test-method Hilt components
+ * otherwise violate.
  */
 @Module
 @InstallIn(SingletonComponent::class)
-internal object UserPreferencesDataStoreModule {
+object UserPreferencesDataStoreModule {
     private const val PREFERENCES_FILE_NAME = "user_preferences"
 
     @Provides
