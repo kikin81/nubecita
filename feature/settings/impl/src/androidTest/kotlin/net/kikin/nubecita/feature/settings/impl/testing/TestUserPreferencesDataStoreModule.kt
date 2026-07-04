@@ -39,8 +39,13 @@ internal object TestUserPreferencesDataStoreModule {
     @Singleton
     fun provideTestUserPreferencesDataStore(
         @ApplicationContext context: Context,
-    ): DataStore<Preferences> =
-        PreferenceDataStoreFactory.create(
-            produceFile = { context.preferencesDataStoreFile("test_user_preferences_${UUID.randomUUID()}") },
+    ): DataStore<Preferences> {
+        // Compute the unique name ONCE: produceFile can be invoked more than once for a
+        // single DataStore (init / read-write retries / corruption recovery), and a
+        // fresh UUID per call would point the same store at different files.
+        val fileName = "test_user_preferences_${UUID.randomUUID()}"
+        return PreferenceDataStoreFactory.create(
+            produceFile = { context.preferencesDataStoreFile(fileName) },
         )
+    }
 }
