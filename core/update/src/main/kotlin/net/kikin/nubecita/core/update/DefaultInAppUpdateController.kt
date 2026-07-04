@@ -59,16 +59,24 @@ internal class DefaultInAppUpdateController
             // download that already finished while the app was backgrounded.
             try {
                 val signals = client.fetchSignals() ?: return
+                // A completed FLEXIBLE download reports availability ==
+                // DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS AND installStatus == DOWNLOADED,
+                // so surface ReadyToInstall FIRST. The availability-based early-return
+                // below is only for resuming an interrupted IMMEDIATE update (whose
+                // installStatus is never DOWNLOADED); checking it first would swallow a
+                // flexible download that finished while the app was backgrounded.
+                if (signals.installStatus == InstallStatusModel.DOWNLOADED) {
+                    ensureListener()
+                    _state.value = UpdateState.ReadyToInstall
+                    return
+                }
                 if (signals.availability == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
                     if (signals.isImmediateAllowed) client.startImmediate(launcher)
                     return
                 }
                 when (signals.installStatus) {
                     InstallStatusModel.PENDING, InstallStatusModel.DOWNLOADING -> ensureListener()
-                    InstallStatusModel.DOWNLOADED -> {
-                        ensureListener()
-                        _state.value = UpdateState.ReadyToInstall
-                    }
+                    else -> Unit
                 }
             } catch (e: CancellationException) {
                 throw e

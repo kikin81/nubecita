@@ -6,8 +6,9 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.google.android.play.core.appupdate.testing.FakeAppUpdateManager
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -39,36 +40,48 @@ class DefaultInAppUpdateControllerTest {
         controller = DefaultInAppUpdateController(PlayAppUpdateClient(fake), prefs)
     }
 
+    // FakeAppUpdateManager mutates its flow/UI state (confirmation dialog, install
+    // listener callbacks) asynchronously on the main looper, so a synchronous
+    // assertion right after driving it can observe stale state. Pump the main looper
+    // to idle before asserting. (Older fake versions applied these synchronously,
+    // which is why this test rotted once it stopped running in CI.)
+    private fun idle() = InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+
     @Test
     fun foregroundFlexible_reachesReadyToInstall_withoutOnResume() =
-        runTest {
+        runBlocking {
             // A plain FLEXIBLE-eligible update (priority 0, fresh) → policy picks Flexible.
             fake.setUpdateAvailable(availableVersionCode)
 
             controller.checkAndMaybePrompt(launcher)
+            idle()
             assertTrue("expected a FLEXIBLE flow to start", fake.isConfirmationDialogVisible)
 
             // Drive the real Play flow; the controller's listener (armed in
             // checkAndMaybePrompt) must surface each state in real time.
             fake.userAcceptsUpdate()
             fake.downloadStarts()
+            idle()
             assertTrue(controller.state.value is UpdateState.Downloading)
 
             fake.downloadCompletes()
+            idle()
             assertEquals(UpdateState.ReadyToInstall, controller.state.value)
         }
 
     @Test
     fun onResume_surfacesBackgroundedDownloaded_onFreshController() =
-        runTest {
+        runBlocking {
             // Drive the fake all the way to DOWNLOADED using the first controller's
             // listener (the foreground path), so the FakeAppUpdateManager now reports
             // installStatus == DOWNLOADED on its appUpdateInfo.
             fake.setUpdateAvailable(availableVersionCode)
             controller.checkAndMaybePrompt(launcher)
+            idle()
             fake.userAcceptsUpdate()
             fake.downloadStarts()
             fake.downloadCompletes()
+            idle()
 
             // A brand-new controller wired to the SAME (already-DOWNLOADED) fake models
             // "process recreated mid-download": its in-memory _state is still Idle and its
@@ -84,7 +97,7 @@ class DefaultInAppUpdateControllerTest {
 
     @Test
     fun onResume_withNoUpdate_staysIdle() =
-        runTest {
+        runBlocking {
             // Fresh fake with NO update set → availability UPDATE_NOT_AVAILABLE,
             // installStatus UNKNOWN. onResume must be a complete no-op: it must not
             // re-arm the listener nor leave Idle (nothing is in flight).
@@ -98,11 +111,12 @@ class DefaultInAppUpdateControllerTest {
 
     @Test
     fun throttle_isWrittenAtFireTime_andSuppressesSecondPromptForSameVersion() =
-        runTest {
+        runBlocking {
             fake.setUpdateAvailable(availableVersionCode)
             assertNull(prefs.lastPromptedVersionCode())
 
             controller.checkAndMaybePrompt(launcher)
+            idle()
             assertEquals(availableVersionCode, prefs.lastPromptedVersionCode())
             assertTrue("first call should start a flow", fake.isConfirmationDialogVisible)
 
@@ -113,6 +127,7 @@ class DefaultInAppUpdateControllerTest {
             val secondController = DefaultInAppUpdateController(PlayAppUpdateClient(secondFake), prefs)
 
             secondController.checkAndMaybePrompt(launcher)
+            idle()
             assertTrue("second call must not start a flow", !secondFake.isConfirmationDialogVisible)
         }
 
