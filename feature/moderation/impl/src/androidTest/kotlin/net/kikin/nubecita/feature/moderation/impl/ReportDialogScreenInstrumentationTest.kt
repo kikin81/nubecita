@@ -123,6 +123,15 @@ class ReportDialogScreenInstrumentationTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag(ReportDialogTestTags.DETAILS_STEP).assertIsDisplayed()
 
+        // The Details step auto-focuses its notes OutlinedTextField, so the soft
+        // keyboard is up. On Android the first back press is consumed by the IME to
+        // hide itself (before any OnBackPressedCallback), so close it explicitly
+        // first — otherwise `pressBack()` just dismisses the keyboard and the step
+        // stays on Details. This mirrors real use: a user dismisses the keyboard,
+        // then back navigates.
+        Espresso.closeSoftKeyboard()
+        composeTestRule.waitForIdle()
+
         // Fire system back — the screen's BackHandler intercepts (step
         // != Subject) and dispatches OnBackPressed → reducer transitions
         // Details → SubReason.
