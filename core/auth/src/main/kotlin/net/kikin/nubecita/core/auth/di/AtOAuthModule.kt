@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import io.github.kikin81.atproto.oauth.AtOAuth
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import io.ktor.client.HttpClient
+import net.kikin.nubecita.core.auth.SessionPersistFailureReporter
 import javax.inject.Singleton
 
 /**
@@ -28,6 +29,7 @@ internal object AtOAuthModule {
         @OAuthScope scope: String,
         sessionStore: OAuthSessionStore,
         httpClient: HttpClient,
+        persistFailureReporter: SessionPersistFailureReporter,
     ): AtOAuth =
         AtOAuth(
             clientMetadataUrl = clientMetadataUrl,
@@ -35,5 +37,9 @@ internal object AtOAuthModule {
             sessionStore = sessionStore,
             httpClient = httpClient,
             scope = scope,
+            // Fires when the SDK rotated the refresh token but couldn't persist
+            // the new session even after its retry — the precursor of a
+            // cold-start invalid_grant logout (epic nubecita-09xt).
+            onSessionPersistFailure = persistFailureReporter::report,
         )
 }
