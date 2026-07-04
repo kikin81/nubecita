@@ -10,26 +10,28 @@
 # which is how it silently rots (nubecita-bknu). This workflow runs the full set
 # nightly so runtime rot surfaces within a day instead of at the next manual sweep.
 #
-# STRUCTURE (V1 vs V2)
-# --------------------
-# Each module runs as its own matrix leg -> its own fresh runner + emulator, which
-# is the only crash-safe way to cover many modules (no shared long-lived emulator).
-# - V1 (now): `max-parallel: 1` -> the legs run one-at-a-time (sequential, cheap,
-#   no parallelism). This is the "unsharded" first cut.
-# - V2 (later, nubecita-9tw): raise `max-parallel` to fan the legs out across
-#   runners for wall-clock sharding. The matrix is already the shard unit, so it's
-#   mostly a one-line change — but note the AVD cache: on a COLD cache, parallel
-#   legs all miss and each recreates the snapshot concurrently (wasted compute +
-#   flake risk). V2 should either add a one-shot cache-warmup job that the matrix
-#   `needs:`, or accept the one-time first-run cost.
+# STRUCTURE (V2 — parallel shards)
+# --------------------------------
+# Each module runs as its own matrix leg -> its own fresh runner + emulator, which is
+# the only crash-safe way to cover many modules (no shared long-lived emulator). The
+# matrix IS the shard unit; `max-parallel` fans the legs across runners.
+# - `avd-warmup` boots the emulator once and saves the shared AVD snapshot cache
+#   BEFORE the matrix fans out. Without it, on a cold cache all parallel legs miss and
+#   each recreates the snapshot concurrently (wasted compute + a cache-write race).
+#   With it, every leg restore-hits. (V1 ran `max-parallel: 1` and skipped the warmup;
+#   nubecita-7fyv raised the parallelism.)
+# - `max-parallel: 6` keeps well under the GitHub-hosted concurrent-job cap (Free = 20)
+#   so the nightly doesn't starve other workflows; raise it for faster wall-clock if
+#   the plan's concurrency allows. Wall-clock ~= warmup + ceil(16 / max-parallel) waves
+#   of the slowest leg (down from ~80 min sequential).
 #
-# It is informational: `fail-fast: false` so one red module doesn't cancel the
-# rest, and it gates nothing (nightly + manual only). The FIRST run is expected to
-# be red for modules whose androidTest has rotted — that surfacing is the point.
+# It is informational: `fail-fast: false` so one red module doesn't cancel the rest,
+# and it gates nothing (nightly + manual only).
 #
 # AVD REUSE: emulator config (api35 / google_apis / pixel_6 / x86_64) and the AVD
 # cache key (`avd-cache-v1-api35-pixel6`) match ci.yaml + macrobench.yaml so the
-# cached snapshot is shared across all three workflows.
+# cached snapshot is shared across all three workflows. Bump the key in all three
+# (and here) together when the API level / profile changes.
 
 name: Nightly instrumented tests
 
@@ -45,15 +47,77 @@ concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
 
+env:
+  AVD_CACHE_KEY: avd-cache-v1-api35-pixel6
+
 jobs:
+  # One-shot: create + save the shared AVD snapshot cache so the parallel matrix legs
+  # below all restore-hit instead of racing to recreate it on a cold cache.
+  avd-warmup:
+    name: Warm AVD cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Same preamble as the matrix legs below: the emulator-runner drives sdkmanager
+      # (a Java tool) to install the system image, so pin the JDK + Android SDK rather
+      # than depend on whatever the ubuntu-latest image happens to ship. Checkout is
+      # needed for setup-java's java-version-file.
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Verify KVM is available
+        run: |
+          COUNT=$(grep -Ec '(vmx|svm)' /proc/cpuinfo)
+          echo "vmx/svm flags: $COUNT"
+          test "$COUNT" -gt 0 || { echo "::error::No KVM acceleration on this runner"; exit 1; }
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: AVD cache
+        uses: actions/cache@v6
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: ${{ env.AVD_CACHE_KEY }}
+
+      - name: Create AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "AVD created and cached"
+
   instrumented-nightly:
     name: androidTest — ${{ matrix.module }}
+    needs: avd-warmup
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      # V1: sequential. V2 (nubecita-9tw): raise this to shard in parallel.
-      max-parallel: 1
+      # Parallel shards. Tunable: raise for faster wall-clock if the plan's
+      # concurrent-job cap allows (GitHub Free = 20); lower to be a quieter neighbour.
+      max-parallel: 6
       matrix:
         module:
           - ":app"
@@ -127,29 +191,16 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # Shared with ci.yaml's `instrumented` job + macrobench.yaml. Bump the key
-      # (e.g. `avd-cache-v2-...`) in all three when the API level / profile changes.
-      - name: AVD cache
-        uses: actions/cache@v6
-        id: avd-cache
+      # Restore-only: `avd-warmup` owns the save, so the parallel legs never race to
+      # write the cache. If a restore somehow misses, the emulator-runner below
+      # (force-avd-creation: false) creates the AVD on the fly — slower, but correct.
+      - name: Restore AVD cache
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-cache-v1-api35-pixel6
-
-      - name: Create AVD snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
-          script: echo "AVD created and cached"
+          key: ${{ env.AVD_CACHE_KEY }}
 
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
