@@ -31,7 +31,7 @@ internal object KeysetRecovery {
         build: () -> T,
         reset: () -> Unit,
         onRegenerated: (GeneralSecurityException) -> Unit,
-        sleep: (Long) -> Unit = Thread::sleep,
+        sleep: (Long) -> Unit = ::interruptPreservingSleep,
     ): T {
         val firstFailure =
             try {
@@ -45,11 +45,29 @@ internal object KeysetRecovery {
             try {
                 return build()
             } catch (e: GeneralSecurityException) {
-                e.apply { addSuppressed(firstFailure) }
+                // Identity guard: a security provider can rethrow a cached
+                // instance, and addSuppressed(itself) throws
+                // IllegalArgumentException ("Self-suppression not permitted").
+                if (e !== firstFailure) e.addSuppressed(firstFailure)
+                e
             }
 
         onRegenerated(retryFailure)
         reset()
         return build()
+    }
+
+    /**
+     * [Thread.sleep] that preserves the interrupt flag instead of letting
+     * [InterruptedException] (which clears it) escape a DI provider: the
+     * remaining delay is skipped and the retry proceeds immediately, while
+     * callers relying on interruption for cancellation still observe it.
+     */
+    internal fun interruptPreservingSleep(millis: Long) {
+        try {
+            Thread.sleep(millis)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
     }
 }

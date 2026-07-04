@@ -49,7 +49,7 @@ class KeysetRecoveryTest {
         assertEquals(2, attempts)
         assertEquals(0, resets, "a transient failure must never trigger the destructive regen")
         assertNull(reported)
-        assertEquals(1, sleeps.size, "the retry must be delayed to let the Keystore settle")
+        assertEquals(listOf(200L), sleeps, "exactly one retry, delayed by the 200ms settle policy")
     }
 
     @Test
@@ -76,6 +76,43 @@ class KeysetRecoveryTest {
             reported?.suppressed?.contains(first) == true,
             "the first failure must ride along as suppressed for diagnostics",
         )
+        assertEquals(listOf(200L), sleeps, "exactly one delayed retry — the regen rebuild is not delayed")
+    }
+
+    @Test
+    fun `the same exception instance thrown twice must not self-suppress`() {
+        // Security providers can rethrow a cached exception instance;
+        // Throwable.addSuppressed(itself) throws IllegalArgumentException
+        // ("Self-suppression not permitted"), which would replace the real
+        // failure with a bogus one on the report path.
+        var attempts = 0
+        val cached = GeneralSecurityException("cached instance")
+
+        val result =
+            recover {
+                attempts++
+                if (attempts <= 2) throw cached
+                "regenerated"
+            }
+
+        assertEquals("regenerated", result)
+        assertSame(cached, reported)
+        assertEquals(1, resets)
+    }
+
+    @Test
+    fun `default sleep preserves the thread interrupt flag`() {
+        Thread.currentThread().interrupt()
+        try {
+            // With the flag already set, Thread.sleep throws InterruptedException
+            // immediately — the wrapper must swallow it and RE-SET the flag so
+            // callers relying on interruption for cancellation still see it.
+            KeysetRecovery.interruptPreservingSleep(10_000)
+
+            assertTrue(Thread.currentThread().isInterrupted, "interrupt flag must be preserved")
+        } finally {
+            Thread.interrupted() // clear the flag so it can't leak into other tests
+        }
     }
 
     @Test
