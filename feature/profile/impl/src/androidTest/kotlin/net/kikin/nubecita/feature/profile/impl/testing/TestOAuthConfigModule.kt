@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.profile.impl
+package net.kikin.nubecita.feature.profile.impl.testing
 
 import dagger.Module
 import dagger.Provides
@@ -19,6 +19,9 @@ import javax.inject.Singleton
  * `MissingBinding` for `@OAuthClientMetadataUrl` / `@OAuthRedirectUri` / `@OAuthScope`
  * — even though these tests construct their ViewModel manually. Values are inert
  * dummies; no OAuth flow runs in these tests (the repository is faked/mocked).
+ *
+ * Mirrors `:feature:feed:impl`'s shim of the same name (package, visibility, and
+ * placeholder values) so the test-only DI shims stay consistent across modules.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -26,15 +29,15 @@ internal object TestOAuthConfigModule {
     @Provides
     @Singleton
     @OAuthClientMetadataUrl
-    fun clientMetadataUrl(): String = "https://example.test/client-metadata.json"
+    fun provideOAuthClientMetadataUrl(): String = "https://example.invalid/oauth/client-metadata.json"
 
     @Provides
     @Singleton
     @OAuthRedirectUri
-    fun redirectUri(): String = "https://example.test/oauth-redirect"
+    fun provideOAuthRedirectUri(): String = "app.example:/oauth-redirect"
 
     @Provides
     @Singleton
     @OAuthScope
-    fun scope(): String = "atproto transition:generic"
+    fun provideOAuthScope(): String = "atproto transition:generic"
 }
