@@ -3,12 +3,19 @@ package net.kikin.nubecita.core.auth
 import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.SerializationException
 import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.inject.Inject
+import javax.inject.Singleton
 
+// @Singleton on the CLASS, not just the bindings: this impl is bound to two
+// interfaces (OAuthSessionStore + SessionReader). @Binds @Singleton scopes
+// each binding separately, so without class-level scoping Dagger would build
+// one instance per interface.
+@Singleton
 internal class EncryptedOAuthSessionStore
     @Inject
     constructor(
@@ -30,6 +37,8 @@ internal class EncryptedOAuthSessionStore
                     null -> SessionLoadResult.Absent
                     else -> SessionLoadResult.Loaded(session)
                 }
+            } catch (cause: CancellationException) {
+                throw cause // cancellation is flow control, never a ReadError
             } catch (cause: Exception) {
                 when (cause) {
                     is IOException,

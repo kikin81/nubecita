@@ -119,6 +119,20 @@ class EncryptedOAuthSessionStoreTest {
         }
 
     @Test
+    fun `loadResult rethrows cancellation - never a ReadError, never telemetry`() =
+        runTest {
+            val store = store(ThrowingDataStore(kotlinx.coroutines.CancellationException("scope cancelled")))
+
+            val thrown = runCatching { store.loadResult() }.exceptionOrNull()
+
+            assertTrue(
+                thrown is kotlinx.coroutines.CancellationException,
+                "expected CancellationException, got $thrown",
+            )
+            verify(exactly = 0) { telemetry.onSessionReadError(any()) }
+        }
+
+    @Test
     fun `loadResult propagates unexpected exception types`() =
         runTest {
             val store = store(ThrowingDataStore(IllegalStateException("not a storage-layer failure")))
