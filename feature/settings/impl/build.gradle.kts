@@ -57,6 +57,10 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(project(":core:testing-android"))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    // TestUserPreferencesDataStoreModule swaps the production DataStore for a
+    // unique-file one to dodge DataStore's single-instance-per-file rule across
+    // the per-test-method Hilt components.
+    androidTestImplementation(libs.androidx.datastore.preferences)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.espresso.core)
     // Needed by SettingsNotificationsRowInstrumentationTest to assert the
