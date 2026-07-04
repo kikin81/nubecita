@@ -96,6 +96,32 @@ class DefaultInAppUpdateControllerTest {
         }
 
     @Test
+    fun onResume_reArmsListener_forInFlightFlexibleDownload() =
+        runBlocking {
+            // Start a flexible download but DON'T complete it — an in-flight
+            // (DOWNLOADING) update also reports availability ==
+            // DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS, so onResume must NOT let the
+            // availability early-return swallow it before re-arming the listener.
+            fake.setUpdateAvailable(availableVersionCode)
+            controller.checkAndMaybePrompt(launcher)
+            idle()
+            fake.userAcceptsUpdate()
+            fake.downloadStarts()
+            idle()
+
+            // Fresh controller (process recreated mid-download): its listener never
+            // observed the in-flight download. onResume must re-arm it so a completion
+            // that lands AFTER resume still surfaces ReadyToInstall.
+            val freshController = DefaultInAppUpdateController(PlayAppUpdateClient(fake), prefs)
+            freshController.onResume(launcher)
+            idle()
+
+            fake.downloadCompletes()
+            idle()
+            assertEquals(UpdateState.ReadyToInstall, freshController.state.value)
+        }
+
+    @Test
     fun onResume_withNoUpdate_staysIdle() =
         runBlocking {
             // Fresh fake with NO update set → availability UPDATE_NOT_AVAILABLE,

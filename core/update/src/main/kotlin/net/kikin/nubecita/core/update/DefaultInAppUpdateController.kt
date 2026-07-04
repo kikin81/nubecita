@@ -59,24 +59,28 @@ internal class DefaultInAppUpdateController
             // download that already finished while the app was backgrounded.
             try {
                 val signals = client.fetchSignals() ?: return
-                // A completed FLEXIBLE download reports availability ==
-                // DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS AND installStatus == DOWNLOADED,
-                // so surface ReadyToInstall FIRST. The availability-based early-return
-                // below is only for resuming an interrupted IMMEDIATE update (whose
-                // installStatus is never DOWNLOADED); checking it first would swallow a
-                // flexible download that finished while the app was backgrounded.
-                if (signals.installStatus == InstallStatusModel.DOWNLOADED) {
-                    ensureListener()
-                    _state.value = UpdateState.ReadyToInstall
-                    return
+                // A FLEXIBLE update in ANY active/completed install state also reports
+                // availability == DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS, so resolve
+                // installStatus FIRST and return. The availability-based early-return
+                // below is reserved for resuming an interrupted IMMEDIATE update — doing
+                // it first would swallow a backgrounded flexible download (never
+                // surfacing ReadyToInstall) OR skip re-arming the listener for a flexible
+                // download still in flight (no progress/prompt after resume).
+                when (signals.installStatus) {
+                    InstallStatusModel.DOWNLOADED -> {
+                        ensureListener()
+                        _state.value = UpdateState.ReadyToInstall
+                        return
+                    }
+                    InstallStatusModel.PENDING, InstallStatusModel.DOWNLOADING -> {
+                        ensureListener()
+                        return
+                    }
+                    else -> Unit
                 }
                 if (signals.availability == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
                     if (signals.isImmediateAllowed) client.startImmediate(launcher)
                     return
-                }
-                when (signals.installStatus) {
-                    InstallStatusModel.PENDING, InstallStatusModel.DOWNLOADING -> ensureListener()
-                    else -> Unit
                 }
             } catch (e: CancellationException) {
                 throw e
