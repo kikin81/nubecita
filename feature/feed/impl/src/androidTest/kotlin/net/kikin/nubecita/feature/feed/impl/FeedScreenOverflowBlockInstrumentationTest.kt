@@ -1,7 +1,10 @@
 package net.kikin.nubecita.feature.feed.impl
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -10,6 +13,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -70,8 +74,13 @@ class FeedScreenOverflowBlockInstrumentationTest {
             composeTestRule.activity.getString(DesignsystemR.string.moderation_action_block_author, POST_ALICE_HANDLE)
 
         composeTestRule.setContent {
+            // FeedScreen's shared rememberPostInteractions helper reads
+            // LocalMainShellNavState unconditionally (error() default), so it must
+            // be provided or the first composition crashes before any post renders.
             NubecitaTheme {
-                FeedScreen(onNavigateTo = { key -> navState.add(key) })
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen(onNavigateTo = { key -> navState.add(key) })
+                }
             }
         }
 
@@ -85,7 +94,7 @@ class FeedScreenOverflowBlockInstrumentationTest {
         assertEquals(listOf<NavKey>(Feed), navState.backStack.toList())
 
         composeTestRule
-            .onAllNodes(hasContentDescription(moreOptionsCd), useUnmergedTree = true)[0]
+            .onAllNodes(hasClickLabel(moreOptionsCd), useUnmergedTree = true)[0]
             .performClick()
         composeTestRule.waitForIdle()
 
@@ -107,6 +116,13 @@ class FeedScreenOverflowBlockInstrumentationTest {
 
     private companion object {
         const val WAIT_TIMEOUT_MILLIS = 5_000L
+
+        // PostStat labels non-toggleable action cells (incl. the overflow) via
+        // onClickLabel, NOT contentDescription — so match the OnClick action label.
+        fun hasClickLabel(label: String) =
+            SemanticsMatcher("OnClick action label == '$label'") { node ->
+                node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+            }
 
         // Mirror of FakeFeedRepository.DEFAULT_TIMELINE's first post (alice).
         // singlePost derives the author DID from the post id's authority segment

@@ -1,16 +1,25 @@
 package net.kikin.nubecita.feature.feed.impl
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.feature.feed.api.Feed
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
@@ -41,16 +50,26 @@ class FeedScreenInstrumentationTest {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
 
+    private lateinit var navState: MainShellNavState
+
     @Before
     fun setUp() {
         hiltRule.inject()
+        navState =
+            MainShellNavState(
+                startRoute = Feed,
+                topLevelKeyState = mutableStateOf(Feed),
+                backStacks = mapOf<NavKey, NavBackStack<NavKey>>(Feed to NavBackStack(Feed)),
+            )
     }
 
     @Test
     fun feedScreen_rendersFakedTimelinePosts() {
         composeTestRule.setContent {
             NubecitaTheme {
-                FeedScreen()
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen()
+                }
             }
         }
 
@@ -94,7 +113,9 @@ class FeedScreenInstrumentationTest {
 
         composeTestRule.setContent {
             NubecitaTheme {
-                FeedScreen(onReplyClick = { uri -> capturedReplyUris += uri })
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen(onReplyClick = { uri -> capturedReplyUris += uri })
+                }
             }
         }
 
@@ -105,27 +126,34 @@ class FeedScreenInstrumentationTest {
                 .isNotEmpty()
         }
 
-        // Affordance is present on every loaded post — the reply icon's
-        // contentDescription is the design-system string "Reply" (set via
-        // `R.string.postcard_action_reply` inside PostCard's ActionRow).
-        // useUnmergedTree because the icon button's semantics are nested
-        // under the action row's merged tree; without it Compose would
-        // collapse the count to the parent row.
+        // Affordance is present on every loaded post. Reply is a
+        // non-toggleable PostStat cell, so its "Reply" label is exposed via
+        // `onClickLabel`, NOT `contentDescription` — match the OnClick action
+        // label. useUnmergedTree because the icon button's semantics are nested
+        // under the action row's merged tree.
         composeTestRule
-            .onAllNodes(hasContentDescription(REPLY_CD), useUnmergedTree = true)
+            .onAllNodes(hasClickLabel(REPLY_CD), useUnmergedTree = true)
             .assertCountEquals(3)
 
         // Tap the first reply icon (post1 = alice) and assert the callback
         // fired with post1's AT URI. The list order is fixed by
         // FakeFeedRepository (alice → bob → carol), so index 0 is alice.
         composeTestRule
-            .onAllNodes(hasContentDescription(REPLY_CD), useUnmergedTree = true)[0]
+            .onAllNodes(hasClickLabel(REPLY_CD), useUnmergedTree = true)[0]
             .performClick()
 
         assertEquals(listOf(POST_ALICE_URI), capturedReplyUris)
     }
 
     private companion object {
+        // PostStat labels non-toggleable action cells (reply / repost / share /
+        // overflow) via onClickLabel, NOT contentDescription — match on the
+        // OnClick action label.
+        fun hasClickLabel(label: String) =
+            SemanticsMatcher("OnClick action label == '$label'") { node ->
+                node.config.getOrNull(SemanticsActions.OnClick)?.label == label
+            }
+
         const val WAIT_TIMEOUT_MILLIS = 5_000L
         const val POST_ALICE_TEXT = "Hello world from alice"
         const val POST_BOB_TEXT = "Bluesky is fun"
