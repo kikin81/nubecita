@@ -5,7 +5,9 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.auth.di.OAuthClientMetadataUrl
+import net.kikin.nubecita.core.auth.di.OAuthRedirectUri
 import net.kikin.nubecita.core.auth.di.OAuthScope
 import net.kikin.nubecita.core.common.navigation.StartDestination
 import net.kikin.nubecita.feature.search.api.Search
@@ -60,4 +62,22 @@ internal object TestBindingsModule {
     @Singleton
     @OAuthScope
     fun provideOAuthScope(): String = ""
+
+    @Provides
+    @Singleton
+    @OAuthRedirectUri
+    fun provideOAuthRedirectUri(): String = ""
+
+    // MuteRepository is reachable through the module's ViewModelMap (a search
+    // ViewModel injects it), but its production binding needs the auth/XRPC
+    // stack that isn't on the androidTest classpath. The tap-through tests never
+    // mute anyone, so a no-op fake completes the graph.
+    @Provides
+    @Singleton
+    fun provideMuteRepository(): MuteRepository =
+        object : MuteRepository {
+            override suspend fun muteActor(did: String): Result<Unit> = Result.success(Unit)
+
+            override suspend fun unmuteActor(did: String): Result<Unit> = Result.success(Unit)
+        }
 }
