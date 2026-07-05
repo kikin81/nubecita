@@ -36,17 +36,27 @@ internal object AuthDataStoreModule {
         telemetry: SessionTelemetry,
     ): DataStore<OAuthSession?> {
         AeadConfig.register()
-        // Recoverable crypto failures at construction time — most commonly
-        // KeyPermanentlyInvalidatedException (biometric reset / factory-wipe of user data),
-        // but also any GeneralSecurityException from a corrupted keyset payload — are
-        // treated as "discard the old keyset and regenerate." The retry is bounded (see
-        // KeysetRecovery). Regeneration makes any previously persisted session
-        // ciphertext undecryptable — a guaranteed silent logout — so every fire is
+        // Crypto failures at construction time get one non-destructive delayed
+        // retry (a transiently unavailable Keystore presents exactly like a
+        // corrupted keyset — see KeysetRecovery); only a persistent failure —
+        // most commonly KeyPermanentlyInvalidatedException (biometric reset /
+        // factory-wipe of user data) or a corrupted keyset payload — is treated
+        // as "discard the old keyset and regenerate," and every fire is
         // reported (epic nubecita-09xt).
+        //
+        // Regeneration makes the previously persisted session ciphertext
+        // permanently undecryptable, so the reset also deletes the session
+        // file: the state is then honestly "signed out" (clean re-login)
+        // instead of a session that fails decryption on every cold start —
+        // which under SessionLoadResult would burn the full ReadError retry
+        // schedule behind the splash on every launch, forever.
         val keysetHandle =
             KeysetRecovery.buildWithRecovery(
                 build = { buildKeysetHandle(context) },
-                reset = { context.deleteSharedPreferences(SESSION_KEYSET_PREF_FILE) },
+                reset = {
+                    context.deleteSharedPreferences(SESSION_KEYSET_PREF_FILE)
+                    context.dataStoreFile(SESSION_FILE_NAME).delete()
+                },
                 onRegenerated = telemetry::onKeysetRegenerated,
             )
         val aead = keysetHandle.getPrimitive(RegistryConfiguration.get(), com.google.crypto.tink.Aead::class.java)
