@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.widgets.impl.image
 import android.content.Context
 import android.graphics.Bitmap
 import coil3.ImageLoader
+import coil3.request.CachePolicy
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
@@ -27,10 +28,15 @@ internal interface ThumbnailDecoder {
      * Decode [url] to a bitmap downscaled to fit [MAX_THUMB_PX]² and write it to
      * [dest] as JPEG. Returns whether a usable thumbnail was written. Never
      * throws on a decode/IO failure — a missing thumbnail just renders text-only.
+     *
+     * With [allowNetwork] = false the decode is restricted to Coil's local
+     * memory/disk caches — the render-time self-heal path (nubecita-iqpc) must
+     * never issue network from a Glance session.
      */
     suspend fun decodeToFile(
         url: String,
         dest: File,
+        allowNetwork: Boolean = true,
     ): Boolean
 }
 
@@ -51,6 +57,7 @@ internal class CoilThumbnailDecoder
         override suspend fun decodeToFile(
             url: String,
             dest: File,
+            allowNetwork: Boolean,
         ): Boolean {
             val request =
                 ImageRequest
@@ -60,15 +67,25 @@ internal class CoilThumbnailDecoder
                     // Software bitmap so it can be compressed to a file (hardware
                     // bitmaps can't be read back).
                     .allowHardware(false)
-                    .build()
+                    .apply {
+                        // Local-only mode (render-time self-heal): serve from Coil's
+                        // memory/disk caches, never the network.
+                        if (!allowNetwork) networkCachePolicy(CachePolicy.DISABLED)
+                    }.build()
 
             val result = imageLoader.execute(request)
             if (result !is SuccessResult) {
                 // Surface why; this path was previously silent, hiding intermittent
                 // misses. Log the URL without query params (avoid leaking any
                 // signed-URL tokens). (ImageResult doesn't smart-cast to ErrorResult
-                // here, so the explicit cast stays.)
-                Timber.tag(TAG).w((result as? ErrorResult)?.throwable, "widget thumbnail decode failed: %s", url.substringBefore('?'))
+                // here, so the explicit cast stays.) A local-only miss is EXPECTED
+                // control flow (the image was simply never cached in-app) — debug
+                // level, or it would flood the breadcrumb buffer on every render.
+                if (allowNetwork) {
+                    Timber.tag(TAG).w((result as? ErrorResult)?.throwable, "widget thumbnail decode failed: %s", url.substringBefore('?'))
+                } else {
+                    Timber.tag(TAG).d("widget thumbnail not in local cache: %s", url.substringBefore('?'))
+                }
                 return false
             }
             val bitmap = result.image.toBitmap()

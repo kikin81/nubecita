@@ -2,8 +2,6 @@ package net.kikin.nubecita.feature.widgets.impl.widget
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.SystemClock
 import androidx.annotation.StringRes
@@ -23,7 +21,6 @@ import net.kikin.nubecita.feature.widgets.impl.MAX_WIDGET_POSTS
 import net.kikin.nubecita.feature.widgets.impl.R
 import net.kikin.nubecita.feature.widgets.impl.di.WidgetEntryPoint
 import net.kikin.nubecita.feature.widgets.impl.di.widgetEntryPoint
-import net.kikin.nubecita.feature.widgets.impl.image.WidgetThumbnailStore
 import net.kikin.nubecita.feature.widgets.impl.model.toWidgetItem
 import net.kikin.nubecita.feature.widgets.impl.ui.FeedWidgetContent
 import net.kikin.nubecita.feature.widgets.impl.ui.FeedWidgetUiState
@@ -116,7 +113,7 @@ internal abstract class FeedWidget : GlanceAppWidget() {
                     SessionState.SignedOut -> return@withContext FeedWidgetUiState.SignedOut
                 }
 
-            val store = entryPoint.widgetThumbnailStore()
+            val thumbnailLoader = entryPoint.widgetThumbnailLoader()
             // firstOrNull guards the edge case of a flow that completes without
             // emitting; a Room-backed head normally emits a (possibly empty) list.
             val posts =
@@ -144,7 +141,10 @@ internal abstract class FeedWidget : GlanceAppWidget() {
                     val item = post.toWidgetItem(now)
                     // Thumbnails are keyed by post.id (== item.postUri) — the same key
                     // the prefetcher writes under; use post.id to make that explicit.
-                    val thumbnail = if (item.hasMedia) loadThumbnail(store, did, post.id) else null
+                    // The loader self-heals a missing file from Coil's LOCAL caches
+                    // (nubecita-iqpc) — the cache is often fresher than the store.
+                    val thumbnail =
+                        if (item.hasMedia) thumbnailLoader.load(did, post.id, post.embed) else null
                     WidgetRow(item, thumbnail, deepLinkIntent = deepLinkIntent(context, post.id))
                 }
             FeedWidgetUiState.Loaded(rows)
@@ -165,15 +165,6 @@ internal abstract class FeedWidget : GlanceAppWidget() {
         return Intent(Intent.ACTION_VIEW, Uri.parse(deepLink))
             .setPackage(context.packageName)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-    }
-
-    private fun loadThumbnail(
-        store: WidgetThumbnailStore,
-        accountDid: String,
-        postId: String,
-    ): Bitmap? {
-        val file = store.thumbnailFile(accountDid, postId)
-        return if (file.exists()) BitmapFactory.decodeFile(file.path) else null
     }
 
     private companion object {
