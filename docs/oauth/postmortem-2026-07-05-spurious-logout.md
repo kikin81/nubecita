@@ -31,7 +31,7 @@ Release builds emit almost nothing to logcat (auth routes to Crashlytics), and t
 
 ## Root cause
 
-`clear()` was called because the refresh POST returned `invalid_grant`. AT Proto refresh tokens are **single-use / rotating** (atproto OAuth spec: *"refresh tokens are generally single-use … client implementations may need locking primitives to prevent concurrent token refresh requests"*; mechanism per RFC 9700 §4.14 rotation + reuse detection, surfaced as `invalid_grant` per RFC 6749 §5.2).
+`clear()` was called because the refresh POST returned `invalid_grant`. AT Proto refresh tokens are **single-use / rotating** (AT Protocol OAuth spec: *"refresh tokens are generally single-use … client implementations may need locking primitives to prevent concurrent token refresh requests"*; mechanism per RFC 9700 §4.14 rotation + reuse detection, surfaced as `invalid_grant` per RFC 6749 §5.2).
 
 **Crucially, the affected build already single-flights refresh:**
 
@@ -56,7 +56,7 @@ Filed as **[atproto-kotlin#164](https://github.com/kikin81/atproto-kotlin/issues
 
 - **§1 (bug):** after the first waiter's `invalid_grant` clears the store, coalesced waiters **re-POST the same dead token** (a failed refresh doesn't mutate the in-memory `session`, and `adoptStoredSessionIfRotated` sees a now-empty store) — producing the redundant second `invalid_grant`/`clear()` we observed 236 ms apart. Fix: under the lock, if `sessionStore.load() == null` while a session is still held, fail fast without re-POSTing.
 - **§2 (hardening):** `failRefresh` clears without re-checking the store for a concurrent valid rotation — matters for multi-instance/multi-process consumers. Fix: reload before clear; adopt a newer token if present.
-- **§3 (inherent):** the receive→persist durability window across process death — narrow and document; not fully closeable client-side.
+- **§3 (inherent):** the receive→persist durability window across process death — narrow and document; not fully closable client-side.
 
 ## Action items
 
