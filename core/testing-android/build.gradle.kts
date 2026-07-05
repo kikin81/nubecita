@@ -23,10 +23,12 @@ dependencies {
     api(libs.hilt.android.testing)
     api(libs.ktor.client.mock)
 
-    // The `:core:auth` reference is needed only for this module's own
-    // compilation — `MockEngineModule` uses `NetworkEngineModule::class` in
-    // its `@TestInstallIn(replaces = ...)` clause. Consumers' main code
-    // already pulls `:core:auth` directly, so exposing it via `api` here
-    // would just leak ABI without benefit.
+    // The `:core:auth` / `:core:logging` references are needed only for this
+    // module's own compilation — `MockEngineModule` uses `NetworkEngineModule::class`
+    // and `TestLoggingModule` uses `LoggingModule::class` in their
+    // `@TestInstallIn(replaces = ...)` clauses. Consumers' main code already
+    // pulls both directly, so exposing them via `api` here would just leak ABI
+    // without benefit.
     implementation(project(":core:auth"))
+    implementation(project(":core:logging"))
 }
