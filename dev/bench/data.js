@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783152748333,
+  "lastUpdate": 1783239329350,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1975,6 +1975,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 625.912,
             "range": "+/- 61.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "8dc342dc2a485c83769b2bc43293f0ccc3f1a4c0",
+          "message": "ci(release): 1.275.3\n\n## [1.275.3](https://github.com/kikin81/nubecita/compare/v1.275.2...v1.275.3) (2026-07-05)\n\n### Miscellaneous\n\n* **docs:** remove legacy GitHub Pages OAuth client hosting ([#681](https://github.com/kikin81/nubecita/issues/681)) ([fe14420](https://github.com/kikin81/nubecita/commit/fe14420a5b642e6429936fb8488e34749215c174))\n\n### Bug Fixes\n\n* **widgets:** self-heal missing thumbnails from Coil's local cache at render ([#682](https://github.com/kikin81/nubecita/issues/682)) ([728f9cb](https://github.com/kikin81/nubecita/commit/728f9cbf438d23e6b6059832090adddcefe3ca8d))",
+          "timestamp": "2026-07-05T01:33:54Z",
+          "url": "https://github.com/kikin81/nubecita/commit/8dc342dc2a485c83769b2bc43293f0ccc3f1a4c0"
+        },
+        "date": 1783239326883,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 30,
+            "range": "+/- 8.3%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1282.648,
+            "range": "+/- 6.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1294.772,
+            "range": "+/- 6.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1179.766,
+            "range": "+/- 34.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1138.77,
+            "range": "+/- 9.8%",
             "unit": "ms"
           }
         ]
