@@ -27,8 +27,10 @@ import javax.inject.Singleton
  * `NetworkEngineModule`.
  *
  * No instrumentation test asserts on crash-reporting behaviour, so forcing the
- * NoOp everywhere is safe; a test that ever needs the real reporter would
- * install its own `@TestInstallIn` and be responsible for initializing Firebase.
+ * NoOp everywhere is safe. Because Hilt rejects two modules replacing the same
+ * one, a test that genuinely needed the real reporter could not simply add
+ * another `@TestInstallIn` for [LoggingModule] alongside this one — it would
+ * first have to opt out of this shared replacement and initialize Firebase itself.
  */
 @Module
 @TestInstallIn(
