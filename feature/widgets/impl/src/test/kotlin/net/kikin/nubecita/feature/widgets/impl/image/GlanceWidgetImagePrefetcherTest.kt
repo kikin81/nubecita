@@ -96,6 +96,7 @@ internal class GlanceWidgetImagePrefetcherTest {
         override suspend fun decodeToFile(
             url: String,
             dest: File,
+            allowNetwork: Boolean,
         ): Boolean {
             calls += url to dest
             return true

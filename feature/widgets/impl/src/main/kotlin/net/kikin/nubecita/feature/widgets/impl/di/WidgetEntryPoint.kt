@@ -10,7 +10,7 @@ import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.widgetsync.WidgetRefreshLauncher
 import net.kikin.nubecita.feature.widgets.impl.entitlement.WidgetEntitlementGate
-import net.kikin.nubecita.feature.widgets.impl.image.WidgetThumbnailStore
+import net.kikin.nubecita.feature.widgets.impl.image.WidgetThumbnailLoader
 
 /**
  * Hilt access seam for Jetpack Glance (D-C2).
@@ -38,8 +38,11 @@ internal interface WidgetEntryPoint {
     /** Saved/pinned feeds backing the configurable widget's configuration picker. */
     fun pinnedFeedsRepository(): PinnedFeedsRepository
 
-    /** Pre-decoded thumbnails for the head posts (loaded off composition). */
-    fun widgetThumbnailStore(): WidgetThumbnailStore
+    /**
+     * Render-time thumbnail resolution: pre-decoded store hit, or the
+     * local-cache-only self-heal (nubecita-iqpc).
+     */
+    fun widgetThumbnailLoader(): WidgetThumbnailLoader
 
     /** On-demand refresh trigger (widget add / manual refresh). */
     fun widgetRefreshLauncher(): WidgetRefreshLauncher
