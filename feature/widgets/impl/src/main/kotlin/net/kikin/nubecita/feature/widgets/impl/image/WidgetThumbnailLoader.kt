@@ -2,6 +2,9 @@ package net.kikin.nubecita.feature.widgets.impl.image
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.data.models.EmbedUi
 import javax.inject.Inject
 
@@ -30,24 +33,37 @@ import javax.inject.Inject
 internal class WidgetThumbnailLoader(
     private val store: WidgetThumbnailStore,
     private val decoder: ThumbnailDecoder,
+    private val dispatcher: CoroutineDispatcher,
     private val decodeBitmapFile: (String) -> Bitmap?,
 ) {
     @Inject
     constructor(
         store: WidgetThumbnailStore,
         decoder: ThumbnailDecoder,
-    ) : this(store, decoder, { path -> BitmapFactory.decodeFile(path) })
+        @IoDispatcher dispatcher: CoroutineDispatcher,
+    ) : this(store, decoder, dispatcher, { path -> BitmapFactory.decodeFile(path) })
 
+    // Main-safe by contract: all file I/O + bitmap decoding runs on [dispatcher],
+    // so callers may invoke from any context.
     suspend fun load(
         accountDid: String,
         postId: String,
         embed: EmbedUi,
-    ): Bitmap? {
-        val file = store.thumbnailFile(accountDid, postId)
-        if (file.exists()) return decodeBitmapFile(file.path)
+    ): Bitmap? =
+        withContext(dispatcher) {
+            val file = store.thumbnailFile(accountDid, postId)
+            if (file.exists()) {
+                val cached = decodeBitmapFile(file.path)
+                if (cached != null) return@withContext cached
+                // An existing-but-undecodable file (truncated write predating the
+                // decoder's tmp+rename, bit rot) would otherwise short-circuit the
+                // self-heal on every render, forever. Delete it and fall through
+                // so the heal — or the worker's next prefetch — can rewrite it.
+                file.delete()
+            }
 
-        val url = widgetThumbnailUrl(embed) ?: return null
-        val healed = decoder.decodeToFile(url, file, allowNetwork = false)
-        return if (healed) decodeBitmapFile(file.path) else null
-    }
+            val url = widgetThumbnailUrl(embed) ?: return@withContext null
+            val healed = decoder.decodeToFile(url, file, allowNetwork = false)
+            if (healed) decodeBitmapFile(file.path) else null
+        }
 }

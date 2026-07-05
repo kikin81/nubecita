@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.widgets.impl.image
 import android.graphics.Bitmap
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
@@ -33,9 +34,12 @@ internal class WidgetThumbnailLoaderTest {
     ) = WidgetThumbnailLoader(
         store = store,
         decoder = decoder,
+        dispatcher = UnconfinedTestDispatcher(),
         decodeBitmapFile = { path ->
             decodedPaths += path
-            bitmap
+            // A file holding CORRUPT_BYTES simulates an undecodable JPEG
+            // (BitmapFactory.decodeFile returns null on garbage input).
+            if (File(path).readBytes().contentEquals(CORRUPT_BYTES)) null else bitmap
         },
     )
 
@@ -85,6 +89,33 @@ internal class WidgetThumbnailLoaderTest {
         }
 
     @Test
+    fun `corrupted store file is deleted and healed instead of rendering empty forever`() =
+        runTest {
+            val store = WidgetThumbnailStore(tempFolder)
+            store.thumbnailFile("did:plc:a", "at://post/1").writeBytes(CORRUPT_BYTES)
+            val decoder = RecordingDecoder(succeed = true)
+
+            val result = loader(decoder, store).load("did:plc:a", "at://post/1", imagesEmbed())
+
+            assertSame(bitmap, result, "the heal must replace the corrupted file and decode it")
+            assertEquals(1, decoder.calls.size, "the corrupted file must fall through to the self-heal")
+        }
+
+    @Test
+    fun `corrupted store file with a failing heal renders text-only and clears the bad file`() =
+        runTest {
+            val store = WidgetThumbnailStore(tempFolder)
+            val file = store.thumbnailFile("did:plc:a", "at://post/1")
+            file.writeBytes(CORRUPT_BYTES)
+            val decoder = RecordingDecoder(succeed = false)
+
+            val result = loader(decoder, store).load("did:plc:a", "at://post/1", imagesEmbed())
+
+            assertNull(result)
+            assertTrue(!file.exists(), "the undecodable file must not survive to poison future renders")
+        }
+
+    @Test
     fun `text-only embed never reaches the decoder`() =
         runTest {
             val decoder = RecordingDecoder(succeed = true)
@@ -94,6 +125,10 @@ internal class WidgetThumbnailLoaderTest {
             assertNull(result)
             assertTrue(decoder.calls.isEmpty())
         }
+
+    private companion object {
+        val CORRUPT_BYTES = byteArrayOf(0)
+    }
 
     private class RecordingDecoder(
         private val succeed: Boolean,
