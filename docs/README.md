@@ -1,35 +1,25 @@
-# `docs/` — GitHub Pages content
+# `docs/` — repository documentation
 
-Everything in this folder is served verbatim at
-`https://kikin81.github.io/nubecita/` by GitHub Pages.
+Plain in-repo documentation: design-system contracts, runbooks
+(`beads-multi-machine.md`), architecture notes (`adaptive-layouts.md`),
+and the OAuth client-metadata field reference (`oauth/README.md`). Read
+it on GitHub or in your editor — nothing here is deployed anywhere.
 
-## What's hosted here
+## History: this folder used to be a GitHub Pages site
 
-| Path | Purpose |
-|------|---------|
-| `index.html` | Minimal landing page. Satisfies the same-origin requirement for the OAuth client metadata `client_uri`, `tos_uri`, and `policy_uri` fields. |
-| `oauth/client-metadata.json` | AT Protocol OAuth 2.0 client metadata fetched by Bluesky's authorization server during PAR. See `oauth/README.md` for fields and constraints. |
+Until `nubecita-i6st` (2026-07-05), GitHub Pages served this folder at
+`https://kikin81.github.io/nubecita/` for one load-bearing reason:
+hosting the development OAuth client metadata
+(`oauth/client-metadata.json`, whose URL *was* the dev `client_id`)
+before `nubecita.app` existed. Production moved to
+`https://nubecita.app/oauth/client-metadata.json` (hosted from the
+`nubecita-web` repo) on 2026-05-16 (`90031fd4`); once every session
+bound to the old client_id had aged past the 2-week public-client cap,
+the Pages site had no remaining consumers and was disabled — it had
+been redeploying on every push to `main` (legacy branch mode) and
+racing itself into spurious `pages build and deployment` failures
+whenever the release bot pushed right after a merge.
 
-## Repo-side setup (one-time)
-
-GitHub Pages must be enabled for this repo with source = "Deploy from
-branch, `main` / `/docs`". After merge, the first publish typically
-takes 30–60 s. Subsequent commits to `docs/` on `main` redeploy
-automatically.
-
-If Pages is not yet enabled:
-
-```bash
-echo '{"source":{"branch":"main","path":"/docs"}}' \
-  | gh api -X POST repos/kikin81/nubecita/pages --input -
-```
-
-(`gh api -f source='...'` doesn't work here — it sends the value as a
-string, and the Pages API requires `source` to be a nested object.)
-
-## Dev → prod URL swap
-
-The `client_id` in `oauth/client-metadata.json` is the exact URL where
-the JSON is served. Moving to a custom domain changes that URL, which
-invalidates every session signed against the old `client_id`. This is
-fine while pre-launch; flag it in release notes when we do it.
+If Pages hosting is ever needed again, prefer workflow-mode deploys
+gated on `docs/**` changes with a concurrency group, not legacy branch
+mode.

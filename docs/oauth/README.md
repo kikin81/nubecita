@@ -1,61 +1,53 @@
-# OAuth client metadata
+# OAuth client metadata (reference)
 
-`client-metadata.json` is the public document Bluesky's authorization
-server fetches during PAR (Pushed Authorization Request) to validate
-Nubecita's `client_id`.
+The production client metadata document — the JSON that Bluesky's
+authorization server fetches during PAR to validate Nubecita's
+`client_id` — is served at:
 
-## Served at
+`https://nubecita.app/oauth/client-metadata.json`
 
-`https://kikin81.github.io/nubecita/oauth/client-metadata.json`
-(must be `Content-Type: application/json`; GitHub Pages sets this
-automatically for `.json` files.)
+and is **hosted from the `nubecita-web` repo**, not this one. This repo
+previously served a development copy from GitHub Pages
+(`kikin81.github.io/nubecita/...`); that legacy client was superseded on
+2026-05-16 (`90031fd4`) and the Pages hosting removed (`nubecita-i6st`).
+The field rules below still apply to the production document and are
+kept here because they encode hard-won AT Protocol constraints.
 
 ## Field rules (AT Protocol + Bluesky-specific)
 
-| Field | Value | Why |
-|-------|-------|-----|
-| `client_id` | `https://kikin81.github.io/nubecita/oauth/client-metadata.json` | **Must** match the hosting URL exactly. |
-| `application_type` | `native` | Android app, not web. |
-| `client_uri`, `tos_uri`, `policy_uri` | `https://kikin81.github.io/nubecita` | Same origin as `client_id` required. |
-| `dpop_bound_access_tokens` | `true` | Bluesky requires DPoP-bound tokens. |
-| `token_endpoint_auth_method` | `none` | Public client (no client secret). |
-| `grant_types` | `["authorization_code", "refresh_token"]` | Standard OAuth 2.0 flow + refresh. |
-| `response_types` | `["code"]` | Authorization code flow. |
-| `redirect_uris` | `["io.github.kikin81:/oauth-redirect"]` | **Single slash** after the scheme, not `://`. Per AT Protocol's Discoverable Client rule the scheme is the FQDN of `client_id` reversed (`kikin81.github.io` → `io.github.kikin81`), **not** the app's `applicationId`. |
-| `scope` | `atproto transition:generic transition:chat.bsky` | Three space-separated scopes. `atproto` is the required base scope. `transition:generic` is the umbrella for standard AppView RPCs (profiles, feeds, posts). `transition:chat.bsky` is the umbrella for `chat.bsky.*` RPCs routed through the chat AppView (`did:web:api.bsky.chat`) — without it, every chat call returns `403 ScopeMissingError`. Bluesky's consent screen lets the user opt out of `transition:chat.bsky` individually; a token issued without it can still use the rest of the API. |
+| Field | Rule |
+|-------|------|
+| `client_id` | **Must** match the hosting URL exactly — the URL *is* the client identity. Changing it invalidates every session signed against the old value. |
+| `application_type` | `native` — Android app, not web. |
+| `client_uri`, `tos_uri`, `policy_uri` | Same origin as `client_id` required. |
+| `dpop_bound_access_tokens` | `true` — Bluesky requires DPoP-bound tokens. |
+| `token_endpoint_auth_method` | `none` — public client (no client secret). |
+| `grant_types` | `["authorization_code", "refresh_token"]`. |
+| `response_types` | `["code"]`. |
+| `redirect_uris` | The app-scheme form uses a **single slash** after the scheme, not `://`. The verified-App-Link form (`https://nubecita.app/oauth-redirect/`) needs the **trailing slash** — GitHub Pages 301s the no-slash form, which drops the OAuth `code` (nubecita-o4rv.1). |
+| `scope` | `atproto transition:generic transition:chat.bsky`. `atproto` is the required base scope; `transition:generic` covers standard AppView RPCs; `transition:chat.bsky` covers `chat.bsky.*` via the chat AppView (`did:web:api.bsky.chat`) — without it every chat call returns `403 ScopeMissingError`. The consent screen lets users opt out of chat individually. |
 
 ## Redirect URI convention — FQDN reversed, NOT the app's applicationId
 
-The custom URI scheme `io.github.kikin81` is the FQDN of `client_id`
-(`kikin81.github.io`) reversed. AT Protocol's Discoverable Client rule
-mandates this — it does **not** match the Android `applicationId`
-(`net.kikin.nubecita`). Bluesky's authorization server enforces it at
-PAR time and rejects mismatches with `HTTP 400 invalid_redirect_uri`.
-
-Receiving intent filter (in `app/src/main/AndroidManifest.xml`) declares
-the same scheme + path. When the dev URL swaps to a custom domain
-(e.g. `nubecita.kikin.net`), the reversed scheme also changes
-(`net.kikin.nubecita`) — both sides update together as a single PR.
-
-## Dev → prod swap
-
-Moving to a custom domain (e.g. `https://nubecita.kikin.net`) changes
-`client_id`. Every existing session is signed against the old
-`client_id` and will be invalidated by the auth server. Acceptable
-while pre-launch; flag explicitly in release notes when we do the swap.
+For custom-scheme redirects, AT Protocol's Discoverable Client rule
+mandates the scheme be the FQDN of `client_id` reversed — it does
+**not** match the Android `applicationId`. Bluesky's authorization
+server enforces this at PAR time and rejects mismatches with
+`HTTP 400 invalid_redirect_uri`. The receiving intent filter in
+`app/src/main/AndroidManifest.xml` must declare the same scheme + path;
+if the hosting domain ever changes, both sides update together as a
+single PR — and every existing session is invalidated (flag it in
+release notes).
 
 ## Validation
 
-Quick validation after GitHub Pages publishes:
-
 ```bash
-curl -I https://kikin81.github.io/nubecita/oauth/client-metadata.json
+curl -I https://nubecita.app/oauth/client-metadata.json
 # Expect: 200 OK, Content-Type: application/json
 
-curl -s https://kikin81.github.io/nubecita/oauth/client-metadata.json | jq .
+curl -s https://nubecita.app/oauth/client-metadata.json | jq .
 # Should parse cleanly.
 ```
 
-End-to-end validation happens once `nubecita-ck0` lands and we can run
-`AtOAuth.beginLogin(handle)` — the authorization server fetches this
-document and rejects PAR if any field is malformed.
+End-to-end: `AtOAuth.beginLogin(handle)` — the authorization server
+fetches the document and rejects PAR if any field is malformed.
