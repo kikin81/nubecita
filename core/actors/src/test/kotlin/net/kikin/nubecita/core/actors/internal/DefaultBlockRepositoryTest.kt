@@ -239,14 +239,10 @@ class DefaultBlockRepositoryTest {
 
             assertEquals(listOf("did:plc:blocked1", "did:plc:blocked2"), accounts.map { it.did })
             assertEquals(2, capture.requests.size, "should page exactly twice")
-            // The second request forwards the first page's cursor.
-            assertTrue(
-                capture.requests[1]
-                    .url
-                    .toString()
-                    .contains("cursor=page2"),
-                "second page request should carry cursor=page2",
-            )
+            // The second request forwards the first page's cursor. Assert the
+            // parsed query parameter rather than a substring of the raw URL so
+            // param ordering / encoding can't cause a false failure.
+            assertEquals("page2", capture.requests[1].url.parameters["cursor"])
         }
 
     @Test
@@ -399,6 +395,10 @@ class DefaultBlockRepositoryTest {
     ): String {
         val fields =
             buildList {
+                // Concrete ProfileView doesn't require a discriminator to
+                // deserialize (the SDK's Json ignores unknown keys), but real
+                // getBlocks payloads carry it — keep the fixture faithful.
+                add("\"\$type\":\"app.bsky.actor.defs#profileView\"")
                 add("\"did\":\"$did\"")
                 add("\"handle\":\"$handle\"")
                 if (displayName != null) add("\"displayName\":\"$displayName\"")
