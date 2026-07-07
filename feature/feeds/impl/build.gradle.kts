@@ -14,6 +14,10 @@ dependencies {
     api(project(":feature:feeds:api"))
 
     implementation(project(":core:common"))
+    // PinnedFeedsRepository (observePinnedFeeds / unpinFeed / reorderPinnedFeeds)
+    // — consumed by the ManageFeeds ViewModel in later slices of the epic.
+    implementation(project(":core:feeds"))
+    implementation(project(":data:models"))
     implementation(project(":designsystem"))
     // Drag-to-reorder for the pinned-feeds list (ManageFeedsScreen).
     implementation(libs.reorderable)
