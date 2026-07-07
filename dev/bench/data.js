@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783327513896,
+  "lastUpdate": 1783412464535,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2079,6 +2079,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1252.907,
             "range": "+/- 34%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "81f19d6dffd2b7cd63cff7f20d14b7557a6c1d3d",
+          "message": "ci(release): 1.275.5\n\n## [1.275.5](https://github.com/kikin81/nubecita/compare/v1.275.4...v1.275.5) (2026-07-07)\n\n### Miscellaneous\n\n* **deps:** update dependency fastlane to v2.237.0 ([#677](https://github.com/kikin81/nubecita/issues/677)) ([d1978ff](https://github.com/kikin81/nubecita/commit/d1978ffb0b3436a66f5b64a136ab12a2e8fd37c1))\n\n### Documentation\n\n* **feeds:** design for manage-pinned-feeds screen ([#685](https://github.com/kikin81/nubecita/issues/685)) ([bacf15e](https://github.com/kikin81/nubecita/commit/bacf15e6ed2470d4653b2ed01c1b0afd0ed24edb))\n* **oauth:** post-mortem for 1.275.3 invalid_grant spurious logout ([#684](https://github.com/kikin81/nubecita/issues/684)) ([d6e013f](https://github.com/kikin81/nubecita/commit/d6e013fcf8d9febe27b519e3caee1c4bc434bd77)), closes [162/#163](https://github.com/162/nubecita/issues/163) [atproto-kotlin#164](https://github.com/kikin81/atproto-kotlin/issues/164)\n\n### Bug Fixes\n\n* **deps:** update all non-major dependencies to v2.60.1 ([#687](https://github.com/kikin81/nubecita/issues/687)) ([802b3a8](https://github.com/kikin81/nubecita/commit/802b3a8360cb558ed274c5cd74816614e7e124d7))\n\n### Tests\n\n* **actors:** cover DefaultBlockRepository ([#686](https://github.com/kikin81/nubecita/issues/686)) ([1a62b2a](https://github.com/kikin81/nubecita/commit/1a62b2a156cf22752c0d23876c1e3c32bd800b2b))",
+          "timestamp": "2026-07-07T02:13:26Z",
+          "url": "https://github.com/kikin81/nubecita/commit/81f19d6dffd2b7cd63cff7f20d14b7557a6c1d3d"
+        },
+        "date": 1783412462628,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 36,
+            "range": "+/- 3.6%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1251.758,
+            "range": "+/- 4.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1259.359,
+            "range": "+/- 7.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1070.759,
+            "range": "+/- 27.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1096.664,
+            "range": "+/- 11.6%",
             "unit": "ms"
           }
         ]
