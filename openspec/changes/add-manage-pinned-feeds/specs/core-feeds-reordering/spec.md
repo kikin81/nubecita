@@ -25,15 +25,15 @@ The reorder commit SHALL run on an injected `@ApplicationScope` coroutine so it 
 - **THEN** no `putPreferences` write is performed
 
 ### Requirement: Stomp-guard against refresh
-The repository SHALL guard `reorderPinnedFeeds` and the cache-reconciliation section of `refresh()` with a single `Mutex`, and expose a `reorderPending` flag read/written inside that lock. While a reorder is pending, `refresh()` SHALL skip saved-feed reconciliation so it cannot overwrite the locally reordered state before the network write settles. Concurrent reorder commits SHALL be serialized by the same `Mutex` (last write wins).
+The repository SHALL guard `reorderPinnedFeeds` and the cache-reconciliation section of `refresh()` with a single `Mutex`, and maintain a reorder token — a monotonic generation counter bumped (under the lock) on every successful reorder commit. `refresh()` SHALL snapshot the token before fetching and, inside the lock before its reconciliation, SHALL skip the write if the token changed — i.e. a reorder committed while `refresh()` was in flight, so its snapshot is stale and would otherwise stomp the reordered positions. (A monotonic token rather than a boolean is required: the reorder holds the `Mutex` for its whole critical section, so a boolean would always read back false by the time `refresh()` re-acquires the lock.) Concurrent reorder commits SHALL be serialized by the same `Mutex` (last write wins).
 
-#### Scenario: Refresh does not stomp a pending reorder
-- **WHEN** a `refresh()` runs while a reorder commit is in flight
-- **THEN** `refresh()` skips saved-feed reconciliation and the local reordered order is preserved until the commit completes
+#### Scenario: Refresh does not stomp a reorder that committed mid-flight
+- **WHEN** a reorder commits while a `refresh()` is between its network fetch and its Room reconciliation
+- **THEN** `refresh()` skips saved-feed reconciliation and the reordered positions are preserved until the next refresh after the reorder settles
 
 ### Requirement: Rollback on network failure
-If the `putPreferences` write fails during a reorder commit, the repository SHALL restore the prior Room `position` values (captured before the write) before clearing `reorderPending`, so the local cache never lingers ahead of the server's canonical order. This mirrors the existing optimistic rollback in `pinFeed`/`unpinFeed`.
+If the `putPreferences` write fails during a reorder commit, the repository SHALL restore the prior Room `position` values (captured before the write) and SHALL NOT bump the reorder token, so the local cache never lingers ahead of the server's canonical order and a failed commit does not cause a concurrent `refresh()` to skip. This mirrors the existing optimistic rollback in `pinFeed`/`unpinFeed`.
 
 #### Scenario: Failed commit rolls back local positions
 - **WHEN** `reorderPinnedFeeds` writes new Room positions and then `putPreferences` fails
-- **THEN** the Room positions are restored to their pre-commit values and `reorderPending` is cleared
+- **THEN** the Room positions are restored to their pre-commit values and the reorder token is left unchanged
