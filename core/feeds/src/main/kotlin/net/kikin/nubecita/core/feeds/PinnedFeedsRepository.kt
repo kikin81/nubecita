@@ -106,6 +106,23 @@ public interface PinnedFeedsRepository {
      */
     public suspend fun unpinFeed(uri: String): Result<Unit>
 
+    /**
+     * Reorders the user's pinned feeds to match [orderedPinnedUris] (the room
+     * URIs — [FOLLOWING_FEED_URI] for the timeline, the `at://` URI otherwise).
+     *
+     * The current preferences are re-read at commit time so a feed pinned on
+     * another client is merged rather than clobbered: any server-pinned URI
+     * absent from [orderedPinnedUris] is appended in server order (never
+     * dropped). Unpinned saved entries are preserved after the pinned block,
+     * and foreign preferences survive the round-trip. Writes the new positions
+     * through to the Room cache optimistically; rolls back on `putPreferences`
+     * failure. A no-op (unchanged order) skips the network write entirely.
+     *
+     * Returns [Result.failure] on network/auth error. `CancellationException`
+     * propagates and is never wrapped.
+     */
+    public suspend fun reorderPinnedFeeds(orderedPinnedUris: List<String>): Result<Unit>
+
     public companion object {
         /**
          * Sentinel URI for the synthesized Following timeline entry. The
@@ -367,9 +384,54 @@ internal class DefaultPinnedFeedsRepository
                 }.onFailure { if (it is CancellationException) throw it }
             }
 
+        override suspend fun reorderPinnedFeeds(orderedPinnedUris: List<String>): Result<Unit> =
+            withContext(dispatcher) {
+                runCatching {
+                    writeMutex.withLock {
+                        val fullPrefs = dataSource.getFullPreferences()
+                        val currentItems = extractSavedFeedItems(fullPrefs).orEmpty()
+
+                        val pinned = currentItems.filter { it.pinned }
+                        val unpinned = currentItems.filter { !it.pinned }
+                        val pinnedByRoomUri = pinned.associateBy { it.roomUri() }
+
+                        // 1. The user's explicit order — only feeds still pinned server-side.
+                        val ordered = orderedPinnedUris.mapNotNull { pinnedByRoomUri[it] }
+                        val orderedRoomUris = ordered.mapTo(mutableSetOf()) { it.roomUri() }
+                        // 2. Any server-pinned feed absent from the local list (pinned on
+                        //    another client after load) — appended in server order, never dropped.
+                        val extra = pinned.filterNot { it.roomUri() in orderedRoomUris }
+                        // 3. Unpinned saved entries preserved after the pinned block.
+                        val newItems = ordered + extra + unpinned
+
+                        val priorOrder = currentItems.map { it.roomUri() }
+                        val newOrder = newItems.map { it.roomUri() }
+
+                        // No-op: resulting order unchanged → skip the network + Room writes.
+                        if (newOrder == priorOrder) return@withLock
+
+                        // Optimistic Room position rewrite (rolled back on failure).
+                        dao.updatePositions(newOrder)
+                        try {
+                            dataSource.putPreferences(mergeSavedFeedsPrefs(fullPrefs, newItems))
+                        } catch (t: Throwable) {
+                            dao.updatePositions(priorOrder)
+                            throw t
+                        }
+                    }
+                }.onFailure { if (it is CancellationException) throw it }
+            }
+
         // -------------------------------------------------------------------------
         // Shared helpers
         // -------------------------------------------------------------------------
+
+        /**
+         * The Room primary key for this wire [SavedFeed]: [FOLLOWING_FEED_URI]
+         * for the timeline entry (whose Room row is keyed on the sentinel),
+         * the `value` (`at://` URI) for feed / list entries.
+         */
+        private fun SavedFeed.roomUri(): String = if (type == TYPE_TIMELINE) PinnedFeedsRepository.FOLLOWING_FEED_URI else value
 
         override fun validateSelectedFeedUri(
             uri: String?,

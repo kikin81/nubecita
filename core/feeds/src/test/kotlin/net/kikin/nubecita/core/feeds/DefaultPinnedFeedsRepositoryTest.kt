@@ -808,4 +808,160 @@ internal class DefaultPinnedFeedsRepositoryTest {
             val feedB = upsertSlot.captured.single { it.uri == "at://b" }
             assertEquals("bob.bsky.social", feedB.creatorHandle)
         }
+
+    // -------------------------------------------------------------------------
+    // reorderPinnedFeeds() — reorder path (nubecita-ydfn.2)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `reorderPinnedFeeds writes the new pinned order to putPreferences and Room`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("t", "timeline", "following", pinned = true),
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                        ),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+            val posSlot = slot<List<String>>()
+            coEvery { dao.updatePositions(capture(posSlot)) } returns Unit
+
+            val result = repo().reorderPinnedFeeds(listOf("at://b", "following", "at://a"))
+
+            assertTrue(result.isSuccess)
+            val items =
+                putSlot.captured
+                    .filterIsInstance<SavedFeedsPrefV2>()
+                    .single()
+                    .items
+            assertEquals(listOf("at://b", "following", "at://a"), items.map { it.value })
+            // Room positions rewritten to the same new order (timeline → "following" PK).
+            assertEquals(listOf("at://b", "following", "at://a"), posSlot.captured)
+        }
+
+    @Test
+    fun `reorderPinnedFeeds appends a server-pinned feed missing from the local order`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                            savedFeed("c", "feed", "at://c", pinned = true),
+                        ),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+
+            // Local list only knows B and A; C was pinned on another client after load.
+            val result = repo().reorderPinnedFeeds(listOf("at://b", "at://a"))
+
+            assertTrue(result.isSuccess)
+            val items =
+                putSlot.captured
+                    .filterIsInstance<SavedFeedsPrefV2>()
+                    .single()
+                    .items
+            // C appended in server order — never dropped, still pinned.
+            assertEquals(listOf("at://b", "at://a", "at://c"), items.map { it.value })
+            assertTrue(items.single { it.value == "at://c" }.pinned)
+        }
+
+    @Test
+    fun `reorderPinnedFeeds keeps unpinned saved feeds after the pinned block`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("x", "feed", "at://x", pinned = false),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                        ),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+
+            val result = repo().reorderPinnedFeeds(listOf("at://b", "at://a"))
+
+            assertTrue(result.isSuccess)
+            val items =
+                putSlot.captured
+                    .filterIsInstance<SavedFeedsPrefV2>()
+                    .single()
+                    .items
+            // Pinned reordered, then the unpinned entry preserved (still unpinned).
+            assertEquals(listOf("at://b", "at://a", "at://x"), items.map { it.value })
+            assertFalse(items.single { it.value == "at://x" }.pinned)
+        }
+
+    @Test
+    fun `reorderPinnedFeeds preserves foreign preferences`() =
+        runTest {
+            val foreignPref = AdultContentPref(enabled = false)
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                        ),
+                    foreign = arrayOf(foreignPref),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+
+            val result = repo().reorderPinnedFeeds(listOf("at://b", "at://a"))
+
+            assertTrue(result.isSuccess)
+            assertTrue(putSlot.captured.any { it is AdultContentPref }, "foreign pref must survive the round-trip")
+        }
+
+    @Test
+    fun `reorderPinnedFeeds rolls back Room positions when putPreferences fails`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                        ),
+                )
+            coEvery { dataSource.putPreferences(any()) } throws IOException("network error")
+
+            val result = repo().reorderPinnedFeeds(listOf("at://b", "at://a"))
+
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is IOException)
+            // Optimistic new order, then rollback to the prior order (in order).
+            coVerify(Ordering.ORDERED) {
+                dao.updatePositions(listOf("at://b", "at://a"))
+                dao.updatePositions(listOf("at://a", "at://b"))
+            }
+        }
+
+    @Test
+    fun `reorderPinnedFeeds is a no-op when the resulting order is unchanged`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                        ),
+                )
+
+            val result = repo().reorderPinnedFeeds(listOf("at://a", "at://b"))
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 0) { dataSource.putPreferences(any()) }
+            coVerify(exactly = 0) { dao.updatePositions(any()) }
+        }
 }
