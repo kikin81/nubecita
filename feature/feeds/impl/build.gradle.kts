@@ -19,8 +19,10 @@ dependencies {
     implementation(project(":core:feeds"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
+    implementation(libs.kotlinx.collections.immutable)
     // Drag-to-reorder for the pinned-feeds list (ManageFeedsScreen).
     implementation(libs.reorderable)
+    implementation(libs.timber)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
