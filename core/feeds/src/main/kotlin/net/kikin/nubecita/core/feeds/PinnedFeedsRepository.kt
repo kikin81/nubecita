@@ -389,14 +389,19 @@ internal class DefaultPinnedFeedsRepository
                 runCatching {
                     writeMutex.withLock {
                         val fullPrefs = dataSource.getFullPreferences()
-                        val currentItems = extractSavedFeedItems(fullPrefs).orEmpty()
+                        // Collapse entries that map to the same Room key (e.g. two
+                        // type="timeline" entries both keyed "following") keeping the
+                        // first — mirrors the read-path dedupe in doRefresh and keeps
+                        // the rebuilt array / position writes free of duplicates.
+                        val currentItems =
+                            extractSavedFeedItems(fullPrefs).orEmpty().distinctBy { it.roomUri() }
 
                         val pinned = currentItems.filter { it.pinned }
                         val unpinned = currentItems.filter { !it.pinned }
                         val pinnedByRoomUri = pinned.associateBy { it.roomUri() }
 
-                        // 1. The user's explicit order — only feeds still pinned server-side.
-                        val ordered = orderedPinnedUris.mapNotNull { pinnedByRoomUri[it] }
+                        // 1. The user's explicit order — deduped, only feeds still pinned server-side.
+                        val ordered = orderedPinnedUris.distinct().mapNotNull { pinnedByRoomUri[it] }
                         val orderedRoomUris = ordered.mapTo(mutableSetOf()) { it.roomUri() }
                         // 2. Any server-pinned feed absent from the local list (pinned on
                         //    another client after load) — appended in server order, never dropped.

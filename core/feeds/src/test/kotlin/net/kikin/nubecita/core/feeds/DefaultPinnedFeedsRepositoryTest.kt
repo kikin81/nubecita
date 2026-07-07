@@ -964,4 +964,61 @@ internal class DefaultPinnedFeedsRepositoryTest {
             coVerify(exactly = 0) { dataSource.putPreferences(any()) }
             coVerify(exactly = 0) { dao.updatePositions(any()) }
         }
+
+    @Test
+    fun `reorderPinnedFeeds dedupes a duplicated uri in the requested order`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                        ),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+            val posSlot = slot<List<String>>()
+            coEvery { dao.updatePositions(capture(posSlot)) } returns Unit
+
+            // Caller repeats at://a — must not produce a duplicate entry/position.
+            val result = repo().reorderPinnedFeeds(listOf("at://b", "at://a", "at://a"))
+
+            assertTrue(result.isSuccess)
+            val items =
+                putSlot.captured
+                    .filterIsInstance<SavedFeedsPrefV2>()
+                    .single()
+                    .items
+            assertEquals(listOf("at://b", "at://a"), items.map { it.value })
+            assertEquals(listOf("at://b", "at://a"), posSlot.captured)
+        }
+
+    @Test
+    fun `reorderPinnedFeeds collapses duplicate timeline entries to a single following row`() =
+        runTest {
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("t1", "timeline", "following", pinned = true),
+                            savedFeed("t2", "timeline", "following", pinned = true),
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                        ),
+                )
+            val putSlot = slot<List<PutPreferencesRequestPreferencesUnion>>()
+            coEvery { dataSource.putPreferences(capture(putSlot)) } returns Unit
+
+            // Requested order omits "following"; the two timeline entries must not
+            // both survive (they collide on the same "following" Room key).
+            val result = repo().reorderPinnedFeeds(listOf("at://a"))
+
+            assertTrue(result.isSuccess)
+            val items =
+                putSlot.captured
+                    .filterIsInstance<SavedFeedsPrefV2>()
+                    .single()
+                    .items
+            assertEquals(listOf("at://a", "following"), items.map { it.value })
+        }
 }
