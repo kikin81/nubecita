@@ -306,6 +306,9 @@ dependencies {
     implementation(project(":feature:feed:api"))
     implementation(project(":feature:feed:impl"))
     implementation(project(":feature:feeds:api"))
+    // Hosts the @MainShell EntryProviderInstaller for the Feeds NavKey
+    // (pinned-feeds management). Replaces the deleted FeedsPlaceholderModule.
+    implementation(project(":feature:feeds:impl"))
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
     implementation(project(":feature:mediaviewer:impl"))
