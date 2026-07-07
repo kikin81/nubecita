@@ -292,4 +292,6 @@ private class FakePinnedFeedsRepositoryForPin(
         unpinCalls++
         return unpinResult
     }
+
+    override suspend fun reorderPinnedFeeds(orderedPinnedUris: List<String>): Result<Unit> = Result.success(Unit)
 }

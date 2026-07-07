@@ -59,4 +59,6 @@ public class FakePinnedFeedsRepository
         override suspend fun pinFeed(uri: String): Result<Unit> = Result.success(Unit)
 
         override suspend fun unpinFeed(uri: String): Result<Unit> = Result.success(Unit)
+
+        override suspend fun reorderPinnedFeeds(orderedPinnedUris: List<String>): Result<Unit> = Result.success(Unit)
     }

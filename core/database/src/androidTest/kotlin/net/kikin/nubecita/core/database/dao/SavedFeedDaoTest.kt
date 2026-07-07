@@ -125,6 +125,42 @@ internal class SavedFeedDaoTest : DatabaseTest() {
         }
 
     @Test
+    fun updatePositions_rewritesPositionsToMatchOrder() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    feed(uri = "at://feed/a", position = 0),
+                    feed(uri = "at://feed/b", position = 1),
+                    feed(uri = "at://feed/c", position = 2),
+                ),
+            )
+            // New order: c, a, b.
+            dao.updatePositions(listOf("at://feed/c", "at://feed/a", "at://feed/b"))
+            dao.observeSavedFeeds().test {
+                val items = awaitItem()
+                assertEquals(listOf("at://feed/c", "at://feed/a", "at://feed/b"), items.map { it.uri })
+                assertEquals(0, items[0].position)
+                assertEquals(1, items[1].position)
+                assertEquals(2, items[2].position)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun updatePositions_ignoresUnknownUris() =
+        runTest {
+            dao.upsert(listOf(feed(uri = "at://feed/a", position = 5)))
+            // A URI absent from the table is a no-op; the known URI takes index 1.
+            dao.updatePositions(listOf("at://feed/ghost", "at://feed/a"))
+            dao.observeSavedFeeds().test {
+                val items = awaitItem()
+                assertEquals(1, items.size)
+                assertEquals(1, items[0].position)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun nullableFields_roundTripWithValues() =
         runTest {
             dao.upsert(

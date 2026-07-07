@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.database.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import net.kikin.nubecita.core.database.model.SavedFeedEntity
@@ -59,4 +60,21 @@ interface SavedFeedDao {
     /** Removes every cached saved feed — the safe path when a refresh resolves to zero feeds. */
     @Query("DELETE FROM saved_feeds")
     suspend fun clear()
+
+    @Query("UPDATE saved_feeds SET position = :position WHERE uri = :uri")
+    suspend fun updatePosition(
+        uri: String,
+        position: Int,
+    )
+
+    /**
+     * Rewrites the [SavedFeedEntity.position] of each row to its index in
+     * [orderedUris] (0-based), in a single transaction. Used by the reorder
+     * op to reflect a new pinned order optimistically; the same call restores
+     * the prior order on rollback. URIs absent from the table are no-ops.
+     */
+    @Transaction
+    suspend fun updatePositions(orderedUris: List<String>) {
+        orderedUris.forEachIndexed { index, uri -> updatePosition(uri, index) }
+    }
 }
