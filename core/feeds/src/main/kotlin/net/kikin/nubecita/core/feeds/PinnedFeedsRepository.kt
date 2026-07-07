@@ -149,9 +149,22 @@ internal class DefaultPinnedFeedsRepository
         private val dao: SavedFeedDao,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PinnedFeedsRepository {
-        // Serializes all read-modify-write operations (pinFeed, unpinFeed) so
-        // concurrent calls cannot clobber each other with a stale server read.
+        // Serializes all read-modify-write operations (pinFeed, unpinFeed,
+        // reorderPinnedFeeds) so concurrent calls cannot clobber each other with
+        // a stale server read.
         private val writeMutex = Mutex()
+
+        // Monotonic token bumped (under [writeMutex]) on every successful
+        // preference commit — pin, unpin, and reorder. refresh() snapshots it
+        // before fetching and, before its Room reconciliation, skips the write if
+        // the token changed — i.e. a write committed while refresh was in flight,
+        // so refresh's server snapshot is stale and would otherwise stomp the
+        // updated state (a just-pinned/unpinned feed, or the reordered positions).
+        // A monotonic token (not a boolean) is required: the write holds
+        // [writeMutex] for its whole critical section, so a boolean would always
+        // read back false by the time refresh re-acquires the lock. `Long` avoids
+        // any Int-overflow break of the monotonicity guarantee.
+        private var mutationGeneration = 0L
 
         // -------------------------------------------------------------------------
         // Read path: Room cache → PinnedFeedUi
@@ -182,6 +195,9 @@ internal class DefaultPinnedFeedsRepository
             }
 
         private suspend fun doRefresh() {
+            // Snapshot the reorder token before fetching; if it changes by the time
+            // we reconcile, a reorder committed mid-flight and our data is stale.
+            val genAtStart = writeMutex.withLock { mutationGeneration }
             val items =
                 try {
                     dataSource.getSavedFeedItems()
@@ -262,14 +278,21 @@ internal class DefaultPinnedFeedsRepository
                         }
                     }.distinct()
 
-            // Cache-safe write-through:
+            // Cache-safe write-through, under the write lock so a concurrent
+            // reorder can't interleave with the reconciliation:
+            // • Stomp-guard: if a reorder committed since genAtStart, this
+            //   snapshot is stale — skip so the reordered positions survive; the
+            //   next refresh after the reorder settles reconciles.
             // • When 0 pref URIs, use clear() — deleteUrisNotIn([]) crashes Room.
             // • Otherwise upsert resolved rows first, then prune by the prefs set.
-            if (prefUris.isEmpty()) {
-                dao.clear()
-            } else {
-                dao.upsert(entities)
-                dao.deleteUrisNotIn(prefUris)
+            writeMutex.withLock {
+                if (mutationGeneration != genAtStart) return@withLock
+                if (prefUris.isEmpty()) {
+                    dao.clear()
+                } else {
+                    dao.upsert(entities)
+                    dao.deleteUrisNotIn(prefUris)
+                }
             }
         }
 
@@ -332,6 +355,8 @@ internal class DefaultPinnedFeedsRepository
 
                         try {
                             dataSource.putPreferences(mergeSavedFeedsPrefs(fullPrefs, newItems))
+                            // Commit landed — invalidate any in-flight refresh snapshot.
+                            mutationGeneration++
                         } catch (t: Throwable) {
                             // Rollback: restore Room to the state before the optimistic write.
                             // For NEW items, delete the row entirely — setPinned(uri, false) would
@@ -376,6 +401,8 @@ internal class DefaultPinnedFeedsRepository
 
                         try {
                             dataSource.putPreferences(mergeSavedFeedsPrefs(fullPrefs, newItems))
+                            // Commit landed — invalidate any in-flight refresh snapshot.
+                            mutationGeneration++
                         } catch (t: Throwable) {
                             dao.setPinned(uri, priorPinned)
                             throw t
@@ -419,6 +446,9 @@ internal class DefaultPinnedFeedsRepository
                         dao.updatePositions(newOrder)
                         try {
                             dataSource.putPreferences(mergeSavedFeedsPrefs(fullPrefs, newItems))
+                            // Commit landed — invalidate any refresh snapshot taken
+                            // before this point so it can't stomp the new order.
+                            mutationGeneration++
                         } catch (t: Throwable) {
                             dao.updatePositions(priorOrder)
                             throw t

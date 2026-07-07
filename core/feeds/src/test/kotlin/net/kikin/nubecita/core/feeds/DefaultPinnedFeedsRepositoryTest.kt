@@ -1021,4 +1021,117 @@ internal class DefaultPinnedFeedsRepositoryTest {
                     .items
             assertEquals(listOf("at://a", "following"), items.map { it.value })
         }
+
+    // -------------------------------------------------------------------------
+    // refresh() ↔ reorder stomp-guard (nubecita-ydfn.3)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `refresh skips saved-feed reconciliation when a reorder commits during its fetch`() =
+        runTest {
+            val repository = repo()
+            // The interleaved reorder's read/write.
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                        ),
+                )
+            coEvery { dataSource.putPreferences(any()) } returns Unit
+            coEvery { dataSource.getFeedGenerators(any()) } returns emptyList()
+            // A reorder commits *while* refresh is fetching — refresh's snapshot is now stale.
+            coEvery { dataSource.getSavedFeedItems() } coAnswers {
+                repository.reorderPinnedFeeds(listOf("at://b", "at://a"))
+                listOf(
+                    savedFeed("a", "feed", "at://a", pinned = true),
+                    savedFeed("b", "feed", "at://b", pinned = true),
+                )
+            }
+
+            val result = repository.refresh()
+
+            assertTrue(result.isSuccess)
+            // Reconciliation skipped so the just-reordered positions are not stomped.
+            coVerify(exactly = 0) { dao.upsert(any()) }
+            coVerify(exactly = 0) { dao.deleteUrisNotIn(any()) }
+            coVerify(exactly = 0) { dao.clear() }
+        }
+
+    @Test
+    fun `refresh reconciles normally when an interleaved reorder is a no-op`() =
+        runTest {
+            val repository = repo()
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(
+                    items =
+                        listOf(
+                            savedFeed("a", "feed", "at://a", pinned = true),
+                            savedFeed("b", "feed", "at://b", pinned = true),
+                        ),
+                )
+            coEvery { dataSource.putPreferences(any()) } returns Unit
+            coEvery { dataSource.getFeedGenerators(any()) } returns emptyList()
+            coEvery { dao.upsert(any()) } returns Unit
+            coEvery { dao.deleteUrisNotIn(any()) } returns Unit
+            // The interleaved reorder requests the current order — a no-op that must
+            // NOT bump the generation, so refresh still reconciles.
+            coEvery { dataSource.getSavedFeedItems() } coAnswers {
+                repository.reorderPinnedFeeds(listOf("at://a", "at://b"))
+                listOf(
+                    savedFeed("a", "feed", "at://a", pinned = true),
+                    savedFeed("b", "feed", "at://b", pinned = true),
+                )
+            }
+
+            val result = repository.refresh()
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 1) { dao.upsert(any()) }
+        }
+
+    @Test
+    fun `refresh skips saved-feed reconciliation when a pinFeed commits during its fetch`() =
+        runTest {
+            val repository = repo()
+            // pinFeed's read/write — an existing UNPINNED feed (so pinFeed calls
+            // setPinned, not upsert; keeps refresh's upsert isolated).
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(items = listOf(savedFeed("a", "feed", "at://a", pinned = false)))
+            coEvery { dataSource.putPreferences(any()) } returns Unit
+            coEvery { dataSource.getFeedGenerators(any()) } returns emptyList()
+            coEvery { dataSource.getSavedFeedItems() } coAnswers {
+                repository.pinFeed("at://a")
+                listOf(savedFeed("a", "feed", "at://a", pinned = false))
+            }
+
+            val result = repository.refresh()
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 0) { dao.upsert(any()) }
+            coVerify(exactly = 0) { dao.deleteUrisNotIn(any()) }
+            coVerify(exactly = 0) { dao.clear() }
+        }
+
+    @Test
+    fun `refresh skips saved-feed reconciliation when an unpinFeed commits during its fetch`() =
+        runTest {
+            val repository = repo()
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(items = listOf(savedFeed("a", "feed", "at://a", pinned = true)))
+            coEvery { dataSource.putPreferences(any()) } returns Unit
+            coEvery { dataSource.getFeedGenerators(any()) } returns emptyList()
+            coEvery { dataSource.getSavedFeedItems() } coAnswers {
+                repository.unpinFeed("at://a")
+                listOf(savedFeed("a", "feed", "at://a", pinned = true))
+            }
+
+            val result = repository.refresh()
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 0) { dao.upsert(any()) }
+            coVerify(exactly = 0) { dao.deleteUrisNotIn(any()) }
+            coVerify(exactly = 0) { dao.clear() }
+        }
 }
