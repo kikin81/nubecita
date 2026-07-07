@@ -1090,4 +1090,48 @@ internal class DefaultPinnedFeedsRepositoryTest {
             assertTrue(result.isSuccess)
             coVerify(exactly = 1) { dao.upsert(any()) }
         }
+
+    @Test
+    fun `refresh skips saved-feed reconciliation when a pinFeed commits during its fetch`() =
+        runTest {
+            val repository = repo()
+            // pinFeed's read/write — an existing UNPINNED feed (so pinFeed calls
+            // setPinned, not upsert; keeps refresh's upsert isolated).
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(items = listOf(savedFeed("a", "feed", "at://a", pinned = false)))
+            coEvery { dataSource.putPreferences(any()) } returns Unit
+            coEvery { dataSource.getFeedGenerators(any()) } returns emptyList()
+            coEvery { dataSource.getSavedFeedItems() } coAnswers {
+                repository.pinFeed("at://a")
+                listOf(savedFeed("a", "feed", "at://a", pinned = false))
+            }
+
+            val result = repository.refresh()
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 0) { dao.upsert(any()) }
+            coVerify(exactly = 0) { dao.deleteUrisNotIn(any()) }
+            coVerify(exactly = 0) { dao.clear() }
+        }
+
+    @Test
+    fun `refresh skips saved-feed reconciliation when an unpinFeed commits during its fetch`() =
+        runTest {
+            val repository = repo()
+            coEvery { dataSource.getFullPreferences() } returns
+                prefsWithFeeds(items = listOf(savedFeed("a", "feed", "at://a", pinned = true)))
+            coEvery { dataSource.putPreferences(any()) } returns Unit
+            coEvery { dataSource.getFeedGenerators(any()) } returns emptyList()
+            coEvery { dataSource.getSavedFeedItems() } coAnswers {
+                repository.unpinFeed("at://a")
+                listOf(savedFeed("a", "feed", "at://a", pinned = true))
+            }
+
+            val result = repository.refresh()
+
+            assertTrue(result.isSuccess)
+            coVerify(exactly = 0) { dao.upsert(any()) }
+            coVerify(exactly = 0) { dao.deleteUrisNotIn(any()) }
+            coVerify(exactly = 0) { dao.clear() }
+        }
 }
