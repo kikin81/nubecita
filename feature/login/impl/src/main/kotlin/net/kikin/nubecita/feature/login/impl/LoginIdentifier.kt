@@ -54,6 +54,8 @@ internal fun normalizeLoginIdentifier(raw: String): String {
  */
 private fun normalizeDid(did: String): String {
     val parts = did.split(":", limit = 3)
-    if (parts.size < 3) return did
+    // Malformed — missing/blank method or identifier — returned unchanged so the
+    // resolver, not this normalizer, rejects it.
+    if (parts.size < 3 || parts[1].isBlank() || parts[2].isBlank()) return did
     return "did:${parts[1].lowercase(Locale.ROOT)}:${parts[2]}"
 }

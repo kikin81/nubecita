@@ -75,6 +75,15 @@ internal class LoginIdentifierTest {
     }
 
     @Test
+    fun `malformed DIDs with a blank method or identifier are returned unchanged`() {
+        assertNormalizes(
+            "did:plc:" to "did:plc:", // missing identifier
+            "DID::foo" to "DID::foo", // missing method — not rewritten
+            "did:plc" to "did:plc", // no identifier segment at all
+        )
+    }
+
+    @Test
     fun `blank or at-only input normalizes to empty, never a bare bsky_social`() {
         assertNormalizes(
             "" to "",

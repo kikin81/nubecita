@@ -145,7 +145,8 @@ class LoginViewModel
             // Normalize before resolving: '@alice', bare 'alice', and 'Alice.Bsky.Social'
             // all fail atproto handle resolution as typed and are the dominant
             // `handle_not_found` login failure in the field (nubecita-mbzp). Custom-domain
-            // handles and DIDs pass through untouched — see [normalizeLoginIdentifier].
+            // handles pass through untouched; a DID keeps its case-sensitive identifier
+            // (only its scheme/method are lowercased) — see [normalizeLoginIdentifier].
             val handle = normalizeLoginIdentifier(uiState.value.handle)
             if (handle.isBlank()) {
                 setState { copy(errorMessage = LoginError.BlankHandle) }
