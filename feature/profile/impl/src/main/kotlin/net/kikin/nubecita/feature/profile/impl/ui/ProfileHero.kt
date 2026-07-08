@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -191,21 +192,25 @@ private fun ProfileHeroLoaded(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 if (header.verifiedBadge != VerifiedBadge.None) {
-                    VerificationBadge(
-                        badge = header.verifiedBadge,
-                        size = 22.dp,
-                        // minimumInteractiveComponentSize first so the clickable area is
-                        // the enlarged ≥48dp box (Material/WCAG min touch target) —
-                        // Modifier.clickable doesn't apply it the way M3 buttons do.
+                    // Wrap in a Box that owns the touch target / clip / click so the
+                    // 22dp badge stays centered and the ripple is a clean circle.
+                    // minimumInteractiveComponentSize first so the clickable area is the
+                    // enlarged ≥48dp box (Material/WCAG min) — Modifier.clickable doesn't
+                    // apply it the way M3 buttons do.
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier =
                             Modifier
                                 .minimumInteractiveComponentSize()
                                 .clip(CircleShape)
                                 .clickable(
+                                    role = Role.Button,
                                     onClickLabel = stringResource(R.string.verification_badge_open_details),
                                     onClick = onVerificationBadgeClick,
                                 ),
-                    )
+                    ) {
+                        VerificationBadge(badge = header.verifiedBadge, size = 22.dp)
+                    }
                 }
             }
             Text(

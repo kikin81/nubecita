@@ -216,9 +216,13 @@ internal fun ProfileScreenContent(
             }
     }
 
-    if (state.verificationSheetVisible) {
+    val verifiedBadge = state.header?.verifiedBadge
+    // Only host the sheet for an actually-verified header; guarding on != None
+    // prevents a "Verified account" explanation from flashing if the header is
+    // cleared/refreshed to null or unverified while the sheet is open.
+    if (state.verificationSheetVisible && verifiedBadge != null && verifiedBadge != VerifiedBadge.None) {
         VerificationSheet(
-            badge = state.header?.verifiedBadge ?: VerifiedBadge.None,
+            badge = verifiedBadge,
             verifiers = state.verifiers,
             isLoading = state.verifiersLoading,
             isError = state.verifiersError,

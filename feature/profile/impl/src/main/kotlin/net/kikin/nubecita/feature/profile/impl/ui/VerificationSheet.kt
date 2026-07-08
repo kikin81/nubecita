@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -13,6 +15,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -109,6 +112,7 @@ internal fun VerificationSheetContent(
         modifier =
             modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .testTag(VerificationSheetTestTags.CONTENT)
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 24.dp),
@@ -153,7 +157,9 @@ internal fun VerificationSheetContent(
                     )
                 else ->
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        verifiers.forEach { VerifierRow(it) }
+                        verifiers.forEach { verifier ->
+                            key(verifier.did) { VerifierRow(verifier) }
+                        }
                     }
             }
         }
@@ -199,9 +205,11 @@ private fun VerifierRow(
     }
 }
 
+// Hoisted so the (relatively expensive) formatter is built once, not per row.
+// verifiedAt is kotlin.time.Instant — kotlinx-datetime provides toLocalDateTime
+// for it, matching the codebase's RelativeTime convention.
+private val VerifiedDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault())
+
 /** Localized medium date for a verification's `createdAt` (e.g. "May 1, 2026"). */
-private fun formatVerifiedDate(instant: Instant): String =
-    DateTimeFormatter
-        .ofLocalizedDate(FormatStyle.MEDIUM)
-        .withLocale(Locale.getDefault())
-        .format(instant.toLocalDateTime(TimeZone.currentSystemDefault()).date.toJavaLocalDate())
+private fun formatVerifiedDate(instant: Instant): String = VerifiedDateFormatter.format(instant.toLocalDateTime(TimeZone.currentSystemDefault()).date.toJavaLocalDate())
