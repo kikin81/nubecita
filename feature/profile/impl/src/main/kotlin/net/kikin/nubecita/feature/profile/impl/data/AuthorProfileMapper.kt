@@ -1,14 +1,21 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
+import io.github.kikin81.atproto.app.bsky.actor.VerificationState
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.feedmapping.toVerifiedBadge
 import net.kikin.nubecita.core.profile.canViewerMessage
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
+import net.kikin.nubecita.feature.profile.impl.VerifierRef
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.time.Instant
 
 /**
  * Maps the atproto wire model [ProfileViewDetailed] into the UI-ready
@@ -41,7 +48,27 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
         followsCount = followsCount ?: 0L,
         canMessage = canViewerMessage(associated, viewer),
         viewerModeration = viewer.toViewerModerationState(),
+        verifiedBadge = verification.toVerifiedBadge(),
+        verifierRefs = verification.toVerifierRefs(),
     )
+
+/**
+ * Extract the profile's **valid** verifications as unresolved [VerifierRef]s
+ * (issuer DID + date). Invalid entries are dropped, and any whose `createdAt`
+ * won't parse are skipped. The DIDs are resolved to names lazily by the VM when
+ * the verification sheet opens — this mapper deliberately does no network work.
+ */
+internal fun VerificationState?.toVerifierRefs(): ImmutableList<VerifierRef> =
+    this
+        ?.verifications
+        ?.asSequence()
+        ?.filter { it.isValid }
+        ?.mapNotNull { view ->
+            val instant = runCatching { Instant.parse(view.createdAt.raw) }.getOrNull() ?: return@mapNotNull null
+            VerifierRef(did = view.issuer.raw, verifiedAt = instant)
+        }?.toList()
+        ?.toImmutableList()
+        ?: persistentListOf()
 
 /**
  * Projects the mute / block-direction flags off `viewer` into the

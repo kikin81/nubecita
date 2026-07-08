@@ -2,6 +2,8 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -13,7 +15,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
+import net.kikin.nubecita.feature.profile.impl.VerifierRef
 import timber.log.Timber
 import java.io.FileNotFoundException
 import javax.inject.Inject
@@ -35,6 +39,21 @@ internal class BenchFakeProfileRepository
             ensureLoaded().map { dto ->
                 BenchProfileMapper.toProfileHeaderWithViewer(dto.header)
             }
+
+        // Bench: resolve each ref to a deterministic fake verifier so the verification
+        // sheet renders offline. Empty refs → empty (no fake).
+        override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> =
+            Result.success(
+                refs
+                    .map { ref ->
+                        VerifierUi(
+                            did = ref.did,
+                            handle = "verifier.bsky.social",
+                            displayName = "Bluesky",
+                            verifiedAt = ref.verifiedAt,
+                        )
+                    }.toImmutableList(),
+            )
 
         override suspend fun fetchTab(
             actor: String,

@@ -8,7 +8,10 @@ import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.VerifiedBadge
+import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import kotlin.time.Instant
 
 /**
  * MVI state for the Profile screen.
@@ -56,6 +59,26 @@ data class ProfileScreenViewState(
     val lastLikeTapPostUri: String? = null,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
     val lastRepostTapPostUri: String? = null,
+    /**
+     * Verification explanation sheet sub-state. Independent flat flags (the
+     * sheet can be visible while its verifier list is still loading, and an
+     * error can coexist with an empty list). The verifier list is resolved
+     * lazily on first open and then cached for the screen's lifetime.
+     *
+     * [resolvedVerifierRefs] is the cache key: the exact [VerifierRef] list the
+     * current [verifiers] were resolved from. `null` before anything is resolved;
+     * an **empty** list is a legitimate resolved state (the header carries no
+     * verifier refs, so [verifiers] is correctly empty). A tap re-resolves only
+     * when it differs from the header's current `verifierRefs`, so a header
+     * refresh that changes the refs invalidates the cache while an unchanged one
+     * (including an all-DIDs-unresolvable resolve that left [verifiers] empty) is
+     * served without re-fetching.
+     */
+    val verificationSheetVisible: Boolean = false,
+    val verifiersLoading: Boolean = false,
+    val verifiers: ImmutableList<VerifierUi> = persistentListOf(),
+    val resolvedVerifierRefs: ImmutableList<VerifierRef>? = null,
+    val verifiersError: Boolean = false,
 ) : UiState {
     /**
      * Whether to render the Pro "Supporter" badge on the hero. True only
@@ -212,6 +235,31 @@ data class ProfileHeaderUi(
      * fixtures keep compiling.
      */
     val viewerModeration: ViewerModerationState = ViewerModerationState(),
+    /**
+     * Verification tier derived from the wire `verificationState`. Drives the
+     * (tappable) badge in the profile hero. `VerifiedBadge.None` (default)
+     * renders nothing. See `:core:feed-mapping`'s `toVerifiedBadge`.
+     */
+    val verifiedBadge: VerifiedBadge = VerifiedBadge.None,
+    /**
+     * Unresolved references to the accounts that issued this profile's valid
+     * verifications — issuer DID + date only. The explanation sheet resolves
+     * these DIDs to names lazily on open (via `getProfiles`); until then only
+     * the count/dates are known. Empty when the profile is unverified.
+     */
+    val verifierRefs: ImmutableList<VerifierRef> = persistentListOf(),
+)
+
+/**
+ * An unresolved verifier: the issuer DID of a valid verification plus the date
+ * it was issued. The VM resolves the DID to a [VerifierUi] (with handle /
+ * display name) lazily when the verification sheet opens; carrying only
+ * (DID, date) here keeps profile load free of the extra `getProfiles` round-trip.
+ */
+@Immutable
+data class VerifierRef(
+    val did: String,
+    val verifiedAt: Instant,
 )
 
 /**
@@ -448,6 +496,17 @@ sealed interface ProfileEvent : UiEvent {
 
     /** User tapped an overflow-menu entry that pushes the Settings sub-route. */
     data object SettingsTapped : ProfileEvent
+
+    /**
+     * User tapped the verification badge in the hero. Opens the explanation
+     * sheet and triggers a one-time lazy resolution of the verifier DIDs →
+     * names (via `getProfiles`). Re-tapping after a successful load re-opens
+     * the sheet without re-fetching.
+     */
+    data object VerificationBadgeTapped : ProfileEvent
+
+    /** User dismissed the verification explanation sheet. */
+    data object VerificationSheetDismissed : ProfileEvent
 
     /**
      * User selected an overflow-menu entry on a PostCard inside one of

@@ -20,10 +20,10 @@
 
 ## 3. Profile — mapping + lazy issuer resolution (bd nubecita-vw45.3)
 
-- [ ] 3.1 In `:feature:profile:impl` `AuthorProfileMapper`, derive the profile badge (same rule via `toVerifiedBadge()`) and extract the valid `verification.verifications` (keep `isValid == true` only) as (`issuer` DID, `createdAt`) pairs. Do NOT build `VerifierUi` here — `handle`/`displayName` aren't known until resolution (.3.2); carry the (DID, createdAt) pairs on the profile model for the VM to complete.
-- [ ] 3.2 Add a `ProfileRepository`/VM `loadVerifiers` path that resolves the issuer DIDs → handle/displayName via `app.bsky.actor.getProfiles` (`GetProfilesRequest`, batch ≤25) and assembles the `VerifierUi` list (pairing each resolved profile with its verification's `createdAt`; **skip DIDs that don't resolve**). Bound network at the Ktor `HttpTimeout` boundary (NOT `withTimeout` on the injected dispatcher).
-- [ ] 3.3 Expose flat sheet sub-state on the profile `UiState` (`verifiersLoading`, `verifiers`, `verifiersError`) and a `UiEvent` for badge tap that flips sheet visibility + triggers `loadVerifiers` (no eager resolution on profile load).
-- [ ] 3.4 Repository/VM tests: badge computation; lazy resolution success / empty / error; verify getProfiles is NOT called until the sheet opens.
+- [x] 3.1 In `:feature:profile:impl` `AuthorProfileMapper`, derive the profile badge (same rule via `toVerifiedBadge()`) and extract the valid `verification.verifications` (keep `isValid == true` only) as (`issuer` DID, `createdAt`) pairs. Do NOT build `VerifierUi` here — `handle`/`displayName` aren't known until resolution (.3.2); carry the (DID, createdAt) pairs on the profile model for the VM to complete.
+- [x] 3.2 Add a `ProfileRepository`/VM `loadVerifiers` path that resolves the issuer DIDs → handle/displayName via `app.bsky.actor.getProfiles` (`GetProfilesRequest`, batch ≤25) and assembles the `VerifierUi` list (pairing each resolved profile with its verification's `createdAt`; **skip DIDs that don't resolve**). Bound network at the Ktor `HttpTimeout` boundary (NOT `withTimeout` on the injected dispatcher).
+- [x] 3.3 Expose flat sheet sub-state on the profile `UiState` (`verifiersLoading`, `verifiers`, `verifiersError`) and a `UiEvent` for badge tap that flips sheet visibility + triggers `loadVerifiers` (no eager resolution on profile load).
+- [x] 3.4 Repository/VM tests: badge computation; lazy resolution success / empty / error; verify getProfiles is NOT called until the sheet opens.
 
 ## 4. Profile — ProfileHero badge + verification sheet (bd nubecita-vw45.4)
 

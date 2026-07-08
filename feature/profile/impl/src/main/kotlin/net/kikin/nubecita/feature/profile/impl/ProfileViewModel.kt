@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
@@ -98,6 +99,22 @@ internal class ProfileViewModel
          * initial-load call enforces single-flight semantics.
          */
         private val activeInitialLoadJobs = mutableMapOf<ProfileTab, Job>()
+
+        /**
+         * In-flight verifier resolution, if any. Cancelled before a new resolve
+         * or when the ref set empties, so a stale resolve can never repopulate
+         * [ProfileScreenViewState.verifiers] after the refs it targeted are gone.
+         */
+        private var verifierResolveJob: Job? = null
+
+        /**
+         * The [VerifierRef] set the in-flight [verifierResolveJob] is resolving,
+         * or `null` when idle. Single-flight is keyed on this, not a blanket
+         * loading flag: a tap whose refs match the in-flight set is a no-op, but a
+         * tap after the header's refs changed cancels the stale resolve and starts
+         * a fresh one so [ProfileScreenViewState.verifiers] tracks the latest refs.
+         */
+        private var resolvingVerifierRefs: ImmutableList<VerifierRef>? = null
 
         init {
             // Bind the handler to Profile surface and this VM's scope first.
@@ -199,7 +216,69 @@ internal class ProfileViewModel
                 ProfileEvent.OnReportAccountRequested -> onReportAccountRequested()
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
                 is ProfileEvent.OnPostOverflowAction -> onOverflowAction(event.post, event.action)
+                ProfileEvent.VerificationBadgeTapped -> onVerificationBadgeTapped()
+                ProfileEvent.VerificationSheetDismissed -> setState { copy(verificationSheetVisible = false) }
             }
+        }
+
+        /**
+         * Open the verification explanation sheet and lazily resolve the verifier
+         * DIDs → names on FIRST open only. Re-tapping after a successful load just
+         * re-opens the sheet (the resolved list is cached in state). A load in
+         * flight, or no verifiers to resolve, also skips the fetch — so the
+         * common case (viewing a profile, never opening the sheet) issues zero
+         * extra `getProfiles` calls.
+         */
+        private fun onVerificationBadgeTapped() {
+            val refs = uiState.value.header?.verifierRefs ?: persistentListOf()
+            if (refs.isEmpty()) {
+                // No verifiers to resolve (e.g. a header refresh removed verification):
+                // cancel any in-flight resolve and clear cached verifiers/loading/error
+                // so the sheet never shows stale issuers or a perpetual spinner.
+                verifierResolveJob?.cancel()
+                verifierResolveJob = null
+                resolvingVerifierRefs = null
+                setState {
+                    copy(
+                        verificationSheetVisible = true,
+                        verifiers = persistentListOf(),
+                        resolvedVerifierRefs = persistentListOf(),
+                        verifiersLoading = false,
+                        verifiersError = false,
+                    )
+                }
+                return
+            }
+            if (uiState.value.resolvedVerifierRefs == refs || resolvingVerifierRefs == refs) {
+                // Already resolved for these exact refs (even to an empty list), or a
+                // resolve for this same set is in flight — just show, no re-fetch.
+                setState { copy(verificationSheetVisible = true) }
+                return
+            }
+            // New/changed ref set → cancel any stale in-flight resolve (it targets refs
+            // that are no longer current) and drop the old verifiers before resolving,
+            // so a mismatched list can never show or land.
+            verifierResolveJob?.cancel()
+            resolvingVerifierRefs = refs
+            setState {
+                copy(
+                    verificationSheetVisible = true,
+                    verifiers = persistentListOf(),
+                    verifiersLoading = true,
+                    verifiersError = false,
+                )
+            }
+            verifierResolveJob =
+                viewModelScope.launch {
+                    repository
+                        .resolveVerifiers(refs)
+                        .onSuccess { resolved ->
+                            setState { copy(verifiers = resolved, resolvedVerifierRefs = refs, verifiersLoading = false) }
+                        }.onFailure {
+                            setState { copy(verifiersLoading = false, verifiersError = true) }
+                        }
+                    resolvingVerifierRefs = null
+                }
         }
 
         /**
