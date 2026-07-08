@@ -4,15 +4,17 @@ import java.util.Locale
 
 /**
  * Normalize a raw login identifier typed on the sign-in screen into something the
- * atproto OAuth resolver can actually resolve, WITHOUT altering valid inputs.
+ * atproto OAuth resolver can actually resolve, without changing the *meaning* of a
+ * valid handle or DID — only case-insensitive parts are lowercased; nothing
+ * semantically significant is rewritten.
  *
  * This exists because GA4 showed `handle_not_found` (stage=begin) as by far the
  * dominant login failure: users type `@alice`, a bare `alice`, or `Alice.Bsky.Social`
  * and the raw string fails handle resolution before OAuth ever launches
  * (`nubecita-mbzp`).
  *
- * Rules (each deliberately conservative — a valid handle/DID must round-trip
- * unchanged):
+ * Rules (each deliberately conservative — a valid handle/DID keeps its meaning;
+ * only case-insensitive segments are lowercased):
  * 1. Trim surrounding whitespace.
  * 2. Strip a single leading `@` (Twitter/Mastodon muscle memory; atproto handles
  *    never carry one), then re-trim so `"@ alice"` collapses cleanly.
@@ -26,7 +28,8 @@ import java.util.Locale
  * 5. **Append `.bsky.social` only when there is no dot.** A bare username is the
  *    *only* dotless input, so this never touches a custom-domain handle
  *    (`franciscovelazquez.com`), a subdomain (`me.example.co.uk`), or a DID — all of
- *    which contain a dot (or were handled in rule 3) and pass through untouched.
+ *    which contain a dot (or were handled in rule 3) and so keep their form (only
+ *    case-normalized).
  *
  * Returns `""` for blank / `@`-only input; the caller keeps its existing
  * blank-handle validation.
