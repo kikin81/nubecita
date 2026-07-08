@@ -2052,6 +2052,44 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `a header refresh that changes verifier refs invalidates the cache and re-resolves`() =
+        runTest(mainDispatcher.dispatcher) {
+            val refsA = persistentListOf(SAMPLE_VERIFIER_REF)
+            val refsB =
+                persistentListOf(VerifierRef(did = "did:plc:other", verifiedAt = Instant.parse("2026-06-01T00:00:00Z")))
+
+            fun headerWith(refs: kotlinx.collections.immutable.ImmutableList<VerifierRef>) =
+                Result.success(
+                    ProfileHeaderWithViewer(
+                        SAMPLE_HEADER.copy(verifiedBadge = VerifiedBadge.Verified, verifierRefs = refs),
+                        ViewerRelationship.None,
+                    ),
+                )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult = headerWith(refsA),
+                    resolveVerifiersResult = Result.success(persistentListOf(RESOLVED_VERIFIER)),
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+            assertEquals(1, repo.resolveVerifiersCalls.get())
+
+            // Header refreshes with a different verifier ref set → cache is stale.
+            repo.headerWithViewerResult = headerWith(refsB)
+            repo.emitOwnProfileUpdate()
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationSheetDismissed)
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            assertEquals(2, repo.resolveVerifiersCalls.get())
+        }
+
+    @Test
     fun `resolve failure surfaces verifiersError, keeps the sheet open`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = verifiedRepo(resolveResult = Result.failure(IOException("offline")))
@@ -2133,7 +2171,9 @@ internal class ProfileViewModelTest {
      * what the VM actually requested.
      */
     private class FakeProfileRepository(
-        private val headerWithViewerResult: Result<ProfileHeaderWithViewer> =
+        // var so a test can swap the header (e.g. a refresh that changes verifierRefs)
+        // and fire emitOwnProfileUpdate() to drive a re-fetch.
+        var headerWithViewerResult: Result<ProfileHeaderWithViewer> =
             Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
         var tabResults: Map<ProfileTab, Result<ProfileTabPage>> =
             ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },

@@ -3,10 +3,13 @@ package net.kikin.nubecita.feature.profile.impl
 import android.net.Uri
 import app.cash.turbine.test
 import io.mockk.mockk
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.impl.data.ImageChange
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
@@ -247,9 +250,7 @@ class EditProfileViewModelTest {
     ) : ProfileRepository {
         override val ownProfileUpdates = MutableSharedFlow<Unit>()
 
-        override suspend fun resolveVerifiers(
-            refs: kotlinx.collections.immutable.ImmutableList<net.kikin.nubecita.feature.profile.impl.VerifierRef>,
-        ): Result<kotlinx.collections.immutable.ImmutableList<net.kikin.nubecita.data.models.VerifierUi>> = Result.success(kotlinx.collections.immutable.persistentListOf())
+        override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> = Result.success(persistentListOf())
 
         var updateCalls = 0
         var lastDisplayName: String? = null

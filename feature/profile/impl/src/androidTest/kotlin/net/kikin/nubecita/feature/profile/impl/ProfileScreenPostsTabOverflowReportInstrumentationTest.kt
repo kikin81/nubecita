@@ -14,6 +14,7 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,6 +31,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.moderation.api.Report
@@ -142,9 +144,7 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
 
                 override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> = Result.success(ProfileHeaderWithViewer(header, ViewerRelationship.NotFollowing()))
 
-                override suspend fun resolveVerifiers(
-                    refs: kotlinx.collections.immutable.ImmutableList<VerifierRef>,
-                ): Result<kotlinx.collections.immutable.ImmutableList<net.kikin.nubecita.data.models.VerifierUi>> = Result.success(kotlinx.collections.immutable.persistentListOf())
+                override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> = Result.success(persistentListOf())
 
                 override suspend fun fetchTab(
                     actor: String,
