@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.feedmapping
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileView
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewBasic
+import io.github.kikin81.atproto.app.bsky.actor.VerificationState
 import io.github.kikin81.atproto.app.bsky.embed.ExternalView
 import io.github.kikin81.atproto.app.bsky.embed.GalleryView
 import io.github.kikin81.atproto.app.bsky.embed.GalleryViewImage
@@ -32,6 +33,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
+import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.ViewerStateUi
 import kotlin.time.Instant
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState as ActorViewerState
@@ -144,7 +146,21 @@ fun ProfileViewBasic.toAuthorUi(): AuthorUi =
         handle = handle.raw,
         displayName = displayName?.takeIf { it.isNotBlank() } ?: handle.raw,
         avatarUrl = avatar?.raw,
+        verifiedBadge = verification.toVerifiedBadge(),
     )
+
+/**
+ * Derive the display [VerifiedBadge] from the wire `verificationState`. Trusted
+ * verifier outranks verified; only a `"valid"` status shows a badge — `"none"`,
+ * `"invalid"`, absent, or any unrecognized value maps to [VerifiedBadge.None].
+ */
+fun VerificationState?.toVerifiedBadge(): VerifiedBadge =
+    when {
+        this == null -> VerifiedBadge.None
+        trustedVerifierStatus == "valid" -> VerifiedBadge.TrustedVerifier
+        verifiedStatus == "valid" -> VerifiedBadge.Verified
+        else -> VerifiedBadge.None
+    }
 
 /**
  * Project a [ProfileView] (the actor shape on
@@ -159,6 +175,7 @@ fun ProfileView.toAuthorUi(): AuthorUi =
         handle = handle.raw,
         displayName = displayName?.takeIf { it.isNotBlank() } ?: handle.raw,
         avatarUrl = avatar?.raw,
+        verifiedBadge = verification.toVerifiedBadge(),
     )
 
 /**

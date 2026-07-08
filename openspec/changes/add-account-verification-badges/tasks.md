@@ -11,12 +11,12 @@
 
 ## 2. Feed — mapping + PostCard badge (bd nubecita-vw45.2)
 
-- [ ] 2.1 In `:core:feed-mapping` author mapper, derive `AuthorUi.verifiedBadge` from `verification` (`trustedVerifierStatus == "valid"` → TrustedVerifier; else `verifiedStatus == "valid"` → Verified; else None). Handle null `verification` and unknown status strings → None.
-- [ ] 2.2 Unit-test the derivation rule (all tiers, null, unknown-string, precedence).
-- [ ] 2.3 Render `VerificationBadge` (small, non-interactive) next to the author display name in `:designsystem` `PostCard`, so it shows in feed, thread cluster, and post detail.
-- [ ] 2.4 Accessibility: badge `contentDescription` = "Verified account"/"Trusted verifier"; ensure a badge tap falls through to the post-card tap (no sheet in feed). Mind the onClickLabel-vs-contentDescription gotcha.
-- [ ] 2.5 Add es (`values-b+es+419`) + pt (`values-pt-rBR`) strings for the badge descriptions.
-- [ ] 2.6 Update/add `PostCard` screenshot baselines for Verified + TrustedVerifier authors.
+- [x] 2.1 In `:core:feed-mapping` author mapper, derive `AuthorUi.verifiedBadge` from `verification` (`trustedVerifierStatus == "valid"` → TrustedVerifier; else `verifiedStatus == "valid"` → Verified; else None). Handle null `verification` and unknown status strings → None.
+- [x] 2.2 Unit-test the derivation rule (all tiers, null, unknown-string, precedence).
+- [x] 2.3 Render `VerificationBadge` (small, non-interactive) next to the author display name in `:designsystem` `PostCard`, so it shows in feed, thread cluster, and post detail.
+- [x] 2.4 Accessibility: badge `contentDescription` = "Verified account"/"Trusted verifier"; ensure a badge tap falls through to the post-card tap (no sheet in feed). Mind the onClickLabel-vs-contentDescription gotcha.
+- [x] 2.5 Badge-description strings (en + `values-b+es+419` + `values-pt-rBR`) — satisfied by .1: the `VerificationBadge` atom owns its own descriptions, so those strings landed with .1 and .2 adds no new strings.
+- [x] 2.6 Update/add `PostCard` screenshot baselines for Verified + TrustedVerifier authors.
 
 ## 3. Profile — mapping + lazy issuer resolution (bd nubecita-vw45.3)
 
