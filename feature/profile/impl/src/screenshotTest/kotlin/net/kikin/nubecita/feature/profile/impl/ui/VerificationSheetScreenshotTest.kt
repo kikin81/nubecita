@@ -24,6 +24,11 @@ import kotlin.time.Instant
  *
  * Regenerate with
  * `./gradlew :feature:profile:impl:updateDebugScreenshotTest`.
+ *
+ * Verifier instants are pinned at **noon UTC** so the rendered date is
+ * identical in every real host timezone — the screenshot host derives the
+ * date in its own TZ, which differs between local macOS and CI Linux, and a
+ * midnight-UTC instant would render as the previous day west of UTC.
  */
 private val SAMPLE_VERIFIERS =
     persistentListOf(
@@ -31,13 +36,13 @@ private val SAMPLE_VERIFIERS =
             did = "did:plc:nyt",
             handle = "nytimes.com",
             displayName = "The New York Times",
-            verifiedAt = Instant.parse("2026-05-01T00:00:00Z"),
+            verifiedAt = Instant.parse("2026-05-01T12:00:00Z"),
         ),
         VerifierUi(
             did = "did:plc:bsky",
             handle = "bsky.app",
             displayName = null,
-            verifiedAt = Instant.parse("2026-04-15T00:00:00Z"),
+            verifiedAt = Instant.parse("2026-04-15T12:00:00Z"),
         ),
     )
 
