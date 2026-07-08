@@ -2058,7 +2058,7 @@ internal class ProfileViewModelTest {
             val refsB =
                 persistentListOf(VerifierRef(did = "did:plc:other", verifiedAt = Instant.parse("2026-06-01T00:00:00Z")))
 
-            fun headerWith(refs: kotlinx.collections.immutable.ImmutableList<VerifierRef>) =
+            fun headerWith(refs: ImmutableList<VerifierRef>) =
                 Result.success(
                     ProfileHeaderWithViewer(
                         SAMPLE_HEADER.copy(verifiedBadge = VerifiedBadge.Verified, verifierRefs = refs),
@@ -2094,7 +2094,7 @@ internal class ProfileViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val refsA = persistentListOf(SAMPLE_VERIFIER_REF)
 
-            fun headerWith(refs: kotlinx.collections.immutable.ImmutableList<VerifierRef>) =
+            fun headerWith(refs: ImmutableList<VerifierRef>) =
                 Result.success(
                     ProfileHeaderWithViewer(
                         SAMPLE_HEADER.copy(
@@ -2135,11 +2135,55 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `refs changing to a new set mid-resolve cancels the stale resolve and resolves the new set`() =
+        runTest(mainDispatcher.dispatcher) {
+            val refsA = persistentListOf(SAMPLE_VERIFIER_REF)
+            val refsB =
+                persistentListOf(VerifierRef(did = "did:plc:other", verifiedAt = Instant.parse("2026-06-01T00:00:00Z")))
+
+            fun headerWith(refs: ImmutableList<VerifierRef>) =
+                Result.success(
+                    ProfileHeaderWithViewer(
+                        SAMPLE_HEADER.copy(verifiedBadge = VerifiedBadge.Verified, verifierRefs = refs),
+                        ViewerRelationship.None,
+                    ),
+                )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult = headerWith(refsA),
+                    resolveVerifiersResult = Result.success(persistentListOf(RESOLVED_VERIFIER)),
+                )
+            repo.gateResolveVerifiers = true
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.verifiersLoading)
+            assertEquals(1, repo.resolveVerifiersCalls.get())
+
+            // Header refreshes to a DIFFERENT non-empty ref set while resolve A is gated.
+            repo.headerWithViewerResult = headerWith(refsB)
+            repo.emitOwnProfileUpdate()
+            advanceUntilIdle()
+            // A tap must NOT short-circuit on "loading" — it cancels resolve A and starts B.
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+            assertEquals(2, repo.resolveVerifiersCalls.get())
+
+            repo.releaseResolveVerifiers()
+            advanceUntilIdle()
+            // The landed list corresponds to the latest refs, not the cancelled A resolve.
+            assertEquals(refsB, vm.uiState.value.resolvedVerifierRefs)
+            assertFalse(vm.uiState.value.verifiersLoading)
+        }
+
+    @Test
     fun `refs emptying while a resolve is in flight cancels it and clears loading`() =
         runTest(mainDispatcher.dispatcher) {
             val refsA = persistentListOf(SAMPLE_VERIFIER_REF)
 
-            fun headerWith(refs: kotlinx.collections.immutable.ImmutableList<VerifierRef>) =
+            fun headerWith(refs: ImmutableList<VerifierRef>) =
                 Result.success(
                     ProfileHeaderWithViewer(
                         SAMPLE_HEADER.copy(

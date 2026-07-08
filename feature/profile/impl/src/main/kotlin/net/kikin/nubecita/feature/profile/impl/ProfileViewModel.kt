@@ -107,6 +107,15 @@ internal class ProfileViewModel
          */
         private var verifierResolveJob: Job? = null
 
+        /**
+         * The [VerifierRef] set the in-flight [verifierResolveJob] is resolving,
+         * or `null` when idle. Single-flight is keyed on this, not a blanket
+         * loading flag: a tap whose refs match the in-flight set is a no-op, but a
+         * tap after the header's refs changed cancels the stale resolve and starts
+         * a fresh one so [ProfileScreenViewState.verifiers] tracks the latest refs.
+         */
+        private var resolvingVerifierRefs: ImmutableList<VerifierRef>? = null
+
         init {
             // Bind the handler to Profile surface and this VM's scope first.
             handler.bind(PostSurface.Profile, viewModelScope)
@@ -228,6 +237,7 @@ internal class ProfileViewModel
                 // so the sheet never shows stale issuers or a perpetual spinner.
                 verifierResolveJob?.cancel()
                 verifierResolveJob = null
+                resolvingVerifierRefs = null
                 setState {
                     copy(
                         verificationSheetVisible = true,
@@ -239,15 +249,17 @@ internal class ProfileViewModel
                 }
                 return
             }
-            if (uiState.value.resolvedVerifierRefs == refs || uiState.value.verifiersLoading) {
+            if (uiState.value.resolvedVerifierRefs == refs || resolvingVerifierRefs == refs) {
                 // Already resolved for these exact refs (even to an empty list), or a
-                // resolve is in flight — just show the sheet, no re-fetch.
+                // resolve for this same set is in flight — just show, no re-fetch.
                 setState { copy(verificationSheetVisible = true) }
                 return
             }
-            // New ref set → cancel any stale in-flight resolve and drop the old
-            // verifiers before resolving so a mismatched list can never show or land.
+            // New/changed ref set → cancel any stale in-flight resolve (it targets refs
+            // that are no longer current) and drop the old verifiers before resolving,
+            // so a mismatched list can never show or land.
             verifierResolveJob?.cancel()
+            resolvingVerifierRefs = refs
             setState {
                 copy(
                     verificationSheetVisible = true,
@@ -265,6 +277,7 @@ internal class ProfileViewModel
                         }.onFailure {
                             setState { copy(verifiersLoading = false, verifiersError = true) }
                         }
+                    resolvingVerifierRefs = null
                 }
         }
 
