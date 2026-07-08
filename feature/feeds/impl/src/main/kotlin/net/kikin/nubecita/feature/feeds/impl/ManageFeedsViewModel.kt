@@ -41,6 +41,11 @@ internal class ManageFeedsViewModel
         // "dirty" (has an uncommitted reorder) when it differs from this.
         private var seededOrder: List<String> = emptyList()
 
+        // Feeds optimistically removed whose unpin is still in flight. Filtered out of
+        // upstream emissions so a Room snapshot taken before the unpin lands can't flicker
+        // the removed row back in. Touched only on the main thread (VM coroutines run on Main).
+        private val pendingRemoves = mutableSetOf<String>()
+
         init {
             repository
                 .observePinnedFeeds()
@@ -49,9 +54,9 @@ internal class ManageFeedsViewModel
                     Timber.tag(TAG).e(throwable, "observePinnedFeeds collector failed")
                 }.launchIn(viewModelScope)
 
-            viewModelScope.launch {
-                runCatching { repository.refresh() }
-            }
+            // Best-effort refresh; refresh() returns Result (never throws except
+            // CancellationException, which must propagate) so no runCatching wrapper.
+            viewModelScope.launch { repository.refresh() }
         }
 
         override fun handleEvent(event: ManageFeedsEvent) {
@@ -97,6 +102,7 @@ internal class ManageFeedsViewModel
             if (index < 0) return
             val removed = content.feeds[index]
             val seedIndex = seededOrder.indexOf(uri)
+            pendingRemoves.add(uri)
 
             // Optimistic remove — local list AND seeded order, so a pure remove (no drag)
             // is not a dirty reorder and won't trigger a redundant reorder commit on exit.
@@ -114,7 +120,9 @@ internal class ManageFeedsViewModel
             if (seedIndex >= 0) seededOrder = seededOrder.toMutableList().apply { removeAt(seedIndex) }
 
             viewModelScope.launch {
-                if (repository.unpinFeed(uri).isFailure) {
+                val failed = repository.unpinFeed(uri).isFailure
+                pendingRemoves.remove(uri)
+                if (failed) {
                     // Rollback: restore the row at its original index and surface the error.
                     setState {
                         val c = status as? ManageFeedsLoadStatus.Content ?: return@setState this
@@ -135,8 +143,11 @@ internal class ManageFeedsViewModel
             // Only (re)seed when there is no pending local reorder — otherwise an upstream
             // emission (e.g. a background refresh) would stomp the in-progress drag.
             if (current != null && current.map { it.uri } != seededOrder) return
-            setState { copy(status = ManageFeedsLoadStatus.Content(feeds)) }
-            seededOrder = feeds.map { it.uri }
+            // Drop feeds whose optimistic remove is still in flight, so a Room snapshot taken
+            // before the unpin lands can't flicker the removed row back in.
+            val filtered = feeds.filter { it.uri !in pendingRemoves }.toImmutableList()
+            setState { copy(status = ManageFeedsLoadStatus.Content(filtered)) }
+            seededOrder = filtered.map { it.uri }
         }
 
         private companion object {

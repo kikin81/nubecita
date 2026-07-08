@@ -28,6 +28,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -65,7 +66,8 @@ internal fun ManageFeedsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val removeError = stringResource(R.string.feeds_manage_remove_error)
+    // Wrapped so the long-lived effect below reads the current-locale string after a config change.
+    val removeError by rememberUpdatedState(stringResource(R.string.feeds_manage_remove_error))
 
     LaunchedEffect(Unit) {
         val effectScope = this
@@ -84,7 +86,7 @@ internal fun ManageFeedsScreen(
     // addition to onCleared() on a nav-pop. Both go through the VM's app-scoped
     // commit and are dirty-checked, so firing both is harmless.
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, viewModel) {
         val observer =
             LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_STOP) viewModel.commitReorderIfDirty()
@@ -154,10 +156,13 @@ private fun PinnedFeedList(
     onEvent: (ManageFeedsEvent) -> Unit,
     contentPadding: PaddingValues,
 ) {
+    // rememberReorderableLazyListState captures its onMove lambda once; wrap onEvent so the
+    // captured lambda always calls the current instance.
+    val currentOnEvent by rememberUpdatedState(onEvent)
     val listState = rememberLazyListState()
     val reorderableState =
         rememberReorderableLazyListState(listState) { from, to ->
-            onEvent(ManageFeedsEvent.Move(from.index, to.index))
+            currentOnEvent(ManageFeedsEvent.Move(from.index, to.index))
         }
 
     LazyColumn(
@@ -173,7 +178,7 @@ private fun PinnedFeedList(
                 )
                 PinnedFeedRow(
                     feed = feed,
-                    onRemove = { onEvent(ManageFeedsEvent.Remove(feed.uri)) },
+                    onRemove = { currentOnEvent(ManageFeedsEvent.Remove(feed.uri)) },
                     elevation = elevation,
                     dragHandle = {
                         // longPressDraggableHandle() is a ReorderableCollectionItemScope

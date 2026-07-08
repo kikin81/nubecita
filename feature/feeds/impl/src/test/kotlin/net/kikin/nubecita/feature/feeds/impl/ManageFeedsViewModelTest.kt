@@ -6,6 +6,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -171,5 +172,42 @@ internal class ManageFeedsViewModelTest {
             pinnedFlow.emit(emit(following, a, b)) // background refresh — must NOT stomp the drag
 
             assertEquals(listOf("following", "at://b", "at://a"), vm.orderUris())
+        }
+
+    @Test
+    fun `upstream re-emission during a pending remove does not re-add the feed`() =
+        runTest {
+            // unpinFeed stays in flight, so the optimistic remove is still pending when the
+            // upstream emission (which still contains the feed) arrives.
+            val gate = CompletableDeferred<Result<Unit>>()
+            coEvery { repository.unpinFeed("at://a") } coAnswers { gate.await() }
+            val vm = buildVm()
+            pinnedFlow.emit(emit(following, a, b))
+
+            vm.handleEvent(ManageFeedsEvent.Remove("at://a")) // local [following, b], unpin in flight
+
+            pinnedFlow.emit(emit(following, a, b)) // Room not yet updated — feed still present upstream
+
+            // The removed feed must not flicker back in.
+            assertEquals(listOf("following", "at://b"), vm.orderUris())
+        }
+
+    @Test
+    fun `a failed reorder commit self-heals via the rollback emission and does not get stuck dirty`() =
+        runTest {
+            coEvery { repository.reorderPinnedFeeds(any()) } returns Result.failure(IOException("network"))
+            val vm = buildVm()
+            pinnedFlow.emit(emit(following, a, b))
+            vm.handleEvent(ManageFeedsEvent.Move(1, 2)) // local [following, b, a]
+
+            vm.commitReorderIfDirty() // fails; repo rolls back Room to the old order
+
+            // The rollback emission re-seeds the list + seededOrder to the server's order.
+            pinnedFlow.emit(emit(following, a, b))
+            assertEquals(listOf("following", "at://a", "at://b"), vm.orderUris())
+
+            // Not stuck dirty: a second commit is a no-op (only the one failed attempt happened).
+            vm.commitReorderIfDirty()
+            coVerify(exactly = 1) { repository.reorderPinnedFeeds(any()) }
         }
 }
