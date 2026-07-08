@@ -3,7 +3,7 @@
 ## 1. Foundation — models + icon glyphs (bd nubecita-vw45.1)
 
 - [x] 1.1 Add `enum VerifiedBadge { None, Verified, TrustedVerifier }` to `:data:models` (`@Stable`/`@Immutable` as appropriate).
-- [x] 1.2 Add `VerificationUi(badge: VerifiedBadge, verifiers: ImmutableList<VerifierUi>)` and `VerifierUi(did, handle, displayName: String?, verifiedAt, isValid)` to `:data:models`.
+- [x] 1.2 Add `VerificationUi(badge: VerifiedBadge, verifiers: ImmutableList<VerifierUi>)` and `VerifierUi(did, handle, displayName: String?, verifiedAt)` to `:data:models`. (`VerifierUi` is a *resolved* verifier — no `isValid` field; invalid entries are dropped and unresolved DIDs skipped in .3.)
 - [x] 1.3 Add `verifiedBadge: VerifiedBadge = VerifiedBadge.None` to `AuthorUi`; add fixtures covering None/Verified/TrustedVerifier (mirror existing `*Fixtures`).
 - [x] 1.4 Add the two Material Symbols glyphs — `check_circle` (Verified) and `verified` (Trusted Verifier) — to `:designsystem` `NubecitaIconName` + icon font via the careful SINGLE-glyph append (no full-font regen); verify against a shrink/release build path.
 - [x] 1.5 Add a verified-blue design-system color token for the badge tint (distinct from the theme accent).
@@ -20,8 +20,8 @@
 
 ## 3. Profile — mapping + lazy issuer resolution (bd nubecita-vw45.3)
 
-- [ ] 3.1 In `:feature:profile:impl` `AuthorProfileMapper`, derive the profile badge (same rule) and build `VerificationUi.verifiers` from `verification.verifications` (keep `isValid == true` only): `issuer` DID + `createdAt`.
-- [ ] 3.2 Add a `ProfileRepository`/VM `loadVerifiers` path that resolves issuer DIDs → name/handle via `app.bsky.actor.getProfiles` (`GetProfilesRequest`, batch ≤25). Bound network at the Ktor `HttpTimeout` boundary (NOT `withTimeout` on the injected dispatcher).
+- [ ] 3.1 In `:feature:profile:impl` `AuthorProfileMapper`, derive the profile badge (same rule via `toVerifiedBadge()`) and extract the valid `verification.verifications` (keep `isValid == true` only) as (`issuer` DID, `createdAt`) pairs. Do NOT build `VerifierUi` here — `handle`/`displayName` aren't known until resolution (.3.2); carry the (DID, createdAt) pairs on the profile model for the VM to complete.
+- [ ] 3.2 Add a `ProfileRepository`/VM `loadVerifiers` path that resolves the issuer DIDs → handle/displayName via `app.bsky.actor.getProfiles` (`GetProfilesRequest`, batch ≤25) and assembles the `VerifierUi` list (pairing each resolved profile with its verification's `createdAt`; **skip DIDs that don't resolve**). Bound network at the Ktor `HttpTimeout` boundary (NOT `withTimeout` on the injected dispatcher).
 - [ ] 3.3 Expose flat sheet sub-state on the profile `UiState` (`verifiersLoading`, `verifiers`, `verifiersError`) and a `UiEvent` for badge tap that flips sheet visibility + triggers `loadVerifiers` (no eager resolution on profile load).
 - [ ] 3.4 Repository/VM tests: badge computation; lazy resolution success / empty / error; verify getProfiles is NOT called until the sheet opens.
 

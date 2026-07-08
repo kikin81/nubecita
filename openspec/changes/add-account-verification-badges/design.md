@@ -19,7 +19,7 @@ Bluesky's verification lives in `app.bsky.actor.defs#verificationState`, present
 ## Decisions
 
 ### D1 — Model verification as a small enum + optional detail object, in `:data:models`
-`enum VerifiedBadge { None, Verified, TrustedVerifier }` is the render contract. `AuthorUi` gains `verifiedBadge: VerifiedBadge = None` (feed needs only the glyph). The profile detail model gains a richer `VerificationUi(badge, verifiers: ImmutableList<VerifierUi>)`, where `VerifierUi(did, handle, displayName?, verifiedAt, isValid)` feeds the sheet.
+`enum VerifiedBadge { None, Verified, TrustedVerifier }` is the render contract. `AuthorUi` gains `verifiedBadge: VerifiedBadge = None` (feed needs only the glyph). The profile detail model gains a richer `VerificationUi(badge, verifiers: ImmutableList<VerifierUi>)`, where `VerifierUi(did, handle, displayName?, verifiedAt)` feeds the sheet. `VerifierUi` represents a **resolved** verifier — `handle`/`displayName` come from the issuer-DID resolution (D5), so the list is populated only *after* resolution, not by the mapper. Invalid verifications are dropped by the mapper (no `isValid` field needed on the UI type), and a DID that fails to resolve is skipped rather than shown as a bare DID.
 - *Why:* the feed path stays cheap (one enum), while the profile path carries the list the sheet needs. Both derive from the same mapping rule, so there is one source of truth for precedence.
 - *Alternative rejected:* two booleans (`isVerified`, `isTrustedVerifier`) — pushes precedence logic into every call site; an enum makes "exactly one badge" unrepresentable-if-invalid and matches the render decision directly.
 

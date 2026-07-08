@@ -1,6 +1,5 @@
 package net.kikin.nubecita.designsystem.component
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -44,7 +43,12 @@ public fun VerificationBadge(
         name = name,
         contentDescription = description,
         filled = true,
+        // `opticalSize` is NubecitaIcon's display size — it drives the font's `opsz`
+        // axis, the fontSize, AND the icon box size. Pass `size` here (not a separate
+        // Modifier.size) so the variable-font glyph is rendered at the correct optical
+        // variant for its display size rather than a 24dp glyph scaled down.
+        opticalSize = size,
         tint = NubecitaPalette.VerifiedBlue,
-        modifier = modifier.size(size),
+        modifier = modifier,
     )
 }
