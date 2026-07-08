@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ActorService
+import io.github.kikin81.atproto.app.bsky.actor.GetProfilesRequest
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.com.atproto.repo.GetRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.PutRecordRequest
@@ -14,6 +15,9 @@ import io.github.kikin81.atproto.runtime.RecordKey
 import io.github.kikin81.atproto.runtime.XrpcError
 import io.github.kikin81.atproto.runtime.present
 import io.ktor.http.ContentType
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -31,7 +35,9 @@ import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.postinteractions.FollowRepository
+import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
+import net.kikin.nubecita.feature.profile.impl.VerifierRef
 import timber.log.Timber
 import javax.inject.Inject
 import kotlinx.serialization.json.Json as KotlinxJson
@@ -77,6 +83,37 @@ internal class DefaultProfileRepository
                     // error identity — matches the redaction discipline
                     // applied to DIDs in `:core:auth/DefaultXrpcClientProvider`.
                     Timber.tag(TAG).w(throwable, "fetchHeader failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> =
+            withContext(dispatcher) {
+                if (refs.isEmpty()) return@withContext Result.success(persistentListOf())
+                runCatching {
+                    val client = xrpcClientProvider.authenticated()
+                    // getProfiles is capped at 25 actors/call; chunk defensively even though a
+                    // profile realistically carries only a handful of verifiers.
+                    val resolved =
+                        buildList {
+                            refs.map { AtIdentifier(it.did) }.chunked(GET_PROFILES_MAX).forEach { chunk ->
+                                addAll(ActorService(client).getProfiles(GetProfilesRequest(chunk)).profiles)
+                            }
+                        }
+                    val byDid = resolved.associateBy { it.did.raw }
+                    // Preserve the verifications' order; skip DIDs the appview didn't return
+                    // (deleted / unresolvable accounts) rather than showing a bare DID.
+                    refs
+                        .mapNotNull { ref ->
+                            val profile = byDid[ref.did] ?: return@mapNotNull null
+                            VerifierUi(
+                                did = ref.did,
+                                handle = profile.handle.raw,
+                                displayName = profile.displayName?.takeUnless { it.isBlank() },
+                                verifiedAt = ref.verifiedAt,
+                            )
+                        }.toImmutableList()
+                }.onFailure { throwable ->
+                    Timber.tag(TAG).w(throwable, "resolveVerifiers failed: %s", throwable.javaClass.name)
                 }
             }
 
@@ -334,6 +371,9 @@ internal class DefaultProfileRepository
 
         private companion object {
             const val TAG = "ProfileRepository"
+
+            /** `app.bsky.actor.getProfiles` accepts at most 25 actors per call. */
+            const val GET_PROFILES_MAX = 25
             const val PROFILE_NSID = "app.bsky.actor.profile"
             const val PROFILE_RKEY = "self"
 

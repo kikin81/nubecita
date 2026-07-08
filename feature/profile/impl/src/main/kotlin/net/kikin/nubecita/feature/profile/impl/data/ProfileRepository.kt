@@ -6,8 +6,10 @@ import io.github.kikin81.atproto.runtime.AtIdentifier
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.SharedFlow
+import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
+import net.kikin.nubecita.feature.profile.impl.VerifierRef
 
 /**
  * `app.bsky.actor.getProfile` + `app.bsky.feed.getAuthorFeed` fetch
@@ -43,6 +45,16 @@ interface ProfileRepository {
     val ownProfileUpdates: SharedFlow<Unit>
 
     suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer>
+
+    /**
+     * Resolve a profile's verifier DIDs to display-ready [VerifierUi]s via
+     * `app.bsky.actor.getProfiles`, pairing each resolved profile with its
+     * ref's verification date. DIDs the appview doesn't return (deleted /
+     * unresolvable accounts) are skipped. Empty [refs] short-circuits to an
+     * empty list without a network call. Called lazily when the verification
+     * sheet opens, not on profile load.
+     */
+    suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>>
 
     suspend fun fetchTab(
         actor: String,

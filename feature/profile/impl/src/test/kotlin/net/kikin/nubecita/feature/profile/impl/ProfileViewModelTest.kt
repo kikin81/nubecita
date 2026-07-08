@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.profile.impl
 import app.cash.turbine.test
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,6 +29,8 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.VerifiedBadge
+import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -1961,6 +1964,117 @@ internal class ProfileViewModelTest {
         )
     }
 
+    // --- Verification badge / lazy issuer resolution (nubecita-vw45.3) ---
+
+    private fun verifiedRepo(
+        resolveResult: Result<ImmutableList<VerifierUi>> = Result.success(persistentListOf(RESOLVED_VERIFIER)),
+        refs: ImmutableList<VerifierRef> = persistentListOf(SAMPLE_VERIFIER_REF),
+    ) = FakeProfileRepository(
+        headerWithViewerResult =
+            Result.success(
+                ProfileHeaderWithViewer(
+                    SAMPLE_HEADER.copy(verifiedBadge = VerifiedBadge.Verified, verifierRefs = refs),
+                    ViewerRelationship.None,
+                ),
+            ),
+        resolveVerifiersResult = resolveResult,
+    )
+
+    @Test
+    fun `verifiers are NOT resolved on profile load - only lazily on badge tap`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = verifiedRepo()
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            assertEquals(0, repo.resolveVerifiersCalls.get())
+            assertTrue(
+                vm.uiState.value.verifiers
+                    .isEmpty(),
+            )
+            assertFalse(vm.uiState.value.verificationSheetVisible)
+        }
+
+    @Test
+    fun `badge tap resolves verifiers once and shows the sheet`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = verifiedRepo()
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.resolveVerifiersCalls.get())
+            assertEquals(persistentListOf(RESOLVED_VERIFIER), vm.uiState.value.verifiers)
+            assertFalse(vm.uiState.value.verifiersLoading)
+            assertTrue(vm.uiState.value.verificationSheetVisible)
+        }
+
+    @Test
+    fun `re-tapping the badge does not re-resolve`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = verifiedRepo()
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+            vm.handleEvent(ProfileEvent.VerificationSheetDismissed)
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.resolveVerifiersCalls.get())
+            assertTrue(vm.uiState.value.verificationSheetVisible)
+        }
+
+    @Test
+    fun `resolve failure surfaces verifiersError, keeps the sheet open`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = verifiedRepo(resolveResult = Result.failure(IOException("offline")))
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.verifiersError)
+            assertFalse(vm.uiState.value.verifiersLoading)
+            assertTrue(vm.uiState.value.verificationSheetVisible)
+            assertTrue(
+                vm.uiState.value.verifiers
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `badge tap with no verifier refs shows the sheet without resolving`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = verifiedRepo(refs = persistentListOf())
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            assertEquals(0, repo.resolveVerifiersCalls.get())
+            assertTrue(vm.uiState.value.verificationSheetVisible)
+        }
+
+    @Test
+    fun `dismiss hides the verification sheet`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = verifiedRepo()
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationSheetDismissed)
+
+            assertFalse(vm.uiState.value.verificationSheetVisible)
+        }
+
     private companion object {
         val SAMPLE_HEADER =
             ProfileHeaderUi(
@@ -1976,6 +2090,14 @@ internal class ProfileViewModelTest {
                 postsCount = 0L,
                 followersCount = 0L,
                 followsCount = 0L,
+            )
+        val SAMPLE_VERIFIER_REF = VerifierRef(did = "did:plc:nyt", verifiedAt = Instant.parse("2026-05-01T00:00:00Z"))
+        val RESOLVED_VERIFIER =
+            VerifierUi(
+                did = "did:plc:nyt",
+                handle = "nytimes.com",
+                displayName = "The New York Times",
+                verifiedAt = Instant.parse("2026-05-01T00:00:00Z"),
             )
         val EMPTY_PAGE = ProfileTabPage(items = persistentListOf(), nextCursor = null)
         const val SAMPLE_FOLLOW_URI = "at://did:plc:viewer123/app.bsky.graph.follow/sample-rkey"
@@ -1994,6 +2116,8 @@ internal class ProfileViewModelTest {
             ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
         private val followResult: Result<String> = Result.success(SAMPLE_FOLLOW_URI),
         private val unfollowResult: Result<Unit> = Result.success(Unit),
+        private val resolveVerifiersResult: Result<ImmutableList<VerifierUi>> =
+            Result.success(persistentListOf()),
     ) : ProfileRepository {
         private val _ownProfileUpdates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         override val ownProfileUpdates: SharedFlow<Unit> = _ownProfileUpdates
@@ -2035,6 +2159,13 @@ internal class ProfileViewModelTest {
         override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> {
             headerCalls.incrementAndGet()
             return headerWithViewerResult
+        }
+
+        val resolveVerifiersCalls = AtomicInteger(0)
+
+        override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> {
+            resolveVerifiersCalls.incrementAndGet()
+            return resolveVerifiersResult
         }
 
         override suspend fun fetchTab(

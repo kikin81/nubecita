@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
@@ -199,6 +200,36 @@ internal class ProfileViewModel
                 ProfileEvent.OnReportAccountRequested -> onReportAccountRequested()
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
                 is ProfileEvent.OnPostOverflowAction -> onOverflowAction(event.post, event.action)
+                ProfileEvent.VerificationBadgeTapped -> onVerificationBadgeTapped()
+                ProfileEvent.VerificationSheetDismissed -> setState { copy(verificationSheetVisible = false) }
+            }
+        }
+
+        /**
+         * Open the verification explanation sheet and lazily resolve the verifier
+         * DIDs → names on FIRST open only. Re-tapping after a successful load just
+         * re-opens the sheet (the resolved list is cached in state). A load in
+         * flight, or no verifiers to resolve, also skips the fetch — so the
+         * common case (viewing a profile, never opening the sheet) issues zero
+         * extra `getProfiles` calls.
+         */
+        private fun onVerificationBadgeTapped() {
+            val refs = uiState.value.header?.verifierRefs ?: persistentListOf()
+            val alreadyLoaded = uiState.value.verifiers.isNotEmpty()
+            if (refs.isEmpty() || alreadyLoaded || uiState.value.verifiersLoading) {
+                // Nothing to resolve, already resolved, or in flight — just show the sheet.
+                setState { copy(verificationSheetVisible = true) }
+                return
+            }
+            setState { copy(verificationSheetVisible = true, verifiersLoading = true, verifiersError = false) }
+            viewModelScope.launch {
+                repository
+                    .resolveVerifiers(refs)
+                    .onSuccess { resolved ->
+                        setState { copy(verifiers = resolved, verifiersLoading = false) }
+                    }.onFailure {
+                        setState { copy(verifiersLoading = false, verifiersError = true) }
+                    }
             }
         }
 

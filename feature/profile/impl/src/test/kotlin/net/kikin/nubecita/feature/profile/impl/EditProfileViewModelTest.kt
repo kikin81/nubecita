@@ -247,6 +247,10 @@ class EditProfileViewModelTest {
     ) : ProfileRepository {
         override val ownProfileUpdates = MutableSharedFlow<Unit>()
 
+        override suspend fun resolveVerifiers(
+            refs: kotlinx.collections.immutable.ImmutableList<net.kikin.nubecita.feature.profile.impl.VerifierRef>,
+        ): Result<kotlinx.collections.immutable.ImmutableList<net.kikin.nubecita.data.models.VerifierUi>> = Result.success(kotlinx.collections.immutable.persistentListOf())
+
         var updateCalls = 0
         var lastDisplayName: String? = null
         var lastDescription: String? = null
