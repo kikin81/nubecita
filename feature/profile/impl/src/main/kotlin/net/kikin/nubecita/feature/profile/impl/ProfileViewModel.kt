@@ -100,6 +100,13 @@ internal class ProfileViewModel
          */
         private val activeInitialLoadJobs = mutableMapOf<ProfileTab, Job>()
 
+        /**
+         * In-flight verifier resolution, if any. Cancelled before a new resolve
+         * or when the ref set empties, so a stale resolve can never repopulate
+         * [ProfileScreenViewState.verifiers] after the refs it targeted are gone.
+         */
+        private var verifierResolveJob: Job? = null
+
         init {
             // Bind the handler to Profile surface and this VM's scope first.
             handler.bind(PostSurface.Profile, viewModelScope)
@@ -217,12 +224,16 @@ internal class ProfileViewModel
             val refs = uiState.value.header?.verifierRefs ?: persistentListOf()
             if (refs.isEmpty()) {
                 // No verifiers to resolve (e.g. a header refresh removed verification):
-                // clear any cached verifiers/error so the sheet never shows stale issuers.
+                // cancel any in-flight resolve and clear cached verifiers/loading/error
+                // so the sheet never shows stale issuers or a perpetual spinner.
+                verifierResolveJob?.cancel()
+                verifierResolveJob = null
                 setState {
                     copy(
                         verificationSheetVisible = true,
                         verifiers = persistentListOf(),
                         resolvedVerifierRefs = persistentListOf(),
+                        verifiersLoading = false,
                         verifiersError = false,
                     )
                 }
@@ -234,8 +245,9 @@ internal class ProfileViewModel
                 setState { copy(verificationSheetVisible = true) }
                 return
             }
-            // New ref set → drop any stale verifiers before resolving so a mismatched
-            // list never shows while the new resolve is loading.
+            // New ref set → cancel any stale in-flight resolve and drop the old
+            // verifiers before resolving so a mismatched list can never show or land.
+            verifierResolveJob?.cancel()
             setState {
                 copy(
                     verificationSheetVisible = true,
@@ -244,15 +256,16 @@ internal class ProfileViewModel
                     verifiersError = false,
                 )
             }
-            viewModelScope.launch {
-                repository
-                    .resolveVerifiers(refs)
-                    .onSuccess { resolved ->
-                        setState { copy(verifiers = resolved, resolvedVerifierRefs = refs, verifiersLoading = false) }
-                    }.onFailure {
-                        setState { copy(verifiersLoading = false, verifiersError = true) }
-                    }
-            }
+            verifierResolveJob =
+                viewModelScope.launch {
+                    repository
+                        .resolveVerifiers(refs)
+                        .onSuccess { resolved ->
+                            setState { copy(verifiers = resolved, resolvedVerifierRefs = refs, verifiersLoading = false) }
+                        }.onFailure {
+                            setState { copy(verifiersLoading = false, verifiersError = true) }
+                        }
+                }
         }
 
         /**

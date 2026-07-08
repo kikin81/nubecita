@@ -66,11 +66,13 @@ data class ProfileScreenViewState(
      * lazily on first open and then cached for the screen's lifetime.
      *
      * [resolvedVerifierRefs] is the cache key: the exact [VerifierRef] list the
-     * current [verifiers] were resolved from (`null` until the first successful
-     * resolve). A tap re-resolves only when it differs from the header's current
-     * `verifierRefs`, so a header refresh that changes the refs invalidates the
-     * cache while an unchanged one (including an all-DIDs-unresolvable resolve
-     * that left [verifiers] empty) is served without re-fetching.
+     * current [verifiers] were resolved from. `null` before anything is resolved;
+     * an **empty** list is a legitimate resolved state (the header carries no
+     * verifier refs, so [verifiers] is correctly empty). A tap re-resolves only
+     * when it differs from the header's current `verifierRefs`, so a header
+     * refresh that changes the refs invalidates the cache while an unchanged one
+     * (including an all-DIDs-unresolvable resolve that left [verifiers] empty) is
+     * served without re-fetching.
      */
     val verificationSheetVisible: Boolean = false,
     val verifiersLoading: Boolean = false,

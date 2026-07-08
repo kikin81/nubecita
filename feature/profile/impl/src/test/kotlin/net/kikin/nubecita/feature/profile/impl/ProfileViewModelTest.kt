@@ -2135,6 +2135,57 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `refs emptying while a resolve is in flight cancels it and clears loading`() =
+        runTest(mainDispatcher.dispatcher) {
+            val refsA = persistentListOf(SAMPLE_VERIFIER_REF)
+
+            fun headerWith(refs: kotlinx.collections.immutable.ImmutableList<VerifierRef>) =
+                Result.success(
+                    ProfileHeaderWithViewer(
+                        SAMPLE_HEADER.copy(
+                            verifiedBadge = if (refs.isEmpty()) VerifiedBadge.None else VerifiedBadge.Verified,
+                            verifierRefs = refs,
+                        ),
+                        ViewerRelationship.None,
+                    ),
+                )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult = headerWith(refsA),
+                    resolveVerifiersResult = Result.success(persistentListOf(RESOLVED_VERIFIER)),
+                )
+            repo.gateResolveVerifiers = true
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.verifiersLoading)
+
+            // Verification revoked mid-flight: header refreshes to no refs, then a tap.
+            repo.headerWithViewerResult = headerWith(persistentListOf())
+            repo.emitOwnProfileUpdate()
+            advanceUntilIdle()
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            assertFalse(vm.uiState.value.verifiersLoading)
+            assertTrue(
+                vm.uiState.value.verifiers
+                    .isEmpty(),
+            )
+
+            // The original resolve unblocking must not repopulate the cleared list.
+            repo.releaseResolveVerifiers()
+            advanceUntilIdle()
+            assertTrue(
+                vm.uiState.value.verifiers
+                    .isEmpty(),
+            )
+            assertFalse(vm.uiState.value.verifiersLoading)
+        }
+
+    @Test
     fun `resolve failure surfaces verifiersError, keeps the sheet open`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = verifiedRepo(resolveResult = Result.failure(IOException("offline")))
@@ -2271,8 +2322,24 @@ internal class ProfileViewModelTest {
 
         val resolveVerifiersCalls = AtomicInteger(0)
 
+        // When set, resolveVerifiers suspends until releaseResolveVerifiers() —
+        // lets a test hold a resolve in-flight and observe the loading state.
+        var gateResolveVerifiers: Boolean = false
+        private var resolveGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+        fun releaseResolveVerifiers() {
+            resolveGate?.complete(Unit)
+            resolveGate = null
+            gateResolveVerifiers = false
+        }
+
         override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> {
             resolveVerifiersCalls.incrementAndGet()
+            if (gateResolveVerifiers) {
+                val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+                resolveGate = gate
+                gate.await()
+            }
             return resolveVerifiersResult
         }
 
