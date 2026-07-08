@@ -2090,6 +2090,51 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `a header refresh that removes verification clears the stale verifier list`() =
+        runTest(mainDispatcher.dispatcher) {
+            val refsA = persistentListOf(SAMPLE_VERIFIER_REF)
+
+            fun headerWith(refs: kotlinx.collections.immutable.ImmutableList<VerifierRef>) =
+                Result.success(
+                    ProfileHeaderWithViewer(
+                        SAMPLE_HEADER.copy(
+                            verifiedBadge = if (refs.isEmpty()) VerifiedBadge.None else VerifiedBadge.Verified,
+                            verifierRefs = refs,
+                        ),
+                        ViewerRelationship.None,
+                    ),
+                )
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult = headerWith(refsA),
+                    resolveVerifiersResult = Result.success(persistentListOf(RESOLVED_VERIFIER)),
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+            assertEquals(persistentListOf(RESOLVED_VERIFIER), vm.uiState.value.verifiers)
+            vm.handleEvent(ProfileEvent.VerificationSheetDismissed)
+
+            // Verification is revoked; header refreshes with no refs.
+            repo.headerWithViewerResult = headerWith(persistentListOf())
+            repo.emitOwnProfileUpdate()
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.verifiers
+                    .isEmpty(),
+            )
+            assertTrue(vm.uiState.value.verificationSheetVisible)
+            // No new resolve was issued for the empty ref set.
+            assertEquals(1, repo.resolveVerifiersCalls.get())
+        }
+
+    @Test
     fun `resolve failure surfaces verifiersError, keeps the sheet open`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = verifiedRepo(resolveResult = Result.failure(IOException("offline")))

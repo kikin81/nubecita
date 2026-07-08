@@ -215,13 +215,35 @@ internal class ProfileViewModel
          */
         private fun onVerificationBadgeTapped() {
             val refs = uiState.value.header?.verifierRefs ?: persistentListOf()
-            if (refs.isEmpty() || uiState.value.resolvedVerifierRefs == refs || uiState.value.verifiersLoading) {
-                // Nothing to resolve, already resolved for these exact refs (even to
-                // an empty list), or a resolve is in flight — show the sheet, no fetch.
+            if (refs.isEmpty()) {
+                // No verifiers to resolve (e.g. a header refresh removed verification):
+                // clear any cached verifiers/error so the sheet never shows stale issuers.
+                setState {
+                    copy(
+                        verificationSheetVisible = true,
+                        verifiers = persistentListOf(),
+                        resolvedVerifierRefs = persistentListOf(),
+                        verifiersError = false,
+                    )
+                }
+                return
+            }
+            if (uiState.value.resolvedVerifierRefs == refs || uiState.value.verifiersLoading) {
+                // Already resolved for these exact refs (even to an empty list), or a
+                // resolve is in flight — just show the sheet, no re-fetch.
                 setState { copy(verificationSheetVisible = true) }
                 return
             }
-            setState { copy(verificationSheetVisible = true, verifiersLoading = true, verifiersError = false) }
+            // New ref set → drop any stale verifiers before resolving so a mismatched
+            // list never shows while the new resolve is loading.
+            setState {
+                copy(
+                    verificationSheetVisible = true,
+                    verifiers = persistentListOf(),
+                    verifiersLoading = true,
+                    verifiersError = false,
+                )
+            }
             viewModelScope.launch {
                 repository
                     .resolveVerifiers(refs)
