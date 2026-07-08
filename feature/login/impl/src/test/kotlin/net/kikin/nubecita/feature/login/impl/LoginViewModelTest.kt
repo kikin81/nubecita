@@ -64,6 +64,54 @@ internal class LoginViewModelTest {
     }
 
     @Test
+    fun `SubmitLogin normalizes a bare username to a bsky_social handle before beginLogin`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fake = FakeAuthRepository(beginLoginResult = Result.success("https://pds.example/authorize"))
+            val vm = newViewModel(authRepository = fake)
+
+            vm.handleEvent(LoginEvent.HandleChanged("@Alice"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals("alice.bsky.social", fake.lastBeginLoginHandle)
+            // The field reflects the resolved handle.
+            assertEquals("alice.bsky.social", vm.uiState.value.handle)
+        }
+
+    @Test
+    fun `SubmitLogin preserves a custom-domain handle (strips @ only) before beginLogin`() =
+        runTest(mainDispatcher.dispatcher) {
+            val fake = FakeAuthRepository(beginLoginResult = Result.success("https://pds.example/authorize"))
+            val vm = newViewModel(authRepository = fake)
+
+            vm.handleEvent(LoginEvent.HandleChanged("@FranciscoVelazquez.com"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals("franciscovelazquez.com", fake.lastBeginLoginHandle)
+        }
+
+    @Test
+    fun `HandleNotFound error names the normalized handle, not the raw input`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newViewModel(
+                    authRepository =
+                        FakeAuthRepository(
+                            beginLoginResult =
+                                Result.failure(
+                                    OAuthDiscoveryException("Failed to resolve handle 'alice.bsky.social': no DID"),
+                                ),
+                        ),
+                )
+            vm.handleEvent(LoginEvent.HandleChanged("alice"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.HandleNotFound("alice.bsky.social"), vm.uiState.value.errorMessage)
+        }
+
+    @Test
     fun `blank-handle SubmitLogin emits BlankHandle error without calling repository`() {
         val fake = FakeAuthRepository(beginLoginResult = Result.success("never returned"))
         val vm = newViewModel(authRepository = fake)
@@ -773,9 +821,12 @@ private class FakeAuthRepository(
         private set
     var completeLoginInvocations: Int = 0
         private set
+    var lastBeginLoginHandle: String? = null
+        private set
 
     override suspend fun beginLogin(handle: String): Result<String> {
         beginLoginInvocations++
+        lastBeginLoginHandle = handle
         beginLoginGate?.await()
         return beginLoginResult
     }
