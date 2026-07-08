@@ -142,12 +142,19 @@ class LoginViewModel
             // post-redirect token exchange which also sets isLoading) — prevents
             // concurrent beginLogin calls and duplicate LoginRedirectLaunched events.
             if (uiState.value.isLoading) return
-            val handle = uiState.value.handle.trim()
+            // Normalize before resolving: '@alice', bare 'alice', and 'Alice.Bsky.Social'
+            // all fail atproto handle resolution as typed and are the dominant
+            // `handle_not_found` login failure in the field (nubecita-mbzp). Custom-domain
+            // handles pass through untouched; a DID keeps its case-sensitive identifier
+            // (only its scheme/method are lowercased) — see [normalizeLoginIdentifier].
+            val handle = normalizeLoginIdentifier(uiState.value.handle)
             if (handle.isBlank()) {
                 setState { copy(errorMessage = LoginError.BlankHandle) }
                 return
             }
-            setState { copy(isLoading = true, errorMessage = null) }
+            // Reflect the normalized identifier back into the field so the user sees what
+            // we resolve against, and any HandleNotFound message names the same value.
+            setState { copy(handle = handle, isLoading = true, errorMessage = null) }
             viewModelScope.launch {
                 authRepository
                     .beginLogin(handle)
