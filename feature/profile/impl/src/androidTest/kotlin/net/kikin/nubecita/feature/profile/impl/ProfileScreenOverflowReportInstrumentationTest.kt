@@ -123,6 +123,10 @@ class ProfileScreenOverflowReportInstrumentationTest {
 
                 override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> = Result.success(ProfileHeaderWithViewer(header, ViewerRelationship.NotFollowing()))
 
+                override suspend fun resolveVerifiers(
+                    refs: kotlinx.collections.immutable.ImmutableList<VerifierRef>,
+                ): Result<kotlinx.collections.immutable.ImmutableList<net.kikin.nubecita.data.models.VerifierUi>> = Result.success(kotlinx.collections.immutable.persistentListOf())
+
                 override suspend fun fetchTab(
                     actor: String,
                     tab: ProfileTab,
