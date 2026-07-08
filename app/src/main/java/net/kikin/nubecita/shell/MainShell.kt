@@ -325,8 +325,11 @@ fun MainShell(modifier: Modifier = Modifier) {
             layoutType = layoutType,
             modifier = modifier,
         ) {
-            // `key(isTwoPaneWidth)`: force a fresh inner `NavDisplay` subtree when the
-            // window crosses the two-pane (Medium+) ↔ single-pane (Compact) boundary.
+            // `key(isTwoPane)`: force a fresh inner `NavDisplay` subtree when the layout
+            // crosses the two-pane ↔ single-pane boundary. Keyed on the list-detail
+            // directive's `maxHorizontalPartitions` (the exact input the scene strategy
+            // uses to decide two-pane vs decline), NOT the raw width class — so a foldable
+            // whose posture forces two panes at a sub-Medium width still re-keys correctly.
             //
             // `MainActivity` handles rotation via `configChanges=orientation|screenSize`
             // (no Activity recreation — required for PiP + state retention), so a
@@ -340,15 +343,15 @@ fun MainShell(modifier: Modifier = Modifier) {
             // (`lastVisible > size - PREFETCH_DISTANCE`) can then never fire again —
             // infinite scroll dies (nubecita-bm14).
             //
-            // Re-keying on the width class discards the stale scene and rebuilds the
-            // active tab's scene fresh on the boundary crossing. Per-entry ViewModelStores
-            // (via `rememberViewModelStoreNavEntryDecorator`) and saved scroll position
-            // (via `rememberSaveable`) survive the key — nav3 retains entry state outside
-            // this local composition — so no feed reload or scroll loss is user-visible.
+            // Re-keying on the pane count discards the stale scene and rebuilds the active
+            // tab's scene fresh on the boundary crossing. Per-entry ViewModelStores (via
+            // `rememberViewModelStoreNavEntryDecorator`) and saved scroll position (via
+            // `rememberSaveable`) survive the key — nav3 retains entry state outside this
+            // local composition — so no feed reload or scroll loss is user-visible.
             // Remove once a fixed adaptive-navigation3 release disposes the collapsed
             // pane's scene on its own.
-            val isTwoPaneWidth = widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
-            key(isTwoPaneWidth) {
+            val isTwoPane = listDetailDirective.maxHorizontalPartitions > 1
+            key(isTwoPane) {
                 NavDisplay(
                     backStack = mainShellNavState.backStack,
                     onBack = { mainShellNavState.removeLast() },
@@ -367,7 +370,7 @@ fun MainShell(modifier: Modifier = Modifier) {
                     // it itself. Supply only the public decorators required for hiltViewModel()
                     // and saved state to work inside NavEntries.
                     //
-                    // These MUST be created INSIDE `key(isTwoPaneWidth)`, not hoisted above it.
+                    // These MUST be created INSIDE `key(isTwoPane)`, not hoisted above it.
                     // Hoisting a single shared SaveableStateHolder crashes on the boundary
                     // crossing: `key()` composes the new NavDisplay subtree before disposing the
                     // old one, so both briefly call `SaveableStateProvider("Feed")` on the same
