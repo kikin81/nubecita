@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -324,33 +325,71 @@ fun MainShell(modifier: Modifier = Modifier) {
             layoutType = layoutType,
             modifier = modifier,
         ) {
-            NavDisplay(
-                backStack = mainShellNavState.backStack,
-                onBack = { mainShellNavState.removeLast() },
-                // The list-detail strategy is scoped to the active tab's segment
-                // so a tab switch doesn't render the previous tab's detail entry
-                // next to the new tab's list (nubecita-xqp7 / nubecita-s1f3).
-                // Overlay (dialog) strategy stays first.
-                sceneStrategies =
-                    listOf(
-                        dialogStrategy,
-                        ActiveTabScopedSceneStrategy(sceneStrategy) {
-                            mainShellNavState.topLevelKey
+            // `key(isTwoPane)`: force a fresh inner `NavDisplay` subtree when the layout
+            // crosses the two-pane ↔ single-pane boundary. Keyed on the list-detail
+            // directive's `maxHorizontalPartitions` (the exact input the scene strategy
+            // uses to decide two-pane vs decline), NOT the raw width class — so a foldable
+            // whose posture forces two panes at a sub-Medium width still re-keys correctly.
+            //
+            // `MainActivity` handles rotation via `configChanges=orientation|screenSize`
+            // (no Activity recreation — required for PiP + state retention), so a
+            // portrait→landscape→portrait rotation collapses the Feed list-detail scene
+            // from two-pane back to single-pane *within the same composition*. The
+            // nav3-adaptive `ListDetailSceneStrategy` (1.3.0-rc01) correctly re-decides
+            // single-pane (`calculateScene` returns null at Compact) but does NOT dispose
+            // the stale two-pane `ThreePaneScaffoldScene`: its list-pane composition stays
+            // alive, detached, pinned at the landscape list-pane width (~604px) with a
+            // frozen `LazyListState.layoutInfo`. The Feed's pagination trigger
+            // (`lastVisible > size - PREFETCH_DISTANCE`) can then never fire again —
+            // infinite scroll dies (nubecita-bm14).
+            //
+            // Re-keying on the pane count discards the stale scene and rebuilds the active
+            // tab's scene fresh on the boundary crossing. Per-entry ViewModelStores (via
+            // `rememberViewModelStoreNavEntryDecorator`) and saved scroll position (via
+            // `rememberSaveable`) survive the key — nav3 retains entry state outside this
+            // local composition — so no feed reload or scroll loss is user-visible.
+            // Remove once a fixed adaptive-navigation3 release disposes the collapsed
+            // pane's scene on its own.
+            val isTwoPane = listDetailDirective.maxHorizontalPartitions > 1
+            key(isTwoPane) {
+                NavDisplay(
+                    backStack = mainShellNavState.backStack,
+                    onBack = { mainShellNavState.removeLast() },
+                    // The list-detail strategy is scoped to the active tab's segment
+                    // so a tab switch doesn't render the previous tab's detail entry
+                    // next to the new tab's list (nubecita-xqp7 / nubecita-s1f3).
+                    // Overlay (dialog) strategy stays first.
+                    sceneStrategies =
+                        listOf(
+                            dialogStrategy,
+                            ActiveTabScopedSceneStrategy(sceneStrategy) {
+                                mainShellNavState.topLevelKey
+                            },
+                        ),
+                    // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
+                    // it itself. Supply only the public decorators required for hiltViewModel()
+                    // and saved state to work inside NavEntries.
+                    //
+                    // These MUST be created INSIDE `key(isTwoPane)`, not hoisted above it.
+                    // Hoisting a single shared SaveableStateHolder crashes on the boundary
+                    // crossing: `key()` composes the new NavDisplay subtree before disposing the
+                    // old one, so both briefly call `SaveableStateProvider("Feed")` on the same
+                    // holder → `IllegalArgumentException: Key Feed was used multiple times`.
+                    // Per-keyed-instance holders avoid that. State still survives the key anyway:
+                    // entry ViewModelStores are retained by nav3's ViewModelStoreProvider (outside
+                    // this composition) and saved scroll round-trips the parent SaveableStateRegistry
+                    // — both verified byte-identical before/after a rotation.
+                    entryDecorators =
+                        listOf(
+                            rememberSaveableStateHolderNavEntryDecorator(),
+                            rememberViewModelStoreNavEntryDecorator(),
+                        ),
+                    entryProvider =
+                        entryProvider {
+                            installers.forEach { installer -> installer() }
                         },
-                    ),
-                // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
-                // it itself. Supply only the public decorators required for hiltViewModel()
-                // and saved state to work inside NavEntries.
-                entryDecorators =
-                    listOf(
-                        rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator(),
-                    ),
-                entryProvider =
-                    entryProvider {
-                        installers.forEach { installer -> installer() }
-                    },
-            )
+                )
+            }
         }
     }
 }
