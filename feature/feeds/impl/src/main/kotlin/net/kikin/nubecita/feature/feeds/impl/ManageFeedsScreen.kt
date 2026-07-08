@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -33,6 +33,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -170,7 +173,7 @@ private fun PinnedFeedList(
         contentPadding = contentPadding,
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(feeds, key = { it.uri }) { feed ->
+        itemsIndexed(feeds, key = { _, feed -> feed.uri }) { index, feed ->
             ReorderableItem(reorderableState, key = feed.uri) { isDragging ->
                 val elevation by animateDpAsState(
                     targetValue = if (isDragging) DRAG_ELEVATION else 0.dp,
@@ -178,19 +181,21 @@ private fun PinnedFeedList(
                 )
                 PinnedFeedRow(
                     feed = feed,
+                    index = index,
+                    itemCount = feeds.size,
+                    onMove = { from, to -> currentOnEvent(ManageFeedsEvent.Move(from, to)) },
                     onRemove = { currentOnEvent(ManageFeedsEvent.Remove(feed.uri)) },
                     elevation = elevation,
                     dragHandle = {
                         // longPressDraggableHandle() is a ReorderableCollectionItemScope
-                        // extension, so it must be resolved here inside the item lambda.
+                        // extension, so it must be resolved here inside the item lambda. The
+                        // handle is decorative for a11y — the row's custom actions (Move
+                        // up/down) are the screen-reader path.
                         Box(
                             modifier = Modifier.longPressDraggableHandle().size(48.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            NubecitaIcon(
-                                name = NubecitaIconName.Menu,
-                                contentDescription = stringResource(R.string.feeds_manage_drag_handle, feed.displayName),
-                            )
+                            NubecitaIcon(name = NubecitaIconName.Menu, contentDescription = null)
                         }
                     },
                 )
@@ -202,13 +207,54 @@ private fun PinnedFeedList(
 @Composable
 private fun PinnedFeedRow(
     feed: PinnedFeedUi,
+    index: Int,
+    itemCount: Int,
+    onMove: (from: Int, to: Int) -> Unit,
     onRemove: () -> Unit,
     elevation: Dp,
     dragHandle: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val removable = feed.kind != FeedKind.Following
+    // Custom accessibility actions so TalkBack users can reorder and remove without the
+    // (screen-reader-invisible) drag gesture. The row is a single merged semantics node
+    // announcing the feed name, with these actions in its a11y menu.
+    val moveUpLabel = stringResource(R.string.feeds_manage_action_move_up)
+    val moveDownLabel = stringResource(R.string.feeds_manage_action_move_down)
+    val removeLabel = stringResource(R.string.feeds_manage_action_remove)
+    val a11yActions =
+        buildList {
+            if (index > 0) {
+                add(
+                    CustomAccessibilityAction(moveUpLabel) {
+                        onMove(index, index - 1)
+                        true
+                    },
+                )
+            }
+            if (index < itemCount - 1) {
+                add(
+                    CustomAccessibilityAction(moveDownLabel) {
+                        onMove(index, index + 1)
+                        true
+                    },
+                )
+            }
+            if (removable) {
+                add(
+                    CustomAccessibilityAction(removeLabel) {
+                        onRemove()
+                        true
+                    },
+                )
+            }
+        }
+
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) { customActions = a11yActions },
         color = MaterialTheme.colorScheme.surfaceContainer,
         shadowElevation = elevation,
     ) {
@@ -232,13 +278,11 @@ private fun PinnedFeedRow(
                 modifier = Modifier.weight(1f),
             )
 
-            // Following can be reordered but never removed.
-            if (feed.kind != FeedKind.Following) {
+            // Following can be reordered but never removed. The icon is decorative — the
+            // "Remove" custom action above is the screen-reader path.
+            if (removable) {
                 IconButton(onClick = onRemove) {
-                    NubecitaIcon(
-                        name = NubecitaIconName.Close,
-                        contentDescription = stringResource(R.string.feeds_manage_remove, feed.displayName),
-                    )
+                    NubecitaIcon(name = NubecitaIconName.Close, contentDescription = null)
                 }
             }
         }

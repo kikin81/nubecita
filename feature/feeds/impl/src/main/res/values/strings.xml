@@ -2,7 +2,8 @@
 <resources>
     <string name="feeds_manage_title">Manage feeds</string>
     <string name="feeds_manage_back_content_desc">Back</string>
-    <string name="feeds_manage_drag_handle">Reorder %1$s</string>
-    <string name="feeds_manage_remove">Remove %1$s</string>
     <string name="feeds_manage_remove_error">Couldn’t remove feed. Try again.</string>
+    <string name="feeds_manage_action_move_up">Move up</string>
+    <string name="feeds_manage_action_move_down">Move down</string>
+    <string name="feeds_manage_action_remove">Remove</string>
 </resources>
