@@ -211,6 +211,17 @@ private fun AuthorLine(post: PostUi) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        // Verification badge hugs the display name. Emits NO layout node for
+        // VerifiedBadge.None, so unverified cards (the vast majority) render
+        // byte-identically — the Row's spacedBy only spaces emitted children.
+        // Non-interactive here: a tap on it falls through to the post card.
+        //
+        // Known V1 limitation (nubecita-vw45): the display-name Text has no weight, so a
+        // name long enough to fill the whole row leaves ~0 width for this fixed-size badge
+        // and clips it. Fine for typical verified names; a follow-up will group
+        // [name + badge] so the name ellipsizes before the badge without churning every
+        // unverified PostCard baseline.
+        VerificationBadge(badge = post.author.verifiedBadge)
         // weight(1f) — handle claims ALL remaining space after displayName +
         // timestamp take their intrinsic widths. Text aligns left within its
         // slot, so a short handle hugs the displayName and the timestamp
