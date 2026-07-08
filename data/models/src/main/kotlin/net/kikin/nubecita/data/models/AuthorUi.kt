@@ -14,6 +14,9 @@ import androidx.compose.runtime.Stable
  * `avatarUrl` is null when the author has no profile picture set; consumers
  * (typically `NubecitaAvatar`) handle the null case by falling back to the
  * placeholder painter.
+ *
+ * `verifiedBadge` is the account's verification tier derived from the wire
+ * `verificationState`; `VerifiedBadge.None` (the default) renders no badge.
  */
 @Stable
 public data class AuthorUi(
@@ -21,4 +24,5 @@ public data class AuthorUi(
     val handle: String,
     val displayName: String,
     val avatarUrl: String?,
+    val verifiedBadge: VerifiedBadge = VerifiedBadge.None,
 )
