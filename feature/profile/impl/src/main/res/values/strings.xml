@@ -111,4 +111,14 @@
     <string name="edit_profile_error_unauthorized">You\'re signed out.</string>
     <string name="edit_profile_error_network">Couldn\'t save your profile. Try again.</string>
 
+    <!-- Verification explanation sheet (Task 4, nubecita-vw45.4) -->
+    <string name="verification_sheet_title_verified">Verified account</string>
+    <string name="verification_sheet_title_trusted_verifier">Trusted verifier</string>
+    <string name="verification_sheet_body_verified">This account is verified. One or more trusted verifiers have confirmed its authenticity on Bluesky.</string>
+    <string name="verification_sheet_body_trusted_verifier">This is a trusted verifier. Bluesky lets it confirm the authenticity of other accounts, which then show a verified badge.</string>
+    <string name="verification_sheet_verifiers_header">Verified by</string>
+    <string name="verification_sheet_verified_on">Verified %1$s</string>
+    <string name="verification_sheet_verifiers_error">Couldn\'t load who verified this account.</string>
+    <string name="verification_badge_open_details">Show verification details</string>
+
 </resources>

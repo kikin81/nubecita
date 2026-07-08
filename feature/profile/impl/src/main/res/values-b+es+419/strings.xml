@@ -88,4 +88,14 @@
     <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
     <string name="profile_muted_notice">Silenciaste a este usuario</string>
 
+    <!-- Verification explanation sheet (Task 4, nubecita-vw45.4) -->
+    <string name="verification_sheet_title_verified">Cuenta verificada</string>
+    <string name="verification_sheet_title_trusted_verifier">Verificador de confianza</string>
+    <string name="verification_sheet_body_verified">Esta cuenta está verificada. Uno o más verificadores de confianza confirmaron su autenticidad en Bluesky.</string>
+    <string name="verification_sheet_body_trusted_verifier">Este es un verificador de confianza. Bluesky le permite confirmar la autenticidad de otras cuentas, que luego muestran una insignia de verificación.</string>
+    <string name="verification_sheet_verifiers_header">Verificado por</string>
+    <string name="verification_sheet_verified_on">Verificado el %1$s</string>
+    <string name="verification_sheet_verifiers_error">No se pudo cargar quién verificó esta cuenta.</string>
+    <string name="verification_badge_open_details">Mostrar detalles de verificación</string>
+
 </resources>

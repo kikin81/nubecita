@@ -27,17 +27,17 @@
 
 ## 4. Profile — ProfileHero badge + verification sheet (bd nubecita-vw45.4)
 
-- [ ] 4.1 Render the larger `VerificationBadge` next to the display name in `ProfileHero`; tappable when badge != None → emits the badge-tap `UiEvent`.
-- [ ] 4.2 Build the verification `ModalBottomSheet`: tier-specific title + explanation copy, verifier list (name/handle + formatted date), loading spinner while resolving, and a non-blocking "details unavailable" state on error.
-- [ ] 4.3 Wire the sheet visibility to `UiState` via `LocalMainShellNavState`/effect per MVI conventions; collect once at the screen root.
-- [ ] 4.4 Add all new strings (sheet title/copy per tier, "verified by", date/relative formatting, error) in en + `values-b+es+419` + `values-pt-rBR`.
-- [ ] 4.5 Accessibility: profile badge exposes its open-details action; sheet content is screen-reader navigable.
-- [ ] 4.6 Screenshot baselines: `ProfileHero` badge (both tiers), sheet loaded, sheet loading.
-- [ ] 4.7 Run the compose gate (compose-expert Review Mode — new `@Composable`s) and fold Critical findings before PR.
+- [x] 4.1 Render the larger `VerificationBadge` next to the display name in `ProfileHero`; tappable when badge != None → emits the badge-tap `UiEvent`.
+- [x] 4.2 Build the verification `ModalBottomSheet`: tier-specific title + explanation copy, verifier list (name/handle + formatted date), loading spinner while resolving, and a non-blocking "details unavailable" state on error.
+- [x] 4.3 Wire the sheet visibility to `UiState` via `LocalMainShellNavState`/effect per MVI conventions; collect once at the screen root.
+- [x] 4.4 Add all new strings (sheet title/copy per tier, "verified by", date/relative formatting, error) in en + `values-b+es+419` + `values-pt-rBR`.
+- [x] 4.5 Accessibility: profile badge exposes its open-details action; sheet content is screen-reader navigable.
+- [x] 4.6 Screenshot baselines: `ProfileHero` badge (both tiers), sheet loaded, sheet loading.
+- [x] 4.7 Run the compose gate (compose-expert Review Mode — new `@Composable`s) and fold Critical findings before PR.
 
 ## 5. Verification & rollout
 
-- [ ] 5.1 `:app:assembleDebug` + touched-module `lintDebug` (`:designsystem`, `:core:feed-mapping`, `:feature:profile:impl`) green; spotless + commitlint clean.
+- [x] 5.1 `:app:assembleDebug` + touched-module `lintDebug` (`:designsystem`, `:core:feed-mapping`, `:feature:profile:impl`) green; spotless + commitlint clean.
 - [ ] 5.2 Smoke-test on the bench flavor: seed a verified + trusted-verifier author fixture in the bench feed/profile fakes; confirm badges render and the sheet opens with resolved (fake) verifiers.
-- [ ] 5.3 Confirm no missing-translation lint on the touched modules' own `lint` (not just `:app`).
+- [x] 5.3 Confirm no missing-translation lint on the touched modules' own `lint` (not just `:app`).
 - [ ] 5.4 Close bd `nubecita-vw45.*` tasks + epic after merge; archive this openspec change.

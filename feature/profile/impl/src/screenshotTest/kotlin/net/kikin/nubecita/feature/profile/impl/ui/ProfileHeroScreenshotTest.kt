@@ -5,6 +5,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
+import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
@@ -56,6 +57,7 @@ private fun ProfileHeroWithSupporterBadgeScreenshot() {
                 headerError = null,
                 showSupporterBadge = true,
                 onRetryHeader = {},
+                onVerificationBadgeClick = {},
             )
         }
     }
@@ -73,6 +75,7 @@ private fun ProfileHeroWithoutSupporterBadgeScreenshot() {
                 headerError = null,
                 showSupporterBadge = false,
                 onRetryHeader = {},
+                onVerificationBadgeClick = {},
             )
         }
     }
@@ -93,6 +96,7 @@ private fun ProfileHeroMutedScreenshot() {
                 headerError = null,
                 showSupporterBadge = false,
                 onRetryHeader = {},
+                onVerificationBadgeClick = {},
             )
         }
     }
@@ -110,6 +114,43 @@ private fun ProfileHeroWithBioLinkScreenshot() {
                 headerError = null,
                 showSupporterBadge = false,
                 onRetryHeader = {},
+                onVerificationBadgeClick = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "hero-verified-light", showBackground = true)
+@Preview(name = "hero-verified-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileHeroVerifiedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ProfileHero(
+                header = SAMPLE_HEADER.copy(verifiedBadge = VerifiedBadge.Verified),
+                headerError = null,
+                showSupporterBadge = false,
+                onRetryHeader = {},
+                onVerificationBadgeClick = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "hero-trusted-verifier-light", showBackground = true)
+@Preview(name = "hero-trusted-verifier-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileHeroTrustedVerifierScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ProfileHero(
+                header = SAMPLE_HEADER.copy(verifiedBadge = VerifiedBadge.TrustedVerifier),
+                headerError = null,
+                showSupporterBadge = false,
+                onRetryHeader = {},
+                onVerificationBadgeClick = {},
             )
         }
     }
