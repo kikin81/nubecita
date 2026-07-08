@@ -366,6 +366,16 @@ fun MainShell(modifier: Modifier = Modifier) {
                     // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
                     // it itself. Supply only the public decorators required for hiltViewModel()
                     // and saved state to work inside NavEntries.
+                    //
+                    // These MUST be created INSIDE `key(isTwoPaneWidth)`, not hoisted above it.
+                    // Hoisting a single shared SaveableStateHolder crashes on the boundary
+                    // crossing: `key()` composes the new NavDisplay subtree before disposing the
+                    // old one, so both briefly call `SaveableStateProvider("Feed")` on the same
+                    // holder → `IllegalArgumentException: Key Feed was used multiple times`.
+                    // Per-keyed-instance holders avoid that. State still survives the key anyway:
+                    // entry ViewModelStores are retained by nav3's ViewModelStoreProvider (outside
+                    // this composition) and saved scroll round-trips the parent SaveableStateRegistry
+                    // — both verified byte-identical before/after a rotation.
                     entryDecorators =
                         listOf(
                             rememberSaveableStateHolderNavEntryDecorator(),
