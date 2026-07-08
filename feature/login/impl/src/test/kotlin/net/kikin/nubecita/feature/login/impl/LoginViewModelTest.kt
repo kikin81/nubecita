@@ -64,7 +64,7 @@ internal class LoginViewModelTest {
     }
 
     @Test
-    fun `SubmitLogin normalizes a bare username to a bsky_social handle before beginLogin`() =
+    fun `SubmitLogin normalizes an @-prefixed mixed-case username to a bsky_social handle before beginLogin`() =
         runTest(mainDispatcher.dispatcher) {
             val fake = FakeAuthRepository(beginLoginResult = Result.success("https://pds.example/authorize"))
             val vm = newViewModel(authRepository = fake)

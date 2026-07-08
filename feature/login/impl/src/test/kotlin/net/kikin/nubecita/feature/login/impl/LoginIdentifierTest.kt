@@ -56,10 +56,21 @@ internal class LoginIdentifierTest {
     }
 
     @Test
-    fun `DIDs pass through untouched — never lowercased-mangled or suffixed`() {
+    fun `DIDs preserve their identifier and are never suffixed`() {
         assertNormalizes(
             "did:plc:abc123xyz" to "did:plc:abc123xyz",
             "did:web:example.com" to "did:web:example.com",
+        )
+    }
+
+    @Test
+    fun `DID scheme and method are lowercased, but the method-specific id keeps its case`() {
+        // A soft keyboard may auto-capitalize the leading "Did:"; per the DID spec the
+        // scheme + method are case-insensitive but the identifier is case-sensitive.
+        assertNormalizes(
+            "Did:plc:abc123xyz" to "did:plc:abc123xyz",
+            "DID:PLC:AbC123xyz" to "did:plc:AbC123xyz",
+            "did:web:Example.com" to "did:web:Example.com",
         )
     }
 
