@@ -19,6 +19,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,8 +35,6 @@ import net.kikin.nubecita.designsystem.component.VerificationBadge
 import net.kikin.nubecita.feature.profile.impl.R
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
-import kotlin.time.Instant
 
 /**
  * Test tags for the verification explanation surfaces. [SHEET] is on the
@@ -172,7 +171,21 @@ private fun VerifierRow(
     modifier: Modifier = Modifier,
 ) {
     val displayName = verifier.displayName?.takeUnless { it.isBlank() }
-    val formattedDate = remember(verifier.verifiedAt) { formatVerifiedDate(verifier.verifiedAt) }
+    // Key the formatter on the Compose-propagated locale (not a captured
+    // Locale.getDefault()) so a Settings-app language switch re-renders the date,
+    // mirroring rememberCompactCount. Formatter is remembered per locale, the
+    // formatted string per (formatter, instant).
+    val locale = LocalLocale.current.platformLocale
+    val formatter = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
+    val formattedDate =
+        remember(formatter, verifier.verifiedAt) {
+            formatter.format(
+                verifier.verifiedAt
+                    .toLocalDateTime(TimeZone.currentSystemDefault())
+                    .date
+                    .toJavaLocalDate(),
+            )
+        }
     val dateText = stringResource(R.string.verification_sheet_verified_on, formattedDate)
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -204,12 +217,3 @@ private fun VerifierRow(
         )
     }
 }
-
-// Hoisted so the (relatively expensive) formatter is built once, not per row.
-// verifiedAt is kotlin.time.Instant — kotlinx-datetime provides toLocalDateTime
-// for it, matching the codebase's RelativeTime convention.
-private val VerifiedDateFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault())
-
-/** Localized medium date for a verification's `createdAt` (e.g. "May 1, 2026"). */
-private fun formatVerifiedDate(instant: Instant): String = VerifiedDateFormatter.format(instant.toLocalDateTime(TimeZone.currentSystemDefault()).date.toJavaLocalDate())
