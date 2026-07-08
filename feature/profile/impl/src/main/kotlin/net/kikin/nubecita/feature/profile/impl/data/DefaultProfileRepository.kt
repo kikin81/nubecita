@@ -113,6 +113,9 @@ internal class DefaultProfileRepository
                             )
                         }.toImmutableList()
                 }.onFailure { throwable ->
+                    // runCatching also traps CancellationException; rethrow so structured
+                    // coroutine cancellation propagates instead of surfacing as verifiersError.
+                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "resolveVerifiers failed: %s", throwable.javaClass.name)
                 }
             }

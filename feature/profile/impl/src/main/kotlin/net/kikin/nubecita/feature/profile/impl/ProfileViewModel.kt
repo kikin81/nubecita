@@ -215,9 +215,9 @@ internal class ProfileViewModel
          */
         private fun onVerificationBadgeTapped() {
             val refs = uiState.value.header?.verifierRefs ?: persistentListOf()
-            val alreadyLoaded = uiState.value.verifiers.isNotEmpty()
-            if (refs.isEmpty() || alreadyLoaded || uiState.value.verifiersLoading) {
-                // Nothing to resolve, already resolved, or in flight — just show the sheet.
+            if (refs.isEmpty() || uiState.value.verifiersResolved || uiState.value.verifiersLoading) {
+                // Nothing to resolve, already resolved (even to an empty list), or
+                // a resolve is in flight — just show the sheet, don't re-fetch.
                 setState { copy(verificationSheetVisible = true) }
                 return
             }
@@ -226,7 +226,7 @@ internal class ProfileViewModel
                 repository
                     .resolveVerifiers(refs)
                     .onSuccess { resolved ->
-                        setState { copy(verifiers = resolved, verifiersLoading = false) }
+                        setState { copy(verifiers = resolved, verifiersResolved = true, verifiersLoading = false) }
                     }.onFailure {
                         setState { copy(verifiersLoading = false, verifiersError = true) }
                     }

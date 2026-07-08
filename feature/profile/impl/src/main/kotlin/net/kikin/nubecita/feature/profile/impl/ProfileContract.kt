@@ -64,10 +64,16 @@ data class ProfileScreenViewState(
      * sheet can be visible while its verifier list is still loading, and an
      * error can coexist with an empty list). The verifier list is resolved
      * lazily on first open and then cached for the screen's lifetime.
+     *
+     * [verifiersResolved] marks a *completed* successful resolution — including
+     * the all-DIDs-unresolvable case where [verifiers] stays empty — so the VM
+     * caches it instead of re-fetching on every tap. It is the cache key, not
+     * `verifiers.isNotEmpty()`.
      */
     val verificationSheetVisible: Boolean = false,
     val verifiersLoading: Boolean = false,
     val verifiers: ImmutableList<VerifierUi> = persistentListOf(),
+    val verifiersResolved: Boolean = false,
     val verifiersError: Boolean = false,
 ) : UiState {
     /**

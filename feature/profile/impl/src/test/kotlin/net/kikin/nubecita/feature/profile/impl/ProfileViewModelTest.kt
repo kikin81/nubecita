@@ -2029,6 +2029,29 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `a resolution returning an empty list is cached and not re-fetched`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Non-empty refs, but every issuer DID is unresolvable → resolveVerifiers
+            // succeeds with an empty list. This must still be treated as resolved.
+            val repo = verifiedRepo(resolveResult = Result.success(persistentListOf()))
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+            vm.handleEvent(ProfileEvent.VerificationSheetDismissed)
+            vm.handleEvent(ProfileEvent.VerificationBadgeTapped)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.resolveVerifiersCalls.get())
+            assertTrue(
+                vm.uiState.value.verifiers
+                    .isEmpty(),
+            )
+            assertTrue(vm.uiState.value.verificationSheetVisible)
+        }
+
+    @Test
     fun `resolve failure surfaces verifiersError, keeps the sheet open`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = verifiedRepo(resolveResult = Result.failure(IOException("offline")))
