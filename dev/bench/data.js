@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783412464535,
+  "lastUpdate": 1783497712494,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2131,6 +2131,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1096.664,
             "range": "+/- 11.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "23435c6cdd36f4287ba1ccf161feeb874cd92340",
+          "message": "ci(release): 1.277.2\n\n## [1.277.2](https://github.com/kikin81/nubecita/compare/v1.277.1...v1.277.2) (2026-07-08)\n\n### Bug Fixes\n\n* **login:** normalize handle input so bare usernames and @-prefixes resolve ([#695](https://github.com/kikin81/nubecita/issues/695)) ([0672ee1](https://github.com/kikin81/nubecita/commit/0672ee109e7c4bf3972dd96259df665a1e83309b))",
+          "timestamp": "2026-07-08T05:33:58Z",
+          "url": "https://github.com/kikin81/nubecita/commit/23435c6cdd36f4287ba1ccf161feeb874cd92340"
+        },
+        "date": 1783497710681,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 17.1%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1376.791,
+            "range": "+/- 6.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1374.926,
+            "range": "+/- 7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1328.27,
+            "range": "+/- 29.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 675,
+            "range": "+/- 44.3%",
             "unit": "ms"
           }
         ]
