@@ -132,4 +132,6 @@
     <string name="media_warning_cat_suggestive">Sexually Suggestive</string>
     <string name="media_warning_cat_graphic">Graphic Media</string>
     <string name="media_warning_cat_nudity">Non-sexual Nudity</string>
+    <string name="verification_badge_verified_description">Verified account</string>
+    <string name="verification_badge_trusted_verifier_description">Trusted verifier</string>
 </resources>

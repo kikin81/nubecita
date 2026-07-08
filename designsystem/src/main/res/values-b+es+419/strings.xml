@@ -48,4 +48,6 @@
     <string name="media_warning_cat_suggestive">Sexualmente sugerente</string>
     <string name="media_warning_cat_graphic">Contenido gráfico</string>
     <string name="media_warning_cat_nudity">Desnudez no sexual</string>
+    <string name="verification_badge_verified_description">Cuenta verificada</string>
+    <string name="verification_badge_trusted_verifier_description">Verificador de confianza</string>
 </resources>

@@ -72,6 +72,14 @@ object NubecitaPalette {
 
     val Warning40 = Color(0xFF8A5300)
     val Warning80 = Color(0xFFFFCC80)
+
+    /**
+     * Fixed verified-blue for account-verification badges. Deliberately a constant
+     * platform signal — NOT tied to the theme accent (`primary` == [Sky50]) and NOT
+     * light/dark-adaptive — so a verified check reads consistently everywhere, like a
+     * brand mark. Bright enough for adequate contrast on both surface tones.
+     */
+    val VerifiedBlue = Color(0xFF208BFE)
 }
 
 /**
