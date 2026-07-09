@@ -379,6 +379,13 @@ platform :android do
   lane :screenshots_tablet do |options|
     serial = options[:device] || UI.user_error!("Pass device:<adb serial> for a tablet device.")
 
+    # TRAP (nubecita-faok): if the journey fails with "Unable to resolve activity
+    # for … MainActivity" and "Captured 0 new screenshots", the tablet AVD's /data
+    # is corrupted — PackageManager still lists MainActivity + its filters, but the
+    # activity won't resolve/launch (the identical APK launches fine on a healthy
+    # AVD). A plain uninstall/reinstall does NOT fix it. Cold-boot the AVD with a
+    # data wipe first, then re-run:
+    #   $ANDROID_HOME/emulator/emulator -avd Pixel_Tablet -no-snapshot -wipe-data
     gradle(task: ":app:assembleBenchDebug")
     gradle(task: ":app:assembleBenchDebugAndroidTest")
 
