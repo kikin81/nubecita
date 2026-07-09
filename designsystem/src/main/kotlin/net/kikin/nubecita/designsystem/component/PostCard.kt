@@ -209,10 +209,13 @@ private fun AuthorLine(post: PostUi) {
         // Unverified (the vast majority) keeps the original flat layout so every
         // existing PostCard baseline stays byte-identical: the display-name Text is
         // a direct, unweighted child that takes its intrinsic width. The verified
-        // case groups [name + badge] in a shrinkable weighted inner Row so a long
-        // name ellipsizes BEFORE the fixed-size badge — the badge is never clipped.
-        // (nubecita-vw45.5, resolving the .2 limitation.) The badge is non-interactive
-        // here: a tap on it falls through to the post card.
+        // case groups [name + badge] in an UNWEIGHTED inner Row — so, exactly like
+        // the unverified name, the group takes only its intrinsic width and the
+        // handle keeps ALL remaining space (name-priority, consistent with the
+        // unverified path). Inside the group the name is weighted (fill = false)
+        // so it ellipsizes and the fixed badge keeps its size — the badge stays
+        // visible ahead of the handle. (nubecita-vw45.5, resolving the .2 clip.)
+        // The badge is non-interactive here: a tap on it falls through to the card.
         if (post.author.verifiedBadge == VerifiedBadge.None) {
             Text(
                 text = post.author.displayName,
@@ -222,16 +225,10 @@ private fun AuthorLine(post: PostUi) {
             )
         } else {
             Row(
-                // weight(fill = false): the group shares the row with the handle but
-                // takes only the width it needs, so short names don't ellipsize early.
-                modifier = Modifier.weight(1f, fill = false),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
-                    // weight(fill = false) inside the group: the name yields to the
-                    // fixed badge when the group is tight, ellipsizing instead of
-                    // squeezing the badge to zero width.
                     modifier = Modifier.weight(1f, fill = false),
                     text = post.author.displayName,
                     style = MaterialTheme.typography.titleMedium,
