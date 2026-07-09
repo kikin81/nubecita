@@ -13,6 +13,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -41,13 +42,14 @@ import org.junit.jupiter.api.Test
  * `atproto:models` 9.7.4 lexicon shapes.
  *
  * Scope: the repository's *orchestration* — endpoint wiring, the shared
- * `convoCache` / `requestConvosCache` StateFlow updates, session guards,
- * pagination cursors, `getProfiles` chunking, and the failure / cancellation
- * branches of every method. The wire→UI mappers and the cache-patch helpers
- * are unit-tested separately (ConvoMapperTest, MessageMapperTest,
- * ConvoCachePatchTest, …), so this suite spot-checks the mapped result rather
- * than re-verifying field-by-field mapping.
+ * `convosCache` / `requestConvosCache` StateFlow updates, session guards,
+ * pagination cursors, `getProfiles` chunking, plus the failure branch of every
+ * method and the cancellation-propagation branch of the methods that rethrow it.
+ * The wire→UI mappers and the cache-patch helpers are unit-tested separately
+ * (ConvoMapperTest, MessageMapperTest, ConvoCachePatchTest, …), so this suite
+ * spot-checks the mapped result rather than re-verifying field-by-field mapping.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class DefaultChatRepositoryTest {
     // -------------------------------------------------------------------------
     // refreshConvos / refreshRequestConvos — populate the shared caches
@@ -92,7 +94,12 @@ internal class DefaultChatRepositoryTest {
             assertTrue(result.isSuccess)
             assertEquals(1, repo.observeRequestConvos().value?.size)
             assertNull(repo.observeConvos().value, "accepted cache untouched by a request refresh")
-            assertEquals("request", engine.requestHistory.single().url.parameters["status"])
+            assertEquals(
+                "request",
+                engine.requestHistory
+                    .single()
+                    .url.parameters["status"],
+            )
         }
 
     @Test
@@ -170,7 +177,12 @@ internal class DefaultChatRepositoryTest {
                 newRepo(signedIn = true) { okJson("""{"convo":${directConvoJson("c1", "did:plc:alice", "alice.test", muted = true)}}""") }
 
             assertTrue(repo.setMuted("c1", muted = true).isSuccess)
-            assertTrue(engine.requestHistory.single().url.encodedPath.contains("muteConvo"))
+            assertTrue(
+                engine.requestHistory
+                    .single()
+                    .url.encodedPath
+                    .contains("muteConvo"),
+            )
         }
 
     @Test
@@ -180,7 +192,12 @@ internal class DefaultChatRepositoryTest {
                 newRepo(signedIn = true) { okJson("""{"convo":${directConvoJson("c1", "did:plc:alice", "alice.test")}}""") }
 
             assertTrue(repo.setMuted("c1", muted = false).isSuccess)
-            assertTrue(engine.requestHistory.single().url.encodedPath.contains("unmuteConvo"))
+            assertTrue(
+                engine.requestHistory
+                    .single()
+                    .url.encodedPath
+                    .contains("unmuteConvo"),
+            )
         }
 
     @Test
@@ -287,7 +304,12 @@ internal class DefaultChatRepositoryTest {
             assertEquals(1, page.messages.size)
             assertEquals("hi", page.messages.single().text)
             assertEquals("next", page.nextCursor)
-            assertEquals("cur", engine.requestHistory.single().url.parameters["cursor"])
+            assertEquals(
+                "cur",
+                engine.requestHistory
+                    .single()
+                    .url.parameters["cursor"],
+            )
         }
 
     @Test
@@ -609,7 +631,10 @@ internal class DefaultChatRepositoryTest {
             DefaultChatRepository(
                 xrpcClientProvider =
                     object : XrpcClientProvider {
-                        override suspend fun authenticated(): XrpcClient = xrpcClient
+                        // Mirror production DefaultXrpcClientProvider: no session → throw,
+                        // so the signed-out guard holds even if a method's call order changes.
+                        override suspend fun authenticated(): XrpcClient =
+                            if (signedIn) xrpcClient else throw NoSessionException()
                     },
                 sessionStateProvider =
                     object : SessionStateProvider {

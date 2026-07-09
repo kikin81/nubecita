@@ -174,34 +174,6 @@ jobs:
       - name: Unit tests with coverage
         run: ./gradlew jacocoTestReportAggregated
 
-      - name: TEMP chats module coverage
-        if: always()
-        run: |
-          python3 - <<'PY'
-          import xml.etree.ElementTree as ET, glob, sys
-          paths = glob.glob('feature/chats/impl/build/reports/jacoco/**/*.xml', recursive=True)
-          print("jacoco xml paths:", paths)
-          if not paths:
-              print("NO CHATS JACOCO XML FOUND")
-              sys.exit(0)
-          root = ET.parse(paths[0]).getroot()
-          def counters(node):
-              out = {}
-              for c in node.findall('counter'):
-                  missed, covered = int(c.get('missed')), int(c.get('covered'))
-                  total = missed + covered
-                  out[c.get('type')] = (covered, total, (100.0 * covered / total) if total else 0.0)
-              return out
-          print("===== MODULE :feature:chats:impl =====")
-          for ty, (cov, tot, pct) in counters(root).items():
-              print(f"{ty}: {cov}/{tot} = {pct:.1f}%")
-          for cls in root.iter('class'):
-              if cls.get('name', '').endswith('data/DefaultChatRepository'):
-                  print("===== CLASS DefaultChatRepository =====")
-                  for ty, (cov, tot, pct) in counters(cls).items():
-                      print(f"{ty}: {cov}/{tot} = {pct:.1f}%")
-          PY
-
       - name: Coverage report
         if: github.event_name == 'pull_request'
         uses: madrapps/jacoco-report@v1.8.0
