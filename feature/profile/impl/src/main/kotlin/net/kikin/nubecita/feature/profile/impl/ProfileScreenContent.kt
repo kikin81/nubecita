@@ -29,12 +29,14 @@ import androidx.compose.ui.platform.testTag
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
+import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileVerbsRow
+import net.kikin.nubecita.feature.profile.impl.ui.VerificationSheet
 import net.kikin.nubecita.feature.profile.impl.ui.profileFeedTabBody
 import net.kikin.nubecita.feature.profile.impl.ui.profileMediaTabBody
 
@@ -117,6 +119,7 @@ internal fun ProfileScreenContent(
                         headerError = state.headerError,
                         showSupporterBadge = state.showSupporterBadge,
                         onRetryHeader = { onEvent(ProfileEvent.Refresh) },
+                        onVerificationBadgeClick = { onEvent(ProfileEvent.VerificationBadgeTapped) },
                         topInset = topBarPadding,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -211,6 +214,20 @@ internal fun ProfileScreenContent(
                     currentOnEvent(ProfileEvent.LoadMore(currentSelectedTab))
                 }
             }
+    }
+
+    val verifiedBadge = state.header?.verifiedBadge
+    // Only host the sheet for an actually-verified header; guarding on != None
+    // prevents a "Verified account" explanation from flashing if the header is
+    // cleared/refreshed to null or unverified while the sheet is open.
+    if (state.verificationSheetVisible && verifiedBadge != null && verifiedBadge != VerifiedBadge.None) {
+        VerificationSheet(
+            badge = verifiedBadge,
+            verifiers = state.verifiers,
+            isLoading = state.verifiersLoading,
+            isError = state.verifiersError,
+            onDismiss = { onEvent(ProfileEvent.VerificationSheetDismissed) },
+        )
     }
 }
 

@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -29,12 +31,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.component.SupporterBadge
+import net.kikin.nubecita.designsystem.component.VerificationBadge
 import net.kikin.nubecita.designsystem.extendedTypography
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -61,6 +66,7 @@ internal fun ProfileHero(
     headerError: ProfileError?,
     showSupporterBadge: Boolean,
     onRetryHeader: () -> Unit,
+    onVerificationBadgeClick: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
 ) {
@@ -69,6 +75,7 @@ internal fun ProfileHero(
             ProfileHeroLoaded(
                 header = header,
                 showSupporterBadge = showSupporterBadge,
+                onVerificationBadgeClick = onVerificationBadgeClick,
                 modifier = modifier,
                 topInset = topInset,
             )
@@ -87,6 +94,7 @@ internal fun ProfileHero(
 private fun ProfileHeroLoaded(
     header: ProfileHeaderUi,
     showSupporterBadge: Boolean,
+    onVerificationBadgeClick: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
 ) {
@@ -168,12 +176,43 @@ private fun ProfileHeroLoaded(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
-                text = header.displayName ?: header.handle,
-                style = MaterialTheme.extendedTypography.displayName,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    // weight(fill = false) lets a long name take only the space it
+                    // needs and never squeeze the badge out; single-line clipping of
+                    // extreme names is refined in nubecita-vw45.5.
+                    modifier = Modifier.weight(1f, fill = false),
+                    text = header.displayName ?: header.handle,
+                    style = MaterialTheme.extendedTypography.displayName,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (header.verifiedBadge != VerifiedBadge.None) {
+                    // Wrap in a Box that owns the touch target / clip / click so the
+                    // 22dp badge stays centered and the ripple is a clean circle.
+                    // minimumInteractiveComponentSize first so the clickable area is the
+                    // enlarged ≥48dp box (Material/WCAG min) — Modifier.clickable doesn't
+                    // apply it the way M3 buttons do.
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier =
+                            Modifier
+                                .minimumInteractiveComponentSize()
+                                .clip(CircleShape)
+                                .clickable(
+                                    role = Role.Button,
+                                    onClickLabel = stringResource(R.string.verification_badge_open_details),
+                                    onClick = onVerificationBadgeClick,
+                                ),
+                    ) {
+                        VerificationBadge(badge = header.verifiedBadge, size = 22.dp)
+                    }
+                }
+            }
             Text(
                 text = "@${header.handle}",
                 style = MaterialTheme.extendedTypography.handle,
