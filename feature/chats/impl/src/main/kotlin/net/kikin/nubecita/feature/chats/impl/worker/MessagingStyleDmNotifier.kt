@@ -19,7 +19,9 @@ import javax.inject.Inject
 /**
  * Real [DmNotifier] (design D4/D7): posts one `MessagingStyle` notification per
  * conversation under the "Messages" channel, grouped with a summary, tapping
- * through to the convo via a `nubecita://chat/{otherUserDid}` deep link.
+ * through to the convo via the [DmNotification.deepLinkUri]
+ * (`nubecita://chat/convo/{convoId}`) — convo-addressed so a group opens the
+ * group, not the message sender's 1:1 DM (nubecita-g1ph).
  *
  * Per-convo stable ids ([ChatNotificationIds.notifyId]) mean a later message
  * updates the existing notification rather than stacking. `MessagingStyle` also
@@ -99,7 +101,7 @@ internal class MessagingStyleDmNotifier
                     style.addMessage(body, item.timestampMillis, sender)
                 }
             }
-            return convoNotification(style, first.convoId, first.otherUserDid, alert = true)
+            return convoNotification(style, first.convoId, first.deepLinkUri, alert = true)
         }
 
         /**
@@ -112,23 +114,18 @@ internal class MessagingStyleDmNotifier
          */
         fun appendSentReply(
             convoId: String,
-            otherUserDid: String,
             replyText: String,
-        ) = repostConvo(convoId, otherUserDid, appendReply = replyText)
+        ) = repostConvo(convoId, appendReply = replyText)
 
         /**
          * Re-post the convo notification unchanged to clear the RemoteInput "sending…"
          * spinner after a blank or failed reply — the spinner spins until the
          * notification is next updated. No-op if it was already dismissed.
          */
-        fun clearReplySpinner(
-            convoId: String,
-            otherUserDid: String,
-        ) = repostConvo(convoId, otherUserDid, appendReply = null)
+        fun clearReplySpinner(convoId: String) = repostConvo(convoId, appendReply = null)
 
         private fun repostConvo(
             convoId: String,
-            otherUserDid: String,
             appendReply: String?,
         ) {
             val manager = NotificationManagerCompat.from(context)
@@ -143,7 +140,10 @@ internal class MessagingStyleDmNotifier
                     ?: NotificationCompat.MessagingStyle(selfPerson())
             // A null sender attributes the message to the MessagingStyle's user — "you".
             appendReply?.let { style.addMessage(it, System.currentTimeMillis(), null as Person?) }
-            manager.notifyIfPermitted(notifyId, convoNotification(style, convoId, otherUserDid, alert = false))
+            manager.notifyIfPermitted(
+                notifyId,
+                convoNotification(style, convoId, ChatNotificationIds.deepLinkUri(convoId), alert = false),
+            )
         }
 
         // MessagingStyle's "user" is the viewer. androidx.core 1.19's MessagingStyle
@@ -156,7 +156,7 @@ internal class MessagingStyleDmNotifier
         private fun convoNotification(
             style: NotificationCompat.MessagingStyle,
             convoId: String,
-            otherUserDid: String,
+            deepLinkUri: String,
             alert: Boolean,
         ): android.app.Notification =
             NotificationCompat
@@ -170,8 +170,8 @@ internal class MessagingStyleDmNotifier
                 .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
                 // Re-posting the viewer's own reply must not re-alert.
                 .setOnlyAlertOnce(!alert)
-                .setContentIntent(tapIntent(otherUserDid, ChatNotificationIds.notifyId(convoId)))
-                .addAction(replyAction(convoId, otherUserDid))
+                .setContentIntent(tapIntent(deepLinkUri, ChatNotificationIds.notifyId(convoId)))
+                .addAction(replyAction(convoId))
                 .build()
 
         /**
@@ -179,10 +179,7 @@ internal class MessagingStyleDmNotifier
          * text is delivered to [DmReplyReceiver], which sends it via the chat repo.
          * The PendingIntent is MUTABLE so the system can fill in the reply results.
          */
-        private fun replyAction(
-            convoId: String,
-            otherUserDid: String,
-        ): NotificationCompat.Action {
+        private fun replyAction(convoId: String): NotificationCompat.Action {
             val remoteInput =
                 RemoteInput
                     .Builder(DmReplyReceiver.KEY_REPLY_TEXT)
@@ -193,7 +190,7 @@ internal class MessagingStyleDmNotifier
                 PendingIntent.getBroadcast(
                     context,
                     notifyId,
-                    DmReplyReceiver.intent(context, convoId, otherUserDid),
+                    DmReplyReceiver.intent(context, convoId),
                     PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                 )
             return NotificationCompat.Action
@@ -215,11 +212,11 @@ internal class MessagingStyleDmNotifier
                 .build()
 
         private fun tapIntent(
-            otherUserDid: String,
+            deepLinkUri: String,
             requestCode: Int,
         ): PendingIntent {
             val intent =
-                Intent(Intent.ACTION_VIEW, Uri.parse(ChatNotificationIds.deepLinkUri(otherUserDid))).apply {
+                Intent(Intent.ACTION_VIEW, Uri.parse(deepLinkUri)).apply {
                     setPackage(context.packageName)
                     // NEW_TASK + CLEAR_TASK so the singleTask MainActivity receives
                     // the deep-link data even when a task already exists (mirrors

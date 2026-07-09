@@ -48,7 +48,6 @@ internal class DmReplyHandler
         /** Receiver entry point: send asynchronously, update the notification, and always finish the broadcast. */
         fun handle(
             convoId: String,
-            otherUserDid: String,
             text: String,
             pendingResult: BroadcastReceiver.PendingResult?,
         ) {
@@ -57,10 +56,10 @@ internal class DmReplyHandler
                 try {
                     val sent = withTimeoutOrNull(SEND_TIMEOUT_MS) { trySend(convoId, trimmed) } ?: false
                     if (sent) {
-                        notifier.appendSentReply(convoId, otherUserDid, trimmed)
+                        notifier.appendSentReply(convoId, trimmed)
                     } else {
                         // Blank / failed / timed-out: re-post unchanged so the spinner stops.
-                        notifier.clearReplySpinner(convoId, otherUserDid)
+                        notifier.clearReplySpinner(convoId)
                     }
                 } catch (e: CancellationException) {
                     throw e

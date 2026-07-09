@@ -138,11 +138,11 @@ internal class DmPollRunner
                 notifier.notify(
                     plan.toNotify.map { event ->
                         val convo = convoById[event.convoId]
-                        // Direct convos carry the other user's name/handle/did for the
-                        // notification's sender attribution + deep-link target. Group
-                        // convos don't have a single "other user"; Phase 1 falls back to
-                        // the group name as the title and the message sender's DID as the
-                        // deep-link target (per-message group attribution is Task 6).
+                        // Direct convos carry the other user's name/handle for the
+                        // notification's sender attribution; group convos are titled by
+                        // the group name. The tap deep-link is addressed by convo id for
+                        // BOTH kinds (see [deepLinkUri] below), so a group opens the group
+                        // rather than the message sender's 1:1 DM (nubecita-g1ph).
                         val direct = convo as? ConvoRowUi.Direct
                         val content =
                             event.toDmNotificationContent(
@@ -151,11 +151,11 @@ internal class DmPollRunner
                             )
                         DmNotification(
                             convoId = event.convoId,
-                            // The convo is always present (its id came from the same
-                            // cache the unread set is derived from); fall back to the
-                            // sender DID — for an inbound 1:1 DM that IS the other
-                            // user — so the tap deep-link target is never empty.
-                            otherUserDid = direct?.otherUserDid?.takeIf { it.isNotEmpty() } ?: event.senderDid,
+                            // Convo-addressed tap target (nubecita://chat/convo/{convoId}).
+                            // A group has no single "other user", so addressing by the
+                            // sender's DID (the pre-fix behaviour) resolved to a 1:1 DM
+                            // with that member instead of opening the group.
+                            deepLinkUri = ChatNotificationIds.deepLinkUri(event.convoId),
                             title = content.title,
                             body = content.body,
                             timestampMillis = event.sentAt.toEpochMilliseconds(),
