@@ -6,8 +6,8 @@ import io.github.kikin81.atproto.app.bsky.actor.ViewerState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import net.kikin.nubecita.core.feedmapping.toVerifiedBadge
 import net.kikin.nubecita.core.profile.canViewerMessage
+import net.kikin.nubecita.data.models.toVerifiedBadge
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.VerifierRef
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState

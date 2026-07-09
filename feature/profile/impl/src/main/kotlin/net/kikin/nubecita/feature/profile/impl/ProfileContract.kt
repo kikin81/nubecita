@@ -238,7 +238,7 @@ data class ProfileHeaderUi(
     /**
      * Verification tier derived from the wire `verificationState`. Drives the
      * (tappable) badge in the profile hero. `VerifiedBadge.None` (default)
-     * renders nothing. See `:core:feed-mapping`'s `toVerifiedBadge`.
+     * renders nothing. See `:data:models`'s `toVerifiedBadge`.
      */
     val verifiedBadge: VerifiedBadge = VerifiedBadge.None,
     /**
