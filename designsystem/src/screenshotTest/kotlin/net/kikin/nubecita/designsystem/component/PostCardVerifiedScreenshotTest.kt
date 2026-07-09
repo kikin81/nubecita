@@ -21,7 +21,10 @@ import kotlin.time.Instant
  * The unverified case is covered by the existing PostCard baselines, which stay
  * byte-identical because `VerificationBadge(None)` emits no layout node.
  */
-private fun verifiedScreenshotPost(badge: VerifiedBadge): PostUi =
+private fun verifiedScreenshotPost(
+    badge: VerifiedBadge,
+    displayName: String = "Alice Chen",
+): PostUi =
     PostUi(
         id = "screenshot-verified",
         cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
@@ -29,7 +32,7 @@ private fun verifiedScreenshotPost(badge: VerifiedBadge): PostUi =
             AuthorUi(
                 did = "did:plc:fakedid000000000000000",
                 handle = "alice.bsky.social",
-                displayName = "Alice Chen",
+                displayName = displayName,
                 avatarUrl = null,
                 verifiedBadge = badge,
             ),
@@ -59,5 +62,27 @@ private fun PostCardVerifiedScreenshot() {
 private fun PostCardTrustedVerifierScreenshot() {
     NubecitaTheme(dynamicColor = false) {
         PostCard(post = verifiedScreenshotPost(VerifiedBadge.TrustedVerifier), callbacks = PostCallbacks.None)
+    }
+}
+
+/**
+ * A display name long enough to fill the whole author row (nubecita-vw45.5). Pins
+ * the fix: the name ellipsizes and the badge stays visible ahead of the handle,
+ * rather than the name squeezing the fixed badge to zero width.
+ */
+@PreviewTest
+@Preview(name = "postcard-verified-long-name-light", showBackground = true)
+@Preview(name = "postcard-verified-long-name-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardVerifiedLongNameScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCard(
+            post =
+                verifiedScreenshotPost(
+                    badge = VerifiedBadge.Verified,
+                    displayName = "Alexandria Bartholomew Featherstonehaugh the Third, Esq.",
+                ),
+            callbacks = PostCallbacks.None,
+        )
     }
 }
