@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.database.util
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import kotlin.time.Instant
@@ -17,7 +18,8 @@ import kotlin.time.Instant
  * Coverage:
  *  - non-null values map both directions with millisecond fidelity.
  *  - `null` round-trips through both directions unchanged (nullable columns).
- *  - value round-trips (Instant→Long→Instant and Long→Instant→Long) are lossless.
+ *  - millisecond-aligned values round-trip losslessly; sub-millisecond
+ *    `Instant` precision is truncated (the column is epoch-millis).
  */
 class InstantConverterTest {
     @Test
@@ -55,10 +57,22 @@ class InstantConverterTest {
     }
 
     @Test
-    fun instantRoundTrip_isLossless() {
+    fun millisecondAlignedInstantRoundTrip_isLossless() {
         val original = Instant.fromEpochMilliseconds(1_699_999_999_123L)
         val roundTripped = InstantConverter.fromEpochMillis(InstantConverter.toEpochMillis(original))
         assertEquals(original, roundTripped)
+    }
+
+    @Test
+    fun instantRoundTrip_withSubMillisecondPrecision_truncatesToMillis() {
+        // `Instant` carries nanosecond precision but the column is epoch-millis,
+        // so `toEpochMilliseconds()` drops the sub-millisecond remainder. Pin
+        // that contract: 123_456_789ns collapses to 123ms (123_000_000ns).
+        val original = Instant.fromEpochSeconds(1_699_999_999L, nanosecondAdjustment = 123_456_789L)
+        val roundTripped = InstantConverter.fromEpochMillis(InstantConverter.toEpochMillis(original))
+
+        assertEquals(Instant.fromEpochSeconds(1_699_999_999L, nanosecondAdjustment = 123_000_000L), roundTripped)
+        assertNotEquals(original, roundTripped)
     }
 
     @Test
