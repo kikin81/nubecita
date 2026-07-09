@@ -43,8 +43,9 @@ import org.junit.jupiter.api.Test
  *
  * Scope: the repository's *orchestration* — endpoint wiring, the shared
  * `convosCache` / `requestConvosCache` StateFlow updates, session guards,
- * pagination cursors, `getProfiles` chunking, plus the failure branch of every
- * method and the cancellation-propagation branch of the methods that rethrow it.
+ * pagination cursors, `getProfiles` chunking, plus negative-path branches —
+ * network-failure, signed-out guard, and cancellation-propagation (for the
+ * methods that rethrow it) — across the repository's methods.
  * The wire→UI mappers and the cache-patch helpers are unit-tested separately
  * (ConvoMapperTest, MessageMapperTest, ConvoCachePatchTest, …), so this suite
  * spot-checks the mapped result rather than re-verifying field-by-field mapping.
@@ -633,8 +634,7 @@ internal class DefaultChatRepositoryTest {
                     object : XrpcClientProvider {
                         // Mirror production DefaultXrpcClientProvider: no session → throw,
                         // so the signed-out guard holds even if a method's call order changes.
-                        override suspend fun authenticated(): XrpcClient =
-                            if (signedIn) xrpcClient else throw NoSessionException()
+                        override suspend fun authenticated(): XrpcClient = if (signedIn) xrpcClient else throw NoSessionException()
                     },
                 sessionStateProvider =
                     object : SessionStateProvider {
