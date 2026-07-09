@@ -138,9 +138,15 @@ internal class DefaultChatRepositoryTest {
     @Test
     fun leaveConvo_success_returnsSuccess() =
         runTest {
-            val (_, repo) = newRepo(signedIn = true) { okJson("""{"convoId":"c1","rev":"5"}""") }
+            val (engine, repo) = newRepo(signedIn = true) { okJson("""{"convoId":"c1","rev":"5"}""") }
 
             assertTrue(repo.leaveConvo("c1").isSuccess)
+            assertTrue(
+                engine.requestHistory
+                    .single()
+                    .url.encodedPath
+                    .endsWith("chat.bsky.convo.leaveConvo"),
+            )
         }
 
     @Test
@@ -178,11 +184,13 @@ internal class DefaultChatRepositoryTest {
                 newRepo(signedIn = true) { okJson("""{"convo":${directConvoJson("c1", "did:plc:alice", "alice.test", muted = true)}}""") }
 
             assertTrue(repo.setMuted("c1", muted = true).isSuccess)
+            // endsWith the fully-qualified method: "muteConvo" is a substring of
+            // "unmuteConvo", so a `contains` check wouldn't distinguish the two.
             assertTrue(
                 engine.requestHistory
                     .single()
                     .url.encodedPath
-                    .contains("muteConvo"),
+                    .endsWith("chat.bsky.convo.muteConvo"),
             )
         }
 
@@ -197,7 +205,7 @@ internal class DefaultChatRepositoryTest {
                 engine.requestHistory
                     .single()
                     .url.encodedPath
-                    .contains("unmuteConvo"),
+                    .endsWith("chat.bsky.convo.unmuteConvo"),
             )
         }
 
