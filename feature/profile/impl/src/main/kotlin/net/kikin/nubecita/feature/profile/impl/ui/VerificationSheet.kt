@@ -107,6 +107,10 @@ internal fun VerificationSheetContent(
             bodyRes = R.string.verification_sheet_body_verified
         }
     }
+    // One formatter per sheet, keyed on the Compose-propagated locale (so a
+    // Settings-app language switch re-renders) — shared by every verifier row.
+    val locale = LocalLocale.current.platformLocale
+    val dateFormatter = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
     Column(
         modifier =
             modifier
@@ -157,7 +161,7 @@ internal fun VerificationSheetContent(
                 else ->
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         verifiers.forEach { verifier ->
-                            key(verifier.did) { VerifierRow(verifier) }
+                            key(verifier.did) { VerifierRow(verifier, dateFormatter) }
                         }
                     }
             }
@@ -168,18 +172,15 @@ internal fun VerificationSheetContent(
 @Composable
 private fun VerifierRow(
     verifier: VerifierUi,
+    dateFormatter: DateTimeFormatter,
     modifier: Modifier = Modifier,
 ) {
     val displayName = verifier.displayName?.takeUnless { it.isBlank() }
-    // Key the formatter on the Compose-propagated locale (not a captured
-    // Locale.getDefault()) so a Settings-app language switch re-renders the date,
-    // mirroring rememberCompactCount. Formatter is remembered per locale, the
-    // formatted string per (formatter, instant).
-    val locale = LocalLocale.current.platformLocale
-    val formatter = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
+    // Formatter is provided by the parent (one per locale); only the formatted
+    // string is per-row, remembered on (formatter, instant).
     val formattedDate =
-        remember(formatter, verifier.verifiedAt) {
-            formatter.format(
+        remember(dateFormatter, verifier.verifiedAt) {
+            dateFormatter.format(
                 verifier.verifiedAt
                     .toLocalDateTime(TimeZone.currentSystemDefault())
                     .date
