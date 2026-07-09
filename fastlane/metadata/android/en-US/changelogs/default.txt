@@ -1,5 +1,6 @@
-Thanks for using nubecita! This update is all about fixes:
-• More reliable chat notifications — you'll get new DMs, and you can reply right from the notification.
-• Fixed a bug that kept some group chats from opening.
-• More bug fixes and performance improvements under the hood.
+Thanks for using nubecita! What's new:
+• Verified badges — verification checkmarks now appear on profiles, posts, and search results, with a tap-to-learn-more explanation on profiles.
+• GIFs & stickers — add them to your posts from the new picker in the composer.
+• Manage your feeds — reorder and remove your feeds with simple drag-and-drop.
+• Faster cold starts, plus more bug fixes and performance improvements under the hood.
 Thanks for being here. 💙

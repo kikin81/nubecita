@@ -1,5 +1,6 @@
-Obrigado por usar o nubecita! Esta atualização traz correções:
-• Notificações de chat mais confiáveis: receba suas DMs e responda direto pela notificação.
-• Corrigimos um erro que impedia abrir alguns chats em grupo.
-• Mais correções de bugs e melhorias de desempenho.
+Obrigado por usar o nubecita! Novidades:
+• Selos de verificação: agora aparecem em perfis, publicações e resultados de busca, com uma explicação ao tocar neles nos perfis.
+• GIFs e figurinhas: adicione-os às suas publicações pelo novo seletor do compositor.
+• Gerencie seus feeds: reordene e remova seus feeds arrastando e soltando.
+• Inicialização mais rápida, além de mais correções de bugs e melhorias de desempenho.
 Obrigado por estar aqui! 💙
