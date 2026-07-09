@@ -90,7 +90,32 @@ internal class DmPollRunnerTest {
             assertEquals("c1", n.convoId)
             assertEquals("Alice", n.title)
             assertEquals("hey", n.body)
+            // The tap deep-link addresses the CONVERSATION, not the other user —
+            // so groups and 1:1s open the same way (regression: nubecita-g1ph).
+            assertEquals("nubecita://chat/convo/c1", n.deepLinkUri)
             assertEquals("next", cursor.value)
+        }
+
+    @Test
+    fun `group notification deep-links to the convo, not the message sender`() =
+        runTest {
+            // A group message from ALICE. The pre-fix bug set the tap target to the
+            // sender's DID, so tapping opened the 1:1 DM with ALICE instead of the
+            // group. The deep-link must address the group convo id.
+            val repo =
+                FakeChatRepository().apply {
+                    nextRefreshResult = Result.success(persistentListOf(groupConvo("g1", unread = 1, name = "Weekend Trip")))
+                    nextGetLogResult =
+                        Result.success(ChatLogPage(events = persistentListOf(event("g1", senderDid = ALICE, text = "who's driving?")), nextCursor = "next"))
+                }
+            val f = fixture(repo = repo)
+
+            assertEquals(DmPollRunner.Outcome.SUCCESS, f.runner.run())
+            val n = f.notifier.posted.single()
+            assertEquals("g1", n.convoId)
+            assertEquals("Weekend Trip", n.title, "group notifications are titled by the group name")
+            assertEquals("who's driving?", n.body)
+            assertEquals("nubecita://chat/convo/g1", n.deepLinkUri)
         }
 
     @Test
@@ -178,6 +203,24 @@ internal class DmPollRunnerTest {
             otherUserHandle = handle,
             displayName = displayName,
             avatarUrl = null,
+            lastMessageSnippet = null,
+            lastMessageFromViewer = false,
+            lastMessageIsAttachment = false,
+            sentAt = null,
+            unreadCount = unread,
+            muted = muted,
+        )
+
+    private fun groupConvo(
+        id: String,
+        unread: Int,
+        name: String,
+        muted: Boolean = false,
+    ): ConvoRowUi =
+        ConvoRowUi.Group(
+            convoId = id,
+            name = name,
+            members = persistentListOf(),
             lastMessageSnippet = null,
             lastMessageFromViewer = false,
             lastMessageIsAttachment = false,

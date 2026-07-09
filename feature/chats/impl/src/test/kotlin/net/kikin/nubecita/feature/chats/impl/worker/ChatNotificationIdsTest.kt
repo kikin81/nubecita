@@ -21,7 +21,9 @@ internal class ChatNotificationIdsTest {
     }
 
     @Test
-    fun `deepLinkUri embeds the other user DID under the chat host`() {
-        assertEquals("nubecita://chat/did:plc:alice", ChatNotificationIds.deepLinkUri("did:plc:alice"))
+    fun `deepLinkUri addresses the conversation under the chat host`() {
+        // Convo-addressed (nubecita://chat/convo/{convoId}) so a group notification
+        // opens the group instead of the message sender's 1:1 DM (nubecita-g1ph).
+        assertEquals("nubecita://chat/convo/c1", ChatNotificationIds.deepLinkUri("c1"))
     }
 }

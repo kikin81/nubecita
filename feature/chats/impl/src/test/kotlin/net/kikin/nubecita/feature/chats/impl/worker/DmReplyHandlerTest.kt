@@ -61,25 +61,25 @@ internal class DmReplyHandlerTest {
     @Test
     fun `handle appends the reply to the notification on success`() {
         coEvery { repository.sendMessage("c1", "hi") } returns Result.success(mockk<MessageUi>())
-        handler.handle("c1", "did:x", "  hi  ", null)
+        handler.handle("c1", "  hi  ", null)
         coVerify(exactly = 1) { repository.sendMessage("c1", "hi") }
-        verify(exactly = 1) { notifier.appendSentReply("c1", "did:x", "hi") }
-        verify(exactly = 0) { notifier.clearReplySpinner(any(), any()) }
+        verify(exactly = 1) { notifier.appendSentReply("c1", "hi") }
+        verify(exactly = 0) { notifier.clearReplySpinner(any()) }
     }
 
     @Test
     fun `handle clears the spinner on blank text without sending`() {
-        handler.handle("c1", "did:x", "   ", null)
+        handler.handle("c1", "   ", null)
         coVerify(exactly = 0) { repository.sendMessage(any(), any()) }
-        verify(exactly = 1) { notifier.clearReplySpinner("c1", "did:x") }
-        verify(exactly = 0) { notifier.appendSentReply(any(), any(), any()) }
+        verify(exactly = 1) { notifier.clearReplySpinner("c1") }
+        verify(exactly = 0) { notifier.appendSentReply(any(), any()) }
     }
 
     @Test
     fun `handle clears the spinner when the send fails`() {
         coEvery { repository.sendMessage("c1", "hi") } returns Result.failure(RuntimeException("boom"))
-        handler.handle("c1", "did:x", "hi", null)
-        verify(exactly = 1) { notifier.clearReplySpinner("c1", "did:x") }
-        verify(exactly = 0) { notifier.appendSentReply(any(), any(), any()) }
+        handler.handle("c1", "hi", null)
+        verify(exactly = 1) { notifier.clearReplySpinner("c1") }
+        verify(exactly = 0) { notifier.appendSentReply(any(), any()) }
     }
 }

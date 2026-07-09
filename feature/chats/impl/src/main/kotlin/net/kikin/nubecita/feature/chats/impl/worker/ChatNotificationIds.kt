@@ -23,9 +23,15 @@ internal object ChatNotificationIds {
     val SUMMARY_ID: Int = "nubecita:dm:summary".hashCode()
 
     /**
-     * Tap target: `nubecita://chat/{otherUserDid}`, matched by the
-     * `@IntoSet` [net.kikin.nubecita.feature.chats.impl.di.ChatDeepLinkModule]
-     * matcher → `Chat(otherUserDid)`.
+     * Tap target: `nubecita://chat/convo/{convoId}`, matched by the `@IntoSet`
+     * [net.kikin.nubecita.feature.chats.impl.di.ChatDeepLinkModule] convo matcher
+     * → `Chat(convoId)`, which opens the conversation directly whether it's a
+     * group or a 1:1.
+     *
+     * Addressing by convo id (not the other user's DID) is what makes a **group**
+     * notification open the group: a group has no single "other user", so the
+     * pre-fix `nubecita://chat/{did}` form fell back to the message sender's DID
+     * and resolved to a 1:1 DM with that member instead (nubecita-g1ph).
      */
-    fun deepLinkUri(otherUserDid: String): String = "nubecita://chat/$otherUserDid"
+    fun deepLinkUri(convoId: String): String = "nubecita://chat/convo/$convoId"
 }
