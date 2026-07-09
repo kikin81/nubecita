@@ -87,7 +87,7 @@ in `YYYY-MM-DD`. Everything downstream uses these.
 ### 2. Run the query battery
 
 Work through `references/metrics.md` section by section, issuing the MCP calls it
-specifies for BOTH the current and prior windows. The five areas:
+specifies for BOTH the current and prior windows. The four areas:
 
 1. **Auth & login** — success vs error rate, error by reason/stage, the redirect
    funnel, and the spurious-logout signals (`session_cleared` invalid_grant,
