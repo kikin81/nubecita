@@ -66,11 +66,14 @@ and degrade gracefully if a source is unavailable (a headless/cron session may
 not have interactive MCP auth — note it and continue with the rest):
 
 - **GA4** — `mcp__analytics-mcp__get_account_summaries` → find the nubecita
-  property; keep its `property_id`. (Optionally `get_property_details` /
-  `get_custom_dimensions_and_metrics` to see which event params are registered
-  as custom dimensions — see the catalog's note on param-level queries.)
+  property; keep its `property_id`. (Optionally
+  `mcp__analytics-mcp__get_property_details` /
+  `mcp__analytics-mcp__get_custom_dimensions_and_metrics` to see which event
+  params are registered as custom dimensions — see the catalog's note on
+  param-level queries.)
 - **Firebase/Crashlytics** — `mcp__plugin_firebase_firebase__firebase_list_apps`
-  (and `firebase_get_project`) to get the Android `appId` Crashlytics needs.
+  (and `mcp__plugin_firebase_firebase__firebase_get_project`) to get the Android
+  `appId` Crashlytics needs.
 - **RevenueCat** — `mcp__revenuecat__list-projects` → the nubecita project id.
 
 If a source can't be reached, record it under "Data gaps" in the report and
@@ -145,11 +148,11 @@ Window: <current range> vs <prior range> (Nd WoW) · Sources: GA4 / Crashlytics 
 <table of metric | current | prior | Δ | verdict>
 
 ## Engagement  🟢|🟡|🔴
-- Active users, view_feed, interact_post/actor/feed, create_post, search, video_play, share, pip
+- Active users, view_feed, interact_post/actor/feed, create_post, search_perform, video_play, share, pip_attempt
 <table>
 
 ## Paywall & Pro  🟢|🟡|🔴
-- GA funnel: paywall_viewed → plan_selected → checkout_started → cancelled/error (drop-off at each step)
+- GA funnel: paywall_viewed → paywall_plan_selected → paywall_checkout_started → (paywall_purchase_cancelled | paywall_purchase_error) (drop-off at each step)
 - RevenueCat: new conversions, trial→paid, MRR, active subs, restore success, churn
 <table>
 

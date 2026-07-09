@@ -127,12 +127,12 @@ Answers: are people using the app, and how deeply?
 |---|---|---|
 | `view_feed` | `customEvent:feed_type` (following/discover/list/…) | opened a feed |
 | `interact_post` | `customEvent:action_type` (like/repost/reply/quote/…), `customEvent:source_surface` | acted on a post |
-| `interact_actor` | — (follow) | followed someone |
+| `interact_actor` | `customEvent:action_type` (follow/unfollow), `customEvent:source_surface` | followed/unfollowed someone |
 | `interact_feed` | `customEvent:feed_action` | pinned/saved/reordered a feed |
 | `create_post` | — | composed a post |
 | `search_perform` | `customEvent:search_scope` (posts/people/feeds) | ran a search |
 | `video_play` | `customEvent:source_surface` | played a video |
-| `share` | — | shared a post |
+| `share` | `customEvent:source_surface` (also `customEvent:content_type`, `method`) | shared a post |
 | `pip_attempt` | `customEvent:pip_outcome` | tried Picture-in-Picture (a Pro-gated capability) |
 
 **Queries:**
@@ -141,7 +141,7 @@ Answers: are people using the app, and how deeply?
 - Each event: `eventCount` + `eventCountPerActiveUser`, WoW. The per-user view is
   what tells you whether engagement *depth* moved vs just traffic.
 - `view_feed` split by `feed_type` (if registered) — following vs discover mix.
-- `interact_post` split by `action` — likes/reposts/replies balance.
+- `interact_post` split by `action_type` — likes/reposts/replies balance.
 - `create_post` and `search_perform` per active user are good "are power users
   active" signals. `pip_attempt` doubles as Pro-feature-usage.
 
@@ -182,8 +182,8 @@ visibility one.
 
 **RevenueCat actuals** (revenuecat MCP). Use
 `mcp__revenuecat__get-overview-metrics` for the headline set, and
-`mcp__revenuecat__get-chart-data` (see `get-chart-options-schema` for valid
-`chart_name`s + resolutions) for the WoW series:
+`mcp__revenuecat__get-chart-data` (see `mcp__revenuecat__get-chart-options-schema`
+for valid `chart_name`s + resolutions) for the WoW series:
 - ⚠️ **`get-overview-metrics` is a fixed 28-day window**, not the 7d WoW window —
   MRR / active subs / new customers / revenue from it are 28-day figures; label
   them as such. For a true weekly comparison use `get-chart-data` with explicit
@@ -192,8 +192,8 @@ visibility one.
 - **New conversions / new customers** (actual upgrades) — pair with
   `paywall_viewed` for a true view→pay rate.
 - **Trial → paid conversion**, if trials are used.
-- **MRR** and **active subscriptions** (`list-subscriptions` for the current
-  count) — the "how many are Pro" number.
+- **MRR** and **active subscriptions** (`mcp__revenuecat__list-subscriptions` for
+  the current count) — the "how many are Pro" number.
 - **Churn / cancellations** — `get-chart-data` churn series.
 - **Restore success** — cross-check GA `paywall_restore` outcome vs RevenueCat.
 - Identity is anonymous Play `appUserID` (design D3) — there's no Bluesky DID to
@@ -206,21 +206,27 @@ visibility one.
 Answers: is the app crashing, and what should we fix first?
 
 **Firebase Crashlytics (firebase MCP).** Needs the Android `appId` from preflight.
-First read the guide once: `firebase_read_resources
+First read the guide once: `mcp__plugin_firebase_firebase__firebase_read_resources
 ["firebase://guides/crashlytics/reports"]` (the report tool asks for it).
 
 - ⚠️ **There is no crash-free-% report via this MCP.** The available reports are
   `topIssues` / `topVariants` / `topVersions` / `topOperatingSystems` /
-  `topAndroidDevices` — each returns `eventsCount` + `impactedUsersCount`, not a
-  crash-free rate. So **derive** it: run `crashlytics_get_report` with
+  `topAndroidDevices` — each returns `eventsCount`, `impactedUsersCount`, and
+  `sessionsCount`, not a crash-free rate. So **derive** it: run
+  `mcp__plugin_firebase_firebase__crashlytics_get_report` with
   `report: "topIssues"` and `filter.issueErrorTypes: ["FATAL"]` for the window,
-  sum `impactedUsersCount` across issues, and estimate
-  `crash-free users ≈ (activeUsers − impactedUsers) ÷ activeUsers` using the GA
-  active-user count. Say it's an **estimate** — Crashlytics and GA are different
-  populations, and users can overlap across issues (so the impacted sum is an
-  upper bound). Do the same for the **prior** window (set both
-  `intervalStartTime`/`intervalEndTime`, ISO-8601, within 90 days) to get the WoW
-  move — that delta is the real signal even if the absolute % is fuzzy.
+  then estimate against the GA totals for the same window:
+  - `impactedUsers = min(Σ impactedUsersCount, activeUsers)` — **clamp the sum**:
+    a user can appear in several issues, so the raw sum is an upper bound and can
+    exceed `activeUsers`; clamping keeps `crash-free ≥ 0`.
+  - `crash-free users ≈ (activeUsers − impactedUsers) ÷ activeUsers`.
+  - Optionally the same for sessions:
+    `crash-free sessions ≈ (gaSessions − min(Σ sessionsCount, gaSessions)) ÷ gaSessions`
+    using GA `sessions`.
+  Say it's an **estimate** — Crashlytics and GA are different populations. Do the
+  same for the **prior** window (set both `intervalStartTime`/`intervalEndTime`,
+  ISO-8601, within 90 days) to get the WoW move — that delta is the real signal
+  even if the absolute % is fuzzy.
 - Run it a second time with `issueErrorTypes: ["ANR"]` — ANRs are first-class
   here (the app's startup init + battery/Doze posture make them a real risk; live
   we found a `RevenueCatInitializer` main-thread ANR). Optionally `["NON_FATAL"]`.
@@ -229,8 +235,9 @@ First read the guide once: `firebase_read_resources
   `signals` (e.g. `SIGNAL_FRESH` = new, `SIGNAL_EARLY` = crashes in first second,
   `SIGNAL_REGRESSED`), and a console `uri`. Rank **new/fresh or regressed issues
   hitting the most users** to the top of the fix list. Use
-  `crashlytics_batch_get_events` / `list_events` only if you need a stack trace
-  for one issue.
+  `mcp__plugin_firebase_firebase__crashlytics_batch_get_events` /
+  `mcp__plugin_firebase_firebase__crashlytics_list_events` only if you need a
+  stack trace for one issue.
 
 The "top crashes/ANRs to fix" list is often the single most actionable part of
 the report — make each row a clear candidate: what it is, how many it hits,
