@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
+import net.kikin.nubecita.data.models.FacetTarget
 import android.net.Uri as AndroidUri
 
 /**
@@ -187,6 +188,26 @@ internal fun ProfileScreen(
                             .launchUrl(context, AndroidUri.parse(uri))
                     } catch (_: ActivityNotFoundException) {
                         // No browser available — silent no-op.
+                    }
+                },
+                onFacetTap = { target ->
+                    when (target) {
+                        // A @mention → the mentioned account's profile (Profile
+                        // resolves a DID directly), same nav as tapping the author.
+                        is FacetTarget.Mention ->
+                            viewModel.handleEvent(ProfileEvent.HandleTapped(target.did))
+                        // An inline link → in-app browser, same Custom Tab path as
+                        // an external embed.
+                        is FacetTarget.Link ->
+                            try {
+                                CustomTabsIntent
+                                    .Builder()
+                                    .setShowTitle(true)
+                                    .build()
+                                    .launchUrl(context, AndroidUri.parse(target.uri))
+                            } catch (_: ActivityNotFoundException) {
+                                // No browser available — silent no-op.
+                            }
                     }
                 },
                 onQuotedPostTap = { quoted ->

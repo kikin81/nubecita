@@ -19,6 +19,7 @@ import net.kikin.nubecita.core.common.haptic.PostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.feature.feed.impl.FeedEffect
@@ -207,6 +208,26 @@ internal fun rememberFeedInteractions(
                             .launchUrl(context, AndroidUri.parse(uri))
                     } catch (_: ActivityNotFoundException) {
                         // No browser available — silent no-op.
+                    }
+                },
+                onFacetTap = { target ->
+                    when (target) {
+                        // A @mention → the mentioned account's profile. Reuses the
+                        // same author-nav event (Profile resolves a DID directly).
+                        is FacetTarget.Mention ->
+                            viewModel.handleEvent(FeedEvent.OnAuthorTapped(target.did))
+                        // An inline link → in-app browser, same Custom Tab path as
+                        // an external embed (narrowed catch for the no-browser case).
+                        is FacetTarget.Link ->
+                            try {
+                                CustomTabsIntent
+                                    .Builder()
+                                    .setShowTitle(true)
+                                    .build()
+                                    .launchUrl(context, AndroidUri.parse(target.uri))
+                            } catch (_: ActivityNotFoundException) {
+                                // No browser available — silent no-op.
+                            }
                     }
                 },
                 onQuotedPostTap = { quoted ->
