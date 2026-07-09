@@ -170,11 +170,15 @@ Window: <current range> vs <prior range> (Nd WoW) · Sources: GA4 / Crashlytics 
 - **Read-only.** Never call a write/mutate tool on GA4, Firebase, or RevenueCat
   (no `update-*`, `create-*`, `crashlytics_update_issue`, `crashlytics_create_note`,
   etc.). This is a checkup, not a change.
-- **Never commit the report.** It contains real user metrics and this is a
-  **public repo**. Write it only to `health-reports/`, which must be gitignored.
-  On first run, if `health-reports/` isn't in `.gitignore`, add it before writing
-  (append the line `health-reports/`). Do not `git add` the report. If asked to
-  share it, surface the local path or paste the summary — don't push it.
+- **Never commit the report, and never mutate tracked files.** It holds real
+  user metrics and this is a **public repo**. Before writing, **verify**
+  `health-reports/` is gitignored (`git check-ignore health-reports/`). If it is
+  NOT ignored, **stop and ask the user** to add `health-reports/` to `.gitignore`
+  first — do not write the report, and do not edit `.gitignore` (or any tracked
+  file) yourself. This skill is reporting-only; silently changing the working
+  tree would be surprising and, worse, writing before the ignore exists risks
+  committing real metrics to a public repo. Never `git add` the report. If asked
+  to share it, surface the local path or paste the summary — don't push it.
 - Do not print raw user identifiers. The app's events are already bucketed/PII-free
   by design (e.g. `login_error` carries a reason, never the handle) — keep it that
   way: report rates and counts, not individuals.

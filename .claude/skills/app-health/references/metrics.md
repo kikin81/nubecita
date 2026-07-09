@@ -206,8 +206,8 @@ for valid `chart_name`s + resolutions) for the WoW series:
 Answers: is the app crashing, and what should we fix first?
 
 **Firebase Crashlytics (firebase MCP).** Needs the Android `appId` from preflight.
-First read the guide once: `mcp__plugin_firebase_firebase__firebase_read_resources
-["firebase://guides/crashlytics/reports"]` (the report tool asks for it).
+First read the guide once — call `mcp__plugin_firebase_firebase__firebase_read_resources`
+with `uris: ["firebase://guides/crashlytics/reports"]` (the report tool asks for it).
 
 - ⚠️ **There is no crash-free-% report via this MCP.** The available reports are
   `topIssues` / `topVariants` / `topVersions` / `topOperatingSystems` /
