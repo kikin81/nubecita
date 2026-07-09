@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.flowOf
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.VerifiedBadge
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -66,8 +67,20 @@ internal class BenchFakeActorRepository
         private companion object {
             val PEOPLE =
                 persistentListOf(
-                    ActorUi(did = "did:plc:alice", handle = "alice.bsky.social", displayName = "Alice Chen", avatarUrl = null),
-                    ActorUi(did = "did:plc:bob", handle = "bob.dev", displayName = "Bob Iglesias", avatarUrl = null),
+                    ActorUi(
+                        did = "did:plc:alice",
+                        handle = "alice.bsky.social",
+                        displayName = "Alice Chen",
+                        avatarUrl = null,
+                        verifiedBadge = VerifiedBadge.Verified,
+                    ),
+                    ActorUi(
+                        did = "did:plc:bob",
+                        handle = "bob.dev",
+                        displayName = "Bob Iglesias",
+                        avatarUrl = null,
+                        verifiedBadge = VerifiedBadge.TrustedVerifier,
+                    ),
                     ActorUi(did = "did:plc:carmen", handle = "carmen.design", displayName = "Carmen Ortiz", avatarUrl = null),
                     ActorUi(did = "did:plc:dev", handle = "shipit.bsky.social", displayName = "Indie Dev", avatarUrl = null),
                     ActorUi(did = "did:plc:designer", handle = "studio.bsky.social", displayName = "The Studio", avatarUrl = null),

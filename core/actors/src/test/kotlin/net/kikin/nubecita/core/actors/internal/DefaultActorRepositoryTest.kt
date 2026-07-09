@@ -26,6 +26,7 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.database.dao.ActorDao
 import net.kikin.nubecita.core.database.model.ActorEntity
+import net.kikin.nubecita.data.models.VerifiedBadge
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -139,6 +140,58 @@ class DefaultActorRepositoryTest {
             assertEquals("did:plc:bbb", page.items[1].did)
             assertEquals("next-page-token", page.nextCursor)
             coVerify { actorDao.upsert(match { it.size == 2 }) }
+        }
+
+    // -------------------------------------------------------------------------
+    // Verification badge mapping (wire verificationState → ActorUi.verifiedBadge)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun searchActors_mapsVerificationBadgePerActor() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (_, repo) =
+                newRepo(actorDao) { _ ->
+                    okJson(
+                        """
+                        {
+                          "actors": [
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileView",
+                              "did": "did:plc:verified",
+                              "handle": "verified.bsky.social",
+                              "verification": {
+                                "verifiedStatus": "valid",
+                                "trustedVerifierStatus": "none",
+                                "verifications": []
+                              }
+                            },
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileView",
+                              "did": "did:plc:trusted",
+                              "handle": "trusted.bsky.social",
+                              "verification": {
+                                "verifiedStatus": "valid",
+                                "trustedVerifierStatus": "valid",
+                                "verifications": []
+                              }
+                            },
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileView",
+                              "did": "did:plc:plain",
+                              "handle": "plain.bsky.social"
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val items = repo.searchActors(query = "v", cursor = null, limit = 25).getOrThrow().items
+
+            assertEquals(VerifiedBadge.Verified, items[0].verifiedBadge)
+            assertEquals(VerifiedBadge.TrustedVerifier, items[1].verifiedBadge)
+            assertEquals(VerifiedBadge.None, items[2].verifiedBadge)
         }
 
     // -------------------------------------------------------------------------

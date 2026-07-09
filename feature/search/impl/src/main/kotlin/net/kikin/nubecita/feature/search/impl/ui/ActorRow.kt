@@ -12,12 +12,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.HighlightedText
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.VerificationBadge
 import net.kikin.nubecita.feature.search.impl.R
 
 /**
@@ -56,11 +59,23 @@ internal fun ActorRow(
             contentDescription = actor.displayName ?: actor.handle,
         )
         Column(modifier = Modifier.weight(1f)) {
-            HighlightedText(
-                text = actor.displayName ?: actor.handle,
-                match = query.takeIf { it.isNotBlank() },
-                style = MaterialTheme.typography.titleMedium,
-            )
+            // Name-priority line: the name ellipsizes to fit while the fixed-size
+            // badge (nothing for VerifiedBadge.None) stays visible ahead of it —
+            // mirrors PostCard's AuthorLine (nubecita-vw45.5's long-name fix).
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                HighlightedText(
+                    modifier = Modifier.weight(1f, fill = false),
+                    text = actor.displayName ?: actor.handle,
+                    match = query.takeIf { it.isNotBlank() },
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                VerificationBadge(badge = actor.verifiedBadge)
+            }
             if (actor.displayName != null) {
                 HighlightedText(
                     text = stringResource(R.string.search_people_actor_handle, actor.handle),
@@ -146,6 +161,63 @@ private fun ActorRowDarkPreview() {
                     avatarUrl = "https://example.com/avatar.jpg",
                 ),
             query = "avatar",
+            onClick = {},
+        )
+    }
+}
+
+@Preview(name = "ActorRow — verified badge", showBackground = true)
+@Composable
+private fun ActorRowVerifiedPreview() {
+    NubecitaTheme {
+        ActorRow(
+            actor =
+                ActorUi(
+                    did = "did:plc:verified",
+                    handle = "verified.bsky.social",
+                    displayName = "Verified Vera",
+                    avatarUrl = null,
+                    verifiedBadge = VerifiedBadge.Verified,
+                ),
+            query = "",
+            onClick = {},
+        )
+    }
+}
+
+@Preview(name = "ActorRow — trusted verifier badge", showBackground = true)
+@Composable
+private fun ActorRowTrustedVerifierPreview() {
+    NubecitaTheme {
+        ActorRow(
+            actor =
+                ActorUi(
+                    did = "did:plc:trusted",
+                    handle = "trusted.bsky.social",
+                    displayName = "Trusted Tomas",
+                    avatarUrl = null,
+                    verifiedBadge = VerifiedBadge.TrustedVerifier,
+                ),
+            query = "",
+            onClick = {},
+        )
+    }
+}
+
+@Preview(name = "ActorRow — verified, long name keeps badge visible", showBackground = true)
+@Composable
+private fun ActorRowVerifiedLongNamePreview() {
+    NubecitaTheme {
+        ActorRow(
+            actor =
+                ActorUi(
+                    did = "did:plc:longname",
+                    handle = "longname.bsky.social",
+                    displayName = "A Very Long Display Name That Should Ellipsize Before The Badge",
+                    avatarUrl = null,
+                    verifiedBadge = VerifiedBadge.Verified,
+                ),
+            query = "",
             onClick = {},
         )
     }

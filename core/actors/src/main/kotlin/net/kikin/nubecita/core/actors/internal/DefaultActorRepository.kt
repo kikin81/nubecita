@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.database.model.asExternalModel
 import net.kikin.nubecita.core.database.model.toCacheEntity
 import net.kikin.nubecita.core.profile.canViewerMessage
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.toVerifiedBadge
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -138,6 +139,7 @@ private fun ProfileView.toActorUi(): ActorUi =
         displayName = displayName?.takeIf { it.isNotBlank() },
         avatarUrl = avatar?.raw,
         canMessage = canViewerMessage(associated, viewer),
+        verifiedBadge = verification.toVerifiedBadge(),
     )
 
 private fun ProfileViewBasic.toActorUi(): ActorUi =
@@ -147,4 +149,5 @@ private fun ProfileViewBasic.toActorUi(): ActorUi =
         displayName = displayName?.takeIf { it.isNotBlank() },
         avatarUrl = avatar?.raw,
         canMessage = canViewerMessage(associated, viewer),
+        verifiedBadge = verification.toVerifiedBadge(),
     )

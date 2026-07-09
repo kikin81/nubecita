@@ -1,11 +1,10 @@
-package net.kikin.nubecita.core.feedmapping
+package net.kikin.nubecita.data.models
 
 import io.github.kikin81.atproto.app.bsky.actor.VerificationState
-import net.kikin.nubecita.data.models.VerifiedBadge
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-internal class VerificationBadgeMappingTest {
+internal class VerificationStateMapperTest {
     // The status fields are non-null String in the SDK (default "none" = not verified);
     // only the enclosing `verification` object is nullable.
     private fun state(

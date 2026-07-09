@@ -9,6 +9,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -31,6 +32,8 @@ fun HighlightedText(
     match: String?,
     modifier: Modifier = Modifier,
     style: TextStyle = LocalTextStyle.current,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
     highlightStyle: SpanStyle =
         SpanStyle(
             background = MaterialTheme.colorScheme.primaryContainer,
@@ -38,7 +41,7 @@ fun HighlightedText(
         ),
 ) {
     val annotated = AnnotatedString(text).withMatchHighlight(match, highlightStyle)
-    Text(text = annotated, modifier = modifier, style = style)
+    Text(text = annotated, modifier = modifier, style = style, maxLines = maxLines, overflow = overflow)
 }
 
 /**

@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
 @PreviewTest
@@ -72,6 +73,75 @@ private fun ActorRowNoDisplayNameScreenshot() {
                         avatarUrl = null,
                     ),
                 query = "anon",
+                onClick = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-verified-light", showBackground = true)
+@Preview(name = "actor-row-verified-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ActorRowVerifiedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ActorRow(
+                actor =
+                    ActorUi(
+                        did = "did:plc:verified",
+                        handle = "verified.bsky.social",
+                        displayName = "Verified Vera",
+                        avatarUrl = null,
+                        verifiedBadge = VerifiedBadge.Verified,
+                    ),
+                query = "",
+                onClick = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-trusted-verifier-light", showBackground = true)
+@Preview(name = "actor-row-trusted-verifier-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ActorRowTrustedVerifierScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ActorRow(
+                actor =
+                    ActorUi(
+                        did = "did:plc:trusted",
+                        handle = "trusted.bsky.social",
+                        displayName = "Trusted Tomas",
+                        avatarUrl = null,
+                        verifiedBadge = VerifiedBadge.TrustedVerifier,
+                    ),
+                query = "",
+                onClick = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-verified-long-name-light", showBackground = true)
+@Preview(name = "actor-row-verified-long-name-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ActorRowVerifiedLongNameScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ActorRow(
+                actor =
+                    ActorUi(
+                        did = "did:plc:longname",
+                        handle = "longname.bsky.social",
+                        displayName = "A Very Long Display Name That Should Ellipsize Before The Badge",
+                        avatarUrl = null,
+                        verifiedBadge = VerifiedBadge.Verified,
+                    ),
+                query = "",
                 onClick = {},
             )
         }
