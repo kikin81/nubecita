@@ -7,6 +7,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
@@ -34,9 +35,18 @@ internal object BenchProfileMapper {
                 postsCount = dto.postsCount,
                 followersCount = dto.followersCount,
                 followsCount = dto.followsCount,
+                verifiedBadge = dto.verifiedBadge.toVerifiedBadge(),
             )
         return ProfileHeaderWithViewer(header = header, viewerRelationship = ViewerRelationship.None)
     }
+
+    // Bench fixtures spell the badge as a string; map to the UI enum (unknown/null → None).
+    private fun String?.toVerifiedBadge(): VerifiedBadge =
+        when (this) {
+            "trustedVerifier" -> VerifiedBadge.TrustedVerifier
+            "verified" -> VerifiedBadge.Verified
+            else -> VerifiedBadge.None
+        }
 
     fun toPostUiList(dtos: List<BenchPostDto>): List<PostUi> = dtos.map { it.toPostUi() }
 

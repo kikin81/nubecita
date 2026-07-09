@@ -30,6 +30,8 @@ internal data class BenchProfileHeaderDto(
     val postsCount: Long = 0,
     val followersCount: Long = 0,
     val followsCount: Long = 0,
+    /** `"verified"`, `"trustedVerifier"`, or null/omitted for no badge. */
+    val verifiedBadge: String? = null,
 )
 
 @Serializable
