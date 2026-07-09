@@ -42,6 +42,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
+import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
@@ -205,23 +206,41 @@ private fun AuthorLine(post: PostUi) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(
-            text = post.author.displayName,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        // Verification badge hugs the display name. Emits NO layout node for
-        // VerifiedBadge.None, so unverified cards (the vast majority) render
-        // byte-identically — the Row's spacedBy only spaces emitted children.
-        // Non-interactive here: a tap on it falls through to the post card.
-        //
-        // Known V1 limitation (nubecita-vw45): the display-name Text has no weight, so a
-        // name long enough to fill the whole row leaves ~0 width for this fixed-size badge
-        // and clips it. Fine for typical verified names; a follow-up will group
-        // [name + badge] so the name ellipsizes before the badge without churning every
-        // unverified PostCard baseline.
-        VerificationBadge(badge = post.author.verifiedBadge)
+        // Unverified (the vast majority) keeps the original flat layout so every
+        // existing PostCard baseline stays byte-identical: the display-name Text is
+        // a direct, unweighted child that takes its intrinsic width. The verified
+        // case groups [name + badge] in a shrinkable weighted inner Row so a long
+        // name ellipsizes BEFORE the fixed-size badge — the badge is never clipped.
+        // (nubecita-vw45.5, resolving the .2 limitation.) The badge is non-interactive
+        // here: a tap on it falls through to the post card.
+        if (post.author.verifiedBadge == VerifiedBadge.None) {
+            Text(
+                text = post.author.displayName,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        } else {
+            Row(
+                // weight(fill = false): the group shares the row with the handle but
+                // takes only the width it needs, so short names don't ellipsize early.
+                modifier = Modifier.weight(1f, fill = false),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    // weight(fill = false) inside the group: the name yields to the
+                    // fixed badge when the group is tight, ellipsizing instead of
+                    // squeezing the badge to zero width.
+                    modifier = Modifier.weight(1f, fill = false),
+                    text = post.author.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                VerificationBadge(badge = post.author.verifiedBadge)
+            }
+        }
         // weight(1f) — handle claims ALL remaining space after displayName +
         // timestamp take their intrinsic widths. Text aligns left within its
         // slot, so a short handle hugs the displayName and the timestamp
