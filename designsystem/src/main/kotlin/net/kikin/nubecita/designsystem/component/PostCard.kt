@@ -208,14 +208,15 @@ private fun AuthorLine(post: PostUi) {
     ) {
         // Unverified (the vast majority) keeps the original flat layout so every
         // existing PostCard baseline stays byte-identical: the display-name Text is
-        // a direct, unweighted child that takes its intrinsic width. The verified
-        // case groups [name + badge] in an UNWEIGHTED inner Row — so, exactly like
-        // the unverified name, the group takes only its intrinsic width and the
-        // handle keeps ALL remaining space (name-priority, consistent with the
-        // unverified path). Inside the group the name is weighted (fill = false)
-        // so it ellipsizes and the fixed badge keeps its size — the badge stays
-        // visible ahead of the handle. (nubecita-vw45.5, resolving the .2 clip.)
-        // The badge is non-interactive here: a tap on it falls through to the card.
+        // a direct, unweighted child. The verified case groups [name + badge] in an
+        // UNWEIGHTED inner Row: like the unverified name it's measured up to the
+        // full available width, and the weighted handle then takes whatever remains
+        // — so a short name leaves the handle its full slot (timestamp pinned) and a
+        // long name ellipsizes and squeezes the handle, exactly the unverified
+        // name-priority behavior. Inside the group the name has weight(1f, fill =
+        // false) so it ellipsizes to fit while the fixed badge keeps its size,
+        // staying visible ahead of the handle. (nubecita-vw45.5, resolving the .2
+        // clip.) The badge is non-interactive here: a tap falls through to the card.
         if (post.author.verifiedBadge == VerifiedBadge.None) {
             Text(
                 text = post.author.displayName,
